@@ -43,6 +43,7 @@ module Syntax =
             init: option<Expr> *
             is_mut: bool
 
+    [<RequireQualifiedAccess>]
     type PatternKind =
         | Identifier of span: Span * name: string * is_mut: bool
         | Object of elems: list<ObjElem>

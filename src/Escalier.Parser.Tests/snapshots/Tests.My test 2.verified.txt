@@ -1,0 +1,26 @@
+﻿input: 1 + 2 * -abc
+output: Success: { kind =
+   Binary
+     ({ kind = Literal (Number "1")
+        span = { start = 0
+                 stop = 1 }
+        inferred_type = None }, Add,
+      { kind =
+         Binary
+           ({ kind = Literal (Number "2")
+              span = { start = 4
+                       stop = 5 }
+              inferred_type = None }, Mul,
+            { kind = Unary ("-", { kind = Identifer "abc"
+                                   span = { start = 9
+                                            stop = 12 }
+                                   inferred_type = None })
+              span = { start = 9
+                       stop = 12 }
+              inferred_type = None })
+        span = { start = 4
+                 stop = 12 }
+        inferred_type = None })
+  span = { start = 0
+           stop = 12 }
+  inferred_type = None }

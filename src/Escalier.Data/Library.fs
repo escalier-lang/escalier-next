@@ -132,7 +132,7 @@ module Syntax =
   type Expr =
     { kind: ExprKind
       span: Span
-      inferred_type: option<Type.Type> ref }
+      mutable inferred_type: option<Type.Type> }
 
   type ObjTypeAnnElem = int
 

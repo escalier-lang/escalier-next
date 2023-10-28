@@ -14,6 +14,6 @@ module Say =
   let expr: Expr =
     { kind = Identifer("foo")
       span = { start = 0; stop = 5 }
-      inferred_type = ref (Some(t)) }
+      inferred_type = Some(t) }
 
   t.provenance.Value <- Some(Provenance.Expr(expr))

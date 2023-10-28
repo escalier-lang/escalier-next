@@ -2,6 +2,7 @@ namespace Escalier.Parser
 
 open FParsec
 open Escalier.Data.Syntax
+open System.Text
 
 module ExprParser =
   let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
@@ -21,7 +22,7 @@ module ExprParser =
 
       { kind = Literal(Literal.Number(nl |> string))
         span = { start = start; stop = stop }
-        inferred_type = ref None }
+        inferred_type = None }
 
   let identifier: Parser<Expr, unit> =
     let isIdentifierFirstChar c = isLetter c || c = '_'
@@ -37,7 +38,7 @@ module ExprParser =
 
       { kind = Identifer(sl)
         span = { start = start; stop = stop }
-        inferred_type = ref None }
+        inferred_type = None }
 
   let stringLiteral: Parser<Expr, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
@@ -64,25 +65,25 @@ module ExprParser =
 
       { kind = ExprKind.Literal(Literal.String(sl))
         span = { start = start; stop = stop }
-        inferred_type = ref None }
+        inferred_type = None }
 
 
   let templateStringLiteral: Parser<Expr, unit> =
     fun stream ->
-      let mutable currentString = ""
+      let sb = new StringBuilder()
       let mutable parts: list<string> = []
       let mutable exprs: list<Expr> = []
-      let mutable reply: option<Reply<Expr>> = None
+      let mutable reply: voption<Reply<Expr>> = ValueNone
 
       if stream.Peek() = '`' then
         let start = stream.Index |> int
         stream.Skip() // '`'
 
-        while stream.Peek() <> '`' && reply = None do
+        while stream.Peek() <> '`' && reply = ValueNone do
           if stream.PeekString(2) = "${" then
             stream.Skip(2) // '${'
-            parts <- currentString :: parts
-            currentString <- ""
+            parts <- sb.ToString() :: parts
+            sb.Clear() |> ignore
             let e = expr stream
 
             if e.Status = ReplyStatus.Ok then
@@ -90,17 +91,17 @@ module ExprParser =
                 stream.Skip()
                 exprs <- e.Result :: exprs
               else
-                reply <- Some(Reply(Error, messageError "Expected '}'"))
+                reply <- ValueSome(Reply(Error, messageError "Expected '}'"))
             else
-              reply <- Some(e)
+              reply <- ValueSome(e)
           else
-            currentString <- currentString + string (stream.Read())
+            sb.Append(stream.Read()) |> ignore
 
         match reply with
-        | None ->
+        | ValueNone ->
           stream.Skip() // '`'
           let stop = stream.Index |> int
-          parts <- currentString :: parts
+          parts <- sb.ToString() :: parts
 
           let result: Expr =
             { kind =
@@ -109,10 +110,10 @@ module ExprParser =
                     exprs = List.rev exprs }
                 )
               span = { start = start; stop = stop }
-              inferred_type = ref None }
+              inferred_type = None }
 
           Reply(result)
-        | Some(value) -> value
+        | ValueSome(value) -> value
       else
         Reply(Error, messageError "Expected '`'")
 
@@ -135,7 +136,7 @@ module ExprParser =
       (fun x ->
         { Expr.kind = Unary("+", x)
           span = x.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -148,7 +149,7 @@ module ExprParser =
       (fun x ->
         { Expr.kind = Unary("-", x)
           span = x.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -165,7 +166,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Exp, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -178,7 +179,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Mul, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -191,7 +192,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Div, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -204,7 +205,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Mod, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -217,7 +218,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Add, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -230,7 +231,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Sub, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -243,7 +244,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, LessThan, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -256,7 +257,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, LessThanOrEqual, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -269,7 +270,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, GreaterThan, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -282,7 +283,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, GreaterThanOrEqual, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -295,7 +296,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Equal, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -308,7 +309,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, NotEqual, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -325,7 +326,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, And, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -338,7 +339,7 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Binary(x, Or, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )
 
@@ -351,6 +352,6 @@ module ExprParser =
       (fun x y ->
         { Expr.kind = ExprKind.Assign(x, AssignOp.Assign, y)
           span = mergeSpans x.span y.span
-          inferred_type = ref None })
+          inferred_type = None })
     )
   )

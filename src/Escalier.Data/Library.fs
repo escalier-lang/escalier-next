@@ -38,9 +38,9 @@ module Syntax =
   [<RequireQualifiedAccess>]
   type PatternKind =
     | Identifier of span: Span * name: string * is_mut: bool
-    | Object of elems: list<ObjElem>
+    | Object of elems: list<ObjPatElem>
     | Tuple of elems: list<Pattern>
-    | Wildcard of span: Span
+    | Wildcard
     | Literal of span: Span * value: Literal
     | Is of span: Span * target: Pattern * id: string * is_mut: bool
 

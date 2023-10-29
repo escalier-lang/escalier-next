@@ -1,10 +1,13 @@
+#nowarn "40"
 namespace Escalier.Parser
 
 open FParsec
 open Escalier.Data.Syntax
 open System.Text
 
-module ExprParser =
+exception ParseError of string
+
+module rec ExprParser =
   let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
 
   let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
@@ -14,24 +17,22 @@ module ExprParser =
 
   let str_ws s = pstring s .>> ws
 
-  let number: Parser<Expr, unit> =
+  let number: Parser<Literal, unit> =
     pipe3 getPosition pfloat getPosition
     <| fun p1 nl p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
 
-      { kind = Literal(Literal.Number(nl |> string))
-        span = { start = start; stop = stop }
-        inferred_type = None }
+      Literal.Number(nl |> string)
 
-  let identifier: Parser<Expr, unit> =
+  let ident =
     let isIdentifierFirstChar c = isLetter c || c = '_'
     let isIdentifierChar c = isLetter c || isDigit c || c = '_'
 
-    let _ident =
-      many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
+    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
-    pipe3 getPosition _ident getPosition
+  let identExpr: Parser<Expr, unit> =
+    pipe3 getPosition ident getPosition
     <| fun p1 sl p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -40,7 +41,7 @@ module ExprParser =
         span = { start = start; stop = stop }
         inferred_type = None }
 
-  let stringLiteral: Parser<Expr, unit> =
+  let stringLiteral: Parser<Literal, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
 
     let unescape c =
@@ -63,10 +64,7 @@ module ExprParser =
       let start = p1.Index |> int
       let stop = p2.Index |> int
 
-      { kind = ExprKind.Literal(Literal.String(sl))
-        span = { start = start; stop = stop }
-        inferred_type = None }
-
+      Literal.String(sl)
 
   let templateStringLiteral: Parser<Expr, unit> =
     fun stream ->
@@ -117,7 +115,43 @@ module ExprParser =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let atom = number <|> identifier <|> stringLiteral <|> templateStringLiteral
+  let func_param = ident //  .>> (str_ws ":" >>. ident)
+
+  let func: Parser<Expr, unit> =
+    pipe5
+      getPosition
+      (str_ws "fn")
+      (between (str_ws "(") (str_ws ")") (sepBy func_param (str_ws ",")))
+      (between (str_ws "{") (str_ws "}") (many stmt))
+      getPosition
+    <| fun p1 _ params_ stmts p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      let body =
+        BlockOrExpr.Block(
+          { span = { start = 0; stop = 0 }
+            stmts = stmts }
+        )
+
+      { kind = ExprKind.Function(params_, body)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let literal = number <|> stringLiteral
+
+  let literalExpr: Parser<Expr, unit> =
+    pipe3 getPosition literal getPosition
+    <| fun p1 lit p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { kind = ExprKind.Literal(lit)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let atom = literalExpr <|> identExpr <|> templateStringLiteral
+
   let term = (atom .>> ws) <|> between (str_ws "(") (str_ws ")") expr
 
   opp.TermParser <- term
@@ -390,3 +424,133 @@ module ExprParser =
           inferred_type = None })
     )
   )
+
+  let expr_stmt: Parser<Stmt, unit> =
+    pipe3 getPosition expr getPosition
+    <| fun p1 e p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { kind = StmtKind.Expr(e)
+        span = { start = start; stop = stop } }
+
+  let return_stmt: Parser<Stmt, unit> =
+    pipe3 getPosition ((str_ws "return") >>. opt (expr)) getPosition
+    <| fun p1 e p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { kind = StmtKind.Return(e)
+        span = { start = start; stop = stop } }
+
+  // `let <expr> = <expr>`
+  let var_decl =
+    pipe4 getPosition (str_ws "let" >>. ident) (str_ws "=" >>. expr) getPosition
+    <| fun p1 id e p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      let p: Pattern =
+        { kind =
+            PatternKind.Identifier(
+              name = id,
+              is_mut = false,
+              span = { start = 0; stop = 0 }
+            )
+          span = { start = start; stop = stop }
+          inferred_type = None }
+
+      let decl: Decl =
+        { kind = VarDecl(p, Some(e), None, false)
+          span = { start = 0; stop = 0 } }
+
+      { kind = StmtKind.Decl(decl)
+        span = { start = start; stop = stop } }
+
+  let type_decl () =
+    raise (ParseError("not implemented yet"))
+
+  let stmt: Parser<Stmt, unit> = var_decl <|> return_stmt <|> expr_stmt
+
+  let private ident_pattern =
+    pipe3 getPosition ident getPosition
+    <| fun p1 id p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind =
+          PatternKind.Identifier(
+            name = id,
+            is_mut = false,
+            span = { start = start; stop = stop }
+          )
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private literal_pattern =
+    pipe3 getPosition literal getPosition
+    <| fun p1 lit p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind =
+          PatternKind.Literal(
+            span = { start = start; stop = stop },
+            value = lit
+          )
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private tuple_pattern =
+    pipe3
+      getPosition
+      (between (str_ws "[") (str_ws "]") (sepBy pattern (str_ws ",")))
+      getPosition
+    <| fun p1 patterns p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind = PatternKind.Tuple(patterns)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private wildcard_pattern =
+    pipe3 getPosition (str_ws "_") getPosition
+    <| fun p1 _ p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind = PatternKind.Wildcard
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private objPatKeyValue =
+    pipe4 getPosition ident pattern getPosition
+    <| fun p1 id pat p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
+      KeyValue(span = span, key = id, value = pat, init = None)
+
+  let private objPatElem = objPatKeyValue
+
+  let private object_pattern =
+    pipe3
+      getPosition
+      (between (str_ws "{") (str_ws "}") (sepBy objPatElem (str_ws ",")))
+      getPosition
+    <| fun p1 objElems p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
+
+      { Pattern.kind = PatternKind.Object(objElems)
+        span = span
+        inferred_type = None }
+
+  let pattern: Parser<Pattern, unit> =
+    ident_pattern
+    <|> literal_pattern
+    <|> wildcard_pattern
+    <|> parse.Delay(fun () -> object_pattern) // avoid recursive data structure
+    <|> parse.Delay(fun () -> tuple_pattern) // avoid recursive data structure

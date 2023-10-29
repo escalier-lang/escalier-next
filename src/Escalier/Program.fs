@@ -103,3 +103,7 @@ test ExprParser.expr "`a ${`b ${c} d` e`"
 
 test ExprParser.expr "array[0]()"
 test ExprParser.expr "foo()[0]"
+
+test ExprParser.func "fn (x, y) { return x + y }"
+test ExprParser.func "fn (x, y) { return }"
+test ExprParser.stmt "let sum = x + y"

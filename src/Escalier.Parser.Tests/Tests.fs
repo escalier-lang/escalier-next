@@ -85,3 +85,11 @@ let ParseCallThenIndexer () =
   let result = sprintf "input: %s\noutput: %A" src expr
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseFuncDef () =
+  let src = "fn (x, y) { x }"
+  let expr = run ExprParser.func src
+  let result = sprintf "input: %s\noutput: %A" src expr
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

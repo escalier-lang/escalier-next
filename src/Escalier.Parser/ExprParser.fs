@@ -124,27 +124,15 @@ module ExprParser =
 
   type Assoc = Associativity
 
-  // callee: Expr *
-  // type_args: option<list<TypeAnn>> *
-  // args: list<Expr> *
-  // opt_chain: bool *
-  // throws: option<Type.Type>
-
-  // handle trailing ')'
-  let argList = sepBy (ws >>. expr) (str_ws ",") .>> (str_ws ")")
-  let indexer = (ws >>. expr) .>> (str_ws "]")
-
   opp.AddOperator(
     PostfixOperator(
       "[",
-      (indexer |>> fun expr -> [ expr ]),
+      ((ws >>. expr) .>> (str_ws "]") |>> fun expr -> [ expr ]), // indices
       18,
       true,
       (),
-      (fun indexes target ->
-        printfn "indexes: %A" indexes
-
-        { Expr.kind = ExprKind.Index(target, indexes[0], false)
+      (fun indices target ->
+        { Expr.kind = ExprKind.Index(target, indices[0], false)
           span = { start = 0; stop = 0 } // TODO
           inferred_type = None })
     )
@@ -153,7 +141,7 @@ module ExprParser =
   opp.AddOperator(
     PostfixOperator(
       "(",
-      argList, // arg list
+      sepBy (ws >>. expr) (str_ws ",") .>> (str_ws ")"), // args
       18,
       true,
       (),

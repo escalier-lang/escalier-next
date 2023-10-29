@@ -1,19 +1,19 @@
 ﻿namespace Escalier.Parser
 
 module Say =
-    let hello name = printfn "Hello %s" name
+  let hello name = printfn "Hello %s" name
 
-    open Escalier.Data.Type
+  open Escalier.Data.Type
 
-    let t =
-        { kind = TypeKind.TypeVar(id = 0, instance = None, bound = None)
-          provenance = ref None }
+  let t =
+    { kind = TypeKind.TypeVar(id = 0, instance = None, bound = None)
+      provenance = ref None }
 
-    open Escalier.Data.Syntax
+  open Escalier.Data.Syntax
 
-    let expr: Expr =
-        { kind = Identifer(span = { start = 0; stop = 5 }, name = "foo")
-          span = { start = 0; stop = 5 }
-          inferred_type = ref (Some(t)) }
+  let expr: Expr =
+    { kind = Identifer("foo")
+      span = { start = 0; stop = 5 }
+      inferred_type = Some(t) }
 
-    t.provenance.Value <- Some(Provenance.Expr(expr))
+  t.provenance.Value <- Some(Provenance.Expr(expr))

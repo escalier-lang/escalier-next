@@ -1,0 +1,15 @@
+﻿input: msg = "Hello,\n\t\"world!\"" 
+output: Success: { kind =
+   Assign
+     ({ kind = Identifer "msg"
+        span = { start = 0
+                 stop = 4 }
+        inferred_type = None }, Assign,
+      { kind = Literal (String "Hello,
+	"world!"")
+        span = { start = 6
+                 stop = 28 }
+        inferred_type = None })
+  span = { start = 0
+           stop = 28 }
+  inferred_type = None }

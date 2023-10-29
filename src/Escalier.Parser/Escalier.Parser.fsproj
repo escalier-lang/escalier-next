@@ -1,16 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Library.fs" />
+    <Compile Include="ExprParser.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+  </ItemGroup>
 </Project>

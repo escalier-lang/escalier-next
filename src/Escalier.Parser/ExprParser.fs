@@ -7,7 +7,7 @@ open System.Text
 module ExprParser =
   let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
 
-  let opp = new OperatorPrecedenceParser<Expr, unit, unit>()
+  let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
   let expr: Parser<Expr, unit> = opp.ExpressionParser
 
   let ws = spaces
@@ -124,13 +124,60 @@ module ExprParser =
 
   type Assoc = Associativity
 
+  // callee: Expr *
+  // type_args: option<list<TypeAnn>> *
+  // args: list<Expr> *
+  // opt_chain: bool *
+  // throws: option<Type.Type>
+
+  // handle trailing ')'
+  let argList = sepBy (ws >>. expr) (str_ws ",") .>> (str_ws ")")
+  let indexer = (ws >>. expr) .>> (str_ws "]")
+
+  opp.AddOperator(
+    PostfixOperator(
+      "[",
+      (indexer |>> fun expr -> [ expr ]),
+      18,
+      true,
+      (),
+      (fun indexes target ->
+        printfn "indexes: %A" indexes
+
+        { Expr.kind = ExprKind.Index(target, indexes[0], false)
+          span = { start = 0; stop = 0 } // TODO
+          inferred_type = None })
+    )
+  )
+
+  opp.AddOperator(
+    PostfixOperator(
+      "(",
+      argList, // arg list
+      18,
+      true,
+      (),
+      (fun args callee ->
+        { Expr.kind =
+            ExprKind.Call(
+              callee = callee,
+              type_args = None,
+              args = args,
+              opt_chain = false,
+              throws = None
+            )
+          span = { start = 0; stop = 0 } // TODO
+          inferred_type = None })
+    )
+  )
+
   // logical not (14)
   // bitwise not (14)
 
   opp.AddOperator(
     PrefixOperator(
       "+",
-      ws,
+      ws >>. preturn [],
       14,
       true,
       (fun x ->
@@ -143,7 +190,7 @@ module ExprParser =
   opp.AddOperator(
     PrefixOperator(
       "-",
-      ws,
+      ws >>. preturn [],
       14,
       true,
       (fun x ->
@@ -160,7 +207,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "**",
-      ws,
+      ws >>. preturn [],
       13,
       Assoc.Right,
       (fun x y ->
@@ -173,7 +220,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "*",
-      ws,
+      ws >>. preturn [],
       12,
       Assoc.Left,
       (fun x y ->
@@ -186,7 +233,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "/",
-      ws,
+      ws >>. preturn [],
       12,
       Assoc.Left,
       (fun x y ->
@@ -199,7 +246,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "%",
-      ws,
+      ws >>. preturn [],
       12,
       Assoc.Left,
       (fun x y ->
@@ -212,7 +259,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "+",
-      ws,
+      ws >>. preturn [],
       11,
       Assoc.Left,
       (fun x y ->
@@ -225,7 +272,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "-",
-      ws,
+      ws >>. preturn [],
       11,
       Assoc.Left,
       (fun x y ->
@@ -238,7 +285,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "<",
-      ws,
+      ws >>. preturn [],
       9,
       Assoc.Left,
       (fun x y ->
@@ -251,7 +298,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "<=",
-      ws,
+      ws >>. preturn [],
       9,
       Assoc.Left,
       (fun x y ->
@@ -264,7 +311,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       ">",
-      ws,
+      ws >>. preturn [],
       9,
       Assoc.Left,
       (fun x y ->
@@ -277,7 +324,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       ">=",
-      ws,
+      ws >>. preturn [],
       9,
       Assoc.Left,
       (fun x y ->
@@ -290,7 +337,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "==",
-      ws,
+      ws >>. preturn [],
       8,
       Assoc.Left,
       (fun x y ->
@@ -303,7 +350,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "!=",
-      ws,
+      ws >>. preturn [],
       8,
       Assoc.Left,
       (fun x y ->
@@ -320,7 +367,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "&&",
-      ws,
+      ws >>. preturn [],
       4,
       Assoc.Left,
       (fun x y ->
@@ -333,7 +380,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "||",
-      ws,
+      ws >>. preturn [],
       3,
       Assoc.Left,
       (fun x y ->
@@ -346,7 +393,7 @@ module ExprParser =
   opp.AddOperator(
     InfixOperator(
       "=",
-      ws,
+      ws >>. preturn [],
       2,
       Assoc.Right,
       (fun x y ->

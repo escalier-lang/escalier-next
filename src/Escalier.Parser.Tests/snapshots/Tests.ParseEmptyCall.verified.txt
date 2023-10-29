@@ -1,0 +1,8 @@
+﻿input: add()
+output: Success: { kind = Call ({ kind = Identifer "add"
+                 span = { start = 0
+                          stop = 3 }
+                 inferred_type = None }, None, [], false, None)
+  span = { start = 0
+           stop = 0 }
+  inferred_type = None }

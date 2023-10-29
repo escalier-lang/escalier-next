@@ -100,3 +100,6 @@ test ExprParser.expr "msg = \"Hello,\\tworld!\""
 // test ExprParser.expr "`a ${b} c ${d} e`"
 test ExprParser.expr "`a ${`b ${c} d`} e`"
 test ExprParser.expr "`a ${`b ${c} d` e`"
+
+test ExprParser.expr "array[0]()"
+test ExprParser.expr "foo()[0]"

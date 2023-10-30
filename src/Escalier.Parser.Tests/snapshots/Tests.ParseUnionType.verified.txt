@@ -1,0 +1,17 @@
+﻿input: number | string | boolean
+output: Success: { kind =
+   Union
+     [{ kind = Keyword Number
+        span = { start = 0
+                 stop = 7 }
+        inferred_type = None }; { kind = Keyword String
+                                  span = { start = 9
+                                           stop = 16 }
+                                  inferred_type = None };
+      { kind = Keyword Boolean
+        span = { start = 18
+                 stop = 25 }
+        inferred_type = None }]
+  span = { start = 0
+           stop = 25 }
+  inferred_type = None }

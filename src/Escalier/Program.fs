@@ -106,4 +106,10 @@ test ExprParser.expr "foo()[0]"
 
 test ExprParser.func "fn (x, y) { return x + y }"
 test ExprParser.func "fn (x, y) { return }"
-test ExprParser.stmt "let sum = x + y"
+test StmtParser.stmt "let sum = x + y"
+
+test TypeAnnParser.typeAnn "number | string | boolean"
+test TypeAnnParser.typeAnn "number & string & boolean"
+// TODO: figure out how to parse this
+test TypeAnnParser.typeAnn "number[]"
+test TypeAnnParser.typeAnn "Foo"

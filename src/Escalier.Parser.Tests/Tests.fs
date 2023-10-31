@@ -110,10 +110,10 @@ let ParseIntersectionType () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-// [<Fact>]
-// let ParseUnionAndIntersectionType () =
-//   let src = "A & B | C & D"
-//   let expr = run TypeAnnParser.typeAnn src
-//   let result = sprintf "input: %s\noutput: %A" src expr
+[<Fact>]
+let ParseUnionAndIntersectionType () =
+  let src = "A & B | C & D"
+  let expr = run ExprParser.typeAnn src
+  let result = sprintf "input: %s\noutput: %A" src expr
 
-//   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

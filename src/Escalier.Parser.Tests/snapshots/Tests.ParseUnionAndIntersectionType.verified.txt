@@ -1,0 +1,28 @@
+﻿input: A & B | C & D
+output: Success: { kind =
+   Union
+     [{ kind =
+         Intersection [{ kind = TypeRef ("A", None)
+                         span = { start = 0
+                                  stop = 2 }
+                         inferred_type = None }; { kind = TypeRef ("B", None)
+                                                   span = { start = 4
+                                                            stop = 6 }
+                                                   inferred_type = None }]
+        span = { start = 0
+                 stop = 6 }
+        inferred_type = None };
+      { kind =
+         Intersection [{ kind = TypeRef ("C", None)
+                         span = { start = 8
+                                  stop = 10 }
+                         inferred_type = None }; { kind = TypeRef ("D", None)
+                                                   span = { start = 12
+                                                            stop = 13 }
+                                                   inferred_type = None }]
+        span = { start = 8
+                 stop = 13 }
+        inferred_type = None }]
+  span = { start = 0
+           stop = 13 }
+  inferred_type = None }

@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Library.fs" />
     <Compile Include="ExprParser.fs" />
+    <Compile Include="JsonParser.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj" />

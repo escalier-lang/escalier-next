@@ -4,34 +4,38 @@ open FParsec
 open Escalier.Data.Syntax
 open System.Text
 
+exception ParseError of string
+
 module ExprParser =
-  let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
-
-  let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
-  let expr: Parser<Expr, unit> = opp.ExpressionParser
-
   let ws = spaces
-
   let str_ws s = pstring s .>> ws
 
-  let number: Parser<Expr, unit> =
+  let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
+
+  let expr, exprRef = createParserForwardedToRef<Expr, unit> ()
+  let stmt, stmtRef = createParserForwardedToRef<Stmt, unit> ()
+  let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()
+  let typeAnn, typeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
+  let primaryType, primaryTypeRef = createParserForwardedToRef<TypeAnn, unit> ()
+
+  let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
+
+  let number: Parser<Literal, unit> =
     pipe3 getPosition pfloat getPosition
     <| fun p1 nl p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
 
-      { kind = Literal(Literal.Number(nl |> string))
-        span = { start = start; stop = stop }
-        inferred_type = None }
+      Literal.Number(nl |> string)
 
-  let identifier: Parser<Expr, unit> =
+  let ident =
     let isIdentifierFirstChar c = isLetter c || c = '_'
     let isIdentifierChar c = isLetter c || isDigit c || c = '_'
 
-    let _ident =
-      many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
+    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
-    pipe3 getPosition _ident getPosition
+  let identExpr: Parser<Expr, unit> =
+    pipe3 getPosition ident getPosition
     <| fun p1 sl p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -40,7 +44,7 @@ module ExprParser =
         span = { start = start; stop = stop }
         inferred_type = None }
 
-  let stringLiteral: Parser<Expr, unit> =
+  let stringLiteral: Parser<Literal, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
 
     let unescape c =
@@ -63,10 +67,7 @@ module ExprParser =
       let start = p1.Index |> int
       let stop = p2.Index |> int
 
-      { kind = ExprKind.Literal(Literal.String(sl))
-        span = { start = start; stop = stop }
-        inferred_type = None }
-
+      Literal.String(sl)
 
   let templateStringLiteral: Parser<Expr, unit> =
     fun stream ->
@@ -117,7 +118,43 @@ module ExprParser =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let atom = number <|> identifier <|> stringLiteral <|> templateStringLiteral
+  let funcParam = ident //  .>> (str_ws ":" >>. ident)
+
+  let func: Parser<Expr, unit> =
+    pipe5
+      getPosition
+      (str_ws "fn")
+      (between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ",")))
+      (between (str_ws "{") (str_ws "}") (many stmt))
+      getPosition
+    <| fun p1 _ params_ stmts p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      let body =
+        BlockOrExpr.Block(
+          { span = { start = 0; stop = 0 }
+            stmts = stmts }
+        )
+
+      { kind = ExprKind.Function(params_, body)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let literal = number <|> stringLiteral
+
+  let literalExpr: Parser<Expr, unit> =
+    pipe3 getPosition literal getPosition
+    <| fun p1 lit p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { kind = ExprKind.Literal(lit)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let atom = literalExpr <|> identExpr <|> templateStringLiteral
+
   let term = (atom .>> ws) <|> between (str_ws "(") (str_ws ")") expr
 
   opp.TermParser <- term
@@ -390,3 +427,279 @@ module ExprParser =
           inferred_type = None })
     )
   )
+
+  exprRef.Value <- opp.ExpressionParser
+
+  let private exprStmt: Parser<Stmt, unit> =
+    pipe3 getPosition expr getPosition
+    <| fun p1 e p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { kind = StmtKind.Expr(e)
+        span = { start = start; stop = stop } }
+
+  let private returnStmt: Parser<Stmt, unit> =
+    pipe3 getPosition ((str_ws "return") >>. opt (expr)) getPosition
+    <| fun p1 e p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { kind = StmtKind.Return(e)
+        span = { start = start; stop = stop } }
+
+  // `let <expr> = <expr>`
+  let private varDecl =
+    pipe4
+      getPosition
+      (str_ws "let" >>. pattern)
+      (str_ws "=" >>. expr)
+      getPosition
+    <| fun p1 pat init p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      let decl: Decl =
+        { kind = VarDecl(pat, Some(init), None, false)
+          span = { start = 0; stop = 0 } }
+
+      { kind = StmtKind.Decl(decl)
+        span = { start = start; stop = stop } }
+
+  // TODO: parse type params
+  let private typeDecl =
+    pipe4
+      getPosition
+      (str_ws "type" >>. ident)
+      (str_ws "=" >>. typeAnn)
+      getPosition
+    <| fun p1 id typeAnn p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      let decl: Decl =
+        { kind = TypeDecl(id, typeAnn, None)
+          span = { start = 0; stop = 0 } }
+
+      { kind = StmtKind.Decl(decl)
+        span = { start = start; stop = stop } }
+
+  stmtRef.Value <- varDecl <|> typeDecl <|> returnStmt <|> exprStmt
+
+  let private identPattern =
+    pipe3 getPosition ident getPosition
+    <| fun p1 id p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind =
+          PatternKind.Identifier(
+            name = id,
+            is_mut = false,
+            span = { start = start; stop = stop }
+          )
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private literalPattern =
+    pipe3 getPosition literal getPosition
+    <| fun p1 lit p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind =
+          PatternKind.Literal(
+            span = { start = start; stop = stop },
+            value = lit
+          )
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private tuplePattern =
+    pipe3
+      getPosition
+      (between (str_ws "[") (str_ws "]") (sepBy pattern (str_ws ",")))
+      getPosition
+    <| fun p1 patterns p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind = PatternKind.Tuple(patterns)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private wildcardPattern =
+    pipe3 getPosition (str_ws "_") getPosition
+    <| fun p1 _ p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { Pattern.kind = PatternKind.Wildcard
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private objPatKeyValue =
+    pipe4 getPosition ident pattern getPosition
+    <| fun p1 id pat p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
+      KeyValue(span = span, key = id, value = pat, init = None)
+
+  let private objPatElem = objPatKeyValue
+
+  let private objectPattern =
+    pipe3
+      getPosition
+      (between (str_ws "{") (str_ws "}") (sepBy objPatElem (str_ws ",")))
+      getPosition
+    <| fun p1 objElems p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
+
+      { Pattern.kind = PatternKind.Object(objElems)
+        span = span
+        inferred_type = None }
+
+  patternRef.Value <-
+    identPattern
+    <|> literalPattern
+    <|> wildcardPattern
+    <|> objectPattern
+    <|> tuplePattern
+
+  let private keywordTypeAnn =
+
+    let keyword =
+      (str_ws "object" |>> fun _ -> KeywordType.Object)
+      <|> (str_ws "never" |>> fun _ -> Never)
+      <|> (str_ws "unknown" |>> fun _ -> Unknown)
+      <|> (str_ws "boolean" |>> fun _ -> Boolean)
+      <|> (str_ws "number" |>> fun _ -> Number)
+      <|> (str_ws "string" |>> fun _ -> String)
+      <|> (str_ws "symbol" |>> fun _ -> Symbol)
+      <|> (str_ws "null" |>> fun _ -> Null)
+      <|> (str_ws "undefined" |>> fun _ -> Undefined)
+
+    pipe3 getPosition keyword getPosition
+    <| fun p1 keyword p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.Keyword(keyword)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private tupleTypeAnn =
+    pipe3
+      getPosition
+      (between (str_ws "[") (str_ws "]") (sepBy typeAnn (str_ws ",")))
+      getPosition
+    <| fun p1 typeAnns p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.Tuple(typeAnns)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private keyofTypeAnn =
+    pipe3 getPosition (str_ws "keyof" >>. typeAnn) getPosition
+    <| fun p1 target p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.Keyof(target)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private restTypeAnn =
+    pipe3 getPosition (str_ws "..." >>. typeAnn) getPosition
+    <| fun p1 target p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.Rest(target)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private typeofTypeAnn =
+    pipe3 getPosition (str_ws "typeof" >>. expr) getPosition
+    <| fun p1 target p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.Typeof(target)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  let private typeRef =
+    pipe4
+      getPosition
+      ident
+      (opt (between (str_ws "<") (str_ws ">") (sepBy typeAnn (str_ws ","))))
+      getPosition
+    <| fun p1 name typeArgs p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.TypeRef(name, typeArgs)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+
+  let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
+    pipe3 getPosition (sepBy1 primaryType (str_ws "&")) getPosition
+    <| fun p1 typeAnns p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      match typeAnns with
+      | [ typeAnn ] -> typeAnn
+      | _ ->
+        { TypeAnn.kind = TypeAnnKind.Intersection(typeAnns)
+          span = { start = start; stop = stop }
+          inferred_type = None }
+
+  let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
+    pipe3
+      getPosition
+      (sepBy1 intersectionOrPrimaryType (str_ws "|"))
+      getPosition
+    <| fun p1 typeAnns p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      match typeAnns with
+      | [ typeAnn ] -> typeAnn
+      | _ ->
+        { TypeAnn.kind = TypeAnnKind.Union(typeAnns)
+          span = { start = start; stop = stop }
+          inferred_type = None }
+
+  let arrayTypeAnn =
+    pipe3 getPosition (primaryType .>> (str_ws "[]")) getPosition
+    <| fun p1 elem p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      { TypeAnn.kind = TypeAnnKind.Array(elem)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
+  primaryTypeRef.Value <-
+    // TODO: parathesized types
+    keywordTypeAnn // PredefinedType
+    // <|> objectTypeAnn
+    // <|> arrayTypeAnn
+    <|> tupleTypeAnn
+    <|> typeofTypeAnn // TypeQuery
+    <|> keyofTypeAnn
+    <|> restTypeAnn
+    // <|> thisTypeAnn
+    // should come last since any identifier can be a type reference
+    <|> typeRef
+
+  // TODO: handle function types
+  typeAnnRef.Value <- unionOrIntersectionOrPrimaryType

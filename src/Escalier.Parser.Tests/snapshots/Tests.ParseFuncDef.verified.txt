@@ -1,0 +1,14 @@
+﻿input: fn (x, y) { x }
+output: Success: { kind =
+   Function
+     (["x"; "y"], Block { span = { start = 0
+                                   stop = 0 }
+                          stmts = [{ span = { start = 12
+                                              stop = 14 }
+                                     kind = Expr { kind = Identifer "x"
+                                                   span = { start = 12
+                                                            stop = 14 }
+                                                   inferred_type = None } }] })
+  span = { start = 0
+           stop = 15 }
+  inferred_type = None }

@@ -38,9 +38,9 @@ module Syntax =
   [<RequireQualifiedAccess>]
   type PatternKind =
     | Identifier of span: Span * name: string * is_mut: bool
-    | Object of elems: list<ObjElem>
+    | Object of elems: list<ObjPatElem>
     | Tuple of elems: list<Pattern>
-    | Wildcard of span: Span
+    | Wildcard
     | Literal of span: Span * value: Literal
     | Is of span: Span * target: Pattern * id: string * is_mut: bool
 
@@ -145,6 +145,7 @@ module Syntax =
     | Undefined
     | Unknown
     | Never
+    | Object
 
   type TypeParam =
     { span: Span
@@ -171,9 +172,8 @@ module Syntax =
   type MatchTypeCase =
     { extends: TypeAnn; true_type: TypeAnn }
 
-  type Ident = Span * string
-
   type TypeAnnKind =
+    // TODO: collapse these into a single `Literal` type ann kind
     | BooleanLiteral of value: bool
     | NumberLiteral of value: string
     | StringLiteral of value: string
@@ -183,11 +183,11 @@ module Syntax =
     | Array of elem: TypeAnn
     | Union of types: list<TypeAnn>
     | Intersection of types: list<TypeAnn>
-    | TypeRef of name: string * type_args: list<TypeAnn>
+    | TypeRef of name: string * type_args: option<list<TypeAnn>>
     | Function of FunctionType
-    | KeyOf of target: TypeAnn
+    | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
-    | TypeOf of target: Ident
+    | Typeof of target: Expr
     | Index of target: TypeAnn * index: TypeAnn
     | Condition of ConditionType
     | Match of MatchType
@@ -198,7 +198,7 @@ module Syntax =
   type TypeAnn =
     { kind: TypeAnnKind
       span: Span
-      inferred_type: option<Type.Type> ref }
+      mutable inferred_type: option<Type.Type> }
 
 module Type =
   type TypeParam =

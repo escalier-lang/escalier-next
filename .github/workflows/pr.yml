@@ -14,4 +14,4 @@ jobs:
       - name: Build
         run: dotnet build
       - name: Test
-        run: dotnet test --project src/Escalier.Parser.Test
+        run: dotnet test

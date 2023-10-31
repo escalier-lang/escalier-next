@@ -3,8 +3,6 @@ printfn "Hello from F#"
 
 open FParsec
 open Escalier.Parser
-open Escalier.Data.Syntax
-open System.Collections.Generic
 
 let str s = pstring s
 // let floatBetweenBrackets = (str "[") >>. pfloat .>> (str "]")
@@ -106,10 +104,10 @@ test ExprParser.expr "foo()[0]"
 
 test ExprParser.func "fn (x, y) { return x + y }"
 test ExprParser.func "fn (x, y) { return }"
-test StmtParser.stmt "let sum = x + y"
+test ExprParser.stmt "let sum = x + y"
 
-test TypeAnnParser.typeAnn "number | string | boolean"
-test TypeAnnParser.typeAnn "number & string & boolean"
+test ExprParser.typeAnn "number | string | boolean"
+test ExprParser.typeAnn "number & string & boolean"
 // TODO: figure out how to parse this
-test TypeAnnParser.typeAnn "number[]"
-test TypeAnnParser.typeAnn "Foo"
+test ExprParser.typeAnn "number[]"
+test ExprParser.typeAnn "Foo"

@@ -97,7 +97,7 @@ let ParseFuncDef () =
 [<Fact>]
 let ParseUnionType () =
   let src = "number | string | boolean"
-  let expr = run TypeAnnParser.typeAnn src
+  let expr = run ExprParser.typeAnn src
   let result = sprintf "input: %s\noutput: %A" src expr
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -105,7 +105,7 @@ let ParseUnionType () =
 [<Fact>]
 let ParseIntersectionType () =
   let src = "number & string & boolean"
-  let expr = run TypeAnnParser.typeAnn src
+  let expr = run ExprParser.typeAnn src
   let result = sprintf "input: %s\noutput: %A" src expr
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

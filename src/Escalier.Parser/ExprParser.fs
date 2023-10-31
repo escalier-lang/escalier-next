@@ -1,5 +1,4 @@
-#nowarn "40"
-namespace rec Escalier.Parser
+namespace Escalier.Parser
 
 open FParsec
 open Escalier.Data.Syntax
@@ -7,17 +6,19 @@ open System.Text
 
 exception ParseError of string
 
-module private Util =
+module ExprParser =
   let ws = spaces
   let str_ws s = pstring s .>> ws
 
-module ExprParser =
-  open Util
-
   let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
 
+  let expr, exprRef = createParserForwardedToRef<Expr, unit> ()
+  let stmt, stmtRef = createParserForwardedToRef<Stmt, unit> ()
+  let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()
+  let typeAnn, typeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
+  let primaryType, primaryTypeRef = createParserForwardedToRef<TypeAnn, unit> ()
+
   let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
-  let expr: Parser<Expr, unit> = opp.ExpressionParser
 
   let number: Parser<Literal, unit> =
     pipe3 getPosition pfloat getPosition
@@ -124,7 +125,7 @@ module ExprParser =
       getPosition
       (str_ws "fn")
       (between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ",")))
-      (between (str_ws "{") (str_ws "}") (many StmtParser.stmt))
+      (between (str_ws "{") (str_ws "}") (many stmt))
       getPosition
     <| fun p1 _ params_ stmts p2 ->
       let start = p1.Index |> int
@@ -427,11 +428,10 @@ module ExprParser =
     )
   )
 
-module StmtParser =
-  open Util
+  exprRef.Value <- opp.ExpressionParser
 
   let private exprStmt: Parser<Stmt, unit> =
-    pipe3 getPosition ExprParser.expr getPosition
+    pipe3 getPosition expr getPosition
     <| fun p1 e p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -440,7 +440,7 @@ module StmtParser =
         span = { start = start; stop = stop } }
 
   let private returnStmt: Parser<Stmt, unit> =
-    pipe3 getPosition ((str_ws "return") >>. opt (ExprParser.expr)) getPosition
+    pipe3 getPosition ((str_ws "return") >>. opt (expr)) getPosition
     <| fun p1 e p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -452,8 +452,8 @@ module StmtParser =
   let private varDecl =
     pipe4
       getPosition
-      (str_ws "let" >>. PatternParser.pattern)
-      (str_ws "=" >>. ExprParser.expr)
+      (str_ws "let" >>. pattern)
+      (str_ws "=" >>. expr)
       getPosition
     <| fun p1 pat init p2 ->
       let start = p1.Index |> int
@@ -470,8 +470,8 @@ module StmtParser =
   let private typeDecl =
     pipe4
       getPosition
-      (str_ws "type" >>. ExprParser.ident)
-      (str_ws "=" >>. TypeAnnParser.typeAnn)
+      (str_ws "type" >>. ident)
+      (str_ws "=" >>. typeAnn)
       getPosition
     <| fun p1 id typeAnn p2 ->
       let start = p1.Index |> int
@@ -484,15 +484,10 @@ module StmtParser =
       { kind = StmtKind.Decl(decl)
         span = { start = start; stop = stop } }
 
-  let stmt: Parser<Stmt, unit> =
-    varDecl <|> typeDecl <|> returnStmt <|> exprStmt
-
-module PatternParser =
-  let ws = spaces
-  let str_ws s = pstring s .>> ws
+  stmtRef.Value <- varDecl <|> typeDecl <|> returnStmt <|> exprStmt
 
   let private identPattern =
-    pipe3 getPosition ExprParser.ident getPosition
+    pipe3 getPosition ident getPosition
     <| fun p1 id p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -507,7 +502,7 @@ module PatternParser =
         inferred_type = None }
 
   let private literalPattern =
-    pipe3 getPosition ExprParser.literal getPosition
+    pipe3 getPosition literal getPosition
     <| fun p1 lit p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -544,7 +539,7 @@ module PatternParser =
         inferred_type = None }
 
   let private objPatKeyValue =
-    pipe4 getPosition ExprParser.ident pattern getPosition
+    pipe4 getPosition ident pattern getPosition
     <| fun p1 id pat p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -567,21 +562,12 @@ module PatternParser =
         span = span
         inferred_type = None }
 
-  let pattern: Parser<Pattern, unit> =
+  patternRef.Value <-
     identPattern
     <|> literalPattern
     <|> wildcardPattern
-    <|> parse.Delay(fun () -> objectPattern) // avoid recursive data structure
-    <|> parse.Delay(fun () -> tuplePattern) // avoid recursive data structure
-
-module TypeAnnParser =
-  open Util
-
-  let ident =
-    let isIdentifierFirstChar c = isLetter c || c = '_'
-    let isIdentifierChar c = isLetter c || isDigit c || c = '_'
-
-    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
+    <|> objectPattern
+    <|> tuplePattern
 
   let private keywordTypeAnn =
 
@@ -639,7 +625,7 @@ module TypeAnnParser =
         inferred_type = None }
 
   let private typeofTypeAnn =
-    pipe3 getPosition (str_ws "typeof" >>. ExprParser.expr) getPosition
+    pipe3 getPosition (str_ws "typeof" >>. expr) getPosition
     <| fun p1 target p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
@@ -662,6 +648,20 @@ module TypeAnnParser =
         span = { start = start; stop = stop }
         inferred_type = None }
 
+
+  let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
+    pipe3 getPosition (sepBy1 primaryType (str_ws "&")) getPosition
+    <| fun p1 typeAnns p2 ->
+      let start = p1.Index |> int
+      let stop = p2.Index |> int
+
+      match typeAnns with
+      | [ typeAnn ] -> typeAnn
+      | _ ->
+        { TypeAnn.kind = TypeAnnKind.Intersection(typeAnns)
+          span = { start = start; stop = stop }
+          inferred_type = None }
+
   let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
     pipe3
       getPosition
@@ -678,19 +678,6 @@ module TypeAnnParser =
           span = { start = start; stop = stop }
           inferred_type = None }
 
-  let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    pipe3 getPosition (sepBy1 primaryType (str_ws "&")) getPosition
-    <| fun p1 typeAnns p2 ->
-      let start = p1.Index |> int
-      let stop = p2.Index |> int
-
-      match typeAnns with
-      | [ typeAnn ] -> typeAnn
-      | _ ->
-        { TypeAnn.kind = TypeAnnKind.Intersection(typeAnns)
-          span = { start = start; stop = stop }
-          inferred_type = None }
-
   let arrayTypeAnn =
     pipe3 getPosition (primaryType .>> (str_ws "[]")) getPosition
     <| fun p1 elem p2 ->
@@ -701,18 +688,18 @@ module TypeAnnParser =
         span = { start = start; stop = stop }
         inferred_type = None }
 
-  let primaryType: Parser<TypeAnn, unit> =
+  primaryTypeRef.Value <-
     // TODO: parathesized types
     keywordTypeAnn // PredefinedType
     // <|> objectTypeAnn
-    // <|> parse.Delay(fun () -> arrayTypeAnn)
-    <|> parse.Delay(fun () -> tupleTypeAnn)
+    // <|> arrayTypeAnn
+    <|> tupleTypeAnn
     <|> typeofTypeAnn // TypeQuery
-    <|> parse.Delay(fun () -> keyofTypeAnn)
-    <|> parse.Delay(fun () -> restTypeAnn)
+    <|> keyofTypeAnn
+    <|> restTypeAnn
     // <|> thisTypeAnn
     // should come last since any identifier can be a type reference
-    <|> parse.Delay(fun () -> typeRef)
+    <|> typeRef
 
   // TODO: handle function types
-  let typeAnn = unionOrIntersectionOrPrimaryType
+  typeAnnRef.Value <- unionOrIntersectionOrPrimaryType

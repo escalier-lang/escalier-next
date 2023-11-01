@@ -1,0 +1,15 @@
+﻿input: (number | string)[]
+output: Success: { kind =
+   Array { kind = Union [{ kind = Keyword Number
+                           span = { start = 1
+                                    stop = 8 }
+                           inferred_type = None }; { kind = Keyword String
+                                                     span = { start = 10
+                                                              stop = 16 }
+                                                     inferred_type = None }]
+           span = { start = 1
+                    stop = 16 }
+           inferred_type = None }
+  span = { start = 1
+           stop = 19 }
+  inferred_type = None }

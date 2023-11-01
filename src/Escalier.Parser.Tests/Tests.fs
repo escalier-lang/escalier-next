@@ -117,3 +117,19 @@ let ParseUnionAndIntersectionType () =
   let result = sprintf "input: %s\noutput: %A" src expr
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseArrayType () =
+  let src = "number[][]"
+  let expr = run ExprParser.typeAnn src
+  let result = sprintf "input: %s\noutput: %A" src expr
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseParenthesizedType () =
+  let src = "(number | string)[]"
+  let expr = run ExprParser.typeAnn src
+  let result = sprintf "input: %s\noutput: %A" src expr
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

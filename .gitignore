@@ -4,3 +4,4 @@ bin
 obj
 .fake
 TestResults
+coverage.opencover.xml

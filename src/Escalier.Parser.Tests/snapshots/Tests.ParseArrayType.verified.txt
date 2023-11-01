@@ -1,0 +1,11 @@
+﻿input: number[][]
+output: Success: { kind = Array { kind = Array { kind = Keyword Number
+                                span = { start = 0
+                                         stop = 6 }
+                                inferred_type = None }
+                 span = { start = 0
+                          stop = 8 }
+                 inferred_type = None }
+  span = { start = 0
+           stop = 10 }
+  inferred_type = None }

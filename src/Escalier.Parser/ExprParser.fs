@@ -16,7 +16,6 @@ module ExprParser =
   let stmt, stmtRef = createParserForwardedToRef<Stmt, unit> ()
   let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()
   let typeAnn, typeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
-  let primaryType, primaryTypeRef = createParserForwardedToRef<TypeAnn, unit> ()
 
   let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
 
@@ -484,7 +483,7 @@ module ExprParser =
       { kind = StmtKind.Decl(decl)
         span = { start = start; stop = stop } }
 
-  stmtRef.Value <- varDecl <|> typeDecl <|> returnStmt <|> exprStmt
+  stmtRef.Value <- choice [ varDecl; typeDecl; returnStmt; exprStmt ]
 
   let private identPattern =
     pipe3 getPosition ident getPosition
@@ -563,24 +562,28 @@ module ExprParser =
         inferred_type = None }
 
   patternRef.Value <-
-    identPattern
-    <|> literalPattern
-    <|> wildcardPattern
-    <|> objectPattern
-    <|> tuplePattern
+    choice
+      [ identPattern
+        literalPattern
+        wildcardPattern
+        objectPattern
+        tuplePattern ]
+
+  let private parenthesizedTypeAnn = (between (str_ws "(") (str_ws ")") typeAnn)
 
   let private keywordTypeAnn =
 
     let keyword =
-      (str_ws "object" |>> fun _ -> KeywordType.Object)
-      <|> (str_ws "never" |>> fun _ -> Never)
-      <|> (str_ws "unknown" |>> fun _ -> Unknown)
-      <|> (str_ws "boolean" |>> fun _ -> Boolean)
-      <|> (str_ws "number" |>> fun _ -> Number)
-      <|> (str_ws "string" |>> fun _ -> String)
-      <|> (str_ws "symbol" |>> fun _ -> Symbol)
-      <|> (str_ws "null" |>> fun _ -> Null)
-      <|> (str_ws "undefined" |>> fun _ -> Undefined)
+      choice
+        [ (str_ws "object" |>> fun _ -> KeywordType.Object)
+          (str_ws "never" |>> fun _ -> Never)
+          (str_ws "unknown" |>> fun _ -> Unknown)
+          (str_ws "boolean" |>> fun _ -> Boolean)
+          (str_ws "number" |>> fun _ -> Number)
+          (str_ws "string" |>> fun _ -> String)
+          (str_ws "symbol" |>> fun _ -> Symbol)
+          (str_ws "null" |>> fun _ -> Null)
+          (str_ws "undefined" |>> fun _ -> Undefined) ]
 
     pipe3 getPosition keyword getPosition
     <| fun p1 keyword p2 ->
@@ -648,7 +651,43 @@ module ExprParser =
         span = { start = start; stop = stop }
         inferred_type = None }
 
+  let opp' = new OperatorPrecedenceParser<TypeAnn, Position, unit>()
 
+  let primaryType = opp'.ExpressionParser
+
+  // NOTE(kevinb): We use an operator precedence parser to workaround the
+  // fact that `[]` is left recursive.
+  opp'.AddOperator(
+    PostfixOperator(
+      "[]",
+      getPosition .>> ws,
+      1,
+      true,
+      (),
+      (fun pos target ->
+        { TypeAnn.kind = Array(target)
+          span =
+            { start = target.span.start
+              stop = pos.Index |> int }
+          inferred_type = None })
+    )
+  )
+
+  opp'.TermParser <-
+    choice
+      [ parenthesizedTypeAnn
+        keywordTypeAnn // aka PredefinedType
+        // objectTypeAnn
+        tupleTypeAnn
+        typeofTypeAnn // aka TypeQuery
+        keyofTypeAnn
+        restTypeAnn
+        // thisTypeAnn
+        // NOTE: should come last since any identifier can be a type reference
+        typeRef ]
+
+  // NOTE: We don't use InfixOperator here because that only supports
+  // binary operators and intersection types are n-ary.
   let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
     pipe3 getPosition (sepBy1 primaryType (str_ws "&")) getPosition
     <| fun p1 typeAnns p2 ->
@@ -662,6 +701,8 @@ module ExprParser =
           span = { start = start; stop = stop }
           inferred_type = None }
 
+  // NOTE: We don't use InfixOperator here because that only supports
+  // binary operators and union types are n-ary.
   let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
     pipe3
       getPosition
@@ -677,29 +718,6 @@ module ExprParser =
         { TypeAnn.kind = TypeAnnKind.Union(typeAnns)
           span = { start = start; stop = stop }
           inferred_type = None }
-
-  let arrayTypeAnn =
-    pipe3 getPosition (primaryType .>> (str_ws "[]")) getPosition
-    <| fun p1 elem p2 ->
-      let start = p1.Index |> int
-      let stop = p2.Index |> int
-
-      { TypeAnn.kind = TypeAnnKind.Array(elem)
-        span = { start = start; stop = stop }
-        inferred_type = None }
-
-  primaryTypeRef.Value <-
-    // TODO: parathesized types
-    keywordTypeAnn // PredefinedType
-    // <|> objectTypeAnn
-    // <|> arrayTypeAnn
-    <|> tupleTypeAnn
-    <|> typeofTypeAnn // TypeQuery
-    <|> keyofTypeAnn
-    <|> restTypeAnn
-    // <|> thisTypeAnn
-    // should come last since any identifier can be a type reference
-    <|> typeRef
 
   // TODO: handle function types
   typeAnnRef.Value <- unionOrIntersectionOrPrimaryType

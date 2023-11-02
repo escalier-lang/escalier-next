@@ -2,16 +2,16 @@
 output: Success: { kind =
    Call
      ({ kind = Identifer "add"
-        span = { start = 0
-                 stop = 3 }
+        span = { start = (Ln: 1, Col: 1)
+                 stop = (Ln: 1, Col: 4) }
         inferred_type = None }, None,
       [{ kind = Identifer "x"
-         span = { start = 4
-                  stop = 5 }
+         span = { start = (Ln: 1, Col: 5)
+                  stop = (Ln: 1, Col: 6) }
          inferred_type = None }; { kind = Identifer "y"
-                                   span = { start = 7
-                                            stop = 8 }
+                                   span = { start = (Ln: 1, Col: 8)
+                                            stop = (Ln: 1, Col: 9) }
                                    inferred_type = None }], false, None)
-  span = { start = 0
-           stop = 4 }
+  span = { start = (Ln: 1, Col: 1)
+           stop = (Ln: 1, Col: 5) }
   inferred_type = None }

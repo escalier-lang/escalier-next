@@ -8,17 +8,15 @@ open FParsec
 
 open Escalier.Parser
 
-let settings = new VerifySettings()
+let settings = VerifySettings()
 settings.UseDirectory("snapshots")
-
-[<Fact>]
-let ``My test`` () = Assert.True(true)
+settings.DisableDiff()
 
 [<Fact>]
 let ParseArithmetic () =
   let src = "0.1 + 2 * (3 - 4) / -5.6"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -26,7 +24,7 @@ let ParseArithmetic () =
 let ParseString () =
   let src = """msg = "Hello,\n\t\"world!\"" """
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -34,7 +32,7 @@ let ParseString () =
 let ParseTemplateString () =
   let src = """msg = `foo ${`bar ${baz}`}`"""
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -42,7 +40,7 @@ let ParseTemplateString () =
 let ParseFunctionCall () =
   let src = "add(x, y)"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -50,7 +48,7 @@ let ParseFunctionCall () =
 let ParseFunctionCallExtraSpaces () =
   let src = "add( x , y )"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -58,7 +56,7 @@ let ParseFunctionCallExtraSpaces () =
 let ParseEmptyCall () =
   let src = "add()"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -66,7 +64,7 @@ let ParseEmptyCall () =
 let ParseIndexer () =
   let src = "array[0]"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -74,7 +72,7 @@ let ParseIndexer () =
 let ParseIndexerThenCall () =
   let src = "array[0]()"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -82,7 +80,7 @@ let ParseIndexerThenCall () =
 let ParseCallThenIndexer () =
   let src = "foo()[0]"
   let expr = run ExprParser.expr src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -90,7 +88,7 @@ let ParseCallThenIndexer () =
 let ParseFuncDef () =
   let src = "fn (x, y) { x }"
   let expr = run ExprParser.func src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -98,7 +96,7 @@ let ParseFuncDef () =
 let ParseUnionType () =
   let src = "number | string | boolean"
   let expr = run ExprParser.typeAnn src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -106,7 +104,7 @@ let ParseUnionType () =
 let ParseIntersectionType () =
   let src = "number & string & boolean"
   let expr = run ExprParser.typeAnn src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -114,7 +112,7 @@ let ParseIntersectionType () =
 let ParseUnionAndIntersectionType () =
   let src = "A & B | C & D"
   let expr = run ExprParser.typeAnn src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -122,7 +120,7 @@ let ParseUnionAndIntersectionType () =
 let ParseArrayType () =
   let src = "number[][]"
   let expr = run ExprParser.typeAnn src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -130,6 +128,6 @@ let ParseArrayType () =
 let ParseParenthesizedType () =
   let src = "(number | string)[]"
   let expr = run ExprParser.typeAnn src
-  let result = sprintf "input: %s\noutput: %A" src expr
+  let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

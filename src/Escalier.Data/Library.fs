@@ -1,7 +1,9 @@
 ﻿namespace rec Escalier.Data
 
+open FParsec
+
 module Syntax =
-  type Span = { start: int; stop: int }
+  type Span = { start: Position; stop: Position }
 
   type DeclKind =
     | TypeDecl of

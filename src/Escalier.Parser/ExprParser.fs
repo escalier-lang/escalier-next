@@ -278,17 +278,16 @@ module ExprParser =
 
   exprRef.Value <- opp.ExpressionParser
 
+  let withSpan p =
+    pipe3 getPosition p getPosition
+    <| fun start value stop -> (value, { start = start; stop = stop })
+
   let private exprStmt: Parser<Stmt, unit> =
-    pipe3 getPosition expr getPosition
-    <| fun start e stop ->
-      { Stmt.kind = Expr(e)
-        span = { start = start; stop = stop } }
+    withSpan expr |>> fun (e, span) -> { Stmt.kind = Expr(e); span = span }
 
   let private returnStmt: Parser<Stmt, unit> =
-    pipe3 getPosition ((str_ws "return") >>. opt expr) getPosition
-    <| fun start e stop ->
-      { Stmt.kind = Return(e)
-        span = { start = start; stop = stop } }
+    withSpan ((str_ws "return") >>. opt expr)
+    |>> fun (e, span) -> { Stmt.kind = Return(e); span = span }
 
   // `let <expr> = <expr>`
   let private varDecl =
@@ -327,41 +326,32 @@ module ExprParser =
   stmtRef.Value <- choice [ varDecl; typeDecl; returnStmt; exprStmt ]
 
   let private identPattern =
-    pipe3 getPosition ident getPosition
-    <| fun start id stop ->
+    withSpan ident
+    |>> fun (id, span) ->
       { Pattern.kind =
-          PatternKind.Identifier(
-            name = id,
-            is_mut = false,
-            span = { start = start; stop = stop }
-          )
-        span = { start = start; stop = stop }
+          PatternKind.Identifier(name = id, is_mut = false, span = span)
+        span = span
         inferred_type = None }
 
   let private literalPattern =
-    pipe3 getPosition literal getPosition
-    <| fun start lit stop ->
-      let span = { start = start; stop = stop }
-
+    withSpan literal
+    |>> fun (lit, span) ->
       { Pattern.kind = PatternKind.Literal(span = span, value = lit)
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let private tuplePattern =
-    pipe3
-      getPosition
-      (between (str_ws "[") (str_ws "]") (sepBy pattern (str_ws ",")))
-      getPosition
-    <| fun start patterns stop ->
+    withSpan (between (str_ws "[") (str_ws "]") (sepBy pattern (str_ws ",")))
+    |>> fun (patterns, span) ->
       { Pattern.kind = PatternKind.Tuple(patterns)
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let private wildcardPattern =
-    pipe3 getPosition (str_ws "_") getPosition
-    <| fun start _ stop ->
+    withSpan (str_ws "_")
+    |>> fun (_, span) ->
       { Pattern.kind = PatternKind.Wildcard
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let private objPatKeyValue =
@@ -373,13 +363,8 @@ module ExprParser =
   let private objPatElem = objPatKeyValue
 
   let private objectPattern =
-    pipe3
-      getPosition
-      (between (str_ws "{") (str_ws "}") (sepBy objPatElem (str_ws ",")))
-      getPosition
-    <| fun start objElems stop ->
-      let span = { start = start; stop = stop }
-
+    withSpan (between (str_ws "{") (str_ws "}") (sepBy objPatElem (str_ws ",")))
+    |>> fun (objElems, span) ->
       { Pattern.kind = PatternKind.Object(objElems)
         span = span
         inferred_type = None }
@@ -408,41 +393,38 @@ module ExprParser =
           (str_ws "null" |>> fun _ -> Null)
           (str_ws "undefined" |>> fun _ -> Undefined) ]
 
-    pipe3 getPosition keyword getPosition
-    <| fun start keyword stop ->
+    withSpan keyword
+    |>> fun (keyword, span) ->
       { TypeAnn.kind = TypeAnnKind.Keyword(keyword)
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let private tupleTypeAnn =
-    pipe3
-      getPosition
-      (between (str_ws "[") (str_ws "]") (sepBy typeAnn (str_ws ",")))
-      getPosition
-    <| fun start typeAnns stop ->
+    withSpan (between (str_ws "[") (str_ws "]") (sepBy typeAnn (str_ws ",")))
+    |>> fun (typeAnns, span) ->
       { TypeAnn.kind = TypeAnnKind.Tuple(typeAnns)
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let private keyofTypeAnn =
-    pipe3 getPosition (str_ws "keyof" >>. typeAnn) getPosition
-    <| fun start target stop ->
-      { TypeAnn.kind = TypeAnnKind.Keyof(target)
-        span = { start = start; stop = stop }
+    withSpan (str_ws "keyof" >>. typeAnn)
+    |>> fun (typeAnn, span) ->
+      { TypeAnn.kind = TypeAnnKind.Keyof(typeAnn)
+        span = span
         inferred_type = None }
 
   let private restTypeAnn =
-    pipe3 getPosition (str_ws "..." >>. typeAnn) getPosition
-    <| fun start target stop ->
-      { TypeAnn.kind = TypeAnnKind.Rest(target)
-        span = { start = start; stop = stop }
+    withSpan (str_ws "..." >>. typeAnn)
+    |>> fun (typeAnn, span) ->
+      { TypeAnn.kind = TypeAnnKind.Rest(typeAnn)
+        span = span
         inferred_type = None }
 
   let private typeofTypeAnn =
-    pipe3 getPosition (str_ws "typeof" >>. expr) getPosition
-    <| fun start target stop ->
-      { TypeAnn.kind = TypeAnnKind.Typeof(target)
-        span = { start = start; stop = stop }
+    withSpan (str_ws "typeof" >>. expr)
+    |>> fun (e, span) ->
+      { TypeAnn.kind = TypeAnnKind.Typeof(e)
+        span = span
         inferred_type = None }
 
   let private typeRef =
@@ -494,28 +476,25 @@ module ExprParser =
   // NOTE: We don't use InfixOperator here because that only supports
   // binary operators and intersection types are n-ary.
   let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    pipe3 getPosition (sepBy1 primaryType (str_ws "&")) getPosition
-    <| fun start typeAnns stop ->
+    withSpan (sepBy1 primaryType (str_ws "&"))
+    |>> fun (typeAnns, span) ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
       | _ ->
         { TypeAnn.kind = TypeAnnKind.Intersection(typeAnns)
-          span = { start = start; stop = stop }
+          span = span
           inferred_type = None }
 
   // NOTE: We don't use InfixOperator here because that only supports
   // binary operators and union types are n-ary.
   let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    pipe3
-      getPosition
-      (sepBy1 intersectionOrPrimaryType (str_ws "|"))
-      getPosition
-    <| fun start typeAnns stop ->
+    withSpan (sepBy1 intersectionOrPrimaryType (str_ws "|"))
+    |>> fun (typeAnns, span) ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
       | _ ->
         { TypeAnn.kind = TypeAnnKind.Union(typeAnns)
-          span = { start = start; stop = stop }
+          span = span
           inferred_type = None }
 
   // TODO: handle function types

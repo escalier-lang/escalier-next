@@ -9,8 +9,8 @@ output: Success: { kind =
                                                            stop = 7 }
                                                   inferred_type = None }, false)
         span = { start = 0
-                 stop = 0 }
+                 stop = 6 }
         inferred_type = None }, None, [], false, None)
   span = { start = 0
-           stop = 0 }
+           stop = 9 }
   inferred_type = None }

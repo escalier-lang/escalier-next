@@ -7,5 +7,5 @@ output: Success: { kind = Index ({ kind = Identifer "array"
                                                      stop = 7 }
                                             inferred_type = None }, false)
   span = { start = 0
-           stop = 0 }
+           stop = 6 }
   inferred_type = None }

@@ -13,5 +13,5 @@ output: Success: { kind =
                                             stop = 8 }
                                    inferred_type = None }], false, None)
   span = { start = 0
-           stop = 0 }
+           stop = 4 }
   inferred_type = None }

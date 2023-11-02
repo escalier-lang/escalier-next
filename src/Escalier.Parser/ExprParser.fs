@@ -17,7 +17,7 @@ module ExprParser =
   let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()
   let typeAnn, typeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
 
-  let opp = new OperatorPrecedenceParser<Expr, list<Expr>, unit>()
+  let opp = new OperatorPrecedenceParser<Expr, list<Expr> * Position, unit>()
 
   let number: Parser<Literal, unit> =
     pipe3 getPosition pfloat getPosition
@@ -160,16 +160,26 @@ module ExprParser =
 
   type Assoc = Associativity
 
+  let binary op x y =
+    { Expr.kind = ExprKind.Binary(x, op, y)
+      span = mergeSpans x.span y.span
+      inferred_type = None }
+
+  let after = getPosition .>> ws |>> fun pos -> ([], pos)
+
   opp.AddOperator(
     PostfixOperator(
       "[",
-      ((ws >>. expr) .>> (str_ws "]") |>> fun expr -> [ expr ]), // indices
+      (pipe2 getPosition ((ws >>. expr) .>> (str_ws "]"))
+       <| fun p1 expr -> ([ expr ], p1)), // (indices, position)
       18,
       true,
       (),
-      (fun indices target ->
+      (fun (indices, pos) target ->
         { Expr.kind = ExprKind.Index(target, indices[0], false)
-          span = { start = 0; stop = 0 } // TODO
+          span =
+            { start = target.span.start
+              stop = pos.Index |> int }
           inferred_type = None })
     )
   )
@@ -177,11 +187,12 @@ module ExprParser =
   opp.AddOperator(
     PostfixOperator(
       "(",
-      sepBy (ws >>. expr) (str_ws ",") .>> (str_ws ")"), // args
+      (pipe2 getPosition (sepBy (ws >>. expr) (str_ws ",") .>> (str_ws ")"))
+       <| fun p1 args -> (args, p1)), // args
       18,
       true,
       (),
-      (fun args callee ->
+      (fun (args, pos) callee ->
         { Expr.kind =
             ExprKind.Call(
               callee = callee,
@@ -190,7 +201,9 @@ module ExprParser =
               opt_chain = false,
               throws = None
             )
-          span = { start = 0; stop = 0 } // TODO
+          span =
+            { start = callee.span.start
+              stop = pos.Index |> int } // TODO
           inferred_type = None })
     )
   )
@@ -201,7 +214,7 @@ module ExprParser =
   opp.AddOperator(
     PrefixOperator(
       "+",
-      ws >>. preturn [],
+      after,
       14,
       true,
       (fun x ->
@@ -214,7 +227,7 @@ module ExprParser =
   opp.AddOperator(
     PrefixOperator(
       "-",
-      ws >>. preturn [],
+      after,
       14,
       true,
       (fun x ->
@@ -228,200 +241,50 @@ module ExprParser =
   // delete (14)
   // await (14)
 
-  opp.AddOperator(
-    InfixOperator(
-      "**",
-      ws >>. preturn [],
-      13,
-      Assoc.Right,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Exp, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
+  opp.AddOperator(InfixOperator("**", after, 13, Assoc.Right, binary Exp))
+
+  opp.AddOperator(InfixOperator("*", after, 12, Assoc.Left, binary Mul))
+
+  opp.AddOperator(InfixOperator("/", after, 12, Assoc.Left, binary Div))
+
+  opp.AddOperator(InfixOperator("%", after, 12, Assoc.Left, binary Mod))
+
+  opp.AddOperator(InfixOperator("+", after, 11, Assoc.Left, binary Add))
+
+  opp.AddOperator(InfixOperator("-", after, 11, Assoc.Left, binary Sub))
+
+  opp.AddOperator(InfixOperator("<", after, 9, Assoc.Left, binary LessThan))
 
   opp.AddOperator(
-    InfixOperator(
-      "*",
-      ws >>. preturn [],
-      12,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Mul, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
+    InfixOperator("<=", after, 9, Assoc.Left, binary LessThanOrEqual)
   )
 
-  opp.AddOperator(
-    InfixOperator(
-      "/",
-      ws >>. preturn [],
-      12,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Div, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
+  opp.AddOperator(InfixOperator(">", after, 9, Assoc.Left, binary GreaterThan))
 
   opp.AddOperator(
-    InfixOperator(
-      "%",
-      ws >>. preturn [],
-      12,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Mod, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
+    InfixOperator(">=", after, 9, Assoc.Left, binary GreaterThanOrEqual)
   )
 
-  opp.AddOperator(
-    InfixOperator(
-      "+",
-      ws >>. preturn [],
-      11,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Add, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
+  opp.AddOperator(InfixOperator("==", after, 8, Assoc.Left, binary Equal))
 
-  opp.AddOperator(
-    InfixOperator(
-      "-",
-      ws >>. preturn [],
-      11,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Sub, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
-
-  opp.AddOperator(
-    InfixOperator(
-      "<",
-      ws >>. preturn [],
-      9,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, LessThan, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
-
-  opp.AddOperator(
-    InfixOperator(
-      "<=",
-      ws >>. preturn [],
-      9,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, LessThanOrEqual, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
-
-  opp.AddOperator(
-    InfixOperator(
-      ">",
-      ws >>. preturn [],
-      9,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, GreaterThan, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
-
-  opp.AddOperator(
-    InfixOperator(
-      ">=",
-      ws >>. preturn [],
-      9,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, GreaterThanOrEqual, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
-
-  opp.AddOperator(
-    InfixOperator(
-      "==",
-      ws >>. preturn [],
-      8,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Equal, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
-
-  opp.AddOperator(
-    InfixOperator(
-      "!=",
-      ws >>. preturn [],
-      8,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, NotEqual, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
+  opp.AddOperator(InfixOperator("!=", after, 8, Assoc.Left, binary NotEqual))
 
   // bitwise and (7)
   // bitwise xor (6)
   // bitwise or (5)
 
-  opp.AddOperator(
-    InfixOperator(
-      "&&",
-      ws >>. preturn [],
-      4,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, And, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
+  opp.AddOperator(InfixOperator("&&", after, 4, Assoc.Left, binary Add))
 
-  opp.AddOperator(
-    InfixOperator(
-      "||",
-      ws >>. preturn [],
-      3,
-      Assoc.Left,
-      (fun x y ->
-        { Expr.kind = ExprKind.Binary(x, Or, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
-    )
-  )
+  opp.AddOperator(InfixOperator("||", after, 3, Assoc.Left, binary Or))
 
   opp.AddOperator(
     InfixOperator(
       "=",
-      ws >>. preturn [],
+      after,
       2,
       Assoc.Right,
       (fun x y ->
-        { Expr.kind = ExprKind.Assign(x, AssignOp.Assign, y)
+        { Expr.kind = Assign(x, AssignOp.Assign, y)
           span = mergeSpans x.span y.span
           inferred_type = None })
     )
@@ -435,7 +298,7 @@ module ExprParser =
       let start = p1.Index |> int
       let stop = p2.Index |> int
 
-      { kind = StmtKind.Expr(e)
+      { Stmt.kind = Expr(e)
         span = { start = start; stop = stop } }
 
   let private returnStmt: Parser<Stmt, unit> =
@@ -444,7 +307,7 @@ module ExprParser =
       let start = p1.Index |> int
       let stop = p2.Index |> int
 
-      { kind = StmtKind.Return(e)
+      { Stmt.kind = Return(e)
         span = { start = start; stop = stop } }
 
   // `let <expr> = <expr>`
@@ -457,13 +320,14 @@ module ExprParser =
     <| fun p1 pat init p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
 
-      let decl: Decl =
-        { kind = VarDecl(pat, Some(init), None, false)
-          span = { start = 0; stop = 0 } }
-
-      { kind = StmtKind.Decl(decl)
-        span = { start = start; stop = stop } }
+      { Stmt.kind =
+          Decl(
+            { kind = VarDecl(pat, Some(init), None, false)
+              span = span }
+          )
+        span = span }
 
   // TODO: parse type params
   let private typeDecl =
@@ -475,13 +339,14 @@ module ExprParser =
     <| fun p1 id typeAnn p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
 
-      let decl: Decl =
-        { kind = TypeDecl(id, typeAnn, None)
-          span = { start = 0; stop = 0 } }
-
-      { kind = StmtKind.Decl(decl)
-        span = { start = start; stop = stop } }
+      { Stmt.kind =
+          Decl(
+            { kind = TypeDecl(id, typeAnn, None)
+              span = span }
+          )
+        span = span }
 
   stmtRef.Value <- choice [ varDecl; typeDecl; returnStmt; exprStmt ]
 
@@ -505,12 +370,9 @@ module ExprParser =
     <| fun p1 lit p2 ->
       let start = p1.Index |> int
       let stop = p2.Index |> int
+      let span = { start = start; stop = stop }
 
-      { Pattern.kind =
-          PatternKind.Literal(
-            span = { start = start; stop = stop },
-            value = lit
-          )
+      { Pattern.kind = PatternKind.Literal(span = span, value = lit)
         span = { start = start; stop = stop }
         inferred_type = None }
 

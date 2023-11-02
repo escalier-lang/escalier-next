@@ -4,5 +4,5 @@ output: Success: { kind = Call ({ kind = Identifer "add"
                           stop = 3 }
                  inferred_type = None }, None, [], false, None)
   span = { start = 0
-           stop = 0 }
+           stop = 4 }
   inferred_type = None }

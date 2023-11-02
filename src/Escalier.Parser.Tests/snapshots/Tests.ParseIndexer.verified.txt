@@ -1,11 +1,11 @@
 ﻿input: array[0]
 output: Success: { kind = Index ({ kind = Identifer "array"
-                  span = { start = 0
-                           stop = 5 }
+                  span = { start = (Ln: 1, Col: 1)
+                           stop = (Ln: 1, Col: 6) }
                   inferred_type = None }, { kind = Literal (Number "0")
-                                            span = { start = 6
-                                                     stop = 7 }
+                                            span = { start = (Ln: 1, Col: 7)
+                                                     stop = (Ln: 1, Col: 8) }
                                             inferred_type = None }, false)
-  span = { start = 0
-           stop = 6 }
+  span = { start = (Ln: 1, Col: 1)
+           stop = (Ln: 1, Col: 7) }
   inferred_type = None }

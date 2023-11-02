@@ -2,24 +2,26 @@
 output: Success: { kind =
    Assign
      ({ kind = Identifer "msg"
-        span = { start = 0
-                 stop = 4 }
+        span = { start = (Ln: 1, Col: 1)
+                 stop = (Ln: 1, Col: 5) }
         inferred_type = None }, Assign,
       { kind =
          TemplateLiteral
            { parts = ["foo "; ""]
              exprs =
-              [{ kind = TemplateLiteral { parts = ["bar "; ""]
-                                          exprs = [{ kind = Identifer "baz"
-                                                     span = { start = 20
-                                                              stop = 23 }
-                                                     inferred_type = None }] }
-                 span = { start = 13
-                          stop = 25 }
+              [{ kind =
+                  TemplateLiteral
+                    { parts = ["bar "; ""]
+                      exprs = [{ kind = Identifer "baz"
+                                 span = { start = (Ln: 1, Col: 21)
+                                          stop = (Ln: 1, Col: 24) }
+                                 inferred_type = None }] }
+                 span = { start = (Ln: 1, Col: 14)
+                          stop = (Ln: 1, Col: 26) }
                  inferred_type = None }] }
-        span = { start = 6
-                 stop = 27 }
+        span = { start = (Ln: 1, Col: 7)
+                 stop = (Ln: 1, Col: 28) }
         inferred_type = None })
-  span = { start = 0
-           stop = 27 }
+  span = { start = (Ln: 1, Col: 1)
+           stop = (Ln: 1, Col: 28) }
   inferred_type = None }

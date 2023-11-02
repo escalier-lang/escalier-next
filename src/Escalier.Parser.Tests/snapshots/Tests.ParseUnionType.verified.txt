@@ -2,16 +2,16 @@
 output: Success: { kind =
    Union
      [{ kind = Keyword Number
-        span = { start = 0
-                 stop = 7 }
+        span = { start = (Ln: 1, Col: 1)
+                 stop = (Ln: 1, Col: 8) }
         inferred_type = None }; { kind = Keyword String
-                                  span = { start = 9
-                                           stop = 16 }
+                                  span = { start = (Ln: 1, Col: 10)
+                                           stop = (Ln: 1, Col: 17) }
                                   inferred_type = None };
       { kind = Keyword Boolean
-        span = { start = 18
-                 stop = 25 }
+        span = { start = (Ln: 1, Col: 19)
+                 stop = (Ln: 1, Col: 26) }
         inferred_type = None }]
-  span = { start = 0
-           stop = 25 }
+  span = { start = (Ln: 1, Col: 1)
+           stop = (Ln: 1, Col: 26) }
   inferred_type = None }

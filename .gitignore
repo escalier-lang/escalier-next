@@ -7,3 +7,4 @@ TestResults
 coverage.opencover.xml
 .idea
 *.DotSettings.user
+*.received.txt

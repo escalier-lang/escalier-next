@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Errors.fs" />
+    <Compile Include="Unify.fs" />
+    <Compile Include="Infer.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+  </ItemGroup>
+</Project>

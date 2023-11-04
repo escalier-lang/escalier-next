@@ -106,6 +106,18 @@ module private Expressions =
         span = { start = start; stop = stop }
         inferred_type = None }
 
+  let ifElse: Parser<Expr, unit> =
+    pipe5
+      getPosition
+      ((str_ws "if") >>. expr)
+      block
+      (str_ws "else" >>. block)
+      getPosition
+    <| fun start cond then_ else_ stop ->
+      { kind = ExprKind.If(cond, then_, else_)
+        span = { start = start; stop = stop }
+        inferred_type = None }
+
   let literalExpr: Parser<Expr, unit> =
     pipe3 getPosition Literals.literal getPosition
     <| fun start lit stop ->
@@ -113,7 +125,8 @@ module private Expressions =
         span = { start = start; stop = stop }
         inferred_type = None }
 
-  let atom = choice [ literalExpr; func; templateStringLiteral; identExpr ]
+  let atom =
+    choice [ literalExpr; func; ifElse; templateStringLiteral; identExpr ]
 
   let term = (atom .>> ws) <|> between (str_ws "(") (str_ws ")") expr
 

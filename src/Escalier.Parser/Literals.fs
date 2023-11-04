@@ -7,7 +7,7 @@ module Literals =
   let number: Parser<Literal, unit> =
     pfloat |>> fun nl -> Literal.Number(nl |> string)
 
-  let stringLiteral: Parser<Literal, unit> =
+  let string: Parser<Literal, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
 
     let unescape c =
@@ -19,12 +19,14 @@ module Literals =
 
     let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> unescape)
 
-    let _string =
-      (between
-        (pstring "\"")
-        (pstring "\"")
-        (stringsSepBy normalCharSnippet escapedChar))
+    (between
+      (pstring "\"")
+      (pstring "\"")
+      (stringsSepBy normalCharSnippet escapedChar))
+    |>> fun sl -> Literal.String(sl)
 
-    _string |>> fun sl -> Literal.String(sl)
+  let boolean =
+    (pstring "true" |>> fun _ -> Literal.Boolean true)
+    <|> (pstring "false" |>> fun _ -> Literal.Boolean false)
 
-  let literal = number <|> stringLiteral
+  let literal = number <|> string <|> boolean

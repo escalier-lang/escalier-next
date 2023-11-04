@@ -1,6 +1,7 @@
 ﻿namespace rec Escalier.Data
 
 open FParsec
+open System.Text
 
 module Syntax =
   type Span = { start: Position; stop: Position }
@@ -32,6 +33,14 @@ module Syntax =
     | Boolean of bool
     | Null
     | Undefined
+
+    override this.ToString() =
+      match this with
+      | Number(value) -> value
+      | String(value) -> $"\"{value}\""
+      | Boolean(value) -> value |> string
+      | Null -> "null"
+      | Undefined -> "undefined"
 
   type ObjPatElem =
     | KeyValue of span: Span * key: string * value: Pattern * init: option<Expr>
@@ -119,7 +128,7 @@ module Syntax =
       throws: option<Type.Type>
     | Index of target: Expr * index: Expr * opt_chain: bool
     | Member of target: Expr * name: string * opt_chain: bool
-    | If of cond: Expr * then_branch: Expr * else_branch: Expr
+    | If of cond: Expr * then_branch: BlockOrExpr * else_branch: BlockOrExpr
     | Match of target: Expr * cases: list<MatchCase>
     | Try of body: Block * catch: option<Expr> * finally_: option<Expr>
     | Do of body: Block
@@ -232,11 +241,20 @@ module Type =
       type_: Type
       optional: bool }
 
+    override this.ToString() =
+      sprintf "%s: %s" (this.pattern.ToString()) (this.type_.ToString())
+
   [<RequireQualifiedAccess>]
   type KeywordType =
     | Never
     | Object
     | Unknown
+
+    override this.ToString() =
+      match this with
+      | Never -> "never"
+      | Object -> "object"
+      | Unknown -> "unknown"
 
   type Primitive =
     | Boolean
@@ -244,11 +262,26 @@ module Type =
     | String
     | Symbol
 
+    override this.ToString() =
+      match this with
+      | Boolean -> "boolean"
+      | Number -> "number"
+      | String -> "string"
+      | Symbol -> "symbol"
+
   type Function =
     { param_list: list<FuncParam>
       return_type: Type
       type_params: option<list<TypeParam>>
       throws: Type }
+
+    override this.ToString() =
+      sprintf
+        "fn (%s) -> %s"
+        (this.param_list
+         |> List.map (fun p -> p.ToString())
+         |> String.concat ", ")
+        (this.return_type.ToString())
 
   type Mapped =
     { key: Type
@@ -261,14 +294,27 @@ module Type =
       check: option<Type>
       extends: option<Type> }
 
+    override this.ToString() =
+      let optional =
+        match this.optional with
+        | Some(modifier) -> modifier.ToString()
+        | None -> ""
+
+      $"[{this.key}]{optional}: {this.value} for {this.target} in {this.source}"
+
   type MappedModifier =
     | Add
     | Remove
 
+    override this.ToString() =
+      match this with
+      | Add -> "+?"
+      | Remove -> "-?"
+
   type ObjKey = string // TODO
 
   type ObjTypeElem =
-    | Call of Function
+    | Callable of Function
     | Constructor of Function
     | Method of name: ObjKey * is_mut: bool * type_: Function
     | Getter of name: ObjKey * return_type: Type * throws: Type
@@ -276,20 +322,82 @@ module Type =
     | Mapped of Mapped
     | Property of name: ObjKey * optional: bool * readonly: bool * type_: Type
 
-  [<RequireQualifiedAccess>]
+    override this.ToString() =
+      match this with
+      | Callable(func) -> func.ToString()
+      | Constructor(func) -> sprintf "new %s" (func.ToString())
+      | Method(name,
+               is_mut,
+               { param_list = param_list
+                 return_type = return_type }) ->
+        let sb = new StringBuilder()
+
+        let self = if is_mut then "mut self" else "self"
+        let param_list' = self :: List.map (fun p -> p.ToString()) param_list
+
+        sb
+          .Append("fn ")
+          .Append(name)
+          .Append("(")
+          // Do we need to include `self` in types?
+          .Append(if is_mut then "mut self" else "self")
+          .Append(String.concat (", ") param_list')
+          .Append(") -> ")
+          .Append(return_type)
+        |> ignore
+
+        sb.ToString()
+      | Getter(name, return_type, throws) ->
+        sprintf
+          "get %s() -> %s%s"
+          name
+          (return_type.ToString())
+          (if throws.kind = TypeKind.Keyword(KeywordType.Never) then
+             ""
+           else
+             " throws " + throws.ToString())
+      | Setter(name, param, throws) ->
+        sprintf
+          "set %s(%s)%s"
+          name
+          (param.ToString())
+          (if throws.kind = TypeKind.Keyword(KeywordType.Never) then
+             ""
+           else
+             " throws " + throws.ToString())
+      | Mapped(mapped) ->
+        sprintf
+          "%s%s%s%s%s"
+          (if mapped.optional.IsSome then "optional " else "")
+          (if mapped.check.IsSome then "check " else "")
+          (if mapped.extends.IsSome then "extends " else "")
+          (mapped.key.ToString())
+          (mapped.value.ToString())
+      | Property(name, optional, readonly, type_) ->
+        sprintf
+          "%s%s%s: %s"
+          (if optional then "optional " else "")
+          (if readonly then "readonly " else "")
+          name
+          (type_.ToString())
+
   type TypeKind =
     | TypeVar of id: int * instance: option<Type> * bound: option<Type>
-    | TypeRef of name: string * type_args: list<Type> * scheme: option<Scheme>
+    | TypeRef of
+      name: string *
+      type_args: option<list<Type>> *
+      scheme: option<Scheme>
     | Literal of Syntax.Literal
-    | Tuple of elems: list<Type>
-    | Array of elem: Type
-    | Union of types: list<Type>
-    | Intersection of types: list<Type>
-    | Keyword of keyword: KeywordType
+    | Primitive of Primitive
+    | Tuple of list<Type>
+    | Array of Type
+    | Union of list<Type>
+    | Intersection of list<Type>
+    | Keyword of KeywordType
     | Function of Function
-    | Object of elems: list<ObjTypeElem>
-    | Rest of target: Type
-    | KeyOf of target: Type
+    | Object of list<ObjTypeElem>
+    | Rest of Type
+    | KeyOf of Type
     | Index of target: Type * index: Type
     | Condition of
       check: Type *
@@ -300,6 +408,54 @@ module Type =
     | Wildcard
     | Binary of left: Type * op: Syntax.BinaryOp * right: Type
 
+    // TODO: add parenthesizes where necessary
+    override this.ToString() =
+      match this with
+      | TypeVar(id, _, _) -> $"t{id}"
+      | TypeRef(name, type_args, _) ->
+        let sb = StringBuilder()
+        sb.Append(name) |> ignore
+
+        match type_args with
+        | Some(type_args) ->
+          sb
+            .Append("<")
+            .Append(
+              String.concat
+                (", ")
+                (type_args |> List.map (fun t -> t.ToString()))
+            )
+            .Append(">")
+          |> ignore
+        | None -> ()
+
+        sb.ToString()
+      | Literal(lit) -> lit.ToString()
+      | Primitive(prim) -> prim.ToString()
+      | Tuple(elems) ->
+        sprintf
+          "[%A]"
+          (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
+      | Array(elem) -> $"{elem}[]"
+      | Union(types) ->
+        (types |> List.map (fun t -> t.ToString()) |> String.concat " | ")
+      | Intersection(types) ->
+        (types |> List.map (fun t -> t.ToString()) |> String.concat " & ")
+      | Keyword(keyword) -> keyword.ToString()
+      | Function(func) -> func.ToString()
+      | Object(elems) ->
+        sprintf
+          "{%A}"
+          (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
+      | Rest(target) -> $"...{target}"
+      | KeyOf(target) -> $"keyof {target}"
+      | Index(target, index) -> $"{target}[{index}]"
+      | Condition(check, extends, true_type, false_type) ->
+        $"{check} extends {extends} ? {true_type} : {false_type}"
+      | Infer(name) -> $"infer {name}"
+      | Wildcard -> "_"
+      | Binary(left, op, right) -> $"{left} {op} {right}"
+
   [<RequireQualifiedAccess>]
   type Provenance =
     | Type of Type
@@ -307,4 +463,6 @@ module Type =
 
   type Type =
     { kind: TypeKind
-      provenance: option<Provenance> ref }
+      mutable provenance: option<Provenance> }
+
+    override this.ToString() = this.kind.ToString()

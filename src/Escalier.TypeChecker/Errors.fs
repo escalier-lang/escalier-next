@@ -7,3 +7,4 @@ module Errors =
     | NotImplemented
     | NotInferred
     | TypeMismatch of Type * Type
+    | RecursiveUnification

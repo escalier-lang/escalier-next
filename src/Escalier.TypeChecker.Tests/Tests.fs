@@ -57,25 +57,28 @@ let InfersLiterals () =
 
 [<Fact>]
 let InferBinaryOperators () =
-  result {
-    let! sum = infer "5 + 10"
-    Assert.Equal("number", sum.ToString())
+  let result =
+    result {
+      let! sum = infer "5 + 10"
+      Assert.Equal("number", sum.ToString())
 
-    let! lt = infer "5 < 10"
-    Assert.Equal("boolean", lt.ToString())
+      let! lt = infer "5 < 10"
+      Assert.Equal("boolean", lt.ToString())
 
-    let! eq = infer "\"hello\" == 5"
-    Assert.Equal("boolean", eq.ToString())
+      let! eq = infer "\"hello\" == 5"
+      Assert.Equal("boolean", eq.ToString())
 
-    let! b = infer "true || false"
-    Assert.Equal("boolean", b.ToString())
-  }
+      let! b = infer "true || false"
+      Assert.Equal("boolean", b.ToString())
+    }
+
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let InferIfElse () =
   let result =
     result {
-      let! t = infer "if (true) { 5 } else { \"hello\" }"
+      let! t = infer "if (true) { let x = 5\nx } else { \"hello\" }"
       Assert.Equal("5 | \"hello\"", t.ToString())
     }
 
@@ -88,7 +91,7 @@ let InferIdentifier () =
       provenance = None }
 
   let env =
-    { Infer.Env.values = Map([ ("foo", t) ])
+    { Infer.Env.values = Map([ ("foo", (t, false)) ])
       Infer.Env.types = Map([]) }
 
   let result =

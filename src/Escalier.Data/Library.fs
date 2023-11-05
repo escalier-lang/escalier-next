@@ -24,6 +24,7 @@ module Syntax =
     | For of leff: Pattern * right: Expr * body: Block
     | Return of option<Expr>
     | Decl of Decl
+    | Assign
 
   type Stmt = { span: Span; kind: StmtKind }
 
@@ -43,17 +44,27 @@ module Syntax =
       | Undefined -> "undefined"
 
   type ObjPatElem =
-    | KeyValue of span: Span * key: string * value: Pattern * init: option<Expr>
-    | Shorthand of span: Span * name: string * init: option<Expr> * is_mut: bool
+    | KeyValuePat of
+      span: Span *
+      key: string *
+      value: Pattern *
+      init: option<Expr>
+    | ShorthandPat of
+      span: Span *
+      name: string *
+      init: option<Expr> *
+      is_mut: bool
+
+  type BindingIdent = Span * string * bool
 
   [<RequireQualifiedAccess>]
   type PatternKind =
-    | Identifier of span: Span * name: string * is_mut: bool
+    | Identifier of BindingIdent
     | Object of elems: list<ObjPatElem>
     | Tuple of elems: list<Pattern>
     | Wildcard
     | Literal of span: Span * value: Literal
-    | Is of span: Span * target: Pattern * id: string * is_mut: bool
+    | Is of span: Span * ident: BindingIdent * is_name: string * is_mut: bool
 
   type Pattern =
     { kind: PatternKind
@@ -232,9 +243,9 @@ module Type =
     | Rest of target: Pattern
 
   type ObjPatElem =
-    | KeyValue of key: string * value: Pattern
-    | Shorthand of name: string * value: option<Type>
-    | Rest of target: Pattern
+    | KeyValuePat of key: string * value: Pattern
+    | ShorthandPat of name: string * value: option<Type>
+    | RestPat of target: Pattern
 
   type FuncParam =
     { pattern: Pattern
@@ -381,8 +392,13 @@ module Type =
           name
           (type_.ToString())
 
+  type TypeVar =
+    { id: int
+      mutable instance: option<Type>
+      bound: option<Type> }
+
   type TypeKind =
-    | TypeVar of id: int * instance: option<Type> * bound: option<Type>
+    | TypeVar of TypeVar
     | TypeRef of
       name: string *
       type_args: option<list<Type>> *
@@ -411,7 +427,10 @@ module Type =
     // TODO: add parenthesizes where necessary
     override this.ToString() =
       match this with
-      | TypeVar(id, _, _) -> $"t{id}"
+      | TypeVar({ id = id; instance = instance }) ->
+        match instance with
+        | Some(instance) -> instance.ToString()
+        | None -> $"t{id}"
       | TypeRef(name, type_args, _) ->
         let sb = StringBuilder()
         sb.Append(name) |> ignore

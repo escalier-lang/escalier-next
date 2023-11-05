@@ -6,10 +6,16 @@ open Escalier.Data.Type
 open Escalier.TypeChecker.Unify
 open Escalier.TypeChecker.Errors
 
+module TypeVariable =
+  let mutable next_id = 0
+
 module rec Infer =
+  type Binding = Type * bool
+  type Assump = Map<string, Binding>
+
   type Env =
     { types: Map<string, Type>
-      values: Map<string, Type> }
+      values: Map<string, Binding> }
 
   let infer_expr (env: Env) (e: Expr) : Result<Type, TypeError> =
     let provenance = Some(Provenance.Expr(e))
@@ -19,7 +25,7 @@ module rec Infer =
         match e.kind with
         | ExprKind.Identifer name ->
           match Map.tryFind name env.values with
-          | Some(t) -> return t.kind // How do we link back to the variable declaration?
+          | Some((t, _)) -> return t.kind // How do we link back to the variable declaration?
           | None -> return! Error(NotImplemented)
         | ExprKind.Literal lit -> return TypeKind.Literal(lit)
         | ExprKind.Object elems -> return! Error(NotImplemented)
@@ -61,10 +67,7 @@ module rec Infer =
 
             return TypeKind.Primitive(Primitive.Boolean)
           | Equal
-          | NotEqual ->
-            do! unify left right
-
-            return TypeKind.Primitive(Primitive.Boolean)
+          | NotEqual -> return TypeKind.Primitive(Primitive.Boolean)
           | And
           | Or ->
             let boolean =
@@ -116,12 +119,21 @@ module rec Infer =
     t
 
   let infer_block (env: Env) (b: BlockOrExpr) : Result<Type, TypeError> =
+    let mutable env' = env
+
     match b with
     | BlockOrExpr.Block block ->
       result {
-        // TODO: make this recursive
         for stmt in block.stmts do
-          do! infer_stmt env stmt
+          match! infer_stmt env' stmt with
+          | Some(assump) ->
+            let mutable values = env'.values
+
+            for KeyValue(name, binding) in assump do
+              values <- values.Add(name, binding)
+
+            env' <- { env' with values = values }
+          | None -> ()
 
         let last = List.last block.stmts
 
@@ -134,12 +146,73 @@ module rec Infer =
       }
     | BlockOrExpr.Expr e -> infer_expr env e
 
-  let infer_stmt (env: Env) (s: Stmt) : Result<unit, TypeError> =
+  let infer_stmt (env: Env) (s: Stmt) : Result<option<Assump>, TypeError> =
     result {
       match s.kind with
       | StmtKind.Expr e ->
         infer_expr env e |> ignore
-        return ()
+        return None
+      | StmtKind.Decl(decl) ->
+        match decl.kind with
+        | DeclKind.TypeDecl(name, type_ann, type_params) -> return None
+        | DeclKind.VarDecl(pattern, init, type_ann, is_declare) ->
+          let! pat_bindings, pat_type = infer_pattern env pattern
+
+          match init with
+          | Some(init) ->
+            let! init_type = infer_expr env init
+
+            match type_ann with
+            | Some(type_ann) -> return! Error(NotImplemented)
+            | None ->
+              do! unify init_type pat_type
+              return Some(pat_bindings)
+          | None -> return! Error(NotImplemented)
       // TODO: implement the rest
       | _ -> return! Error(NotImplemented)
     }
+
+  let infer_pattern
+    (env: Env)
+    (pat: Escalier.Data.Syntax.Pattern)
+    : Result<(Assump * Type), TypeError> =
+    let mutable assump = Assump([])
+    let rec foo x = x
+
+    let rec infer_pattern_rec (pat: Escalier.Data.Syntax.Pattern) : Type =
+      match pat.kind with
+      | PatternKind.Identifier(_, name, isMut) ->
+        let t =
+          { Type.kind =
+              TypeKind.TypeVar(
+                { id = TypeVariable.next_id
+                  instance = None
+                  bound = None }
+              )
+            provenance = None }
+
+        // TODO: check if `name` already exists in `assump`
+        assump <- assump.Add(name, (t, isMut))
+        t
+      | PatternKind.Literal(_, literal) ->
+        { Type.kind = TypeKind.Literal(literal)
+          provenance = None }
+      | PatternKind.Object elems -> failwith "todo"
+      | PatternKind.Tuple elems ->
+        let elems' = List.map infer_pattern_rec elems
+
+        { Type.kind = TypeKind.Tuple(elems')
+          provenance = None }
+      | PatternKind.Wildcard ->
+        { Type.kind = TypeKind.Wildcard
+          provenance = None }
+      | PatternKind.Is(span, binding, isName, isMut) ->
+        match Map.tryFind isName env.types with
+        | Some(t) ->
+          let (_, bindingName, isMut) = binding
+          assump <- assump.Add(bindingName, (t, isMut))
+          t
+        | None -> failwith "todo"
+
+    let t = infer_pattern_rec pat
+    Result.Ok((assump, t))

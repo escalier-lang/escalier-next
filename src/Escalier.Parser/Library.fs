@@ -8,7 +8,12 @@ module Say =
   open Escalier.Data.Type
 
   let t =
-    { kind = TypeKind.TypeVar(id = 0, instance = None, bound = None)
+    { kind =
+        TypeKind.TypeVar(
+          { id = 0
+            instance = None
+            bound = None }
+        )
       provenance = None }
 
   open Escalier.Data.Syntax

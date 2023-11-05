@@ -106,7 +106,12 @@ module rec Infer =
       }
 
     let t =
-      Result.map (fun kind -> { kind = kind; provenance = provenance }) kind
+      Result.map
+        (fun kind ->
+          let t = { kind = kind; provenance = provenance }
+          e.inferred_type <- Some(t)
+          t)
+        kind
 
     t
 
@@ -114,15 +119,27 @@ module rec Infer =
     match b with
     | BlockOrExpr.Block block ->
       result {
-        let! stmts' = List.traverseResultM (infer_stmt env) block.stmts
-        return List.last stmts'
+        // TODO: make this recursive
+        for stmt in block.stmts do
+          do! infer_stmt env stmt
+
+        let last = List.last block.stmts
+
+        match last.kind with
+        | StmtKind.Expr e ->
+          match e.inferred_type with
+          | Some(t) -> return t
+          | None -> return! Error(NotInferred)
+        | _ -> return! Error(NotImplemented)
       }
     | BlockOrExpr.Expr e -> infer_expr env e
 
-  let infer_stmt (env: Env) (s: Stmt) : Result<Type, TypeError> =
+  let infer_stmt (env: Env) (s: Stmt) : Result<unit, TypeError> =
     result {
       match s.kind with
-      | StmtKind.Expr e -> return! infer_expr env e
+      | StmtKind.Expr e ->
+        infer_expr env e |> ignore
+        return ()
       // TODO: implement the rest
       | _ -> return! Error(NotImplemented)
     }

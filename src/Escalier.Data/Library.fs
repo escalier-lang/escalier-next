@@ -147,7 +147,7 @@ module Syntax =
 
   type ObjTypeAnnElem = int
 
-  type KeywordType =
+  type KeywordTypeAnn =
     | Boolean
     | Number
     | String
@@ -188,7 +188,7 @@ module Syntax =
     | BooleanLiteral of value: bool
     | NumberLiteral of value: string
     | StringLiteral of value: string
-    | Keyword of keyword: KeywordType
+    | Keyword of keyword: KeywordTypeAnn
     | Object of elems: list<ObjTypeAnnElem>
     | Tuple of elems: list<TypeAnn>
     | Array of elem: TypeAnn

@@ -28,7 +28,7 @@ module private TypeAnnotations =
 
     let keyword =
       choice
-        [ (str_ws "object" |>> fun _ -> KeywordType.Object)
+        [ (str_ws "object" |>> fun _ -> KeywordTypeAnn.Object)
           (str_ws "never" |>> fun _ -> Never)
           (str_ws "unknown" |>> fun _ -> Unknown)
           (str_ws "boolean" |>> fun _ -> Boolean)

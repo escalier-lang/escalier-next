@@ -93,21 +93,26 @@ test stringLiteral3 "\"hello,\t\tworld!\""
 let name = "world"
 let msg = $"hello, {name}!"
 
-test Parser.expr "1 + 2 * -abc"
-test Parser.expr "msg = \"Hello,\\tworld!\""
-// test Parser.expr "`a ${b} c ${d} e`"
-test Parser.expr "`a ${`b ${c} d`} e`"
-test Parser.expr "`a ${`b ${c} d` e`"
+let test' p str =
+  match p str with
+  | Success(result, _, _) -> printfn "Success: %A" result
+  | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
 
-test Parser.expr "array[0]()"
-test Parser.expr "foo()[0]"
+test' Parser.expr "1 + 2 * -abc"
+test' Parser.expr "msg = \"Hello,\\tworld!\""
+// test' Parser.expr "`a ${b} c ${d} e`"
+test' Parser.expr "`a ${`b ${c} d`} e`"
+test' Parser.expr "`a ${`b ${c} d` e`"
 
-test Parser.expr "fn (x, y) { return x + y }"
-test Parser.expr "fn (x, y) { return }"
-test Parser.stmt "let sum = x + y"
+test' Parser.expr "array[0]()"
+test' Parser.expr "foo()[0]"
 
-test Parser.typeAnn "number | string | boolean"
-test Parser.typeAnn "number & string & boolean"
+test' Parser.expr "fn (x, y) { return x + y }"
+test' Parser.expr "fn (x, y) { return }"
+test' Parser.stmt "let sum = x + y"
+
+test' Parser.typeAnn "number | string | boolean"
+test' Parser.typeAnn "number & string & boolean"
 // TODO: figure out how to parse this
-test Parser.typeAnn "number[]"
-test Parser.typeAnn "Foo"
+test' Parser.typeAnn "number[]"
+test' Parser.typeAnn "Foo"

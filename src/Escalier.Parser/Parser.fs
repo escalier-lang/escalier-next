@@ -1,7 +1,11 @@
 namespace Escalier.Parser
 
+open FParsec
+
 module Parser =
-  let expr = Expressions.expr
-  let pattern = Patterns.pattern
-  let stmt = Statements.stmt
-  let typeAnn = TypeAnnotations.typeAnn
+  let expr = run Expressions.expr
+  let pattern = run Patterns.pattern
+  let stmt = run Statements.stmt
+  let typeAnn = run TypeAnnotations.typeAnn
+
+  let script = run (many Statements.stmt)

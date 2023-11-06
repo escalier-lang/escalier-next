@@ -8,8 +8,13 @@ module Say =
   open Escalier.Data.Type
 
   let t =
-    { kind = TypeKind.TypeVar(id = 0, instance = None, bound = None)
-      provenance = ref None }
+    { kind =
+        TypeKind.TypeVar(
+          { id = 0
+            instance = None
+            bound = None }
+        )
+      provenance = None }
 
   open Escalier.Data.Syntax
 
@@ -21,4 +26,4 @@ module Say =
       span = { start = start; stop = stop }
       inferred_type = Some(t) }
 
-  t.provenance.Value <- Some(Provenance.Expr(expr))
+  t.provenance <- Some(Provenance.Expr(expr))

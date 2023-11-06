@@ -26,7 +26,11 @@ module private Patterns =
     withSpan ident
     |>> fun (id, span) ->
       { Pattern.kind =
-          PatternKind.Identifier(name = id, is_mut = false, span = span)
+          PatternKind.Identifier(
+            { name = id
+              span = span
+              isMut = false }
+          )
         span = span
         inferred_type = None }
 
@@ -55,7 +59,7 @@ module private Patterns =
     pipe4 getPosition ident pattern getPosition
     <| fun start id pat stop ->
       let span = { start = start; stop = stop }
-      KeyValue(span = span, key = id, value = pat, init = None)
+      KeyValuePat(span = span, key = id, value = pat, init = None)
 
   let private objPatElem = objPatKeyValue
 

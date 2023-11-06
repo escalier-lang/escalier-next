@@ -81,7 +81,13 @@ module private Expressions =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let funcParam = ident //  .>> (str_ws ":" >>. ident)
+  let funcParam: Parser<FuncParam, unit> =
+    pipe2 pattern (opt (str_ws ":" >>. typeAnn))
+    <| fun pattern typeAnn ->
+      { pattern = pattern
+        typeAnn = typeAnn
+        optional = false // TODO: parse `?` in func params
+      }
 
   let block: Parser<BlockOrExpr, unit> =
     pipe3
@@ -101,8 +107,15 @@ module private Expressions =
       (between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ",")))
       block
       getPosition
-    <| fun start _ params_ body stop ->
-      { kind = ExprKind.Function(params_, body)
+    <| fun start _ param_list body stop ->
+      let f =
+        { param_list = param_list
+          return_type = None // TODO: parse return type
+          type_params = None // TODO: parse type param list
+          throws = None // TODO: parse `throws` clause
+          body = body }
+
+      { kind = ExprKind.Function f
         span = { start = start; stop = stop }
         inferred_type = None }
 

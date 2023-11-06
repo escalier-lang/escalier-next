@@ -95,41 +95,7 @@ module rec Infer =
 
             return TypeKind.Primitive(Primitive.Boolean)
         | ExprKind.Unary(op, value) -> return! Error(NotImplemented)
-        | ExprKind.Function(param_list, body) ->
-          let mutable env = env
-
-          let param_list =
-            List.map
-              (fun name ->
-                let t = TypeVariable.fresh ()
-
-                env <-
-                  { env with
-                      values = env.values.Add(name, (t, false)) }
-
-                { pattern = Pattern.Identifier(name)
-                  type_ = t
-                  optional = false })
-              param_list
-
-          // TODO:
-          // - find all return statements inside the body
-          // - handle async/await
-          // - handle throws
-          let! return_type = infer_block env body
-
-          let never =
-            { kind = TypeKind.Keyword(KeywordType.Never)
-              provenance = None }
-
-          let func =
-            { param_list = param_list
-              return_type = return_type
-              type_params = None
-              throws = never }
-
-          return TypeKind.Function(func)
-
+        | ExprKind.Function f -> return! infer_func env f
         | ExprKind.Call(callee, type_args, args, opt_chain, throws) ->
           return! Error(NotImplemented)
         | ExprKind.Index(target, index, opt_chain) ->
@@ -167,6 +133,60 @@ module rec Infer =
         kind
 
     t
+
+  let infer_func
+    (env: Env)
+    (f: Escalier.Data.Syntax.Function)
+    : Result<TypeKind, TypeError> =
+    result {
+
+      let mutable env = env
+
+      let! param_list =
+        List.traverseResultM
+          (fun (p: Escalier.Data.Syntax.FuncParam) ->
+            result {
+              let type_ann_t =
+                match p.typeAnn with
+                | Some(typeAnn) -> failwith "TODO: implement infer_type_ann" // TODO
+                | None -> TypeVariable.fresh ()
+
+              let! assumps, param_t = infer_pattern env p.pattern
+
+              do! unify param_t type_ann_t
+
+              // TODO: add `non_generic` to env (or replace Env with Context)
+              for KeyValue(name, binding) in assumps do
+                env <-
+                  { env with
+                      values = env.values.Add(name, binding) }
+
+              return
+                { pattern = pattern_to_pattern p.pattern
+                  type_ = type_ann_t
+                  optional = false }
+            })
+
+          f.param_list
+
+      // TODO:
+      // - find all return statements inside the body
+      // - handle async/await
+      // - handle throws
+      let! return_type = infer_block env f.body
+
+      let never =
+        { kind = TypeKind.Keyword(KeywordType.Never)
+          provenance = None }
+
+      let func =
+        { param_list = param_list
+          return_type = return_type
+          type_params = None
+          throws = never }
+
+      return TypeKind.Function(func)
+    }
 
   let infer_block (env: Env) (b: BlockOrExpr) : Result<Type, TypeError> =
     let mutable env' = env
@@ -285,6 +305,19 @@ module rec Infer =
 
       return env'
     }
+
+  let rec pattern_to_pattern (pat: Escalier.Data.Syntax.Pattern) : Pattern =
+    match pat.kind with
+    | PatternKind.Identifier({ name = name; isMut = isMut }) ->
+      Pattern.Identifier(name)
+    | PatternKind.Is(span, bindingIdent, isName, isMut) ->
+      Pattern.Is(bindingIdent, isName)
+    | PatternKind.Object elems -> failwith "todo" // TODO
+    | PatternKind.Tuple elems ->
+      Pattern.Tuple(List.map pattern_to_pattern elems)
+    | PatternKind.Wildcard -> Pattern.Wildcard
+    | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
+
 
 // TODO: infer_script
 // TODO: infer_module

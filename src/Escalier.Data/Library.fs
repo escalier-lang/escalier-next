@@ -67,6 +67,7 @@ module Syntax =
     | Tuple of elems: list<Pattern>
     | Wildcard
     | Literal of span: Span * value: Literal
+    // TODO: get rid of `is_mut` since it's covered by `ident: BindingIdent`
     | Is of span: Span * ident: BindingIdent * is_name: string * is_mut: bool
 
   type Pattern =
@@ -125,6 +126,18 @@ module Syntax =
     { parts: list<string>
       exprs: list<Expr> }
 
+  type FuncParam =
+    { pattern: Pattern
+      typeAnn: option<TypeAnn>
+      optional: bool }
+
+  type Function =
+    { param_list: list<FuncParam>
+      return_type: option<TypeAnn>
+      type_params: option<list<TypeParam>>
+      throws: option<TypeAnn>
+      body: BlockOrExpr }
+
   type ExprKind =
     | Identifer of string
     | Literal of Literal
@@ -133,7 +146,7 @@ module Syntax =
     | Assign of left: Expr * op: AssignOp * right: Expr
     | Binary of left: Expr * op: BinaryOp * right: Expr
     | Unary of op: string * value: Expr
-    | Function of param_list: list<string> * body: BlockOrExpr
+    | Function of Function
     | Call of
       callee: Expr *
       type_args: option<list<TypeAnn>> *
@@ -245,7 +258,7 @@ module Type =
     | Tuple of elems: list<Pattern>
     | Wildcard
     | Literal of Syntax.Literal
-    | Is of target: Pattern * id: string
+    | Is of target: Syntax.BindingIdent * id: string
     | Rest of target: Pattern
 
     override this.ToString() =
@@ -421,7 +434,7 @@ module Type =
     | TypeRef of
       name: string *
       type_args: option<list<Type>> *
-      scheme: option<Scheme>
+      scheme: option<Scheme> // used so that we can reference a type ref's scheme without importing it
     | Literal of Syntax.Literal
     | Primitive of Primitive
     | Tuple of list<Type>

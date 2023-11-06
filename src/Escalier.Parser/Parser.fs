@@ -7,3 +7,5 @@ module Parser =
   let pattern = run Patterns.pattern
   let stmt = run Statements.stmt
   let typeAnn = run TypeAnnotations.typeAnn
+
+  let script = run (many Statements.stmt)

@@ -27,6 +27,24 @@ let infer src =
     return t
   }
 
+let infer_script src =
+  result {
+    let! script =
+      match Parser.script src with
+      | Success(value, _, _) -> Result.Ok(value)
+      | Failure(s, parserError, unit) ->
+        Result.mapError (CompileError.ParseError) (Result.Error(parserError))
+
+    let env =
+      { Infer.Env.values = Map([])
+        Infer.Env.types = Map([]) }
+
+    let! env =
+      Result.mapError (CompileError.TypeError) (Infer.infer_script env script)
+
+    return env
+  }
+
 let infer_with_env src env =
   result {
     let! ast =
@@ -98,6 +116,55 @@ let InferIdentifier () =
     result {
       let! t = infer_with_env "foo" env
       Assert.Equal("number", t.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferLetStatements () =
+  let result =
+    result {
+      let! env = infer_script "let foo = 5\nlet bar =\"hello\""
+      let (foo, _) = Map.find "foo" env.values
+      let (bar, _) = Map.find "bar" env.values
+      Assert.Equal("5", foo.ToString())
+      Assert.Equal("\"hello\"", bar.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferBinOpsOnPrimitives () =
+  let result =
+    result {
+      let src =
+        """
+          let x = 5
+          let y = 10
+          let sum = x + y
+          """
+
+      let! env = infer_script src
+      let (sum, _) = Map.find "sum" env.values
+      Assert.Equal("number", sum.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncParams () =
+  let result =
+    result {
+      let src =
+        """
+          let add = fn (x, y) {
+            x + y
+          }
+          """
+
+      let! env = infer_script src
+      let (sum, _) = Map.find "add" env.values
+      Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
     }
 
   Assert.False(Result.isError result)

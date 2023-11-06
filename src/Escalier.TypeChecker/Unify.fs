@@ -30,7 +30,12 @@ module Unify =
       | TypeKind.Union types -> occurs_in v types
       | TypeKind.Intersection types -> occurs_in v types
       | TypeKind.Keyword _ -> false // leaf node
-      | TypeKind.Function ``function`` -> failwith "todo"
+      | TypeKind.Function func ->
+        let param_types = List.map (fun p -> p.type_) func.param_list
+
+        (occurs_in v param_types)
+        || (occurs_in_type v func.return_type)
+        || (occurs_in_type v func.throws)
       | TypeKind.Object objTypeElems -> failwith "todo"
       | TypeKind.Rest t -> occurs_in_type v t
       | TypeKind.KeyOf t -> occurs_in_type v t

@@ -55,7 +55,10 @@ module Syntax =
       init: option<Expr> *
       is_mut: bool
 
-  type BindingIdent = Span * string * bool
+  type BindingIdent =
+    { span: Span
+      name: string
+      isMut: bool }
 
   [<RequireQualifiedAccess>]
   type PatternKind =
@@ -222,6 +225,9 @@ module Syntax =
       span: Span
       mutable inferred_type: option<Type.Type> }
 
+  // TODO: add support for imports
+  type Script = list<Stmt>
+
 module Type =
   type TypeParam =
     { name: string
@@ -241,6 +247,19 @@ module Type =
     | Literal of Syntax.Literal
     | Is of target: Pattern * id: string
     | Rest of target: Pattern
+
+    override this.ToString() =
+      match this with
+      | Identifier(name) -> name
+      | Object(elems) ->
+        sprintf
+          "{%A}"
+          (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
+      | Tuple(elems) -> $"[{elems |> List.map (fun e -> e.ToString())}]"
+      | Wildcard -> "_"
+      | Literal(lit) -> lit.ToString()
+      | Is(target, id) -> $"{target} is {id}"
+      | Rest(target) -> $"...{target}"
 
   type ObjPatElem =
     | KeyValuePat of key: string * value: Pattern

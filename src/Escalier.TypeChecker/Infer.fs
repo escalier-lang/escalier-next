@@ -9,6 +9,22 @@ open Escalier.TypeChecker.Errors
 module TypeVariable =
   let mutable next_id = 0
 
+  let reset () = next_id <- 0
+
+  let fresh () =
+    let t =
+      { Type.kind =
+          TypeKind.TypeVar(
+            { id = next_id
+              instance = None
+              bound = None }
+          )
+        provenance = None }
+
+    next_id <- next_id + 1
+
+    t
+
 module rec Infer =
   type Binding = Type * bool
   type Assump = Map<string, Binding>
@@ -79,7 +95,41 @@ module rec Infer =
 
             return TypeKind.Primitive(Primitive.Boolean)
         | ExprKind.Unary(op, value) -> return! Error(NotImplemented)
-        | ExprKind.Function(param_list, body) -> return! Error(NotImplemented)
+        | ExprKind.Function(param_list, body) ->
+          let mutable env = env
+
+          let param_list =
+            List.map
+              (fun name ->
+                let t = TypeVariable.fresh ()
+
+                env <-
+                  { env with
+                      values = env.values.Add(name, (t, false)) }
+
+                { pattern = Pattern.Identifier(name)
+                  type_ = t
+                  optional = false })
+              param_list
+
+          // TODO:
+          // - find all return statements inside the body
+          // - handle async/await
+          // - handle throws
+          let! return_type = infer_block env body
+
+          let never =
+            { kind = TypeKind.Keyword(KeywordType.Never)
+              provenance = None }
+
+          let func =
+            { param_list = param_list
+              return_type = return_type
+              type_params = None
+              throws = never }
+
+          return TypeKind.Function(func)
+
         | ExprKind.Call(callee, type_args, args, opt_chain, throws) ->
           return! Error(NotImplemented)
         | ExprKind.Index(target, index, opt_chain) ->
@@ -181,7 +231,7 @@ module rec Infer =
 
     let rec infer_pattern_rec (pat: Escalier.Data.Syntax.Pattern) : Type =
       match pat.kind with
-      | PatternKind.Identifier(_, name, isMut) ->
+      | PatternKind.Identifier({ name = name; isMut = isMut }) ->
         let t =
           { Type.kind =
               TypeKind.TypeVar(
@@ -190,6 +240,8 @@ module rec Infer =
                   bound = None }
               )
             provenance = None }
+
+        TypeVariable.next_id <- TypeVariable.next_id + 1
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
@@ -209,10 +261,33 @@ module rec Infer =
       | PatternKind.Is(span, binding, isName, isMut) ->
         match Map.tryFind isName env.types with
         | Some(t) ->
-          let (_, bindingName, isMut) = binding
-          assump <- assump.Add(bindingName, (t, isMut))
+          assump <- assump.Add(binding.name, (t, binding.isMut))
           t
         | None -> failwith "todo"
 
     let t = infer_pattern_rec pat
     Result.Ok((assump, t))
+
+  let infer_script (env: Env) (script: Script) : Result<Env, TypeError> =
+    let mutable env' = env
+
+    result {
+      for stmt in script do
+        match! infer_stmt env' stmt with
+        | Some(assump) ->
+          let mutable values = env'.values
+
+          for KeyValue(name, binding) in assump do
+            values <- values.Add(name, binding)
+
+          env' <- { env' with values = values }
+        | None -> ()
+
+      return env'
+    }
+
+// TODO: infer_script
+// TODO: infer_module
+// These will allow us to more thoroughly test infer_stmt and infer_pattern
+// Both should return a modified Env so that we can check to see what
+// values and types were defined

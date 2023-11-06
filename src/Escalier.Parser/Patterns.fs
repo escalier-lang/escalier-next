@@ -25,7 +25,12 @@ module private Patterns =
   let private identPattern =
     withSpan ident
     |>> fun (id, span) ->
-      { Pattern.kind = PatternKind.Identifier(span, id, false)
+      { Pattern.kind =
+          PatternKind.Identifier(
+            { name = id
+              span = span
+              isMut = false }
+          )
         span = span
         inferred_type = None }
 

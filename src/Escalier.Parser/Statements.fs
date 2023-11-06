@@ -25,17 +25,18 @@ module private Statements =
     <| fun start value stop -> (value, { start = start; stop = stop })
 
   let private exprStmt: Parser<Stmt, unit> =
-    withSpan expr |>> fun (e, span) -> { Stmt.kind = Expr(e); span = span }
+    withSpan (ws >>. expr)
+    |>> fun (e, span) -> { Stmt.kind = Expr(e); span = span }
 
   let private returnStmt: Parser<Stmt, unit> =
-    withSpan ((str_ws "return") >>. opt expr)
+    withSpan (ws >>. str_ws "return" >>. opt expr)
     |>> fun (e, span) -> { Stmt.kind = Return(e); span = span }
 
   // `let <expr> = <expr>`
   let private varDecl =
     pipe4
       getPosition
-      (str_ws "let" >>. pattern)
+      (ws >>. str_ws "let" >>. pattern)
       (str_ws "=" >>. expr)
       getPosition
     <| fun start pat init stop ->
@@ -52,7 +53,7 @@ module private Statements =
   let private typeDecl =
     pipe4
       getPosition
-      (str_ws "type" >>. ident)
+      (ws >>. str_ws "type" >>. ident)
       (str_ws "=" >>. typeAnn)
       getPosition
     <| fun start id typeAnn stop ->

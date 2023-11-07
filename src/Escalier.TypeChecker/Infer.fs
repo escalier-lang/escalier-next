@@ -144,12 +144,12 @@ module rec Infer =
 
       let! param_list =
         List.traverseResultM
-          (fun (p: Escalier.Data.Syntax.FuncParam) ->
+          (fun p ->
             result {
-              let type_ann_t =
+              let! type_ann_t =
                 match p.typeAnn with
-                | Some(typeAnn) -> failwith "TODO: implement infer_type_ann" // TODO
-                | None -> TypeVariable.fresh ()
+                | Some(typeAnn) -> infer_type_ann env typeAnn
+                | None -> Result.Ok(TypeVariable.fresh ())
 
               let! assumps, param_t = infer_pattern env p.pattern
 
@@ -187,6 +187,138 @@ module rec Infer =
 
       return TypeKind.Function(func)
     }
+
+  let infer_type_ann (env: Env) (typeAnn: TypeAnn) : Result<Type, TypeError> =
+    let kind: Result<TypeKind, TypeError> =
+      result {
+        match typeAnn.kind with
+        | TypeAnnKind.Array elem ->
+          let! elem = infer_type_ann env elem
+          return TypeKind.Array(elem)
+        | TypeAnnKind.BooleanLiteral value ->
+          return TypeKind.Literal(Literal.Boolean value)
+        | TypeAnnKind.NumberLiteral value ->
+          return TypeKind.Literal(Literal.Number value)
+        | TypeAnnKind.StringLiteral value ->
+          return TypeKind.Literal(Literal.String value)
+        | TypeAnnKind.Keyword keyword ->
+          match keyword with
+          | KeywordTypeAnn.Boolean ->
+            return TypeKind.Primitive(Primitive.Boolean)
+          | KeywordTypeAnn.Number -> return TypeKind.Primitive(Primitive.Number)
+          | KeywordTypeAnn.String -> return TypeKind.Primitive(Primitive.String)
+          | KeywordTypeAnn.Symbol -> return TypeKind.Primitive(Primitive.Symbol)
+          | KeywordTypeAnn.Null -> return TypeKind.Literal(Literal.Null)
+          | KeywordTypeAnn.Undefined ->
+            return TypeKind.Literal(Literal.Undefined)
+          | KeywordTypeAnn.Unknown ->
+            return TypeKind.Keyword(KeywordType.Unknown)
+          | KeywordTypeAnn.Never -> return TypeKind.Keyword(KeywordType.Never)
+          | KeywordTypeAnn.Object -> return TypeKind.Keyword(KeywordType.Object)
+        | TypeAnnKind.Object elems ->
+          let! elems =
+            List.traverseResultM
+              (fun (elem: ObjTypeAnnElem) ->
+                result {
+                  // let! t = infer_type_ann env p.typeAnn
+                  // let pattern = pattern_to_pattern p.pattern
+
+                  // let elem: ObjTypeElem =
+                  //   match elem with
+                  //   | Callable f ->
+
+                  // return
+                  //   { pattern = pattern
+                  //     type_ = t
+                  //     optional = false }
+
+                  return! Error(TypeError.NotImplemented)
+                })
+              elems
+
+          return TypeKind.Object(elems)
+
+        | TypeAnnKind.Tuple elems ->
+          let! elems = List.traverseResultM (infer_type_ann env) elems
+          return TypeKind.Tuple(elems)
+        | TypeAnnKind.Union types ->
+          let! types = List.traverseResultM (infer_type_ann env) types
+          return TypeKind.Union(types)
+        | TypeAnnKind.Intersection types ->
+          let! types = List.traverseResultM (infer_type_ann env) types
+          return TypeKind.Intersection types
+        | TypeAnnKind.TypeRef(name, typeArgs) ->
+          match typeArgs with
+          | Some(typeArgs) ->
+            let! typeArgs = List.traverseResultM (infer_type_ann env) typeArgs
+            return TypeKind.TypeRef(name, Some(typeArgs), None)
+          | None -> return TypeKind.TypeRef(name, None, None)
+        | TypeAnnKind.Function functionType ->
+          let! return_type = infer_type_ann env functionType.return_type
+
+          let! throws =
+            match functionType.throws with
+            | Some(throws) -> infer_type_ann env throws
+            | None ->
+              Result.Ok(
+                { Type.kind = TypeKind.Keyword(KeywordType.Never)
+                  provenance = None }
+              )
+
+          let! param_list =
+            List.traverseResultM
+              (fun p ->
+                result {
+                  let! t = infer_type_ann env p.typeAnn
+                  let pattern = pattern_to_pattern p.pattern
+
+                  return
+                    { pattern = pattern
+                      type_ = t
+                      optional = false }
+                })
+              functionType.params_
+
+          let f =
+            { param_list = param_list
+              return_type = return_type
+              type_params = None
+              throws = throws }
+
+          return TypeKind.Function(f)
+        | TypeAnnKind.Keyof target ->
+          return! infer_type_ann env target |> Result.map TypeKind.KeyOf
+        | TypeAnnKind.Rest target ->
+          return! infer_type_ann env target |> Result.map TypeKind.Rest
+        | TypeAnnKind.Typeof target -> return! Error(TypeError.NotImplemented) // TODO: add Typeof to TypeKind
+        | TypeAnnKind.Index(target, index) ->
+          let! target = infer_type_ann env target
+          let! index = infer_type_ann env index
+          return TypeKind.Index(target, index)
+        | TypeAnnKind.Condition conditionType ->
+          let! check = infer_type_ann env conditionType.check
+          let! extends = infer_type_ann env conditionType.extends
+          let! trueType = infer_type_ann env conditionType.true_type
+          let! falseType = infer_type_ann env conditionType.false_type
+          return TypeKind.Condition(check, extends, trueType, falseType)
+        | TypeAnnKind.Match matchType -> return! Error(TypeError.NotImplemented) // TODO
+        | TypeAnnKind.Infer name -> return TypeKind.Infer name
+        | TypeAnnKind.Wildcard -> return TypeKind.Wildcard
+        | TypeAnnKind.Binary(left, op, right) ->
+          let! left = infer_type_ann env left
+          let! right = infer_type_ann env right
+          return TypeKind.Binary(left, op, right)
+      }
+
+    let t: Result<Type, TypeError> =
+      Result.map
+        (fun kind ->
+          let t = { kind = kind; provenance = None }
+          typeAnn.inferred_type <- Some(t)
+          t)
+        kind
+
+    t
 
   let infer_block (env: Env) (b: BlockOrExpr) : Result<Type, TypeError> =
     let mutable env' = env

@@ -126,13 +126,13 @@ module Syntax =
     { parts: list<string>
       exprs: list<Expr> }
 
-  type FuncParam =
+  type FuncParam<'T> =
     { pattern: Pattern
-      typeAnn: option<TypeAnn>
+      typeAnn: 'T
       optional: bool }
 
   type Function =
-    { param_list: list<FuncParam>
+    { param_list: list<FuncParam<option<TypeAnn>>>
       return_type: option<TypeAnn>
       type_params: option<list<TypeParam>>
       throws: option<TypeAnn>
@@ -172,7 +172,12 @@ module Syntax =
       span: Span
       mutable inferred_type: option<Type.Type> }
 
-  type ObjTypeAnnElem = int
+  type ObjTypeAnnElem =
+    | Callable of Function
+    | Constructor of Function
+    | Method of name: string * is_mut: bool * type_: Function
+    | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
+    | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
 
   type KeywordTypeAnn =
     | Boolean
@@ -193,9 +198,9 @@ module Syntax =
 
   type FunctionType =
     { type_params: option<list<TypeParam>>
-      params_: list<TypeAnn>
+      params_: list<FuncParam<TypeAnn>>
       return_type: TypeAnn
-      throws: option<Type.Type> }
+      throws: option<TypeAnn> }
 
   type ConditionType =
     { check: TypeAnn

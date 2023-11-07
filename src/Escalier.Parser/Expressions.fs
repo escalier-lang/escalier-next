@@ -81,7 +81,7 @@ module private Expressions =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let funcParam: Parser<FuncParam, unit> =
+  let funcParam: Parser<FuncParam<option<TypeAnn>>, unit> =
     pipe2 pattern (opt (str_ws ":" >>. typeAnn))
     <| fun pattern typeAnn ->
       { pattern = pattern
@@ -100,20 +100,32 @@ module private Expressions =
           stmts = stmts }
       )
 
-  let func: Parser<Expr, unit> =
-    pipe5
-      getPosition
-      (str_ws "fn")
-      (between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ",")))
-      block
-      getPosition
-    <| fun start _ param_list body stop ->
-      let f =
-        { param_list = param_list
-          return_type = None // TODO: parse return type
-          type_params = None // TODO: parse type param list
-          throws = None // TODO: parse `throws` clause
-          body = body }
+  let type_param: Parser<TypeParam, unit> =
+    pipe3 getPosition ident getPosition
+    <| fun start name stop ->
+      { name = name
+        bound = None // TODO: parse type bounds
+        default_ = None // TODO: parse default type
+        span = { start = start; stop = stop } }
+
+  let type_params: Parser<list<TypeParam>, unit> =
+    between (str_ws "<") (str_ws ">") (sepBy type_param (str_ws ","))
+
+  let param_list: Parser<list<FuncParam<option<TypeAnn>>>, unit> =
+    between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ","))
+
+  let func: Parser<Function, unit> =
+    pipe3 (str_ws "fn" >>. param_list) (opt (str_ws "->" >>. typeAnn)) block
+    <| fun param_list return_type body ->
+      { param_list = param_list
+        return_type = return_type
+        type_params = None // TODO: parse type param list
+        throws = None // TODO: parse `throws` clause
+        body = body }
+
+  let func_expr: Parser<Expr, unit> =
+    pipe3 getPosition func getPosition
+    <| fun start f stop ->
 
       { kind = ExprKind.Function f
         span = { start = start; stop = stop }
@@ -139,7 +151,7 @@ module private Expressions =
         inferred_type = None }
 
   let atom =
-    choice [ literalExpr; func; ifElse; templateStringLiteral; identExpr ]
+    choice [ literalExpr; func_expr; ifElse; templateStringLiteral; identExpr ]
 
   let term = (atom .>> ws) <|> between (str_ws "(") (str_ws ")") expr
 

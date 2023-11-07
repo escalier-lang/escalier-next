@@ -168,3 +168,21 @@ let InferFuncParams () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncParamsWithTypeAnns () =
+  let result =
+    result {
+      let src =
+        """
+          let add = fn (x: number, y: number) -> number {
+            x + y
+          }
+          """
+
+      let! env = infer_script src
+      let (sum, _) = Map.find "add" env.values
+      Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
+    }
+
+  Assert.False(Result.isError result)

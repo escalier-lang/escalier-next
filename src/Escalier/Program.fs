@@ -116,3 +116,16 @@ test' Parser.typeAnn "number & string & boolean"
 // TODO: figure out how to parse this
 test' Parser.typeAnn "number[]"
 test' Parser.typeAnn "Foo"
+
+let src =
+  """
+if (true) {
+  5
+} else if (false) {
+  10
+} else {
+  "hello"
+}
+"""
+
+test' Parser.script src

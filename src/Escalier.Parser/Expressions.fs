@@ -131,12 +131,17 @@ module private Expressions =
         span = { start = start; stop = stop }
         inferred_type = None }
 
-  let ifElse: Parser<Expr, unit> =
+  let ifElse, ifElseRef = createParserForwardedToRef<Expr, unit> ()
+
+  ifElseRef.Value <-
     pipe5
       getPosition
       ((str_ws "if") >>. expr)
       block
-      (opt (str_ws "else" >>. block))
+      (opt (
+        str_ws "else"
+        >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e))) <|> block)
+      ))
       getPosition
     <| fun start cond then_ else_ stop ->
       { kind = ExprKind.IfElse(cond, then_, else_)

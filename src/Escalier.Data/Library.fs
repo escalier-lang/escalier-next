@@ -38,7 +38,8 @@ module Syntax =
       match this with
       | Number(value) -> value
       | String(value) -> $"\"{value}\""
-      | Boolean(value) -> value |> string
+      | Boolean(true) -> "true"
+      | Boolean(false) -> "false"
       | Null -> "null"
       | Undefined -> "undefined"
 

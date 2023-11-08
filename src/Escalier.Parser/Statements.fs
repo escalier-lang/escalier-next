@@ -25,18 +25,17 @@ module private Statements =
     <| fun start value stop -> (value, { start = start; stop = stop })
 
   let private exprStmt: Parser<Stmt, unit> =
-    withSpan (ws >>. expr)
-    |>> fun (e, span) -> { Stmt.kind = Expr(e); span = span }
+    withSpan (expr) |>> fun (e, span) -> { Stmt.kind = Expr(e); span = span }
 
   let private returnStmt: Parser<Stmt, unit> =
-    withSpan (ws >>. str_ws "return" >>. opt expr)
+    withSpan (str_ws "return" >>. opt expr)
     |>> fun (e, span) -> { Stmt.kind = Return(e); span = span }
 
   // `let <expr> = <expr>`
   let private varDecl =
     pipe4
       getPosition
-      (ws >>. str_ws "let" >>. pattern)
+      (str_ws "let" >>. pattern)
       (str_ws "=" >>. expr)
       getPosition
     <| fun start pat init stop ->
@@ -53,7 +52,7 @@ module private Statements =
   let private typeDecl =
     pipe4
       getPosition
-      (ws >>. str_ws "type" >>. ident)
+      (str_ws "type" >>. ident)
       (str_ws "=" >>. typeAnn)
       getPosition
     <| fun start id typeAnn stop ->
@@ -67,4 +66,5 @@ module private Statements =
         span = span }
 
   // TODO: Parse for loops
-  ParserRefs.stmtRef.Value <- choice [ varDecl; typeDecl; returnStmt; exprStmt ]
+  ParserRefs.stmtRef.Value <-
+    ws >>. choice [ varDecl; typeDecl; returnStmt; exprStmt ]

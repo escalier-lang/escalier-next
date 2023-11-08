@@ -1,15 +1,37 @@
 ﻿input: fn (x, y) { x }
 output: Success: { kind =
    Function
-     (["x"; "y"],
-      Block { span = { start = (Ln: 1, Col: 11)
-                       stop = (Ln: 1, Col: 16) }
-              stmts = [{ span = { start = (Ln: 1, Col: 13)
-                                  stop = (Ln: 1, Col: 15) }
-                         kind = Expr { kind = Identifer "x"
-                                       span = { start = (Ln: 1, Col: 13)
-                                                stop = (Ln: 1, Col: 15) }
-                                       inferred_type = None } }] })
+     { param_list =
+        [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 5)
+                                                    stop = (Ln: 1, Col: 6) }
+                                           name = "x"
+                                           isMut = false }
+                       span = { start = (Ln: 1, Col: 5)
+                                stop = (Ln: 1, Col: 6) }
+                       inferred_type = None }
+           typeAnn = None
+           optional = false };
+         { pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 8)
+                                                    stop = (Ln: 1, Col: 9) }
+                                           name = "y"
+                                           isMut = false }
+                       span = { start = (Ln: 1, Col: 8)
+                                stop = (Ln: 1, Col: 9) }
+                       inferred_type = None }
+           typeAnn = None
+           optional = false }]
+       return_type = None
+       type_params = None
+       throws = None
+       body =
+        Block { span = { start = (Ln: 1, Col: 11)
+                         stop = (Ln: 1, Col: 16) }
+                stmts = [{ span = { start = (Ln: 1, Col: 13)
+                                    stop = (Ln: 1, Col: 15) }
+                           kind = Expr { kind = Identifer "x"
+                                         span = { start = (Ln: 1, Col: 13)
+                                                  stop = (Ln: 1, Col: 15) }
+                                         inferred_type = None } }] } }
   span = { start = (Ln: 1, Col: 1)
            stop = (Ln: 1, Col: 16) }
   inferred_type = None }

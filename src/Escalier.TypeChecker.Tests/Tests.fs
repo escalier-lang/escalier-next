@@ -67,10 +67,10 @@ let InfersLiterals () =
     Assert.Equal("\"hello\"", str.ToString())
 
     let! bool = infer "true"
-    Assert.Equal("True", bool.ToString())
+    Assert.Equal("true", bool.ToString())
 
     let! bool' = infer "false"
-    Assert.Equal("False", bool'.ToString())
+    Assert.Equal("false", bool'.ToString())
   }
 
 [<Fact>]
@@ -98,6 +98,28 @@ let InferIfElse () =
     result {
       let! t = infer "if (true) { let x = 5\nx } else { \"hello\" }"
       Assert.Equal("5 | \"hello\"", t.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIfElseChaining () =
+  let result =
+    result {
+      let src =
+        """
+      let foo = if (true) {
+        5
+      } else if (false) {
+        "hello"
+      } else {
+        true
+      }
+      """
+
+      let! env = infer_script src
+      let (foo, _) = Map.find "foo" env.values
+      Assert.Equal("5 | \"hello\" | true", foo.ToString())
     }
 
   Assert.False(Result.isError result)
@@ -158,13 +180,56 @@ let InferFuncParams () =
       let src =
         """
           let add = fn (x, y) {
-            x + y
+            return x + y
           }
           """
 
       let! env = infer_script src
       let (sum, _) = Map.find "add" env.values
       Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncParamsWithTypeAnns () =
+  let result =
+    result {
+      let src =
+        """
+          let add = fn (x: number, y: number) -> number {
+            return x + y
+          }
+          """
+
+      let! env = infer_script src
+      let (sum, _) = Map.find "add" env.values
+      Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncWithMultipleReturns () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn (x: number, y: string) {
+            if (x > 0) {
+              return x
+            }
+            return y
+          }
+          """
+
+      let! env = infer_script src
+      let (foo, _) = Map.find "foo" env.values
+
+      Assert.Equal(
+        "fn (x: number, y: string) -> string | number",
+        foo.ToString()
+      )
     }
 
   Assert.False(Result.isError result)

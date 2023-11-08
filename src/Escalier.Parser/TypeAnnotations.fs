@@ -53,6 +53,13 @@ module private TypeAnnotations =
         span = span
         inferred_type = None }
 
+  let private funcTypeAnn =
+    func_sig id |> withSpan
+    |>> fun (f, span) ->
+      { TypeAnn.kind = TypeAnnKind.Function(f)
+        span = span
+        inferred_type = None }
+
   let private keyofTypeAnn =
     withSpan (str_ws "keyof" >>. typeAnn)
     |>> fun (typeAnn, span) ->
@@ -116,6 +123,7 @@ module private TypeAnnotations =
         keywordTypeAnn // aka PredefinedType
         // TODO: objectTypeAnn
         tupleTypeAnn
+        funcTypeAnn
         typeofTypeAnn // aka TypeQuery
         keyofTypeAnn
         restTypeAnn

@@ -249,8 +249,8 @@ let InferTypeDecls () =
           type A = number
           type B = [string, boolean]
           type C = 5 | "hello"
+          type D = fn (x: number) -> number
           """
-      // type D = fn (x: number) -> number
 
       let! env = infer_script src
 
@@ -260,8 +260,8 @@ let InferTypeDecls () =
       Assert.Equal("[string, boolean]", b.type_.ToString())
       let c = Map.find "C" env.schemes
       Assert.Equal("5 | \"hello\"", c.type_.ToString())
-    // let d = Map.find "D" env.schemes
-    // Assert.Equal("fn (x: number) -> number", d.type_.ToString())
+      let d = Map.find "D" env.schemes
+      Assert.Equal("fn (x: number) -> number", d.type_.ToString())
     }
 
   Assert.False(Result.isError result)

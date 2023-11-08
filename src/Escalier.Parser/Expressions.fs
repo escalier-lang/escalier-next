@@ -80,40 +80,12 @@ module private Expressions =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let funcParam: Parser<FuncParam<option<TypeAnn>>, unit> =
-    pipe2 pattern (opt (str_ws ":" >>. typeAnn))
-    <| fun pattern typeAnn ->
-      { pattern = pattern
-        typeAnn = typeAnn
-        optional = false // TODO: parse `?` in func params
-      }
-
   let block: Parser<BlockOrExpr, unit> =
     withSpan (between (str_ws "{") (str_ws "}") (many stmt))
     |>> fun (stmts, span) -> BlockOrExpr.Block({ span = span; stmts = stmts })
 
-  let type_param: Parser<TypeParam, unit> =
-    withSpan ident
-    |>> fun (name, span) ->
-      { name = name
-        bound = None // TODO: parse type bounds
-        default_ = None // TODO: parse default type
-        span = span }
-
-  let type_params: Parser<list<TypeParam>, unit> =
-    between (str_ws "<") (str_ws ">") (sepBy type_param (str_ws ","))
-
-  let param_list: Parser<list<FuncParam<option<TypeAnn>>>, unit> =
-    between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ","))
-
   let func: Parser<Function, unit> =
-    pipe3 (str_ws "fn" >>. param_list) (opt (str_ws "->" >>. typeAnn)) block
-    <| fun param_list return_type body ->
-      { param_list = param_list
-        return_type = return_type
-        type_params = None // TODO: parse type param list
-        throws = None // TODO: parse `throws` clause
-        body = body }
+    pipe2 (func_sig opt) block <| fun sig' body -> { sig' = sig'; body = body }
 
   let funcExpr: Parser<Expr, unit> =
     withSpan func

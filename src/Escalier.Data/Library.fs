@@ -132,10 +132,7 @@ module Syntax =
       optional: bool }
 
   type Function =
-    { param_list: list<FuncParam<option<TypeAnn>>>
-      return_type: option<TypeAnn>
-      type_params: option<list<TypeParam>>
-      throws: option<TypeAnn>
+    { sig': FuncSig<option<TypeAnn>>
       body: BlockOrExpr }
 
   type ExprKind =
@@ -199,11 +196,13 @@ module Syntax =
       bound: option<TypeAnn>
       default_: option<TypeAnn> }
 
-  type FunctionType =
+  type FuncSig<'T> =
     { type_params: option<list<TypeParam>>
-      params_: list<FuncParam<TypeAnn>>
-      return_type: TypeAnn
+      param_list: list<FuncParam<'T>>
+      return_type: 'T
       throws: option<TypeAnn> }
+
+  type FunctionType = FuncSig<TypeAnn>
 
   type ConditionType =
     { check: TypeAnn

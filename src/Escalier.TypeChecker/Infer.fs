@@ -185,7 +185,7 @@ module rec Infer =
                   optional = false }
             })
 
-          f.param_list
+          f.sig'.param_list
 
       // NOTE: infer_block returns a value to help with other uses
       // such as if-else and match expressions.
@@ -309,7 +309,7 @@ module rec Infer =
                       type_ = t
                       optional = false }
                 })
-              functionType.params_
+              functionType.param_list
 
           let f =
             { param_list = param_list

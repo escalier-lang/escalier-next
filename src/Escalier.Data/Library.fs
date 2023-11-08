@@ -24,7 +24,6 @@ module Syntax =
     | For of leff: Pattern * right: Expr * body: Block
     | Return of option<Expr>
     | Decl of Decl
-    | Assign
 
   type Stmt = { span: Span; kind: StmtKind }
 
@@ -155,11 +154,14 @@ module Syntax =
       throws: option<Type.Type>
     | Index of target: Expr * index: Expr * opt_chain: bool
     | Member of target: Expr * name: string * opt_chain: bool
-    | If of cond: Expr * then_branch: BlockOrExpr * else_branch: BlockOrExpr
+    | IfElse of
+      cond: Expr *
+      then_branch: BlockOrExpr *
+      else_branch: option<BlockOrExpr>
     | Match of target: Expr * cases: list<MatchCase>
     | Try of body: Block * catch: option<Expr> * finally_: option<Expr>
     | Do of body: Block
-    | Await of value: Expr
+    | Await of value: Expr // TODO: convert rejects to throws
     | Throw of value: Expr
     | TemplateLiteral of TemplateLiteral
     | TaggedTemplateLiteral of
@@ -193,8 +195,8 @@ module Syntax =
   type TypeParam =
     { span: Span
       name: string
-      bound: option<Type.Type>
-      default_: option<Type.Type> }
+      bound: option<TypeAnn>
+      default_: option<TypeAnn> }
 
   type FunctionType =
     { type_params: option<list<TypeParam>>

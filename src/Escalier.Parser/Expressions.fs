@@ -136,10 +136,10 @@ module private Expressions =
       getPosition
       ((str_ws "if") >>. expr)
       block
-      (str_ws "else" >>. block)
+      (opt (str_ws "else" >>. block))
       getPosition
     <| fun start cond then_ else_ stop ->
-      { kind = ExprKind.If(cond, then_, else_)
+      { kind = ExprKind.IfElse(cond, then_, else_)
         span = { start = start; stop = stop }
         inferred_type = None }
 

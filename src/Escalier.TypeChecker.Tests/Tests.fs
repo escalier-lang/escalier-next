@@ -158,7 +158,7 @@ let InferFuncParams () =
       let src =
         """
           let add = fn (x, y) {
-            x + y
+            return x + y
           }
           """
 
@@ -176,13 +176,38 @@ let InferFuncParamsWithTypeAnns () =
       let src =
         """
           let add = fn (x: number, y: number) -> number {
-            x + y
+            return x + y
           }
           """
 
       let! env = infer_script src
       let (sum, _) = Map.find "add" env.values
       Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncWithMultipleReturns () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn (x: number, y: string) {
+            if (x > 0) {
+              return x
+            }
+            return y
+          }
+          """
+
+      let! env = infer_script src
+      let (foo, _) = Map.find "foo" env.values
+
+      Assert.Equal(
+        "fn (x: number, y: string) -> string | number",
+        foo.ToString()
+      )
     }
 
   Assert.False(Result.isError result)

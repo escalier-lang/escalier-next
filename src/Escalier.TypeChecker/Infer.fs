@@ -3,8 +3,9 @@
 open FsToolkit.ErrorHandling
 open Escalier.Data.Syntax
 open Escalier.Data.Type
-open Escalier.TypeChecker.Unify
+open Escalier.Data
 open Escalier.TypeChecker.Errors
+open Escalier.TypeChecker.Unify
 
 module TypeVariable =
   let mutable next_id = 0
@@ -102,10 +103,8 @@ module rec Infer =
           return! Error(NotImplemented)
         | ExprKind.Member(target, name, opt_chain) ->
           return! Error(NotImplemented)
-        | ExprKind.If(cond, thenBranch, elseBranch) ->
+        | ExprKind.IfElse(cond, thenBranch, elseBranch) ->
           let! cond' = infer_expr env cond
-          let! then' = infer_block env thenBranch
-          let! else' = infer_block env elseBranch
 
           let bool =
             { kind = TypeKind.Primitive(Primitive.Boolean)
@@ -113,7 +112,19 @@ module rec Infer =
 
           do! unify cond' bool
 
-          return TypeKind.Union [ then'; else' ]
+          let! then' = infer_block env thenBranch
+
+          match elseBranch with
+          | Some(elseBranch) ->
+            let! else' = infer_block env elseBranch
+            return TypeKind.Union [ then'; else' ]
+          | None ->
+            let undefined =
+              { Type.kind = TypeKind.Literal(Literal.Undefined)
+                provenance = None }
+
+            do! unify then' undefined
+            return TypeKind.Literal(Literal.Undefined)
         | ExprKind.Match(target, cases) -> return! Error(NotImplemented)
         | ExprKind.Try(body, catch, finally_) -> return! Error(NotImplemented)
         | ExprKind.Do(body) -> return! Error(NotImplemented)
@@ -169,11 +180,26 @@ module rec Infer =
 
           f.param_list
 
-      // TODO:
-      // - find all return statements inside the body
-      // - handle async/await
-      // - handle throws
-      let! return_type = infer_block env f.body
+      // NOTE: infer_block returns a value to help with other uses
+      // such as if-else and match expressions.
+      let! _ = infer_block env f.body
+
+      let returns = findReturns f.body
+
+      let return_type =
+        match returns with
+        | [] ->
+          { kind = TypeKind.Keyword(KeywordType.Never)
+            provenance = None }
+        | [ ret ] ->
+          match ret.inferred_type with
+          | Some(t) -> t
+          | None -> failwith "todo"
+        | many ->
+          let types = many |> List.choose (fun (r: Expr) -> r.inferred_type)
+
+          { kind = TypeKind.Union(types)
+            provenance = None }
 
       let never =
         { kind = TypeKind.Keyword(KeywordType.Never)
@@ -184,6 +210,10 @@ module rec Infer =
           return_type = return_type
           type_params = None
           throws = never }
+
+      // TODO:
+      // - handle async/await
+      // - handle throws
 
       return TypeKind.Function(func)
     }
@@ -344,7 +374,10 @@ module rec Infer =
           match e.inferred_type with
           | Some(t) -> return t
           | None -> return! Error(NotInferred)
-        | _ -> return! Error(NotImplemented)
+        | _ ->
+          return
+            { Type.kind = TypeKind.Literal(Literal.Undefined)
+              provenance = None }
       }
     | BlockOrExpr.Expr e -> infer_expr env e
 
@@ -370,7 +403,12 @@ module rec Infer =
               do! unify init_type pat_type
               return Some(pat_bindings)
           | None -> return! Error(NotImplemented)
-      // TODO: implement the rest
+      | StmtKind.Return e ->
+        match e with
+        | Some(e) -> infer_expr env e |> ignore
+        | None -> ()
+
+        return None
       | _ -> return! Error(NotImplemented)
     }
 
@@ -450,8 +488,35 @@ module rec Infer =
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 
+  type ReturnVisitor() =
+    inherit Visitor.SyntaxVisitor()
 
-// TODO: infer_script
+    let mutable returnValues = []
+
+    member this.ReturnValues = returnValues
+
+    override this.VisitExpr(expr: Expr) =
+      match expr.kind with
+      | ExprKind.Function f -> () // Skips nested functions
+      | _ -> base.VisitExpr(expr)
+
+    override this.VisitStmt(stmt: Stmt) =
+      match stmt.kind with
+      | StmtKind.Return value ->
+        match value with
+        | Some(value) -> returnValues <- value :: returnValues
+        | None -> ()
+      | _ -> base.VisitStmt(stmt)
+
+  let findReturns (block: BlockOrExpr) : Expr list =
+    let visitor = ReturnVisitor()
+
+    match block with
+    | BlockOrExpr.Block b -> visitor.VisitBlock(b)
+    | BlockOrExpr.Expr e -> visitor.VisitExpr(e)
+
+    visitor.ReturnValues
+
 // TODO: infer_module
 // These will allow us to more thoroughly test infer_stmt and infer_pattern
 // Both should return a modified Env so that we can check to see what

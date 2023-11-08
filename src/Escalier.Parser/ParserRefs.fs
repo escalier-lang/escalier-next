@@ -4,6 +4,7 @@ open FParsec
 open Escalier.Data.Syntax
 
 module private ParserRefs =
+  let lit, litRef = createParserForwardedToRef<Literal, unit> ()
   let expr, exprRef = createParserForwardedToRef<Expr, unit> ()
   let stmt, stmtRef = createParserForwardedToRef<Stmt, unit> ()
   let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()

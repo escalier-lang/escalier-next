@@ -21,7 +21,9 @@ let infer src =
 
     let env =
       { Infer.Env.values = Map([])
-        Infer.Env.types = Map([]) }
+        Infer.Env.schemes = Map([])
+        Infer.Env.isAsync = false
+        Infer.Env.nonGeneric = Set([]) }
 
     let! t = Result.mapError (CompileError.TypeError) (Infer.infer_expr env ast)
     return t
@@ -37,7 +39,9 @@ let infer_script src =
 
     let env =
       { Infer.Env.values = Map([])
-        Infer.Env.types = Map([]) }
+        Infer.Env.schemes = Map([])
+        Infer.Env.isAsync = false
+        Infer.Env.nonGeneric = Set([]) }
 
     let! env =
       Result.mapError (CompileError.TypeError) (Infer.infer_script env script)
@@ -132,7 +136,9 @@ let InferIdentifier () =
 
   let env =
     { Infer.Env.values = Map([ ("foo", (t, false)) ])
-      Infer.Env.types = Map([]) }
+      Infer.Env.schemes = Map([])
+      Infer.Env.isAsync = false
+      Infer.Env.nonGeneric = Set([]) }
 
   let result =
     result {
@@ -230,6 +236,32 @@ let InferFuncWithMultipleReturns () =
         "fn (x: number, y: string) -> string | number",
         foo.ToString()
       )
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTypeDecls () =
+  let result =
+    result {
+      let src =
+        """
+          type A = number
+          type B = [string, boolean]
+          type C = 5 | "hello"
+          """
+      // type D = fn (x: number) -> number
+
+      let! env = infer_script src
+
+      let a = Map.find "A" env.schemes
+      Assert.Equal("number", a.type_.ToString())
+      let b = Map.find "B" env.schemes
+      Assert.Equal("[string, boolean]", b.type_.ToString())
+      let c = Map.find "C" env.schemes
+      Assert.Equal("5 | \"hello\"", c.type_.ToString())
+    // let d = Map.find "D" env.schemes
+    // Assert.Equal("fn (x: number) -> number", d.type_.ToString())
     }
 
   Assert.False(Result.isError result)

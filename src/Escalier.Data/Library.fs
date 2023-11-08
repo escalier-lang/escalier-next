@@ -219,10 +219,7 @@ module Syntax =
     { extends: TypeAnn; true_type: TypeAnn }
 
   type TypeAnnKind =
-    // TODO: collapse these into a single `Literal` type ann kind
-    | BooleanLiteral of value: bool
-    | NumberLiteral of value: string
-    | StringLiteral of value: string
+    | Literal of Literal
     | Keyword of keyword: KeywordTypeAnn
     | Object of elems: list<ObjTypeAnnElem>
     | Tuple of elems: list<TypeAnn>
@@ -276,7 +273,11 @@ module Type =
         sprintf
           "{%A}"
           (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
-      | Tuple(elems) -> $"[{elems |> List.map (fun e -> e.ToString())}]"
+      | Tuple(elems) ->
+        let elems =
+          elems |> List.map (fun e -> e.ToString()) |> String.concat ", "
+
+        $"[{elems}]"
       | Wildcard -> "_"
       | Literal(lit) -> lit.ToString()
       | Is(target, id) -> $"{target} is {id}"
@@ -492,9 +493,10 @@ module Type =
       | Literal(lit) -> lit.ToString()
       | Primitive(prim) -> prim.ToString()
       | Tuple(elems) ->
-        sprintf
-          "[%A]"
-          (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
+        let elems =
+          elems |> List.map (fun e -> e.ToString()) |> String.concat ", "
+
+        $"[{elems}]"
       | Array(elem) -> $"{elem}[]"
       | Union(types) ->
         (types |> List.map (fun t -> t.ToString()) |> String.concat " | ")

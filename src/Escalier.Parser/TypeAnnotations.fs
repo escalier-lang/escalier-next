@@ -2,15 +2,14 @@ namespace Escalier.Parser
 
 open FParsec
 open Escalier.Data.Syntax
+open Shared
 
 module private TypeAnnotations =
+  let lit = ParserRefs.lit
   let expr = ParserRefs.expr
   let stmt = ParserRefs.stmt
   let typeAnn = ParserRefs.typeAnn
   let pattern = ParserRefs.pattern
-
-  let ws = spaces
-  let str_ws s = pstring s .>> ws
 
   let ident =
     let isIdentifierFirstChar c = isLetter c || c = '_'
@@ -18,11 +17,14 @@ module private TypeAnnotations =
 
     many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
-  let withSpan p =
-    pipe3 getPosition p getPosition
-    <| fun start value stop -> (value, { start = start; stop = stop })
-
   let private parenthesizedTypeAnn = (between (str_ws "(") (str_ws ")") typeAnn)
+
+  let private litTypeAnn =
+    withSpan lit
+    |>> fun (lit, span) ->
+      { TypeAnn.kind = TypeAnnKind.Literal(lit)
+        span = span
+        inferred_type = None }
 
   let private keywordTypeAnn =
 
@@ -45,7 +47,7 @@ module private TypeAnnotations =
         inferred_type = None }
 
   let private tupleTypeAnn =
-    withSpan (between (str_ws "[") (str_ws "]") (sepBy typeAnn (str_ws ",")))
+    tuple typeAnn |> withSpan
     |>> fun (typeAnns, span) ->
       { TypeAnn.kind = TypeAnnKind.Tuple(typeAnns)
         span = span
@@ -83,6 +85,8 @@ module private TypeAnnotations =
         span = { start = start; stop = stop }
         inferred_type = None }
 
+  // let private func: Parser<TypeAnn, unit> = failwith "todo"
+
   let opp = OperatorPrecedenceParser<TypeAnn, Position, unit>()
 
   let primaryType = opp.ExpressionParser
@@ -107,7 +111,8 @@ module private TypeAnnotations =
 
   opp.TermParser <-
     choice
-      [ parenthesizedTypeAnn
+      [ litTypeAnn
+        parenthesizedTypeAnn
         keywordTypeAnn // aka PredefinedType
         // TODO: objectTypeAnn
         tupleTypeAnn
@@ -117,6 +122,7 @@ module private TypeAnnotations =
         // TODO: thisTypeAnn
         // NOTE: should come last since any identifier can be a type reference
         typeRef ]
+    .>> ws
 
   // NOTE: We don't use InfixOperator here because that only supports
   // binary operators and intersection types are n-ary.

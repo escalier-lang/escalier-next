@@ -2,8 +2,10 @@ namespace Escalier.Parser
 
 open FParsec
 open Escalier.Data.Syntax
+open Shared
 
 module private Patterns =
+  let lit = ParserRefs.lit
   let expr = ParserRefs.expr
   let stmt = ParserRefs.stmt
   let typeAnn = ParserRefs.typeAnn
@@ -35,14 +37,14 @@ module private Patterns =
         inferred_type = None }
 
   let private literalPattern =
-    withSpan Literals.literal
+    withSpan lit
     |>> fun (lit, span) ->
       { Pattern.kind = PatternKind.Literal(span = span, value = lit)
         span = span
         inferred_type = None }
 
   let private tuplePattern =
-    withSpan (between (str_ws "[") (str_ws "]") (sepBy pattern (str_ws ",")))
+    tuple pattern |> withSpan
     |>> fun (patterns, span) ->
       { Pattern.kind = PatternKind.Tuple(patterns)
         span = span

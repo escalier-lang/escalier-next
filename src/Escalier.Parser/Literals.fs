@@ -4,6 +4,8 @@ open FParsec
 open Escalier.Data.Syntax
 
 module Literals =
+  let lit = ParserRefs.lit
+
   let number: Parser<Literal, unit> =
     pfloat |>> fun nl -> Literal.Number(nl |> string)
 
@@ -29,4 +31,4 @@ module Literals =
     (pstring "true" |>> fun _ -> Literal.Boolean true)
     <|> (pstring "false" |>> fun _ -> Literal.Boolean false)
 
-  let literal = number <|> string <|> boolean
+  ParserRefs.litRef.Value <- number <|> string <|> boolean

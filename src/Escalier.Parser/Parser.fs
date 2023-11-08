@@ -3,6 +3,7 @@ namespace Escalier.Parser
 open FParsec
 
 module Parser =
+  let lit = run Literals.lit
   let expr = run Expressions.expr
   let pattern = run Patterns.pattern
   let stmt = run Statements.stmt

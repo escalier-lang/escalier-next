@@ -92,8 +92,24 @@ let ParseFuncDef () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseTuple () =
+  let src = "[1, 2, 3]"
+  let expr = Parser.expr src
+  let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseUnionType () =
   let src = "number | string | boolean"
+  let expr = Parser.typeAnn src
+  let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseUnionTypeWithLiterals () =
+  let src = "5 | \"hello\""
   let expr = Parser.typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 

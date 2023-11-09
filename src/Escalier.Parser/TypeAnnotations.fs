@@ -121,12 +121,12 @@ module private TypeAnnotations =
       [ litTypeAnn
         parenthesizedTypeAnn
         keywordTypeAnn // aka PredefinedType
-        // TODO: objectTypeAnn
         tupleTypeAnn
         funcTypeAnn
         typeofTypeAnn // aka TypeQuery
         keyofTypeAnn
         restTypeAnn
+        // TODO: objectTypeAnn
         // TODO: thisTypeAnn
         // NOTE: should come last since any identifier can be a type reference
         typeRef ]
@@ -156,5 +156,4 @@ module private TypeAnnotations =
           span = span
           inferred_type = None }
 
-  // TODO: handle function types
   ParserRefs.typeAnnRef.Value <- unionOrIntersectionOrPrimaryType

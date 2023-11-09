@@ -100,6 +100,14 @@ let ParseFuncDefWithTypes () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseFuncDefWithTypeParams () =
+  let src = "fn <T: Foo = Bar>(x: T) -> T { x }"
+  let expr = Parser.expr src
+  let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseTuple () =
   let src = "[1, 2, 3]"
   let expr = Parser.expr src
@@ -157,7 +165,7 @@ let ParseParenthesizedType () =
 
 [<Fact>]
 let ParseFunctionType () =
-  let src = "fn (x: number) -> number throws \"RangeError\""
+  let src = "fn <T: Foo = Bar>(x: T) -> T throws \"RangeError\""
   let expr = Parser.typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 

@@ -23,26 +23,30 @@ module Shared =
   let tuple<'a> (parser: Parser<'a, unit>) =
     between (str_ws "[") (str_ws "]") (sepBy parser (str_ws ","))
 
-  let type_param: Parser<TypeParam, unit> =
-    withSpan ident
-    |>> fun (name, span) ->
+  let typeParam: Parser<TypeParam, unit> =
+    pipe5
+      getPosition
+      ident
+      (opt (str_ws ":" >>. typeAnn))
+      (opt (str_ws "=" >>. typeAnn))
+      getPosition
+    <| fun start name constraint_ default_ stop ->
       { name = name
-        bound = None // TODO: parse type bounds
-        default_ = None // TODO: parse default type
-        span = span }
+        constraint_ = constraint_
+        default_ = default_
+        span = { start = start; stop = stop } }
 
-  let type_params: Parser<list<TypeParam>, unit> =
-    between (str_ws "<") (str_ws ">") (sepBy type_param (str_ws ","))
+  let typeParams: Parser<list<TypeParam>, unit> =
+    between (str_ws "<") (str_ws ">") (sepBy typeParam (str_ws ","))
 
   let funcParam<'a>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'a, unit>)
     : Parser<FuncParam<'a>, unit> =
-    pipe2 pattern (opt_or_id (str_ws ":" >>. typeAnn))
-    <| fun pattern typeAnn ->
+    pipe3 pattern (opt (str_ws "?")) (opt_or_id (str_ws ":" >>. typeAnn))
+    <| fun pattern optional typeAnn ->
       { pattern = pattern
-        typeAnn = typeAnn
-        optional = false // TODO: parse `?` in func params
-      }
+        optional = optional.IsSome
+        typeAnn = typeAnn }
 
   let param_list<'a>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'a, unit>)
@@ -53,7 +57,7 @@ module Shared =
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'a, unit>)
     : Parser<FuncSig<'a>, unit> =
     pipe4
-      (opt type_params)
+      (opt typeParams)
       (str_ws "fn" >>. (param_list opt_or_id))
       (opt_or_id (str_ws "->" >>. typeAnn))
       (opt (ws .>> str_ws "throws" >>. typeAnn))

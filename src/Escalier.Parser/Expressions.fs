@@ -5,8 +5,6 @@ open Escalier.Data.Syntax
 open System.Text
 open Shared
 
-exception ParseError of string
-
 module private Expressions =
   let lit = ParserRefs.lit
   let expr = ParserRefs.expr

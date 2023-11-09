@@ -193,7 +193,7 @@ module Syntax =
   type TypeParam =
     { span: Span
       name: string
-      bound: option<TypeAnn>
+      constraint_: option<TypeAnn>
       default_: option<TypeAnn> }
 
   type FuncSig<'T> =

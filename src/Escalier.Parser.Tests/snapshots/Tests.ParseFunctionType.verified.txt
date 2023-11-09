@@ -1,0 +1,39 @@
+﻿input: fn <T: Foo = Bar>(x: T) -> T throws "RangeError"
+output: Success: { kind =
+   Function
+     { type_params =
+        Some [{ span = { start = (Ln: 1, Col: 5)
+                         stop = (Ln: 1, Col: 17) }
+                name = "T"
+                constraint_ = Some { kind = TypeRef ("Foo", None)
+                                     span = { start = (Ln: 1, Col: 8)
+                                              stop = (Ln: 1, Col: 12) }
+                                     inferred_type = None }
+                default_ = Some { kind = TypeRef ("Bar", None)
+                                  span = { start = (Ln: 1, Col: 14)
+                                           stop = (Ln: 1, Col: 17) }
+                                  inferred_type = None } }]
+       param_list =
+        [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 19)
+                                                    stop = (Ln: 1, Col: 20) }
+                                           name = "x"
+                                           isMut = false }
+                       span = { start = (Ln: 1, Col: 19)
+                                stop = (Ln: 1, Col: 20) }
+                       inferred_type = None }
+           typeAnn = { kind = TypeRef ("T", None)
+                       span = { start = (Ln: 1, Col: 22)
+                                stop = (Ln: 1, Col: 23) }
+                       inferred_type = None }
+           optional = false }]
+       return_type = { kind = TypeRef ("T", None)
+                       span = { start = (Ln: 1, Col: 28)
+                                stop = (Ln: 1, Col: 30) }
+                       inferred_type = None }
+       throws = Some { kind = Literal (String "RangeError")
+                       span = { start = (Ln: 1, Col: 37)
+                                stop = (Ln: 1, Col: 49) }
+                       inferred_type = None } }
+  span = { start = (Ln: 1, Col: 1)
+           stop = (Ln: 1, Col: 49) }
+  inferred_type = None }

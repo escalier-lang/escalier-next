@@ -3,17 +3,14 @@ namespace Escalier.Parser
 open FParsec
 open Escalier.Data.Syntax
 open System.Text
-
-exception ParseError of string
+open Shared
 
 module private Expressions =
+  let lit = ParserRefs.lit
   let expr = ParserRefs.expr
   let stmt = ParserRefs.stmt
   let typeAnn = ParserRefs.typeAnn
   let pattern = ParserRefs.pattern
-
-  let ws = spaces
-  let str_ws s = pstring s .>> ws
 
   let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
 
@@ -26,10 +23,10 @@ module private Expressions =
     many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
   let identExpr: Parser<Expr, unit> =
-    pipe3 getPosition ident getPosition
-    <| fun start sl stop ->
+    withSpan ident
+    |>> fun (sl, span) ->
       { kind = Identifer(sl)
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let templateStringLiteral: Parser<Expr, unit> =
@@ -81,54 +78,25 @@ module private Expressions =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let funcParam: Parser<FuncParam<option<TypeAnn>>, unit> =
-    pipe2 pattern (opt (str_ws ":" >>. typeAnn))
-    <| fun pattern typeAnn ->
-      { pattern = pattern
-        typeAnn = typeAnn
-        optional = false // TODO: parse `?` in func params
-      }
-
   let block: Parser<BlockOrExpr, unit> =
-    pipe3
-      getPosition
-      (between (str_ws "{") (str_ws "}") (many stmt))
-      getPosition
-    <| fun start stmts stop ->
-      BlockOrExpr.Block(
-        { span = { start = start; stop = stop }
-          stmts = stmts }
-      )
-
-  let type_param: Parser<TypeParam, unit> =
-    pipe3 getPosition ident getPosition
-    <| fun start name stop ->
-      { name = name
-        bound = None // TODO: parse type bounds
-        default_ = None // TODO: parse default type
-        span = { start = start; stop = stop } }
-
-  let type_params: Parser<list<TypeParam>, unit> =
-    between (str_ws "<") (str_ws ">") (sepBy type_param (str_ws ","))
-
-  let param_list: Parser<list<FuncParam<option<TypeAnn>>>, unit> =
-    between (str_ws "(") (str_ws ")") (sepBy funcParam (str_ws ","))
+    withSpan (between (str_ws "{") (str_ws "}") (many stmt))
+    |>> fun (stmts, span) -> BlockOrExpr.Block({ span = span; stmts = stmts })
 
   let func: Parser<Function, unit> =
-    pipe3 (str_ws "fn" >>. param_list) (opt (str_ws "->" >>. typeAnn)) block
-    <| fun param_list return_type body ->
-      { param_list = param_list
-        return_type = return_type
-        type_params = None // TODO: parse type param list
-        throws = None // TODO: parse `throws` clause
-        body = body }
+    pipe2 (func_sig opt) block <| fun sig' body -> { sig' = sig'; body = body }
 
-  let func_expr: Parser<Expr, unit> =
-    pipe3 getPosition func getPosition
-    <| fun start f stop ->
-
+  let funcExpr: Parser<Expr, unit> =
+    withSpan func
+    |>> fun (f, span) ->
       { kind = ExprKind.Function f
-        span = { start = start; stop = stop }
+        span = span
+        inferred_type = None }
+
+  let tupleExpr: Parser<Expr, unit> =
+    tuple expr |> withSpan
+    |>> fun (exprs, span) ->
+      { kind = ExprKind.Tuple(exprs)
+        span = span
         inferred_type = None }
 
   let ifElse, ifElseRef = createParserForwardedToRef<Expr, unit> ()
@@ -149,14 +117,20 @@ module private Expressions =
         inferred_type = None }
 
   let literalExpr: Parser<Expr, unit> =
-    pipe3 getPosition Literals.literal getPosition
-    <| fun start lit stop ->
+    withSpan lit
+    |>> fun (lit, span) ->
       { kind = ExprKind.Literal(lit)
-        span = { start = start; stop = stop }
+        span = span
         inferred_type = None }
 
   let atom =
-    choice [ literalExpr; func_expr; ifElse; templateStringLiteral; identExpr ]
+    choice
+      [ literalExpr
+        funcExpr
+        ifElse
+        tupleExpr
+        templateStringLiteral
+        identExpr ]
 
   let term = (atom .>> ws) <|> between (str_ws "(") (str_ws ")") expr
 

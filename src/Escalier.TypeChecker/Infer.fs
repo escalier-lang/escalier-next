@@ -28,11 +28,18 @@ module TypeVariable =
 
 module rec Infer =
   type Binding = Type * bool
-  type Assump = Map<string, Binding>
+  type BindingAssump = Map<string, Binding>
+  type SchemeAssump = (string * Scheme)
 
   type Env =
-    { types: Map<string, Type>
-      values: Map<string, Binding> }
+    { schemes: Map<string, Scheme>
+      values: Map<string, Binding>
+      isAsync: bool
+      nonGeneric: Set<Type> }
+
+  // type Env =
+  //   { types: Map<string, Type>
+  //     values: Map<string, Binding> }
 
   let infer_expr (env: Env) (e: Expr) : Result<Type, TypeError> =
     let provenance = Some(Provenance.Expr(e))
@@ -178,7 +185,7 @@ module rec Infer =
                   optional = false }
             })
 
-          f.param_list
+          f.sig'.param_list
 
       // NOTE: infer_block returns a value to help with other uses
       // such as if-else and match expressions.
@@ -225,12 +232,7 @@ module rec Infer =
         | TypeAnnKind.Array elem ->
           let! elem = infer_type_ann env elem
           return TypeKind.Array(elem)
-        | TypeAnnKind.BooleanLiteral value ->
-          return TypeKind.Literal(Literal.Boolean value)
-        | TypeAnnKind.NumberLiteral value ->
-          return TypeKind.Literal(Literal.Number value)
-        | TypeAnnKind.StringLiteral value ->
-          return TypeKind.Literal(Literal.String value)
+        | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
         | TypeAnnKind.Keyword keyword ->
           match keyword with
           | KeywordTypeAnn.Boolean ->
@@ -307,7 +309,7 @@ module rec Infer =
                       type_ = t
                       optional = false }
                 })
-              functionType.params_
+              functionType.param_list
 
           let f =
             { param_list = param_list
@@ -358,13 +360,17 @@ module rec Infer =
       result {
         for stmt in block.stmts do
           match! infer_stmt env' stmt with
-          | Some(assump) ->
+          | Some(StmtResult.Bindings(assump)) ->
             let mutable values = env'.values
 
             for KeyValue(name, binding) in assump do
               values <- values.Add(name, binding)
 
             env' <- { env' with values = values }
+          | Some(StmtResult.Scheme(name, scheme)) ->
+            env' <-
+              { env' with
+                  schemes = env'.schemes.Add(name, scheme) }
           | None -> ()
 
         let last = List.last block.stmts
@@ -381,7 +387,11 @@ module rec Infer =
       }
     | BlockOrExpr.Expr e -> infer_expr env e
 
-  let infer_stmt (env: Env) (s: Stmt) : Result<option<Assump>, TypeError> =
+  type StmtResult =
+    | Bindings of BindingAssump
+    | Scheme of SchemeAssump
+
+  let infer_stmt (env: Env) (s: Stmt) : Result<option<StmtResult>, TypeError> =
     result {
       match s.kind with
       | StmtKind.Expr e ->
@@ -389,7 +399,15 @@ module rec Infer =
         return None
       | StmtKind.Decl(decl) ->
         match decl.kind with
-        | DeclKind.TypeDecl(name, type_ann, type_params) -> return None
+        | DeclKind.TypeDecl(name, type_ann, type_params) ->
+          let! t = infer_type_ann env type_ann
+
+          let scheme: Scheme =
+            { type_params = []
+              type_ = t
+              is_type_param = false }
+
+          return Some(StmtResult.Scheme(name, scheme))
         | DeclKind.VarDecl(pattern, init, type_ann, is_declare) ->
           let! pat_bindings, pat_type = infer_pattern env pattern
 
@@ -401,7 +419,7 @@ module rec Infer =
             | Some(type_ann) -> return! Error(NotImplemented)
             | None ->
               do! unify init_type pat_type
-              return Some(pat_bindings)
+              return Some(StmtResult.Bindings(pat_bindings))
           | None -> return! Error(NotImplemented)
       | StmtKind.Return e ->
         match e with
@@ -414,12 +432,11 @@ module rec Infer =
 
   let infer_pattern
     (env: Env)
-    (pat: Escalier.Data.Syntax.Pattern)
-    : Result<(Assump * Type), TypeError> =
-    let mutable assump = Assump([])
-    let rec foo x = x
+    (pat: Syntax.Pattern)
+    : Result<(BindingAssump * Type), TypeError> =
+    let mutable assump = BindingAssump([])
 
-    let rec infer_pattern_rec (pat: Escalier.Data.Syntax.Pattern) : Type =
+    let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
       match pat.kind with
       | PatternKind.Identifier({ name = name; isMut = isMut }) ->
         let t =
@@ -449,10 +466,10 @@ module rec Infer =
         { Type.kind = TypeKind.Wildcard
           provenance = None }
       | PatternKind.Is(span, binding, isName, isMut) ->
-        match Map.tryFind isName env.types with
-        | Some(t) ->
-          assump <- assump.Add(binding.name, (t, binding.isMut))
-          t
+        match Map.tryFind isName env.schemes with
+        | Some(scheme) ->
+          assump <- assump.Add(binding.name, (scheme.type_, binding.isMut))
+          scheme.type_
         | None -> failwith "todo"
 
     let t = infer_pattern_rec pat
@@ -464,19 +481,23 @@ module rec Infer =
     result {
       for stmt in script do
         match! infer_stmt env' stmt with
-        | Some(assump) ->
+        | Some(StmtResult.Bindings(assump)) ->
           let mutable values = env'.values
 
           for KeyValue(name, binding) in assump do
             values <- values.Add(name, binding)
 
           env' <- { env' with values = values }
+        | Some(StmtResult.Scheme(name, scheme)) ->
+          env' <-
+            { env' with
+                schemes = env'.schemes.Add(name, scheme) }
         | None -> ()
 
       return env'
     }
 
-  let rec pattern_to_pattern (pat: Escalier.Data.Syntax.Pattern) : Pattern =
+  let rec pattern_to_pattern (pat: Syntax.Pattern) : Pattern =
     match pat.kind with
     | PatternKind.Identifier({ name = name; isMut = isMut }) ->
       Pattern.Identifier(name)

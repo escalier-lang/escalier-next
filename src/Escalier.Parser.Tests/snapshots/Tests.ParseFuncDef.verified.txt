@@ -1,28 +1,29 @@
 ﻿input: fn (x, y) { x }
 output: Success: { kind =
    Function
-     { param_list =
-        [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 5)
-                                                    stop = (Ln: 1, Col: 6) }
-                                           name = "x"
-                                           isMut = false }
-                       span = { start = (Ln: 1, Col: 5)
-                                stop = (Ln: 1, Col: 6) }
-                       inferred_type = None }
-           typeAnn = None
-           optional = false };
-         { pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 8)
-                                                    stop = (Ln: 1, Col: 9) }
-                                           name = "y"
-                                           isMut = false }
-                       span = { start = (Ln: 1, Col: 8)
-                                stop = (Ln: 1, Col: 9) }
-                       inferred_type = None }
-           typeAnn = None
-           optional = false }]
-       return_type = None
-       type_params = None
-       throws = None
+     { sig' =
+        { type_params = None
+          param_list =
+           [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 5)
+                                                       stop = (Ln: 1, Col: 6) }
+                                              name = "x"
+                                              isMut = false }
+                          span = { start = (Ln: 1, Col: 5)
+                                   stop = (Ln: 1, Col: 6) }
+                          inferred_type = None }
+              typeAnn = None
+              optional = false };
+            { pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 8)
+                                                       stop = (Ln: 1, Col: 9) }
+                                              name = "y"
+                                              isMut = false }
+                          span = { start = (Ln: 1, Col: 8)
+                                   stop = (Ln: 1, Col: 9) }
+                          inferred_type = None }
+              typeAnn = None
+              optional = false }]
+          return_type = None
+          throws = None }
        body =
         Block { span = { start = (Ln: 1, Col: 11)
                          stop = (Ln: 1, Col: 16) }

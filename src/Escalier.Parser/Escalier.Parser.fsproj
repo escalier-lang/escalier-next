@@ -5,6 +5,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="ParserRefs.fs"/>
+        <Compile Include="Shared.fs"/>
         <Compile Include="Literals.fs"/>
         <Compile Include="Expressions.fs"/>
         <Compile Include="Statements.fs"/>

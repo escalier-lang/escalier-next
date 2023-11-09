@@ -1,0 +1,17 @@
+﻿input: [1, 2, 3]
+output: Success: { kind =
+   Tuple
+     [{ kind = Literal (Number "1")
+        span = { start = (Ln: 1, Col: 2)
+                 stop = (Ln: 1, Col: 3) }
+        inferred_type = None }; { kind = Literal (Number "2")
+                                  span = { start = (Ln: 1, Col: 5)
+                                           stop = (Ln: 1, Col: 6) }
+                                  inferred_type = None };
+      { kind = Literal (Number "3")
+        span = { start = (Ln: 1, Col: 8)
+                 stop = (Ln: 1, Col: 9) }
+        inferred_type = None }]
+  span = { start = (Ln: 1, Col: 1)
+           stop = (Ln: 1, Col: 10) }
+  inferred_type = None }

@@ -162,7 +162,7 @@ module Visitor =
           | Some(typeParams) ->
             List.iter
               (fun (typeParam: Syntax.TypeParam) ->
-                this.MaybeWalkTypeAnn typeParam.bound
+                this.MaybeWalkTypeAnn typeParam.constraint_
                 this.MaybeWalkTypeAnn typeParam.default_)
               typeParams
           | None -> ()

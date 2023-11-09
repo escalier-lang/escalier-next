@@ -241,6 +241,24 @@ let InferFuncWithMultipleReturns () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferFuncGenericFunc () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn (x) {
+            return x
+          }
+          """
+
+      let! env = infer_script src
+      let (sum, _) = Map.find "foo" env.values
+      Assert.Equal("fn <A>(x: A) -> A", sum.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferTypeDecls () =
   let result =
     result {

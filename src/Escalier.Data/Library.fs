@@ -196,6 +196,25 @@ module Syntax =
       constraint_: option<TypeAnn>
       default_: option<TypeAnn> }
 
+    override this.ToString() =
+      let sb = StringBuilder()
+
+      sb
+        .Append(this.name)
+        .Append(
+          match this.constraint_ with
+          | Some(constraint_) -> $" : {constraint_}"
+          | None -> ""
+        )
+        .Append(
+          match this.default_ with
+          | Some(default_) -> $" = {default_}"
+          | None -> ""
+        )
+      |> ignore
+
+      sb.ToString()
+
   type FuncSig<'T> =
     { type_params: option<list<TypeParam>>
       param_list: list<FuncParam<'T>>
@@ -248,8 +267,27 @@ module Syntax =
 module Type =
   type TypeParam =
     { name: string
-      bound: option<Type>
+      constraint_: option<Type>
       default_: option<Type> }
+
+    override this.ToString() =
+      let sb = StringBuilder()
+
+      sb
+        .Append(this.name)
+        .Append(
+          match this.constraint_ with
+          | Some(constraint_) -> $" : {constraint_}"
+          | None -> ""
+        )
+        .Append(
+          match this.default_ with
+          | Some(default_) -> $" = {default_}"
+          | None -> ""
+        )
+      |> ignore
+
+      sb.ToString()
 
   type Scheme =
     { type_params: list<TypeParam>
@@ -327,12 +365,33 @@ module Type =
       throws: Type }
 
     override this.ToString() =
-      sprintf
-        "fn (%s) -> %s"
-        (this.param_list
-         |> List.map (fun p -> p.ToString())
-         |> String.concat ", ")
-        (this.return_type.ToString())
+      let sb = StringBuilder()
+
+      // TODO: handle throws
+      sb
+        .Append("fn ")
+        .Append(
+          match this.type_params with
+          | Some(type_params) ->
+            let type_params =
+              type_params
+              |> List.map (fun p -> p.ToString())
+              |> String.concat ", "
+
+            $"<{type_params}>"
+          | None -> ""
+        )
+        .Append("(")
+        .Append(
+          this.param_list
+          |> List.map (fun p -> p.ToString())
+          |> String.concat ", "
+        )
+        .Append(") -> ")
+        .Append(this.return_type.ToString())
+      |> ignore
+
+      sb.ToString()
 
   type Mapped =
     { key: Type

@@ -67,7 +67,7 @@ module Visitor =
   and walk_type_params (v: Type -> unit) (tp: list<TypeParam>) : unit =
     List.iter
       (fun (tp: TypeParam) ->
-        maybe_walk_type v tp.bound
+        maybe_walk_type v tp.constraint_
         maybe_walk_type v tp.default_)
       tp
 

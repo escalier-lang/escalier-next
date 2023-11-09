@@ -173,10 +173,10 @@ module rec Infer =
 
               do! unify param_t type_ann_t
 
-              // TODO: add `non_generic` to env (or replace Env with Context)
               for KeyValue(name, binding) in assumps do
                 env <-
                   { env with
+                      nonGeneric = env.nonGeneric.Add(fst (binding))
                       values = env.values.Add(name, binding) }
 
               return
@@ -485,7 +485,18 @@ module rec Infer =
           let mutable values = env'.values
 
           for KeyValue(name, binding) in assump do
-            values <- values.Add(name, binding)
+            let (t, isMut) = binding
+            let t = prune t
+
+            match t.kind with
+            | TypeKind.Function f ->
+              let t =
+                { t with
+                    kind = generalize_func f |> TypeKind.Function }
+
+              let binding = (t, isMut)
+              values <- values.Add(name, binding)
+            | _ -> values <- values.Add(name, binding)
 
           env' <- { env' with values = values }
         | Some(StmtResult.Scheme(name, scheme)) ->
@@ -537,6 +548,59 @@ module rec Infer =
     | BlockOrExpr.Expr e -> visitor.VisitExpr(e)
 
     visitor.ReturnValues
+
+
+  // TODO: actually use this on function types we want to generalize
+  let generalize_func (func: Type.Function) : Type.Function =
+    let mutable mapping: Map<int, string> = Map.empty
+
+    let generalize (t: Type) : Type =
+      let t = prune t
+
+      printfn "t = %A" t
+
+      match t.kind with
+      | TypeVar { id = id } ->
+        let name =
+          match Map.tryFind id mapping with
+          | Some(name) -> name
+          | None ->
+            let name = 65 + mapping.Count |> char |> string
+            mapping <- Map.add id name mapping
+            name
+
+        { Type.kind = TypeRef(name, None, None)
+          provenance = None }
+      | _ -> t
+
+    let folder = Folder.TypeFolder(generalize)
+
+    printfn "func.param_list = %A" func.param_list
+
+    let param_list =
+      List.map
+        (fun (p: FuncParam) ->
+          let t = folder.FoldType(p.type_)
+          printfn "new param t = %A" t
+          { p with type_ = t })
+        func.param_list
+
+    let return_type = folder.FoldType(func.return_type)
+
+    let values = mapping.Values |> List.ofSeq
+
+    let type_params: list<TypeParam> =
+      List.map
+        (fun name ->
+          { name = name
+            constraint_ = None
+            default_ = None })
+        values
+
+    { func with
+        type_params = if type_params.IsEmpty then None else Some(type_params)
+        param_list = param_list
+        return_type = return_type }
 
 // TODO: infer_module
 // These will allow us to more thoroughly test infer_stmt and infer_pattern

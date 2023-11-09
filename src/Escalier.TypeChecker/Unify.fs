@@ -1,9 +1,10 @@
 namespace Escalier.TypeChecker
 
 open FsToolkit.ErrorHandling
-open Escalier.Data.Type
 open Escalier.Data.Syntax
+open Escalier.Data.Type
 open Escalier.TypeChecker.Errors
+open Escalier.Data
 
 module Unify =
   let rec prune (t: Type) : Type =
@@ -22,7 +23,19 @@ module Unify =
     else
       match t2'.kind with
       | TypeKind.TypeVar _ -> false // leaf node
-      | TypeKind.TypeRef(name, typeArgs, scheme) -> failwith "todo"
+      | TypeKind.TypeRef { name = name
+                           type_args = typeArgs
+                           scheme = scheme } ->
+        let typeArgs =
+          Option.defaultValue [] typeArgs
+          |> List.exists (fun t -> occurs_in_type v t)
+
+        let scheme =
+          match scheme with
+          | Some(scheme) -> occurs_in_type v scheme.type_
+          | None -> false
+
+        typeArgs || scheme
       | TypeKind.Literal _ -> false // leaf node
       | TypeKind.Primitive _ -> false // leaf node
       | TypeKind.Tuple types -> occurs_in v types
@@ -131,4 +144,118 @@ module Unify =
       | TypeKind.Function fn1, TypeKind.Function fn2 ->
         return! Error(TypeError.NotImplemented)
       | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+    }
+
+  and unify_call
+    (args: list<Expr>)
+    (typeArgs: option<list<Type>>)
+    (callee: Type)
+    (inferExpr: Expr -> Result<Type, TypeError>)
+    : Result<(Type * Type), TypeError> =
+
+    let retType = TypeVariable.fresh None
+    let throwsType = TypeVariable.fresh None
+    // let ret_type = self.new_type_var(None);
+    // let throws_type = self.new_type_var(None);
+
+    match callee.kind with
+    | TypeKind.Function func ->
+      unify_func_call args typeArgs retType throwsType func inferExpr
+    | _ -> failwith "todo"
+
+  and unify_func_call
+    (args: list<Expr>)
+    (typeArgs: option<list<Type>>)
+    (retType: Type)
+    (throwsType: Type)
+    (callee: Function)
+    (inferExpr: Expr -> Result<Type, TypeError>)
+    : Result<(Type * Type), TypeError> =
+
+    result {
+      let! callee =
+        result {
+          if callee.type_params.IsSome then
+            return! instantiate_func callee typeArgs
+          else
+            return callee
+        }
+
+      let! args =
+        List.traverseResultM
+          (fun (arg: Expr) ->
+            result {
+              let! argType = inferExpr arg
+              return arg, argType
+            })
+          args
+
+      for ((arg, argType), param) in List.zip args callee.param_list do
+        if
+          param.optional && argType.kind = TypeKind.Literal(Literal.Undefined)
+        then
+          ()
+        else
+          // TODO: check_mutability of `arg`
+          do! unify argType param.type_
+
+      do! unify retType callee.return_type
+      do! unify throwsType callee.throws
+
+      return (retType, throwsType)
+    }
+
+  and instantiate_func
+    (func: Function)
+    (typeArgs: option<list<Type>>)
+    : Result<Function, TypeError> =
+
+    result {
+      let mutable mapping: Map<string, Type> = Map.empty
+
+      match func.type_params with
+      | Some(typeParams) ->
+        match typeArgs with
+        | Some(typeArgs) ->
+          if typeArgs.Length <> typeParams.Length then
+            return! Error(TypeError.WrongNumberOfTypeArgs)
+
+          for tp, ta in List.zip typeParams typeArgs do
+            mapping <- mapping.Add(tp.name, ta)
+        | None ->
+          for tp in typeParams do
+            mapping <- mapping.Add(tp.name, TypeVariable.fresh tp.constraint_)
+      | None -> ()
+
+      let instantiate (t: Type) : Type =
+        let t = prune t
+
+        match t.kind with
+        | TypeKind.TypeRef { name = name
+                             scheme = scheme
+                             type_args = typeArgs } ->
+
+          match mapping.TryFind(name) with
+          | Some(t) -> t // uses definition in mapping
+          | None -> t // keeps TypeRef
+        | _ -> t
+
+      let folder = Folder.TypeFolder(instantiate)
+
+      let returnType = folder.FoldType(func.return_type)
+      let throwsType = folder.FoldType(func.throws)
+
+      let paramList =
+        List.map
+          (fun (fp: FuncParam) ->
+            let t = folder.FoldType(fp.type_)
+            { fp with type_ = t })
+          func.param_list
+
+      return
+        { func with
+            type_params = None
+            param_list = paramList
+            return_type = returnType
+            throws = throwsType }
     }

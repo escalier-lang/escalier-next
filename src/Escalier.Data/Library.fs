@@ -135,6 +135,13 @@ module Syntax =
     { sig': FuncSig<option<TypeAnn>>
       body: BlockOrExpr }
 
+  type Call =
+    { callee: Expr
+      typeArgs: option<list<TypeAnn>>
+      args: list<Expr>
+      optChain: bool
+      mutable throws: option<Type.Type> }
+
   type ExprKind =
     | Identifer of string
     | Literal of Literal
@@ -144,12 +151,7 @@ module Syntax =
     | Binary of left: Expr * op: BinaryOp * right: Expr
     | Unary of op: string * value: Expr
     | Function of Function
-    | Call of
-      callee: Expr *
-      type_args: option<list<TypeAnn>> *
-      args: list<Expr> *
-      opt_chain: bool *
-      throws: option<Type.Type>
+    | Call of Call
     | Index of target: Expr * index: Expr * opt_chain: bool
     | Member of target: Expr * name: string * opt_chain: bool
     | IfElse of
@@ -496,12 +498,20 @@ module Type =
       mutable instance: option<Type>
       bound: option<Type> }
 
+  type TypeRef =
+    { name: string
+      type_args: option<list<Type>>
+      // used so that we can reference a type ref's scheme without importing it
+      scheme: option<Scheme> }
+
+    static member inline Make(name: string, ?typeArgs, ?scheme) =
+      { name = name
+        type_args = typeArgs
+        scheme = scheme }
+
   type TypeKind =
     | TypeVar of TypeVar
-    | TypeRef of
-      name: string *
-      type_args: option<list<Type>> *
-      scheme: option<Scheme> // used so that we can reference a type ref's scheme without importing it
+    | TypeRef of TypeRef
     | Literal of Syntax.Literal
     | Primitive of Primitive
     | Tuple of list<Type>
@@ -530,11 +540,11 @@ module Type =
         match instance with
         | Some(instance) -> instance.ToString()
         | None -> $"t{id}"
-      | TypeRef(name, type_args, _) ->
+      | TypeRef { name = name; type_args = typeArgs } ->
         let sb = StringBuilder()
         sb.Append(name) |> ignore
 
-        match type_args with
+        match typeArgs with
         | Some(type_args) ->
           sb
             .Append("<")

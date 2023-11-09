@@ -173,11 +173,11 @@ module private Expressions =
       (fun (args, stop) callee ->
         { Expr.kind =
             ExprKind.Call(
-              callee = callee,
-              type_args = None,
-              args = args,
-              opt_chain = false,
-              throws = None
+              { callee = callee
+                typeArgs = None
+                args = args
+                optChain = false
+                throws = None }
             )
           span =
             { start = callee.span.start

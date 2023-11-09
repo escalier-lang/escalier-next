@@ -12,7 +12,8 @@ module Visitor =
     | TypeVar tv ->
       maybe_walk_type v tv.instance |> ignore
       maybe_walk_type v tv.bound |> ignore
-    | TypeRef(_, typeArgs, scheme) ->
+    | TypeRef { type_args = typeArgs
+                scheme = scheme } ->
       Option.map (List.iter (walk_type v)) typeArgs |> ignore
 
       Option.map
@@ -103,14 +104,14 @@ module Visitor =
         match f.body with
         | BlockOrExpr.Expr(e) -> this.VisitExpr e
         | BlockOrExpr.Block(b) -> this.VisitBlock b
-      | ExprKind.Call(callee, typeArgs, args, _optChain, _throws) ->
-        this.VisitExpr callee
+      | ExprKind.Call call ->
+        this.VisitExpr call.callee
 
-        match typeArgs with
+        match call.typeArgs with
         | Some(typeArgs) -> List.iter this.VisitTypeAnn typeArgs
         | None -> ()
 
-        List.iter this.VisitExpr args
+        List.iter this.VisitExpr call.args
       | ExprKind.Index(target, index, _optChain) ->
         this.VisitExpr target
         this.VisitExpr index

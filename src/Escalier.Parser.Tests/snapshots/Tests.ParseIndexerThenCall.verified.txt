@@ -1,17 +1,22 @@
 ﻿input: array[0]()
 output: Success: { kind =
    Call
-     ({ kind =
-         Index ({ kind = Identifer "array"
-                  span = { start = (Ln: 1, Col: 1)
-                           stop = (Ln: 1, Col: 6) }
-                  inferred_type = None }, { kind = Literal (Number "0")
-                                            span = { start = (Ln: 1, Col: 7)
-                                                     stop = (Ln: 1, Col: 8) }
-                                            inferred_type = None }, false)
-        span = { start = (Ln: 1, Col: 1)
-                 stop = (Ln: 1, Col: 7) }
-        inferred_type = None }, None, [], false, None)
+     { callee =
+        { kind =
+           Index ({ kind = Identifer "array"
+                    span = { start = (Ln: 1, Col: 1)
+                             stop = (Ln: 1, Col: 6) }
+                    inferred_type = None }, { kind = Literal (Number "0")
+                                              span = { start = (Ln: 1, Col: 7)
+                                                       stop = (Ln: 1, Col: 8) }
+                                              inferred_type = None }, false)
+          span = { start = (Ln: 1, Col: 1)
+                   stop = (Ln: 1, Col: 7) }
+          inferred_type = None }
+       typeArgs = None
+       args = []
+       optChain = false
+       throws = None }
   span = { start = (Ln: 1, Col: 1)
            stop = (Ln: 1, Col: 10) }
   inferred_type = None }

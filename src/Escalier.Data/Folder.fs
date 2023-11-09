@@ -17,22 +17,27 @@ module Folder =
             { tv with
                 instance = Option.map this.FoldType tv.instance
                 bound = Option.map this.FoldType tv.bound }
-        | TypeRef(name, typeArgs, scheme) ->
-          (name,
-           Option.map (List.map this.FoldType) typeArgs,
-           Option.map
-             (fun (scheme: Scheme) ->
-               { scheme with
-                   type_ = this.FoldType scheme.type_
-                   type_params =
-                     List.map
-                       (fun (tp: TypeParam) ->
-                         { tp with
-                             constraint_ =
-                               Option.map this.FoldType tp.constraint_
-                             default_ = Option.map this.FoldType tp.default_ })
-                       scheme.type_params })
-             scheme)
+        | TypeRef { name = name
+                    type_args = typeArgs
+                    scheme = scheme } ->
+          let scheme =
+            Option.map
+              (fun (scheme: Scheme) ->
+                { scheme with
+                    type_ = this.FoldType scheme.type_
+                    type_params =
+                      List.map
+                        (fun (tp: TypeParam) ->
+                          { tp with
+                              constraint_ =
+                                Option.map this.FoldType tp.constraint_
+                              default_ = Option.map this.FoldType tp.default_ })
+                        scheme.type_params })
+              scheme
+
+          { name = name
+            type_args = Option.map (List.map this.FoldType) typeArgs
+            scheme = scheme }
           |> TypeRef
         | Literal _ -> t.kind // leaf node
         | Primitive _ -> t.kind // leaf node

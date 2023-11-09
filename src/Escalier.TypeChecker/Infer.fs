@@ -7,25 +7,6 @@ open Escalier.Data
 open Escalier.TypeChecker.Errors
 open Escalier.TypeChecker.Unify
 
-module TypeVariable =
-  let mutable next_id = 0
-
-  let reset () = next_id <- 0
-
-  let fresh () =
-    let t =
-      { Type.kind =
-          TypeKind.TypeVar(
-            { id = next_id
-              instance = None
-              bound = None }
-          )
-        provenance = None }
-
-    next_id <- next_id + 1
-
-    t
-
 module rec Infer =
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>
@@ -103,9 +84,21 @@ module rec Infer =
 
             return TypeKind.Primitive(Primitive.Boolean)
         | ExprKind.Unary(op, value) -> return! Error(NotImplemented)
-        | ExprKind.Function f -> return! infer_func env f
-        | ExprKind.Call(callee, type_args, args, opt_chain, throws) ->
-          return! Error(NotImplemented)
+        | ExprKind.Function func -> return! infer_func env func
+        | ExprKind.Call call ->
+          let! callee = infer_expr env call.callee
+
+          let! result, throws =
+            unify_call call.args None callee (infer_expr env)
+
+          // The call's `throw` field is initialized to None.  We update
+          // if we've determine that the function being called can throw
+          // something other than `never`.  We use this information to
+          // determine what exceptions the caller throws.
+          if throws.kind <> TypeKind.Keyword(KeywordType.Never) then
+            call.throws <- Some(throws)
+
+          return result.kind
         | ExprKind.Index(target, index, opt_chain) ->
           return! Error(NotImplemented)
         | ExprKind.Member(target, name, opt_chain) ->
@@ -167,7 +160,7 @@ module rec Infer =
               let! type_ann_t =
                 match p.typeAnn with
                 | Some(typeAnn) -> infer_type_ann env typeAnn
-                | None -> Result.Ok(TypeVariable.fresh ())
+                | None -> Result.Ok(TypeVariable.fresh None)
 
               let! assumps, param_t = infer_pattern env p.pattern
 
@@ -283,8 +276,18 @@ module rec Infer =
           match typeArgs with
           | Some(typeArgs) ->
             let! typeArgs = List.traverseResultM (infer_type_ann env) typeArgs
-            return TypeKind.TypeRef(name, Some(typeArgs), None)
-          | None -> return TypeKind.TypeRef(name, None, None)
+
+            return
+              { name = name
+                type_args = Some(typeArgs)
+                scheme = None }
+              |> TypeKind.TypeRef
+          | None ->
+            return
+              { name = name
+                type_args = None
+                scheme = None }
+              |> TypeKind.TypeRef
         | TypeAnnKind.Function functionType ->
           let! return_type = infer_type_ann env functionType.return_type
 
@@ -550,14 +553,11 @@ module rec Infer =
     visitor.ReturnValues
 
 
-  // TODO: actually use this on function types we want to generalize
   let generalize_func (func: Type.Function) : Type.Function =
     let mutable mapping: Map<int, string> = Map.empty
 
     let generalize (t: Type) : Type =
       let t = prune t
-
-      printfn "t = %A" t
 
       match t.kind with
       | TypeVar { id = id } ->
@@ -569,22 +569,24 @@ module rec Infer =
             mapping <- Map.add id name mapping
             name
 
-        { Type.kind = TypeRef(name, None, None)
+        { Type.kind = TypeRef.Make(name = name) |> TypeRef
+          // { name = name
+          //   type_args = None
+          //   scheme = None }
+          // |> TypeRef
           provenance = None }
       | _ -> t
 
     let folder = Folder.TypeFolder(generalize)
 
-    printfn "func.param_list = %A" func.param_list
-
     let param_list =
       List.map
         (fun (p: FuncParam) ->
-          let t = folder.FoldType(p.type_)
-          printfn "new param t = %A" t
-          { p with type_ = t })
+          { p with
+              type_ = folder.FoldType(p.type_) })
         func.param_list
 
+    // TODO: FoldType(func.throws)?
     let return_type = folder.FoldType(func.return_type)
 
     let values = mapping.Values |> List.ofSeq

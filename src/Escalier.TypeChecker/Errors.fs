@@ -8,3 +8,4 @@ module Errors =
     | NotInferred
     | TypeMismatch of Type * Type
     | RecursiveUnification
+    | WrongNumberOfTypeArgs

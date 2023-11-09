@@ -57,12 +57,12 @@ module Shared =
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'a, unit>)
     : Parser<FuncSig<'a>, unit> =
     pipe4
-      (opt typeParams)
-      (str_ws "fn" >>. (param_list opt_or_id))
+      (str_ws "fn" >>. (opt typeParams))
+      (param_list opt_or_id)
       (opt_or_id (str_ws "->" >>. typeAnn))
       (opt (ws .>> str_ws "throws" >>. typeAnn))
     <| fun type_params param_list return_type throws ->
-      { param_list = param_list
+      { type_params = type_params
+        param_list = param_list
         return_type = return_type
-        type_params = type_params
         throws = throws }

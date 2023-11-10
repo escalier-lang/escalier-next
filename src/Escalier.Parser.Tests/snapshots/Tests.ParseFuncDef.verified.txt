@@ -29,7 +29,7 @@ output: Success: { kind =
                          stop = (Ln: 1, Col: 16) }
                 stmts = [{ span = { start = (Ln: 1, Col: 13)
                                     stop = (Ln: 1, Col: 15) }
-                           kind = Expr { kind = Identifer "x"
+                           kind = Expr { kind = Identifier "x"
                                          span = { start = (Ln: 1, Col: 13)
                                                   stop = (Ln: 1, Col: 15) }
                                          inferred_type = None } }] } }

@@ -3,7 +3,7 @@ output: Success: { kind =
    Call
      { callee =
         { kind =
-           Index ({ kind = Identifer "array"
+           Index ({ kind = Identifier "array"
                     span = { start = (Ln: 1, Col: 1)
                              stop = (Ln: 1, Col: 6) }
                     inferred_type = None }, { kind = Literal (Number "0")

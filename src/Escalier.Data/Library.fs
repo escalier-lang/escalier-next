@@ -143,7 +143,7 @@ module Syntax =
       mutable throws: option<Type.Type> }
 
   type ExprKind =
-    | Identifer of string
+    | Identifier of string
     | Literal of Literal
     | Object of elems: list<ObjElem>
     | Tuple of elems: list<Expr>

@@ -1,5 +1,5 @@
 ﻿input: array[0]
-output: Success: { kind = Index ({ kind = Identifer "array"
+output: Success: { kind = Index ({ kind = Identifier "array"
                   span = { start = (Ln: 1, Col: 1)
                            stop = (Ln: 1, Col: 6) }
                   inferred_type = None }, { kind = Literal (Number "0")

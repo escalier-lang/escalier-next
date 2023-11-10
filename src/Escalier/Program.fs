@@ -129,3 +129,5 @@ if (true) {
 """
 
 test' Parser.script src
+
+test' Parser.expr "fn (x, y) => x + y"

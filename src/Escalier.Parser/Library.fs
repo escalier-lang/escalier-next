@@ -22,7 +22,7 @@ module Say =
   let stop = Position("source.esc", 5, 0, 5)
 
   let expr: Expr =
-    { kind = Identifer("foo")
+    { kind = Identifier("foo")
       span = { start = start; stop = stop }
       inferred_type = Some(t) }
 

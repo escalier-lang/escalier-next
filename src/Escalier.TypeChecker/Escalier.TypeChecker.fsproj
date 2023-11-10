@@ -5,6 +5,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Errors.fs"/>
+        <Compile Include="Env.fs"/>
         <Compile Include="TypeVariable.fs"/>
         <Compile Include="Unify.fs"/>
         <Compile Include="Infer.fs"/>

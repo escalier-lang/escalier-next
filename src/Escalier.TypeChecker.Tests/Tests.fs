@@ -3,17 +3,18 @@ module Tests
 open Xunit
 open Escalier.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Env
 open Escalier.Data.Type
 open FsToolkit.ErrorHandling
 open FParsec
 
 type Assert with
 
-  static member inline Value(env: Infer.Env, name: string, expected: string) =
+  static member inline Value(env: Env, name: string, expected: string) =
     let (t, _) = Map.find name env.values
     Assert.Equal(expected, t.ToString())
 
-  static member inline Type(env: Infer.Env, name: string, expected: string) =
+  static member inline Type(env: Env, name: string, expected: string) =
     let scheme = Map.find name env.schemes
     Assert.Equal(expected, scheme.type_.ToString())
 
@@ -30,10 +31,10 @@ let infer src =
         Result.mapError (CompileError.ParseError) (Result.Error(parserError))
 
     let env =
-      { Infer.Env.values = Map([])
-        Infer.Env.schemes = Map([])
-        Infer.Env.isAsync = false
-        Infer.Env.nonGeneric = Set([]) }
+      { Env.values = Map([])
+        Env.schemes = Map([])
+        Env.isAsync = false
+        Env.nonGeneric = Set([]) }
 
     let! t = Result.mapError (CompileError.TypeError) (Infer.infer_expr env ast)
     return t
@@ -48,10 +49,10 @@ let infer_script src =
         Result.mapError (CompileError.ParseError) (Result.Error(parserError))
 
     let env =
-      { Infer.Env.values = Map([])
-        Infer.Env.schemes = Map([])
-        Infer.Env.isAsync = false
-        Infer.Env.nonGeneric = Set([]) }
+      { Env.values = Map([])
+        Env.schemes = Map([])
+        Env.isAsync = false
+        Env.nonGeneric = Set([]) }
 
     let! env =
       Result.mapError (CompileError.TypeError) (Infer.infer_script env script)
@@ -145,10 +146,10 @@ let InferIdentifier () =
       provenance = None }
 
   let env =
-    { Infer.Env.values = Map([ ("foo", (t, false)) ])
-      Infer.Env.schemes = Map([])
-      Infer.Env.isAsync = false
-      Infer.Env.nonGeneric = Set([]) }
+    { Env.values = Map([ ("foo", (t, false)) ])
+      Env.schemes = Map([])
+      Env.isAsync = false
+      Env.nonGeneric = Set([]) }
 
   let result =
     result {
@@ -311,4 +312,45 @@ let InferTypeDecls () =
       Assert.Type(env, "D", "fn (x: number) -> number")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferLambda () =
+  let result =
+    result {
+      let src = "let add = fn (x, y) => x + y"
+
+      let! env = infer_script src
+
+      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSKK () =
+  let result =
+    result {
+      let src =
+        """
+          let S = fn (f) => fn (g) => fn (x) => f(x)(g(x))
+          let K = fn (x) => fn (y) => x
+          let I = S(K)(K)
+        """
+
+      let! env = infer_script src
+
+      // TODO: fix this
+      Assert.Value(
+        env,
+        "S",
+        "fn <A, E, C, D, B, F>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C"
+      )
+
+      Assert.Value(env, "K", "fn <A, B>(x: A) -> fn (y: B) -> A")
+      // TODO: fix this
+      Assert.Value(env, "I", "fn <A, B>(x: A) -> B")
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)

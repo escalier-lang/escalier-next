@@ -1,7 +1,7 @@
 ﻿input: msg = `foo ${`bar ${baz}`}`
 output: Success: { kind =
    Assign
-     ({ kind = Identifer "msg"
+     ({ kind = Identifier "msg"
         span = { start = (Ln: 1, Col: 1)
                  stop = (Ln: 1, Col: 5) }
         inferred_type = None }, Assign,
@@ -12,7 +12,7 @@ output: Success: { kind =
               [{ kind =
                   TemplateLiteral
                     { parts = ["bar "; ""]
-                      exprs = [{ kind = Identifer "baz"
+                      exprs = [{ kind = Identifier "baz"
                                  span = { start = (Ln: 1, Col: 21)
                                           stop = (Ln: 1, Col: 24) }
                                  inferred_type = None }] }

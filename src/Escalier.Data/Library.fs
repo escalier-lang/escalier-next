@@ -504,11 +504,6 @@ module Type =
       // used so that we can reference a type ref's scheme without importing it
       scheme: option<Scheme> }
 
-    static member inline Make(name: string, ?typeArgs, ?scheme) =
-      { name = name
-        type_args = typeArgs
-        scheme = scheme }
-
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef

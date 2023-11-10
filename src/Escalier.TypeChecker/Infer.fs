@@ -18,10 +18,6 @@ module rec Infer =
       isAsync: bool
       nonGeneric: Set<Type> }
 
-  // type Env =
-  //   { types: Map<string, Type>
-  //     values: Map<string, Binding> }
-
   let infer_expr (env: Env) (e: Expr) : Result<Type, TypeError> =
     let provenance = Some(Provenance.Expr(e))
 
@@ -584,9 +580,6 @@ module rec Infer =
   let generalize_func (func: Type.Function) : Type.Function =
     let mutable mapping: Map<int, string> = Map.empty
 
-    printfn "func = %A" func
-    printfn $"func = {func}"
-
     let generalize (t: Type) : Type =
       let t = prune t
 
@@ -600,11 +593,11 @@ module rec Infer =
             mapping <- Map.add id name mapping
             name
 
-        { Type.kind = TypeRef.Make(name = name) |> TypeRef
-          // { name = name
-          //   type_args = None
-          //   scheme = None }
-          // |> TypeRef
+        { Type.kind =
+            { name = name
+              type_args = None
+              scheme = None }
+            |> TypeRef
           provenance = None }
       | _ -> t
 

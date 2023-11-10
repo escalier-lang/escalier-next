@@ -155,8 +155,6 @@ module Unify =
 
     let retType = TypeVariable.fresh None
     let throwsType = TypeVariable.fresh None
-    // let ret_type = self.new_type_var(None);
-    // let throws_type = self.new_type_var(None);
 
     match callee.kind with
     | TypeKind.Function func ->
@@ -231,10 +229,7 @@ module Unify =
         let t = prune t
 
         match t.kind with
-        | TypeKind.TypeRef { name = name
-                             scheme = scheme
-                             type_args = typeArgs } ->
-
+        | TypeKind.TypeRef { name = name } ->
           match mapping.TryFind(name) with
           | Some(t) -> t // uses definition in mapping
           | None -> t // keeps TypeRef

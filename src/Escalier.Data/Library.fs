@@ -135,6 +135,13 @@ module Syntax =
     { sig': FuncSig<option<TypeAnn>>
       body: BlockOrExpr }
 
+  type Call =
+    { callee: Expr
+      typeArgs: option<list<TypeAnn>>
+      args: list<Expr>
+      optChain: bool
+      mutable throws: option<Type.Type> }
+
   type ExprKind =
     | Identifer of string
     | Literal of Literal
@@ -144,12 +151,7 @@ module Syntax =
     | Binary of left: Expr * op: BinaryOp * right: Expr
     | Unary of op: string * value: Expr
     | Function of Function
-    | Call of
-      callee: Expr *
-      type_args: option<list<TypeAnn>> *
-      args: list<Expr> *
-      opt_chain: bool *
-      throws: option<Type.Type>
+    | Call of Call
     | Index of target: Expr * index: Expr * opt_chain: bool
     | Member of target: Expr * name: string * opt_chain: bool
     | IfElse of
@@ -195,6 +197,25 @@ module Syntax =
       name: string
       constraint_: option<TypeAnn>
       default_: option<TypeAnn> }
+
+    override this.ToString() =
+      let sb = StringBuilder()
+
+      sb
+        .Append(this.name)
+        .Append(
+          match this.constraint_ with
+          | Some(constraint_) -> $" : {constraint_}"
+          | None -> ""
+        )
+        .Append(
+          match this.default_ with
+          | Some(default_) -> $" = {default_}"
+          | None -> ""
+        )
+      |> ignore
+
+      sb.ToString()
 
   type FuncSig<'T> =
     { type_params: option<list<TypeParam>>
@@ -248,8 +269,27 @@ module Syntax =
 module Type =
   type TypeParam =
     { name: string
-      bound: option<Type>
+      constraint_: option<Type>
       default_: option<Type> }
+
+    override this.ToString() =
+      let sb = StringBuilder()
+
+      sb
+        .Append(this.name)
+        .Append(
+          match this.constraint_ with
+          | Some(constraint_) -> $" : {constraint_}"
+          | None -> ""
+        )
+        .Append(
+          match this.default_ with
+          | Some(default_) -> $" = {default_}"
+          | None -> ""
+        )
+      |> ignore
+
+      sb.ToString()
 
   type Scheme =
     { type_params: list<TypeParam>
@@ -327,12 +367,33 @@ module Type =
       throws: Type }
 
     override this.ToString() =
-      sprintf
-        "fn (%s) -> %s"
-        (this.param_list
-         |> List.map (fun p -> p.ToString())
-         |> String.concat ", ")
-        (this.return_type.ToString())
+      let sb = StringBuilder()
+
+      // TODO: handle throws
+      sb
+        .Append("fn ")
+        .Append(
+          match this.type_params with
+          | Some(type_params) ->
+            let type_params =
+              type_params
+              |> List.map (fun p -> p.ToString())
+              |> String.concat ", "
+
+            $"<{type_params}>"
+          | None -> ""
+        )
+        .Append("(")
+        .Append(
+          this.param_list
+          |> List.map (fun p -> p.ToString())
+          |> String.concat ", "
+        )
+        .Append(") -> ")
+        .Append(this.return_type.ToString())
+      |> ignore
+
+      sb.ToString()
 
   type Mapped =
     { key: Type
@@ -437,12 +498,15 @@ module Type =
       mutable instance: option<Type>
       bound: option<Type> }
 
+  type TypeRef =
+    { name: string
+      type_args: option<list<Type>>
+      // used so that we can reference a type ref's scheme without importing it
+      scheme: option<Scheme> }
+
   type TypeKind =
     | TypeVar of TypeVar
-    | TypeRef of
-      name: string *
-      type_args: option<list<Type>> *
-      scheme: option<Scheme> // used so that we can reference a type ref's scheme without importing it
+    | TypeRef of TypeRef
     | Literal of Syntax.Literal
     | Primitive of Primitive
     | Tuple of list<Type>
@@ -471,11 +535,11 @@ module Type =
         match instance with
         | Some(instance) -> instance.ToString()
         | None -> $"t{id}"
-      | TypeRef(name, type_args, _) ->
+      | TypeRef { name = name; type_args = typeArgs } ->
         let sb = StringBuilder()
         sb.Append(name) |> ignore
 
-        match type_args with
+        match typeArgs with
         | Some(type_args) ->
           sb
             .Append("<")

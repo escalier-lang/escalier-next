@@ -7,25 +7,6 @@ open Escalier.Data
 open Escalier.TypeChecker.Errors
 open Escalier.TypeChecker.Unify
 
-module TypeVariable =
-  let mutable next_id = 0
-
-  let reset () = next_id <- 0
-
-  let fresh () =
-    let t =
-      { Type.kind =
-          TypeKind.TypeVar(
-            { id = next_id
-              instance = None
-              bound = None }
-          )
-        provenance = None }
-
-    next_id <- next_id + 1
-
-    t
-
 module rec Infer =
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>
@@ -36,10 +17,6 @@ module rec Infer =
       values: Map<string, Binding>
       isAsync: bool
       nonGeneric: Set<Type> }
-
-  // type Env =
-  //   { types: Map<string, Type>
-  //     values: Map<string, Binding> }
 
   let infer_expr (env: Env) (e: Expr) : Result<Type, TypeError> =
     let provenance = Some(Provenance.Expr(e))
@@ -103,9 +80,21 @@ module rec Infer =
 
             return TypeKind.Primitive(Primitive.Boolean)
         | ExprKind.Unary(op, value) -> return! Error(NotImplemented)
-        | ExprKind.Function f -> return! infer_func env f
-        | ExprKind.Call(callee, type_args, args, opt_chain, throws) ->
-          return! Error(NotImplemented)
+        | ExprKind.Function func -> return! infer_func env func
+        | ExprKind.Call call ->
+          let! callee = infer_expr env call.callee
+
+          let! result, throws =
+            unify_call call.args None callee (infer_expr env)
+
+          // The call's `throw` field is initialized to None.  We update
+          // if we've determine that the function being called can throw
+          // something other than `never`.  We use this information to
+          // determine what exceptions the caller throws.
+          if throws.kind <> TypeKind.Keyword(KeywordType.Never) then
+            call.throws <- Some(throws)
+
+          return result.kind
         | ExprKind.Index(target, index, opt_chain) ->
           return! Error(NotImplemented)
         | ExprKind.Member(target, name, opt_chain) ->
@@ -167,16 +156,16 @@ module rec Infer =
               let! type_ann_t =
                 match p.typeAnn with
                 | Some(typeAnn) -> infer_type_ann env typeAnn
-                | None -> Result.Ok(TypeVariable.fresh ())
+                | None -> Result.Ok(TypeVariable.fresh None)
 
               let! assumps, param_t = infer_pattern env p.pattern
 
               do! unify param_t type_ann_t
 
-              // TODO: add `non_generic` to env (or replace Env with Context)
               for KeyValue(name, binding) in assumps do
                 env <-
                   { env with
+                      nonGeneric = env.nonGeneric.Add(fst (binding))
                       values = env.values.Add(name, binding) }
 
               return
@@ -212,10 +201,17 @@ module rec Infer =
         { kind = TypeKind.Keyword(KeywordType.Never)
           provenance = None }
 
+      let! type_params =
+        match f.sig'.type_params with
+        | Some(typeParams) ->
+          List.traverseResultM (infer_type_param env) typeParams
+          |> Result.map Some
+        | None -> Ok None
+
       let func =
         { param_list = param_list
           return_type = return_type
-          type_params = None
+          type_params = type_params
           throws = never }
 
       // TODO:
@@ -223,6 +219,27 @@ module rec Infer =
       // - handle throws
 
       return TypeKind.Function(func)
+    }
+
+  let infer_type_param
+    (env: Env)
+    (tp: Syntax.TypeParam)
+    : Result<TypeParam, TypeError> =
+    result {
+      let! constraint_ =
+        match tp.constraint_ with
+        | Some(c) -> infer_type_ann env c |> Result.map Some
+        | None -> Ok None
+
+      let! default_ =
+        match tp.default_ with
+        | Some(d) -> infer_type_ann env d |> Result.map Some
+        | None -> Ok None
+
+      return
+        { name = tp.name
+          constraint_ = constraint_
+          default_ = default_ }
     }
 
   let infer_type_ann (env: Env) (typeAnn: TypeAnn) : Result<Type, TypeError> =
@@ -283,8 +300,18 @@ module rec Infer =
           match typeArgs with
           | Some(typeArgs) ->
             let! typeArgs = List.traverseResultM (infer_type_ann env) typeArgs
-            return TypeKind.TypeRef(name, Some(typeArgs), None)
-          | None -> return TypeKind.TypeRef(name, None, None)
+
+            return
+              { name = name
+                type_args = Some(typeArgs)
+                scheme = None }
+              |> TypeKind.TypeRef
+          | None ->
+            return
+              { name = name
+                type_args = None
+                scheme = None }
+              |> TypeKind.TypeRef
         | TypeAnnKind.Function functionType ->
           let! return_type = infer_type_ann env functionType.return_type
 
@@ -485,7 +512,18 @@ module rec Infer =
           let mutable values = env'.values
 
           for KeyValue(name, binding) in assump do
-            values <- values.Add(name, binding)
+            let (t, isMut) = binding
+            let t = prune t
+
+            match t.kind with
+            | TypeKind.Function f ->
+              let t =
+                { t with
+                    kind = generalize_func f |> TypeKind.Function }
+
+              let binding = (t, isMut)
+              values <- values.Add(name, binding)
+            | _ -> values <- values.Add(name, binding)
 
           env' <- { env' with values = values }
         | Some(StmtResult.Scheme(name, scheme)) ->
@@ -537,6 +575,64 @@ module rec Infer =
     | BlockOrExpr.Expr e -> visitor.VisitExpr(e)
 
     visitor.ReturnValues
+
+
+  let generalize_func (func: Type.Function) : Type.Function =
+    let mutable mapping: Map<int, string> = Map.empty
+
+    let generalize (t: Type) : Type =
+      let t = prune t
+
+      match t.kind with
+      | TypeVar { id = id } ->
+        let name =
+          match Map.tryFind id mapping with
+          | Some(name) -> name
+          | None ->
+            let name = 65 + mapping.Count |> char |> string
+            mapping <- Map.add id name mapping
+            name
+
+        { Type.kind =
+            { name = name
+              type_args = None
+              scheme = None }
+            |> TypeRef
+          provenance = None }
+      | _ -> t
+
+    let folder = Folder.TypeFolder(generalize)
+
+    let param_list =
+      List.map
+        (fun (p: FuncParam) ->
+          { p with
+              type_ = folder.FoldType(p.type_) })
+        func.param_list
+
+    // TODO: FoldType(func.throws)?
+    let return_type = folder.FoldType(func.return_type)
+
+    let values = mapping.Values |> List.ofSeq
+
+    let mutable type_params: list<TypeParam> =
+      List.map
+        (fun name ->
+          { name = name
+            constraint_ = None
+            default_ = None })
+        values
+
+    Option.iter
+      (fun tps ->
+        for tp in tps do
+          type_params <- type_params @ [ tp ])
+      func.type_params
+
+    { func with
+        type_params = if type_params.IsEmpty then None else Some(type_params)
+        param_list = param_list
+        return_type = return_type }
 
 // TODO: infer_module
 // These will allow us to more thoroughly test infer_stmt and infer_pattern

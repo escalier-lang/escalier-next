@@ -1,8 +1,12 @@
 ﻿input: add()
-output: Success: { kind = Call ({ kind = Identifer "add"
-                 span = { start = (Ln: 1, Col: 1)
-                          stop = (Ln: 1, Col: 4) }
-                 inferred_type = None }, None, [], false, None)
+output: Success: { kind = Call { callee = { kind = Identifer "add"
+                           span = { start = (Ln: 1, Col: 1)
+                                    stop = (Ln: 1, Col: 4) }
+                           inferred_type = None }
+                typeArgs = None
+                args = []
+                optChain = false
+                throws = None }
   span = { start = (Ln: 1, Col: 1)
            stop = (Ln: 1, Col: 5) }
   inferred_type = None }

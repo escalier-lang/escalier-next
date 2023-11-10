@@ -1,8 +1,12 @@
 ﻿input: foo()[0]
-output: Success: { kind = Index ({ kind = Call ({ kind = Identifer "foo"
-                                 span = { start = (Ln: 1, Col: 1)
-                                          stop = (Ln: 1, Col: 4) }
-                                 inferred_type = None }, None, [], false, None)
+output: Success: { kind = Index ({ kind = Call { callee = { kind = Identifer "foo"
+                                           span = { start = (Ln: 1, Col: 1)
+                                                    stop = (Ln: 1, Col: 4) }
+                                           inferred_type = None }
+                                typeArgs = None
+                                args = []
+                                optChain = false
+                                throws = None }
                   span = { start = (Ln: 1, Col: 1)
                            stop = (Ln: 1, Col: 5) }
                   inferred_type = None }, { kind = Literal (Number "0")

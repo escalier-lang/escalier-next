@@ -7,6 +7,16 @@ open Escalier.Data.Type
 open FsToolkit.ErrorHandling
 open FParsec
 
+type Assert with
+
+  static member inline Value(env: Infer.Env, name: string, expected: string) =
+    let (t, _) = Map.find name env.values
+    Assert.Equal(expected, t.ToString())
+
+  static member inline Type(env: Infer.Env, name: string, expected: string) =
+    let scheme = Map.find name env.schemes
+    Assert.Equal(expected, scheme.type_.ToString())
+
 type CompileError =
   | ParseError of ParserError
   | TypeError of Errors.TypeError
@@ -122,8 +132,8 @@ let InferIfElseChaining () =
       """
 
       let! env = infer_script src
-      let (foo, _) = Map.find "foo" env.values
-      Assert.Equal("5 | \"hello\" | true", foo.ToString())
+
+      Assert.Value(env, "foo", "5 | \"hello\" | true")
     }
 
   Assert.False(Result.isError result)
@@ -153,10 +163,9 @@ let InferLetStatements () =
   let result =
     result {
       let! env = infer_script "let foo = 5\nlet bar =\"hello\""
-      let (foo, _) = Map.find "foo" env.values
-      let (bar, _) = Map.find "bar" env.values
-      Assert.Equal("5", foo.ToString())
-      Assert.Equal("\"hello\"", bar.ToString())
+
+      Assert.Value(env, "foo", "5")
+      Assert.Value(env, "bar", "\"hello\"")
     }
 
   Assert.False(Result.isError result)
@@ -173,8 +182,8 @@ let InferBinOpsOnPrimitives () =
           """
 
       let! env = infer_script src
-      let (sum, _) = Map.find "sum" env.values
-      Assert.Equal("number", sum.ToString())
+
+      Assert.Value(env, "sum", "number")
     }
 
   Assert.False(Result.isError result)
@@ -191,8 +200,8 @@ let InferFuncParams () =
           """
 
       let! env = infer_script src
-      let (sum, _) = Map.find "add" env.values
-      Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
+
+      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
 
   Assert.False(Result.isError result)
@@ -209,8 +218,8 @@ let InferFuncParamsWithTypeAnns () =
           """
 
       let! env = infer_script src
-      let (sum, _) = Map.find "add" env.values
-      Assert.Equal("fn (x: number, y: number) -> number", sum.ToString())
+
+      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
 
   Assert.False(Result.isError result)
@@ -227,15 +236,57 @@ let InferFuncWithMultipleReturns () =
             }
             return y
           }
+          let bar = foo(5, "hello")
           """
 
       let! env = infer_script src
-      let (foo, _) = Map.find "foo" env.values
 
-      Assert.Equal(
-        "fn (x: number, y: string) -> string | number",
-        foo.ToString()
-      )
+      Assert.Value(env, "foo", "fn (x: number, y: string) -> string | number")
+      Assert.Value(env, "bar", "string | number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncGenericFunc () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn (x) {
+            return x
+          }
+          let bar = foo(5)
+          let baz = foo("hello")
+          """
+
+      let! env = infer_script src
+
+      Assert.Value(env, "foo", "fn <A>(x: A) -> A")
+      Assert.Value(env, "bar", "5")
+      Assert.Value(env, "baz", "\"hello\"")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncGenericFuncWithExplicitTypeParams () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn <T>(x: T) -> T {
+            return x
+          }
+          let bar = foo(5)
+          let baz = foo("hello")
+          """
+
+      let! env = infer_script src
+
+      Assert.Value(env, "foo", "fn <T>(x: T) -> T")
+      Assert.Value(env, "bar", "5")
+      Assert.Value(env, "baz", "\"hello\"")
     }
 
   Assert.False(Result.isError result)
@@ -254,14 +305,10 @@ let InferTypeDecls () =
 
       let! env = infer_script src
 
-      let a = Map.find "A" env.schemes
-      Assert.Equal("number", a.type_.ToString())
-      let b = Map.find "B" env.schemes
-      Assert.Equal("[string, boolean]", b.type_.ToString())
-      let c = Map.find "C" env.schemes
-      Assert.Equal("5 | \"hello\"", c.type_.ToString())
-      let d = Map.find "D" env.schemes
-      Assert.Equal("fn (x: number) -> number", d.type_.ToString())
+      Assert.Type(env, "A", "number")
+      Assert.Type(env, "B", "[string, boolean]")
+      Assert.Type(env, "C", "5 | \"hello\"")
+      Assert.Type(env, "D", "fn (x: number) -> number")
     }
 
   Assert.False(Result.isError result)

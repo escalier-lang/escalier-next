@@ -270,6 +270,28 @@ let InferFuncGenericFunc () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferFuncGenericFuncWithExplicitTypeParams () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn <T>(x: T) -> T {
+            return x
+          }
+          let bar = foo(5)
+          let baz = foo("hello")
+          """
+
+      let! env = infer_script src
+
+      Assert.Value(env, "foo", "fn <T>(x: T) -> T")
+      Assert.Value(env, "bar", "5")
+      Assert.Value(env, "baz", "\"hello\"")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferTypeDecls () =
   let result =
     result {

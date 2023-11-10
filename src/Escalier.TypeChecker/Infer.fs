@@ -205,10 +205,17 @@ module rec Infer =
         { kind = TypeKind.Keyword(KeywordType.Never)
           provenance = None }
 
+      let! type_params =
+        match f.sig'.type_params with
+        | Some(typeParams) ->
+          List.traverseResultM (infer_type_param env) typeParams
+          |> Result.map Some
+        | None -> Ok None
+
       let func =
         { param_list = param_list
           return_type = return_type
-          type_params = None
+          type_params = type_params
           throws = never }
 
       // TODO:
@@ -216,6 +223,27 @@ module rec Infer =
       // - handle throws
 
       return TypeKind.Function(func)
+    }
+
+  let infer_type_param
+    (env: Env)
+    (tp: Syntax.TypeParam)
+    : Result<TypeParam, TypeError> =
+    result {
+      let! constraint_ =
+        match tp.constraint_ with
+        | Some(c) -> infer_type_ann env c |> Result.map Some
+        | None -> Ok None
+
+      let! default_ =
+        match tp.default_ with
+        | Some(d) -> infer_type_ann env d |> Result.map Some
+        | None -> Ok None
+
+      return
+        { name = tp.name
+          constraint_ = constraint_
+          default_ = default_ }
     }
 
   let infer_type_ann (env: Env) (typeAnn: TypeAnn) : Result<Type, TypeError> =
@@ -556,6 +584,9 @@ module rec Infer =
   let generalize_func (func: Type.Function) : Type.Function =
     let mutable mapping: Map<int, string> = Map.empty
 
+    printfn "func = %A" func
+    printfn $"func = {func}"
+
     let generalize (t: Type) : Type =
       let t = prune t
 
@@ -591,13 +622,19 @@ module rec Infer =
 
     let values = mapping.Values |> List.ofSeq
 
-    let type_params: list<TypeParam> =
+    let mutable type_params: list<TypeParam> =
       List.map
         (fun name ->
           { name = name
             constraint_ = None
             default_ = None })
         values
+
+    Option.iter
+      (fun tps ->
+        for tp in tps do
+          type_params <- type_params @ [ tp ])
+      func.type_params
 
     { func with
         type_params = if type_params.IsEmpty then None else Some(type_params)

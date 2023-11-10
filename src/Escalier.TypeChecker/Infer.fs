@@ -18,8 +18,7 @@ module rec Infer =
         match e.kind with
         | ExprKind.Identifier name ->
           match Map.tryFind name env.values with
-          | Some((t, _)) ->
-            return (fresh env t).kind // How do we link back to the variable declaration?
+          | Some((t, _)) -> return (fresh env t).kind // How do we link back to the variable declaration?
           | None -> return! Error(NotImplemented)
         | ExprKind.Literal lit -> return TypeKind.Literal(lit)
         | ExprKind.Object elems -> return! Error(NotImplemented)
@@ -590,8 +589,8 @@ module rec Infer =
           match Map.tryFind id mapping with
           | Some(name) -> name
           | None ->
-            let name = 65 + mapping.Count |> char |> stringmapping <-
-              Map.add id name mapping
+            let name = 65 + mapping.Count |> char |> string
+            mapping <- Map.add id name mapping
             name
 
         { Type.kind =

@@ -327,6 +327,7 @@ let InferLambda () =
 
   Assert.False(Result.isError result)
 
+// TODO: fix this test
 [<Fact>]
 let InferSKK () =
   let result =
@@ -340,7 +341,6 @@ let InferSKK () =
 
       let! env = infer_script src
 
-      // TODO: fix this
       Assert.Value(
         env,
         "S",
@@ -348,7 +348,7 @@ let InferSKK () =
       )
 
       Assert.Value(env, "K", "fn <A, B>(x: A) -> fn (y: B) -> A")
-      // TODO: fix this
+      // This should be `fn <A>(x: A) -> A`
       Assert.Value(env, "I", "fn <A, B>(x: A) -> B")
     }
 

@@ -7,7 +7,8 @@ module TypeVariable =
 
   let reset () = next_id <- 0
 
-  let fresh (bound: option<Type>) =
+  // TODO: remove `env` as a param
+  let new_type_var (bound: option<Type>) =
     let t =
       { Type.kind =
           TypeKind.TypeVar(

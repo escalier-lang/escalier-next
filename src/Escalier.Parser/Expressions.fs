@@ -25,7 +25,7 @@ module private Expressions =
   let identExpr: Parser<Expr, unit> =
     withSpan ident
     |>> fun (sl, span) ->
-      { kind = Identifer(sl)
+      { kind = Identifier(sl)
         span = span
         inferred_type = None }
 
@@ -83,7 +83,10 @@ module private Expressions =
     |>> fun (stmts, span) -> BlockOrExpr.Block({ span = span; stmts = stmts })
 
   let func: Parser<Function, unit> =
-    pipe2 (func_sig opt) block <| fun sig' body -> { sig' = sig'; body = body }
+    pipe2
+      (func_sig opt)
+      (block <|> (str_ws "=>" >>. expr |>> fun e -> BlockOrExpr.Expr(e)))
+    <| fun sig' body -> { sig' = sig'; body = body }
 
   let funcExpr: Parser<Expr, unit> =
     withSpan func

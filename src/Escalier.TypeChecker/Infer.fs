@@ -4,29 +4,21 @@ open FsToolkit.ErrorHandling
 open Escalier.Data.Syntax
 open Escalier.Data.Type
 open Escalier.Data
-open Escalier.TypeChecker.Errors
-open Escalier.TypeChecker.Unify
+
+open Env
+open Errors
+open Unify
 
 module rec Infer =
-  type Binding = Type * bool
-  type BindingAssump = Map<string, Binding>
-  type SchemeAssump = (string * Scheme)
-
-  type Env =
-    { schemes: Map<string, Scheme>
-      values: Map<string, Binding>
-      isAsync: bool
-      nonGeneric: Set<Type> }
-
   let infer_expr (env: Env) (e: Expr) : Result<Type, TypeError> =
     let provenance = Some(Provenance.Expr(e))
 
     let kind =
       result {
         match e.kind with
-        | ExprKind.Identifer name ->
+        | ExprKind.Identifier name ->
           match Map.tryFind name env.values with
-          | Some((t, _)) -> return t.kind // How do we link back to the variable declaration?
+          | Some((t, _)) -> return (fresh env t).kind // How do we link back to the variable declaration?
           | None -> return! Error(NotImplemented)
         | ExprKind.Literal lit -> return TypeKind.Literal(lit)
         | ExprKind.Object elems -> return! Error(NotImplemented)
@@ -156,16 +148,21 @@ module rec Infer =
               let! type_ann_t =
                 match p.typeAnn with
                 | Some(typeAnn) -> infer_type_ann env typeAnn
-                | None -> Result.Ok(TypeVariable.fresh None)
+                | None -> Result.Ok(TypeVariable.new_type_var None)
 
               let! assumps, param_t = infer_pattern env p.pattern
 
               do! unify param_t type_ann_t
 
               for KeyValue(name, binding) in assumps do
+                let nonGeneric =
+                  match fst(binding).kind with
+                  | TypeVar { id = id } -> env.nonGeneric.Add(id)
+                  | _ -> env.nonGeneric
+
                 env <-
                   { env with
-                      nonGeneric = env.nonGeneric.Add(fst (binding))
+                      nonGeneric = nonGeneric
                       values = env.values.Add(name, binding) }
 
               return
@@ -180,22 +177,27 @@ module rec Infer =
       // such as if-else and match expressions.
       let! _ = infer_block env f.body
 
-      let returns = findReturns f.body
-
       let return_type =
-        match returns with
-        | [] ->
-          { kind = TypeKind.Keyword(KeywordType.Never)
-            provenance = None }
-        | [ ret ] ->
-          match ret.inferred_type with
+        match f.body with
+        | BlockOrExpr.Block(block) ->
+          match findReturns block with
+          | [] ->
+            { kind = TypeKind.Keyword(KeywordType.Never)
+              provenance = None }
+          | [ ret ] ->
+            match ret.inferred_type with
+            | Some(t) -> t
+            | None -> failwith "todo"
+          | many ->
+            let types = many |> List.choose (fun (r: Expr) -> r.inferred_type)
+
+            { kind = TypeKind.Union(types)
+              provenance = None }
+        | BlockOrExpr.Expr(expr) ->
+          match expr.inferred_type with
           | Some(t) -> t
           | None -> failwith "todo"
-        | many ->
-          let types = many |> List.choose (fun (r: Expr) -> r.inferred_type)
 
-          { kind = TypeKind.Union(types)
-            provenance = None }
 
       let never =
         { kind = TypeKind.Keyword(KeywordType.Never)
@@ -567,12 +569,10 @@ module rec Infer =
         | None -> ()
       | _ -> base.VisitStmt(stmt)
 
-  let findReturns (block: BlockOrExpr) : Expr list =
+  let findReturns (block: Block) : Expr list =
     let visitor = ReturnVisitor()
 
-    match block with
-    | BlockOrExpr.Block b -> visitor.VisitBlock(b)
-    | BlockOrExpr.Expr e -> visitor.VisitExpr(e)
+    visitor.VisitBlock(block)
 
     visitor.ReturnValues
 
@@ -633,6 +633,29 @@ module rec Infer =
         type_params = if type_params.IsEmpty then None else Some(type_params)
         param_list = param_list
         return_type = return_type }
+
+  let fresh (env: Env) (t: Type) =
+    let mutable mapping: Map<int, Type> = Map.empty
+
+    let foldFn (t: Type) : Type =
+      match (prune t).kind with
+      | TypeVar { id = id } ->
+        if env.nonGeneric.Contains(id) then
+          t
+        else
+          match Map.tryFind id mapping with
+          | None ->
+            let new_var = TypeVariable.new_type_var None
+            mapping <- Map.add id new_var mapping
+            new_var
+          | Some(var) -> var
+      | _ -> t
+
+    // TODO: Fix TypeFolder so that we don't get new type variables
+    // let folder = Folder.TypeFolder(foldFn)
+    // folder.FoldType(t)
+
+    t
 
 // TODO: infer_module
 // These will allow us to more thoroughly test infer_stmt and infer_pattern

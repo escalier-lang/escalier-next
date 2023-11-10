@@ -1,5 +1,5 @@
 ﻿input: foo()[0]
-output: Success: { kind = Index ({ kind = Call { callee = { kind = Identifer "foo"
+output: Success: { kind = Index ({ kind = Call { callee = { kind = Identifier "foo"
                                            span = { start = (Ln: 1, Col: 1)
                                                     stop = (Ln: 1, Col: 4) }
                                            inferred_type = None }

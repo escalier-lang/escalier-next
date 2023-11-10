@@ -85,7 +85,7 @@ module Visitor =
       | ExprKind.Assign(left, _op, right) ->
         this.VisitExpr left
         this.VisitExpr right
-      | ExprKind.Identifer _ -> ()
+      | ExprKind.Identifier _ -> ()
       | ExprKind.Literal _ -> ()
       | ExprKind.Object elems ->
         List.iter

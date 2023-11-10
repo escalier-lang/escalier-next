@@ -3,8 +3,9 @@ namespace Escalier.TypeChecker
 open FsToolkit.ErrorHandling
 open Escalier.Data.Syntax
 open Escalier.Data.Type
-open Escalier.TypeChecker.Errors
 open Escalier.Data
+
+open Errors
 
 module Unify =
   let rec prune (t: Type) : Type =
@@ -76,7 +77,9 @@ module Unify =
         | TypeKind.TypeVar(v) ->
           v.instance <- Some(t2)
           return ()
-        | _ -> return! Error(TypeError.NotImplemented)
+        | _ ->
+          printfn "bind error"
+          return! Error(TypeError.NotImplemented)
     }
 
   let rec unify (t1: Type) (t2: Type) : Result<unit, TypeError> =
@@ -142,7 +145,29 @@ module Unify =
       | TypeKind.Object _, TypeKind.Intersection _ ->
         return! Error(TypeError.NotImplemented)
       | TypeKind.Function fn1, TypeKind.Function fn2 ->
-        return! Error(TypeError.NotImplemented)
+        let! fn1 = instantiate_func fn1 None
+        let! fn2 = instantiate_func fn2 None
+
+        // TODO: handle `self` params in methods
+        // TODO: extract rest params
+
+        let minParams1 = fn1.param_list.Length
+        let minParams2 = fn2.param_list.Length
+
+        if minParams1 > minParams2 then
+          // t1 needs to have at least as many params as t2
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
+        for i in 0 .. minParams1 - 1 do
+          let p1 = fn1.param_list.[i]
+          let p2 = fn2.param_list.[i]
+
+          // NOTE: the order is reversed because fn1 has to accept
+          // at least the same params as fn2 but can accept more.
+          do! unify p2.type_ p1.type_
+
+        do! unify fn1.return_type fn2.return_type
+        do! unify fn1.throws fn2.throws
       | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
@@ -153,13 +178,46 @@ module Unify =
     (inferExpr: Expr -> Result<Type, TypeError>)
     : Result<(Type * Type), TypeError> =
 
-    let retType = TypeVariable.fresh None
-    let throwsType = TypeVariable.fresh None
+    result {
+      let callee = prune callee
 
-    match callee.kind with
-    | TypeKind.Function func ->
-      unify_func_call args typeArgs retType throwsType func inferExpr
-    | _ -> failwith "todo"
+      let retType = TypeVariable.new_type_var None
+      let throwsType = TypeVariable.new_type_var None
+
+      match callee.kind with
+      | TypeKind.Function func ->
+        return! unify_func_call args typeArgs retType throwsType func inferExpr
+      | TypeKind.TypeVar _ ->
+
+        // TODO: use a `result {}` CE here
+        let! argTypes = List.traverseResultM inferExpr args
+
+        let param_list =
+          List.mapi
+            (fun i t ->
+              let p: Pattern = Pattern.Identifier $"arg{i}"
+
+              { pattern = p
+                type_ = t
+                optional = false })
+            argTypes
+
+        let callType =
+          { Type.kind =
+              TypeKind.Function
+                { param_list = param_list
+                  return_type = retType
+                  throws = throwsType
+                  type_params = None } // TODO
+            provenance = None }
+
+        match bind callee callType with
+        | Ok _ -> return (prune retType, prune throwsType)
+        | Error e -> return! Error e
+      | kind ->
+        printfn "kind = %A" kind
+        return! Error(TypeError.NotImplemented)
+    }
 
   and unify_func_call
     (args: list<Expr>)
@@ -222,7 +280,8 @@ module Unify =
             mapping <- mapping.Add(tp.name, ta)
         | None ->
           for tp in typeParams do
-            mapping <- mapping.Add(tp.name, TypeVariable.fresh tp.constraint_)
+            mapping <-
+              mapping.Add(tp.name, TypeVariable.new_type_var tp.constraint_)
       | None -> ()
 
       let instantiate (t: Type) : Type =

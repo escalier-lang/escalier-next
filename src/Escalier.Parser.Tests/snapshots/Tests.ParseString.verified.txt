@@ -1,7 +1,7 @@
 ﻿input: msg = "Hello,\n\t\"world!\"" 
 output: Success: { kind =
    Assign
-     ({ kind = Identifer "msg"
+     ({ kind = Identifier "msg"
         span = { start = (Ln: 1, Col: 1)
                  stop = (Ln: 1, Col: 5) }
         inferred_type = None }, Assign,

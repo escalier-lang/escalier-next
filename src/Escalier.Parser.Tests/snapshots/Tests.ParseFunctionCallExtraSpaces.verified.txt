@@ -1,14 +1,14 @@
 ﻿input: add( x , y )
 output: Success: { kind =
-   Call { callee = { kind = Identifer "add"
+   Call { callee = { kind = Identifier "add"
                      span = { start = (Ln: 1, Col: 1)
                               stop = (Ln: 1, Col: 4) }
                      inferred_type = None }
           typeArgs = None
-          args = [{ kind = Identifer "x"
+          args = [{ kind = Identifier "x"
                     span = { start = (Ln: 1, Col: 6)
                              stop = (Ln: 1, Col: 8) }
-                    inferred_type = None }; { kind = Identifer "y"
+                    inferred_type = None }; { kind = Identifier "y"
                                               span = { start = (Ln: 1, Col: 10)
                                                        stop = (Ln: 1, Col: 12) }
                                               inferred_type = None }]

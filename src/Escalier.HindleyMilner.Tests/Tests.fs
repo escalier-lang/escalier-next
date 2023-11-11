@@ -1,12 +1,15 @@
 module Tests
 
 open Xunit
-open Escalier.HindleyMilner
+
+open Escalier.HindleyMilner.Syntax
+open Escalier.HindleyMilner.Type
+open Escalier.HindleyMilner.TypeChecker
 
 let getEnv () =
   let var1 = makeVariable ()
   let var2 = makeVariable ()
-  let pairTy = TypeOperator({ name = "*"; types = [ var1; var2 ] })
+  let pairTy = { kind = TypeOp({ name = "*"; types = [ var1; var2 ] }) }
   let var3 = makeVariable ()
 
   [ ("pair", makeFunctionType var1 (makeFunctionType var2 pairTy))
@@ -47,7 +50,7 @@ let InferFactorial () =
     // Apply(Ident("factorial"), Ident("5"))
     )
 
-  let t = analyse ast env
+  let t = infer ast env
 
   Assert.Equal("(int -> int)", t.ToString())
 
@@ -67,7 +70,7 @@ let UnificationFailure () =
   let env = getEnv ()
 
   try
-    analyse ast env |> ignore
+    infer ast env |> ignore
   with ex ->
     Assert.Equal("Type mismatch bool != int", ex.Message)
 
@@ -84,7 +87,7 @@ let UndefinedSymbol () =
   let env = getEnv ()
 
   try
-    analyse ast env |> ignore
+    infer ast env |> ignore
   with ex ->
     Assert.Equal("Undefined symbol f", ex.Message)
 
@@ -101,7 +104,7 @@ let InferPair () =
   let ast = Let("f", Lambda("x", Ident("x")), pair)
   let env = getEnv ()
 
-  let t = analyse ast env
+  let t = infer ast env
 
   Assert.Equal("(int * bool)", t.ToString())
 
@@ -112,7 +115,7 @@ let RecursiveUnification () =
   let env = getEnv ()
 
   try
-    analyse ast env |> ignore
+    infer ast env |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 
@@ -135,7 +138,7 @@ let InferGenericAndNonGeneric () =
 
   let env = getEnv ()
 
-  let t = analyse ast env
+  let t = infer ast env
 
   (* fn g => let f = fn x => g in pair (f 3, f true) *)
   Assert.Equal("(t5 -> (t5 * t6))", t.ToString())
@@ -155,7 +158,7 @@ let InferFuncComposition () =
 
   let env = getEnv ()
 
-  let t = analyse ast env
+  let t = infer ast env
 
   (* fn f (fn g (fn arg (f g arg))) *)
   Assert.Equal("((t5 -> t6) -> ((t6 -> t7) -> (t5 -> t7)))", t.ToString())
@@ -177,7 +180,7 @@ let InfersSKK () =
       )
     )
 
-  let t = analyse S env
+  let t = infer S env
   env <- ("S", t) :: env
 
   Assert.Equal(
@@ -186,18 +189,18 @@ let InfersSKK () =
   )
 
   let K1 = Lambda("x", Lambda("y", Ident("x")))
-  let t = analyse K1 env
+  let t = infer K1 env
   env <- ("K1", t) :: env
 
   Assert.Equal("(t9 -> (t10 -> t9))", t.ToString())
 
   let K2 = Lambda("x", Lambda("y", Ident("x")))
-  let t = analyse K2 env
+  let t = infer K2 env
   env <- ("K2", t) :: env
 
   Assert.Equal("(t11 -> (t12 -> t11))", t.ToString())
 
   let I = Apply(Apply(Ident("S"), Ident("K1")), Ident("K2"))
-  let t = analyse I env
+  let t = infer I env
 
   Assert.Equal("(t15 -> t15)", t.ToString())

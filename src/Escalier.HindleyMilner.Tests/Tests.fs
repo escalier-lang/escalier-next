@@ -3,17 +3,12 @@ module Tests
 open Xunit
 
 open Escalier.HindleyMilner.Syntax
-open Escalier.HindleyMilner.Type
 open Escalier.HindleyMilner.TypeChecker
 
 let getEnv () =
-  let var1 = makeVariable ()
-  let var2 = makeVariable ()
-  let pairTy = { kind = TypeOp({ name = "*"; types = [ var1; var2 ] }) }
   let var3 = makeVariable ()
 
-  [ ("pair", makeFunctionType var1 (makeFunctionType var2 pairTy))
-    ("true", boolType)
+  [ ("true", boolType)
     ("cond",
      makeFunctionType
        boolType
@@ -57,13 +52,12 @@ let InferFactorial () =
 [<Fact>]
 let UnificationFailure () =
   nextVariableId <- 0
-  (* fn x => (pair(x(3) (x(true))) *)
+  (* fn x => [x(3) x(true)] *)
   let ast =
     Lambda(
       "x",
-      Apply(
-        Apply(Ident("pair"), Apply(Ident("x"), Ident("3"))),
-        Apply(Ident("x"), Ident("true"))
+      Expr.Tuple(
+        [ Apply(Ident("x"), Ident("3")); Apply(Ident("x"), Ident("true")) ]
       )
     )
 
@@ -77,13 +71,7 @@ let UnificationFailure () =
 [<Fact>]
 let UndefinedSymbol () =
   nextVariableId <- 0
-  (* pair(f(3), f(true)) *)
-  let ast =
-    Apply(
-      Apply(Ident("pair"), Apply(Ident("f"), Ident("4"))),
-      Apply(Ident("f"), Ident("true"))
-    )
-
+  let ast = Ident("foo")
   let env = getEnv ()
 
   try
@@ -94,19 +82,19 @@ let UndefinedSymbol () =
 [<Fact>]
 let InferPair () =
   nextVariableId <- 0
-  (* letrec f = (fn x => x) in ((pair (f 4)) (f true)) *)
+
   let pair =
-    Apply(
-      Apply(Ident("pair"), Apply(Ident("f"), Ident("4"))),
-      Apply(Ident("f"), Ident("true"))
+    Expr.Tuple(
+      [ Apply(Ident("f"), Ident("4")); Apply(Ident("f"), Ident("true")) ]
     )
 
+  (* letrec f = (fn x => x) in [f 4, f true] *)
   let ast = Let("f", Lambda("x", Ident("x")), pair)
   let env = getEnv ()
 
   let t = infer ast env
 
-  Assert.Equal("(int * bool)", t.ToString())
+  Assert.Equal("[int, bool]", t.ToString())
 
 [<Fact>]
 let RecursiveUnification () =
@@ -129,9 +117,8 @@ let InferGenericAndNonGeneric () =
       Let(
         "f",
         Lambda("x", Ident("g")),
-        Apply(
-          Apply(Ident("pair"), Apply(Ident("f"), Ident("3"))),
-          Apply(Ident("f"), Ident("true"))
+        Expr.Tuple(
+          [ Apply(Ident("f"), Ident("3")); Apply(Ident("f"), Ident("true")) ]
         )
       )
     )
@@ -140,7 +127,7 @@ let InferGenericAndNonGeneric () =
 
   let t = infer ast env
 
-  (* fn g => let f = fn x => g in pair (f 3, f true) *)
+  (* fn g => let f = fn x => g in [f 3, f true] *)
   Assert.Equal("(t5 -> (t5 * t6))", t.ToString())
 
 [<Fact>]

@@ -7,6 +7,7 @@ module Syntax =
     | Apply of func: Expr * argument: Expr
     | Let of name: string * definition: Expr * body: Expr
     | LetRec of name: string * definition: Expr * body: Expr
+    | Tuple of elements: list<Expr>
 
     override this.ToString() =
       match this with
@@ -15,6 +16,11 @@ module Syntax =
       | Apply(fn, arg) -> $"{fn} {arg}"
       | Let(v, def, body) -> $"let {v} = {def} in {body}"
       | LetRec(v, def, body) -> $"let rec {v} = {def} in {body}"
+      | Tuple elems ->
+        let elems =
+          List.map (fun item -> item.ToString()) elems |> String.concat ", "
+
+        $"[{elems}]"
 
 module rec Type =
   ///A type variable standing for an arbitrary type.
@@ -29,6 +35,7 @@ module rec Type =
   type TypeKind =
     | TypeVar of TypeVar
     | TypeOp of TypeOp
+    | Tuple of list<Type>
 
   type Type =
     { kind: TypeKind } // TODO: add provenance later
@@ -37,6 +44,11 @@ module rec Type =
       match this.kind with
       | TypeVar({ instance = Some(instance) }) -> instance.ToString()
       | TypeVar({ instance = None } as v) -> $"t{v.id}"
+      | Tuple elems ->
+        let elems =
+          List.map (fun item -> item.ToString()) elems |> String.concat ", "
+
+        $"[{elems}]"
       | TypeOp({ name = tyopName; types = tyopTypes }) ->
         match List.length tyopTypes with
         | 0 -> tyopName

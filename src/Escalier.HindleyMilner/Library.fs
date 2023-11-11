@@ -82,6 +82,7 @@ module TypeChecker =
           | true -> table[p.id]
         else
           t
+      | Tuple elems -> { kind = Tuple(List.map loop elems) }
       | TypeOp({ types = tyopTypes } as op) ->
         let kind =
           TypeOp(
@@ -112,13 +113,19 @@ module TypeChecker =
           failwith "Recursive unification"
 
         v.instance <- Some(t2)
-    | TypeOp _ as a, (TypeVar _ as b) -> unify t2 t1
-    | TypeOp({ name = name1; types = types1 }) as a,
-      (TypeOp({ name = name2; types = types2 }) as b) ->
+    | _, TypeVar _ -> unify t2 t1
+    | Tuple(elems1), Tuple(elems2) ->
+      if List.length elems1 <> List.length elems2 then
+        failwithf $"Type mismatch {t1} != {t2}"
+
+      ignore (List.map2 unify elems1 elems2)
+    | TypeOp({ name = name1; types = types1 }),
+      TypeOp({ name = name2; types = types2 }) ->
       if (name1 <> name2 || List.length types1 <> List.length types2) then
         failwith $"Type mismatch {t1} != {t2}"
 
       ignore (List.map2 unify types1 types2)
+    | _, _ -> failwith $"Type mismatch {t1} != {t2}"
 
   ///Computes the type of the expression given by node.
   ///The type of the node is computed in the context of the
@@ -162,5 +169,8 @@ module TypeChecker =
         let defnTy = loop defn newEnv newNonGeneric
         unify newTy defnTy
         loop body newEnv nonGeneric
+      | Expr.Tuple elems ->
+        let elems = List.map (fun elem -> loop elem env nonGeneric) elems
+        { Type.kind = TypeKind.Tuple(elems) }
 
     loop exp env Set.empty

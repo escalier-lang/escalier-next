@@ -8,6 +8,8 @@ module Syntax =
     | Let of name: string * definition: Expr * body: Expr
     | LetRec of name: string * definition: Expr * body: Expr
     | Tuple of elements: list<Expr>
+    | IfElse of condition: Expr * thenBranch: Expr * elseBranch: Expr
+    // | Binary of op: string * left: Expr * right: Expr
 
     override this.ToString() =
       match this with
@@ -21,6 +23,9 @@ module Syntax =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
+      | IfElse(condition, thenBranch, elseBranch) ->
+        $"if {condition} then {thenBranch} else {elseBranch}"
+// | Binary(op, left, right) -> $"({left} {op} {right})"
 
 module rec Type =
   ///A type variable standing for an arbitrary type.

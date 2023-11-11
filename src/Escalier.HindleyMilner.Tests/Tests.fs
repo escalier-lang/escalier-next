@@ -6,13 +6,7 @@ open Escalier.HindleyMilner.Syntax
 open Escalier.HindleyMilner.TypeChecker
 
 let getEnv () =
-  let var3 = makeVariable ()
-
   [ ("true", boolType)
-    ("cond",
-     makeFunctionType
-       boolType
-       (makeFunctionType var3 (makeFunctionType var3 var3)))
     ("zero", makeFunctionType intType boolType)
     ("pred", makeFunctionType intType intType)
     ("times", makeFunctionType intType (makeFunctionType intType intType)) ]
@@ -22,27 +16,28 @@ let InferFactorial () =
   nextVariableId <- 0
   let env = getEnv ()
 
+  (* letrec factorial =
+      fn n =>
+        if (zero n) 
+          then 1 
+          else (times n (factorial (pred n)))
+      in factorial
+   *)
   let ast =
     LetRec(
-      "factorial", (* letrec factorial = *)
+      "factorial",
       Lambda(
         "n", (* fn n => *)
-        Apply(
-          Apply( (* cond (zero n) 1 *)
-            Apply(
-              Ident("cond"), (* cond (zero n) *)
-              Apply(Ident("zero"), Ident("n"))
-            ),
-            Ident("1")
-          ),
-          Apply( (* times n *)
+        IfElse(
+          Apply(Ident("zero"), Ident("n")),
+          Ident("1"),
+          Apply(
             Apply(Ident("times"), Ident("n")),
             Apply(Ident("factorial"), Apply(Ident("pred"), Ident("n")))
           )
         )
-      ), (* in *)
-      Ident("factorial")
-    // Apply(Ident("factorial"), Ident("5"))
+      ),
+      Ident("factorial") // Apply(Ident("factorial"), Ident("5"))
     )
 
   let t = infer ast env
@@ -77,7 +72,7 @@ let UndefinedSymbol () =
   try
     infer ast env |> ignore
   with ex ->
-    Assert.Equal("Undefined symbol f", ex.Message)
+    Assert.Equal("Undefined symbol foo", ex.Message)
 
 [<Fact>]
 let InferPair () =
@@ -128,7 +123,7 @@ let InferGenericAndNonGeneric () =
   let t = infer ast env
 
   (* fn g => let f = fn x => g in [f 3, f true] *)
-  Assert.Equal("(t5 -> (t5 * t6))", t.ToString())
+  Assert.Equal("(t0 -> [t0, t0])", t.ToString())
 
 [<Fact>]
 let InferFuncComposition () =
@@ -148,7 +143,7 @@ let InferFuncComposition () =
   let t = infer ast env
 
   (* fn f (fn g (fn arg (f g arg))) *)
-  Assert.Equal("((t5 -> t6) -> ((t6 -> t7) -> (t5 -> t7)))", t.ToString())
+  Assert.Equal("((t2 -> t3) -> ((t3 -> t4) -> (t2 -> t4)))", t.ToString())
 
 [<Fact>]
 let InfersSKK () =
@@ -171,7 +166,7 @@ let InfersSKK () =
   env <- ("S", t) :: env
 
   Assert.Equal(
-    "((t5 -> (t7 -> t8)) -> ((t5 -> t7) -> (t5 -> t8)))",
+    "((t2 -> (t4 -> t5)) -> ((t2 -> t4) -> (t2 -> t5)))",
     t.ToString()
   )
 
@@ -179,15 +174,15 @@ let InfersSKK () =
   let t = infer K1 env
   env <- ("K1", t) :: env
 
-  Assert.Equal("(t9 -> (t10 -> t9))", t.ToString())
+  Assert.Equal("(t6 -> (t7 -> t6))", t.ToString())
 
   let K2 = Lambda("x", Lambda("y", Ident("x")))
   let t = infer K2 env
   env <- ("K2", t) :: env
 
-  Assert.Equal("(t11 -> (t12 -> t11))", t.ToString())
+  Assert.Equal("(t8 -> (t9 -> t8))", t.ToString())
 
   let I = Apply(Apply(Ident("S"), Ident("K1")), Ident("K2"))
   let t = infer I env
 
-  Assert.Equal("(t15 -> t15)", t.ToString())
+  Assert.Equal("(t12 -> t12)", t.ToString())

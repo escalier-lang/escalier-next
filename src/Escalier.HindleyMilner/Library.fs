@@ -172,5 +172,17 @@ module TypeChecker =
       | Expr.Tuple elems ->
         let elems = List.map (fun elem -> loop elem env nonGeneric) elems
         { Type.kind = TypeKind.Tuple(elems) }
+      | IfElse(condition, thenBranch, elseBranch) ->
+        let retTy = makeVariable ()
+
+        let conditionTy = loop condition env nonGeneric
+        let thenBranchTy = loop thenBranch env nonGeneric
+        let elseBranchTy = loop elseBranch env nonGeneric
+
+        unify conditionTy boolType
+        unify thenBranchTy retTy
+        unify elseBranchTy retTy
+
+        retTy
 
     loop exp env Set.empty

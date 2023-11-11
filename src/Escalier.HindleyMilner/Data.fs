@@ -41,6 +41,7 @@ module rec Type =
     | TypeVar of TypeVar
     | TypeOp of TypeOp
     | Tuple of list<Type>
+    | Function of Type * Type // TODO: extend to support n-ary functions
 
   type Type =
     { kind: TypeKind } // TODO: add provenance later
@@ -54,6 +55,7 @@ module rec Type =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
+      | Function(argType, retType) -> $"fn ({argType}) -> {retType}"
       | TypeOp({ name = tyopName; types = tyopTypes }) ->
         match List.length tyopTypes with
         | 0 -> tyopName

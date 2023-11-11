@@ -17,12 +17,7 @@ module TypeChecker =
 
   type env = list<(string * Type)>
 
-  let makeFunctionType fromTy toTy =
-    { kind =
-        TypeOp(
-          { name = "->"
-            types = [ fromTy; toTy ] }
-        ) }
+  let makeFunctionType fromTy toTy = { kind = Function(fromTy, toTy) }
 
   let intType = { kind = TypeOp({ name = "int"; types = [] }) }
   let boolType = { kind = TypeOp({ name = "bool"; types = [] }) }
@@ -83,6 +78,8 @@ module TypeChecker =
         else
           t
       | Tuple elems -> { kind = Tuple(List.map loop elems) }
+      | Function(argType, retType) ->
+        makeFunctionType (loop argType) (loop retType)
       | TypeOp({ types = tyopTypes } as op) ->
         let kind =
           TypeOp(
@@ -119,6 +116,9 @@ module TypeChecker =
         failwithf $"Type mismatch {t1} != {t2}"
 
       ignore (List.map2 unify elems1 elems2)
+    | Function(arg1, ret1), Function(arg2, ret2) ->
+      unify arg2 arg1 // args are contravariant
+      unify ret1 ret2 // retruns are covariant
     | TypeOp({ name = name1; types = types1 }),
       TypeOp({ name = name2; types = types2 }) ->
       if (name1 <> name2 || List.length types1 <> List.length types2) then

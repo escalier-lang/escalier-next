@@ -508,12 +508,12 @@ module Type =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
     | Literal of Syntax.Literal
-    | Primitive of Primitive
-    | Tuple of list<Type>
-    | Array of Type
+    | Primitive of Primitive // use TypeRef
+    | Tuple of list<Type> // use TypeRef
+    | Array of Type // use TypeRef
     | Union of list<Type>
     | Intersection of list<Type>
-    | Keyword of KeywordType
+    | Keyword of KeywordType // use TypeRef
     | Function of Function
     | Object of list<ObjTypeElem>
     | Rest of Type
@@ -526,7 +526,7 @@ module Type =
       false_type: Type
     | Infer of name: string
     | Wildcard
-    | Binary of left: Type * op: Syntax.BinaryOp * right: Type
+    | Binary of left: Type * op: Syntax.BinaryOp * right: Type // use TypeRef? - const folding is probably a better approach
 
     // TODO: add parenthesizes where necessary
     override this.ToString() =

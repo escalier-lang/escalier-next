@@ -31,13 +31,10 @@ let InferFactorial () =
         IfElse(
           Apply(Ident("zero"), [ Ident("n") ]),
           Ident("1"),
-          Apply(
-            Ident("times"),
-            [ Ident("n")
-              Apply(
-                Ident("factorial"),
-                [ Apply(Ident("pred"), [ Ident("n") ]) ]
-              ) ]
+          Binary(
+            "times", // op
+            Ident("n"),
+            Apply(Ident("factorial"), [ Apply(Ident("pred"), [ Ident("n") ]) ])
           )
         )
       ),

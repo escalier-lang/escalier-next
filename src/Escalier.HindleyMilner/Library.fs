@@ -143,6 +143,14 @@ module TypeChecker =
         let retTy = makeVariable ()
         unify (makeFunctionType args retTy) funTy
         retTy
+      | Binary(op, left, right) ->
+        let funTy = getType op env nonGeneric
+        // let funTy = loop fn env nonGeneric
+        let args = List.map (fun arg -> loop arg env nonGeneric) [ left; right ]
+        // let args = List.map (fun arg -> loop arg env nonGeneric) args
+        let retTy = makeVariable ()
+        unify (makeFunctionType args retTy) funTy
+        retTy
       | Lambda(args, body) ->
         let mutable newEnv = env
 

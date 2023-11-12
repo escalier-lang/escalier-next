@@ -7,9 +7,9 @@ open Escalier.HindleyMilner.TypeChecker
 
 let getEnv () =
   [ ("true", boolType)
-    ("zero", makeFunctionType intType boolType)
-    ("pred", makeFunctionType intType intType)
-    ("times", makeFunctionType intType (makeFunctionType intType intType)) ]
+    ("zero", makeFunctionType [ intType ] boolType)
+    ("pred", makeFunctionType [ intType ] intType)
+    ("times", makeFunctionType [ intType; intType ] intType) ]
 
 [<Fact>]
 let InferFactorial () =
@@ -27,13 +27,17 @@ let InferFactorial () =
     LetRec(
       "factorial",
       Lambda(
-        "n", (* fn n => *)
+        [ "n" ], (* fn n => *)
         IfElse(
-          Apply(Ident("zero"), Ident("n")),
+          Apply(Ident("zero"), [ Ident("n") ]),
           Ident("1"),
           Apply(
-            Apply(Ident("times"), Ident("n")),
-            Apply(Ident("factorial"), Apply(Ident("pred"), Ident("n")))
+            Ident("times"),
+            [ Ident("n")
+              Apply(
+                Ident("factorial"),
+                [ Apply(Ident("pred"), [ Ident("n") ]) ]
+              ) ]
           )
         )
       ),
@@ -50,9 +54,10 @@ let UnificationFailure () =
   (* fn x => [x(3) x(true)] *)
   let ast =
     Lambda(
-      "x",
+      [ "x" ],
       Expr.Tuple(
-        [ Apply(Ident("x"), Ident("3")); Apply(Ident("x"), Ident("true")) ]
+        [ Apply(Ident("x"), [ Ident("3") ])
+          Apply(Ident("x"), [ Ident("true") ]) ]
       )
     )
 
@@ -80,11 +85,12 @@ let InferPair () =
 
   let pair =
     Expr.Tuple(
-      [ Apply(Ident("f"), Ident("4")); Apply(Ident("f"), Ident("true")) ]
+      [ Apply(Ident("f"), [ Ident("4") ])
+        Apply(Ident("f"), [ Ident("true") ]) ]
     )
 
   (* letrec f = (fn x => x) in [f 4, f true] *)
-  let ast = Let("f", Lambda("x", Ident("x")), pair)
+  let ast = Let("f", Lambda([ "x" ], Ident("x")), pair)
   let env = getEnv ()
 
   let t = infer ast env
@@ -94,7 +100,7 @@ let InferPair () =
 [<Fact>]
 let RecursiveUnification () =
   (* fn f => f f (fail) *)
-  let ast = Lambda("f", Apply(Ident("f"), Ident("f")))
+  let ast = Lambda([ "f" ], Apply(Ident("f"), [ Ident("f") ]))
   let env = getEnv ()
 
   try
@@ -108,12 +114,13 @@ let InferGenericAndNonGeneric () =
 
   let ast =
     Lambda(
-      "g",
+      [ "g" ],
       Let(
         "f",
-        Lambda("x", Ident("g")),
+        Lambda([ "x" ], Ident("g")),
         Expr.Tuple(
-          [ Apply(Ident("f"), Ident("3")); Apply(Ident("f"), Ident("true")) ]
+          [ Apply(Ident("f"), [ Ident("3") ])
+            Apply(Ident("f"), [ Ident("true") ]) ]
         )
       )
     )
@@ -131,10 +138,13 @@ let InferFuncComposition () =
 
   let ast =
     Lambda(
-      "f",
+      [ "f" ],
       Lambda(
-        "g",
-        Lambda("arg", Apply(Ident("g"), Apply(Ident("f"), Ident("arg"))))
+        [ "g" ],
+        Lambda(
+          [ "arg" ],
+          Apply(Ident("g"), [ Apply(Ident("f"), [ Ident("arg") ]) ])
+        )
       )
     )
 
@@ -155,12 +165,15 @@ let InfersSKK () =
 
   let S =
     Lambda(
-      "f",
+      [ "f" ],
       Lambda(
-        "g",
+        [ "g" ],
         Lambda(
-          "x",
-          Apply(Apply(Ident("f"), Ident("x")), Apply(Ident("g"), Ident("x")))
+          [ "x" ],
+          Apply(
+            Apply(Ident("f"), [ Ident("x") ]),
+            [ Apply(Ident("g"), [ Ident("x") ]) ]
+          )
         )
       )
     )
@@ -173,19 +186,19 @@ let InfersSKK () =
     t.ToString()
   )
 
-  let K1 = Lambda("x", Lambda("y", Ident("x")))
+  let K1 = Lambda([ "x" ], Lambda([ "y" ], Ident("x")))
   let t = infer K1 env
   env <- ("K1", t) :: env
 
   Assert.Equal("fn (t6) -> fn (t7) -> t6", t.ToString())
 
-  let K2 = Lambda("x", Lambda("y", Ident("x")))
+  let K2 = Lambda([ "x" ], Lambda([ "y" ], Ident("x")))
   let t = infer K2 env
   env <- ("K2", t) :: env
 
   Assert.Equal("fn (t8) -> fn (t9) -> t8", t.ToString())
 
-  let I = Apply(Apply(Ident("S"), Ident("K1")), Ident("K2"))
+  let I = Apply(Apply(Ident("S"), [ Ident("K1") ]), [ Ident("K2") ])
   let t = infer I env
 
   Assert.Equal("fn (t10) -> t10", t.ToString())

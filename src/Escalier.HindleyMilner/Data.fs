@@ -1,12 +1,15 @@
 namespace Escalier.HindleyMilner
 
 module rec Syntax =
+  type Function =
+    { typeParams: option<list<string>>
+      args: list<string>
+      body: list<Stmt> } // last item is the return value
+
   type Expr =
     | Ident of name: string
-    | Lambda of parameters: list<string> * body: list<Stmt> // last item is the return value
+    | Lambda of Function
     | Apply of func: Expr * arguments: list<Expr>
-    // | Let of name: string * definition: Expr * body: Expr
-    // | LetRec of name: string * definition: Expr * body: Expr
     | Tuple of elements: list<Expr>
     | IfElse of condition: Expr * thenBranch: Expr * elseBranch: Expr
     | Binary of op: string * left: Expr * right: Expr
@@ -14,12 +17,11 @@ module rec Syntax =
     override this.ToString() =
       match this with
       | Ident name -> name
-      | Lambda(args, body) ->
-        let args = String.concat ", " args
-        $"fun ({args}) -> {body}"
+      | Lambda f ->
+        // TODO: add type params
+        let args = String.concat ", " f.args
+        $"fun ({args}) -> {f.body}"
       | Apply(fn, arg) -> $"{fn} {arg}"
-      // | Let(v, def, body) -> $"let {v} = {def} in {body}"
-      // | LetRec(v, def, body) -> $"let rec {v} = {def} in {body}"
       | Tuple elems ->
         let elems =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
@@ -50,11 +52,16 @@ module rec Type =
   ///An n-ary type constructor which builds a new type from old
   type TypeOp = { name: string; types: list<Type> }
 
+  type Function =
+    { typeParams: option<list<string>>
+      args: list<Type>
+      ret: Type }
+
   type TypeKind =
     | TypeVar of TypeVar
     | TypeOp of TypeOp
     | Tuple of list<Type>
-    | Function of (list<Type>) * Type // TODO: extend to support n-ary functions
+    | Function of Function
 
   type Type =
     { kind: TypeKind } // TODO: add provenance later
@@ -68,11 +75,18 @@ module rec Type =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
-      | Function(args, retType) ->
+      | Function f ->
         let args =
-          List.map (fun item -> item.ToString()) args |> String.concat ", "
+          List.map (fun item -> item.ToString()) f.args |> String.concat ", "
 
-        $"fn ({args}) -> {retType}"
+        let typeParams =
+          match f.typeParams with
+          | Some(typeParams) ->
+            let sep = ", "
+            $"<{String.concat sep typeParams}>"
+          | None -> ""
+
+        $"fn {typeParams}({args}) -> {f.ret}"
       | TypeOp({ name = tyopName; types = tyopTypes }) ->
         match List.length tyopTypes with
         | 0 -> tyopName
@@ -89,3 +103,11 @@ module rec Type =
             (String.concat
               " "
               (List.map (fun item -> item.ToString()) tyopTypes))
+
+  type Scheme =
+    { typeParams: list<string>
+      ty: Type }
+
+    override this.ToString() =
+      let typeParams = String.concat ", " this.typeParams
+      $"<{typeParams}>{this.ty}"

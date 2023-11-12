@@ -17,7 +17,12 @@ module TypeChecker =
 
   type env = list<(string * Type)>
 
-  let makeFunctionType fromTy toTy = { kind = Function(fromTy, toTy) }
+  let makeFunctionType args ret =
+    { kind =
+        Function
+          { typeParams = None
+            args = args
+            ret = ret } }
 
   let intType = { kind = TypeOp({ name = "int"; types = [] }) }
   let boolType = { kind = TypeOp({ name = "bool"; types = [] }) }
@@ -78,8 +83,7 @@ module TypeChecker =
         else
           t
       | Tuple elems -> { kind = Tuple(List.map loop elems) }
-      | Function(argTypes, retType) ->
-        makeFunctionType (List.map loop argTypes) (loop retType)
+      | Function f -> makeFunctionType (List.map loop f.args) (loop f.ret)
       | TypeOp({ types = tyopTypes } as op) ->
         let kind =
           TypeOp(
@@ -116,9 +120,9 @@ module TypeChecker =
         failwithf $"Type mismatch {t1} != {t2}"
 
       ignore (List.map2 unify elems1 elems2)
-    | Function(args1, ret1), Function(args2, ret2) ->
-      List.iter2 (fun arg1 arg2 -> unify arg2 arg1) args1 args2 // args are contravariant
-      unify ret1 ret2 // retruns are covariant
+    | Function(f1), Function(f2) ->
+      List.iter2 (fun arg1 arg2 -> unify arg2 arg1) f1.args f2.args // args are contravariant
+      unify f1.ret f2.ret // retruns are covariant
     | TypeOp({ name = name1; types = types1 }),
       TypeOp({ name = name2; types = types2 }) ->
       if (name1 <> name2 || List.length types1 <> List.length types2) then
@@ -152,7 +156,7 @@ module TypeChecker =
       let retTy = makeVariable ()
       unify (makeFunctionType args retTy) funTy
       retTy
-    | Lambda(args, body) ->
+    | Lambda f ->
       let mutable newEnv = env
 
       let args =
@@ -161,7 +165,7 @@ module TypeChecker =
             let newArgTy = makeVariable () in
             newEnv <- (arg, newArgTy) :: newEnv
             newArgTy)
-          args
+          f.args
 
       let mutable newNonGeneric = nonGeneric
 
@@ -178,7 +182,7 @@ module TypeChecker =
             let t, newNewEnv = infer_stmt stmt newEnv newNonGeneric
             newEnv <- newNewEnv
             t)
-          body
+          f.body
 
       // for stmt in body do
       //   let _, newNewEnv = infer_stmt stmt newEnv newNonGeneric
@@ -243,3 +247,62 @@ module TypeChecker =
       stmts
 
     newEnv
+
+  let fold_type (t: Type) (f: Type -> option<Type>) : Type =
+    let rec fold (t: Type) : Type =
+      let t = prune t
+
+      let t =
+        match t.kind with
+        | TypeVar _ -> t
+        | Function f ->
+          { kind =
+              TypeKind.Function
+                { f with
+                    args = List.map fold f.args
+                    ret = fold f.ret } }
+        | Tuple(elems) ->
+          let elems = List.map fold elems
+          { kind = Tuple(elems) }
+        | TypeOp({ name = name; types = types }) ->
+          let newTypes = List.map fold types
+          { kind = TypeOp({ name = name; types = newTypes }) }
+
+      match f t with
+      | Some(t) -> t
+      | None -> t
+
+    fold t
+
+  let generalize_func (t: Type) : Type =
+    let mutable mapping: Map<int, string> = Map.empty
+    let mutable nextId = 0
+
+    // QUESTION: should we call `pr=une` inside the folder as well?
+    let folder =
+      fun t ->
+        match t.kind with
+        | TypeVar { id = id } ->
+          match Map.tryFind id mapping with
+          | Some(name) -> Some({ kind = TypeOp { name = name; types = [] } })
+          | None ->
+            let tpName = 65 + nextId |> char |> string
+            nextId <- nextId + 1
+            mapping <- mapping |> Map.add id tpName
+            Some({ kind = TypeOp { name = tpName; types = [] } })
+        | _ -> None
+
+    let t = prune t
+
+    match t.kind with
+    | Function _ ->
+      let t = fold_type t folder
+      let typeParams = mapping |> Map.toList |> List.map snd
+      printfn "new t = {t}"
+      printfn "typeParams = %A" typeParams
+
+      match t.kind with
+      | Function f ->
+        { kind = TypeKind.Function { f with typeParams = Some(typeParams) } }
+      | _ -> failwith "Expected function type"
+    | _ -> t

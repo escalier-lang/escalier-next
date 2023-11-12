@@ -3,16 +3,20 @@ namespace Escalier.HindleyMilner
 module Syntax =
   type Expr =
     | Ident of name: string
-    | Lambda of name: string * body: Expr
-    | Apply of func: Expr * argument: Expr
+    | Lambda of parameters: list<string> * body: Expr
+    | Apply of func: Expr * arguments: list<Expr>
     | Let of name: string * definition: Expr * body: Expr
     | LetRec of name: string * definition: Expr * body: Expr
     | Tuple of elements: list<Expr>
+    | IfElse of condition: Expr * thenBranch: Expr * elseBranch: Expr
+    | Binary of op: string * left: Expr * right: Expr
 
     override this.ToString() =
       match this with
       | Ident name -> name
-      | Lambda(v, body) -> $"fun {v} -> {body}"
+      | Lambda(args, body) ->
+        let args = String.concat ", " args
+        $"fun ({args}) -> {body}"
       | Apply(fn, arg) -> $"{fn} {arg}"
       | Let(v, def, body) -> $"let {v} = {def} in {body}"
       | LetRec(v, def, body) -> $"let rec {v} = {def} in {body}"
@@ -21,6 +25,9 @@ module Syntax =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
+      | IfElse(condition, thenBranch, elseBranch) ->
+        $"if {condition} then {thenBranch} else {elseBranch}"
+      | Binary(op, left, right) -> $"({left} {op} {right})"
 
 module rec Type =
   ///A type variable standing for an arbitrary type.
@@ -36,6 +43,7 @@ module rec Type =
     | TypeVar of TypeVar
     | TypeOp of TypeOp
     | Tuple of list<Type>
+    | Function of (list<Type>) * Type // TODO: extend to support n-ary functions
 
   type Type =
     { kind: TypeKind } // TODO: add provenance later
@@ -49,6 +57,11 @@ module rec Type =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
+      | Function(args, retType) ->
+        let args =
+          List.map (fun item -> item.ToString()) args |> String.concat ", "
+
+        $"fn ({args}) -> {retType}"
       | TypeOp({ name = tyopName; types = tyopTypes }) ->
         match List.length tyopTypes with
         | 0 -> tyopName

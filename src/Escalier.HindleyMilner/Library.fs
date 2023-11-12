@@ -17,12 +17,7 @@ module TypeChecker =
 
   type env = list<(string * Type)>
 
-  let makeFunctionType fromTy toTy =
-    { kind =
-        TypeOp(
-          { name = "->"
-            types = [ fromTy; toTy ] }
-        ) }
+  let makeFunctionType fromTy toTy = { kind = Function(fromTy, toTy) }
 
   let intType = { kind = TypeOp({ name = "int"; types = [] }) }
   let boolType = { kind = TypeOp({ name = "bool"; types = [] }) }
@@ -83,6 +78,8 @@ module TypeChecker =
         else
           t
       | Tuple elems -> { kind = Tuple(List.map loop elems) }
+      | Function(argTypes, retType) ->
+        makeFunctionType (List.map loop argTypes) (loop retType)
       | TypeOp({ types = tyopTypes } as op) ->
         let kind =
           TypeOp(
@@ -119,6 +116,9 @@ module TypeChecker =
         failwithf $"Type mismatch {t1} != {t2}"
 
       ignore (List.map2 unify elems1 elems2)
+    | Function(args1, ret1), Function(args2, ret2) ->
+      List.iter2 (fun arg1 arg2 -> unify arg2 arg1) args1 args2 // args are contravariant
+      unify ret1 ret2 // retruns are covariant
     | TypeOp({ name = name1; types = types1 }),
       TypeOp({ name = name2; types = types2 }) ->
       if (name1 <> name2 || List.length types1 <> List.length types2) then
@@ -137,23 +137,43 @@ module TypeChecker =
     let rec loop exp env nonGeneric =
       match exp with
       | Ident(name) -> getType name env nonGeneric
-      | Apply(fn, arg) ->
+      | Apply(fn, args) ->
         let funTy = loop fn env nonGeneric
-        let argTy = loop arg env nonGeneric
+        let args = List.map (fun arg -> loop arg env nonGeneric) args
         let retTy = makeVariable ()
-        unify (makeFunctionType argTy retTy) funTy
+        unify (makeFunctionType args retTy) funTy
         retTy
-      | Lambda(arg, body) ->
-        let argTy = makeVariable ()
-        let newEnv = (arg, argTy) :: env
+      | Binary(op, left, right) ->
+        let funTy = getType op env nonGeneric
+        // let funTy = loop fn env nonGeneric
+        let args = List.map (fun arg -> loop arg env nonGeneric) [ left; right ]
+        // let args = List.map (fun arg -> loop arg env nonGeneric) args
+        let retTy = makeVariable ()
+        unify (makeFunctionType args retTy) funTy
+        retTy
+      | Lambda(args, body) ->
+        let mutable newEnv = env
 
-        let newNonGeneric =
-          match argTy.kind with
-          | TypeVar { id = id } -> nonGeneric |> Set.add id
-          | _ -> nonGeneric
+        let args =
+          List.map
+            (fun arg ->
+              let newArgTy = makeVariable () in
+              newEnv <- (arg, newArgTy) :: newEnv
+              newArgTy)
+            args
+
+        let mutable newNonGeneric = nonGeneric
+
+        List.iter
+          (fun argTy ->
+            match argTy.kind with
+            | TypeVar { id = id } ->
+              newNonGeneric <- newNonGeneric |> Set.add id
+            | _ -> ())
+          args
 
         let retTy = loop body newEnv newNonGeneric
-        makeFunctionType argTy retTy
+        makeFunctionType args retTy
       | Let(v, defn, body) ->
         let defnTy = loop defn env nonGeneric
         loop body ((v, defnTy) :: env) nonGeneric
@@ -172,5 +192,17 @@ module TypeChecker =
       | Expr.Tuple elems ->
         let elems = List.map (fun elem -> loop elem env nonGeneric) elems
         { Type.kind = TypeKind.Tuple(elems) }
+      | IfElse(condition, thenBranch, elseBranch) ->
+        let retTy = makeVariable ()
+
+        let conditionTy = loop condition env nonGeneric
+        let thenBranchTy = loop thenBranch env nonGeneric
+        let elseBranchTy = loop elseBranch env nonGeneric
+
+        unify conditionTy boolType
+        unify thenBranchTy retTy
+        unify elseBranchTy retTy
+
+        retTy
 
     loop exp env Set.empty

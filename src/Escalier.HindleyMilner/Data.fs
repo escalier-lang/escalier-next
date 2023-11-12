@@ -1,12 +1,12 @@
 namespace Escalier.HindleyMilner
 
-module Syntax =
+module rec Syntax =
   type Expr =
     | Ident of name: string
-    | Lambda of parameters: list<string> * body: Expr
+    | Lambda of parameters: list<string> * body: list<Stmt> // last item is the return value
     | Apply of func: Expr * arguments: list<Expr>
-    | Let of name: string * definition: Expr * body: Expr
-    | LetRec of name: string * definition: Expr * body: Expr
+    // | Let of name: string * definition: Expr * body: Expr
+    // | LetRec of name: string * definition: Expr * body: Expr
     | Tuple of elements: list<Expr>
     | IfElse of condition: Expr * thenBranch: Expr * elseBranch: Expr
     | Binary of op: string * left: Expr * right: Expr
@@ -18,8 +18,8 @@ module Syntax =
         let args = String.concat ", " args
         $"fun ({args}) -> {body}"
       | Apply(fn, arg) -> $"{fn} {arg}"
-      | Let(v, def, body) -> $"let {v} = {def} in {body}"
-      | LetRec(v, def, body) -> $"let rec {v} = {def} in {body}"
+      // | Let(v, def, body) -> $"let {v} = {def} in {body}"
+      // | LetRec(v, def, body) -> $"let rec {v} = {def} in {body}"
       | Tuple elems ->
         let elems =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
@@ -28,6 +28,17 @@ module Syntax =
       | IfElse(condition, thenBranch, elseBranch) ->
         $"if {condition} then {thenBranch} else {elseBranch}"
       | Binary(op, left, right) -> $"({left} {op} {right})"
+
+  type Stmt =
+    | Expr of Expr
+    | Let of name: string * definition: Expr
+    | LetRec of name: string * definition: Expr
+
+    override this.ToString() =
+      match this with
+      | Expr expr -> expr.ToString()
+      | Let(v, def) -> $"let {v} = {def}"
+      | LetRec(v, def) -> $"let rec {v} = {def}"
 
 module rec Type =
   ///A type variable standing for an arbitrary type.

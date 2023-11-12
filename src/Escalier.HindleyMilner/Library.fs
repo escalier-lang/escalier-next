@@ -133,76 +133,113 @@ module TypeChecker =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
-  let infer exp env =
-    let rec loop exp env nonGeneric =
-      match exp with
-      | Ident(name) -> getType name env nonGeneric
-      | Apply(fn, args) ->
-        let funTy = loop fn env nonGeneric
-        let args = List.map (fun arg -> loop arg env nonGeneric) args
-        let retTy = makeVariable ()
-        unify (makeFunctionType args retTy) funTy
-        retTy
-      | Binary(op, left, right) ->
-        let funTy = getType op env nonGeneric
-        // let funTy = loop fn env nonGeneric
-        let args = List.map (fun arg -> loop arg env nonGeneric) [ left; right ]
-        // let args = List.map (fun arg -> loop arg env nonGeneric) args
-        let retTy = makeVariable ()
-        unify (makeFunctionType args retTy) funTy
-        retTy
-      | Lambda(args, body) ->
-        let mutable newEnv = env
+  let rec infer_expr exp env nonGeneric =
+    // let rec loop exp env nonGeneric =
+    match exp with
+    | Ident(name) -> getType name env nonGeneric
+    | Apply(fn, args) ->
+      let funTy = infer_expr fn env nonGeneric
+      let args = List.map (fun arg -> infer_expr arg env nonGeneric) args
+      let retTy = makeVariable ()
+      unify (makeFunctionType args retTy) funTy
+      retTy
+    | Binary(op, left, right) ->
+      let funTy = getType op env nonGeneric
+      // let funTy = infer_expr fn env nonGeneric
+      let args =
+        List.map (fun arg -> infer_expr arg env nonGeneric) [ left; right ]
+      // let args = List.map (fun arg -> infer_expr arg env nonGeneric) args
+      let retTy = makeVariable ()
+      unify (makeFunctionType args retTy) funTy
+      retTy
+    | Lambda(args, body) ->
+      let mutable newEnv = env
 
-        let args =
-          List.map
-            (fun arg ->
-              let newArgTy = makeVariable () in
-              newEnv <- (arg, newArgTy) :: newEnv
-              newArgTy)
-            args
-
-        let mutable newNonGeneric = nonGeneric
-
-        List.iter
-          (fun argTy ->
-            match argTy.kind with
-            | TypeVar { id = id } ->
-              newNonGeneric <- newNonGeneric |> Set.add id
-            | _ -> ())
+      let args =
+        List.map
+          (fun arg ->
+            let newArgTy = makeVariable () in
+            newEnv <- (arg, newArgTy) :: newEnv
+            newArgTy)
           args
 
-        let retTy = loop body newEnv newNonGeneric
-        makeFunctionType args retTy
-      | Let(v, defn, body) ->
-        let defnTy = loop defn env nonGeneric
-        loop body ((v, defnTy) :: env) nonGeneric
-      | LetRec(v, defn, body) ->
-        let newTy = makeVariable ()
-        let newEnv = (v, newTy) :: env
+      let mutable newNonGeneric = nonGeneric
 
-        let newNonGeneric =
-          match newTy.kind with
-          | TypeVar { id = id } -> nonGeneric |> Set.add id
-          | _ -> nonGeneric
+      List.iter
+        (fun argTy ->
+          match argTy.kind with
+          | TypeVar { id = id } -> newNonGeneric <- newNonGeneric |> Set.add id
+          | _ -> ())
+        args
 
-        let defnTy = loop defn newEnv newNonGeneric
-        unify newTy defnTy
-        loop body newEnv nonGeneric
-      | Expr.Tuple elems ->
-        let elems = List.map (fun elem -> loop elem env nonGeneric) elems
-        { Type.kind = TypeKind.Tuple(elems) }
-      | IfElse(condition, thenBranch, elseBranch) ->
-        let retTy = makeVariable ()
+      let stmtTypes =
+        List.map
+          (fun stmt ->
+            let t, newNewEnv = infer_stmt stmt newEnv newNonGeneric
+            newEnv <- newNewEnv
+            t)
+          body
 
-        let conditionTy = loop condition env nonGeneric
-        let thenBranchTy = loop thenBranch env nonGeneric
-        let elseBranchTy = loop elseBranch env nonGeneric
+      // for stmt in body do
+      //   let _, newNewEnv = infer_stmt stmt newEnv newNonGeneric
+      //   newEnv <- newNewEnv
 
-        unify conditionTy boolType
-        unify thenBranchTy retTy
-        unify elseBranchTy retTy
+      let retTy =
+        match List.tryLast stmtTypes with
+        | Some(t) ->
+          match t with
+          | Some(t) -> t
+          | None -> failwith "Last statement must be an expression"
+        | None -> failwith "Empty lambda body"
 
-        retTy
+      makeFunctionType args retTy
+    | Expr.Tuple elems ->
+      let elems = List.map (fun elem -> infer_expr elem env nonGeneric) elems
+      { Type.kind = TypeKind.Tuple(elems) }
+    | IfElse(condition, thenBranch, elseBranch) ->
+      let retTy = makeVariable ()
 
-    loop exp env Set.empty
+      let conditionTy = infer_expr condition env nonGeneric
+      let thenBranchTy = infer_expr thenBranch env nonGeneric
+      let elseBranchTy = infer_expr elseBranch env nonGeneric
+
+      unify conditionTy boolType
+      unify thenBranchTy retTy
+      unify elseBranchTy retTy
+
+      retTy
+
+  and infer_stmt stmt env nonGeneric =
+    match stmt with
+    | Expr expr ->
+      let t = infer_expr expr env nonGeneric
+      (Some(t), env)
+    | Let(name, definition) ->
+      let defnTy = infer_expr definition env nonGeneric
+      let newEnv = (name, defnTy) :: env
+      (None, newEnv)
+    | LetRec(name, defn) ->
+      let newTy = makeVariable ()
+      let newEnv = (name, newTy) :: env
+
+      let newNonGeneric =
+        match newTy.kind with
+        | TypeVar { id = id } -> nonGeneric |> Set.add id
+        | _ -> nonGeneric
+
+      let defnTy = infer_expr defn newEnv newNonGeneric
+      unify newTy defnTy
+
+      (None, newEnv)
+
+  let infer_script stmts env =
+    let nonGeneric = Set.empty
+    let mutable newEnv = env
+
+    List.iter
+      (fun stmt ->
+        let _, newNewEnv = infer_stmt stmt newEnv nonGeneric
+        newEnv <- newNewEnv)
+      stmts
+
+    newEnv

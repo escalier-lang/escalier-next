@@ -221,7 +221,6 @@ module TypeChecker =
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
   let rec infer_expr exp env nonGeneric =
-    // let rec loop exp env nonGeneric =
     match exp with
     | Ident(name) -> getType name env nonGeneric
     | Apply(fn, args) ->
@@ -232,10 +231,10 @@ module TypeChecker =
       retTy
     | Binary(op, left, right) ->
       let funTy = getType op env nonGeneric
-      // let funTy = infer_expr fn env nonGeneric
+
       let args =
         List.map (fun arg -> infer_expr arg env nonGeneric) [ left; right ]
-      // let args = List.map (fun arg -> infer_expr arg env nonGeneric) args
+
       let retTy = makeVariable ()
       unify (makeFunctionType None args retTy) funTy
       retTy
@@ -271,10 +270,6 @@ module TypeChecker =
             t)
           f.body
 
-      // for stmt in body do
-      //   let _, newNewEnv = infer_stmt stmt newEnv newNonGeneric
-      //   newEnv <- newNewEnv
-
       let retTy =
         match List.tryLast stmtTypes with
         | Some(t) ->
@@ -300,9 +295,6 @@ module TypeChecker =
 
       retTy
 
-  // TODO: instead of having infer_stmt add things to the environment
-  // we need either infer_script or infer_expr when it's inferring a
-  // Lambda to do this
   and infer_stmt stmt env nonGeneric =
     match stmt with
     | Expr expr ->
@@ -310,7 +302,7 @@ module TypeChecker =
       (Some(t), None)
     | Let(name, definition) ->
       let defnTy = infer_expr definition env nonGeneric
-      let assump = (name, defnTy) // (name, defnTy) :: env
+      let assump = (name, defnTy)
       (None, Some(assump))
     | LetRec(name, defn) ->
       let newTy = makeVariable ()

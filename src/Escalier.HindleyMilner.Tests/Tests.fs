@@ -5,6 +5,7 @@ open FParsec
 
 open Escalier.HindleyMilner.Syntax
 open Escalier.HindleyMilner.TypeChecker
+open Escalier.HindleyMilner.TypeVariable
 
 let getEnv () =
   [ ("true", boolType)

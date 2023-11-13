@@ -4,7 +4,7 @@ open System.Collections.Generic
 open Syntax
 open Type
 
-module TypeChecker =
+module TypeVariable =
   let mutable nextVariableId = 0
 
   let makeVariable () =
@@ -13,8 +13,7 @@ module TypeChecker =
     nextVariableId <- nextVariableId + 1
     { kind = TypeVar(newVar) }
 
-  let nextUniqueName = ref "a"
-
+module rec TypeChecker =
   type env = list<string * Type>
 
   let makeFunctionType typeParams args ret =
@@ -34,7 +33,7 @@ module TypeChecker =
   /// return a type expression which is either an uninstantiated type variable or
   /// a type operator; i.e. it will skip instantiated variables, and will
   /// prune them from expressions to remove long chains of instantiated variables.
-  let rec prune t =
+  let prune t =
     match t.kind with
     | TypeVar({ instance = Some(instance) } as v) ->
       let newInstance = prune instance
@@ -99,7 +98,7 @@ module TypeChecker =
       | _ -> failwith "Expected function type"
     | _ -> t
 
-  let rec instantiate_func (f: Function) : Function =
+  let instantiate_func (f: Function) : Function =
     let mutable mapping: Map<string, Type> = Map.empty
 
     let folder t =
@@ -113,7 +112,7 @@ module TypeChecker =
     match f.typeParams with
     | Some(typeParams) ->
       for tp in typeParams do
-        let v = makeVariable ()
+        let v = TypeVariable.makeVariable ()
         mapping <- mapping |> Map.add tp v
     | None -> ()
 
@@ -122,7 +121,7 @@ module TypeChecker =
         args = List.map (fold_type folder) f.args
         ret = fold_type folder f.ret }
 
-  let rec occursInType (v: Type) (t2: Type) =
+  let occursInType (v: Type) (t2: Type) =
     match (prune t2).kind with
     | pruned when pruned = v.kind -> true
     | TypeRef({ typeArgs = typeArgs }) ->
@@ -131,7 +130,7 @@ module TypeChecker =
       | None -> false
     | _ -> false
 
-  and occursIn t types =
+  let occursIn t types =
     List.exists (fun t2 -> occursInType t t2) types
 
   let isIntegerLiteral (name: string) =
@@ -160,7 +159,7 @@ module TypeChecker =
         if isGeneric p.id nonGeneric then
           match table.ContainsKey p.id with
           | false ->
-            let newVar = makeVariable ()
+            let newVar = TypeVariable.makeVariable ()
             table.Add(p.id, newVar)
             newVar
           | true -> table[p.id]
@@ -191,7 +190,7 @@ module TypeChecker =
         failwithf $"Undefined symbol {name}"
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
-  let rec unify t1 t2 =
+  let unify t1 t2 =
     match (prune t1).kind, (prune t2).kind with
     | TypeVar(v) as a, b ->
       if a <> b then
@@ -232,7 +231,7 @@ module TypeChecker =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
-  let rec infer_expr (expr: Expr) env nonGeneric =
+  let infer_expr (expr: Expr) env nonGeneric =
     match expr.kind with
     | ExprKind.Ident(name) -> getType name env nonGeneric
     | ExprKind.Literal(value) ->
@@ -244,7 +243,7 @@ module TypeChecker =
     | ExprKind.Call(fn, args) ->
       let funTy = infer_expr fn env nonGeneric
       let args = List.map (fun arg -> infer_expr arg env nonGeneric) args
-      let retTy = makeVariable ()
+      let retTy = TypeVariable.makeVariable ()
       unify (makeFunctionType None args retTy) funTy
       retTy
     | ExprKind.Binary(op, left, right) ->
@@ -253,7 +252,7 @@ module TypeChecker =
       let args =
         List.map (fun arg -> infer_expr arg env nonGeneric) [ left; right ]
 
-      let retTy = makeVariable ()
+      let retTy = TypeVariable.makeVariable ()
       unify (makeFunctionType None args retTy) funTy
       retTy
     | ExprKind.Function f ->
@@ -262,7 +261,7 @@ module TypeChecker =
       let args =
         List.map
           (fun param ->
-            let newArgTy = makeVariable () in
+            let newArgTy = TypeVariable.makeVariable () in
             // TODO: replace with infer_pattern
             newEnv <- (param.ToString(), newArgTy) :: newEnv
             newArgTy)
@@ -302,7 +301,7 @@ module TypeChecker =
       let elems = List.map (fun elem -> infer_expr elem env nonGeneric) elems
       { Type.kind = TypeKind.Tuple(elems) }
     | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-      let retTy = makeVariable ()
+      let retTy = TypeVariable.makeVariable ()
 
       let conditionTy = infer_expr condition env nonGeneric
       let thenBranchTy = infer_expr thenBranch env nonGeneric
@@ -315,7 +314,7 @@ module TypeChecker =
       retTy
     | _ -> failwith "TODO: finish implementing infer_expr"
 
-  and infer_stmt stmt env nonGeneric =
+  let infer_stmt stmt env nonGeneric =
     match stmt with
     | Expr expr ->
       let t = infer_expr expr env nonGeneric
@@ -326,7 +325,7 @@ module TypeChecker =
       let assump = (name, defnTy)
       (None, Some(assump))
     | LetRec(name, defn) ->
-      let newTy = makeVariable ()
+      let newTy = TypeVariable.makeVariable ()
       let assump = (name, newTy)
       let newEnv = assump :: env
 

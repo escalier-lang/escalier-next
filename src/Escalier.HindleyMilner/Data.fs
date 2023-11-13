@@ -6,7 +6,7 @@ module rec Syntax =
       args: list<string>
       body: list<Stmt> } // last item is the return value
 
-  type Expr =
+  type ExprKind =
     | Ident of name: string
     | Lambda of Function
     | Apply of func: Expr * arguments: list<Expr>
@@ -31,6 +31,11 @@ module rec Syntax =
         $"if {condition} then {thenBranch} else {elseBranch}"
       | Binary(op, left, right) -> $"({left} {op} {right})"
 
+  type Expr =
+    { kind: ExprKind }
+
+    override this.ToString() = this.kind.ToString()
+
   type Stmt =
     | Expr of Expr
     | Let of name: string * definition: Expr
@@ -50,7 +55,9 @@ module rec Type =
       mutable instance: option<Type> }
 
   ///An n-ary type constructor which builds a new type from old
-  type TypeOp = { name: string; types: list<Type> }
+  type TypeRef =
+    { name: string
+      typeArgs: option<list<Type>> }
 
   type Function =
     { typeParams: option<list<string>>
@@ -72,7 +79,7 @@ module rec Type =
 
   type TypeKind =
     | TypeVar of TypeVar
-    | TypeOp of TypeOp
+    | TypeRef of TypeRef
     | Tuple of list<Type>
     | Function of Function
 
@@ -89,22 +96,15 @@ module rec Type =
 
         $"[{elems}]"
       | Function f -> f.ToString()
-      | TypeOp({ name = tyopName; types = tyopTypes }) ->
-        match List.length tyopTypes with
-        | 0 -> tyopName
-        | 2 ->
-          sprintf
-            "(%s %s %s)"
-            ((List.item 0 tyopTypes).ToString())
-            tyopName
-            ((List.item 1 tyopTypes).ToString())
-        | _ ->
-          sprintf
-            "%s %s"
-            tyopName
-            (String.concat
-              " "
-              (List.map (fun item -> item.ToString()) tyopTypes))
+      | TypeRef({ name = name; typeArgs = typeArgs }) ->
+        let typeArgs =
+          match typeArgs with
+          | Some(typeArgs) ->
+            let sep = ", "
+            $"<{typeArgs |> List.map (fun t -> t.ToString()) |> String.concat sep}>"
+          | None -> ""
+
+        $"{name}{typeArgs}"
 
   type Scheme =
     { typeParams: list<string>

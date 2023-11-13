@@ -24,8 +24,9 @@ module TypeChecker =
             args = args
             ret = ret } }
 
-  let intType = { kind = TypeRef({ name = "int"; typeArgs = None }) }
-  let boolType = { kind = TypeRef({ name = "bool"; typeArgs = None }) }
+  let numType = { kind = TypeRef({ name = "number"; typeArgs = None }) }
+  let boolType = { kind = TypeRef({ name = "boolean"; typeArgs = None }) }
+  let strType = { kind = TypeRef({ name = "string"; typeArgs = None }) }
 
   /// Returns the currently defining instance of t.
   /// As a side effect, collapses the list of type instances. The function Prune
@@ -40,7 +41,6 @@ module TypeChecker =
       v.instance <- Some(newInstance)
       newInstance
     | _ -> t
-
 
   let fold_type (f: Type -> option<Type>) (t: Type) : Type =
     let rec fold (t: Type) : Type =
@@ -186,7 +186,7 @@ module TypeChecker =
     | Some(_name, var) -> fresh var nonGeneric
     | None ->
       if isIntegerLiteral name then
-        intType
+        numType
       else
         failwithf $"Undefined symbol {name}"
 
@@ -234,14 +234,20 @@ module TypeChecker =
   ///importantly, the type-checking program when extending the language.
   let rec infer_expr (expr: Expr) env nonGeneric =
     match expr.kind with
-    | Ident(name) -> getType name env nonGeneric
-    | Apply(fn, args) ->
+    | ExprKind.Ident(name) -> getType name env nonGeneric
+    | ExprKind.Literal(value) ->
+      match value with
+      | Literal.Number _ -> numType // TODO: infer a literal type
+      | Literal.Boolean _ -> boolType // TODO: infer a literal type
+      | Literal.String _ -> strType // TODO: infer a literal type
+      | _ -> failwith "TODO: handle null and undefined"
+    | ExprKind.Call(fn, args) ->
       let funTy = infer_expr fn env nonGeneric
       let args = List.map (fun arg -> infer_expr arg env nonGeneric) args
       let retTy = makeVariable ()
       unify (makeFunctionType None args retTy) funTy
       retTy
-    | Binary(op, left, right) ->
+    | ExprKind.Binary(op, left, right) ->
       let funTy = getType op env nonGeneric
 
       let args =
@@ -250,16 +256,17 @@ module TypeChecker =
       let retTy = makeVariable ()
       unify (makeFunctionType None args retTy) funTy
       retTy
-    | Lambda f ->
+    | ExprKind.Function f ->
       let mutable newEnv = env
 
       let args =
         List.map
-          (fun arg ->
+          (fun param ->
             let newArgTy = makeVariable () in
-            newEnv <- (arg, newArgTy) :: newEnv
+            // TODO: replace with infer_pattern
+            newEnv <- (param.ToString(), newArgTy) :: newEnv
             newArgTy)
-          f.args
+          f.sig'.paramList
 
       let mutable newNonGeneric = nonGeneric
 
@@ -280,7 +287,7 @@ module TypeChecker =
             | None -> ()
 
             t)
-          f.body
+          f.body.stmts
 
       let retTy =
         match List.tryLast stmtTypes with
@@ -294,7 +301,7 @@ module TypeChecker =
     | ExprKind.Tuple elems ->
       let elems = List.map (fun elem -> infer_expr elem env nonGeneric) elems
       { Type.kind = TypeKind.Tuple(elems) }
-    | IfElse(condition, thenBranch, elseBranch) ->
+    | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
       let retTy = makeVariable ()
 
       let conditionTy = infer_expr condition env nonGeneric
@@ -306,12 +313,14 @@ module TypeChecker =
       unify elseBranchTy retTy
 
       retTy
+    | _ -> failwith "TODO: finish implementing infer_expr"
 
   and infer_stmt stmt env nonGeneric =
     match stmt with
     | Expr expr ->
       let t = infer_expr expr env nonGeneric
       (Some(t), None)
+    | For(pattern, right, block) -> failwith "TODO: infer for"
     | Let(name, definition) ->
       let defnTy = infer_expr definition env nonGeneric
       let assump = (name, defnTy)

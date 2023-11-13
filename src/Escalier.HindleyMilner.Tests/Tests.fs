@@ -1,25 +1,67 @@
 module Tests
 
 open Xunit
+open FParsec
 
 open Escalier.HindleyMilner.Syntax
 open Escalier.HindleyMilner.TypeChecker
 
 let getEnv () =
   [ ("true", boolType)
-    ("zero", makeFunctionType None [ intType ] boolType)
-    ("pred", makeFunctionType None [ intType ] intType)
-    ("times", makeFunctionType None [ intType; intType ] intType) ]
+    ("zero", makeFunctionType None [ numType ] boolType)
+    ("pred", makeFunctionType None [ numType ] numType)
+    ("times", makeFunctionType None [ numType; numType ] numType) ]
 
-let ident x = { kind = Ident(x) }
-let apply (f, args) = { kind = Apply(f, args) }
-let lambda f = { kind = Lambda(f) }
+let ident x = { kind = ExprKind.Ident(x) }
+
+let number x =
+  { kind = ExprKind.Literal(Literal.Number x) }
+
+let call (f, args) = { kind = ExprKind.Call(f, args) }
+
+let dummy_span =
+  { start = Position("", 0, 0, 0)
+    stop = Position("", 0, 0, 0) }
+
+let func paramList stmts =
+  let paramList =
+    List.map
+      (fun name ->
+        let pattern =
+          { Pattern.kind =
+              PatternKind.Identifier(
+                { span = dummy_span
+                  name = name
+                  isMut = false }
+              )
+            span = dummy_span
+            inferred_type = None }
+
+        let param =
+          { pattern = pattern
+            typeAnn = None
+            optional = false }
+
+        param)
+      paramList
+
+  { kind =
+      ExprKind.Function(
+        { sig' =
+            { paramList = paramList
+              typeParams = None
+              ret = None
+              throws = None }
+          body = { stmts = stmts; span = dummy_span } }
+      ) }
 
 let ifelse (cond, thenExpr, elseExpr) =
   { kind = IfElse(cond, thenExpr, elseExpr) }
 
-let binary (op, left, right) = { kind = Binary(op, left, right) }
-let tuple exprs = { kind = Tuple(exprs) }
+let binary (op, left, right) =
+  { kind = ExprKind.Binary(op, left, right) }
+
+let tuple exprs = { kind = ExprKind.Tuple(exprs) }
 
 [<Fact>]
 let InferFactorial () =
@@ -35,24 +77,19 @@ let InferFactorial () =
   let ast =
     LetRec(
       "factorial",
-      lambda
-        { typeParams = None
-          args = [ "n" ] (* fn n => *)
-          body =
-            [ Stmt.Expr(
-                ifelse (
-                  apply (ident "zero", [ ident "n" ]),
-                  ident "1",
-                  binary (
-                    "times", // op
-                    ident "n",
-                    apply (
-                      ident "factorial",
-                      [ apply (ident "pred", [ ident "n" ]) ]
-                    )
-                  )
-                )
-              ) ] }
+      func
+        [ "n" ] (* fn n => *)
+        [ Stmt.Expr(
+            ifelse (
+              call (ident "zero", [ ident "n" ]),
+              ident "1",
+              binary (
+                "times", // op
+                ident "n",
+                call (ident "factorial", [ call (ident "pred", [ ident "n" ]) ])
+              )
+            )
+          ) ]
     )
 
   let mutable env = getEnv ()
@@ -66,22 +103,20 @@ let InferFactorial () =
 
   let t = getType "factorial" env nonGeneric
 
-  Assert.Equal("fn (int) -> int", t.ToString())
+  Assert.Equal("fn (number) -> number", t.ToString())
 
 [<Fact>]
 let UnificationFailure () =
   nextVariableId <- 0
   (* fn x => [x(3) x(true)] *)
   let ast =
-    lambda
-      { typeParams = None
-        args = [ "x" ]
-        body =
-          [ Stmt.Expr(
-              tuple
-                [ apply (ident "x", [ ident "3" ])
-                  apply (ident "x", [ ident "true" ]) ]
-            ) ] }
+    func
+      [ "x" ]
+      [ Stmt.Expr(
+          tuple
+            [ call (ident "x", [ number "3" ])
+              call (ident "x", [ ident "true" ]) ]
+        ) ]
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -89,7 +124,7 @@ let UnificationFailure () =
   try
     infer_expr ast env nonGeneric |> ignore
   with ex ->
-    Assert.Equal("Type mismatch int != bool", ex.Message)
+    Assert.Equal("Type mismatch number != boolean", ex.Message)
 
 [<Fact>]
 let UndefinedSymbol () =
@@ -109,18 +144,12 @@ let InferPair () =
 
   (* letrec f = (fn x => x) in [f 4, f true] *)
   let ast =
-    [ Stmt.Let(
-        "f",
-        lambda
-          { typeParams = None
-            args = [ "x" ]
-            body = [ Stmt.Expr(ident "x") ] }
-      )
+    [ Stmt.Let("f", func [ "x" ] [ Stmt.Expr(ident "x") ])
       Stmt.Let(
         "pair",
         tuple
-          [ apply (ident "f", [ ident "4" ])
-            apply (ident "f", [ ident "true" ]) ]
+          [ call (ident "f", [ number "4" ])
+            call (ident "f", [ ident "true" ]) ]
       ) ]
 
   let env = getEnv ()
@@ -131,16 +160,12 @@ let InferPair () =
   let pair = getType "pair" newEnv Set.empty
 
   Assert.Equal("fn <A>(A) -> A", f.ToString())
-  Assert.Equal("[int, bool]", pair.ToString())
+  Assert.Equal("[number, boolean]", pair.ToString())
 
 [<Fact>]
 let RecursiveUnification () =
   (* fn f => f f (fail) *)
-  let ast =
-    lambda
-      { typeParams = None
-        args = [ "f" ]
-        body = [ Stmt.Expr(apply (ident "f", [ ident "f" ])) ] }
+  let ast = func [ "f" ] [ Stmt.Expr(call (ident "f", [ ident "f" ])) ]
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -155,22 +180,14 @@ let InferGenericAndNonGeneric () =
   nextVariableId <- 0
 
   let ast =
-    lambda
-      { typeParams = None
-        args = [ "g" ]
-        body =
-          [ Stmt.Let(
-              "f",
-              lambda
-                { typeParams = None
-                  args = [ "x" ]
-                  body = [ Stmt.Expr(ident "g") ] }
-            )
-            Stmt.Expr(
-              tuple
-                [ apply (ident "f", [ ident "3" ])
-                  apply (ident "f", [ ident "true" ]) ]
-            ) ] }
+    func
+      [ "g" ]
+      [ Stmt.Let("f", func [ "x" ] [ Stmt.Expr(ident "g") ])
+        Stmt.Expr(
+          tuple
+            [ call (ident "f", [ number "3" ])
+              call (ident "f", [ ident "true" ]) ]
+        ) ]
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -185,28 +202,19 @@ let InferFuncComposition () =
   nextVariableId <- 0
 
   let ast =
-    lambda
-      { typeParams = None
-        args = [ "f" ]
-        body =
-          [ Stmt.Expr(
-              lambda
-                { typeParams = None
-                  args = [ "g" ]
-                  body =
-                    [ Stmt.Expr(
-                        lambda
-                          { typeParams = None
-                            args = [ "arg" ]
-                            body =
-                              [ Stmt.Expr(
-                                  apply (
-                                    ident "g",
-                                    [ apply (ident "f", [ ident "arg" ]) ]
-                                  )
-                                ) ] }
-                      ) ] }
-            ) ] }
+    func
+      [ "f" ]
+      [ Stmt.Expr(
+          func
+            [ "g" ]
+            [ Stmt.Expr(
+                func
+                  [ "arg" ]
+                  [ Stmt.Expr(
+                      call (ident "g", [ call (ident "f", [ ident "arg" ]) ])
+                    ) ]
+              ) ]
+        ) ]
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -226,28 +234,22 @@ let InferSKK () =
   let nonGeneric = Set.empty
 
   let S =
-    lambda
-      { typeParams = None
-        args = [ "f" ]
-        body =
-          [ Stmt.Expr(
-              lambda
-                { typeParams = None
-                  args = [ "g" ]
-                  body =
-                    [ Stmt.Expr(
-                        lambda
-                          { typeParams = None
-                            args = [ "x" ]
-                            body =
-                              [ Stmt.Expr(
-                                  apply (
-                                    apply (ident "f", [ ident "x" ]),
-                                    [ apply (ident "g", [ ident "x" ]) ]
-                                  )
-                                ) ] }
-                      ) ] }
-            ) ] }
+    func
+      [ "f" ]
+      [ Stmt.Expr(
+          func
+            [ "g" ]
+            [ Stmt.Expr(
+                func
+                  [ "x" ]
+                  [ Stmt.Expr(
+                      call (
+                        call (ident "f", [ ident "x" ]),
+                        [ call (ident "g", [ ident "x" ]) ]
+                      )
+                    ) ]
+              ) ]
+        ) ]
 
   let t = infer_expr S env nonGeneric
   env <- ("S", t) :: env
@@ -264,17 +266,7 @@ let InferSKK () =
     t.ToString()
   )
 
-  let K1 =
-    lambda
-      { typeParams = None
-        args = [ "x" ]
-        body =
-          [ Stmt.Expr(
-              lambda
-                { typeParams = None
-                  args = [ "y" ]
-                  body = [ Stmt.Expr(ident "x") ] }
-            ) ] }
+  let K1 = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
 
   let t = infer_expr K1 env nonGeneric
   env <- ("K1", t) :: env
@@ -283,17 +275,7 @@ let InferSKK () =
   let t = generalize_func t
   Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
 
-  let K2 =
-    lambda
-      { typeParams = None
-        args = [ "x" ]
-        body =
-          [ Stmt.Expr(
-              lambda
-                { typeParams = None
-                  args = [ "y" ]
-                  body = [ Stmt.Expr(ident "x") ] }
-            ) ] }
+  let K2 = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
 
   let t = infer_expr K2 env nonGeneric
   env <- ("K2", t) :: env
@@ -302,7 +284,7 @@ let InferSKK () =
   let t = generalize_func t
   Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
 
-  let I = apply (apply (ident "S", [ ident "K1" ]), [ ident "K2" ])
+  let I = call (call (ident "S", [ ident "K1" ]), [ ident "K2" ])
   let t = infer_expr I env nonGeneric
 
   Assert.Equal("fn (t10) -> t10", t.ToString())
@@ -316,44 +298,27 @@ let InferScriptSKK () =
   let nonGeneric = Set.empty
 
   let S =
-    lambda
-      { typeParams = None
-        args = [ "f" ]
-        body =
-          [ Stmt.Expr(
-              lambda
-                { typeParams = None
-                  args = [ "g" ]
-                  body =
-                    [ Stmt.Expr(
-                        lambda
-                          { typeParams = None
-                            args = [ "x" ]
-                            body =
-                              [ Stmt.Expr(
-                                  apply (
-                                    apply (ident "f", [ ident "x" ]),
-                                    [ apply (ident "g", [ ident "x" ]) ]
-                                  )
-                                ) ] }
-                      ) ] }
-            ) ] }
+    func
+      [ "f" ]
+      [ Stmt.Expr(
+          func
+            [ "g" ]
+            [ Stmt.Expr(
+                func
+                  [ "x" ]
+                  [ Stmt.Expr(
+                      call (
+                        call (ident "f", [ ident "x" ]),
+                        [ call (ident "g", [ ident "x" ]) ]
+                      )
+                    ) ]
+              ) ]
+        ) ]
 
-  let K =
-    lambda
-      { typeParams = None
-        args = [ "x" ]
-        body =
-          [ Stmt.Expr(
-              lambda
-                { typeParams = None
-                  args = [ "y" ]
-                  body = [ Stmt.Expr(ident "x") ] }
-
-            ) ] }
+  let K = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
 
 
-  let I = apply (apply (ident "S", [ ident "K" ]), [ ident "K" ])
+  let I = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
   let script = [ Stmt.Let("S", S); Stmt.Let("K", K); Stmt.Let("I", I) ]
 

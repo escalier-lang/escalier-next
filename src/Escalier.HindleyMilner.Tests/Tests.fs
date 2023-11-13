@@ -11,6 +11,16 @@ let getEnv () =
     ("pred", makeFunctionType None [ intType ] intType)
     ("times", makeFunctionType None [ intType; intType ] intType) ]
 
+let ident x = { kind = Ident(x) }
+let apply (f, args) = { kind = Apply(f, args) }
+let lambda f = { kind = Lambda(f) }
+
+let ifelse (cond, thenExpr, elseExpr) =
+  { kind = IfElse(cond, thenExpr, elseExpr) }
+
+let binary (op, left, right) = { kind = Binary(op, left, right) }
+let tuple exprs = { kind = Tuple(exprs) }
+
 [<Fact>]
 let InferFactorial () =
   nextVariableId <- 0
@@ -25,31 +35,30 @@ let InferFactorial () =
   let ast =
     LetRec(
       "factorial",
-      Lambda(
+      lambda
         { typeParams = None
           args = [ "n" ] (* fn n => *)
           body =
             [ Stmt.Expr(
-                IfElse(
-                  Apply(Ident("zero"), [ Ident("n") ]),
-                  Ident("1"),
-                  Binary(
+                ifelse (
+                  apply (ident "zero", [ ident "n" ]),
+                  ident "1",
+                  binary (
                     "times", // op
-                    Ident("n"),
-                    Apply(
-                      Ident("factorial"),
-                      [ Apply(Ident("pred"), [ Ident("n") ]) ]
+                    ident "n",
+                    apply (
+                      ident "factorial",
+                      [ apply (ident "pred", [ ident "n" ]) ]
                     )
                   )
                 )
               ) ] }
-      )
     )
 
   let mutable env = getEnv ()
   let nonGeneric = Set.empty
 
-  let (_, assump) = infer_stmt ast env nonGeneric
+  let _, assump = infer_stmt ast env nonGeneric
 
   match assump with
   | Some(assump) -> env <- assump :: env
@@ -64,17 +73,15 @@ let UnificationFailure () =
   nextVariableId <- 0
   (* fn x => [x(3) x(true)] *)
   let ast =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "x" ]
         body =
           [ Stmt.Expr(
-              Expr.Tuple(
-                [ Apply(Ident("x"), [ Ident("3") ])
-                  Apply(Ident("x"), [ Ident("true") ]) ]
-              )
+              tuple
+                [ apply (ident "x", [ ident "3" ])
+                  apply (ident "x", [ ident "true" ]) ]
             ) ] }
-    )
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -87,7 +94,7 @@ let UnificationFailure () =
 [<Fact>]
 let UndefinedSymbol () =
   nextVariableId <- 0
-  let ast = Ident("foo")
+  let ast = ident "foo"
   let env = getEnv ()
   let nonGeneric = Set.empty
 
@@ -104,18 +111,16 @@ let InferPair () =
   let ast =
     [ Stmt.Let(
         "f",
-        Lambda(
+        lambda
           { typeParams = None
             args = [ "x" ]
-            body = [ Stmt.Expr(Ident("x")) ] }
-        )
+            body = [ Stmt.Expr(ident "x") ] }
       )
       Stmt.Let(
         "pair",
-        Expr.Tuple(
-          [ Apply(Ident("f"), [ Ident("4") ])
-            Apply(Ident("f"), [ Ident("true") ]) ]
-        )
+        tuple
+          [ apply (ident "f", [ ident "4" ])
+            apply (ident "f", [ ident "true" ]) ]
       ) ]
 
   let env = getEnv ()
@@ -132,11 +137,10 @@ let InferPair () =
 let RecursiveUnification () =
   (* fn f => f f (fail) *)
   let ast =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "f" ]
-        body = [ Stmt.Expr(Apply(Ident("f"), [ Ident("f") ])) ] }
-    )
+        body = [ Stmt.Expr(apply (ident "f", [ ident "f" ])) ] }
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -151,25 +155,22 @@ let InferGenericAndNonGeneric () =
   nextVariableId <- 0
 
   let ast =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "g" ]
         body =
           [ Stmt.Let(
               "f",
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "x" ]
-                  body = [ Stmt.Expr(Ident("g")) ] }
-              )
+                  body = [ Stmt.Expr(ident "g") ] }
             )
             Stmt.Expr(
-              Expr.Tuple(
-                [ Apply(Ident("f"), [ Ident("3") ])
-                  Apply(Ident("f"), [ Ident("true") ]) ]
-              )
+              tuple
+                [ apply (ident "f", [ ident "3" ])
+                  apply (ident "f", [ ident "true" ]) ]
             ) ] }
-    )
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -184,31 +185,28 @@ let InferFuncComposition () =
   nextVariableId <- 0
 
   let ast =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "f" ]
         body =
           [ Stmt.Expr(
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "g" ]
                   body =
                     [ Stmt.Expr(
-                        Lambda(
+                        lambda
                           { typeParams = None
                             args = [ "arg" ]
                             body =
                               [ Stmt.Expr(
-                                  Apply(
-                                    Ident("g"),
-                                    [ Apply(Ident("f"), [ Ident("arg") ]) ]
+                                  apply (
+                                    ident "g",
+                                    [ apply (ident "f", [ ident "arg" ]) ]
                                   )
                                 ) ] }
-                        )
                       ) ] }
-              )
             ) ] }
-    )
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -228,31 +226,28 @@ let InferSKK () =
   let nonGeneric = Set.empty
 
   let S =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "f" ]
         body =
           [ Stmt.Expr(
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "g" ]
                   body =
                     [ Stmt.Expr(
-                        Lambda(
+                        lambda
                           { typeParams = None
                             args = [ "x" ]
                             body =
                               [ Stmt.Expr(
-                                  Apply(
-                                    Apply(Ident("f"), [ Ident("x") ]),
-                                    [ Apply(Ident("g"), [ Ident("x") ]) ]
+                                  apply (
+                                    apply (ident "f", [ ident "x" ]),
+                                    [ apply (ident "g", [ ident "x" ]) ]
                                   )
                                 ) ] }
-                        )
                       ) ] }
-              )
             ) ] }
-    )
 
   let t = infer_expr S env nonGeneric
   env <- ("S", t) :: env
@@ -270,18 +265,16 @@ let InferSKK () =
   )
 
   let K1 =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "x" ]
         body =
           [ Stmt.Expr(
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "y" ]
-                  body = [ Stmt.Expr(Ident("x")) ] }
-              )
+                  body = [ Stmt.Expr(ident "x") ] }
             ) ] }
-    )
 
   let t = infer_expr K1 env nonGeneric
   env <- ("K1", t) :: env
@@ -291,18 +284,16 @@ let InferSKK () =
   Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
 
   let K2 =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "x" ]
         body =
           [ Stmt.Expr(
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "y" ]
-                  body = [ Stmt.Expr(Ident("x")) ] }
-              )
+                  body = [ Stmt.Expr(ident "x") ] }
             ) ] }
-    )
 
   let t = infer_expr K2 env nonGeneric
   env <- ("K2", t) :: env
@@ -311,7 +302,7 @@ let InferSKK () =
   let t = generalize_func t
   Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
 
-  let I = Apply(Apply(Ident("S"), [ Ident("K1") ]), [ Ident("K2") ])
+  let I = apply (apply (ident "S", [ ident "K1" ]), [ ident "K2" ])
   let t = infer_expr I env nonGeneric
 
   Assert.Equal("fn (t10) -> t10", t.ToString())
@@ -325,47 +316,44 @@ let InferScriptSKK () =
   let nonGeneric = Set.empty
 
   let S =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "f" ]
         body =
           [ Stmt.Expr(
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "g" ]
                   body =
                     [ Stmt.Expr(
-                        Lambda(
+                        lambda
                           { typeParams = None
                             args = [ "x" ]
                             body =
                               [ Stmt.Expr(
-                                  Apply(
-                                    Apply(Ident("f"), [ Ident("x") ]),
-                                    [ Apply(Ident("g"), [ Ident("x") ]) ]
+                                  apply (
+                                    apply (ident "f", [ ident "x" ]),
+                                    [ apply (ident "g", [ ident "x" ]) ]
                                   )
                                 ) ] }
-                        )
                       ) ] }
-              )
             ) ] }
-    )
 
   let K =
-    Lambda(
+    lambda
       { typeParams = None
         args = [ "x" ]
         body =
           [ Stmt.Expr(
-              Lambda(
+              lambda
                 { typeParams = None
                   args = [ "y" ]
-                  body = [ Stmt.Expr(Ident("x")) ] }
-              )
-            ) ] }
-    )
+                  body = [ Stmt.Expr(ident "x") ] }
 
-  let I = Apply(Apply(Ident("S"), [ Ident("K") ]), [ Ident("K") ])
+            ) ] }
+
+
+  let I = apply (apply (ident "S", [ ident "K" ]), [ ident "K" ])
 
   let script = [ Stmt.Let("S", S); Stmt.Let("K", K); Stmt.Let("I", I) ]
 

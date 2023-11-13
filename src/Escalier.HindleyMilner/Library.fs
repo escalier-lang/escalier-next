@@ -15,7 +15,7 @@ module TypeChecker =
 
   let nextUniqueName = ref "a"
 
-  type env = list<(string * Type)>
+  type env = list<string * Type>
 
   let makeFunctionType typeParams args ret =
     { kind =
@@ -24,8 +24,8 @@ module TypeChecker =
             args = args
             ret = ret } }
 
-  let intType = { kind = TypeOp({ name = "int"; types = [] }) }
-  let boolType = { kind = TypeOp({ name = "bool"; types = [] }) }
+  let intType = { kind = TypeRef({ name = "int"; typeArgs = None }) }
+  let boolType = { kind = TypeRef({ name = "bool"; typeArgs = None }) }
 
   /// Returns the currently defining instance of t.
   /// As a side effect, collapses the list of type instances. The function Prune
@@ -58,9 +58,9 @@ module TypeChecker =
         | Tuple(elems) ->
           let elems = List.map fold elems
           { kind = Tuple(elems) }
-        | TypeOp({ name = name; types = types }) ->
-          let newTypes = List.map fold types
-          { kind = TypeOp({ name = name; types = newTypes }) }
+        | TypeRef({ name = name; typeArgs = typeArgs }) ->
+          let typeArgs = Option.map (List.map fold) typeArgs
+          { kind = TypeRef({ name = name; typeArgs = typeArgs }) }
 
       match f t with
       | Some(t) -> t
@@ -77,12 +77,13 @@ module TypeChecker =
       match t.kind with
       | TypeVar { id = id } ->
         match Map.tryFind id mapping with
-        | Some(name) -> Some({ kind = TypeOp { name = name; types = [] } })
+        | Some(name) ->
+          Some({ kind = TypeRef { name = name; typeArgs = None } })
         | None ->
           let tpName = 65 + nextId |> char |> string
           nextId <- nextId + 1
           mapping <- mapping |> Map.add id tpName
-          Some({ kind = TypeOp { name = tpName; types = [] } })
+          Some({ kind = TypeRef { name = tpName; typeArgs = None } })
       | _ -> None
 
     let t = prune t
@@ -103,7 +104,7 @@ module TypeChecker =
 
     let folder t =
       match t.kind with
-      | TypeOp({ name = name }) ->
+      | TypeRef({ name = name }) ->
         match Map.tryFind name mapping with
         | Some(tv) -> Some(tv)
         | None -> None
@@ -124,7 +125,10 @@ module TypeChecker =
   let rec occursInType (v: Type) (t2: Type) =
     match (prune t2).kind with
     | pruned when pruned = v.kind -> true
-    | TypeOp({ types = types }) -> occursIn v types
+    | TypeRef({ typeArgs = typeArgs }) ->
+      match typeArgs with
+      | Some(typeArgs) -> occursIn v typeArgs
+      | None -> false
     | _ -> false
 
   and occursIn t types =
@@ -164,12 +168,12 @@ module TypeChecker =
           t
       | Tuple elems -> { kind = Tuple(List.map loop elems) }
       | Function f ->
-        makeFunctionType (f.typeParams) (List.map loop f.args) (loop f.ret)
-      | TypeOp({ types = tyopTypes } as op) ->
+        makeFunctionType f.typeParams (List.map loop f.args) (loop f.ret)
+      | TypeRef({ typeArgs = typeArgs } as op) ->
         let kind =
-          TypeOp(
+          TypeRef(
             { op with
-                types = List.map loop tyopTypes }
+                typeArgs = Option.map (List.map loop) typeArgs }
           )
 
         { kind = kind }
@@ -206,12 +210,20 @@ module TypeChecker =
       let f2 = instantiate_func f2
       List.iter2 (fun arg1 arg2 -> unify arg2 arg1) f1.args f2.args // args are contravariant
       unify f1.ret f2.ret // retruns are covariant
-    | TypeOp({ name = name1; types = types1 }),
-      TypeOp({ name = name2; types = types2 }) ->
-      if (name1 <> name2 || List.length types1 <> List.length types2) then
+    | TypeRef({ name = name1; typeArgs = types1 }),
+      TypeRef({ name = name2; typeArgs = types2 }) ->
+
+      if (name1 <> name2) then
         failwith $"Type mismatch {t1} != {t2}"
 
-      ignore (List.map2 unify types1 types2)
+      match (types1, types2) with
+      | None, None -> ()
+      | Some(types1), Some(types2) ->
+        if List.length types1 <> List.length types2 then
+          failwithf $"Type mismatch {t1} != {t2}"
+
+        ignore (List.map2 unify types1 types2)
+      | _ -> failwith $"Type mismatch {t1} != {t2}"
     | _, _ -> failwith $"Type mismatch {t1} != {t2}"
 
   ///Computes the type of the expression given by node.
@@ -220,8 +232,8 @@ module TypeChecker =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
-  let rec infer_expr exp env nonGeneric =
-    match exp with
+  let rec infer_expr (expr: Expr) env nonGeneric =
+    match expr.kind with
     | Ident(name) -> getType name env nonGeneric
     | Apply(fn, args) ->
       let funTy = infer_expr fn env nonGeneric
@@ -279,7 +291,7 @@ module TypeChecker =
         | None -> failwith "Empty lambda body"
 
       makeFunctionType None args retTy // TODO: handle explicit type params
-    | Expr.Tuple elems ->
+    | ExprKind.Tuple elems ->
       let elems = List.map (fun elem -> infer_expr elem env nonGeneric) elems
       { Type.kind = TypeKind.Tuple(elems) }
     | IfElse(condition, thenBranch, elseBranch) ->

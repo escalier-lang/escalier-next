@@ -7,9 +7,9 @@ open Escalier.HindleyMilner.TypeChecker
 
 let getEnv () =
   [ ("true", boolType)
-    ("zero", makeFunctionType [ intType ] boolType)
-    ("pred", makeFunctionType [ intType ] intType)
-    ("times", makeFunctionType [ intType; intType ] intType) ]
+    ("zero", makeFunctionType None [ intType ] boolType)
+    ("pred", makeFunctionType None [ intType ] intType)
+    ("times", makeFunctionType None [ intType; intType ] intType) ]
 
 [<Fact>]
 let InferFactorial () =
@@ -46,10 +46,15 @@ let InferFactorial () =
       )
     )
 
-  let env = getEnv ()
+  let mutable env = getEnv ()
   let nonGeneric = Set.empty
 
-  let (_, env) = infer_stmt ast env nonGeneric
+  let (_, assump) = infer_stmt ast env nonGeneric
+
+  match assump with
+  | Some(assump) -> env <- assump :: env
+  | None -> ()
+
   let t = getType "factorial" env nonGeneric
 
   Assert.Equal("fn (int) -> int", t.ToString())
@@ -120,7 +125,7 @@ let InferPair () =
   let f = getType "f" newEnv Set.empty
   let pair = getType "pair" newEnv Set.empty
 
-  Assert.Equal("fn (t5) -> t5", f.ToString())
+  Assert.Equal("fn <A>(A) -> A", f.ToString())
   Assert.Equal("[int, bool]", pair.ToString())
 
 [<Fact>]
@@ -311,4 +316,69 @@ let InferSKK () =
 
   Assert.Equal("fn (t10) -> t10", t.ToString())
   let t = generalize_func t
+  Assert.Equal("fn <A>(A) -> A", t.ToString())
+
+[<Fact>]
+let InferScriptSKK () =
+  nextVariableId <- 0
+  let mutable env = getEnv ()
+  let nonGeneric = Set.empty
+
+  let S =
+    Lambda(
+      { typeParams = None
+        args = [ "f" ]
+        body =
+          [ Stmt.Expr(
+              Lambda(
+                { typeParams = None
+                  args = [ "g" ]
+                  body =
+                    [ Stmt.Expr(
+                        Lambda(
+                          { typeParams = None
+                            args = [ "x" ]
+                            body =
+                              [ Stmt.Expr(
+                                  Apply(
+                                    Apply(Ident("f"), [ Ident("x") ]),
+                                    [ Apply(Ident("g"), [ Ident("x") ]) ]
+                                  )
+                                ) ] }
+                        )
+                      ) ] }
+              )
+            ) ] }
+    )
+
+  let K =
+    Lambda(
+      { typeParams = None
+        args = [ "x" ]
+        body =
+          [ Stmt.Expr(
+              Lambda(
+                { typeParams = None
+                  args = [ "y" ]
+                  body = [ Stmt.Expr(Ident("x")) ] }
+              )
+            ) ] }
+    )
+
+  let I = Apply(Apply(Ident("S"), [ Ident("K") ]), [ Ident("K") ])
+
+  let script = [ Stmt.Let("S", S); Stmt.Let("K", K); Stmt.Let("I", I) ]
+
+  let newEnv = infer_script script env
+
+  let t = getType "S" newEnv nonGeneric
+
+  Assert.Equal(
+    "fn <A, B, C>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
+    t.ToString()
+  )
+
+  let t = getType "K" newEnv nonGeneric
+  Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
+  let t = getType "I" newEnv nonGeneric
   Assert.Equal("fn <A>(A) -> A", t.ToString())

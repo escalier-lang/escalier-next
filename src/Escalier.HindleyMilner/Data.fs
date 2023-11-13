@@ -57,6 +57,19 @@ module rec Type =
       args: list<Type>
       ret: Type }
 
+    override this.ToString() =
+      let args =
+        List.map (fun item -> item.ToString()) this.args |> String.concat ", "
+
+      let typeParams =
+        match this.typeParams with
+        | Some(typeParams) ->
+          let sep = ", "
+          $"<{String.concat sep typeParams}>"
+        | None -> ""
+
+      $"fn {typeParams}({args}) -> {this.ret}"
+
   type TypeKind =
     | TypeVar of TypeVar
     | TypeOp of TypeOp
@@ -75,18 +88,7 @@ module rec Type =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
-      | Function f ->
-        let args =
-          List.map (fun item -> item.ToString()) f.args |> String.concat ", "
-
-        let typeParams =
-          match f.typeParams with
-          | Some(typeParams) ->
-            let sep = ", "
-            $"<{String.concat sep typeParams}>"
-          | None -> ""
-
-        $"fn {typeParams}({args}) -> {f.ret}"
+      | Function f -> f.ToString()
       | TypeOp({ name = tyopName; types = tyopTypes }) ->
         match List.length tyopTypes with
         | 0 -> tyopName

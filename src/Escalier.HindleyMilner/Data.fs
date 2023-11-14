@@ -199,6 +199,7 @@ module Type =
   ///All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
     { id: int
+      bound: option<Type>
       mutable instance: option<Type> }
 
   ///An n-ary type constructor which builds a new type from old
@@ -256,6 +257,8 @@ module Type =
     | TypeRef of TypeRef
     | Tuple of list<Type>
     | Function of Function
+    | Literal of Syntax.Literal
+    | Wildcard
 
   type Type =
     { kind: TypeKind
@@ -280,6 +283,8 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
+      | Literal lit -> lit.ToString()
+      | Wildcard -> "_"
 
   type Scheme =
     { typeParams: list<string>

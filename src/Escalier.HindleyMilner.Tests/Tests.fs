@@ -46,6 +46,11 @@ let number x =
     span = dummy_span
     inferred_type = None }
 
+let boolean x =
+  { Expr.kind = ExprKind.Literal(Literal.Boolean x)
+    span = dummy_span
+    inferred_type = None }
+
 let call (f, args) =
   { Expr.kind = ExprKind.Call(f, args)
     span = dummy_span
@@ -157,7 +162,7 @@ let UnificationFailure () =
       [ Stmt.Expr(
           tuple
             [ call (ident "x", [ number "3" ])
-              call (ident "x", [ ident "true" ]) ]
+              call (ident "x", [ boolean true ]) ]
         ) ]
 
   let env = getEnv ()
@@ -166,7 +171,7 @@ let UnificationFailure () =
   try
     infer_expr ast env nonGeneric |> ignore
   with ex ->
-    Assert.Equal("Type mismatch number != boolean", ex.Message)
+    Assert.Equal("Type mismatch 3 != true", ex.Message)
 
 [<Fact>]
 let UndefinedSymbol () =
@@ -192,7 +197,7 @@ let InferPair () =
           "pair",
           tuple
             [ call (ident "f", [ number "4" ])
-              call (ident "f", [ ident "true" ]) ]
+              call (ident "f", [ boolean true ]) ]
         ) ]
 
     let env = getEnv ()
@@ -203,7 +208,7 @@ let InferPair () =
     let pair = getType "pair" newEnv Set.empty
 
     Assert.Equal("fn <A>(A) -> A", f.ToString())
-    Assert.Equal("[number, boolean]", pair.ToString())
+    Assert.Equal("[4, true]", pair.ToString())
   }
 
 [<Fact>]
@@ -231,7 +236,7 @@ let InferGenericAndNonGeneric () =
           Stmt.Expr(
             tuple
               [ call (ident "f", [ number "3" ])
-                call (ident "f", [ ident "true" ]) ]
+                call (ident "f", [ boolean true ]) ]
           ) ]
 
     let env = getEnv ()

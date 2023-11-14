@@ -10,8 +10,11 @@ open Errors
 module TypeVariable =
   let mutable nextVariableId = 0
 
-  let makeVariable () =
-    let newVar = { id = nextVariableId; instance = None }
+  let makeVariable bound =
+    let newVar =
+      { id = nextVariableId
+        bound = bound
+        instance = None }
 
     nextVariableId <- nextVariableId + 1
 
@@ -19,6 +22,10 @@ module TypeVariable =
       provenance = None }
 
 module rec TypeChecker =
+  type Binding = Type * bool
+  type BindingAssump = Map<string, Binding>
+  type SchemeAssump = (string * Scheme)
+
   type Env =
     { values: Map<string, Type>
       schemes: Map<string, Scheme>
@@ -95,6 +102,8 @@ module rec TypeChecker =
 
           { kind = TypeRef({ name = name; typeArgs = typeArgs })
             provenance = None }
+        | Literal _ -> t
+        | Wildcard -> t
 
       match f t with
       | Some(t) -> t
@@ -155,7 +164,7 @@ module rec TypeChecker =
     match f.typeParams with
     | Some(typeParams) ->
       for tp in typeParams do
-        let v = TypeVariable.makeVariable ()
+        let v = TypeVariable.makeVariable None
         mapping <- mapping |> Map.add tp v
     | None -> ()
 
@@ -207,7 +216,7 @@ module rec TypeChecker =
         if isGeneric p.id nonGeneric then
           match table.ContainsKey p.id with
           | false ->
-            let newVar = TypeVariable.makeVariable ()
+            let newVar = TypeVariable.makeVariable None
             table.Add(p.id, newVar)
             newVar
           | true -> table[p.id]
@@ -231,6 +240,8 @@ module rec TypeChecker =
           )
 
         { kind = kind; provenance = None }
+      | Literal _ -> t
+      | _ -> t
 
     loop t
 
@@ -245,44 +256,62 @@ module rec TypeChecker =
         failwithf $"Undefined symbol {name}"
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
-  let unify (t1: Type) (t2: Type) : unit =
-    match (prune t1).kind, (prune t2).kind with
-    | TypeVar(v) as a, b ->
-      if a <> b then
-        if occursInType t1 t2 then
-          failwith "Recursive unification"
+  let unify (t1: Type) (t2: Type) : Result<unit, TypeError> =
+    result {
+      match (prune t1).kind, (prune t2).kind with
+      // TODO: extract into `bind` function
+      | TypeVar(v) as a, b ->
+        if a <> b then
+          if occursInType t1 t2 then
+            return! Error(TypeError.RecursiveUnification)
 
-        v.instance <- Some(t2)
-    | _, TypeVar _ -> unify t2 t1
-    | Tuple(elems1), Tuple(elems2) ->
-      if List.length elems1 <> List.length elems2 then
-        failwithf $"Type mismatch {t1} != {t2}"
+          v.instance <- Some(t2)
+      | _, TypeVar _ -> do! unify t2 t1
+      | Tuple(elems1), Tuple(elems2) ->
+        if List.length elems1 <> List.length elems2 then
+          return! Error(TypeError.TypeMismatch(t1, t2))
 
-      ignore (List.map2 unify elems1 elems2)
-    | Function(f1), Function(f2) ->
-      let f1 = instantiate_func f1
-      let f2 = instantiate_func f2
+        ignore (List.map2 unify elems1 elems2)
+      | Function(f1), Function(f2) ->
+        let f1 = instantiate_func f1
+        let f2 = instantiate_func f2
 
-      let paramList1 = List.map (fun param -> param.type_) f1.paramList
-      let paramList2 = List.map (fun param -> param.type_) f2.paramList
+        let paramList1 = List.map (fun param -> param.type_) f1.paramList
+        let paramList2 = List.map (fun param -> param.type_) f2.paramList
 
-      List.iter2 (fun arg1 arg2 -> unify arg2 arg1) paramList1 paramList2 // args are contravariant
-      unify f1.ret f2.ret // retruns are covariant
-    | TypeRef({ name = name1; typeArgs = types1 }),
-      TypeRef({ name = name2; typeArgs = types2 }) ->
+        if paramList1.Length > paramList2.Length then
+          // t1 needs to have at least as many params as t2
+          return! Error(TypeError.TypeMismatch(t1, t2))
 
-      if (name1 <> name2) then
-        failwith $"Type mismatch {t1} != {t2}"
+        for i in 0 .. paramList1.Length - 1 do
+          let param1 = paramList1[i]
+          let param2 = paramList2[i]
+          do! unify param2 param1 // params are contravariant
 
-      match (types1, types2) with
-      | None, None -> ()
-      | Some(types1), Some(types2) ->
-        if List.length types1 <> List.length types2 then
-          failwithf $"Type mismatch {t1} != {t2}"
+        do! unify f1.ret f2.ret // returns are covariant
+      | TypeRef({ name = name1; typeArgs = types1 }),
+        TypeRef({ name = name2; typeArgs = types2 }) ->
 
-        ignore (List.map2 unify types1 types2)
-      | _ -> failwith $"Type mismatch {t1} != {t2}"
-    | _, _ -> failwith $"Type mismatch {t1} != {t2}"
+        if (name1 <> name2) then
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
+        match (types1, types2) with
+        | None, None -> ()
+        | Some(types1), Some(types2) ->
+          if List.length types1 <> List.length types2 then
+            return! Error(TypeError.TypeMismatch(t1, t2))
+
+          ignore (List.map2 unify types1 types2)
+        | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | Literal lit, TypeRef({ name = name; typeArgs = typeArgs }) ->
+        // TODO: check that `typeArgs` is `None`
+        match lit, name with
+        | Literal.Number _, "number" -> ()
+        | Literal.String _, "string" -> ()
+        | Literal.Boolean _, "boolean" -> ()
+        | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+    }
 
   ///Computes the type of the expression given by node.
   ///The type of the node is computed in the context of the
@@ -298,14 +327,10 @@ module rec TypeChecker =
     result {
       match expr.kind with
       | ExprKind.Ident(name) -> return getType name env nonGeneric
-      | ExprKind.Literal(value) ->
-        match value with
-        | Literal.Number _ -> return numType // TODO: infer a literal type
-        | Literal.Boolean _ -> return boolType // TODO: infer a literal type
-        | Literal.String _ -> return strType // TODO: infer a literal type
-        | _ ->
-          return!
-            Error(TypeError.NotImplemented "TODO: handle null and undefined")
+      | ExprKind.Literal(literal) ->
+        return
+          { Type.kind = Literal(literal)
+            provenance = None }
       | ExprKind.Call(fn, args) ->
         let! funTy = infer_expr fn env nonGeneric
 
@@ -323,8 +348,8 @@ module rec TypeChecker =
               })
             args
 
-        let retTy = TypeVariable.makeVariable ()
-        unify (makeFunctionType None args retTy) funTy
+        let retTy = TypeVariable.makeVariable None
+        do! unify (makeFunctionType None args retTy) funTy
         return retTy
       | ExprKind.Binary(op, left, right) ->
         let funTy = getType op env nonGeneric
@@ -343,8 +368,8 @@ module rec TypeChecker =
               })
             [ left; right ]
 
-        let retTy = TypeVariable.makeVariable ()
-        unify (makeFunctionType None args retTy) funTy
+        let retTy = TypeVariable.makeVariable None
+        do! unify (makeFunctionType None args retTy) funTy
         return retTy
       | ExprKind.Function f ->
         let mutable newEnv = env
@@ -352,7 +377,7 @@ module rec TypeChecker =
         let paramList =
           List.map
             (fun param ->
-              let newArgTy = TypeVariable.makeVariable () in
+              let newArgTy = TypeVariable.makeVariable None in
               // TODO: replace with infer_pattern
               newEnv <- newEnv.addValue (param.ToString()) newArgTy
               newArgTy)
@@ -410,15 +435,15 @@ module rec TypeChecker =
           { Type.kind = TypeKind.Tuple(elems)
             provenance = None }
       | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-        let retTy = TypeVariable.makeVariable ()
+        let retTy = TypeVariable.makeVariable None
 
         let! conditionTy = infer_expr condition env nonGeneric
         let! thenBranchTy = infer_expr thenBranch env nonGeneric
         let! elseBranchTy = infer_expr elseBranch env nonGeneric
 
-        unify conditionTy boolType
-        unify thenBranchTy retTy
-        unify elseBranchTy retTy
+        do! unify conditionTy boolType
+        do! unify thenBranchTy retTy
+        do! unify elseBranchTy retTy
 
         return retTy
       | _ ->
@@ -443,7 +468,7 @@ module rec TypeChecker =
         let assump = (name, defnTy)
         return (None, Some(assump))
       | LetRec(name, defn) ->
-        let newTy = TypeVariable.makeVariable ()
+        let newTy = TypeVariable.makeVariable None
         let newEnv = env.addValue name newTy
 
         let newNonGeneric =
@@ -452,10 +477,47 @@ module rec TypeChecker =
           | _ -> nonGeneric
 
         let! defnTy = infer_expr defn newEnv newNonGeneric
-        unify newTy defnTy
+        do! unify newTy defnTy
 
         return (None, Some(name, newTy))
     }
+
+  let infer_pattern
+    (env: Env)
+    (pat: Syntax.Pattern)
+    : Result<BindingAssump * Type, TypeError> =
+    let mutable assump = BindingAssump([])
+
+    let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
+      match pat.kind with
+      | PatternKind.Identifier({ name = name; isMut = isMut }) ->
+        let t = TypeVariable.makeVariable None
+
+        // TODO: check if `name` already exists in `assump`
+        assump <- assump.Add(name, (t, isMut))
+        t
+      | PatternKind.Literal(_, literal) ->
+        { Type.kind = TypeKind.Literal(literal)
+          provenance = None }
+      | PatternKind.Object elems -> failwith "todo"
+      | PatternKind.Tuple elems ->
+        let elems' = List.map infer_pattern_rec elems
+
+        { Type.kind = TypeKind.Tuple(elems')
+          provenance = None }
+      | PatternKind.Wildcard ->
+        { Type.kind = TypeKind.Wildcard
+          provenance = None }
+      | PatternKind.Is(span, binding, isName, isMut) ->
+        match Map.tryFind isName env.schemes with
+        | Some(scheme) ->
+          assump <- assump.Add(binding.name, (scheme.ty, binding.isMut))
+          scheme.ty
+        | None -> failwith "todo"
+
+    let t = infer_pattern_rec pat
+    Result.Ok((assump, t))
+
 
   let infer_script (stmts: list<Stmt>) (env: Env) : Result<Env, TypeError> =
     result {

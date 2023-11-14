@@ -14,10 +14,24 @@ module TypeVariable =
     let newVar = { id = nextVariableId; instance = None }
 
     nextVariableId <- nextVariableId + 1
-    { kind = TypeVar(newVar) }
+
+    { kind = TypeVar(newVar)
+      provenance = None }
 
 module rec TypeChecker =
-  type Env = list<string * Type>
+  type Env =
+    { values: Map<string, Type>
+      schemes: Map<string, Scheme>
+      isAsync: bool }
+
+    member this.addValue (name: string) (t: Type) =
+      { this with
+          values = Map.add name t this.values }
+
+    member this.addSchem (name: string) (s: Scheme) =
+      { this with
+          schemes = Map.add name s this.schemes }
+
   type Assump = string * Type
 
   let makeFunctionType typeParams args ret =
@@ -25,11 +39,20 @@ module rec TypeChecker =
         Function
           { typeParams = typeParams
             args = args
-            ret = ret } }
+            ret = ret }
+      provenance = None }
 
-  let numType = { kind = TypeRef({ name = "number"; typeArgs = None }) }
-  let boolType = { kind = TypeRef({ name = "boolean"; typeArgs = None }) }
-  let strType = { kind = TypeRef({ name = "string"; typeArgs = None }) }
+  let numType =
+    { kind = TypeRef({ name = "number"; typeArgs = None })
+      provenance = None }
+
+  let boolType =
+    { kind = TypeRef({ name = "boolean"; typeArgs = None })
+      provenance = None }
+
+  let strType =
+    { kind = TypeRef({ name = "string"; typeArgs = None })
+      provenance = None }
 
   /// Returns the currently defining instance of t.
   /// As a side effect, collapses the list of type instances. The function Prune
@@ -57,13 +80,18 @@ module rec TypeChecker =
               TypeKind.Function
                 { f with
                     args = List.map fold f.args
-                    ret = fold f.ret } }
+                    ret = fold f.ret }
+            provenance = None }
         | Tuple(elems) ->
           let elems = List.map fold elems
-          { kind = Tuple(elems) }
+
+          { kind = Tuple(elems)
+            provenance = None }
         | TypeRef({ name = name; typeArgs = typeArgs }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
-          { kind = TypeRef({ name = name; typeArgs = typeArgs }) }
+
+          { kind = TypeRef({ name = name; typeArgs = typeArgs })
+            provenance = None }
 
       match f t with
       | Some(t) -> t
@@ -81,12 +109,19 @@ module rec TypeChecker =
       | TypeVar { id = id } ->
         match Map.tryFind id mapping with
         | Some(name) ->
-          Some({ kind = TypeRef { name = name; typeArgs = None } })
+          Some(
+            { kind = TypeRef { name = name; typeArgs = None }
+              provenance = None }
+          )
         | None ->
           let tpName = 65 + nextId |> char |> string
           nextId <- nextId + 1
           mapping <- mapping |> Map.add id tpName
-          Some({ kind = TypeRef { name = tpName; typeArgs = None } })
+
+          Some(
+            { kind = TypeRef { name = tpName; typeArgs = None }
+              provenance = None }
+          )
       | _ -> None
 
     let t = prune t
@@ -98,7 +133,8 @@ module rec TypeChecker =
 
       match t.kind with
       | Function f ->
-        { kind = TypeKind.Function { f with typeParams = Some(typeParams) } }
+        { kind = TypeKind.Function { f with typeParams = Some(typeParams) }
+          provenance = None }
       | _ -> failwith "Expected function type"
     | _ -> t
 
@@ -169,7 +205,9 @@ module rec TypeChecker =
           | true -> table[p.id]
         else
           t
-      | Tuple elems -> { kind = Tuple(List.map loop elems) }
+      | Tuple elems ->
+        { kind = Tuple(List.map loop elems)
+          provenance = None }
       | Function f ->
         makeFunctionType f.typeParams (List.map loop f.args) (loop f.ret)
       | TypeRef({ typeArgs = typeArgs } as op) ->
@@ -179,14 +217,14 @@ module rec TypeChecker =
                 typeArgs = Option.map (List.map loop) typeArgs }
           )
 
-        { kind = kind }
+        { kind = kind; provenance = None }
 
     loop t
 
   ///Get the type of identifier name from the type environment env
   let getType (name: string) (env: Env) (nonGeneric: Set<int>) : Type =
-    match env |> List.tryFind (fun (n, _) -> n = name) with
-    | Some(_name, var) -> fresh var nonGeneric
+    match env.values |> Map.tryFind name with
+    | Some(var) -> fresh var nonGeneric
     | None ->
       if isIntegerLiteral name then
         numType
@@ -279,7 +317,7 @@ module rec TypeChecker =
             (fun param ->
               let newArgTy = TypeVariable.makeVariable () in
               // TODO: replace with infer_pattern
-              newEnv <- (param.ToString(), newArgTy) :: newEnv
+              newEnv <- newEnv.addValue (param.ToString()) newArgTy
               newArgTy)
             f.sig'.paramList
 
@@ -300,7 +338,7 @@ module rec TypeChecker =
                 let! t, assump = infer_stmt stmt newEnv newNonGeneric
 
                 match assump with
-                | Some(assump) -> newEnv <- assump :: newEnv
+                | Some(name, t) -> newEnv <- newEnv.addValue name t
                 | None -> ()
 
                 return t
@@ -322,7 +360,9 @@ module rec TypeChecker =
             (fun elem -> infer_expr elem env nonGeneric)
             elems
 
-        return { Type.kind = TypeKind.Tuple(elems) }
+        return
+          { Type.kind = TypeKind.Tuple(elems)
+            provenance = None }
       | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
         let retTy = TypeVariable.makeVariable ()
 
@@ -347,7 +387,7 @@ module rec TypeChecker =
     : Result<option<Type> * option<Assump>, TypeError> =
     result {
       match stmt with
-      | Expr expr ->
+      | Stmt.Expr expr ->
         let! t = infer_expr expr env nonGeneric
         return (Some(t), None)
       | For(pattern, right, block) ->
@@ -358,8 +398,7 @@ module rec TypeChecker =
         return (None, Some(assump))
       | LetRec(name, defn) ->
         let newTy = TypeVariable.makeVariable ()
-        let assump = (name, newTy)
-        let newEnv = assump :: env
+        let newEnv = env.addValue name newTy
 
         let newNonGeneric =
           match newTy.kind with
@@ -369,7 +408,7 @@ module rec TypeChecker =
         let! defnTy = infer_expr defn newEnv newNonGeneric
         unify newTy defnTy
 
-        return (None, Some(assump))
+        return (None, Some(name, newTy))
     }
 
   let infer_script (stmts: list<Stmt>) (env: Env) : Result<Env, TypeError> =
@@ -387,7 +426,7 @@ module rec TypeChecker =
               match assump with
               | Some(assump) ->
                 let name, t = assump
-                newEnv <- (name, generalize_func t) :: newEnv
+                newEnv <- newEnv.addValue name (generalize_func t)
               | None -> ()
             })
           stmts

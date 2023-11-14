@@ -9,21 +9,35 @@ open Escalier.HindleyMilner.TypeChecker
 open Escalier.HindleyMilner.TypeVariable
 
 let getEnv () =
-  [ ("true", boolType)
-    ("zero", makeFunctionType None [ numType ] boolType)
-    ("pred", makeFunctionType None [ numType ] numType)
-    ("times", makeFunctionType None [ numType; numType ] numType) ]
+  let values =
+    Map.ofList
+      [ ("true", boolType)
+        ("zero", makeFunctionType None [ numType ] boolType)
+        ("pred", makeFunctionType None [ numType ] numType)
+        ("times", makeFunctionType None [ numType; numType ] numType) ]
 
-let ident x = { kind = ExprKind.Ident(x) }
-
-let number x =
-  { kind = ExprKind.Literal(Literal.Number x) }
-
-let call (f, args) = { kind = ExprKind.Call(f, args) }
+  { values = values
+    schemes = Map.empty
+    isAsync = false }
 
 let dummy_span =
   { start = Position("", 0, 0, 0)
     stop = Position("", 0, 0, 0) }
+
+let ident x =
+  { Expr.kind = ExprKind.Ident(x)
+    span = dummy_span
+    inferred_type = None }
+
+let number x =
+  { Expr.kind = ExprKind.Literal(Literal.Number x)
+    span = dummy_span
+    inferred_type = None }
+
+let call (f, args) =
+  { Expr.kind = ExprKind.Call(f, args)
+    span = dummy_span
+    inferred_type = None }
 
 let func paramList stmts =
   let paramList =
@@ -47,7 +61,7 @@ let func paramList stmts =
         param)
       paramList
 
-  { kind =
+  { Expr.kind =
       ExprKind.Function(
         { sig' =
             { paramList = paramList
@@ -55,15 +69,24 @@ let func paramList stmts =
               ret = None
               throws = None }
           body = { stmts = stmts; span = dummy_span } }
-      ) }
+      )
+    span = dummy_span
+    inferred_type = None }
 
 let ifelse (cond, thenExpr, elseExpr) =
-  { kind = IfElse(cond, thenExpr, elseExpr) }
+  { Expr.kind = IfElse(cond, thenExpr, elseExpr)
+    span = dummy_span
+    inferred_type = None }
 
 let binary (op, left, right) =
-  { kind = ExprKind.Binary(op, left, right) }
+  { Expr.kind = ExprKind.Binary(op, left, right)
+    span = dummy_span
+    inferred_type = None }
 
-let tuple exprs = { kind = ExprKind.Tuple(exprs) }
+let tuple exprs =
+  { Expr.kind = ExprKind.Tuple(exprs)
+    span = dummy_span
+    inferred_type = None }
 
 [<Fact>]
 let InferFactorial () =
@@ -104,7 +127,7 @@ let InferFactorial () =
     let! _, assump = infer_stmt ast env nonGeneric
 
     match assump with
-    | Some(assump) -> env <- assump :: env
+    | Some(name, t) -> env <- env.addValue name t
     | None -> ()
 
     let t = getType "factorial" env nonGeneric
@@ -267,7 +290,8 @@ let InferSKK () =
           ) ]
 
     let! t = infer_expr S env nonGeneric
-    env <- ("S", t) :: env
+
+    env <- env.addValue "S" t
 
     Assert.Equal(
       "fn (fn (t2) -> fn (t4) -> t5) -> fn (fn (t2) -> t4) -> fn (t2) -> t5",
@@ -284,7 +308,8 @@ let InferSKK () =
     let K1 = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
 
     let! t = infer_expr K1 env nonGeneric
-    env <- ("K1", t) :: env
+
+    env <- env.addValue "K1" t
 
     Assert.Equal("fn (t6) -> fn (t7) -> t6", t.ToString())
     let t = generalize_func t
@@ -293,7 +318,8 @@ let InferSKK () =
     let K2 = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
 
     let! t = infer_expr K2 env nonGeneric
-    env <- ("K2", t) :: env
+
+    env <- env.addValue "K2" t
 
     Assert.Equal("fn (t8) -> fn (t9) -> t8", t.ToString())
     let t = generalize_func t

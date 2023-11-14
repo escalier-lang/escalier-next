@@ -64,7 +64,9 @@ module Syntax =
       throws: option<Type.Type>
 
   type Expr =
-    { kind: ExprKind }
+    { kind: ExprKind
+      span: Span
+      inferred_type: option<Type.Type> }
 
     override this.ToString() = this.kind.ToString()
 
@@ -187,6 +189,11 @@ module Syntax =
       mutable inferred_type: option<Type.Type> }
 
 module Type =
+  type Provenance =
+    | Type of Type
+    | Expr of Syntax.Expr
+    | Pattern of Syntax.Pattern
+
   ///A type variable standing for an arbitrary type.
   ///All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
@@ -223,7 +230,8 @@ module Type =
     | Function of Function
 
   type Type =
-    { kind: TypeKind } // TODO: add provenance later
+    { kind: TypeKind
+      provenance: option<Provenance> }
 
     override this.ToString() =
       match this.kind with

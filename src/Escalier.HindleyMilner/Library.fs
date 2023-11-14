@@ -34,11 +34,11 @@ module rec TypeChecker =
 
   type Assump = string * Type
 
-  let makeFunctionType typeParams args ret =
+  let makeFunctionType typeParams paramList ret =
     { kind =
         Function
           { typeParams = typeParams
-            args = args
+            paramList = paramList
             ret = ret }
       provenance = None }
 
@@ -79,7 +79,10 @@ module rec TypeChecker =
           { kind =
               TypeKind.Function
                 { f with
-                    args = List.map fold f.args
+                    paramList =
+                      List.map
+                        (fun param -> { param with type_ = fold param.type_ })
+                        f.paramList
                     ret = fold f.ret }
             provenance = None }
         | Tuple(elems) ->
@@ -158,7 +161,12 @@ module rec TypeChecker =
 
     { f with
         typeParams = None
-        args = List.map (fold_type folder) f.args
+        paramList =
+          List.map
+            (fun param ->
+              { param with
+                  type_ = fold_type folder param.type_ })
+            f.paramList
         ret = fold_type folder f.ret }
 
   let occursInType (v: Type) (t2: Type) : bool =
@@ -209,7 +217,12 @@ module rec TypeChecker =
         { kind = Tuple(List.map loop elems)
           provenance = None }
       | Function f ->
-        makeFunctionType f.typeParams (List.map loop f.args) (loop f.ret)
+        makeFunctionType
+          f.typeParams
+          (List.map
+            (fun param -> { param with type_ = loop param.type_ })
+            f.paramList)
+          (loop f.ret)
       | TypeRef({ typeArgs = typeArgs } as op) ->
         let kind =
           TypeRef(
@@ -249,7 +262,11 @@ module rec TypeChecker =
     | Function(f1), Function(f2) ->
       let f1 = instantiate_func f1
       let f2 = instantiate_func f2
-      List.iter2 (fun arg1 arg2 -> unify arg2 arg1) f1.args f2.args // args are contravariant
+
+      let paramList1 = List.map (fun param -> param.type_) f1.paramList
+      let paramList2 = List.map (fun param -> param.type_) f2.paramList
+
+      List.iter2 (fun arg1 arg2 -> unify arg2 arg1) paramList1 paramList2 // args are contravariant
       unify f1.ret f2.ret // retruns are covariant
     | TypeRef({ name = name1; typeArgs = types1 }),
       TypeRef({ name = name2; typeArgs = types2 }) ->
@@ -293,7 +310,18 @@ module rec TypeChecker =
         let! funTy = infer_expr fn env nonGeneric
 
         let! args =
-          List.traverseResultM (fun arg -> infer_expr arg env nonGeneric) args
+          List.traverseResultM
+            (fun arg ->
+              result {
+                let! t = infer_expr arg env nonGeneric
+
+                // TODO: implement unify_call
+                return
+                  { pattern = Pattern.Identifier "arg"
+                    type_ = t
+                    optional = false }
+              })
+            args
 
         let retTy = TypeVariable.makeVariable ()
         unify (makeFunctionType None args retTy) funTy
@@ -303,7 +331,16 @@ module rec TypeChecker =
 
         let! args =
           List.traverseResultM
-            (fun arg -> infer_expr arg env nonGeneric)
+            (fun arg ->
+              result {
+                let! t = infer_expr arg env nonGeneric
+
+                // TODO: implement unify_call
+                return
+                  { pattern = Pattern.Identifier "arg"
+                    type_ = t
+                    optional = false }
+              })
             [ left; right ]
 
         let retTy = TypeVariable.makeVariable ()
@@ -312,7 +349,7 @@ module rec TypeChecker =
       | ExprKind.Function f ->
         let mutable newEnv = env
 
-        let args =
+        let paramList =
           List.map
             (fun param ->
               let newArgTy = TypeVariable.makeVariable () in
@@ -329,7 +366,7 @@ module rec TypeChecker =
             | TypeVar { id = id } ->
               newNonGeneric <- newNonGeneric |> Set.add id
             | _ -> ())
-          args
+          paramList
 
         let! stmtTypes =
           List.traverseResultM
@@ -353,7 +390,16 @@ module rec TypeChecker =
             | None -> failwith "Last statement must be an expression"
           | None -> failwith "Empty lambda body"
 
-        return makeFunctionType None args retTy // TODO: handle explicit type params
+        let paramList =
+          List.map
+            (fun t ->
+              // TODO: implement unify_call
+              { pattern = Pattern.Identifier "arg"
+                type_ = t
+                optional = false })
+            paramList
+
+        return makeFunctionType None paramList retTy // TODO: handle explicit type params
       | ExprKind.Tuple elems ->
         let! elems =
           List.traverseResultM

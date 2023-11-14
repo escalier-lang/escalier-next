@@ -8,13 +8,25 @@ open Escalier.HindleyMilner.Syntax
 open Escalier.HindleyMilner.TypeChecker
 open Escalier.HindleyMilner.TypeVariable
 
+let makeParam
+  (name: string)
+  (ty: Escalier.HindleyMilner.Type.Type)
+  : Escalier.HindleyMilner.Type.FuncParam =
+  { pattern = Escalier.HindleyMilner.Type.Pattern.Identifier name
+    type_ = ty
+    optional = false }
+
 let getEnv () =
   let values =
     Map.ofList
       [ ("true", boolType)
-        ("zero", makeFunctionType None [ numType ] boolType)
-        ("pred", makeFunctionType None [ numType ] numType)
-        ("times", makeFunctionType None [ numType; numType ] numType) ]
+        ("zero", makeFunctionType None [ makeParam "arg" numType ] boolType)
+        ("pred", makeFunctionType None [ makeParam "arg" numType ] numType)
+        ("times",
+         makeFunctionType
+           None
+           [ makeParam "left" numType; makeParam "right" numType ]
+           numType) ]
 
   { values = values
     schemes = Map.empty

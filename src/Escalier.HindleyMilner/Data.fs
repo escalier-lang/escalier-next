@@ -189,6 +189,7 @@ module Syntax =
       mutable inferred_type: option<Type.Type> }
 
 module Type =
+  [<RequireQualifiedAccess>]
   type Provenance =
     | Type of Type
     | Expr of Syntax.Expr
@@ -205,14 +206,41 @@ module Type =
     { name: string
       typeArgs: option<list<Type>> }
 
+  type ObjPatElem =
+    | KeyValuePat of key: string * value: Pattern
+    | ShorthandPat of name: string * value: option<Type>
+    | RestPat of target: Pattern
+
+  type Pattern =
+    | Identifier of name: string
+    | Object of elems: list<ObjPatElem>
+    | Tuple of elems: list<Pattern>
+    | Wildcard
+    | Literal of Syntax.Literal
+    | Is of target: Syntax.BindingIdent * id: string
+    | Rest of target: Pattern
+
+    override this.ToString() =
+      match this with
+      | Identifier name -> name
+      | _ -> failwith "TODO"
+
+  type FuncParam =
+    { pattern: Pattern
+      type_: Type
+      optional: bool }
+
+    override this.ToString() = this.type_.ToString()
+
   type Function =
     { typeParams: option<list<string>>
-      args: list<Type>
+      paramList: list<FuncParam>
       ret: Type }
 
     override this.ToString() =
       let args =
-        List.map (fun item -> item.ToString()) this.args |> String.concat ", "
+        List.map (fun item -> item.ToString()) this.paramList
+        |> String.concat ", "
 
       let typeParams =
         match this.typeParams with

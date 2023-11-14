@@ -7,7 +7,13 @@
 
     <ItemGroup>
         <Compile Include="Data.fs"/>
+        <Compile Include="Errors.fs"/>
         <Compile Include="Library.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FParsec" Version="1.1.1"/>
+        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.11.0"/>
     </ItemGroup>
 
 </Project>

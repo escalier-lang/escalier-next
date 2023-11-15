@@ -259,7 +259,8 @@ module Type =
   type Function =
     { TypeParams: option<list<TypeParam>>
       ParamList: list<FuncParam>
-      Ret: Type }
+      Return: Type
+      Throws: Type }
 
     override this.ToString() =
       let args =
@@ -274,7 +275,7 @@ module Type =
           $"<{String.concat sep typeParams}>"
         | None -> ""
 
-      $"fn {typeParams}({args}) -> {this.Ret}"
+      $"fn {typeParams}({args}) -> {this.Return}"
 
   type Mapped =
     { Key: Type
@@ -322,7 +323,7 @@ module Type =
       | Method(name,
                is_mut,
                { ParamList = paramList
-                 Ret = return_type }) ->
+                 Return = return_type }) ->
         let sb = StringBuilder()
 
         let self = if is_mut then "mut self" else "self"

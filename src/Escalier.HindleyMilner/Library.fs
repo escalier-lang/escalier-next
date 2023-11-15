@@ -41,19 +41,24 @@ module rec TypeChecker =
 
   type Assump = string * Binding
 
-  let makeFunctionType typeParams paramList ret =
-    { Kind =
-        Function
-          { TypeParams = typeParams
-            ParamList = paramList
-            Ret = ret }
-      Provenance = None }
-
   let makePrimitiveKind name =
     { Name = name
       TypeArgs = None
       Scheme = None }
     |> TypeKind.TypeRef
+
+  let makeFunctionType typeParams paramList ret =
+    let never =
+      { Kind = makePrimitiveKind "never"
+        Provenance = None }
+
+    { Kind =
+        Function
+          { TypeParams = typeParams
+            ParamList = paramList
+            Return = ret
+            Throws = never }
+      Provenance = None }
 
   let numType =
     { Kind = makePrimitiveKind "number"
@@ -97,7 +102,7 @@ module rec TypeChecker =
                         (fun param -> { param with Type = fold param.Type })
                         f.ParamList
                     // TODO: fold TypeParams
-                    Ret = fold f.Ret }
+                    Return = fold f.Return }
             Provenance = None }
         | Tuple(elems) ->
           let elems = List.map fold elems
@@ -118,7 +123,7 @@ module rec TypeChecker =
               TypeRef(
                 { Name = name
                   TypeArgs = typeArgs
-                  Scheme = scheme } // TODO: fold the scheme?
+                  Scheme = scheme }
               )
             Provenance = None }
         | Literal _ -> t
@@ -158,7 +163,6 @@ module rec TypeChecker =
     fold t
 
   let generalizeFunc (f: Function) : Function =
-    // TODO: have mapping store type refs
     let mutable mapping: Map<int, string> = Map.empty
     let mutable nextId = 0
 
@@ -196,8 +200,8 @@ module rec TypeChecker =
         (fun (p: FuncParam) -> { p with Type = foldType folder p.Type })
         f.ParamList
 
-    // TODO: f.throws
-    let ret = foldType folder f.Ret
+    let ret = foldType folder f.Return
+    let throws = foldType folder f.Throws
 
     let values = mapping.Values |> List.ofSeq
 
@@ -217,7 +221,8 @@ module rec TypeChecker =
 
     { TypeParams = if newTypeParams.IsEmpty then None else Some(newTypeParams)
       ParamList = paramList
-      Ret = ret }
+      Return = ret
+      Throws = throws }
 
   let instantiateFunc
     (f: Function)
@@ -258,7 +263,8 @@ module rec TypeChecker =
                 { param with
                     Type = foldType folder param.Type })
               f.ParamList
-          Ret = foldType folder f.Ret }
+          Return = foldType folder f.Return
+          Throws = foldType folder f.Throws }
     }
 
   let occursInType (v: Type) (t2: Type) : bool =
@@ -327,7 +333,7 @@ module rec TypeChecker =
           (List.map
             (fun param -> { param with Type = loop param.Type })
             f.ParamList)
-          (loop f.Ret)
+          (loop f.Return)
       | TypeRef({ TypeArgs = typeArgs } as op) ->
         let kind =
           TypeRef(
@@ -385,7 +391,7 @@ module rec TypeChecker =
           let param2 = paramList2[i]
           do! unify param2 param1 // params are contravariant
 
-        do! unify f1.Ret f2.Ret // returns are covariant
+        do! unify f1.Return f2.Return // returns are covariant
       | TypeRef({ Name = name1; TypeArgs = types1 }),
         TypeRef({ Name = name2; TypeArgs = types2 }) ->
 
@@ -448,8 +454,8 @@ module rec TypeChecker =
           { Type.Kind =
               TypeKind.Function
                 { ParamList = paramList
-                  Ret = retType
-                  // throws = throwsType
+                  Return = retType
+                  Throws = throwsType
                   TypeParams = None } // TODO
             Provenance = None }
 
@@ -496,8 +502,8 @@ module rec TypeChecker =
           // TODO: check_mutability of `arg`
           do! unify argType param.Type // contravariant
 
-      do! unify retType callee.Ret // covariant
-      // do! unify throwsType callee.throws // TODO
+      do! unify retType callee.Return // covariant
+      do! unify throwsType callee.Throws // covariant
 
       return (retType, throwsType)
     }
@@ -711,7 +717,7 @@ module rec TypeChecker =
                 Scheme = None }
               |> TypeKind.TypeRef
         | TypeAnnKind.Function functionType ->
-          let! return_type = inferTypeAnn env functionType.Ret
+          let! returnType = inferTypeAnn env functionType.Ret
 
           let! throws =
             match functionType.Throws with
@@ -722,7 +728,7 @@ module rec TypeChecker =
                   Provenance = None }
               )
 
-          let! param_list =
+          let! paramList =
             List.traverseResultM
               (fun p ->
                 result {
@@ -737,10 +743,10 @@ module rec TypeChecker =
               functionType.ParamList
 
           let f =
-            { ParamList = param_list
-              Ret = return_type
-              TypeParams = None }
-          // Throws = throws } // TODO: throws
+            { TypeParams = None
+              ParamList = paramList
+              Return = returnType
+              Throws = throws }
 
           return TypeKind.Function(f)
         | TypeAnnKind.Keyof target ->

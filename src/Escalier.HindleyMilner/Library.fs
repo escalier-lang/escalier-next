@@ -571,27 +571,39 @@ module rec TypeChecker =
               })
             f.Sig.ParamList
 
-        let! stmtTypes =
-          List.traverseResultM
-            (fun stmt ->
-              result {
-                let! t, assump = inferStmt stmt newEnv newNonGeneric
+        // TODO: search for return statements in blocks
+        let! retTy =
+          match f.Body with
+          | BlockOrExpr.Block({ Stmts = stmts }) ->
+            result {
+              let! stmtTypes =
+                List.traverseResultM
+                  (fun stmt ->
+                    result {
+                      let! t, assump = inferStmt stmt newEnv newNonGeneric
 
-                match assump with
-                | Some(name, t) -> newEnv <- newEnv.AddValue name t
-                | None -> ()
+                      match assump with
+                      | Some(name, t) -> newEnv <- newEnv.AddValue name t
+                      | None -> ()
 
-                return t
-              })
-            f.Body.Stmts
+                      return t
+                    })
+                  stmts
 
-        let retTy =
-          match List.tryLast stmtTypes with
-          | Some(t) ->
-            match t with
-            | Some(t) -> t
-            | None -> failwith "Last statement must be an expression"
-          | None -> failwith "Empty lambda body"
+              match List.tryLast stmtTypes with
+              | Some(t) ->
+                match t with
+                | Some(t) -> return t
+                | None ->
+                  return!
+                    Error(
+                      TypeError.SemanticError
+                        "Last statement must be an expression"
+                    )
+              | None ->
+                return! Error(TypeError.SemanticError "Empty lambda body")
+            }
+          | BlockOrExpr.Expr expr -> inferExpr expr newEnv newNonGeneric
 
         let! typeParams =
           match f.Sig.TypeParams with

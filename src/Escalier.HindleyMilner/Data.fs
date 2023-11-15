@@ -8,6 +8,10 @@ module Syntax =
 
   type Block = { Span: Span; Stmts: list<Stmt> }
 
+  type BlockOrExpr =
+    | Block of Block
+    | Expr of Expr
+
   type TypeParam =
     { Span: Span
       Name: string
@@ -29,7 +33,7 @@ module Syntax =
 
   type Function =
     { Sig: FuncSig<option<TypeAnn>>
-      Body: Block } // TODO: support fat arrow syntax
+      Body: BlockOrExpr }
 
   type MatchCase =
     { Span: Span
@@ -134,6 +138,7 @@ module Syntax =
     | For of leff: Pattern * right: Expr * body: Block
     | Let of name: string * definition: Expr
     | LetRec of name: string * definition: Expr
+  // TODO: add Ret stmt
 
   type ObjTypeAnnElem =
     | Callable of Function

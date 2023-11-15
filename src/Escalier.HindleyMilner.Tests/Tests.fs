@@ -88,7 +88,7 @@ let func paramList stmts =
               TypeParams = None
               Ret = None
               Throws = None }
-          Body = { Stmts = stmts; Span = dummySpan } }
+          Body = BlockOrExpr.Block { Stmts = stmts; Span = dummySpan } }
       )
     Span = dummySpan
     InferredType = None }

@@ -27,19 +27,19 @@ module rec TypeChecker =
   type SchemeAssump = (string * Scheme)
 
   type Env =
-    { values: Map<string, Type>
+    { values: Map<string, Binding>
       schemes: Map<string, Scheme>
       isAsync: bool }
 
-    member this.addValue (name: string) (t: Type) =
+    member this.addValue (name: string) (binding: Binding) =
       { this with
-          values = Map.add name t this.values }
+          values = Map.add name binding this.values }
 
     member this.addSchem (name: string) (s: Scheme) =
       { this with
           schemes = Map.add name s this.schemes }
 
-  type Assump = string * Type
+  type Assump = string * Binding
 
   let makeFunctionType typeParams paramList ret =
     { kind =
@@ -293,7 +293,10 @@ module rec TypeChecker =
   ///Get the type of identifier name from the type environment env
   let getType (name: string) (env: Env) (nonGeneric: Set<int>) : Type =
     match env.values |> Map.tryFind name with
-    | Some(var) -> fresh var nonGeneric
+    | Some(var) ->
+      // TODO: check `isMut` and return an immutable type if necessary
+      let (t, isMut) = var
+      fresh t nonGeneric
     | None ->
       if isIntegerLiteral name then
         numType
@@ -505,25 +508,31 @@ module rec TypeChecker =
         return retTy
       | ExprKind.Function f ->
         let mutable newEnv = env
-
-        let paramList =
-          List.map
-            (fun param ->
-              let newArgTy = TypeVariable.makeVariable None in
-              // TODO: replace with infer_pattern
-              newEnv <- newEnv.addValue (param.ToString()) newArgTy
-              newArgTy)
-            f.sig'.paramList
-
         let mutable newNonGeneric = nonGeneric
 
-        List.iter
-          (fun argTy ->
-            match argTy.kind with
-            | TypeVar { id = id } ->
-              newNonGeneric <- newNonGeneric |> Set.add id
-            | _ -> ())
-          paramList
+        let! paramList =
+          List.traverseResultM
+            (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
+              result {
+                let paramType = TypeVariable.makeVariable None in
+                let! assumps, patternType = infer_pattern env param.pattern
+                do! unify patternType paramType
+
+                for KeyValue(name, binding) in assumps do
+                  // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
+                  newEnv <- newEnv.addValue name binding
+
+                match paramType.kind with
+                | TypeVar { id = id } ->
+                  newNonGeneric <- newNonGeneric |> Set.add id
+                | _ -> ()
+
+                return
+                  { pattern = Pattern.Identifier "arg"
+                    type_ = paramType
+                    optional = false }
+              })
+            f.sig'.paramList
 
         let! stmtTypes =
           List.traverseResultM
@@ -546,15 +555,6 @@ module rec TypeChecker =
             | Some(t) -> t
             | None -> failwith "Last statement must be an expression"
           | None -> failwith "Empty lambda body"
-
-        let paramList =
-          List.map
-            (fun t ->
-              // TODO: call `infer_pattern` here
-              { pattern = Pattern.Identifier "arg"
-                type_ = t
-                optional = false })
-            paramList
 
         return makeFunctionType None paramList retTy // TODO: handle explicit type params
       | ExprKind.Tuple elems ->
@@ -597,11 +597,11 @@ module rec TypeChecker =
         return! Error(TypeError.NotImplemented "TODO: infer for")
       | Let(name, definition) ->
         let! defnTy = infer_expr definition env nonGeneric
-        let assump = (name, defnTy)
+        let assump = (name, (defnTy, false)) // TODO: isMut
         return (None, Some(assump))
       | LetRec(name, defn) ->
         let newTy = TypeVariable.makeVariable None
-        let newEnv = env.addValue name newTy
+        let newEnv = env.addValue name (newTy, false) // TODO: isMut
 
         let newNonGeneric =
           match newTy.kind with
@@ -611,7 +611,8 @@ module rec TypeChecker =
         let! defnTy = infer_expr defn newEnv newNonGeneric
         do! unify newTy defnTy
 
-        return (None, Some(name, newTy))
+        let binding = (newTy, false) // TODO: isMut
+        return (None, Some(name, binding))
     }
 
   let infer_pattern
@@ -665,8 +666,8 @@ module rec TypeChecker =
 
               match assump with
               | Some(assump) ->
-                let name, t = assump
-                let t = prune t
+                let name, binding = assump
+                let t = prune (fst binding)
 
                 match t.kind with
                 | TypeKind.Function f ->
@@ -674,8 +675,8 @@ module rec TypeChecker =
                     { t with
                         kind = generalize_func f |> TypeKind.Function }
 
-                  newEnv <- newEnv.addValue name t
-                | _ -> newEnv <- newEnv.addValue name t
+                  newEnv <- newEnv.addValue name (t, snd binding)
+                | _ -> newEnv <- newEnv.addValue name (t, snd binding)
               | None -> ()
             })
           stmts

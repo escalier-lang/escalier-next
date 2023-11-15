@@ -19,14 +19,17 @@ let makeParam
 let getEnv () =
   let values =
     Map.ofList
-      [ ("true", boolType)
-        ("zero", makeFunctionType None [ makeParam "arg" numType ] boolType)
-        ("pred", makeFunctionType None [ makeParam "arg" numType ] numType)
+      [ ("true", (boolType, false))
+        ("zero",
+         (makeFunctionType None [ makeParam "arg" numType ] boolType, false))
+        ("pred",
+         (makeFunctionType None [ makeParam "arg" numType ] numType, false))
         ("times",
-         makeFunctionType
+         (makeFunctionType
            None
            [ makeParam "left" numType; makeParam "right" numType ]
-           numType) ]
+           numType,
+          false)) ]
 
   { values = values
     schemes = Map.empty
@@ -275,7 +278,7 @@ let InferFuncComposition () =
 
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn (fn (t2) -> t3) -> fn (fn (t3) -> t4) -> fn (t2) -> t4",
+      "fn (fn (t4) -> t6) -> fn (fn (t6) -> t7) -> fn (t4) -> t7",
       t.ToString()
     )
   }

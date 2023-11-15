@@ -199,6 +199,7 @@ module Type =
   ///All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
     { id: int
+      bound: option<Type>
       mutable instance: option<Type> }
 
   ///An n-ary type constructor which builds a new type from old
@@ -232,8 +233,26 @@ module Type =
 
     override this.ToString() = this.type_.ToString()
 
+  type TypeParam =
+    { name: string
+      constraint_: option<Type>
+      default_: option<Type> }
+
+    override this.ToString() =
+      let c =
+        match this.constraint_ with
+        | Some(c) -> $": {c}"
+        | None -> ""
+
+      let d =
+        match this.default_ with
+        | Some(d) -> $" = {d}"
+        | None -> ""
+
+      $"{this.name}{c}{d}"
+
   type Function =
-    { typeParams: option<list<string>>
+    { typeParams: option<list<TypeParam>>
       paramList: list<FuncParam>
       ret: Type }
 
@@ -246,6 +265,7 @@ module Type =
         match this.typeParams with
         | Some(typeParams) ->
           let sep = ", "
+          let typeParams = List.map (fun t -> t.ToString()) typeParams
           $"<{String.concat sep typeParams}>"
         | None -> ""
 
@@ -256,6 +276,8 @@ module Type =
     | TypeRef of TypeRef
     | Tuple of list<Type>
     | Function of Function
+    | Literal of Syntax.Literal
+    | Wildcard
 
   type Type =
     { kind: TypeKind
@@ -280,6 +302,8 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
+      | Literal lit -> lit.ToString()
+      | Wildcard -> "_"
 
   type Scheme =
     { typeParams: list<string>

@@ -19,14 +19,17 @@ let makeParam
 let getEnv () =
   let values =
     Map.ofList
-      [ ("true", boolType)
-        ("zero", makeFunctionType None [ makeParam "arg" numType ] boolType)
-        ("pred", makeFunctionType None [ makeParam "arg" numType ] numType)
+      [ ("true", (boolType, false))
+        ("zero",
+         (makeFunctionType None [ makeParam "arg" numType ] boolType, false))
+        ("pred",
+         (makeFunctionType None [ makeParam "arg" numType ] numType, false))
         ("times",
-         makeFunctionType
+         (makeFunctionType
            None
            [ makeParam "left" numType; makeParam "right" numType ]
-           numType) ]
+           numType,
+          false)) ]
 
   { values = values
     schemes = Map.empty
@@ -43,6 +46,11 @@ let ident x =
 
 let number x =
   { Expr.kind = ExprKind.Literal(Literal.Number x)
+    span = dummy_span
+    inferred_type = None }
+
+let boolean x =
+  { Expr.kind = ExprKind.Literal(Literal.Boolean x)
     span = dummy_span
     inferred_type = None }
 
@@ -157,7 +165,7 @@ let UnificationFailure () =
       [ Stmt.Expr(
           tuple
             [ call (ident "x", [ number "3" ])
-              call (ident "x", [ ident "true" ]) ]
+              call (ident "x", [ boolean true ]) ]
         ) ]
 
   let env = getEnv ()
@@ -166,7 +174,7 @@ let UnificationFailure () =
   try
     infer_expr ast env nonGeneric |> ignore
   with ex ->
-    Assert.Equal("Type mismatch number != boolean", ex.Message)
+    Assert.Equal("Type mismatch 3 != true", ex.Message)
 
 [<Fact>]
 let UndefinedSymbol () =
@@ -192,7 +200,7 @@ let InferPair () =
           "pair",
           tuple
             [ call (ident "f", [ number "4" ])
-              call (ident "f", [ ident "true" ]) ]
+              call (ident "f", [ boolean true ]) ]
         ) ]
 
     let env = getEnv ()
@@ -203,7 +211,7 @@ let InferPair () =
     let pair = getType "pair" newEnv Set.empty
 
     Assert.Equal("fn <A>(A) -> A", f.ToString())
-    Assert.Equal("[number, boolean]", pair.ToString())
+    Assert.Equal("[4, true]", pair.ToString())
   }
 
 [<Fact>]
@@ -231,7 +239,7 @@ let InferGenericAndNonGeneric () =
           Stmt.Expr(
             tuple
               [ call (ident "f", [ number "3" ])
-                call (ident "f", [ ident "true" ]) ]
+                call (ident "f", [ boolean true ]) ]
           ) ]
 
     let env = getEnv ()
@@ -270,79 +278,9 @@ let InferFuncComposition () =
 
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn (fn (t2) -> t3) -> fn (fn (t3) -> t4) -> fn (t2) -> t4",
+      "fn (fn (t4) -> t8) -> fn (fn (t8) -> t6) -> fn (t4) -> t6",
       t.ToString()
     )
-  }
-
-[<Fact>]
-let InferSKK () =
-  result {
-
-    nextVariableId <- 0
-    let mutable env = getEnv ()
-    let nonGeneric = Set.empty
-
-    let S =
-      func
-        [ "f" ]
-        [ Stmt.Expr(
-            func
-              [ "g" ]
-              [ Stmt.Expr(
-                  func
-                    [ "x" ]
-                    [ Stmt.Expr(
-                        call (
-                          call (ident "f", [ ident "x" ]),
-                          [ call (ident "g", [ ident "x" ]) ]
-                        )
-                      ) ]
-                ) ]
-          ) ]
-
-    let! t = infer_expr S env nonGeneric
-
-    env <- env.addValue "S" t
-
-    Assert.Equal(
-      "fn (fn (t2) -> fn (t4) -> t5) -> fn (fn (t2) -> t4) -> fn (t2) -> t5",
-      t.ToString()
-    )
-
-    let t = generalize_func t
-
-    Assert.Equal(
-      "fn <A, B, C>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
-      t.ToString()
-    )
-
-    let K1 = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
-
-    let! t = infer_expr K1 env nonGeneric
-
-    env <- env.addValue "K1" t
-
-    Assert.Equal("fn (t6) -> fn (t7) -> t6", t.ToString())
-    let t = generalize_func t
-    Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
-
-    let K2 = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
-
-    let! t = infer_expr K2 env nonGeneric
-
-    env <- env.addValue "K2" t
-
-    Assert.Equal("fn (t8) -> fn (t9) -> t8", t.ToString())
-    let t = generalize_func t
-    Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
-
-    let I = call (call (ident "S", [ ident "K1" ]), [ ident "K2" ])
-    let! t = infer_expr I env nonGeneric
-
-    Assert.Equal("fn (t10) -> t10", t.ToString())
-    let t = generalize_func t
-    Assert.Equal("fn <A>(A) -> A", t.ToString())
   }
 
 [<Fact>]
@@ -380,7 +318,7 @@ let InferScriptSKK () =
     let t = getType "S" newEnv nonGeneric
 
     Assert.Equal(
-      "fn <A, B, C>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
+      "fn <A, C, B>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
       t.ToString()
     )
 

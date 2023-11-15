@@ -144,7 +144,7 @@ let InferFactorial () =
     let mutable env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! _, assump = infer_stmt ast env nonGeneric
+    let! _, assump = inferStmt ast env nonGeneric
 
     match assump with
     | Some(name, t) -> env <- env.AddValue name t
@@ -152,7 +152,8 @@ let InferFactorial () =
 
     let t = getType "factorial" env nonGeneric
 
-    Assert.Equal("fn (number) -> number", t.ToString())
+    // TODO: figure out how to preserve the param name
+    Assert.Equal("fn (arg0: number) -> number", t.ToString())
   }
 
 [<Fact>]
@@ -172,7 +173,7 @@ let UnificationFailure () =
   let nonGeneric = Set.empty
 
   try
-    infer_expr ast env nonGeneric |> ignore
+    inferExpr ast env nonGeneric |> ignore
   with ex ->
     Assert.Equal("Type mismatch 3 != true", ex.Message)
 
@@ -184,7 +185,7 @@ let UndefinedSymbol () =
   let nonGeneric = Set.empty
 
   try
-    infer_expr ast env nonGeneric |> ignore
+    inferExpr ast env nonGeneric |> ignore
   with ex ->
     Assert.Equal("Undefined symbol foo", ex.Message)
 
@@ -205,12 +206,12 @@ let InferPair () =
 
     let env = getEnv ()
 
-    let! newEnv = infer_script ast env
+    let! newEnv = inferScript ast env
 
     let f = getType "f" newEnv Set.empty
     let pair = getType "pair" newEnv Set.empty
 
-    Assert.Equal("fn <A>(A) -> A", f.ToString())
+    Assert.Equal("fn <A>(x: A) -> A", f.ToString())
     Assert.Equal("[4, true]", pair.ToString())
   }
 
@@ -223,7 +224,7 @@ let RecursiveUnification () =
   let nonGeneric = Set.empty
 
   try
-    infer_expr ast env nonGeneric |> ignore
+    inferExpr ast env nonGeneric |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 
@@ -245,10 +246,10 @@ let InferGenericAndNonGeneric () =
     let env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! t = infer_expr ast env nonGeneric
+    let! t = inferExpr ast env nonGeneric
 
     (* fn g => let f = fn x => g in [f 3, f true] *)
-    Assert.Equal("fn (t0) -> [t0, t0]", t.ToString())
+    Assert.Equal("fn (g: t0) -> [t0, t0]", t.ToString())
   }
 
 [<Fact>]
@@ -274,11 +275,11 @@ let InferFuncComposition () =
     let env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! t = infer_expr ast env nonGeneric
+    let! t = inferExpr ast env nonGeneric
 
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn (fn (t4) -> t8) -> fn (fn (t8) -> t6) -> fn (t4) -> t6",
+      "fn (f: fn (arg0: t4) -> t8) -> fn (g: fn (arg0: t8) -> t6) -> fn (arg: t4) -> t6",
       t.ToString()
     )
   }
@@ -313,17 +314,17 @@ let InferScriptSKK () =
 
     let script = [ Stmt.Let("S", s); Stmt.Let("K", k); Stmt.Let("I", i) ]
 
-    let! newEnv = infer_script script env
+    let! newEnv = inferScript script env
 
     let t = getType "S" newEnv nonGeneric
 
     Assert.Equal(
-      "fn <A, C, B>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
+      "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C",
       t.ToString()
     )
 
     let t = getType "K" newEnv nonGeneric
-    Assert.Equal("fn <A, B>(A) -> fn (B) -> A", t.ToString())
+    Assert.Equal("fn <A, B>(x: A) -> fn (y: B) -> A", t.ToString())
     let t = getType "I" newEnv nonGeneric
-    Assert.Equal("fn <A>(A) -> A", t.ToString())
+    Assert.Equal("fn <A>(x: A) -> A", t.ToString())
   }

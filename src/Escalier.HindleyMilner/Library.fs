@@ -355,7 +355,7 @@ module rec TypeChecker =
       | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
-  let unify_call
+  let unifyCall
     (args: list<Expr>)
     (typeArgs: option<list<Type>>)
     (callee: Type)
@@ -372,12 +372,12 @@ module rec TypeChecker =
       match callee.Kind with
       | TypeKind.Function func ->
         return!
-          unify_func_call args typeArgs retType throwsType func env nonGeneric
+          unifyFuncCall args typeArgs retType throwsType func env nonGeneric
       | TypeKind.TypeVar _ ->
 
         // TODO: use a `result {}` CE here
         let! argTypes =
-          List.traverseResultM (fun arg -> infer_expr arg env nonGeneric) args
+          List.traverseResultM (fun arg -> inferExpr arg env nonGeneric) args
 
         let paramList =
           List.mapi
@@ -404,7 +404,7 @@ module rec TypeChecker =
       | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")
     }
 
-  let unify_func_call
+  let unifyFuncCall
     (args: list<Expr>)
     (typeArgs: option<list<Type>>)
     (retType: Type)
@@ -427,7 +427,7 @@ module rec TypeChecker =
         List.traverseResultM
           (fun (arg: Expr) ->
             result {
-              let! argType = infer_expr arg env nonGeneric
+              let! argType = inferExpr arg env nonGeneric
               return arg, argType
             })
           args
@@ -453,7 +453,7 @@ module rec TypeChecker =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
-  let infer_expr
+  let inferExpr
     (expr: Expr)
     (env: Env)
     (nonGeneric: Set<int>)
@@ -466,9 +466,9 @@ module rec TypeChecker =
           { Type.Kind = Literal(literal)
             Provenance = None }
       | ExprKind.Call(callee, args) ->
-        let! callee = infer_expr callee env nonGeneric
+        let! callee = inferExpr callee env nonGeneric
 
-        let! result, throws = unify_call args None callee env nonGeneric
+        let! result, throws = unifyCall args None callee env nonGeneric
 
         // TODO: handle throws
 
@@ -477,7 +477,7 @@ module rec TypeChecker =
         let funTy = getType op env nonGeneric
 
         let! result, throws =
-          unify_call [ left; right ] None funTy env nonGeneric
+          unifyCall [ left; right ] None funTy env nonGeneric
 
         // TODO: handle throws
 
@@ -491,7 +491,7 @@ module rec TypeChecker =
             (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
               result {
                 let paramType = TypeVariable.makeVariable None in
-                let! assumps, patternType = infer_pattern env param.Pattern
+                let! assumps, patternType = inferPattern env param.Pattern
                 do! unify patternType paramType
 
                 for KeyValue(name, binding) in assumps do
@@ -504,7 +504,7 @@ module rec TypeChecker =
                 | _ -> ()
 
                 return
-                  { Pattern = Pattern.Identifier "arg"
+                  { Pattern = patternToPattern param.Pattern
                     Type = paramType
                     Optional = false }
               })
@@ -514,7 +514,7 @@ module rec TypeChecker =
           List.traverseResultM
             (fun stmt ->
               result {
-                let! t, assump = infer_stmt stmt newEnv newNonGeneric
+                let! t, assump = inferStmt stmt newEnv newNonGeneric
 
                 match assump with
                 | Some(name, t) -> newEnv <- newEnv.AddValue name t
@@ -535,9 +535,7 @@ module rec TypeChecker =
         return makeFunctionType None paramList retTy // TODO: handle explicit type params
       | ExprKind.Tuple elems ->
         let! elems =
-          List.traverseResultM
-            (fun elem -> infer_expr elem env nonGeneric)
-            elems
+          List.traverseResultM (fun elem -> inferExpr elem env nonGeneric) elems
 
         return
           { Type.Kind = TypeKind.Tuple(elems)
@@ -545,9 +543,9 @@ module rec TypeChecker =
       | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
         let retTy = TypeVariable.makeVariable None
 
-        let! conditionTy = infer_expr condition env nonGeneric
-        let! thenBranchTy = infer_expr thenBranch env nonGeneric
-        let! elseBranchTy = infer_expr elseBranch env nonGeneric
+        let! conditionTy = inferExpr condition env nonGeneric
+        let! thenBranchTy = inferExpr thenBranch env nonGeneric
+        let! elseBranchTy = inferExpr elseBranch env nonGeneric
 
         do! unify conditionTy boolType
         do! unify thenBranchTy retTy
@@ -559,7 +557,7 @@ module rec TypeChecker =
           Error(TypeError.NotImplemented "TODO: finish implementing infer_expr")
     }
 
-  let infer_stmt
+  let inferStmt
     (stmt: Stmt)
     (env: Env)
     (nonGeneric: Set<int>)
@@ -567,12 +565,12 @@ module rec TypeChecker =
     result {
       match stmt with
       | Stmt.Expr expr ->
-        let! t = infer_expr expr env nonGeneric
+        let! t = inferExpr expr env nonGeneric
         return (Some(t), None)
       | For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
       | Let(name, definition) ->
-        let! defnTy = infer_expr definition env nonGeneric
+        let! defnTy = inferExpr definition env nonGeneric
         let assump = (name, (defnTy, false)) // TODO: isMut
         return (None, Some(assump))
       | LetRec(name, defn) ->
@@ -584,14 +582,14 @@ module rec TypeChecker =
           | TypeVar { Id = id } -> nonGeneric |> Set.add id
           | _ -> nonGeneric
 
-        let! defnTy = infer_expr defn newEnv newNonGeneric
+        let! defnTy = inferExpr defn newEnv newNonGeneric
         do! unify newTy defnTy
 
         let binding = (newTy, false) // TODO: isMut
         return (None, Some(name, binding))
     }
 
-  let infer_pattern
+  let inferPattern
     (env: Env)
     (pat: Syntax.Pattern)
     : Result<BindingAssump * Type, TypeError> =
@@ -627,8 +625,18 @@ module rec TypeChecker =
     let t = infer_pattern_rec pat
     Result.Ok((assump, t))
 
+  let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
+    match pat.Kind with
+    | PatternKind.Identifier({ Name = name; IsMut = isMut }) ->
+      Pattern.Identifier(name)
+    | PatternKind.Is(span, bindingIdent, isName, isMut) ->
+      Pattern.Is(bindingIdent, isName)
+    | PatternKind.Object elems -> failwith "todo" // TODO
+    | PatternKind.Tuple elems -> Pattern.Tuple(List.map patternToPattern elems)
+    | PatternKind.Wildcard -> Pattern.Wildcard
+    | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 
-  let infer_script (stmts: list<Stmt>) (env: Env) : Result<Env, TypeError> =
+  let inferScript (stmts: list<Stmt>) (env: Env) : Result<Env, TypeError> =
     result {
 
       let nonGeneric = Set.empty
@@ -638,7 +646,7 @@ module rec TypeChecker =
         List.traverseResultM
           (fun stmt ->
             result {
-              let! _, assump = infer_stmt stmt newEnv nonGeneric
+              let! _, assump = inferStmt stmt newEnv nonGeneric
 
               match assump with
               | Some(assump) ->

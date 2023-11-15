@@ -230,7 +230,7 @@ module Type =
       Type: Type
       Optional: bool }
 
-    override this.ToString() = this.Type.ToString()
+    override this.ToString() = $"{this.Pattern}: {this.Type}"
 
   type TypeParam =
     { Name: string

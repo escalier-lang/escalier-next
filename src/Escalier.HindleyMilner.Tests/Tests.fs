@@ -278,7 +278,7 @@ let InferFuncComposition () =
 
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn (fn (t4) -> t6) -> fn (fn (t6) -> t7) -> fn (t4) -> t7",
+      "fn (fn (t4) -> t8) -> fn (fn (t8) -> t6) -> fn (t4) -> t6",
       t.ToString()
     )
   }
@@ -318,7 +318,7 @@ let InferScriptSKK () =
     let t = getType "S" newEnv nonGeneric
 
     Assert.Equal(
-      "fn <A, B, C>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
+      "fn <A, C, B>(fn (A) -> fn (B) -> C) -> fn (fn (A) -> B) -> fn (A) -> C",
       t.ToString()
     )
 

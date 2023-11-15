@@ -440,9 +440,9 @@ module rec TypeChecker =
           ()
         else
           // TODO: check_mutability of `arg`
-          do! unify argType param.type_
+          do! unify argType param.type_ // contravariant
 
-      do! unify retType callee.ret
+      do! unify retType callee.ret // covariant
       // do! unify throwsType callee.throws // TODO
 
       return (retType, throwsType)
@@ -466,46 +466,23 @@ module rec TypeChecker =
         return
           { Type.kind = Literal(literal)
             provenance = None }
-      | ExprKind.Call(fn, args) ->
-        let! funTy = infer_expr fn env nonGeneric
+      | ExprKind.Call(callee, args) ->
+        let! callee = infer_expr callee env nonGeneric
 
-        let! args =
-          List.traverseResultM
-            (fun arg ->
-              result {
-                let! t = infer_expr arg env nonGeneric
+        let! result, throws = unify_call args None callee env nonGeneric
 
-                return
-                  { pattern = Pattern.Identifier "arg"
-                    type_ = t
-                    optional = false }
-              })
-            args
+        // TODO: handle throws
 
-        let retTy = TypeVariable.makeVariable None
-        // TODO: use `unify_call` instead
-        do! unify (makeFunctionType None args retTy) funTy
-        return retTy
+        return result
       | ExprKind.Binary(op, left, right) ->
         let funTy = getType op env nonGeneric
 
-        let! args =
-          List.traverseResultM
-            (fun arg ->
-              result {
-                let! t = infer_expr arg env nonGeneric
+        let! result, throws =
+          unify_call [ left; right ] None funTy env nonGeneric
 
-                return
-                  { pattern = Pattern.Identifier "arg"
-                    type_ = t
-                    optional = false }
-              })
-            [ left; right ]
+        // TODO: handle throws
 
-        let retTy = TypeVariable.makeVariable None
-        // TODO: use `unify_call` instead
-        do! unify (makeFunctionType None args retTy) funTy
-        return retTy
+        return result
       | ExprKind.Function f ->
         let mutable newEnv = env
         let mutable newNonGeneric = nonGeneric

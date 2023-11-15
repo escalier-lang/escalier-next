@@ -10,57 +10,55 @@ module Folder =
 
     member this.WalkType(t: Type) =
       let kind =
-        match t.kind with
+        match t.Kind with
         | Array elem -> Array(this.FoldType elem)
         | TypeVar tv ->
           TypeVar
             { tv with
-                instance = Option.map this.FoldType tv.instance
-                bound = Option.map this.FoldType tv.bound }
-        | TypeRef { name = name
-                    type_args = typeArgs
-                    scheme = scheme } ->
+                Instance = Option.map this.FoldType tv.Instance
+                Bound = Option.map this.FoldType tv.Bound }
+        | TypeRef { Name = name
+                    TypeArgs = typeArgs
+                    Scheme = scheme } ->
           let scheme =
             Option.map
               (fun (scheme: Scheme) ->
                 { scheme with
-                    type_ = this.FoldType scheme.type_
-                    type_params =
+                    Type = this.FoldType scheme.Type
+                    TypeParams =
                       List.map
                         (fun (tp: TypeParam) ->
                           { tp with
-                              constraint_ =
-                                Option.map this.FoldType tp.constraint_
-                              default_ = Option.map this.FoldType tp.default_ })
-                        scheme.type_params })
+                              Constraint =
+                                Option.map this.FoldType tp.Constraint
+                              Default = Option.map this.FoldType tp.Default })
+                        scheme.TypeParams })
               scheme
 
-          { name = name
-            type_args = Option.map (List.map this.FoldType) typeArgs
-            scheme = scheme }
+          { Name = name
+            TypeArgs = Option.map (List.map this.FoldType) typeArgs
+            Scheme = scheme }
           |> TypeRef
-        | Literal _ -> t.kind // leaf node
-        | Primitive _ -> t.kind // leaf node
+        | Literal _ -> t.Kind // leaf node
+        | Primitive _ -> t.Kind // leaf node
         | Tuple types -> List.map this.FoldType types |> Tuple
         | Union types -> List.map this.FoldType types |> Union
         | Intersection types -> List.map this.FoldType types |> Intersection
-        | Keyword _ -> t.kind // leaf node
+        | Keyword _ -> t.Kind // leaf node
         | Function f ->
-          { param_list =
+          { ParamList =
               List.map
-                (fun fp ->
-                  { fp with
-                      type_ = this.FoldType fp.type_ })
-                f.param_list
-            return_type = this.FoldType f.return_type
-            type_params =
+                (fun fp -> { fp with Type = this.FoldType fp.Type })
+                f.ParamList
+            ReturnType = this.FoldType f.ReturnType
+            TypeParams =
               Option.map
                 (List.map (fun tp ->
                   { tp with
-                      constraint_ = Option.map this.FoldType tp.constraint_
-                      default_ = Option.map this.FoldType tp.default_ }))
-                f.type_params
-            throws = this.FoldType f.throws }
+                      Constraint = Option.map this.FoldType tp.Constraint
+                      Default = Option.map this.FoldType tp.Default }))
+                f.TypeParams
+            Throws = this.FoldType f.Throws }
           |> Function
         | Object _objTypeElems -> failwith "not implemented"
         // for elem in objTypeElems do
@@ -82,10 +80,10 @@ module Folder =
            this.FoldType trueType,
            this.FoldType falseType)
           |> Condition
-        | Infer _ -> t.kind // leaf node
-        | Wildcard -> t.kind // leaf node
+        | Infer _ -> t.Kind // leaf node
+        | Wildcard -> t.Kind // leaf node
         | Binary(left, op, right) ->
           (this.FoldType left, op, this.FoldType right) |> Binary
 
       // Question: should provenence be updated too?
-      { t with Type.kind = kind }
+      { t with Type.Kind = kind }

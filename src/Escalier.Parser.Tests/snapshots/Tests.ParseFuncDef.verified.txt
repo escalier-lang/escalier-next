@@ -1,38 +1,38 @@
 ﻿input: fn (x, y) { x }
-output: Success: { kind =
+output: Success: { Kind =
    Function
-     { sig' =
-        { type_params = None
-          param_list =
-           [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 5)
-                                                       stop = (Ln: 1, Col: 6) }
-                                              name = "x"
-                                              isMut = false }
-                          span = { start = (Ln: 1, Col: 5)
-                                   stop = (Ln: 1, Col: 6) }
-                          inferred_type = None }
-              typeAnn = None
-              optional = false };
-            { pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 8)
-                                                       stop = (Ln: 1, Col: 9) }
-                                              name = "y"
-                                              isMut = false }
-                          span = { start = (Ln: 1, Col: 8)
-                                   stop = (Ln: 1, Col: 9) }
-                          inferred_type = None }
-              typeAnn = None
-              optional = false }]
-          return_type = None
-          throws = None }
-       body =
-        Block { span = { start = (Ln: 1, Col: 11)
-                         stop = (Ln: 1, Col: 16) }
-                stmts = [{ span = { start = (Ln: 1, Col: 13)
-                                    stop = (Ln: 1, Col: 15) }
-                           kind = Expr { kind = Identifier "x"
-                                         span = { start = (Ln: 1, Col: 13)
-                                                  stop = (Ln: 1, Col: 15) }
-                                         inferred_type = None } }] } }
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 16) }
-  inferred_type = None }
+     { Sig =
+        { TypeParams = None
+          ParamList =
+           [{ Pattern = { Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
+                                                       Stop = (Ln: 1, Col: 6) }
+                                              Name = "x"
+                                              IsMut = false }
+                          Span = { Start = (Ln: 1, Col: 5)
+                                   Stop = (Ln: 1, Col: 6) }
+                          InferredType = None }
+              TypeAnn = None
+              Optional = false };
+            { Pattern = { Kind = Identifier { Span = { Start = (Ln: 1, Col: 8)
+                                                       Stop = (Ln: 1, Col: 9) }
+                                              Name = "y"
+                                              IsMut = false }
+                          Span = { Start = (Ln: 1, Col: 8)
+                                   Stop = (Ln: 1, Col: 9) }
+                          InferredType = None }
+              TypeAnn = None
+              Optional = false }]
+          ReturnType = None
+          Throws = None }
+       Body =
+        Block { Span = { Start = (Ln: 1, Col: 11)
+                         Stop = (Ln: 1, Col: 16) }
+                Stmts = [{ Span = { Start = (Ln: 1, Col: 13)
+                                    Stop = (Ln: 1, Col: 15) }
+                           Kind = Expr { Kind = Identifier "x"
+                                         Span = { Start = (Ln: 1, Col: 13)
+                                                  Stop = (Ln: 1, Col: 15) }
+                                         InferredType = None } }] } }
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 16) }
+  InferredType = None }

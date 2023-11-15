@@ -2,7 +2,7 @@ namespace Escalier.Parser
 
 open FParsec
 
-exception ParseError of string
+exception ParseException of string
 
 module Parser =
   let lit = run Literals.lit

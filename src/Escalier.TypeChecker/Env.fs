@@ -8,7 +8,7 @@ module Env =
   type SchemeAssump = (string * Scheme)
 
   type Env =
-    { schemes: Map<string, Scheme>
-      values: Map<string, Binding>
-      isAsync: bool
-      nonGeneric: Set<int> }
+    { Schemes: Map<string, Scheme>
+      Values: Map<string, Binding>
+      IsAsync: bool
+      NonGeneric: Set<int> }

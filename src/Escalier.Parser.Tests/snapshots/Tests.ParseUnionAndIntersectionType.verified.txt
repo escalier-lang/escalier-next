@@ -1,30 +1,30 @@
 ﻿input: A & B | C & D
-output: Success: { kind =
+output: Success: { Kind =
    Union
-     [{ kind =
+     [{ Kind =
          Intersection
-           [{ kind = TypeRef ("A", None)
-              span = { start = (Ln: 1, Col: 1)
-                       stop = (Ln: 1, Col: 3) }
-              inferred_type = None }; { kind = TypeRef ("B", None)
-                                        span = { start = (Ln: 1, Col: 5)
-                                                 stop = (Ln: 1, Col: 7) }
-                                        inferred_type = None }]
-        span = { start = (Ln: 1, Col: 1)
-                 stop = (Ln: 1, Col: 7) }
-        inferred_type = None };
-      { kind =
+           [{ Kind = TypeRef ("A", None)
+              Span = { Start = (Ln: 1, Col: 1)
+                       Stop = (Ln: 1, Col: 3) }
+              InferredType = None }; { Kind = TypeRef ("B", None)
+                                       Span = { Start = (Ln: 1, Col: 5)
+                                                Stop = (Ln: 1, Col: 7) }
+                                       InferredType = None }]
+        Span = { Start = (Ln: 1, Col: 1)
+                 Stop = (Ln: 1, Col: 7) }
+        InferredType = None };
+      { Kind =
          Intersection
-           [{ kind = TypeRef ("C", None)
-              span = { start = (Ln: 1, Col: 9)
-                       stop = (Ln: 1, Col: 11) }
-              inferred_type = None }; { kind = TypeRef ("D", None)
-                                        span = { start = (Ln: 1, Col: 13)
-                                                 stop = (Ln: 1, Col: 14) }
-                                        inferred_type = None }]
-        span = { start = (Ln: 1, Col: 9)
-                 stop = (Ln: 1, Col: 14) }
-        inferred_type = None }]
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 14) }
-  inferred_type = None }
+           [{ Kind = TypeRef ("C", None)
+              Span = { Start = (Ln: 1, Col: 9)
+                       Stop = (Ln: 1, Col: 11) }
+              InferredType = None }; { Kind = TypeRef ("D", None)
+                                       Span = { Start = (Ln: 1, Col: 13)
+                                                Stop = (Ln: 1, Col: 14) }
+                                       InferredType = None }]
+        Span = { Start = (Ln: 1, Col: 9)
+                 Stop = (Ln: 1, Col: 14) }
+        InferredType = None }]
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 14) }
+  InferredType = None }

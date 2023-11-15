@@ -1,17 +1,17 @@
 ﻿input: number & string & boolean
-output: Success: { kind =
+output: Success: { Kind =
    Intersection
-     [{ kind = Keyword Number
-        span = { start = (Ln: 1, Col: 1)
-                 stop = (Ln: 1, Col: 8) }
-        inferred_type = None }; { kind = Keyword String
-                                  span = { start = (Ln: 1, Col: 10)
-                                           stop = (Ln: 1, Col: 17) }
-                                  inferred_type = None };
-      { kind = Keyword Boolean
-        span = { start = (Ln: 1, Col: 19)
-                 stop = (Ln: 1, Col: 26) }
-        inferred_type = None }]
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 26) }
-  inferred_type = None }
+     [{ Kind = Keyword Number
+        Span = { Start = (Ln: 1, Col: 1)
+                 Stop = (Ln: 1, Col: 8) }
+        InferredType = None }; { Kind = Keyword String
+                                 Span = { Start = (Ln: 1, Col: 10)
+                                          Stop = (Ln: 1, Col: 17) }
+                                 InferredType = None };
+      { Kind = Keyword Boolean
+        Span = { Start = (Ln: 1, Col: 19)
+                 Stop = (Ln: 1, Col: 26) }
+        InferredType = None }]
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 26) }
+  InferredType = None }

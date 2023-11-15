@@ -6,8 +6,7 @@ open Escalier.Data.Syntax
 module Literals =
   let lit = ParserRefs.lit
 
-  let number: Parser<Literal, unit> =
-    pfloat |>> fun nl -> Literal.Number(nl |> string)
+  let number: Parser<Literal, unit> = pfloat |>> (string >> Literal.Number)
 
   let string: Parser<Literal, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')

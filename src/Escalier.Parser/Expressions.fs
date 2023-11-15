@@ -12,7 +12,7 @@ module private Expressions =
   let typeAnn = ParserRefs.typeAnn
   let pattern = ParserRefs.pattern
 
-  let mergeSpans (x: Span) (y: Span) = { start = x.start; stop = y.stop }
+  let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
 
   let opp = OperatorPrecedenceParser<Expr, list<Expr> * Position, unit>()
 
@@ -25,9 +25,9 @@ module private Expressions =
   let identExpr: Parser<Expr, unit> =
     withSpan ident
     |>> fun (sl, span) ->
-      { kind = Identifier(sl)
-        span = span
-        inferred_type = None }
+      { Kind = Identifier(sl)
+        Span = span
+        InferredType = None }
 
   let templateStringLiteral: Parser<Expr, unit> =
     fun stream ->
@@ -65,13 +65,13 @@ module private Expressions =
           parts <- sb.ToString() :: parts
 
           let result: Expr =
-            { kind =
+            { Kind =
                 TemplateLiteral(
-                  { parts = List.rev parts
-                    exprs = List.rev exprs }
+                  { Parts = List.rev parts
+                    Exprs = List.rev exprs }
                 )
-              span = { start = start; stop = stop }
-              inferred_type = None }
+              Span = { Start = start; Stop = stop }
+              InferredType = None }
 
           Reply(result)
         | ValueSome(value) -> value
@@ -79,52 +79,51 @@ module private Expressions =
         Reply(Error, messageError "Expected '`'")
 
   let block: Parser<BlockOrExpr, unit> =
-    withSpan (between (str_ws "{") (str_ws "}") (many stmt))
-    |>> fun (stmts, span) -> BlockOrExpr.Block({ span = span; stmts = stmts })
+    withSpan (between (strWs "{") (strWs "}") (many stmt))
+    |>> fun (stmts, span) -> BlockOrExpr.Block({ Span = span; Stmts = stmts })
 
   let func: Parser<Function, unit> =
     pipe2
-      (func_sig opt)
-      (block <|> (str_ws "=>" >>. expr |>> fun e -> BlockOrExpr.Expr(e)))
-    <| fun sig' body -> { sig' = sig'; body = body }
+      (funcSig opt)
+      (block <|> (strWs "=>" >>. expr |>> fun e -> BlockOrExpr.Expr(e)))
+    <| fun sig' body -> { Sig = sig'; Body = body }
 
   let funcExpr: Parser<Expr, unit> =
     withSpan func
     |>> fun (f, span) ->
-      { kind = ExprKind.Function f
-        span = span
-        inferred_type = None }
+      { Kind = ExprKind.Function f
+        Span = span
+        InferredType = None }
 
   let tupleExpr: Parser<Expr, unit> =
     tuple expr |> withSpan
     |>> fun (exprs, span) ->
-      { kind = ExprKind.Tuple(exprs)
-        span = span
-        inferred_type = None }
+      { Kind = ExprKind.Tuple(exprs)
+        Span = span
+        InferredType = None }
 
   let ifElse, ifElseRef = createParserForwardedToRef<Expr, unit> ()
 
   ifElseRef.Value <-
     pipe5
       getPosition
-      ((str_ws "if") >>. expr)
+      ((strWs "if") >>. expr)
       block
       (opt (
-        str_ws "else"
-        >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e))) <|> block)
+        strWs "else" >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e))) <|> block)
       ))
       getPosition
     <| fun start cond then_ else_ stop ->
-      { kind = ExprKind.IfElse(cond, then_, else_)
-        span = { start = start; stop = stop }
-        inferred_type = None }
+      { Kind = ExprKind.IfElse(cond, then_, else_)
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
 
   let literalExpr: Parser<Expr, unit> =
     withSpan lit
     |>> fun (lit, span) ->
-      { kind = ExprKind.Literal(lit)
-        span = span
-        inferred_type = None }
+      { Kind = ExprKind.Literal(lit)
+        Span = span
+        InferredType = None }
 
   let atom =
     choice
@@ -135,57 +134,57 @@ module private Expressions =
         templateStringLiteral
         identExpr ]
 
-  let term = (atom .>> ws) <|> between (str_ws "(") (str_ws ")") expr
+  let term = (atom .>> ws) <|> between (strWs "(") (strWs ")") expr
 
   opp.TermParser <- term
 
   type Assoc = Associativity
 
   let binary op x y =
-    { Expr.kind = ExprKind.Binary(x, op, y)
-      span = mergeSpans x.span y.span
-      inferred_type = None }
+    { Expr.Kind = ExprKind.Binary(x, op, y)
+      Span = mergeSpans x.Span y.Span
+      InferredType = None }
 
   let after = getPosition .>> ws |>> fun pos -> ([], pos)
 
   opp.AddOperator(
     PostfixOperator(
       "[",
-      (pipe2 getPosition ((ws >>. expr) .>> (str_ws "]"))
+      (pipe2 getPosition ((ws >>. expr) .>> (strWs "]"))
        <| fun p1 expr -> ([ expr ], p1)), // (indices, position)
       18,
       true,
       (),
       (fun (indices, stop) target ->
-        { Expr.kind = ExprKind.Index(target, indices[0], false)
-          span =
-            { start = target.span.start
-              stop = stop }
-          inferred_type = None })
+        { Expr.Kind = ExprKind.Index(target, indices[0], false)
+          Span =
+            { Start = target.Span.Start
+              Stop = stop }
+          InferredType = None })
     )
   )
 
   opp.AddOperator(
     PostfixOperator(
       "(",
-      (pipe2 getPosition (sepBy (ws >>. expr) (str_ws ",") .>> (str_ws ")"))
+      (pipe2 getPosition (sepBy (ws >>. expr) (strWs ",") .>> (strWs ")"))
        <| fun p1 args -> (args, p1)), // args
       18,
       true,
       (),
       (fun (args, stop) callee ->
-        { Expr.kind =
+        { Expr.Kind =
             ExprKind.Call(
-              { callee = callee
-                typeArgs = None
-                args = args
-                optChain = false
-                throws = None }
+              { Callee = callee
+                TypeArgs = None
+                Args = args
+                OptChain = false
+                Throws = None }
             )
-          span =
-            { start = callee.span.start
-              stop = stop }
-          inferred_type = None })
+          Span =
+            { Start = callee.Span.Start
+              Stop = stop }
+          InferredType = None })
     )
   )
 
@@ -199,9 +198,9 @@ module private Expressions =
       14,
       true,
       (fun x ->
-        { Expr.kind = Unary("+", x)
-          span = x.span
-          inferred_type = None })
+        { Expr.Kind = Unary("+", x)
+          Span = x.Span
+          InferredType = None })
     )
   )
 
@@ -212,9 +211,9 @@ module private Expressions =
       14,
       true,
       (fun x ->
-        { Expr.kind = Unary("-", x)
-          span = x.span
-          inferred_type = None })
+        { Expr.Kind = Unary("-", x)
+          Span = x.Span
+          InferredType = None })
     )
   )
 
@@ -265,9 +264,9 @@ module private Expressions =
       2,
       Assoc.Right,
       (fun x y ->
-        { Expr.kind = Assign(x, AssignOp.Assign, y)
-          span = mergeSpans x.span y.span
-          inferred_type = None })
+        { Expr.Kind = Assign(x, AssignOp.Assign, y)
+          Span = mergeSpans x.Span y.Span
+          InferredType = None })
     )
   )
 

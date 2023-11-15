@@ -11,12 +11,12 @@ open FParsec
 type Assert with
 
   static member inline Value(env: Env, name: string, expected: string) =
-    let (t, _) = Map.find name env.values
+    let (t, _) = Map.find name env.Values
     Assert.Equal(expected, t.ToString())
 
   static member inline Type(env: Env, name: string, expected: string) =
-    let scheme = Map.find name env.schemes
-    Assert.Equal(expected, scheme.type_.ToString())
+    let scheme = Map.find name env.Schemes
+    Assert.Equal(expected, scheme.Type.ToString())
 
 type CompileError =
   | ParseError of ParserError
@@ -31,16 +31,16 @@ let infer src =
         Result.mapError (CompileError.ParseError) (Result.Error(parserError))
 
     let env =
-      { Env.values = Map([])
-        Env.schemes = Map([])
-        Env.isAsync = false
-        Env.nonGeneric = Set([]) }
+      { Env.Values = Map([])
+        Env.Schemes = Map([])
+        Env.IsAsync = false
+        Env.NonGeneric = Set([]) }
 
-    let! t = Result.mapError (CompileError.TypeError) (Infer.infer_expr env ast)
+    let! t = Result.mapError (CompileError.TypeError) (Infer.inferExpr env ast)
     return t
   }
 
-let infer_script src =
+let inferScript src =
   result {
     let! script =
       match Parser.script src with
@@ -49,18 +49,18 @@ let infer_script src =
         Result.mapError (CompileError.ParseError) (Result.Error(parserError))
 
     let env =
-      { Env.values = Map([])
-        Env.schemes = Map([])
-        Env.isAsync = false
-        Env.nonGeneric = Set([]) }
+      { Env.Values = Map([])
+        Env.Schemes = Map([])
+        Env.IsAsync = false
+        Env.NonGeneric = Set([]) }
 
     let! env =
-      Result.mapError (CompileError.TypeError) (Infer.infer_script env script)
+      Result.mapError (CompileError.TypeError) (Infer.inferScript env script)
 
     return env
   }
 
-let infer_with_env src env =
+let inferWithEnv src env =
   result {
     let! ast =
       match Parser.expr src with
@@ -68,7 +68,7 @@ let infer_with_env src env =
       | Failure(s, parserError, unit) ->
         Result.mapError (CompileError.ParseError) (Result.Error(parserError))
 
-    let! t = Result.mapError (CompileError.TypeError) (Infer.infer_expr env ast)
+    let! t = Result.mapError (CompileError.TypeError) (Infer.inferExpr env ast)
     return t
   }
 
@@ -132,7 +132,7 @@ let InferIfElseChaining () =
       }
       """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "foo", "5 | \"hello\" | true")
     }
@@ -142,18 +142,18 @@ let InferIfElseChaining () =
 [<Fact>]
 let InferIdentifier () =
   let t: Type =
-    { Type.kind = TypeKind.Primitive(Primitive.Number)
-      provenance = None }
+    { Type.Kind = TypeKind.Primitive(Primitive.Number)
+      Provenance = None }
 
   let env =
-    { Env.values = Map([ ("foo", (t, false)) ])
-      Env.schemes = Map([])
-      Env.isAsync = false
-      Env.nonGeneric = Set([]) }
+    { Env.Values = Map([ ("foo", (t, false)) ])
+      Env.Schemes = Map([])
+      Env.IsAsync = false
+      Env.NonGeneric = Set([]) }
 
   let result =
     result {
-      let! t = infer_with_env "foo" env
+      let! t = inferWithEnv "foo" env
       Assert.Equal("number", t.ToString())
     }
 
@@ -163,7 +163,7 @@ let InferIdentifier () =
 let InferLetStatements () =
   let result =
     result {
-      let! env = infer_script "let foo = 5\nlet bar =\"hello\""
+      let! env = inferScript "let foo = 5\nlet bar =\"hello\""
 
       Assert.Value(env, "foo", "5")
       Assert.Value(env, "bar", "\"hello\"")
@@ -182,7 +182,7 @@ let InferBinOpsOnPrimitives () =
           let sum = x + y
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "sum", "number")
     }
@@ -200,7 +200,7 @@ let InferFuncParams () =
           }
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
@@ -218,7 +218,7 @@ let InferFuncParamsWithTypeAnns () =
           }
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
@@ -240,7 +240,7 @@ let InferFuncWithMultipleReturns () =
           let bar = foo(5, "hello")
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "foo", "fn (x: number, y: string) -> string | number")
       Assert.Value(env, "bar", "string | number")
@@ -261,7 +261,7 @@ let InferFuncGenericFunc () =
           let baz = foo("hello")
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "foo", "fn <A>(x: A) -> A")
       Assert.Value(env, "bar", "5")
@@ -283,7 +283,7 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
           let baz = foo("hello")
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "foo", "fn <T>(x: T) -> T")
       Assert.Value(env, "bar", "5")
@@ -304,7 +304,7 @@ let InferTypeDecls () =
           type D = fn (x: number) -> number
           """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Type(env, "A", "number")
       Assert.Type(env, "B", "[string, boolean]")
@@ -320,7 +320,7 @@ let InferLambda () =
     result {
       let src = "let add = fn (x, y) => x + y"
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
@@ -338,7 +338,7 @@ let InferSKK () =
           let I = S(K)(K)
         """
 
-      let! env = infer_script src
+      let! env = inferScript src
 
       Assert.Value(
         env,

@@ -12,7 +12,7 @@ module private Patterns =
   let pattern = ParserRefs.pattern
 
   let ws = spaces
-  let str_ws s = pstring s .>> ws
+  let strWs s = pstring s .>> ws
 
   let ident =
     let isIdentifierFirstChar c = isLetter c || c = '_'
@@ -22,55 +22,55 @@ module private Patterns =
 
   let withSpan p =
     pipe3 getPosition p getPosition
-    <| fun start value stop -> (value, { start = start; stop = stop })
+    <| fun start value stop -> (value, { Start = start; Stop = stop })
 
   let private identPattern =
     withSpan ident
     |>> fun (id, span) ->
-      { Pattern.kind =
+      { Pattern.Kind =
           PatternKind.Identifier(
-            { name = id
-              span = span
-              isMut = false }
+            { Name = id
+              Span = span
+              IsMut = false }
           )
-        span = span
-        inferred_type = None }
+        Span = span
+        InferredType = None }
 
   let private literalPattern =
     withSpan lit
     |>> fun (lit, span) ->
-      { Pattern.kind = PatternKind.Literal(span = span, value = lit)
-        span = span
-        inferred_type = None }
+      { Pattern.Kind = PatternKind.Literal(span = span, value = lit)
+        Span = span
+        InferredType = None }
 
   let private tuplePattern =
     tuple pattern |> withSpan
     |>> fun (patterns, span) ->
-      { Pattern.kind = PatternKind.Tuple(patterns)
-        span = span
-        inferred_type = None }
+      { Pattern.Kind = PatternKind.Tuple(patterns)
+        Span = span
+        InferredType = None }
 
   let private wildcardPattern =
-    withSpan (str_ws "_")
+    withSpan (strWs "_")
     |>> fun (_, span) ->
-      { Pattern.kind = PatternKind.Wildcard
-        span = span
-        inferred_type = None }
+      { Pattern.Kind = PatternKind.Wildcard
+        Span = span
+        InferredType = None }
 
   let private objPatKeyValue =
     pipe4 getPosition ident pattern getPosition
     <| fun start id pat stop ->
-      let span = { start = start; stop = stop }
+      let span = { Start = start; Stop = stop }
       KeyValuePat(span = span, key = id, value = pat, init = None)
 
   let private objPatElem = objPatKeyValue
 
   let private objectPattern =
-    withSpan (between (str_ws "{") (str_ws "}") (sepBy objPatElem (str_ws ",")))
+    withSpan (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))
     |>> fun (objElems, span) ->
-      { Pattern.kind = PatternKind.Object(objElems)
-        span = span
-        inferred_type = None }
+      { Pattern.Kind = PatternKind.Object(objElems)
+        Span = span
+        InferredType = None }
 
   ParserRefs.patternRef.Value <-
     choice

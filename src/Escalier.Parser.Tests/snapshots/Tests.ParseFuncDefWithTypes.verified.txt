@@ -1,38 +1,38 @@
 ﻿input: fn (x: number) -> number throws "RangeError" { x }
-output: Success: { kind =
+output: Success: { Kind =
    Function
-     { sig' =
-        { type_params = None
-          param_list =
-           [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 5)
-                                                       stop = (Ln: 1, Col: 6) }
-                                              name = "x"
-                                              isMut = false }
-                          span = { start = (Ln: 1, Col: 5)
-                                   stop = (Ln: 1, Col: 6) }
-                          inferred_type = None }
-              typeAnn = Some { kind = Keyword Number
-                               span = { start = (Ln: 1, Col: 8)
-                                        stop = (Ln: 1, Col: 14) }
-                               inferred_type = None }
-              optional = false }]
-          return_type = Some { kind = Keyword Number
-                               span = { start = (Ln: 1, Col: 19)
-                                        stop = (Ln: 1, Col: 26) }
-                               inferred_type = None }
-          throws = Some { kind = Literal (String "RangeError")
-                          span = { start = (Ln: 1, Col: 33)
-                                   stop = (Ln: 1, Col: 45) }
-                          inferred_type = None } }
-       body =
-        Block { span = { start = (Ln: 1, Col: 46)
-                         stop = (Ln: 1, Col: 51) }
-                stmts = [{ span = { start = (Ln: 1, Col: 48)
-                                    stop = (Ln: 1, Col: 50) }
-                           kind = Expr { kind = Identifier "x"
-                                         span = { start = (Ln: 1, Col: 48)
-                                                  stop = (Ln: 1, Col: 50) }
-                                         inferred_type = None } }] } }
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 51) }
-  inferred_type = None }
+     { Sig =
+        { TypeParams = None
+          ParamList =
+           [{ Pattern = { Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
+                                                       Stop = (Ln: 1, Col: 6) }
+                                              Name = "x"
+                                              IsMut = false }
+                          Span = { Start = (Ln: 1, Col: 5)
+                                   Stop = (Ln: 1, Col: 6) }
+                          InferredType = None }
+              TypeAnn = Some { Kind = Keyword Number
+                               Span = { Start = (Ln: 1, Col: 8)
+                                        Stop = (Ln: 1, Col: 14) }
+                               InferredType = None }
+              Optional = false }]
+          ReturnType = Some { Kind = Keyword Number
+                              Span = { Start = (Ln: 1, Col: 19)
+                                       Stop = (Ln: 1, Col: 26) }
+                              InferredType = None }
+          Throws = Some { Kind = Literal (String "RangeError")
+                          Span = { Start = (Ln: 1, Col: 33)
+                                   Stop = (Ln: 1, Col: 45) }
+                          InferredType = None } }
+       Body =
+        Block { Span = { Start = (Ln: 1, Col: 46)
+                         Stop = (Ln: 1, Col: 51) }
+                Stmts = [{ Span = { Start = (Ln: 1, Col: 48)
+                                    Stop = (Ln: 1, Col: 50) }
+                           Kind = Expr { Kind = Identifier "x"
+                                         Span = { Start = (Ln: 1, Col: 48)
+                                                  Stop = (Ln: 1, Col: 50) }
+                                         InferredType = None } }] } }
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 51) }
+  InferredType = None }

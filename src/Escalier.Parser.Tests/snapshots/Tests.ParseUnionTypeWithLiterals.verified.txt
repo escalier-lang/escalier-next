@@ -1,11 +1,11 @@
 ﻿input: 5 | "hello"
-output: Success: { kind = Union [{ kind = Literal (Number "5")
-                  span = { start = (Ln: 1, Col: 1)
-                           stop = (Ln: 1, Col: 2) }
-                  inferred_type = None }; { kind = Literal (String "hello")
-                                            span = { start = (Ln: 1, Col: 5)
-                                                     stop = (Ln: 1, Col: 12) }
-                                            inferred_type = None }]
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 12) }
-  inferred_type = None }
+output: Success: { Kind = Union [{ Kind = Literal (Number "5")
+                  Span = { Start = (Ln: 1, Col: 1)
+                           Stop = (Ln: 1, Col: 2) }
+                  InferredType = None }; { Kind = Literal (String "hello")
+                                           Span = { Start = (Ln: 1, Col: 5)
+                                                    Stop = (Ln: 1, Col: 12) }
+                                           InferredType = None }]
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 12) }
+  InferredType = None }

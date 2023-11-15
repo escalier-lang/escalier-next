@@ -12,7 +12,7 @@ module private Statements =
   let typeAnn = ParserRefs.typeAnn
 
   let ws = spaces
-  let str_ws s = pstring s .>> ws
+  let strWs s = pstring s .>> ws
 
   let ident =
     let isIdentifierFirstChar c = isLetter c || c = '_'
@@ -22,48 +22,44 @@ module private Statements =
 
   let withSpan p =
     pipe3 getPosition p getPosition
-    <| fun start value stop -> (value, { start = start; stop = stop })
+    <| fun start value stop -> (value, { Start = start; Stop = stop })
 
   let private exprStmt: Parser<Stmt, unit> =
-    withSpan (expr) |>> fun (e, span) -> { Stmt.kind = Expr(e); span = span }
+    withSpan (expr) |>> fun (e, span) -> { Stmt.Kind = Expr(e); Span = span }
 
   let private returnStmt: Parser<Stmt, unit> =
-    withSpan (str_ws "return" >>. opt expr)
-    |>> fun (e, span) -> { Stmt.kind = Return(e); span = span }
+    withSpan (strWs "return" >>. opt expr)
+    |>> fun (e, span) -> { Stmt.Kind = Return(e); Span = span }
 
   // `let <expr> = <expr>`
   let private varDecl =
-    pipe4
-      getPosition
-      (str_ws "let" >>. pattern)
-      (str_ws "=" >>. expr)
-      getPosition
+    pipe4 getPosition (strWs "let" >>. pattern) (strWs "=" >>. expr) getPosition
     <| fun start pat init stop ->
-      let span = { start = start; stop = stop }
+      let span = { Start = start; Stop = stop }
 
-      { Stmt.kind =
+      { Stmt.Kind =
           Decl(
-            { kind = VarDecl(pat, Some(init), None, false)
-              span = span }
+            { Kind = VarDecl(pat, Some(init), None, false)
+              Span = span }
           )
-        span = span }
+        Span = span }
 
   // TODO: parse type params
   let private typeDecl =
     pipe4
       getPosition
-      (str_ws "type" >>. ident)
-      (str_ws "=" >>. typeAnn)
+      (strWs "type" >>. ident)
+      (strWs "=" >>. typeAnn)
       getPosition
     <| fun start id typeAnn stop ->
-      let span = { start = start; stop = stop }
+      let span = { Start = start; Stop = stop }
 
-      { Stmt.kind =
+      { Stmt.Kind =
           Decl(
-            { kind = TypeDecl(id, typeAnn, None)
-              span = span }
+            { Kind = TypeDecl(id, typeAnn, None)
+              Span = span }
           )
-        span = span }
+        Span = span }
 
   // TODO: Parse for loops
   ParserRefs.stmtRef.Value <-

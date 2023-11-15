@@ -12,9 +12,9 @@ let makeParam
   (name: string)
   (ty: Escalier.HindleyMilner.Type.Type)
   : Escalier.HindleyMilner.Type.FuncParam =
-  { pattern = Escalier.HindleyMilner.Type.Pattern.Identifier name
-    type_ = ty
-    optional = false }
+  { Pattern = Escalier.HindleyMilner.Type.Pattern.Identifier name
+    Type = ty
+    Optional = false }
 
 let getEnv () =
   let values =
@@ -31,82 +31,82 @@ let getEnv () =
            numType,
           false)) ]
 
-  { values = values
-    schemes = Map.empty
-    isAsync = false }
+  { Values = values
+    Schemes = Map.empty
+    IsAsync = false }
 
-let dummy_span =
-  { start = Position("", 0, 0, 0)
-    stop = Position("", 0, 0, 0) }
+let dummySpan =
+  { Start = Position("", 0, 0, 0)
+    Stop = Position("", 0, 0, 0) }
 
 let ident x =
-  { Expr.kind = ExprKind.Ident(x)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = ExprKind.Ident(x)
+    Span = dummySpan
+    InferredType = None }
 
 let number x =
-  { Expr.kind = ExprKind.Literal(Literal.Number x)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = ExprKind.Literal(Literal.Number x)
+    Span = dummySpan
+    InferredType = None }
 
 let boolean x =
-  { Expr.kind = ExprKind.Literal(Literal.Boolean x)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = ExprKind.Literal(Literal.Boolean x)
+    Span = dummySpan
+    InferredType = None }
 
 let call (f, args) =
-  { Expr.kind = ExprKind.Call(f, args)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = ExprKind.Call(f, args)
+    Span = dummySpan
+    InferredType = None }
 
 let func paramList stmts =
   let paramList =
     List.map
       (fun name ->
         let pattern =
-          { Pattern.kind =
+          { Pattern.Kind =
               PatternKind.Identifier(
-                { span = dummy_span
-                  name = name
-                  isMut = false }
+                { Span = dummySpan
+                  Name = name
+                  IsMut = false }
               )
-            span = dummy_span
-            inferred_type = None }
+            Span = dummySpan
+            InferredType = None }
 
         let param =
-          { pattern = pattern
-            typeAnn = None
-            optional = false }
+          { Pattern = pattern
+            TypeAnn = None
+            Optional = false }
 
         param)
       paramList
 
-  { Expr.kind =
+  { Expr.Kind =
       ExprKind.Function(
-        { sig' =
-            { paramList = paramList
-              typeParams = None
-              ret = None
-              throws = None }
-          body = { stmts = stmts; span = dummy_span } }
+        { Sig =
+            { ParamList = paramList
+              TypeParams = None
+              Ret = None
+              Throws = None }
+          Body = { Stmts = stmts; Span = dummySpan } }
       )
-    span = dummy_span
-    inferred_type = None }
+    Span = dummySpan
+    InferredType = None }
 
 let ifelse (cond, thenExpr, elseExpr) =
-  { Expr.kind = IfElse(cond, thenExpr, elseExpr)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = IfElse(cond, thenExpr, elseExpr)
+    Span = dummySpan
+    InferredType = None }
 
 let binary (op, left, right) =
-  { Expr.kind = ExprKind.Binary(op, left, right)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = ExprKind.Binary(op, left, right)
+    Span = dummySpan
+    InferredType = None }
 
 let tuple exprs =
-  { Expr.kind = ExprKind.Tuple(exprs)
-    span = dummy_span
-    inferred_type = None }
+  { Expr.Kind = ExprKind.Tuple(exprs)
+    Span = dummySpan
+    InferredType = None }
 
 [<Fact>]
 let InferFactorial () =
@@ -147,7 +147,7 @@ let InferFactorial () =
     let! _, assump = infer_stmt ast env nonGeneric
 
     match assump with
-    | Some(name, t) -> env <- env.addValue name t
+    | Some(name, t) -> env <- env.AddValue name t
     | None -> ()
 
     let t = getType "factorial" env nonGeneric
@@ -290,7 +290,7 @@ let InferScriptSKK () =
     let mutable env = getEnv ()
     let nonGeneric = Set.empty
 
-    let S =
+    let s =
       func
         [ "f" ]
         [ Stmt.Expr(
@@ -308,10 +308,10 @@ let InferScriptSKK () =
                 ) ]
           ) ]
 
-    let K = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
-    let I = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
+    let k = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
+    let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script = [ Stmt.Let("S", S); Stmt.Let("K", K); Stmt.Let("I", I) ]
+    let script = [ Stmt.Let("S", s); Stmt.Let("K", k); Stmt.Let("I", i) ]
 
     let! newEnv = infer_script script env
 

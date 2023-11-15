@@ -4,7 +4,7 @@ open FParsec
 open System.Text
 
 module Syntax =
-  type Span = { start: Position; stop: Position }
+  type Span = { Start: Position; Stop: Position }
 
   type DeclKind =
     | TypeDecl of
@@ -17,7 +17,7 @@ module Syntax =
       type_ann: option<TypeAnn> *
       is_declare: bool
 
-  type Decl = { span: Span; kind: DeclKind }
+  type Decl = { Span: Span; Kind: DeclKind }
 
   type StmtKind =
     | Expr of Expr
@@ -25,7 +25,7 @@ module Syntax =
     | Return of option<Expr>
     | Decl of Decl
 
-  type Stmt = { span: Span; kind: StmtKind }
+  type Stmt = { Span: Span; Kind: StmtKind }
 
   type Literal =
     | Number of string
@@ -56,9 +56,9 @@ module Syntax =
       is_mut: bool
 
   type BindingIdent =
-    { span: Span
-      name: string
-      isMut: bool }
+    { Span: Span
+      Name: string
+      IsMut: bool }
 
   [<RequireQualifiedAccess>]
   type PatternKind =
@@ -71,11 +71,11 @@ module Syntax =
     | Is of span: Span * ident: BindingIdent * is_name: string * is_mut: bool
 
   type Pattern =
-    { kind: PatternKind
-      span: Span
-      inferred_type: option<Type.Type> }
+    { Kind: PatternKind
+      Span: Span
+      InferredType: option<Type.Type> }
 
-  type Block = { span: Span; stmts: list<Stmt> }
+  type Block = { Span: Span; Stmts: list<Stmt> }
 
   [<RequireQualifiedAccess>]
   type BlockOrExpr =
@@ -117,30 +117,30 @@ module Syntax =
     | Not
 
   type MatchCase =
-    { span: Span
-      pattern: Pattern
-      guard: option<Expr>
-      body: Expr }
+    { Span: Span
+      Pattern: Pattern
+      Guard: option<Expr>
+      Body: Expr }
 
   type TemplateLiteral =
-    { parts: list<string>
-      exprs: list<Expr> }
+    { Parts: list<string>
+      Exprs: list<Expr> }
 
   type FuncParam<'T> =
-    { pattern: Pattern
-      typeAnn: 'T
-      optional: bool }
+    { Pattern: Pattern
+      TypeAnn: 'T
+      Optional: bool }
 
   type Function =
-    { sig': FuncSig<option<TypeAnn>>
-      body: BlockOrExpr }
+    { Sig: FuncSig<option<TypeAnn>>
+      Body: BlockOrExpr }
 
   type Call =
-    { callee: Expr
-      typeArgs: option<list<TypeAnn>>
-      args: list<Expr>
-      optChain: bool
-      mutable throws: option<Type.Type> }
+    { Callee: Expr
+      TypeArgs: option<list<TypeAnn>>
+      Args: list<Expr>
+      OptChain: bool
+      mutable Throws: option<Type.Type> }
 
   type ExprKind =
     | Identifier of string
@@ -170,9 +170,9 @@ module Syntax =
       throws: option<Type.Type>
 
   type Expr =
-    { kind: ExprKind
-      span: Span
-      mutable inferred_type: option<Type.Type> }
+    { Kind: ExprKind
+      Span: Span
+      mutable InferredType: option<Type.Type> }
 
   type ObjTypeAnnElem =
     | Callable of Function
@@ -193,23 +193,23 @@ module Syntax =
     | Object
 
   type TypeParam =
-    { span: Span
-      name: string
-      constraint_: option<TypeAnn>
-      default_: option<TypeAnn> }
+    { Span: Span
+      Name: string
+      Constraint: option<TypeAnn>
+      Default: option<TypeAnn> }
 
     override this.ToString() =
       let sb = StringBuilder()
 
       sb
-        .Append(this.name)
+        .Append(this.Name)
         .Append(
-          match this.constraint_ with
+          match this.Constraint with
           | Some(constraint_) -> $" : {constraint_}"
           | None -> ""
         )
         .Append(
-          match this.default_ with
+          match this.Default with
           | Some(default_) -> $" = {default_}"
           | None -> ""
         )
@@ -218,25 +218,24 @@ module Syntax =
       sb.ToString()
 
   type FuncSig<'T> =
-    { type_params: option<list<TypeParam>>
-      param_list: list<FuncParam<'T>>
-      return_type: 'T
-      throws: option<TypeAnn> }
+    { TypeParams: option<list<TypeParam>>
+      ParamList: list<FuncParam<'T>>
+      ReturnType: 'T
+      Throws: option<TypeAnn> }
 
   type FunctionType = FuncSig<TypeAnn>
 
   type ConditionType =
-    { check: TypeAnn
-      extends: TypeAnn
-      true_type: TypeAnn
-      false_type: TypeAnn }
+    { Check: TypeAnn
+      Extends: TypeAnn
+      TrueType: TypeAnn
+      FalseType: TypeAnn }
 
   type MatchType =
-    { target: TypeAnn
-      cases: list<MatchTypeCase> }
+    { Target: TypeAnn
+      Cases: list<MatchTypeCase> }
 
-  type MatchTypeCase =
-    { extends: TypeAnn; true_type: TypeAnn }
+  type MatchTypeCase = { Extends: TypeAnn; TrueType: TypeAnn }
 
   type TypeAnnKind =
     | Literal of Literal
@@ -259,31 +258,31 @@ module Syntax =
     | Binary of left: TypeAnn * op: BinaryOp * right: TypeAnn
 
   type TypeAnn =
-    { kind: TypeAnnKind
-      span: Span
-      mutable inferred_type: option<Type.Type> }
+    { Kind: TypeAnnKind
+      Span: Span
+      mutable InferredType: option<Type.Type> }
 
   // TODO: add support for imports
   type Script = list<Stmt>
 
 module Type =
   type TypeParam =
-    { name: string
-      constraint_: option<Type>
-      default_: option<Type> }
+    { Name: string
+      Constraint: option<Type>
+      Default: option<Type> }
 
     override this.ToString() =
       let sb = StringBuilder()
 
       sb
-        .Append(this.name)
+        .Append(this.Name)
         .Append(
-          match this.constraint_ with
+          match this.Constraint with
           | Some(constraint_) -> $" : {constraint_}"
           | None -> ""
         )
         .Append(
-          match this.default_ with
+          match this.Default with
           | Some(default_) -> $" = {default_}"
           | None -> ""
         )
@@ -292,9 +291,9 @@ module Type =
       sb.ToString()
 
   type Scheme =
-    { type_params: list<TypeParam>
-      type_: Type
-      is_type_param: bool }
+    { TypeParams: list<TypeParam>
+      Type: Type
+      IsTypeParam: bool }
 
   type Pattern =
     | Identifier of name: string
@@ -328,12 +327,12 @@ module Type =
     | RestPat of target: Pattern
 
   type FuncParam =
-    { pattern: Pattern
-      type_: Type
-      optional: bool }
+    { Pattern: Pattern
+      Type: Type
+      Optional: bool }
 
     override this.ToString() =
-      sprintf "%s: %s" (this.pattern.ToString()) (this.type_.ToString())
+      sprintf "%s: %s" (this.Pattern.ToString()) (this.Type.ToString())
 
   [<RequireQualifiedAccess>]
   type KeywordType =
@@ -361,10 +360,10 @@ module Type =
       | Symbol -> "symbol"
 
   type Function =
-    { param_list: list<FuncParam>
-      return_type: Type
-      type_params: option<list<TypeParam>>
-      throws: Type }
+    { ParamList: list<FuncParam>
+      ReturnType: Type
+      TypeParams: option<list<TypeParam>>
+      Throws: Type }
 
     override this.ToString() =
       let sb = StringBuilder()
@@ -373,46 +372,46 @@ module Type =
       sb
         .Append("fn ")
         .Append(
-          match this.type_params with
-          | Some(type_params) ->
-            let type_params =
-              type_params
+          match this.TypeParams with
+          | Some(typeParams) ->
+            let typeParams =
+              typeParams
               |> List.map (fun p -> p.ToString())
               |> String.concat ", "
 
-            $"<{type_params}>"
+            $"<{typeParams}>"
           | None -> ""
         )
         .Append("(")
         .Append(
-          this.param_list
+          this.ParamList
           |> List.map (fun p -> p.ToString())
           |> String.concat ", "
         )
         .Append(") -> ")
-        .Append(this.return_type.ToString())
+        .Append(this.ReturnType.ToString())
       |> ignore
 
       sb.ToString()
 
   type Mapped =
-    { key: Type
-      value: Type
-      target: string
-      source: Type
-      optional: option<MappedModifier>
+    { Key: Type
+      Value: Type
+      Target: string
+      Source: Type
+      Optional: option<MappedModifier>
 
       // First half of Conditional
-      check: option<Type>
-      extends: option<Type> }
+      Check: option<Type>
+      Extends: option<Type> }
 
     override this.ToString() =
       let optional =
-        match this.optional with
+        match this.Optional with
         | Some(modifier) -> modifier.ToString()
         | None -> ""
 
-      $"[{this.key}]{optional}: {this.value} for {this.target} in {this.source}"
+      $"[{this.Key}]{optional}: {this.Value} for {this.Target} in {this.Source}"
 
   type MappedModifier =
     | Add
@@ -440,12 +439,12 @@ module Type =
       | Constructor(func) -> sprintf "new %s" (func.ToString())
       | Method(name,
                is_mut,
-               { param_list = param_list
-                 return_type = return_type }) ->
-        let sb = new StringBuilder()
+               { ParamList = paramList
+                 ReturnType = return_type }) ->
+        let sb = StringBuilder()
 
         let self = if is_mut then "mut self" else "self"
-        let param_list' = self :: List.map (fun p -> p.ToString()) param_list
+        let paramList' = self :: List.map (fun p -> p.ToString()) paramList
 
         sb
           .Append("fn ")
@@ -453,7 +452,7 @@ module Type =
           .Append("(")
           // Do we need to include `self` in types?
           .Append(if is_mut then "mut self" else "self")
-          .Append(String.concat (", ") param_list')
+          .Append(String.concat (", ") paramList')
           .Append(") -> ")
           .Append(return_type)
         |> ignore
@@ -464,7 +463,7 @@ module Type =
           "get %s() -> %s%s"
           name
           (return_type.ToString())
-          (if throws.kind = TypeKind.Keyword(KeywordType.Never) then
+          (if throws.Kind = TypeKind.Keyword(KeywordType.Never) then
              ""
            else
              " throws " + throws.ToString())
@@ -473,18 +472,18 @@ module Type =
           "set %s(%s)%s"
           name
           (param.ToString())
-          (if throws.kind = TypeKind.Keyword(KeywordType.Never) then
+          (if throws.Kind = TypeKind.Keyword(KeywordType.Never) then
              ""
            else
              " throws " + throws.ToString())
       | Mapped(mapped) ->
         sprintf
           "%s%s%s%s%s"
-          (if mapped.optional.IsSome then "optional " else "")
-          (if mapped.check.IsSome then "check " else "")
-          (if mapped.extends.IsSome then "extends " else "")
-          (mapped.key.ToString())
-          (mapped.value.ToString())
+          (if mapped.Optional.IsSome then "optional " else "")
+          (if mapped.Check.IsSome then "check " else "")
+          (if mapped.Extends.IsSome then "extends " else "")
+          (mapped.Key.ToString())
+          (mapped.Value.ToString())
       | Property(name, optional, readonly, type_) ->
         sprintf
           "%s%s%s: %s"
@@ -494,15 +493,15 @@ module Type =
           (type_.ToString())
 
   type TypeVar =
-    { id: int
-      mutable instance: option<Type>
-      bound: option<Type> }
+    { Id: int
+      mutable Instance: option<Type>
+      Bound: option<Type> }
 
   type TypeRef =
-    { name: string
-      type_args: option<list<Type>>
+    { Name: string
+      TypeArgs: option<list<Type>>
       // used so that we can reference a type ref's scheme without importing it
-      scheme: option<Scheme> }
+      Scheme: option<Scheme> }
 
   type TypeKind =
     | TypeVar of TypeVar
@@ -531,11 +530,11 @@ module Type =
     // TODO: add parenthesizes where necessary
     override this.ToString() =
       match this with
-      | TypeVar({ id = id; instance = instance }) ->
+      | TypeVar({ Id = id; Instance = instance }) ->
         match instance with
         | Some(instance) -> instance.ToString()
         | None -> $"t{id}"
-      | TypeRef { name = name; type_args = typeArgs } ->
+      | TypeRef { Name = name; TypeArgs = typeArgs } ->
         let sb = StringBuilder()
         sb.Append(name) |> ignore
 
@@ -586,7 +585,7 @@ module Type =
     | Expr of Syntax.Expr
 
   type Type =
-    { kind: TypeKind
-      mutable provenance: option<Provenance> }
+    { Kind: TypeKind
+      mutable Provenance: option<Provenance> }
 
-    override this.ToString() = this.kind.ToString()
+    override this.ToString() = this.Kind.ToString()

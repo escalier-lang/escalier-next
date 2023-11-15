@@ -1,44 +1,44 @@
 ﻿input: 0.1 + 2 * (3 - 4) / -5.6
-output: Success: { kind =
+output: Success: { Kind =
    Binary
-     ({ kind = Literal (Number "0.1")
-        span = { start = (Ln: 1, Col: 1)
-                 stop = (Ln: 1, Col: 4) }
-        inferred_type = None }, Add,
-      { kind =
+     ({ Kind = Literal (Number "0.1")
+        Span = { Start = (Ln: 1, Col: 1)
+                 Stop = (Ln: 1, Col: 4) }
+        InferredType = None }, Add,
+      { Kind =
          Binary
-           ({ kind =
+           ({ Kind =
                Binary
-                 ({ kind = Literal (Number "2")
-                    span = { start = (Ln: 1, Col: 7)
-                             stop = (Ln: 1, Col: 8) }
-                    inferred_type = None }, Mul,
-                  { kind =
+                 ({ Kind = Literal (Number "2")
+                    Span = { Start = (Ln: 1, Col: 7)
+                             Stop = (Ln: 1, Col: 8) }
+                    InferredType = None }, Mul,
+                  { Kind =
                      Binary
-                       ({ kind = Literal (Number "3")
-                          span = { start = (Ln: 1, Col: 12)
-                                   stop = (Ln: 1, Col: 13) }
-                          inferred_type = None }, Sub,
-                        { kind = Literal (Number "4")
-                          span = { start = (Ln: 1, Col: 16)
-                                   stop = (Ln: 1, Col: 17) }
-                          inferred_type = None })
-                    span = { start = (Ln: 1, Col: 12)
-                             stop = (Ln: 1, Col: 17) }
-                    inferred_type = None })
-              span = { start = (Ln: 1, Col: 7)
-                       stop = (Ln: 1, Col: 17) }
-              inferred_type = None }, Div,
-            { kind = Unary ("-", { kind = Literal (Number "5.6")
-                                   span = { start = (Ln: 1, Col: 22)
-                                            stop = (Ln: 1, Col: 25) }
-                                   inferred_type = None })
-              span = { start = (Ln: 1, Col: 22)
-                       stop = (Ln: 1, Col: 25) }
-              inferred_type = None })
-        span = { start = (Ln: 1, Col: 7)
-                 stop = (Ln: 1, Col: 25) }
-        inferred_type = None })
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 25) }
-  inferred_type = None }
+                       ({ Kind = Literal (Number "3")
+                          Span = { Start = (Ln: 1, Col: 12)
+                                   Stop = (Ln: 1, Col: 13) }
+                          InferredType = None }, Sub,
+                        { Kind = Literal (Number "4")
+                          Span = { Start = (Ln: 1, Col: 16)
+                                   Stop = (Ln: 1, Col: 17) }
+                          InferredType = None })
+                    Span = { Start = (Ln: 1, Col: 12)
+                             Stop = (Ln: 1, Col: 17) }
+                    InferredType = None })
+              Span = { Start = (Ln: 1, Col: 7)
+                       Stop = (Ln: 1, Col: 17) }
+              InferredType = None }, Div,
+            { Kind = Unary ("-", { Kind = Literal (Number "5.6")
+                                   Span = { Start = (Ln: 1, Col: 22)
+                                            Stop = (Ln: 1, Col: 25) }
+                                   InferredType = None })
+              Span = { Start = (Ln: 1, Col: 22)
+                       Stop = (Ln: 1, Col: 25) }
+              InferredType = None })
+        Span = { Start = (Ln: 1, Col: 7)
+                 Stop = (Ln: 1, Col: 25) }
+        InferredType = None })
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 25) }
+  InferredType = None }

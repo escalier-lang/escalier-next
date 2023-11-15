@@ -1,15 +1,15 @@
 ﻿input: msg = "Hello,\n\t\"world!\"" 
-output: Success: { kind =
+output: Success: { Kind =
    Assign
-     ({ kind = Identifier "msg"
-        span = { start = (Ln: 1, Col: 1)
-                 stop = (Ln: 1, Col: 5) }
-        inferred_type = None }, Assign,
-      { kind = Literal (String "Hello,
+     ({ Kind = Identifier "msg"
+        Span = { Start = (Ln: 1, Col: 1)
+                 Stop = (Ln: 1, Col: 5) }
+        InferredType = None }, Assign,
+      { Kind = Literal (String "Hello,
 	"world!"")
-        span = { start = (Ln: 1, Col: 7)
-                 stop = (Ln: 1, Col: 29) }
-        inferred_type = None })
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 29) }
-  inferred_type = None }
+        Span = { Start = (Ln: 1, Col: 7)
+                 Stop = (Ln: 1, Col: 29) }
+        InferredType = None })
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 29) }
+  InferredType = None }

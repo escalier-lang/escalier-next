@@ -4,72 +4,69 @@ open Escalier.Data.Syntax
 open Escalier.Data.Type
 
 module Visitor =
-  let rec walk_type (v: Type -> unit) (t: Type) : unit =
+  let rec walkType (v: Type -> unit) (t: Type) : unit =
     v t
 
-    match t.kind with
-    | Array elem -> walk_type v elem
+    match t.Kind with
+    | Array elem -> walkType v elem
     | TypeVar tv ->
-      maybe_walk_type v tv.instance |> ignore
-      maybe_walk_type v tv.bound |> ignore
-    | TypeRef { type_args = typeArgs
-                scheme = scheme } ->
-      Option.map (List.iter (walk_type v)) typeArgs |> ignore
+      maybeWalkType v tv.Instance |> ignore
+      maybeWalkType v tv.Bound |> ignore
+    | TypeRef { TypeArgs = typeArgs; Scheme = scheme } ->
+      Option.map (List.iter (walkType v)) typeArgs |> ignore
 
       Option.map
         (fun (scheme: Scheme) ->
-          walk_type v scheme.type_
-          walk_type_params v scheme.type_params)
+          walkType v scheme.Type
+          walkTypeParams v scheme.TypeParams)
         scheme
       |> ignore
     | Literal _ -> () // leaf node
     | Primitive _ -> () // leaf node
-    | Tuple types -> List.iter (walk_type v) types
-    | Union types -> List.iter (walk_type v) types
-    | Intersection types -> List.iter (walk_type v) types
+    | Tuple types -> List.iter (walkType v) types
+    | Union types -> List.iter (walkType v) types
+    | Intersection types -> List.iter (walkType v) types
     | Keyword _ -> () // leaf node
     | Function f ->
-      List.iter (walk_type v) (List.map (fun p -> p.type_) f.param_list)
+      List.iter (walkType v) (List.map (fun p -> p.Type) f.ParamList)
     | Object objTypeElems ->
       for elem in objTypeElems do
         match elem with
         | Callable(callable) ->
-          List.iter
-            (walk_type v)
-            (List.map (fun p -> p.type_) callable.param_list)
+          List.iter (walkType v) (List.map (fun p -> p.Type) callable.ParamList)
 
-          walk_type v callable.return_type
+          walkType v callable.ReturnType
         | _ -> ()
-    | Rest t -> walk_type v t
-    | KeyOf t -> walk_type v t
+    | Rest t -> walkType v t
+    | KeyOf t -> walkType v t
     | Index(target, index) ->
-      walk_type v target
-      walk_type v index
+      walkType v target
+      walkType v index
     | Condition(check, extends, trueType, falseType) ->
-      walk_type v check
-      walk_type v extends
-      walk_type v trueType
-      walk_type v falseType
+      walkType v check
+      walkType v extends
+      walkType v trueType
+      walkType v falseType
     | Infer _ -> () // leaf node
     | Wildcard -> () // leaf node
     | Binary(left, _op, right) ->
-      walk_type v left
-      walk_type v right
+      walkType v left
+      walkType v right
 
-  and maybe_walk_type (v: Type -> unit) (ot: option<Type>) : unit =
-    Option.map (walk_type v) ot |> ignore
+  and maybeWalkType (v: Type -> unit) (ot: option<Type>) : unit =
+    Option.map (walkType v) ot |> ignore
 
-  and walk_func (v: Type -> unit) (f: Function) : unit =
-    List.iter (walk_type v) (List.map (fun p -> p.type_) f.param_list)
-    walk_type v f.return_type
-    walk_type v f.throws
-    Option.map (walk_type_params v) f.type_params |> ignore
+  and walkFunc (v: Type -> unit) (f: Function) : unit =
+    List.iter (walkType v) (List.map (fun p -> p.Type) f.ParamList)
+    walkType v f.ReturnType
+    walkType v f.Throws
+    Option.map (walkTypeParams v) f.TypeParams |> ignore
 
-  and walk_type_params (v: Type -> unit) (tp: list<TypeParam>) : unit =
+  and walkTypeParams (v: Type -> unit) (tp: list<TypeParam>) : unit =
     List.iter
       (fun (tp: TypeParam) ->
-        maybe_walk_type v tp.constraint_
-        maybe_walk_type v tp.default_)
+        maybeWalkType v tp.Constraint
+        maybeWalkType v tp.Default)
       tp
 
   type SyntaxVisitor() =
@@ -81,7 +78,7 @@ module Visitor =
     abstract member VisitScript: Script -> unit
 
     default this.VisitExpr(e: Expr) =
-      match e.kind with
+      match e.Kind with
       | ExprKind.Assign(left, _op, right) ->
         this.VisitExpr left
         this.VisitExpr right
@@ -101,17 +98,17 @@ module Visitor =
         this.VisitExpr right
       | ExprKind.Unary(_op, value) -> this.VisitExpr value
       | ExprKind.Function f ->
-        match f.body with
+        match f.Body with
         | BlockOrExpr.Expr(e) -> this.VisitExpr e
         | BlockOrExpr.Block(b) -> this.VisitBlock b
       | ExprKind.Call call ->
-        this.VisitExpr call.callee
+        this.VisitExpr call.Callee
 
-        match call.typeArgs with
+        match call.TypeArgs with
         | Some(typeArgs) -> List.iter this.VisitTypeAnn typeArgs
         | None -> ()
 
-        List.iter this.VisitExpr call.args
+        List.iter this.VisitExpr call.Args
       | ExprKind.Index(target, index, _optChain) ->
         this.VisitExpr target
         this.VisitExpr index
@@ -132,16 +129,19 @@ module Visitor =
 
         List.iter
           (fun (case: MatchCase) ->
-            this.VisitPattern case.pattern
-            this.MaybeWalkExpr case.guard
-            this.VisitExpr case.body)
+            this.VisitPattern case.Pattern
+            this.MaybeWalkExpr case.Guard
+            this.VisitExpr case.Body)
           cases
-      | ExprKind.Try(body, catch, ``finally``) -> failwith "todo"
-      | ExprKind.Do body -> failwith "todo"
+      | ExprKind.Try(body, catch, ``finally``) ->
+        failwith "TODO: VisitExpr - Try"
+      | ExprKind.Do body -> failwith "TODO: VisitExpr - Do"
       | ExprKind.Await value -> this.VisitExpr value
       | ExprKind.Throw value -> this.VisitExpr value
-      | ExprKind.TemplateLiteral templateLiteral -> failwith "todo"
-      | ExprKind.TaggedTemplateLiteral(tag, template, throws) -> failwith "todo"
+      | ExprKind.TemplateLiteral templateLiteral ->
+        failwith "TODO: VisitExpr - TemplateLiteral"
+      | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
+        failwith "VisitExpr: VisitExpr - TaggedTemplateLiteral"
 
     member this.MaybeWalkExpr(e: option<Expr>) =
       match e with
@@ -149,9 +149,9 @@ module Visitor =
       | None -> ()
 
     default this.VisitStmt(s: Stmt) =
-      match s.kind with
+      match s.Kind with
       | Decl decl ->
-        match decl.kind with
+        match decl.Kind with
         | DeclKind.VarDecl(pattern, exprOption, typeAnnOption, isDeclare) ->
           this.VisitPattern pattern
           this.MaybeWalkExpr exprOption
@@ -163,15 +163,15 @@ module Visitor =
           | Some(typeParams) ->
             List.iter
               (fun (typeParam: Syntax.TypeParam) ->
-                this.MaybeWalkTypeAnn typeParam.constraint_
-                this.MaybeWalkTypeAnn typeParam.default_)
+                this.MaybeWalkTypeAnn typeParam.Constraint
+                this.MaybeWalkTypeAnn typeParam.Default)
               typeParams
           | None -> ()
       | Expr expr -> this.VisitExpr expr
       | For(left, right, body) ->
         this.VisitPattern left
         this.VisitExpr right
-        List.iter this.VisitStmt body.stmts
+        List.iter this.VisitStmt body.Stmts
       | Return exprOption -> this.MaybeWalkExpr exprOption
 
     default this.VisitTypeAnn(ta: TypeAnn) = ()
@@ -182,5 +182,5 @@ module Visitor =
       | None -> ()
 
     default this.VisitPattern(p: Syntax.Pattern) = ()
-    default this.VisitBlock(b: Block) = List.iter this.VisitStmt b.stmts
+    default this.VisitBlock(b: Block) = List.iter this.VisitStmt b.Stmts
     default this.VisitScript(s: Script) = ()

@@ -1,46 +1,46 @@
 ﻿input: fn <T: Foo = Bar>(x: T) -> T { x }
-output: Success: { kind =
+output: Success: { Kind =
    Function
-     { sig' =
-        { type_params =
-           Some [{ span = { start = (Ln: 1, Col: 5)
-                            stop = (Ln: 1, Col: 17) }
-                   name = "T"
-                   constraint_ = Some { kind = TypeRef ("Foo", None)
-                                        span = { start = (Ln: 1, Col: 8)
-                                                 stop = (Ln: 1, Col: 12) }
-                                        inferred_type = None }
-                   default_ = Some { kind = TypeRef ("Bar", None)
-                                     span = { start = (Ln: 1, Col: 14)
-                                              stop = (Ln: 1, Col: 17) }
-                                     inferred_type = None } }]
-          param_list =
-           [{ pattern = { kind = Identifier { span = { start = (Ln: 1, Col: 19)
-                                                       stop = (Ln: 1, Col: 20) }
-                                              name = "x"
-                                              isMut = false }
-                          span = { start = (Ln: 1, Col: 19)
-                                   stop = (Ln: 1, Col: 20) }
-                          inferred_type = None }
-              typeAnn = Some { kind = TypeRef ("T", None)
-                               span = { start = (Ln: 1, Col: 22)
-                                        stop = (Ln: 1, Col: 23) }
-                               inferred_type = None }
-              optional = false }]
-          return_type = Some { kind = TypeRef ("T", None)
-                               span = { start = (Ln: 1, Col: 28)
-                                        stop = (Ln: 1, Col: 30) }
-                               inferred_type = None }
-          throws = None }
-       body =
-        Block { span = { start = (Ln: 1, Col: 30)
-                         stop = (Ln: 1, Col: 35) }
-                stmts = [{ span = { start = (Ln: 1, Col: 32)
-                                    stop = (Ln: 1, Col: 34) }
-                           kind = Expr { kind = Identifier "x"
-                                         span = { start = (Ln: 1, Col: 32)
-                                                  stop = (Ln: 1, Col: 34) }
-                                         inferred_type = None } }] } }
-  span = { start = (Ln: 1, Col: 1)
-           stop = (Ln: 1, Col: 35) }
-  inferred_type = None }
+     { Sig =
+        { TypeParams =
+           Some [{ Span = { Start = (Ln: 1, Col: 5)
+                            Stop = (Ln: 1, Col: 17) }
+                   Name = "T"
+                   Constraint = Some { Kind = TypeRef ("Foo", None)
+                                       Span = { Start = (Ln: 1, Col: 8)
+                                                Stop = (Ln: 1, Col: 12) }
+                                       InferredType = None }
+                   Default = Some { Kind = TypeRef ("Bar", None)
+                                    Span = { Start = (Ln: 1, Col: 14)
+                                             Stop = (Ln: 1, Col: 17) }
+                                    InferredType = None } }]
+          ParamList =
+           [{ Pattern = { Kind = Identifier { Span = { Start = (Ln: 1, Col: 19)
+                                                       Stop = (Ln: 1, Col: 20) }
+                                              Name = "x"
+                                              IsMut = false }
+                          Span = { Start = (Ln: 1, Col: 19)
+                                   Stop = (Ln: 1, Col: 20) }
+                          InferredType = None }
+              TypeAnn = Some { Kind = TypeRef ("T", None)
+                               Span = { Start = (Ln: 1, Col: 22)
+                                        Stop = (Ln: 1, Col: 23) }
+                               InferredType = None }
+              Optional = false }]
+          ReturnType = Some { Kind = TypeRef ("T", None)
+                              Span = { Start = (Ln: 1, Col: 28)
+                                       Stop = (Ln: 1, Col: 30) }
+                              InferredType = None }
+          Throws = None }
+       Body =
+        Block { Span = { Start = (Ln: 1, Col: 30)
+                         Stop = (Ln: 1, Col: 35) }
+                Stmts = [{ Span = { Start = (Ln: 1, Col: 32)
+                                    Stop = (Ln: 1, Col: 34) }
+                           Kind = Expr { Kind = Identifier "x"
+                                         Span = { Start = (Ln: 1, Col: 32)
+                                                  Stop = (Ln: 1, Col: 34) }
+                                         InferredType = None } }] } }
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 35) }
+  InferredType = None }

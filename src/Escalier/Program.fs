@@ -11,10 +11,10 @@ let str s = pstring s
 
 let ws = spaces
 
-let str_ws s = pstring s .>> ws
-let float_ws = pfloat .>> ws
+let strWs s = pstring s .>> ws
+let floatWs = pfloat .>> ws
 
-let numberList = (str_ws "[") >>. sepBy float_ws (str_ws ",") .>> (str_ws "]")
+let numberList = (strWs "[") >>. sepBy floatWs (strWs ",") .>> (strWs "]")
 
 let numberListFile = ws >>. numberList .>> eof
 
@@ -59,24 +59,6 @@ let stringLiteral3 =
     (pstring "\"")
     (pstring "\"")
     (stringsSepBy normalCharSnippet escapedChar)
-
-let pFoo: Parser<string, 'u> =
-  fun stream ->
-    if stream.Peek() = 'f' then
-      stream.Skip()
-
-      if stream.Peek() = 'o' then
-        stream.Skip()
-
-        if stream.Peek() = 'o' then
-          stream.Skip()
-          Reply("foo")
-        else
-          Reply(Error, messageError "Expected 'o'")
-      else
-        Reply(Error, messageError "Expected 'o'")
-    else
-      Reply(Error, messageError "Expected 'f'")
 
 let test p str =
   match run p str with

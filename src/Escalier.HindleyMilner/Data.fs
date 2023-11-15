@@ -3,38 +3,38 @@ namespace rec Escalier.HindleyMilner
 open FParsec
 
 module Syntax =
-  type Span = { start: Position; stop: Position }
+  type Span = { Start: Position; Stop: Position }
 
-  type Block = { span: Span; stmts: list<Stmt> }
+  type Block = { Span: Span; Stmts: list<Stmt> }
 
   type TypeParam = string // TODO
 
   type FuncParam<'T> =
-    { pattern: Pattern
-      typeAnn: 'T
-      optional: bool }
+    { Pattern: Pattern
+      TypeAnn: 'T
+      Optional: bool }
 
-    override this.ToString() = this.pattern.ToString()
+    override this.ToString() = this.Pattern.ToString()
 
   type FuncSig<'T> =
-    { typeParams: option<list<TypeParam>>
-      paramList: list<FuncParam<'T>>
-      ret: 'T
-      throws: option<TypeAnn> }
+    { TypeParams: option<list<TypeParam>>
+      ParamList: list<FuncParam<'T>>
+      Ret: 'T
+      Throws: option<TypeAnn> }
 
   type Function =
-    { sig': FuncSig<option<TypeAnn>>
-      body: Block } // TODO: support fat arrow syntax
+    { Sig: FuncSig<option<TypeAnn>>
+      Body: Block } // TODO: support fat arrow syntax
 
   type MatchCase =
-    { span: Span
-      pattern: Pattern
-      guard: option<Expr>
-      body: Expr }
+    { Span: Span
+      Pattern: Pattern
+      Guard: option<Expr>
+      Body: Expr }
 
   type TemplateLiteral =
-    { parts: list<string>
-      exprs: list<Expr> }
+    { Parts: list<string>
+      Exprs: list<Expr> }
 
   type ObjElem =
     | Property of span: Span * key: string * value: Expr
@@ -64,11 +64,11 @@ module Syntax =
       throws: option<Type.Type>
 
   type Expr =
-    { kind: ExprKind
-      span: Span
-      inferred_type: option<Type.Type> }
+    { Kind: ExprKind
+      Span: Span
+      InferredType: option<Type.Type> }
 
-    override this.ToString() = this.kind.ToString()
+    override this.ToString() = this.Kind.ToString()
 
   type Literal =
     | Number of string
@@ -98,9 +98,9 @@ module Syntax =
       is_mut: bool
 
   type BindingIdent =
-    { span: Span
-      name: string
-      isMut: bool }
+    { Span: Span
+      Name: string
+      IsMut: bool }
 
   [<RequireQualifiedAccess>]
   type PatternKind =
@@ -114,15 +114,15 @@ module Syntax =
 
     override this.ToString() =
       match this with
-      | Identifier(bi) -> bi.name // TODO: isMut
+      | Identifier(bi) -> bi.Name // TODO: isMut
       | _ -> failwith "TODO"
 
   type Pattern =
-    { kind: PatternKind
-      span: Span
-      inferred_type: option<Type.Type> }
+    { Kind: PatternKind
+      Span: Span
+      InferredType: option<Type.Type> }
 
-    override this.ToString() = this.kind.ToString()
+    override this.ToString() = this.Kind.ToString()
 
   type Stmt =
     | Expr of Expr
@@ -151,17 +151,16 @@ module Syntax =
   type FunctionType = FuncSig<TypeAnn>
 
   type ConditionType =
-    { check: TypeAnn
-      extends: TypeAnn
-      true_type: TypeAnn
-      false_type: TypeAnn }
+    { Check: TypeAnn
+      Extends: TypeAnn
+      TrueType: TypeAnn
+      FalseType: TypeAnn }
 
   type MatchType =
-    { target: TypeAnn
-      cases: list<MatchTypeCase> }
+    { Target: TypeAnn
+      Cases: list<MatchTypeCase> }
 
-  type MatchTypeCase =
-    { extends: TypeAnn; true_type: TypeAnn }
+  type MatchTypeCase = { Extends: TypeAnn; TrueType: TypeAnn }
 
   type TypeAnnKind =
     | Literal of Literal
@@ -184,9 +183,9 @@ module Syntax =
     | Binary of left: TypeAnn * op: string * right: TypeAnn // TODO: BinaryOp
 
   type TypeAnn =
-    { kind: TypeAnnKind
-      span: Span
-      mutable inferred_type: option<Type.Type> }
+    { Kind: TypeAnnKind
+      Span: Span
+      mutable InferredType: option<Type.Type> }
 
 module Type =
   [<RequireQualifiedAccess>]
@@ -198,14 +197,14 @@ module Type =
   ///A type variable standing for an arbitrary type.
   ///All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
-    { id: int
-      bound: option<Type>
-      mutable instance: option<Type> }
+    { Id: int
+      Bound: option<Type>
+      mutable Instance: option<Type> }
 
   ///An n-ary type constructor which builds a new type from old
   type TypeRef =
-    { name: string
-      typeArgs: option<list<Type>> }
+    { Name: string
+      TypeArgs: option<list<Type>> }
 
   type ObjPatElem =
     | KeyValuePat of key: string * value: Pattern
@@ -224,52 +223,52 @@ module Type =
     override this.ToString() =
       match this with
       | Identifier name -> name
-      | _ -> failwith "TODO"
+      | _ -> failwith "TODO: Pattern.ToString()"
 
   type FuncParam =
-    { pattern: Pattern
-      type_: Type
-      optional: bool }
+    { Pattern: Pattern
+      Type: Type
+      Optional: bool }
 
-    override this.ToString() = this.type_.ToString()
+    override this.ToString() = this.Type.ToString()
 
   type TypeParam =
-    { name: string
-      constraint_: option<Type>
-      default_: option<Type> }
+    { Name: string
+      Constraint: option<Type>
+      Default: option<Type> }
 
     override this.ToString() =
       let c =
-        match this.constraint_ with
+        match this.Constraint with
         | Some(c) -> $": {c}"
         | None -> ""
 
       let d =
-        match this.default_ with
+        match this.Default with
         | Some(d) -> $" = {d}"
         | None -> ""
 
-      $"{this.name}{c}{d}"
+      $"{this.Name}{c}{d}"
 
   type Function =
-    { typeParams: option<list<TypeParam>>
-      paramList: list<FuncParam>
-      ret: Type }
+    { TypeParams: option<list<TypeParam>>
+      ParamList: list<FuncParam>
+      Ret: Type }
 
     override this.ToString() =
       let args =
-        List.map (fun item -> item.ToString()) this.paramList
+        List.map (fun item -> item.ToString()) this.ParamList
         |> String.concat ", "
 
       let typeParams =
-        match this.typeParams with
+        match this.TypeParams with
         | Some(typeParams) ->
           let sep = ", "
           let typeParams = List.map (fun t -> t.ToString()) typeParams
           $"<{String.concat sep typeParams}>"
         | None -> ""
 
-      $"fn {typeParams}({args}) -> {this.ret}"
+      $"fn {typeParams}({args}) -> {this.Ret}"
 
   type TypeKind =
     | TypeVar of TypeVar
@@ -280,20 +279,20 @@ module Type =
     | Wildcard
 
   type Type =
-    { kind: TypeKind
-      provenance: option<Provenance> }
+    { Kind: TypeKind
+      Provenance: option<Provenance> }
 
     override this.ToString() =
-      match this.kind with
-      | TypeVar({ instance = Some(instance) }) -> instance.ToString()
-      | TypeVar({ instance = None } as v) -> $"t{v.id}"
+      match this.Kind with
+      | TypeVar({ Instance = Some(instance) }) -> instance.ToString()
+      | TypeVar({ Instance = None } as v) -> $"t{v.Id}"
       | Tuple elems ->
         let elems =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
       | Function f -> f.ToString()
-      | TypeRef({ name = name; typeArgs = typeArgs }) ->
+      | TypeRef({ Name = name; TypeArgs = typeArgs }) ->
         let typeArgs =
           match typeArgs with
           | Some(typeArgs) ->
@@ -306,9 +305,9 @@ module Type =
       | Wildcard -> "_"
 
   type Scheme =
-    { typeParams: list<string>
-      ty: Type }
+    { TypeParams: list<string>
+      Type: Type }
 
     override this.ToString() =
-      let typeParams = String.concat ", " this.typeParams
-      $"<{typeParams}>{this.ty}"
+      let typeParams = String.concat ", " this.TypeParams
+      $"<{typeParams}>{this.Type}"

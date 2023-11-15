@@ -233,8 +233,26 @@ module Type =
 
     override this.ToString() = this.type_.ToString()
 
+  type TypeParam =
+    { name: string
+      constraint_: option<Type>
+      default_: option<Type> }
+
+    override this.ToString() =
+      let c =
+        match this.constraint_ with
+        | Some(c) -> $": {c}"
+        | None -> ""
+
+      let d =
+        match this.default_ with
+        | Some(d) -> $" = {d}"
+        | None -> ""
+
+      $"{this.name}{c}{d}"
+
   type Function =
-    { typeParams: option<list<string>>
+    { typeParams: option<list<TypeParam>>
       paramList: list<FuncParam>
       ret: Type }
 
@@ -247,6 +265,7 @@ module Type =
         match this.typeParams with
         | Some(typeParams) ->
           let sep = ", "
+          let typeParams = List.map (fun t -> t.ToString()) typeParams
           $"<{String.concat sep typeParams}>"
         | None -> ""
 

@@ -9,6 +9,7 @@
         <Compile Include="Data.fs"/>
         <Compile Include="Errors.fs"/>
         <Compile Include="Library.fs"/>
+        <Compile Include="Parser.fs"/>
     </ItemGroup>
 
     <ItemGroup>

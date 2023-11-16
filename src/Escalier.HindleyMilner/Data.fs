@@ -28,7 +28,7 @@ module Syntax =
   type FuncSig<'T> =
     { TypeParams: option<list<TypeParam>>
       ParamList: list<FuncParam<'T>>
-      Ret: 'T
+      ReturnType: 'T
       Throws: option<TypeAnn> }
 
   type Function =
@@ -49,19 +49,27 @@ module Syntax =
     | Property of span: Span * key: string * value: Expr
     | Spread of span: Span * value: Expr
 
+  type Call =
+    { Callee: Expr
+      TypeArgs: option<list<TypeAnn>>
+      Args: list<Expr>
+      OptChain: bool
+      mutable Throws: option<Type.Type> }
+
   type ExprKind =
-    | Ident of name: string
+    | Identifier of name: string
     | Literal of Literal
     | Function of Function
-    | Call of func: Expr * arguments: list<Expr>
+    | Call of Call
     | Tuple of elements: list<Expr>
-    // TODO: allow blocks for the branches
-    // TODO: make the `elseBranch` optional
+    | Index of target: Expr * index: Expr * opt_chain: bool
+    | Member of target: Expr * name: string * opt_chain: bool
     | IfElse of
       condition: Expr *
-      thenBranch: Block *
+      thenBranch: BlockOrExpr *
       elseBranch: option<BlockOrExpr> // Expr is only used when chaining if-else expressions
     | Match of target: Expr * cases: list<MatchCase>
+    | Assign of op: string * left: Expr * right: Expr
     | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
     | Unary of op: string * value: Expr
     | Object of elems: list<ObjElem>

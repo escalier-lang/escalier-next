@@ -40,7 +40,7 @@ let dummySpan =
     Stop = Position("", 0, 0, 0) }
 
 let ident x =
-  { Expr.Kind = ExprKind.Ident(x)
+  { Expr.Kind = ExprKind.Identifier(x)
     Span = dummySpan
     InferredType = None }
 
@@ -55,7 +55,14 @@ let boolean x =
     InferredType = None }
 
 let call (f, args) =
-  { Expr.Kind = ExprKind.Call(f, args)
+  let c =
+    { Callee = f
+      TypeArgs = None
+      Args = args
+      OptChain = false
+      Throws = None }
+
+  { Expr.Kind = ExprKind.Call(c)
     Span = dummySpan
     InferredType = None }
 
@@ -86,7 +93,7 @@ let func paramList stmts =
         { Sig =
             { ParamList = paramList
               TypeParams = None
-              Ret = None
+              ReturnType = None
               Throws = None }
           Body = BlockOrExpr.Block { Stmts = stmts; Span = dummySpan } }
       )
@@ -120,7 +127,7 @@ let fatArrow paramList expr =
         { Sig =
             { ParamList = paramList
               TypeParams = None
-              Ret = None
+              ReturnType = None
               Throws = None }
           Body = BlockOrExpr.Expr expr }
       )
@@ -142,7 +149,8 @@ let tuple exprs =
     Span = dummySpan
     InferredType = None }
 
-let block stmts = { Stmts = stmts; Span = dummySpan }
+let block stmts =
+  BlockOrExpr.Block { Stmts = stmts; Span = dummySpan }
 
 [<Fact>]
 let InferFactorial () =

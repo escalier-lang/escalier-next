@@ -521,15 +521,15 @@ module rec TypeChecker =
     : Result<Type, TypeError> =
     result {
       match expr.Kind with
-      | ExprKind.Ident(name) -> return getType name env nonGeneric
+      | ExprKind.Identifier(name) -> return getType name env nonGeneric
       | ExprKind.Literal(literal) ->
         return
           { Type.Kind = Literal(literal)
             Provenance = None }
-      | ExprKind.Call(callee, args) ->
-        let! callee = inferExpr callee env nonGeneric
+      | ExprKind.Call call ->
+        let! callee = inferExpr call.Callee env nonGeneric
 
-        let! result, throws = unifyCall args None callee env nonGeneric
+        let! result, throws = unifyCall call.Args None callee env nonGeneric
 
         // TODO: handle throws
 
@@ -637,21 +637,38 @@ module rec TypeChecker =
         let! conditionTy = inferExpr condition env nonGeneric
 
         let! thenBranchTy =
-          result {
-            let! stmtResults =
-              List.traverseResultM
-                (fun stmt -> inferStmt stmt env nonGeneric)
-                thenBranch.Stmts
+          match thenBranch with
+          | BlockOrExpr.Block block ->
+            result {
+              let! stmtResults =
+                List.traverseResultM
+                  (fun stmt -> inferStmt stmt env nonGeneric)
+                  block.Stmts
 
-            let undefined =
-              { Kind = makePrimitiveKind "undefined"
-                Provenance = None }
+              let undefined =
+                { Kind = makePrimitiveKind "undefined"
+                  Provenance = None }
 
-            match List.tryLast stmtResults with
-            | Some(Some(t), _) -> return t
-            | Some(_) -> return undefined
-            | _ -> return undefined
-          }
+              match List.tryLast stmtResults with
+              | Some(Some(t), _) -> return t
+              | Some(_) -> return undefined
+              | _ -> return undefined
+            }
+          | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric
+
+        // let! stmtResults =
+        //   List.traverseResultM
+        //     (fun stmt -> inferStmt stmt env nonGeneric)
+        //     thenBranch.Stmts
+        //
+        // let undefined =
+        //   { Kind = makePrimitiveKind "undefined"
+        //     Provenance = None }
+        //
+        // match List.tryLast stmtResults with
+        // | Some(Some(t), _) -> return t
+        // | Some(_) -> return undefined
+        // | _ -> return undefined
 
         let! elseBranchTy =
           Option.traverseResult
@@ -781,7 +798,7 @@ module rec TypeChecker =
                 Scheme = None }
               |> TypeKind.TypeRef
         | TypeAnnKind.Function functionType ->
-          let! returnType = inferTypeAnn env functionType.Ret
+          let! returnType = inferTypeAnn env functionType.ReturnType
 
           let! throws =
             match functionType.Throws with
@@ -995,6 +1012,7 @@ module rec TypeChecker =
 
     returns
 
+  // TODO: add VisitTypeAnn
   type SyntaxVisitor =
     { VisitExpr: Expr -> bool
       VisitStmt: Stmt -> bool
@@ -1004,19 +1022,26 @@ module rec TypeChecker =
     let rec walk (expr: Expr) : unit =
       if visitor.VisitExpr expr then
         match expr.Kind with
-        | ExprKind.Ident _ -> ()
+        | ExprKind.Identifier _ -> ()
         | ExprKind.Literal _ -> ()
         | ExprKind.Function f ->
           match f.Body with
           | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
           | BlockOrExpr.Expr expr -> walk expr
-        | ExprKind.Call(func, arguments) ->
-          walk func
-          List.iter walk arguments
+        | ExprKind.Call call ->
+          walk call.Callee
+          List.iter walk call.Args
         | ExprKind.Tuple elements -> List.iter walk elements
+        | ExprKind.Index(target, index, _optChain) ->
+          walk target
+          walk index
+        | ExprKind.Member(target, _name, _optChain) -> walk target
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           walk condition
-          List.iter (walkStmt visitor) thenBranch.Stmts
+
+          match thenBranch with
+          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+          | BlockOrExpr.Expr expr -> walk expr
 
           Option.iter
             (fun elseBranch ->
@@ -1036,6 +1061,7 @@ module rec TypeChecker =
             cases
 
           failwith "todo"
+        | ExprKind.Assign(_op, left, right)
         | ExprKind.Binary(_op, left, right) ->
           walk left
           walk right

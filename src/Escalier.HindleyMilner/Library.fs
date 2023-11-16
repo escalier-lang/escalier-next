@@ -872,17 +872,17 @@ module rec TypeChecker =
     (nonGeneric: Set<int>)
     : Result<option<Type> * option<Assump>, TypeError> =
     result {
-      match stmt with
-      | Stmt.Expr expr ->
+      match stmt.Kind with
+      | StmtKind.Expr expr ->
         let! t = inferExpr expr env nonGeneric
         return (Some(t), None)
-      | For(pattern, right, block) ->
+      | StmtKind.For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
-      | Let(name, definition) ->
+      | StmtKind.Let(name, definition) ->
         let! defnTy = inferExpr definition env nonGeneric
         let assump = (name, (defnTy, false)) // TODO: isMut
         return (None, Some(assump))
-      | LetRec(name, defn) ->
+      | StmtKind.LetRec(name, defn) ->
         let newTy = TypeVariable.makeVariable None
         let newEnv = env.AddValue name (newTy, false) // TODO: isMut
 
@@ -896,7 +896,7 @@ module rec TypeChecker =
 
         let binding = (newTy, false) // TODO: isMut
         return (None, Some(name, binding))
-      | Return expr ->
+      | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->
           let! t = inferExpr expr env nonGeneric
@@ -994,8 +994,8 @@ module rec TypeChecker =
             | _ -> true
         VisitStmt =
           fun stmt ->
-            match stmt with
-            | Return expr ->
+            match stmt.Kind with
+            | StmtKind.Return expr ->
               match expr with
               | Some expr -> returns <- expr :: returns
               | None -> ()
@@ -1089,15 +1089,16 @@ module rec TypeChecker =
   let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
     let rec walk (stmt: Stmt) : unit =
       if visitor.VisitStmt stmt then
-        match stmt with
-        | Expr expr -> walkExpr visitor expr
-        | For(left, right, body) ->
+        match stmt.Kind with
+        | StmtKind.Expr expr -> walkExpr visitor expr
+        | StmtKind.For(left, right, body) ->
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | Let(_name, definition) -> walkExpr visitor definition
-        | LetRec(_name, definition) -> walkExpr visitor definition
-        | Return exprOption -> Option.iter (walkExpr visitor) exprOption
+        | StmtKind.Let(_name, definition) -> walkExpr visitor definition
+        | StmtKind.LetRec(_name, definition) -> walkExpr visitor definition
+        | StmtKind.Return exprOption ->
+          Option.iter (walkExpr visitor) exprOption
 
     walk stmt
 

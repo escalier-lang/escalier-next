@@ -144,12 +144,14 @@ module Syntax =
 
     override this.ToString() = this.Kind.ToString()
 
-  type Stmt =
+  type StmtKind =
     | Expr of Expr
     | For of left: Pattern * right: Expr * body: Block
     | Let of name: string * definition: Expr // TODO: use Pattern for lhs
     | LetRec of name: string * definition: Expr // TODO: use Pattern for lhs
     | Return of option<Expr>
+
+  type Stmt = { Kind: StmtKind; Span: Span }
 
   type ObjTypeAnnElem =
     | Callable of Function

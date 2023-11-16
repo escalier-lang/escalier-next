@@ -57,12 +57,15 @@ module Syntax =
     | Tuple of elements: list<Expr>
     // TODO: allow blocks for the branches
     // TODO: make the `elseBranch` optional
-    | IfElse of condition: Expr * thenBranch: Expr * elseBranch: Expr
+    | IfElse of
+      condition: Expr *
+      thenBranch: Block *
+      elseBranch: option<BlockOrExpr> // Expr is only used when chaining if-else expressions
     | Match of target: Expr * cases: list<MatchCase>
     | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
     | Unary of op: string * value: Expr
     | Object of elems: list<ObjElem>
-    | Try of body: Block * catch: option<Expr> * finally_: option<Expr>
+    | Try of body: Block * catch: option<Expr * Block> * finally_: option<Block>
     | Do of body: Block
     | Await of value: Expr // TODO: convert rejects to throws
     | Throw of value: Expr
@@ -114,8 +117,8 @@ module Syntax =
   [<RequireQualifiedAccess>]
   type PatternKind =
     | Identifier of BindingIdent
-    | Object of elems: list<ObjPatElem>
-    | Tuple of elems: list<Pattern>
+    | Object of elems: list<ObjPatElem> // TODO: rest patterns
+    | Tuple of elems: list<Pattern> // TODO: rest patterns
     | Wildcard
     | Literal of span: Span * value: Literal
     // TODO: get rid of `is_mut` since it's covered by `ident: BindingIdent`
@@ -135,10 +138,10 @@ module Syntax =
 
   type Stmt =
     | Expr of Expr
-    | For of leff: Pattern * right: Expr * body: Block
-    | Let of name: string * definition: Expr
-    | LetRec of name: string * definition: Expr
-  // TODO: add Ret stmt
+    | For of left: Pattern * right: Expr * body: Block
+    | Let of name: string * definition: Expr // TODO: use Pattern for lhs
+    | LetRec of name: string * definition: Expr // TODO: use Pattern for lhs
+    | Return of option<Expr>
 
   type ObjTypeAnnElem =
     | Callable of Function
@@ -340,7 +343,7 @@ module Type =
           .Append("(")
           // Do we need to include `self` in types?
           .Append(if is_mut then "mut self" else "self")
-          .Append(String.concat (", ") paramList')
+          .Append(String.concat ", " paramList')
           .Append(") -> ")
           .Append(return_type)
         |> ignore

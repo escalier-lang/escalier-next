@@ -571,39 +571,50 @@ module rec TypeChecker =
               })
             f.Sig.ParamList
 
-        // TODO: search for return statements in blocks
-        let! retTy =
-          match f.Body with
-          | BlockOrExpr.Block({ Stmts = stmts }) ->
-            result {
-              let! stmtTypes =
+        match f.Body with
+        | BlockOrExpr.Block({ Stmts = stmts }) ->
+          List.traverseResultM
+            (fun stmt ->
+              result {
+                let! t, assump = inferStmt stmt newEnv newNonGeneric
+
+                match assump with
+                | Some(name, t) -> newEnv <- newEnv.AddValue name t
+                | None -> ()
+
+                return t
+              })
+            stmts
+          |> ignore
+        | BlockOrExpr.Expr expr -> inferExpr expr newEnv newNonGeneric |> ignore
+
+        let retExprs = findReturns f
+
+        let undefined =
+          { Kind = makePrimitiveKind "undefined"
+            Provenance = None }
+
+        let! retType =
+          result {
+            match retExprs with
+            | [] -> return undefined
+            | [ expr ] ->
+              match expr.InferredType with
+              | Some(t) -> return t
+              | None -> return! Error(TypeError.SemanticError "")
+            | exprs ->
+              let! types =
                 List.traverseResultM
-                  (fun stmt ->
-                    result {
-                      let! t, assump = inferStmt stmt newEnv newNonGeneric
+                  (fun (expr: Expr) ->
+                    match expr.InferredType with
+                    | Some(t) -> Ok t
+                    | None -> Error(TypeError.SemanticError ""))
+                  exprs
 
-                      match assump with
-                      | Some(name, t) -> newEnv <- newEnv.AddValue name t
-                      | None -> ()
-
-                      return t
-                    })
-                  stmts
-
-              match List.tryLast stmtTypes with
-              | Some(t) ->
-                match t with
-                | Some(t) -> return t
-                | None ->
-                  return!
-                    Error(
-                      TypeError.SemanticError
-                        "Last statement must be an expression"
-                    )
-              | None ->
-                return! Error(TypeError.SemanticError "Empty lambda body")
-            }
-          | BlockOrExpr.Expr expr -> inferExpr expr newEnv newNonGeneric
+              return
+                { Kind = TypeKind.Union types
+                  Provenance = None }
+          }
 
         let! typeParams =
           match f.Sig.TypeParams with
@@ -612,7 +623,7 @@ module rec TypeChecker =
             |> Result.map Some
           | None -> Ok None
 
-        return makeFunctionType typeParams paramList retTy // TODO: handle explicit type params
+        return makeFunctionType typeParams paramList retType
       | ExprKind.Tuple elems ->
         let! elems =
           List.traverseResultM (fun elem -> inferExpr elem env nonGeneric) elems
@@ -624,12 +635,53 @@ module rec TypeChecker =
         let retTy = TypeVariable.makeVariable None
 
         let! conditionTy = inferExpr condition env nonGeneric
-        let! thenBranchTy = inferExpr thenBranch env nonGeneric
-        let! elseBranchTy = inferExpr elseBranch env nonGeneric
+
+        let! thenBranchTy =
+          result {
+            let! stmtResults =
+              List.traverseResultM
+                (fun stmt -> inferStmt stmt env nonGeneric)
+                thenBranch.Stmts
+
+            let undefined =
+              { Kind = makePrimitiveKind "undefined"
+                Provenance = None }
+
+            match List.tryLast stmtResults with
+            | Some(Some(t), _) -> return t
+            | Some(_) -> return undefined
+            | _ -> return undefined
+          }
+
+        let! elseBranchTy =
+          Option.traverseResult
+            (fun body ->
+              match body with
+              | BlockOrExpr.Block block ->
+                result {
+                  let! stmtResults =
+                    List.traverseResultM
+                      (fun stmt -> inferStmt stmt env nonGeneric)
+                      block.Stmts
+
+                  let undefined =
+                    { Kind = makePrimitiveKind "undefined"
+                      Provenance = None }
+
+                  match List.tryLast stmtResults with
+                  | Some(Some(t), _) -> return t
+                  | Some(_) -> return undefined
+                  | _ -> return undefined
+                }
+              | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric)
+            elseBranch
 
         do! unify conditionTy boolType
         do! unify thenBranchTy retTy
-        do! unify elseBranchTy retTy
+
+        match elseBranchTy with
+        | Some(elseBranchTy) -> do! unify elseBranchTy retTy
+        | None -> ()
 
         return retTy
       | _ ->
@@ -827,6 +879,12 @@ module rec TypeChecker =
 
         let binding = (newTy, false) // TODO: isMut
         return (None, Some(name, binding))
+      | Return expr ->
+        match expr with
+        | Some(expr) ->
+          let! t = inferExpr expr env nonGeneric
+          return (Some(t), None)
+        | None -> return (None, None)
     }
 
   let inferPattern
@@ -907,3 +965,133 @@ module rec TypeChecker =
 
       return newEnv
     }
+
+  let findReturns (f: Syntax.Function) : list<Expr> =
+    let mutable returns: list<Expr> = []
+
+    let visitor =
+      { VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | _ -> true
+        VisitStmt =
+          fun stmt ->
+            match stmt with
+            | Return expr ->
+              match expr with
+              | Some expr -> returns <- expr :: returns
+              | None -> ()
+            | _ -> ()
+
+            true
+        VisitPattern = fun _ -> true }
+
+    match f.Body with
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Expr expr ->
+      walkExpr visitor expr
+      returns <- expr :: returns // We treat the expression as a return in this case
+
+    returns
+
+  type SyntaxVisitor =
+    { VisitExpr: Expr -> bool
+      VisitStmt: Stmt -> bool
+      VisitPattern: Syntax.Pattern -> bool }
+
+  let walkExpr (visitor: SyntaxVisitor) (expr: Expr) : unit =
+    let rec walk (expr: Expr) : unit =
+      if visitor.VisitExpr expr then
+        match expr.Kind with
+        | ExprKind.Ident _ -> ()
+        | ExprKind.Literal _ -> ()
+        | ExprKind.Function f ->
+          match f.Body with
+          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+          | BlockOrExpr.Expr expr -> walk expr
+        | ExprKind.Call(func, arguments) ->
+          walk func
+          List.iter walk arguments
+        | ExprKind.Tuple elements -> List.iter walk elements
+        | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+          walk condition
+          List.iter (walkStmt visitor) thenBranch.Stmts
+
+          Option.iter
+            (fun elseBranch ->
+              match elseBranch with
+              | BlockOrExpr.Block block ->
+                List.iter (walkStmt visitor) block.Stmts
+              | BlockOrExpr.Expr expr -> walk expr)
+            elseBranch
+        | ExprKind.Match(target, cases) ->
+          walk target
+
+          List.iter
+            (fun (case: MatchCase) ->
+              walkPattern visitor case.Pattern
+              walk case.Body
+              Option.iter walk case.Guard)
+            cases
+
+          failwith "todo"
+        | ExprKind.Binary(_op, left, right) ->
+          walk left
+          walk right
+        | ExprKind.Unary(_op, value) -> walk value
+        | ExprKind.Object elems -> failwith "todo"
+        | ExprKind.Try(body, catch, fin) ->
+          List.iter (walkStmt visitor) body.Stmts
+
+          Option.iter
+            (fun (e, body) ->
+              walk e
+              List.iter (walkStmt visitor) body.Stmts)
+            catch
+
+          Option.iter (fun body -> List.iter (walkStmt visitor) body.Stmts) fin
+        | ExprKind.Do body -> List.iter (walkStmt visitor) body.Stmts
+        | ExprKind.Await value -> walk value
+        | ExprKind.Throw value -> walk value
+        | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
+        | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
+          List.iter walk template.Exprs
+
+    walk expr
+
+  let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
+    let rec walk (stmt: Stmt) : unit =
+      if visitor.VisitStmt stmt then
+        match stmt with
+        | Expr expr -> walkExpr visitor expr
+        | For(left, right, body) ->
+          walkPattern visitor left
+          walkExpr visitor right
+          List.iter walk body.Stmts
+        | Let(_name, definition) -> walkExpr visitor definition
+        | LetRec(_name, definition) -> walkExpr visitor definition
+        | Return exprOption -> Option.iter (walkExpr visitor) exprOption
+
+    walk stmt
+
+  let walkPattern (visitor: SyntaxVisitor) (pat: Syntax.Pattern) : unit =
+    let rec walk (pat: Syntax.Pattern) : unit =
+      if visitor.VisitPattern pat then
+        match pat.Kind with
+        | PatternKind.Identifier _ -> ()
+        | PatternKind.Object elems ->
+          List.iter
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
+                walk value
+              | Syntax.ObjPatElem.ShorthandPat(span, name, init, is_mut) ->
+                Option.iter (walkExpr visitor) init)
+            elems
+        | PatternKind.Tuple elems -> List.iter walk elems
+        | PatternKind.Wildcard -> ()
+        | PatternKind.Literal(span, value) -> ()
+        | PatternKind.Is(span, ident, isName, isMut) -> ()
+
+    walk pat

@@ -40,7 +40,7 @@ let dummySpan =
     Stop = Position("", 0, 0, 0) }
 
 let ident x =
-  { Expr.Kind = ExprKind.Ident(x)
+  { Expr.Kind = ExprKind.Identifier(x)
     Span = dummySpan
     InferredType = None }
 
@@ -55,7 +55,14 @@ let boolean x =
     InferredType = None }
 
 let call (f, args) =
-  { Expr.Kind = ExprKind.Call(f, args)
+  let c =
+    { Callee = f
+      TypeArgs = None
+      Args = args
+      OptChain = false
+      Throws = None }
+
+  { Expr.Kind = ExprKind.Call(c)
     Span = dummySpan
     InferredType = None }
 
@@ -86,7 +93,7 @@ let func paramList stmts =
         { Sig =
             { ParamList = paramList
               TypeParams = None
-              Ret = None
+              ReturnType = None
               Throws = None }
           Body = BlockOrExpr.Block { Stmts = stmts; Span = dummySpan } }
       )
@@ -120,7 +127,7 @@ let fatArrow paramList expr =
         { Sig =
             { ParamList = paramList
               TypeParams = None
-              Ret = None
+              ReturnType = None
               Throws = None }
           Body = BlockOrExpr.Expr expr }
       )
@@ -142,7 +149,38 @@ let tuple exprs =
     Span = dummySpan
     InferredType = None }
 
-let block stmts = { Stmts = stmts; Span = dummySpan }
+let block stmts =
+  BlockOrExpr.Block { Stmts = stmts; Span = dummySpan }
+
+let stmt stmtKind =
+  { Stmt.Kind = stmtKind
+    Span = dummySpan }
+
+let letrec (name, expr) =
+  { Kind =
+      StmtKind.Decl(
+        { Kind = DeclKind.LetRec(name, expr)
+          Span = dummySpan }
+      )
+    Span = dummySpan }
+
+let let' (name, expr) =
+  let pattern =
+    { Pattern.Kind =
+        PatternKind.Identifier(
+          { Span = dummySpan
+            Name = name
+            IsMut = false }
+        )
+      Span = dummySpan
+      InferredType = None }
+
+  { Kind =
+      StmtKind.Decl(
+        { Kind = DeclKind.Let(pattern, expr)
+          Span = dummySpan }
+      )
+    Span = dummySpan }
 
 [<Fact>]
 let InferFactorial () =
@@ -157,13 +195,13 @@ let InferFactorial () =
         in factorial
      *)
     let ast =
-      LetRec(
+      letrec (
         "factorial",
         fatArrow
           [ "n" ] (* fn n => *)
           (ifelse (
             call (ident "zero", [ ident "n" ]),
-            (block [ ident "1" |> Stmt.Expr ]),
+            (block [ ident "1" |> StmtKind.Expr |> stmt ]),
             Some(
               BlockOrExpr.Block
                 { Stmts =
@@ -176,7 +214,8 @@ let InferFactorial () =
                         )
                       )
                       |> Some
-                      |> Stmt.Return ]
+                      |> StmtKind.Return
+                      |> stmt ]
                   Span = dummySpan }
             )
           ))
@@ -185,10 +224,12 @@ let InferFactorial () =
     let mutable env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! _, assump = inferStmt ast env nonGeneric
+    let! _, assumps = inferStmt ast env nonGeneric
 
-    match assump with
-    | Some(name, t) -> env <- env.AddValue name t
+    match assumps with
+    | Some(assumps) ->
+      for KeyValue(name, t) in assumps do
+        env <- env.AddValue name t
     | None -> ()
 
     let t = getType "factorial" env nonGeneric
@@ -204,11 +245,11 @@ let UnificationFailure () =
   let ast =
     func
       [ "x" ]
-      [ Stmt.Expr(
-          tuple
-            [ call (ident "x", [ number "3" ])
-              call (ident "x", [ boolean true ]) ]
-        ) ]
+      [ tuple
+          [ call (ident "x", [ number "3" ])
+            call (ident "x", [ boolean true ]) ]
+        |> StmtKind.Expr
+        |> stmt ]
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -237,8 +278,8 @@ let InferPair () =
 
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ Stmt.Let("f", fatArrow [ "x" ] (ident "x"))
-        Stmt.Let(
+      [ let' ("f", fatArrow [ "x" ] (ident "x"))
+        let' (
           "pair",
           tuple
             [ call (ident "f", [ number "4" ])
@@ -259,7 +300,8 @@ let InferPair () =
 [<Fact>]
 let RecursiveUnification () =
   (* fn f => f f (fail) *)
-  let ast = func [ "f" ] [ Stmt.Expr(call (ident "f", [ ident "f" ])) ]
+  let ast =
+    func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
   let nonGeneric = Set.empty
@@ -277,12 +319,14 @@ let InferGenericAndNonGeneric () =
     let ast =
       func
         [ "g" ]
-        [ Stmt.Let("f", func [ "x" ] [ Stmt.Expr(ident "g") ])
-          Stmt.Return(
-            Some(
-              tuple
-                [ call (ident "f", [ number "3" ])
-                  call (ident "f", [ boolean true ]) ]
+        [ (let' ("f", func [ "x" ] [ ident "g" |> StmtKind.Expr |> stmt ]))
+          stmt (
+            StmtKind.Return(
+              Some(
+                tuple
+                  [ call (ident "f", [ number "3" ])
+                    call (ident "f", [ boolean true ]) ]
+              )
             )
           ) ]
 
@@ -332,25 +376,31 @@ let InferScriptSKK () =
     let s =
       func
         [ "f" ]
-        [ Stmt.Expr(
-            func
-              [ "g" ]
-              [ Stmt.Expr(
-                  func
-                    [ "x" ]
-                    [ Stmt.Expr(
-                        call (
-                          call (ident "f", [ ident "x" ]),
-                          [ call (ident "g", [ ident "x" ]) ]
-                        )
-                      ) ]
-                ) ]
-          ) ]
+        [ func
+            [ "g" ]
+            [ func
+                [ "x" ]
+                [ call (
+                    call (ident "f", [ ident "x" ]),
+                    [ call (ident "g", [ ident "x" ]) ]
+                  )
+                  |> StmtKind.Expr
+                  |> stmt ]
+              |> StmtKind.Expr
+              |> stmt ]
+          |> StmtKind.Expr
+          |> stmt ]
 
-    let k = func [ "x" ] [ Stmt.Expr(func [ "y" ] [ Stmt.Expr(ident "x") ]) ]
+    let k =
+      func
+        [ "x" ]
+        [ func [ "y" ] [ ident "x" |> StmtKind.Expr |> stmt ]
+          |> StmtKind.Expr
+          |> stmt ]
+
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script = [ Stmt.Let("S", s); Stmt.Let("K", k); Stmt.Let("I", i) ]
+    let script = [ let' ("S", s); let' ("K", k); let' ("I", i) ]
 
     let! newEnv = inferScript script env
 

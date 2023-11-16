@@ -10,13 +10,15 @@
 
     <ItemGroup>
         <Compile Include="Tests.fs"/>
+        <Compile Include="ParserTests.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="FParsec" Version="1.1.1"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.1"/>
-        <PackageReference Include="xunit" Version="2.4.2"/>
+        <PackageReference Include="Verify.Xunit" Version="22.1.4"/>
+        <PackageReference Include="xunit" Version="2.5.2"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>

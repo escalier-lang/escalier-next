@@ -1,11 +1,11 @@
 ﻿namespace Escalier.HindleyMilner
 
+open Escalier.HindleyMilner.Errors
 open Escalier.HindleyMilner.Syntax
 open FsToolkit.ErrorHandling
 open System.Collections.Generic
 
 open Type
-open Errors
 
 module TypeVariable =
   let mutable nextVariableId = 0
@@ -38,8 +38,6 @@ module rec TypeChecker =
     member this.AddScheme (name: string) (s: Scheme) =
       { this with
           Schemes = Map.add name s this.Schemes }
-
-  type Assump = string * Binding
 
   let makePrimitiveKind name =
     { Name = name
@@ -521,15 +519,15 @@ module rec TypeChecker =
     : Result<Type, TypeError> =
     result {
       match expr.Kind with
-      | ExprKind.Ident(name) -> return getType name env nonGeneric
+      | ExprKind.Identifier(name) -> return getType name env nonGeneric
       | ExprKind.Literal(literal) ->
         return
           { Type.Kind = Literal(literal)
             Provenance = None }
-      | ExprKind.Call(callee, args) ->
-        let! callee = inferExpr callee env nonGeneric
+      | ExprKind.Call call ->
+        let! callee = inferExpr call.Callee env nonGeneric
 
-        let! result, throws = unifyCall args None callee env nonGeneric
+        let! result, throws = unifyCall call.Args None callee env nonGeneric
 
         // TODO: handle throws
 
@@ -576,10 +574,12 @@ module rec TypeChecker =
           List.traverseResultM
             (fun stmt ->
               result {
-                let! t, assump = inferStmt stmt newEnv newNonGeneric
+                let! t, assumps = inferStmt stmt newEnv newNonGeneric
 
-                match assump with
-                | Some(name, t) -> newEnv <- newEnv.AddValue name t
+                match assumps with
+                | Some(assumps) ->
+                  for KeyValue(name, binding) in assumps do
+                    newEnv <- newEnv.AddValue name binding
                 | None -> ()
 
                 return t
@@ -637,21 +637,38 @@ module rec TypeChecker =
         let! conditionTy = inferExpr condition env nonGeneric
 
         let! thenBranchTy =
-          result {
-            let! stmtResults =
-              List.traverseResultM
-                (fun stmt -> inferStmt stmt env nonGeneric)
-                thenBranch.Stmts
+          match thenBranch with
+          | BlockOrExpr.Block block ->
+            result {
+              let! stmtResults =
+                List.traverseResultM
+                  (fun stmt -> inferStmt stmt env nonGeneric)
+                  block.Stmts
 
-            let undefined =
-              { Kind = makePrimitiveKind "undefined"
-                Provenance = None }
+              let undefined =
+                { Kind = makePrimitiveKind "undefined"
+                  Provenance = None }
 
-            match List.tryLast stmtResults with
-            | Some(Some(t), _) -> return t
-            | Some(_) -> return undefined
-            | _ -> return undefined
-          }
+              match List.tryLast stmtResults with
+              | Some(Some(t), _) -> return t
+              | Some(_) -> return undefined
+              | _ -> return undefined
+            }
+          | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric
+
+        // let! stmtResults =
+        //   List.traverseResultM
+        //     (fun stmt -> inferStmt stmt env nonGeneric)
+        //     thenBranch.Stmts
+        //
+        // let undefined =
+        //   { Kind = makePrimitiveKind "undefined"
+        //     Provenance = None }
+        //
+        // match List.tryLast stmtResults with
+        // | Some(Some(t), _) -> return t
+        // | Some(_) -> return undefined
+        // | _ -> return undefined
 
         let! elseBranchTy =
           Option.traverseResult
@@ -781,7 +798,7 @@ module rec TypeChecker =
                 Scheme = None }
               |> TypeKind.TypeRef
         | TypeAnnKind.Function functionType ->
-          let! returnType = inferTypeAnn env functionType.Ret
+          let! returnType = inferTypeAnn env functionType.ReturnType
 
           let! throws =
             match functionType.Throws with
@@ -853,19 +870,24 @@ module rec TypeChecker =
     (stmt: Stmt)
     (env: Env)
     (nonGeneric: Set<int>)
-    : Result<option<Type> * option<Assump>, TypeError> =
+    : Result<option<Type> * option<BindingAssump>, TypeError> =
     result {
-      match stmt with
-      | Stmt.Expr expr ->
+      match stmt.Kind with
+      | StmtKind.Expr expr ->
         let! t = inferExpr expr env nonGeneric
         return (Some(t), None)
-      | For(pattern, right, block) ->
+      | StmtKind.For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
-      | Let(name, definition) ->
-        let! defnTy = inferExpr definition env nonGeneric
-        let assump = (name, (defnTy, false)) // TODO: isMut
-        return (None, Some(assump))
-      | LetRec(name, defn) ->
+      | StmtKind.Decl({ Kind = DeclKind.Let(pattern, init) }) ->
+
+        let! pat_bindings, pat_type = inferPattern env pattern
+        let! init_type = inferExpr init env nonGeneric
+
+        // TODO: handle var decls with type annotations
+
+        do! unify init_type pat_type
+        return (None, Some(pat_bindings))
+      | StmtKind.Decl({ Kind = DeclKind.LetRec(name, defn) }) ->
         let newTy = TypeVariable.makeVariable None
         let newEnv = env.AddValue name (newTy, false) // TODO: isMut
 
@@ -878,8 +900,11 @@ module rec TypeChecker =
         do! unify newTy defnTy
 
         let binding = (newTy, false) // TODO: isMut
-        return (None, Some(name, binding))
-      | Return expr ->
+        let map = Map.ofList [ name, binding ]
+        return (None, Some(map))
+      | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
+        return! Error(TypeError.NotImplemented "TODO: inferStmt - TypeDec")
+      | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->
           let! t = inferExpr expr env nonGeneric
@@ -944,21 +969,22 @@ module rec TypeChecker =
         List.traverseResultM
           (fun stmt ->
             result {
-              let! _, assump = inferStmt stmt newEnv nonGeneric
+              let! _, assumps = inferStmt stmt newEnv nonGeneric
 
-              match assump with
-              | Some(assump) ->
-                let name, binding = assump
-                let t = prune (fst binding)
+              match assumps with
+              | Some(assumps) ->
+                for KeyValue(name, binding) in assumps do
 
-                match t.Kind with
-                | TypeKind.Function f ->
-                  let t =
-                    { t with
-                        Kind = generalizeFunc f |> TypeKind.Function }
+                  let t = prune (fst binding)
 
-                  newEnv <- newEnv.AddValue name (t, snd binding)
-                | _ -> newEnv <- newEnv.AddValue name (t, snd binding)
+                  match t.Kind with
+                  | TypeKind.Function f ->
+                    let t =
+                      { t with
+                          Kind = generalizeFunc f |> TypeKind.Function }
+
+                    newEnv <- newEnv.AddValue name (t, snd binding)
+                  | _ -> newEnv <- newEnv.AddValue name (t, snd binding)
               | None -> ()
             })
           stmts
@@ -977,8 +1003,8 @@ module rec TypeChecker =
             | _ -> true
         VisitStmt =
           fun stmt ->
-            match stmt with
-            | Return expr ->
+            match stmt.Kind with
+            | StmtKind.Return expr ->
               match expr with
               | Some expr -> returns <- expr :: returns
               | None -> ()
@@ -995,6 +1021,7 @@ module rec TypeChecker =
 
     returns
 
+  // TODO: add VisitTypeAnn
   type SyntaxVisitor =
     { VisitExpr: Expr -> bool
       VisitStmt: Stmt -> bool
@@ -1004,19 +1031,26 @@ module rec TypeChecker =
     let rec walk (expr: Expr) : unit =
       if visitor.VisitExpr expr then
         match expr.Kind with
-        | ExprKind.Ident _ -> ()
+        | ExprKind.Identifier _ -> ()
         | ExprKind.Literal _ -> ()
         | ExprKind.Function f ->
           match f.Body with
           | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
           | BlockOrExpr.Expr expr -> walk expr
-        | ExprKind.Call(func, arguments) ->
-          walk func
-          List.iter walk arguments
+        | ExprKind.Call call ->
+          walk call.Callee
+          List.iter walk call.Args
         | ExprKind.Tuple elements -> List.iter walk elements
+        | ExprKind.Index(target, index, _optChain) ->
+          walk target
+          walk index
+        | ExprKind.Member(target, _name, _optChain) -> walk target
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           walk condition
-          List.iter (walkStmt visitor) thenBranch.Stmts
+
+          match thenBranch with
+          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+          | BlockOrExpr.Expr expr -> walk expr
 
           Option.iter
             (fun elseBranch ->
@@ -1036,6 +1070,7 @@ module rec TypeChecker =
             cases
 
           failwith "todo"
+        | ExprKind.Assign(_op, left, right)
         | ExprKind.Binary(_op, left, right) ->
           walk left
           walk right
@@ -1063,15 +1098,20 @@ module rec TypeChecker =
   let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
     let rec walk (stmt: Stmt) : unit =
       if visitor.VisitStmt stmt then
-        match stmt with
-        | Expr expr -> walkExpr visitor expr
-        | For(left, right, body) ->
+        match stmt.Kind with
+        | StmtKind.Expr expr -> walkExpr visitor expr
+        | StmtKind.For(left, right, body) ->
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | Let(_name, definition) -> walkExpr visitor definition
-        | LetRec(_name, definition) -> walkExpr visitor definition
-        | Return exprOption -> Option.iter (walkExpr visitor) exprOption
+        | StmtKind.Decl({ Kind = DeclKind.Let(_name, definition) }) ->
+          walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.LetRec(_name, definition) }) ->
+          walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
+          failwith "TODO: walkStmt - TypeDecl"
+        | StmtKind.Return exprOption ->
+          Option.iter (walkExpr visitor) exprOption
 
     walk stmt
 

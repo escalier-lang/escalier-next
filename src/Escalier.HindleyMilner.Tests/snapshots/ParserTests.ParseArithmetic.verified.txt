@@ -1,0 +1,45 @@
+﻿input: 0.1 + 2 * (3 - 4) / -5.6
+output: Success: { Kind =
+   Binary
+     ("+", { Kind = Literal (Number "0.1")
+             Span = { Start = (Ln: 1, Col: 1)
+                      Stop = (Ln: 1, Col: 4) }
+             InferredType = None },
+      { Kind =
+         Binary
+           ("/",
+            { Kind =
+               Binary
+                 ("*", { Kind = Literal (Number "2")
+                         Span = { Start = (Ln: 1, Col: 7)
+                                  Stop = (Ln: 1, Col: 8) }
+                         InferredType = None },
+                  { Kind =
+                     Binary
+                       ("-", { Kind = Literal (Number "3")
+                               Span = { Start = (Ln: 1, Col: 12)
+                                        Stop = (Ln: 1, Col: 13) }
+                               InferredType = None },
+                        { Kind = Literal (Number "4")
+                          Span = { Start = (Ln: 1, Col: 16)
+                                   Stop = (Ln: 1, Col: 17) }
+                          InferredType = None })
+                    Span = { Start = (Ln: 1, Col: 12)
+                             Stop = (Ln: 1, Col: 17) }
+                    InferredType = None })
+              Span = { Start = (Ln: 1, Col: 7)
+                       Stop = (Ln: 1, Col: 17) }
+              InferredType = None },
+            { Kind = Unary ("-", { Kind = Literal (Number "5.6")
+                                   Span = { Start = (Ln: 1, Col: 22)
+                                            Stop = (Ln: 1, Col: 25) }
+                                   InferredType = None })
+              Span = { Start = (Ln: 1, Col: 22)
+                       Stop = (Ln: 1, Col: 25) }
+              InferredType = None })
+        Span = { Start = (Ln: 1, Col: 7)
+                 Stop = (Ln: 1, Col: 25) }
+        InferredType = None })
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 25) }
+  InferredType = None }

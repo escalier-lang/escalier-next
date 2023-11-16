@@ -1,11 +1,11 @@
 ﻿namespace Escalier.HindleyMilner
 
+open Escalier.HindleyMilner.Errors
 open Escalier.HindleyMilner.Syntax
 open FsToolkit.ErrorHandling
 open System.Collections.Generic
 
 open Type
-open Errors
 
 module TypeVariable =
   let mutable nextVariableId = 0
@@ -38,8 +38,6 @@ module rec TypeChecker =
     member this.AddScheme (name: string) (s: Scheme) =
       { this with
           Schemes = Map.add name s this.Schemes }
-
-  type Assump = string * Binding
 
   let makePrimitiveKind name =
     { Name = name
@@ -576,10 +574,12 @@ module rec TypeChecker =
           List.traverseResultM
             (fun stmt ->
               result {
-                let! t, assump = inferStmt stmt newEnv newNonGeneric
+                let! t, assumps = inferStmt stmt newEnv newNonGeneric
 
-                match assump with
-                | Some(name, t) -> newEnv <- newEnv.AddValue name t
+                match assumps with
+                | Some(assumps) ->
+                  for KeyValue(name, binding) in assumps do
+                    newEnv <- newEnv.AddValue name binding
                 | None -> ()
 
                 return t
@@ -870,7 +870,7 @@ module rec TypeChecker =
     (stmt: Stmt)
     (env: Env)
     (nonGeneric: Set<int>)
-    : Result<option<Type> * option<Assump>, TypeError> =
+    : Result<option<Type> * option<BindingAssump>, TypeError> =
     result {
       match stmt.Kind with
       | StmtKind.Expr expr ->
@@ -878,11 +878,16 @@ module rec TypeChecker =
         return (Some(t), None)
       | StmtKind.For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
-      | StmtKind.Let(name, definition) ->
-        let! defnTy = inferExpr definition env nonGeneric
-        let assump = (name, (defnTy, false)) // TODO: isMut
-        return (None, Some(assump))
-      | StmtKind.LetRec(name, defn) ->
+      | StmtKind.Decl({ Kind = DeclKind.Let(pattern, init) }) ->
+
+        let! pat_bindings, pat_type = inferPattern env pattern
+        let! init_type = inferExpr init env nonGeneric
+
+        // TODO: handle var decls with type annotations
+
+        do! unify init_type pat_type
+        return (None, Some(pat_bindings))
+      | StmtKind.Decl({ Kind = DeclKind.LetRec(name, defn) }) ->
         let newTy = TypeVariable.makeVariable None
         let newEnv = env.AddValue name (newTy, false) // TODO: isMut
 
@@ -895,7 +900,10 @@ module rec TypeChecker =
         do! unify newTy defnTy
 
         let binding = (newTy, false) // TODO: isMut
-        return (None, Some(name, binding))
+        let map = Map.ofList [ name, binding ]
+        return (None, Some(map))
+      | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
+        return! Error(TypeError.NotImplemented "TODO: inferStmt - TypeDec")
       | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->
@@ -961,21 +969,22 @@ module rec TypeChecker =
         List.traverseResultM
           (fun stmt ->
             result {
-              let! _, assump = inferStmt stmt newEnv nonGeneric
+              let! _, assumps = inferStmt stmt newEnv nonGeneric
 
-              match assump with
-              | Some(assump) ->
-                let name, binding = assump
-                let t = prune (fst binding)
+              match assumps with
+              | Some(assumps) ->
+                for KeyValue(name, binding) in assumps do
 
-                match t.Kind with
-                | TypeKind.Function f ->
-                  let t =
-                    { t with
-                        Kind = generalizeFunc f |> TypeKind.Function }
+                  let t = prune (fst binding)
 
-                  newEnv <- newEnv.AddValue name (t, snd binding)
-                | _ -> newEnv <- newEnv.AddValue name (t, snd binding)
+                  match t.Kind with
+                  | TypeKind.Function f ->
+                    let t =
+                      { t with
+                          Kind = generalizeFunc f |> TypeKind.Function }
+
+                    newEnv <- newEnv.AddValue name (t, snd binding)
+                  | _ -> newEnv <- newEnv.AddValue name (t, snd binding)
               | None -> ()
             })
           stmts
@@ -1095,8 +1104,12 @@ module rec TypeChecker =
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | StmtKind.Let(_name, definition) -> walkExpr visitor definition
-        | StmtKind.LetRec(_name, definition) -> walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.Let(_name, definition) }) ->
+          walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.LetRec(_name, definition) }) ->
+          walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
+          failwith "TODO: walkStmt - TypeDecl"
         | StmtKind.Return exprOption ->
           Option.iter (walkExpr visitor) exprOption
 

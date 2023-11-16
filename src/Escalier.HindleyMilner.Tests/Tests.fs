@@ -156,6 +156,32 @@ let stmt stmtKind =
   { Stmt.Kind = stmtKind
     Span = dummySpan }
 
+let letrec (name, expr) =
+  { Kind =
+      StmtKind.Decl(
+        { Kind = DeclKind.LetRec(name, expr)
+          Span = dummySpan }
+      )
+    Span = dummySpan }
+
+let let' (name, expr) =
+  let pattern =
+    { Pattern.Kind =
+        PatternKind.Identifier(
+          { Span = dummySpan
+            Name = name
+            IsMut = false }
+        )
+      Span = dummySpan
+      InferredType = None }
+
+  { Kind =
+      StmtKind.Decl(
+        { Kind = DeclKind.Let(pattern, expr)
+          Span = dummySpan }
+      )
+    Span = dummySpan }
+
 [<Fact>]
 let InferFactorial () =
   result {
@@ -169,7 +195,7 @@ let InferFactorial () =
         in factorial
      *)
     let ast =
-      LetRec(
+      letrec (
         "factorial",
         fatArrow
           [ "n" ] (* fn n => *)
@@ -194,15 +220,16 @@ let InferFactorial () =
             )
           ))
       )
-      |> stmt
 
     let mutable env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! _, assump = inferStmt ast env nonGeneric
+    let! _, assumps = inferStmt ast env nonGeneric
 
-    match assump with
-    | Some(name, t) -> env <- env.AddValue name t
+    match assumps with
+    | Some(assumps) ->
+      for KeyValue(name, t) in assumps do
+        env <- env.AddValue name t
     | None -> ()
 
     let t = getType "factorial" env nonGeneric
@@ -251,14 +278,13 @@ let InferPair () =
 
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ StmtKind.Let("f", fatArrow [ "x" ] (ident "x")) |> stmt
-        StmtKind.Let(
+      [ let' ("f", fatArrow [ "x" ] (ident "x"))
+        let' (
           "pair",
           tuple
             [ call (ident "f", [ number "4" ])
               call (ident "f", [ boolean true ]) ]
-        )
-        |> stmt ]
+        ) ]
 
     let env = getEnv ()
 
@@ -293,12 +319,7 @@ let InferGenericAndNonGeneric () =
     let ast =
       func
         [ "g" ]
-        [ stmt (
-            StmtKind.Let(
-              "f",
-              func [ "x" ] [ ident "g" |> StmtKind.Expr |> stmt ]
-            )
-          )
+        [ (let' ("f", func [ "x" ] [ ident "g" |> StmtKind.Expr |> stmt ]))
           stmt (
             StmtKind.Return(
               Some(
@@ -379,10 +400,7 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script =
-      [ StmtKind.Let("S", s) |> stmt
-        StmtKind.Let("K", k) |> stmt
-        StmtKind.Let("I", i) |> stmt ]
+    let script = [ let' ("S", s); let' ("K", k); let' ("I", i) ]
 
     let! newEnv = inferScript script env
 

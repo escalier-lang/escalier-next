@@ -88,7 +88,41 @@ let func paramList stmts =
               TypeParams = None
               Ret = None
               Throws = None }
-          Body = { Stmts = stmts; Span = dummySpan } }
+          Body = BlockOrExpr.Block { Stmts = stmts; Span = dummySpan } }
+      )
+    Span = dummySpan
+    InferredType = None }
+
+let fatArrow paramList expr =
+  let paramList =
+    List.map
+      (fun name ->
+        let pattern =
+          { Pattern.Kind =
+              PatternKind.Identifier(
+                { Span = dummySpan
+                  Name = name
+                  IsMut = false }
+              )
+            Span = dummySpan
+            InferredType = None }
+
+        let param =
+          { Pattern = pattern
+            TypeAnn = None
+            Optional = false }
+
+        param)
+      paramList
+
+  { Expr.Kind =
+      ExprKind.Function(
+        { Sig =
+            { ParamList = paramList
+              TypeParams = None
+              Ret = None
+              Throws = None }
+          Body = BlockOrExpr.Expr expr }
       )
     Span = dummySpan
     InferredType = None }
@@ -108,6 +142,8 @@ let tuple exprs =
     Span = dummySpan
     InferredType = None }
 
+let block stmts = { Stmts = stmts; Span = dummySpan }
+
 [<Fact>]
 let InferFactorial () =
   result {
@@ -123,22 +159,27 @@ let InferFactorial () =
     let ast =
       LetRec(
         "factorial",
-        func
+        fatArrow
           [ "n" ] (* fn n => *)
-          [ Stmt.Expr(
-              ifelse (
-                call (ident "zero", [ ident "n" ]),
-                ident "1",
-                binary (
-                  "times", // op
-                  ident "n",
-                  call (
-                    ident "factorial",
-                    [ call (ident "pred", [ ident "n" ]) ]
-                  )
-                )
-              )
-            ) ]
+          (ifelse (
+            call (ident "zero", [ ident "n" ]),
+            (block [ ident "1" |> Stmt.Expr ]),
+            Some(
+              BlockOrExpr.Block
+                { Stmts =
+                    [ binary (
+                        "times", // op
+                        ident "n",
+                        call (
+                          ident "factorial",
+                          [ call (ident "pred", [ ident "n" ]) ]
+                        )
+                      )
+                      |> Some
+                      |> Stmt.Return ]
+                  Span = dummySpan }
+            )
+          ))
       )
 
     let mutable env = getEnv ()
@@ -196,7 +237,7 @@ let InferPair () =
 
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ Stmt.Let("f", func [ "x" ] [ Stmt.Expr(ident "x") ])
+      [ Stmt.Let("f", fatArrow [ "x" ] (ident "x"))
         Stmt.Let(
           "pair",
           tuple
@@ -237,10 +278,12 @@ let InferGenericAndNonGeneric () =
       func
         [ "g" ]
         [ Stmt.Let("f", func [ "x" ] [ Stmt.Expr(ident "g") ])
-          Stmt.Expr(
-            tuple
-              [ call (ident "f", [ number "3" ])
-                call (ident "f", [ boolean true ]) ]
+          Stmt.Return(
+            Some(
+              tuple
+                [ call (ident "f", [ number "3" ])
+                  call (ident "f", [ boolean true ]) ]
+            )
           ) ]
 
     let env = getEnv ()
@@ -258,19 +301,14 @@ let InferFuncComposition () =
     nextVariableId <- 0
 
     let ast =
-      func
+      fatArrow
         [ "f" ]
-        [ Stmt.Expr(
-            func
-              [ "g" ]
-              [ Stmt.Expr(
-                  func
-                    [ "arg" ]
-                    [ Stmt.Expr(
-                        call (ident "g", [ call (ident "f", [ ident "arg" ]) ])
-                      ) ]
-                ) ]
-          ) ]
+        (fatArrow
+          [ "g" ]
+          (fatArrow
+            [ "arg" ]
+            (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+
 
     let env = getEnv ()
     let nonGeneric = Set.empty

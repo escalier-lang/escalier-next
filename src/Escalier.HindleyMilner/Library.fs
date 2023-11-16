@@ -24,7 +24,7 @@ module TypeVariable =
 module rec TypeChecker =
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>
-  type SchemeAssump = (string * Scheme)
+  type SchemeAssump = string * Scheme
 
   type Env =
     { Values: Map<string, Binding>
@@ -41,24 +41,35 @@ module rec TypeChecker =
 
   type Assump = string * Binding
 
+  let makePrimitiveKind name =
+    { Name = name
+      TypeArgs = None
+      Scheme = None }
+    |> TypeKind.TypeRef
+
   let makeFunctionType typeParams paramList ret =
+    let never =
+      { Kind = makePrimitiveKind "never"
+        Provenance = None }
+
     { Kind =
         Function
           { TypeParams = typeParams
             ParamList = paramList
-            Ret = ret }
+            Return = ret
+            Throws = never }
       Provenance = None }
 
   let numType =
-    { Kind = TypeRef({ Name = "number"; TypeArgs = None })
+    { Kind = makePrimitiveKind "number"
       Provenance = None }
 
   let boolType =
-    { Kind = TypeRef({ Name = "boolean"; TypeArgs = None })
+    { Kind = makePrimitiveKind "boolean"
       Provenance = None }
 
   let strType =
-    { Kind = TypeRef({ Name = "string"; TypeArgs = None })
+    { Kind = makePrimitiveKind "string"
       Provenance = None }
 
   /// Returns the currently defining instance of t.
@@ -90,20 +101,60 @@ module rec TypeChecker =
                       List.map
                         (fun param -> { param with Type = fold param.Type })
                         f.ParamList
-                    Ret = fold f.Ret }
+                    // TODO: fold TypeParams
+                    Return = fold f.Return }
             Provenance = None }
         | Tuple(elems) ->
           let elems = List.map fold elems
 
           { Kind = Tuple(elems)
             Provenance = None }
-        | TypeRef({ Name = name; TypeArgs = typeArgs }) ->
+        | TypeRef({ Name = name
+                    TypeArgs = typeArgs
+                    Scheme = scheme }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
 
-          { Kind = TypeRef({ Name = name; TypeArgs = typeArgs })
+          let scheme =
+            Option.map
+              (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
+              scheme
+
+          { Kind =
+              TypeRef(
+                { Name = name
+                  TypeArgs = typeArgs
+                  Scheme = scheme }
+              )
             Provenance = None }
         | Literal _ -> t
         | Wildcard -> t
+        | Object _ -> failwith "TODO: foldType - Object"
+        | Rest t ->
+          { Kind = Rest(fold t)
+            Provenance = None }
+        | Union types ->
+          { Kind = Union(List.map fold types)
+            Provenance = None }
+        | Intersection types ->
+          { Kind = Intersection(List.map fold types)
+            Provenance = None }
+        | Array t ->
+          { Kind = Array(fold t)
+            Provenance = None }
+        | KeyOf t ->
+          { Kind = KeyOf(fold t)
+            Provenance = None }
+        | Index(target, index) ->
+          { Kind = Index(fold target, fold index)
+            Provenance = None }
+        | Condition(check, extends, trueType, falseType) ->
+          { Kind =
+              Condition(fold check, fold extends, fold trueType, fold falseType)
+            Provenance = None }
+        | Infer _ -> t
+        | Binary(left, op, right) ->
+          { Kind = Binary(fold left, op, fold right)
+            Provenance = None }
 
       match f t with
       | Some(t) -> t
@@ -122,7 +173,11 @@ module rec TypeChecker =
         match Map.tryFind id mapping with
         | Some(name) ->
           Some(
-            { Kind = TypeRef { Name = name; TypeArgs = None }
+            { Kind =
+                TypeRef
+                  { Name = name
+                    TypeArgs = None
+                    Scheme = None }
               Provenance = None }
           )
         | None ->
@@ -131,7 +186,11 @@ module rec TypeChecker =
           mapping <- mapping |> Map.add id tpName
 
           Some(
-            { Kind = TypeRef { Name = tpName; TypeArgs = None }
+            { Kind =
+                TypeRef
+                  { Name = tpName
+                    TypeArgs = None
+                    Scheme = None }
               Provenance = None }
           )
       | _ -> None
@@ -141,8 +200,8 @@ module rec TypeChecker =
         (fun (p: FuncParam) -> { p with Type = foldType folder p.Type })
         f.ParamList
 
-    // TODO: f.throws
-    let ret = foldType folder f.Ret
+    let ret = foldType folder f.Return
+    let throws = foldType folder f.Throws
 
     let values = mapping.Values |> List.ofSeq
 
@@ -162,7 +221,8 @@ module rec TypeChecker =
 
     { TypeParams = if newTypeParams.IsEmpty then None else Some(newTypeParams)
       ParamList = paramList
-      Ret = ret }
+      Return = ret
+      Throws = throws }
 
   let instantiateFunc
     (f: Function)
@@ -203,7 +263,8 @@ module rec TypeChecker =
                 { param with
                     Type = foldType folder param.Type })
               f.ParamList
-          Ret = foldType folder f.Ret }
+          Return = foldType folder f.Return
+          Throws = foldType folder f.Throws }
     }
 
   let occursInType (v: Type) (t2: Type) : bool =
@@ -272,7 +333,7 @@ module rec TypeChecker =
           (List.map
             (fun param -> { param with Type = loop param.Type })
             f.ParamList)
-          (loop f.Ret)
+          (loop f.Return)
       | TypeRef({ TypeArgs = typeArgs } as op) ->
         let kind =
           TypeRef(
@@ -330,7 +391,7 @@ module rec TypeChecker =
           let param2 = paramList2[i]
           do! unify param2 param1 // params are contravariant
 
-        do! unify f1.Ret f2.Ret // returns are covariant
+        do! unify f1.Return f2.Return // returns are covariant
       | TypeRef({ Name = name1; TypeArgs = types1 }),
         TypeRef({ Name = name2; TypeArgs = types2 }) ->
 
@@ -393,8 +454,8 @@ module rec TypeChecker =
           { Type.Kind =
               TypeKind.Function
                 { ParamList = paramList
-                  Ret = retType
-                  // throws = throwsType
+                  Return = retType
+                  Throws = throwsType
                   TypeParams = None } // TODO
             Provenance = None }
 
@@ -441,8 +502,8 @@ module rec TypeChecker =
           // TODO: check_mutability of `arg`
           do! unify argType param.Type // contravariant
 
-      do! unify retType callee.Ret // covariant
-      // do! unify throwsType callee.throws // TODO
+      do! unify retType callee.Return // covariant
+      do! unify throwsType callee.Throws // covariant
 
       return (retType, throwsType)
     }
@@ -510,7 +571,8 @@ module rec TypeChecker =
               })
             f.Sig.ParamList
 
-        let! stmtTypes =
+        match f.Body with
+        | BlockOrExpr.Block({ Stmts = stmts }) ->
           List.traverseResultM
             (fun stmt ->
               result {
@@ -522,17 +584,46 @@ module rec TypeChecker =
 
                 return t
               })
-            f.Body.Stmts
+            stmts
+          |> ignore
+        | BlockOrExpr.Expr expr -> inferExpr expr newEnv newNonGeneric |> ignore
 
-        let retTy =
-          match List.tryLast stmtTypes with
-          | Some(t) ->
-            match t with
-            | Some(t) -> t
-            | None -> failwith "Last statement must be an expression"
-          | None -> failwith "Empty lambda body"
+        let retExprs = findReturns f
 
-        return makeFunctionType None paramList retTy // TODO: handle explicit type params
+        let undefined =
+          { Kind = makePrimitiveKind "undefined"
+            Provenance = None }
+
+        let! retType =
+          result {
+            match retExprs with
+            | [] -> return undefined
+            | [ expr ] ->
+              match expr.InferredType with
+              | Some(t) -> return t
+              | None -> return! Error(TypeError.SemanticError "")
+            | exprs ->
+              let! types =
+                List.traverseResultM
+                  (fun (expr: Expr) ->
+                    match expr.InferredType with
+                    | Some(t) -> Ok t
+                    | None -> Error(TypeError.SemanticError ""))
+                  exprs
+
+              return
+                { Kind = TypeKind.Union types
+                  Provenance = None }
+          }
+
+        let! typeParams =
+          match f.Sig.TypeParams with
+          | Some(typeParams) ->
+            List.traverseResultM (inferTypeParam env) typeParams
+            |> Result.map Some
+          | None -> Ok None
+
+        return makeFunctionType typeParams paramList retType
       | ExprKind.Tuple elems ->
         let! elems =
           List.traverseResultM (fun elem -> inferExpr elem env nonGeneric) elems
@@ -544,18 +635,219 @@ module rec TypeChecker =
         let retTy = TypeVariable.makeVariable None
 
         let! conditionTy = inferExpr condition env nonGeneric
-        let! thenBranchTy = inferExpr thenBranch env nonGeneric
-        let! elseBranchTy = inferExpr elseBranch env nonGeneric
+
+        let! thenBranchTy =
+          result {
+            let! stmtResults =
+              List.traverseResultM
+                (fun stmt -> inferStmt stmt env nonGeneric)
+                thenBranch.Stmts
+
+            let undefined =
+              { Kind = makePrimitiveKind "undefined"
+                Provenance = None }
+
+            match List.tryLast stmtResults with
+            | Some(Some(t), _) -> return t
+            | Some(_) -> return undefined
+            | _ -> return undefined
+          }
+
+        let! elseBranchTy =
+          Option.traverseResult
+            (fun body ->
+              match body with
+              | BlockOrExpr.Block block ->
+                result {
+                  let! stmtResults =
+                    List.traverseResultM
+                      (fun stmt -> inferStmt stmt env nonGeneric)
+                      block.Stmts
+
+                  let undefined =
+                    { Kind = makePrimitiveKind "undefined"
+                      Provenance = None }
+
+                  match List.tryLast stmtResults with
+                  | Some(Some(t), _) -> return t
+                  | Some(_) -> return undefined
+                  | _ -> return undefined
+                }
+              | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric)
+            elseBranch
 
         do! unify conditionTy boolType
         do! unify thenBranchTy retTy
-        do! unify elseBranchTy retTy
+
+        match elseBranchTy with
+        | Some(elseBranchTy) -> do! unify elseBranchTy retTy
+        | None -> ()
 
         return retTy
       | _ ->
         return!
           Error(TypeError.NotImplemented "TODO: finish implementing infer_expr")
     }
+
+  let inferTypeParam
+    (env: Env)
+    (tp: Syntax.TypeParam)
+    : Result<TypeParam, TypeError> =
+    result {
+      let! c =
+        match tp.Constraint with
+        | Some(c) -> inferTypeAnn env c |> Result.map Some
+        | None -> Ok None
+
+      let! d =
+        match tp.Default with
+        | Some(d) -> inferTypeAnn env d |> Result.map Some
+        | None -> Ok None
+
+      return
+        { Name = tp.Name
+          Constraint = c
+          Default = d }
+    }
+
+  let inferTypeAnn (env: Env) (typeAnn: TypeAnn) : Result<Type, TypeError> =
+    let kind: Result<TypeKind, TypeError> =
+      result {
+        match typeAnn.Kind with
+        | TypeAnnKind.Array elem ->
+          let! elem = inferTypeAnn env elem
+          return TypeKind.Array elem
+        | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
+        | TypeAnnKind.Keyword keyword ->
+          match keyword with
+          | KeywordTypeAnn.Boolean -> return makePrimitiveKind "boolean"
+          | KeywordTypeAnn.Number -> return makePrimitiveKind "number"
+          | KeywordTypeAnn.String -> return makePrimitiveKind "string"
+          | KeywordTypeAnn.Symbol -> return makePrimitiveKind "symbol"
+          | KeywordTypeAnn.Null -> return TypeKind.Literal(Literal.Null)
+          | KeywordTypeAnn.Undefined ->
+            return TypeKind.Literal(Literal.Undefined)
+          | KeywordTypeAnn.Unknown -> return makePrimitiveKind "unknown"
+          | KeywordTypeAnn.Never -> return makePrimitiveKind "never"
+          | KeywordTypeAnn.Object -> return makePrimitiveKind "object"
+        | TypeAnnKind.Object elems ->
+          let! elems =
+            List.traverseResultM
+              (fun (elem: ObjTypeAnnElem) ->
+                result {
+                  // let! t = infer_type_ann env p.typeAnn
+                  // let pattern = pattern_to_pattern p.pattern
+
+                  // let elem: ObjTypeElem =
+                  //   match elem with
+                  //   | Callable f ->
+
+                  // return
+                  //   { pattern = pattern
+                  //     type_ = t
+                  //     optional = false }
+
+                  return!
+                    Error(
+                      TypeError.NotImplemented "TODO: inferTypeAnn - Object"
+                    )
+                })
+              elems
+
+          return TypeKind.Object(elems)
+        | TypeAnnKind.Tuple elems ->
+          let! elems = List.traverseResultM (inferTypeAnn env) elems
+          return TypeKind.Tuple(elems)
+        | TypeAnnKind.Union types ->
+          let! types = List.traverseResultM (inferTypeAnn env) types
+          return TypeKind.Union(types)
+        | TypeAnnKind.Intersection types ->
+          let! types = List.traverseResultM (inferTypeAnn env) types
+          return TypeKind.Intersection types
+        | TypeAnnKind.TypeRef(name, typeArgs) ->
+          match typeArgs with
+          | Some(typeArgs) ->
+            let! typeArgs = List.traverseResultM (inferTypeAnn env) typeArgs
+
+            return
+              { Name = name
+                TypeArgs = Some(typeArgs)
+                Scheme = None }
+              |> TypeKind.TypeRef
+          | None ->
+            return
+              { Name = name
+                TypeArgs = None
+                Scheme = None }
+              |> TypeKind.TypeRef
+        | TypeAnnKind.Function functionType ->
+          let! returnType = inferTypeAnn env functionType.Ret
+
+          let! throws =
+            match functionType.Throws with
+            | Some(throws) -> inferTypeAnn env throws
+            | None ->
+              Result.Ok(
+                { Type.Kind = makePrimitiveKind "never"
+                  Provenance = None }
+              )
+
+          let! paramList =
+            List.traverseResultM
+              (fun p ->
+                result {
+                  let! t = inferTypeAnn env p.TypeAnn
+                  let pattern = patternToPattern p.Pattern
+
+                  return
+                    { Pattern = pattern
+                      Type = t
+                      Optional = false }
+                })
+              functionType.ParamList
+
+          let f =
+            { TypeParams = None
+              ParamList = paramList
+              Return = returnType
+              Throws = throws }
+
+          return TypeKind.Function(f)
+        | TypeAnnKind.Keyof target ->
+          return! inferTypeAnn env target |> Result.map TypeKind.KeyOf
+        | TypeAnnKind.Rest target ->
+          return! inferTypeAnn env target |> Result.map TypeKind.Rest
+        | TypeAnnKind.Typeof target ->
+          return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Typeof") // TODO: add Typeof to TypeKind
+        | TypeAnnKind.Index(target, index) ->
+          let! target = inferTypeAnn env target
+          let! index = inferTypeAnn env index
+          return TypeKind.Index(target, index)
+        | TypeAnnKind.Condition conditionType ->
+          let! check = inferTypeAnn env conditionType.Check
+          let! extends = inferTypeAnn env conditionType.Extends
+          let! trueType = inferTypeAnn env conditionType.TrueType
+          let! falseType = inferTypeAnn env conditionType.FalseType
+          return TypeKind.Condition(check, extends, trueType, falseType)
+        | TypeAnnKind.Match matchType ->
+          return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
+        | TypeAnnKind.Infer name -> return TypeKind.Infer name
+        | TypeAnnKind.Wildcard -> return TypeKind.Wildcard
+        | TypeAnnKind.Binary(left, op, right) ->
+          let! left = inferTypeAnn env left
+          let! right = inferTypeAnn env right
+          return TypeKind.Binary(left, op, right)
+      }
+
+    let t: Result<Type, TypeError> =
+      Result.map
+        (fun kind ->
+          let t = { Kind = kind; Provenance = None }
+          typeAnn.InferredType <- Some(t)
+          t)
+        kind
+
+    t
 
   let inferStmt
     (stmt: Stmt)
@@ -587,6 +879,12 @@ module rec TypeChecker =
 
         let binding = (newTy, false) // TODO: isMut
         return (None, Some(name, binding))
+      | Return expr ->
+        match expr with
+        | Some(expr) ->
+          let! t = inferExpr expr env nonGeneric
+          return (Some(t), None)
+        | None -> return (None, None)
     }
 
   let inferPattern
@@ -667,3 +965,133 @@ module rec TypeChecker =
 
       return newEnv
     }
+
+  let findReturns (f: Syntax.Function) : list<Expr> =
+    let mutable returns: list<Expr> = []
+
+    let visitor =
+      { VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | _ -> true
+        VisitStmt =
+          fun stmt ->
+            match stmt with
+            | Return expr ->
+              match expr with
+              | Some expr -> returns <- expr :: returns
+              | None -> ()
+            | _ -> ()
+
+            true
+        VisitPattern = fun _ -> true }
+
+    match f.Body with
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Expr expr ->
+      walkExpr visitor expr
+      returns <- expr :: returns // We treat the expression as a return in this case
+
+    returns
+
+  type SyntaxVisitor =
+    { VisitExpr: Expr -> bool
+      VisitStmt: Stmt -> bool
+      VisitPattern: Syntax.Pattern -> bool }
+
+  let walkExpr (visitor: SyntaxVisitor) (expr: Expr) : unit =
+    let rec walk (expr: Expr) : unit =
+      if visitor.VisitExpr expr then
+        match expr.Kind with
+        | ExprKind.Ident _ -> ()
+        | ExprKind.Literal _ -> ()
+        | ExprKind.Function f ->
+          match f.Body with
+          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+          | BlockOrExpr.Expr expr -> walk expr
+        | ExprKind.Call(func, arguments) ->
+          walk func
+          List.iter walk arguments
+        | ExprKind.Tuple elements -> List.iter walk elements
+        | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+          walk condition
+          List.iter (walkStmt visitor) thenBranch.Stmts
+
+          Option.iter
+            (fun elseBranch ->
+              match elseBranch with
+              | BlockOrExpr.Block block ->
+                List.iter (walkStmt visitor) block.Stmts
+              | BlockOrExpr.Expr expr -> walk expr)
+            elseBranch
+        | ExprKind.Match(target, cases) ->
+          walk target
+
+          List.iter
+            (fun (case: MatchCase) ->
+              walkPattern visitor case.Pattern
+              walk case.Body
+              Option.iter walk case.Guard)
+            cases
+
+          failwith "todo"
+        | ExprKind.Binary(_op, left, right) ->
+          walk left
+          walk right
+        | ExprKind.Unary(_op, value) -> walk value
+        | ExprKind.Object elems -> failwith "todo"
+        | ExprKind.Try(body, catch, fin) ->
+          List.iter (walkStmt visitor) body.Stmts
+
+          Option.iter
+            (fun (e, body) ->
+              walk e
+              List.iter (walkStmt visitor) body.Stmts)
+            catch
+
+          Option.iter (fun body -> List.iter (walkStmt visitor) body.Stmts) fin
+        | ExprKind.Do body -> List.iter (walkStmt visitor) body.Stmts
+        | ExprKind.Await value -> walk value
+        | ExprKind.Throw value -> walk value
+        | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
+        | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
+          List.iter walk template.Exprs
+
+    walk expr
+
+  let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
+    let rec walk (stmt: Stmt) : unit =
+      if visitor.VisitStmt stmt then
+        match stmt with
+        | Expr expr -> walkExpr visitor expr
+        | For(left, right, body) ->
+          walkPattern visitor left
+          walkExpr visitor right
+          List.iter walk body.Stmts
+        | Let(_name, definition) -> walkExpr visitor definition
+        | LetRec(_name, definition) -> walkExpr visitor definition
+        | Return exprOption -> Option.iter (walkExpr visitor) exprOption
+
+    walk stmt
+
+  let walkPattern (visitor: SyntaxVisitor) (pat: Syntax.Pattern) : unit =
+    let rec walk (pat: Syntax.Pattern) : unit =
+      if visitor.VisitPattern pat then
+        match pat.Kind with
+        | PatternKind.Identifier _ -> ()
+        | PatternKind.Object elems ->
+          List.iter
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
+                walk value
+              | Syntax.ObjPatElem.ShorthandPat(span, name, init, is_mut) ->
+                Option.iter (walkExpr visitor) init)
+            elems
+        | PatternKind.Tuple elems -> List.iter walk elems
+        | PatternKind.Wildcard -> ()
+        | PatternKind.Literal(span, value) -> ()
+        | PatternKind.Is(span, ident, isName, isMut) -> ()
+
+    walk pat

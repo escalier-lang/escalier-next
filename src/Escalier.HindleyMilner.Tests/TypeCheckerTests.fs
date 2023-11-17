@@ -17,7 +17,7 @@ type Assert with
 
   static member inline Type(env: Env, name: string, expected: string) =
     let scheme = Map.find name env.Schemes
-    Assert.Equal(expected, scheme.Type.ToString())
+    Assert.Equal(expected, scheme.ToString())
 
 type CompileError =
   | ParseError of ParserError
@@ -360,7 +360,7 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: implement type declarations")>]
+[<Fact>]
 let InferTypeDecls () =
   let result =
     result {
@@ -370,6 +370,7 @@ let InferTypeDecls () =
           type B = [string, boolean]
           type C = 5 | "hello"
           type D = fn (x: number) -> number
+          type Nullable<T> = T | undefined
           """
 
       let! env = inferScript src
@@ -378,6 +379,7 @@ let InferTypeDecls () =
       Assert.Type(env, "B", "[string, boolean]")
       Assert.Type(env, "C", "5 | \"hello\"")
       Assert.Type(env, "D", "fn (x: number) -> number")
+      Assert.Type(env, "Nullable", "<T>(T | undefined)")
     }
 
   Assert.False(Result.isError result)
@@ -416,6 +418,19 @@ let InferSKK () =
 
       Assert.Value(env, "K", "fn <A, B>(x: A) -> fn (y: B) -> A")
       Assert.Value(env, "I", "fn <A>(x: A) -> A")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTypeAnn () =
+  let result =
+    result {
+      let src = "let x: number = 5"
+
+      let! env = inferScript src
+
+      Assert.Value(env, "x", "number")
     }
 
   Assert.False(Result.isError result)

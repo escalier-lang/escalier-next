@@ -375,17 +375,18 @@ module Parser =
 
   // TODO: parse type params
   let private typeDecl =
-    pipe4
+    pipe5
       getPosition
       (strWs "type" >>. ident)
+      (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
       (strWs "=" >>. typeAnn)
       getPosition
-    <| fun start id typeAnn stop ->
+    <| fun start id typeParams typeAnn stop ->
       let span = { Start = start; Stop = stop }
 
       { Stmt.Kind =
           Decl(
-            { Kind = TypeDecl(id, typeAnn, None)
+            { Kind = TypeDecl(id, typeAnn, typeParams)
               Span = span }
           )
         Span = span }

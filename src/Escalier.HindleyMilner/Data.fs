@@ -86,7 +86,7 @@ module Syntax =
   type Expr =
     { Kind: ExprKind
       Span: Span
-      InferredType: option<Type.Type> }
+      mutable InferredType: option<Type.Type> }
 
     override this.ToString() = this.Kind.ToString()
 

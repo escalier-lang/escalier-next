@@ -1,3 +1,5 @@
+// TODO: get rid of shared `nextVariableId`
+[<Xunit.Collection("Sequential")>]
 module Tests
 
 open Xunit
@@ -314,29 +316,35 @@ let RecursiveUnification () =
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
+    printfn "InferGenericAndNonGeneric - start"
     nextVariableId <- 0
 
     let ast =
-      func
-        [ "g" ]
-        [ (let' ("f", func [ "x" ] [ ident "g" |> StmtKind.Expr |> stmt ]))
-          stmt (
-            StmtKind.Return(
-              Some(
-                tuple
-                  [ call (ident "f", [ number "3" ])
-                    call (ident "f", [ boolean true ]) ]
-              )
-            )
-          ) ]
+      [ let' (
+          "foo",
+          func
+            [ "g" ]
+            [ (let' ("f", fatArrow [ "x" ] (ident "g")))
+              stmt (
+                StmtKind.Return(
+                  Some(
+                    tuple
+                      [ call (ident "f", [ number "3" ])
+                        call (ident "f", [ boolean true ]) ]
+                  )
+                )
+              ) ]
+        ) ]
 
     let env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! t = inferExpr ast env nonGeneric
+    let! newEnv = inferScript ast env
 
+    let t = getType "foo" newEnv nonGeneric
     (* fn g => let f = fn x => g in [f 3, f true] *)
-    Assert.Equal("fn (g: t0) -> [t0, t0]", t.ToString())
+    Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
+    printfn "InferGenericAndNonGeneric - end"
   }
 
 [<Fact>]

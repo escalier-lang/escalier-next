@@ -158,15 +158,7 @@ let stmt stmtKind =
   { Stmt.Kind = stmtKind
     Span = dummySpan }
 
-let letrec (name, expr) =
-  { Kind =
-      StmtKind.Decl(
-        { Kind = DeclKind.LetRec(name, expr)
-          Span = dummySpan }
-      )
-    Span = dummySpan }
-
-let let' (name, expr) =
+let varDecl (name, expr) =
   let pattern =
     { Pattern.Kind =
         PatternKind.Identifier(
@@ -179,7 +171,7 @@ let let' (name, expr) =
 
   { Kind =
       StmtKind.Decl(
-        { Kind = DeclKind.Let(pattern, expr)
+        { Kind = DeclKind.VarDecl(pattern, expr, None)
           Span = dummySpan }
       )
     Span = dummySpan }
@@ -189,7 +181,7 @@ let InferFactorial () =
   result {
     nextVariableId <- 0
 
-    (* letrec factorial =
+    (* let factorial =
         fn n =>
           if (zero n) 
             then 1 
@@ -197,7 +189,7 @@ let InferFactorial () =
         in factorial
      *)
     let ast =
-      letrec (
+      varDecl (
         "factorial",
         fatArrow
           [ "n" ] (* fn n => *)
@@ -205,20 +197,16 @@ let InferFactorial () =
             call (ident "zero", [ ident "n" ]),
             (block [ ident "1" |> StmtKind.Expr |> stmt ]),
             Some(
-              BlockOrExpr.Block
-                { Stmts =
-                    [ binary (
-                        "times", // op
-                        ident "n",
-                        call (
-                          ident "factorial",
-                          [ call (ident "pred", [ ident "n" ]) ]
-                        )
-                      )
-                      |> Some
-                      |> StmtKind.Return
-                      |> stmt ]
-                  Span = dummySpan }
+              BlockOrExpr.Expr(
+                binary (
+                  "times", // op
+                  ident "n",
+                  call (
+                    ident "factorial",
+                    [ call (ident "pred", [ ident "n" ]) ]
+                  )
+                )
+              )
             )
           ))
       )
@@ -236,8 +224,7 @@ let InferFactorial () =
 
     let t = getType "factorial" env nonGeneric
 
-    // TODO: figure out how to preserve the param name
-    Assert.Equal("fn (arg0: number) -> number", t.ToString())
+    Assert.Equal("fn (n: number) -> number", t.ToString())
   }
 
 [<Fact>]
@@ -280,8 +267,8 @@ let InferPair () =
 
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ let' ("f", fatArrow [ "x" ] (ident "x"))
-        let' (
+      [ varDecl ("f", fatArrow [ "x" ] (ident "x"))
+        varDecl (
           "pair",
           tuple
             [ call (ident "f", [ number "4" ])
@@ -320,11 +307,11 @@ let InferGenericAndNonGeneric () =
     nextVariableId <- 0
 
     let ast =
-      [ let' (
+      [ varDecl (
           "foo",
           func
             [ "g" ]
-            [ (let' ("f", fatArrow [ "x" ] (ident "g")))
+            [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
               stmt (
                 StmtKind.Return(
                   Some(
@@ -408,7 +395,7 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script = [ let' ("S", s); let' ("K", k); let' ("I", i) ]
+    let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
 
     let! newEnv = inferScript script env
 

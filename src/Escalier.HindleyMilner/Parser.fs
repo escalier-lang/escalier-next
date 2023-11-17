@@ -349,22 +349,26 @@ module Parser =
   exprRef.Value <- opp.ExpressionParser
 
   let private exprStmt: Parser<Stmt, unit> =
-    withSpan (expr) |>> fun (e, span) -> { Stmt.Kind = Expr(e); Span = span }
+    withSpan expr |>> fun (e, span) -> { Stmt.Kind = Expr(e); Span = span }
 
   let private returnStmt: Parser<Stmt, unit> =
     withSpan (strWs "return" >>. opt expr)
     |>> fun (e, span) -> { Stmt.Kind = Return(e); Span = span }
 
-  // TODO: handle `let rec <expr> = <expr>`
   // `let <expr> = <expr>`
   let private varDecl =
-    pipe4 getPosition (strWs "let" >>. pattern) (strWs "=" >>. expr) getPosition
-    <| fun start pat init stop ->
+    pipe5
+      getPosition
+      (strWs "let" >>. pattern)
+      (opt (strWs ":" >>. ws >>. typeAnn))
+      (strWs "=" >>. expr)
+      getPosition
+    <| fun start pat typeAnn init stop ->
       let span = { Start = start; Stop = stop }
 
       { Stmt.Kind =
           Decl(
-            { Kind = DeclKind.Let(pat, init)
+            { Kind = DeclKind.VarDecl(pat, init, typeAnn)
               Span = span }
           )
         Span = span }
@@ -386,7 +390,7 @@ module Parser =
           )
         Span = span }
 
-  // TODO: Parse for loops
+  // TODO: Parse for-loops
   stmtRef.Value <- ws >>. choice [ varDecl; typeDecl; returnStmt; exprStmt ]
 
 

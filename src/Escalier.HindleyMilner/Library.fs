@@ -677,9 +677,7 @@ module rec TypeChecker =
 
           return
             match elseBranchTy with
-            | Some(elseBranchTy) ->
-              { Kind = TypeKind.Union([ thenBranchTy; elseBranchTy ])
-                Provenance = None }
+            | Some(elseBranchTy) -> union [ thenBranchTy; elseBranchTy ]
             | None ->
               { Kind = makePrimitiveKind "undefined"
                 Provenance = None }
@@ -904,30 +902,27 @@ module rec TypeChecker =
         return (Some(t), None)
       | StmtKind.For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
-      | StmtKind.Decl({ Kind = DeclKind.Let(pattern, init) }) ->
+      | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
+        let! patBindings, patType = inferPattern env pattern
 
-        let! pat_bindings, pat_type = inferPattern env pattern
-        let! init_type = inferExpr init env nonGeneric
-
-        // TODO: handle var decls with type annotations
-
-        do! unify init_type pat_type
-        return (None, Some(pat_bindings))
-      | StmtKind.Decl({ Kind = DeclKind.LetRec(name, defn) }) ->
         let newTy = TypeVariable.makeVariable None
-        let newEnv = env.AddValue name (newTy, false) // TODO: isMut
+        let mutable newEnv = env
+
+        for KeyValue(name, binding) in patBindings do
+          newEnv <- newEnv.AddValue name binding
 
         let newNonGeneric =
           match newTy.Kind with
           | TypeVar { Id = id } -> nonGeneric |> Set.add id
           | _ -> nonGeneric
 
-        let! defnTy = inferExpr defn newEnv newNonGeneric
-        do! unify newTy defnTy
+        let! initType = inferExpr init newEnv newNonGeneric
+        do! unify newTy initType
+        do! unify initType patType
 
-        let binding = (newTy, false) // TODO: isMut
-        let map = Map.ofList [ name, binding ]
-        return (None, Some(map))
+        // TODO: check things against `typeAnn` if one is provided
+
+        return (None, Some(patBindings))
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
         return! Error(TypeError.NotImplemented "TODO: inferStmt - TypeDec")
       | StmtKind.Return expr ->
@@ -1032,7 +1027,10 @@ module rec TypeChecker =
             match stmt.Kind with
             | StmtKind.Return expr ->
               match expr with
-              | Some expr -> returns <- expr :: returns
+              | Some expr ->
+                printfn "Encountered a Return statement"
+                returns <- expr :: returns
+                printfn "returns.Length = %d" returns.Length
               | None -> ()
             | _ -> ()
 
@@ -1042,8 +1040,10 @@ module rec TypeChecker =
     match f.Body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
     | BlockOrExpr.Expr expr ->
-      walkExpr visitor expr
+      walkExpr visitor expr // There might be early returns in match expression
       returns <- expr :: returns // We treat the expression as a return in this case
+
+    printfn "returns.Length = %d" returns.Length
 
     returns
 
@@ -1130,10 +1130,9 @@ module rec TypeChecker =
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | StmtKind.Decl({ Kind = DeclKind.Let(_name, definition) }) ->
-          walkExpr visitor definition
-        | StmtKind.Decl({ Kind = DeclKind.LetRec(_name, definition) }) ->
-          walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl(_name, init, typeAnn) }) ->
+          // TODO: walk typeAnn
+          walkExpr visitor init
         | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
           failwith "TODO: walkStmt - TypeDecl"
         | StmtKind.Return exprOption ->
@@ -1161,3 +1160,19 @@ module rec TypeChecker =
         | PatternKind.Is(span, ident, isName, isMut) -> ()
 
     walk pat
+
+  let union (types: list<Type>) : Type =
+    match types with
+    | [] ->
+      { Kind = makePrimitiveKind "never"
+        Provenance = None }
+    | [ t ] -> t
+    | types ->
+      let types =
+        types
+        |> List.map prune
+        |> Seq.distinctBy (fun t -> t.Kind)
+        |> Seq.toList
+
+      { Kind = TypeKind.Union(types)
+        Provenance = None }

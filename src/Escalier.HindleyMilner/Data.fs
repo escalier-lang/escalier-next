@@ -86,7 +86,7 @@ module Syntax =
   type Expr =
     { Kind: ExprKind
       Span: Span
-      InferredType: option<Type.Type> }
+      mutable InferredType: option<Type.Type> }
 
     override this.ToString() = this.Kind.ToString()
 
@@ -145,12 +145,11 @@ module Syntax =
     override this.ToString() = this.Kind.ToString()
 
   type DeclKind =
-    | Let of name: Pattern * definition: Expr // TODO: use Pattern for lhs
-    | LetRec of name: string * definition: Expr // TODO: use Pattern for lhs
+    | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
     | TypeDecl of
       name: string *
-      type_ann: TypeAnn *
-      type_params: option<list<TypeParam>>
+      typeAnn: TypeAnn *
+      typeParams: option<list<TypeParam>>
 
   type Decl = { Kind: DeclKind; Span: Span }
 

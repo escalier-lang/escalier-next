@@ -517,64 +517,194 @@ module rec TypeChecker =
     (env: Env)
     (nonGeneric: Set<int>)
     : Result<Type, TypeError> =
-    result {
-      match expr.Kind with
-      | ExprKind.Identifier(name) -> return getType name env nonGeneric
-      | ExprKind.Literal(literal) ->
-        return
-          { Type.Kind = Literal(literal)
-            Provenance = None }
-      | ExprKind.Call call ->
-        let! callee = inferExpr call.Callee env nonGeneric
+    let r =
+      result {
+        match expr.Kind with
+        | ExprKind.Identifier(name) -> return getType name env nonGeneric
+        | ExprKind.Literal(literal) ->
+          return
+            { Type.Kind = Literal(literal)
+              Provenance = None }
+        | ExprKind.Call call ->
+          let! callee = inferExpr call.Callee env nonGeneric
 
-        let! result, throws = unifyCall call.Args None callee env nonGeneric
+          let! result, throws = unifyCall call.Args None callee env nonGeneric
 
-        // TODO: handle throws
+          // TODO: handle throws
 
-        return result
-      | ExprKind.Binary(op, left, right) ->
-        let funTy = getType op env nonGeneric
+          return result
+        | ExprKind.Binary(op, left, right) ->
+          let funTy = getType op env nonGeneric
 
-        let! result, throws =
-          unifyCall [ left; right ] None funTy env nonGeneric
+          let! result, throws =
+            unifyCall [ left; right ] None funTy env nonGeneric
 
-        // TODO: handle throws
+          // TODO: handle throws
 
-        return result
-      | ExprKind.Function f ->
-        let mutable newEnv = env
-        let mutable newNonGeneric = nonGeneric
+          return result
+        | ExprKind.Function f ->
+          let mutable newEnv = env
+          let mutable newNonGeneric = nonGeneric
 
-        let! paramList =
-          List.traverseResultM
-            (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
-              result {
-                let paramType = TypeVariable.makeVariable None in
-                let! assumps, patternType = inferPattern env param.Pattern
-                do! unify patternType paramType
+          let! paramList =
+            List.traverseResultM
+              (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
+                result {
+                  let! paramType =
+                    match param.TypeAnn with
+                    | Some(typeAnn) -> inferTypeAnn env typeAnn
+                    | None -> Result.Ok(TypeVariable.makeVariable None)
+                  // TypeVariable.makeVariable None in
+                  let! assumps, patternType = inferPattern env param.Pattern
+                  do! unify patternType paramType
 
-                for KeyValue(name, binding) in assumps do
-                  // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
-                  newEnv <- newEnv.AddValue name binding
+                  for KeyValue(name, binding) in assumps do
+                    // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
+                    newEnv <- newEnv.AddValue name binding
 
-                match paramType.Kind with
-                | TypeVar { Id = id } ->
-                  newNonGeneric <- newNonGeneric |> Set.add id
-                | _ -> ()
+                  match paramType.Kind with
+                  | TypeVar { Id = id } ->
+                    newNonGeneric <- newNonGeneric |> Set.add id
+                  | _ -> ()
+
+                  return
+                    { Pattern = patternToPattern param.Pattern
+                      Type = paramType
+                      Optional = false }
+                })
+              f.Sig.ParamList
+
+          match f.Body with
+          | BlockOrExpr.Block({ Stmts = stmts }) ->
+            List.traverseResultM
+              (fun stmt ->
+                result {
+                  let! t, assumps = inferStmt stmt newEnv newNonGeneric
+
+                  match assumps with
+                  | Some(assumps) ->
+                    for KeyValue(name, binding) in assumps do
+                      newEnv <- newEnv.AddValue name binding
+                  | None -> ()
+
+                  return t
+                })
+              stmts
+            |> ignore
+          | BlockOrExpr.Expr expr ->
+            inferExpr expr newEnv newNonGeneric |> ignore
+
+          let retExprs = findReturns f
+
+          let undefined =
+            { Kind = makePrimitiveKind "undefined"
+              Provenance = None }
+
+          let! retType =
+            result {
+              match retExprs with
+              | [] -> return undefined
+              | [ expr ] ->
+                match expr.InferredType with
+                | Some(t) -> return t
+                | None -> return! Error(TypeError.SemanticError "")
+              | exprs ->
+                let! types =
+                  List.traverseResultM
+                    (fun (expr: Expr) ->
+                      match expr.InferredType with
+                      | Some(t) -> Ok t
+                      | None -> Error(TypeError.SemanticError ""))
+                    exprs
 
                 return
-                  { Pattern = patternToPattern param.Pattern
-                    Type = paramType
-                    Optional = false }
-              })
-            f.Sig.ParamList
+                  { Kind = TypeKind.Union types
+                    Provenance = None }
+            }
 
-        match f.Body with
-        | BlockOrExpr.Block({ Stmts = stmts }) ->
+          // TODO: move this up so that we can reference any type params in the
+          // function params, body, return or throws
+          let! typeParams =
+            match f.Sig.TypeParams with
+            | Some(typeParams) ->
+              List.traverseResultM (inferTypeParam env) typeParams
+              |> Result.map Some
+            | None -> Ok None
+
+          return makeFunctionType typeParams paramList retType
+        | ExprKind.Tuple elems ->
+          let! elems =
+            List.traverseResultM
+              (fun elem -> inferExpr elem env nonGeneric)
+              elems
+
+          return
+            { Type.Kind = TypeKind.Tuple(elems)
+              Provenance = None }
+        | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+          let! conditionTy = inferExpr condition env nonGeneric
+          let! thenBranchTy = inferBlockOrExpr thenBranch env nonGeneric
+
+          // TODO: call inferBlockOrExpr
+          let! elseBranchTy =
+            Option.traverseResult
+              (fun body ->
+                match body with
+                | BlockOrExpr.Block block ->
+                  result {
+                    let! stmtResults =
+                      List.traverseResultM
+                        (fun stmt -> inferStmt stmt env nonGeneric)
+                        block.Stmts
+
+                    let undefined =
+                      { Kind = makePrimitiveKind "undefined"
+                        Provenance = None }
+
+                    match List.tryLast stmtResults with
+                    | Some(Some(t), _) -> return t
+                    | Some(_) -> return undefined
+                    | _ -> return undefined
+                  }
+                | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric)
+              elseBranch
+
+          do! unify conditionTy boolType
+
+          return
+            match elseBranchTy with
+            | Some(elseBranchTy) -> union [ thenBranchTy; elseBranchTy ]
+            | None ->
+              { Kind = makePrimitiveKind "undefined"
+                Provenance = None }
+        | _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: finish implementing infer_expr"
+            )
+      }
+
+    Result.map
+      (fun t ->
+        expr.InferredType <- Some(t)
+        t)
+      r
+
+  let inferBlockOrExpr
+    (blockOrExpr: BlockOrExpr)
+    (env: Env)
+    (nonGeneric: Set<int>)
+    : Result<Type, TypeError> =
+    result {
+      let mutable newEnv = env
+
+      match blockOrExpr with
+      | BlockOrExpr.Block({ Stmts = stmts }) ->
+        let! stmtResults =
           List.traverseResultM
             (fun stmt ->
               result {
-                let! t, assumps = inferStmt stmt newEnv newNonGeneric
+                let! t, assumps = inferStmt stmt newEnv nonGeneric
 
                 match assumps with
                 | Some(assumps) ->
@@ -585,125 +715,15 @@ module rec TypeChecker =
                 return t
               })
             stmts
-          |> ignore
-        | BlockOrExpr.Expr expr -> inferExpr expr newEnv newNonGeneric |> ignore
-
-        let retExprs = findReturns f
 
         let undefined =
           { Kind = makePrimitiveKind "undefined"
             Provenance = None }
 
-        let! retType =
-          result {
-            match retExprs with
-            | [] -> return undefined
-            | [ expr ] ->
-              match expr.InferredType with
-              | Some(t) -> return t
-              | None -> return! Error(TypeError.SemanticError "")
-            | exprs ->
-              let! types =
-                List.traverseResultM
-                  (fun (expr: Expr) ->
-                    match expr.InferredType with
-                    | Some(t) -> Ok t
-                    | None -> Error(TypeError.SemanticError ""))
-                  exprs
-
-              return
-                { Kind = TypeKind.Union types
-                  Provenance = None }
-          }
-
-        let! typeParams =
-          match f.Sig.TypeParams with
-          | Some(typeParams) ->
-            List.traverseResultM (inferTypeParam env) typeParams
-            |> Result.map Some
-          | None -> Ok None
-
-        return makeFunctionType typeParams paramList retType
-      | ExprKind.Tuple elems ->
-        let! elems =
-          List.traverseResultM (fun elem -> inferExpr elem env nonGeneric) elems
-
-        return
-          { Type.Kind = TypeKind.Tuple(elems)
-            Provenance = None }
-      | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-        let retTy = TypeVariable.makeVariable None
-
-        let! conditionTy = inferExpr condition env nonGeneric
-
-        let! thenBranchTy =
-          match thenBranch with
-          | BlockOrExpr.Block block ->
-            result {
-              let! stmtResults =
-                List.traverseResultM
-                  (fun stmt -> inferStmt stmt env nonGeneric)
-                  block.Stmts
-
-              let undefined =
-                { Kind = makePrimitiveKind "undefined"
-                  Provenance = None }
-
-              match List.tryLast stmtResults with
-              | Some(Some(t), _) -> return t
-              | Some(_) -> return undefined
-              | _ -> return undefined
-            }
-          | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric
-
-        // let! stmtResults =
-        //   List.traverseResultM
-        //     (fun stmt -> inferStmt stmt env nonGeneric)
-        //     thenBranch.Stmts
-        //
-        // let undefined =
-        //   { Kind = makePrimitiveKind "undefined"
-        //     Provenance = None }
-        //
-        // match List.tryLast stmtResults with
-        // | Some(Some(t), _) -> return t
-        // | Some(_) -> return undefined
-        // | _ -> return undefined
-
-        let! elseBranchTy =
-          Option.traverseResult
-            (fun body ->
-              match body with
-              | BlockOrExpr.Block block ->
-                result {
-                  let! stmtResults =
-                    List.traverseResultM
-                      (fun stmt -> inferStmt stmt env nonGeneric)
-                      block.Stmts
-
-                  let undefined =
-                    { Kind = makePrimitiveKind "undefined"
-                      Provenance = None }
-
-                  match List.tryLast stmtResults with
-                  | Some(Some(t), _) -> return t
-                  | Some(_) -> return undefined
-                  | _ -> return undefined
-                }
-              | BlockOrExpr.Expr expr -> inferExpr expr env nonGeneric)
-            elseBranch
-
-        do! unify conditionTy boolType
-        do! unify thenBranchTy retTy
-
-        match elseBranchTy with
-        | Some(elseBranchTy) -> do! unify elseBranchTy retTy
-        | None -> ()
-
-        return retTy
-      | _ ->
-        return!
-          Error(TypeError.NotImplemented "TODO: finish implementing infer_expr")
+        match List.tryLast stmtResults with
+        | Some(Some(t)) -> return t
+        | _ -> return undefined
+      | BlockOrExpr.Expr expr -> return! inferExpr expr newEnv nonGeneric
     }
 
   let inferTypeParam
@@ -878,30 +898,27 @@ module rec TypeChecker =
         return (Some(t), None)
       | StmtKind.For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
-      | StmtKind.Decl({ Kind = DeclKind.Let(pattern, init) }) ->
+      | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
+        let! patBindings, patType = inferPattern env pattern
 
-        let! pat_bindings, pat_type = inferPattern env pattern
-        let! init_type = inferExpr init env nonGeneric
-
-        // TODO: handle var decls with type annotations
-
-        do! unify init_type pat_type
-        return (None, Some(pat_bindings))
-      | StmtKind.Decl({ Kind = DeclKind.LetRec(name, defn) }) ->
         let newTy = TypeVariable.makeVariable None
-        let newEnv = env.AddValue name (newTy, false) // TODO: isMut
+        let mutable newEnv = env
+
+        for KeyValue(name, binding) in patBindings do
+          newEnv <- newEnv.AddValue name binding
 
         let newNonGeneric =
           match newTy.Kind with
           | TypeVar { Id = id } -> nonGeneric |> Set.add id
           | _ -> nonGeneric
 
-        let! defnTy = inferExpr defn newEnv newNonGeneric
-        do! unify newTy defnTy
+        let! initType = inferExpr init newEnv newNonGeneric
+        do! unify newTy initType
+        do! unify initType patType
 
-        let binding = (newTy, false) // TODO: isMut
-        let map = Map.ofList [ name, binding ]
-        return (None, Some(map))
+        // TODO: check things against `typeAnn` if one is provided
+
+        return (None, Some(patBindings))
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
         return! Error(TypeError.NotImplemented "TODO: inferStmt - TypeDec")
       | StmtKind.Return expr ->
@@ -1016,7 +1033,7 @@ module rec TypeChecker =
     match f.Body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
     | BlockOrExpr.Expr expr ->
-      walkExpr visitor expr
+      walkExpr visitor expr // There might be early returns in match expression
       returns <- expr :: returns // We treat the expression as a return in this case
 
     returns
@@ -1104,10 +1121,9 @@ module rec TypeChecker =
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | StmtKind.Decl({ Kind = DeclKind.Let(_name, definition) }) ->
-          walkExpr visitor definition
-        | StmtKind.Decl({ Kind = DeclKind.LetRec(_name, definition) }) ->
-          walkExpr visitor definition
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl(_name, init, typeAnn) }) ->
+          // TODO: walk typeAnn
+          walkExpr visitor init
         | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
           failwith "TODO: walkStmt - TypeDecl"
         | StmtKind.Return exprOption ->
@@ -1135,3 +1151,19 @@ module rec TypeChecker =
         | PatternKind.Is(span, ident, isName, isMut) -> ()
 
     walk pat
+
+  let union (types: list<Type>) : Type =
+    match types with
+    | [] ->
+      { Kind = makePrimitiveKind "never"
+        Provenance = None }
+    | [ t ] -> t
+    | types ->
+      let types =
+        types
+        |> List.map prune
+        |> Seq.distinctBy (fun t -> t.Kind)
+        |> Seq.toList
+
+      { Kind = TypeKind.Union(types)
+        Provenance = None }

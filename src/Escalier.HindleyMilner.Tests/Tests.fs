@@ -1,3 +1,5 @@
+// TODO: get rid of shared `nextVariableId`
+[<Xunit.Collection("Sequential")>]
 module Tests
 
 open Xunit
@@ -156,15 +158,7 @@ let stmt stmtKind =
   { Stmt.Kind = stmtKind
     Span = dummySpan }
 
-let letrec (name, expr) =
-  { Kind =
-      StmtKind.Decl(
-        { Kind = DeclKind.LetRec(name, expr)
-          Span = dummySpan }
-      )
-    Span = dummySpan }
-
-let let' (name, expr) =
+let varDecl (name, expr) =
   let pattern =
     { Pattern.Kind =
         PatternKind.Identifier(
@@ -177,7 +171,7 @@ let let' (name, expr) =
 
   { Kind =
       StmtKind.Decl(
-        { Kind = DeclKind.Let(pattern, expr)
+        { Kind = DeclKind.VarDecl(pattern, expr, None)
           Span = dummySpan }
       )
     Span = dummySpan }
@@ -187,7 +181,7 @@ let InferFactorial () =
   result {
     nextVariableId <- 0
 
-    (* letrec factorial =
+    (* let factorial =
         fn n =>
           if (zero n) 
             then 1 
@@ -195,7 +189,7 @@ let InferFactorial () =
         in factorial
      *)
     let ast =
-      letrec (
+      varDecl (
         "factorial",
         fatArrow
           [ "n" ] (* fn n => *)
@@ -203,20 +197,16 @@ let InferFactorial () =
             call (ident "zero", [ ident "n" ]),
             (block [ ident "1" |> StmtKind.Expr |> stmt ]),
             Some(
-              BlockOrExpr.Block
-                { Stmts =
-                    [ binary (
-                        "times", // op
-                        ident "n",
-                        call (
-                          ident "factorial",
-                          [ call (ident "pred", [ ident "n" ]) ]
-                        )
-                      )
-                      |> Some
-                      |> StmtKind.Return
-                      |> stmt ]
-                  Span = dummySpan }
+              BlockOrExpr.Expr(
+                binary (
+                  "times", // op
+                  ident "n",
+                  call (
+                    ident "factorial",
+                    [ call (ident "pred", [ ident "n" ]) ]
+                  )
+                )
+              )
             )
           ))
       )
@@ -234,8 +224,7 @@ let InferFactorial () =
 
     let t = getType "factorial" env nonGeneric
 
-    // TODO: figure out how to preserve the param name
-    Assert.Equal("fn (arg0: number) -> number", t.ToString())
+    Assert.Equal("fn (n: number) -> number", t.ToString())
   }
 
 [<Fact>]
@@ -278,8 +267,8 @@ let InferPair () =
 
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ let' ("f", fatArrow [ "x" ] (ident "x"))
-        let' (
+      [ varDecl ("f", fatArrow [ "x" ] (ident "x"))
+        varDecl (
           "pair",
           tuple
             [ call (ident "f", [ number "4" ])
@@ -314,29 +303,35 @@ let RecursiveUnification () =
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
+    printfn "InferGenericAndNonGeneric - start"
     nextVariableId <- 0
 
     let ast =
-      func
-        [ "g" ]
-        [ (let' ("f", func [ "x" ] [ ident "g" |> StmtKind.Expr |> stmt ]))
-          stmt (
-            StmtKind.Return(
-              Some(
-                tuple
-                  [ call (ident "f", [ number "3" ])
-                    call (ident "f", [ boolean true ]) ]
-              )
-            )
-          ) ]
+      [ varDecl (
+          "foo",
+          func
+            [ "g" ]
+            [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
+              stmt (
+                StmtKind.Return(
+                  Some(
+                    tuple
+                      [ call (ident "f", [ number "3" ])
+                        call (ident "f", [ boolean true ]) ]
+                  )
+                )
+              ) ]
+        ) ]
 
     let env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! t = inferExpr ast env nonGeneric
+    let! newEnv = inferScript ast env
 
+    let t = getType "foo" newEnv nonGeneric
     (* fn g => let f = fn x => g in [f 3, f true] *)
-    Assert.Equal("fn (g: t0) -> [t0, t0]", t.ToString())
+    Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
+    printfn "InferGenericAndNonGeneric - end"
   }
 
 [<Fact>]
@@ -345,23 +340,27 @@ let InferFuncComposition () =
     nextVariableId <- 0
 
     let ast =
-      fatArrow
-        [ "f" ]
-        (fatArrow
-          [ "g" ]
-          (fatArrow
-            [ "arg" ]
-            (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+      [ varDecl (
+          "foo",
+          fatArrow
+            [ "f" ]
+            (fatArrow
+              [ "g" ]
+              (fatArrow
+                [ "arg" ]
+                (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+
+        ) ]
 
 
     let env = getEnv ()
-    let nonGeneric = Set.empty
 
-    let! t = inferExpr ast env nonGeneric
+    let! newEnv = inferScript ast env
 
+    let t = getType "foo" newEnv Set.empty
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn (f: fn (arg0: t4) -> t8) -> fn (g: fn (arg0: t8) -> t6) -> fn (arg: t4) -> t6",
+      "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
       t.ToString()
     )
   }
@@ -400,7 +399,7 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script = [ let' ("S", s); let' ("K", k); let' ("I", i) ]
+    let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
 
     let! newEnv = inferScript script env
 

@@ -16,8 +16,6 @@ module TypeVariable =
         Bound = bound
         Instance = None }
 
-    printfn $"nextVariableId = {nextVariableId}"
-
     nextVariableId <- nextVariableId + 1
 
     { Kind = TypeVar(newVar)
@@ -640,8 +638,6 @@ module rec TypeChecker =
               (fun elem -> inferExpr elem env nonGeneric)
               elems
 
-          printfn "elems = %A" elems
-
           return
             { Type.Kind = TypeKind.Tuple(elems)
               Provenance = None }
@@ -1027,10 +1023,7 @@ module rec TypeChecker =
             match stmt.Kind with
             | StmtKind.Return expr ->
               match expr with
-              | Some expr ->
-                printfn "Encountered a Return statement"
-                returns <- expr :: returns
-                printfn "returns.Length = %d" returns.Length
+              | Some expr -> returns <- expr :: returns
               | None -> ()
             | _ -> ()
 
@@ -1042,8 +1035,6 @@ module rec TypeChecker =
     | BlockOrExpr.Expr expr ->
       walkExpr visitor expr // There might be early returns in match expression
       returns <- expr :: returns // We treat the expression as a return in this case
-
-    printfn "returns.Length = %d" returns.Length
 
     returns
 

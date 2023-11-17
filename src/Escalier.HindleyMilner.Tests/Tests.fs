@@ -340,23 +340,27 @@ let InferFuncComposition () =
     nextVariableId <- 0
 
     let ast =
-      fatArrow
-        [ "f" ]
-        (fatArrow
-          [ "g" ]
-          (fatArrow
-            [ "arg" ]
-            (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+      [ varDecl (
+          "foo",
+          fatArrow
+            [ "f" ]
+            (fatArrow
+              [ "g" ]
+              (fatArrow
+                [ "arg" ]
+                (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+
+        ) ]
 
 
     let env = getEnv ()
-    let nonGeneric = Set.empty
 
-    let! t = inferExpr ast env nonGeneric
+    let! newEnv = inferScript ast env
 
+    let t = getType "foo" newEnv Set.empty
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn (f: fn (arg0: t4) -> t8) -> fn (g: fn (arg0: t8) -> t6) -> fn (arg: t4) -> t6",
+      "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
       t.ToString()
     )
   }

@@ -462,7 +462,11 @@ module Type =
 
     override this.ToString() =
       let typeParams = String.concat ", " this.TypeParams
-      $"<{typeParams}>{this.Type}"
+
+      if typeParams.Length > 0 then
+        $"<{typeParams}>({this.Type})"
+      else
+        this.Type.ToString()
 
   let makePrimitiveKind name =
     { Name = name

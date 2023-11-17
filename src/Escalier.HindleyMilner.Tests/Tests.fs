@@ -214,12 +214,13 @@ let InferFactorial () =
     let mutable env = getEnv ()
     let nonGeneric = Set.empty
 
-    let! _, assumps = inferStmt ast env nonGeneric
+    let! _, stmtResult = inferStmt ast env nonGeneric
 
-    match assumps with
-    | Some(assumps) ->
+    match stmtResult with
+    | Some(StmtResult.Bindings assumps) ->
       for KeyValue(name, t) in assumps do
         env <- env.AddValue name t
+    | Some(StmtResult.Scheme(name, scheme)) -> env <- env.AddScheme name scheme
     | None -> ()
 
     let t = getType "factorial" env nonGeneric

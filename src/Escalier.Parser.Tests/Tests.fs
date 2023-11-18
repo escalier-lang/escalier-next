@@ -180,3 +180,16 @@ let ParseFunctionType () =
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseObjLitAndObjPat () =
+  let src =
+    """
+    type Point = {x: number, y: number}
+    let {x, y}: Point = {x: 5, y: 10}
+  """
+
+  let ast = script src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

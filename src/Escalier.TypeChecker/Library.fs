@@ -370,16 +370,16 @@ module rec TypeChecker =
         failwithf $"Undefined symbol {name}"
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
-  let unify (t1: Type) (t2: Type) : Result<unit, TypeError> =
+  let unify (env: Env) (t1: Type) (t2: Type) : Result<unit, TypeError> =
     result {
       match (prune t1).Kind, (prune t2).Kind with
       | TypeVar _, _ -> do! bind t1 t2
-      | _, TypeVar _ -> do! unify t2 t1
+      | _, TypeVar _ -> do! unify env t2 t1
       | Tuple(elems1), Tuple(elems2) ->
         if List.length elems1 <> List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        ignore (List.map2 unify elems1 elems2)
+        ignore (List.map2 (unify env) elems1 elems2)
       | Function(f1), Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
         let! f1 = instantiateFunc f1 None
@@ -398,9 +398,9 @@ module rec TypeChecker =
         for i in 0 .. paramList1.Length - 1 do
           let param1 = paramList1[i]
           let param2 = paramList2[i]
-          do! unify param2 param1 // params are contravariant
+          do! unify env param2 param1 // params are contravariant
 
-        do! unify f1.Return f2.Return // returns are covariant
+        do! unify env f1.Return f2.Return // returns are covariant
       | TypeRef({ Name = name1; TypeArgs = types1 }),
         TypeRef({ Name = name2; TypeArgs = types2 }) ->
 
@@ -413,7 +413,7 @@ module rec TypeChecker =
           if List.length types1 <> List.length types2 then
             return! Error(TypeError.TypeMismatch(t1, t2))
 
-          ignore (List.map2 unify types1 types2)
+          ignore (List.map2 (unify env) types1 types2)
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | Literal lit, TypeRef({ Name = name; TypeArgs = typeArgs }) ->
         // TODO: check that `typeArgs` is `None`
@@ -422,7 +422,45 @@ module rec TypeChecker =
         | Literal.String _, "string" -> ()
         | Literal.Boolean _, "boolean" -> ()
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
-      | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | Object elems1, Object elems2 ->
+
+        let namedProps1 =
+          List.choose
+            (fun (elem: ObjTypeElem) ->
+              match elem with
+              // TODO: handle methods, setters, and getters
+              | Property p -> Some(p.Name, p)
+              | _ -> None)
+            elems1
+          |> Map.ofList
+
+        let namedProps2 =
+          List.choose
+            (fun (elem: ObjTypeElem) ->
+              match elem with
+              // TODO: handle methods, setters, and getters
+              | Property p -> Some(p.Name, p)
+              | _ -> None)
+            elems2
+          |> Map.ofList
+
+
+        for KeyValue(name, prop2) in namedProps2 do
+          match namedProps1.TryFind name with
+          | Some(prop1) -> do! unify env prop1.Type prop2.Type
+          | None ->
+            if not prop2.Optional then
+              return! Error(TypeError.TypeMismatch(t1, t2))
+
+      | _, _ ->
+
+        let t1' = expandType env t1
+        let t2' = expandType env t2
+
+        if t1' <> t1 || t2' <> t2 then
+          return! unify env t1' t2'
+        else
+          return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
   let unifyCall
@@ -509,13 +547,52 @@ module rec TypeChecker =
           ()
         else
           // TODO: check_mutability of `arg`
-          do! unify argType param.Type // contravariant
+          do! unify env argType param.Type // contravariant
 
-      do! unify retType callee.Return // covariant
-      do! unify throwsType callee.Throws // covariant
+      do! unify env retType callee.Return // covariant
+      do! unify env throwsType callee.Throws // covariant
 
       return (retType, throwsType)
     }
+
+  let expandScheme
+    (env: Env)
+    (scheme: Scheme)
+    (typeArgs: option<list<Type>>)
+    : Type =
+
+    match scheme.TypeParams, typeArgs with
+    | None, None -> expandType env scheme.Type
+    | _ -> failwith "TODO: expandScheme with type params/args"
+
+  let expandType (env: Env) (t: Type) : Type =
+    let rec expand t =
+      let t = prune t
+
+      match t.Kind with
+      | KeyOf t -> failwith "TODO: expand keyof"
+      | Index(target, index) -> failwith "TODO: expand index"
+      | Condition _ -> failwith "TODO: expand condition"
+      | Binary(left, op, right) -> failwith "TODO: expand binary"
+      // TODO: instead of expanding object types, we should try to
+      // look up properties on the object type without expanding it
+      // since expansion can be quite expensive
+      | Object _ -> t
+      | TypeRef { Name = name
+                  TypeArgs = typeArgs
+                  Scheme = scheme } ->
+        let t =
+          match scheme with
+          | Some scheme -> expandScheme env scheme typeArgs
+          | None ->
+            match env.Schemes.TryFind name with
+            | Some scheme -> expandScheme env scheme typeArgs
+            | None -> failwith "${name} is not in scope"
+
+        expand t
+      | _ -> t
+
+    expand t
 
   ///Computes the type of the expression given by node.
   ///The type of the node is computed in the context of the
@@ -567,7 +644,7 @@ module rec TypeChecker =
                     | None -> Result.Ok(TypeVariable.makeVariable None)
                   // TypeVariable.makeVariable None in
                   let! assumps, patternType = inferPattern env param.Pattern
-                  do! unify patternType paramType
+                  do! unify env patternType paramType
 
                   for KeyValue(name, binding) in assumps do
                     // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
@@ -641,7 +718,7 @@ module rec TypeChecker =
           let! elseBranchTy =
             Option.traverseResult (inferBlockOrExpr env nonGeneric) elseBranch
 
-          do! unify conditionTy boolType
+          do! unify env conditionTy boolType
 
           return
             match elseBranchTy with
@@ -649,6 +726,33 @@ module rec TypeChecker =
             | None ->
               { Kind = makePrimitiveKind "undefined"
                 Provenance = None }
+        | ExprKind.Object elems ->
+          let! elems =
+            List.traverseResultM
+              (fun (elem: ObjElem) ->
+                result {
+                  match elem with
+                  | ObjElem.Property(_span, key, value) ->
+                    let! t = inferExpr value env nonGeneric
+
+                    return
+                      Property
+                        { Name = key
+                          Optional = false
+                          Readonly = false
+                          Type = t }
+                  | ObjElem.Spread(span, value) ->
+                    return!
+                      Error(
+                        TypeError.NotImplemented
+                          "TODO: inferExpr - ObjElem.Spread"
+                      )
+                })
+              elems
+
+          return
+            { Kind = Object(elems)
+              Provenance = None }
         | _ ->
           return!
             Error(
@@ -746,22 +850,26 @@ module rec TypeChecker =
             List.traverseResultM
               (fun (elem: ObjTypeAnnElem) ->
                 result {
-                  // let! t = infer_type_ann env p.typeAnn
-                  // let pattern = pattern_to_pattern p.pattern
+                  match elem with
+                  | ObjTypeAnnElem.Property(name, typeAnn) ->
+                    let! t = inferTypeAnn env typeAnn
 
-                  // let elem: ObjTypeElem =
-                  //   match elem with
-                  //   | Callable f ->
-
-                  // return
-                  //   { pattern = pattern
-                  //     type_ = t
-                  //     optional = false }
-
-                  return!
-                    Error(
-                      TypeError.NotImplemented "TODO: inferTypeAnn - Object"
-                    )
+                    return
+                      Property
+                        { Name = name
+                          Optional = false
+                          Readonly = false
+                          Type = t }
+                  | ObjTypeAnnElem.Callable ``function`` ->
+                    return! Error(TypeError.NotImplemented "todo")
+                  | ObjTypeAnnElem.Constructor ``function`` ->
+                    return! Error(TypeError.NotImplemented "todo")
+                  | ObjTypeAnnElem.Method(name, isMut, ``type``) ->
+                    return! Error(TypeError.NotImplemented "todo")
+                  | ObjTypeAnnElem.Getter(name, returnType, throws) ->
+                    return! Error(TypeError.NotImplemented "todo")
+                  | ObjTypeAnnElem.Setter(name, param, throws) ->
+                    return! Error(TypeError.NotImplemented "todo")
                 })
               elems
 
@@ -889,9 +997,9 @@ module rec TypeChecker =
         match typeAnn with
         | Some(typeAnn) ->
           let! typeAnnType = inferTypeAnn env typeAnn
-          do! unify initType typeAnnType
-          do! unify typeAnnType patType
-        | None -> do! unify initType patType
+          do! unify env initType typeAnnType
+          do! unify env typeAnnType patType
+        | None -> do! unify env initType patType
 
         return (None, Some(StmtResult.Bindings patBindings))
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl(name, typeAnn, typeParams) }) ->
@@ -899,10 +1007,9 @@ module rec TypeChecker =
         let! t = inferTypeAnn env typeAnn
 
         let typeParams =
-          match typeParams with
-          | Some typeParams ->
-            (List.map (fun (param: Syntax.TypeParam) -> param.Name)) typeParams
-          | None -> []
+          Option.map
+            (List.map (fun (param: Syntax.TypeParam) -> param.Name))
+            typeParams
 
         let scheme = { TypeParams = typeParams; Type = t }
         return (None, Some(StmtResult.Scheme(name, scheme)))
@@ -931,7 +1038,31 @@ module rec TypeChecker =
       | PatternKind.Literal(_, literal) ->
         { Type.Kind = TypeKind.Literal(literal)
           Provenance = None }
-      | PatternKind.Object elems -> failwith "todo"
+      | PatternKind.Object elems ->
+        let elems: list<ObjTypeElem> =
+          List.map
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat(_span, key, value, _init) ->
+                let t = infer_pattern_rec value
+
+                ObjTypeElem.Property
+                  { Name = key
+                    Optional = false
+                    Readonly = false
+                    Type = t }
+              | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
+                let t = TypeVariable.makeVariable None
+
+                ObjTypeElem.Property
+                  { Name = name
+                    Optional = false
+                    Readonly = false
+                    Type = t })
+            elems
+
+        { Type.Kind = TypeKind.Object(elems)
+          Provenance = None }
       | PatternKind.Tuple elems ->
         let elems' = List.map infer_pattern_rec elems
 

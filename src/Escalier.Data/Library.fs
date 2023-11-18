@@ -46,6 +46,8 @@ module Syntax =
       Exprs: list<Expr> }
 
   type ObjElem =
+    // TODO: Add syntax for specifying callables
+    // TODO: Add support for getters, setters, and methods
     | Property of span: Span * key: string * value: Expr
     | Spread of span: Span * value: Expr
 
@@ -161,12 +163,14 @@ module Syntax =
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
+  // TODO: add location information
   type ObjTypeAnnElem =
     | Callable of Function
     | Constructor of Function
     | Method of name: string * is_mut: bool * type_: Function
     | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
     | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
+    | Property of name: string * typeAnn: TypeAnn // TODO: readonly, optional
 
   type KeywordTypeAnn =
     | Boolean
@@ -246,7 +250,7 @@ module Type =
   type Pattern =
     | Identifier of name: string
     | Object of elems: list<ObjPatElem>
-    | Tuple of elems: list<Pattern>
+    | Tuple of elems: list<Pattern> // TODO: support rest patterns
     | Wildcard
     | Literal of Syntax.Literal
     | Is of target: Syntax.BindingIdent * id: string
@@ -333,6 +337,12 @@ module Type =
 
   type ObjKey = string // TODO
 
+  type Property =
+    { Name: ObjKey
+      Optional: bool
+      Readonly: bool
+      Type: Type }
+
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
@@ -340,7 +350,7 @@ module Type =
     | Getter of name: ObjKey * return_type: Type * throws: Type
     | Setter of name: ObjKey * param: FuncParam * throws: Type
     | Mapped of Mapped
-    | Property of name: ObjKey * optional: bool * readonly: bool * type_: Type
+    | Property of Property
 
     override this.ToString() =
       match this with
@@ -393,7 +403,10 @@ module Type =
           (if mapped.Extends.IsSome then "extends " else "")
           (mapped.Key.ToString())
           (mapped.Value.ToString())
-      | Property(name, optional, readonly, type_) ->
+      | Property { Name = name
+                   Optional = optional
+                   Readonly = readonly
+                   Type = type_ } ->
         sprintf
           "%s%s%s: %s"
           (if optional then "optional " else "")
@@ -457,16 +470,15 @@ module Type =
       | _ -> failwith "TODO: finish implementing Type.ToString"
 
   type Scheme =
-    { TypeParams: list<string>
+    { TypeParams: option<list<string>>
       Type: Type }
 
     override this.ToString() =
-      let typeParams = String.concat ", " this.TypeParams
-
-      if typeParams.Length > 0 then
+      match this.TypeParams with
+      | Some(typeParams) ->
+        let typeParams = String.concat ", " typeParams
         $"<{typeParams}>({this.Type})"
-      else
-        this.Type.ToString()
+      | None -> this.Type.ToString()
 
   let makePrimitiveKind name =
     { Name = name

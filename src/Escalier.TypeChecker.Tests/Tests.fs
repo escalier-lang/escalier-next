@@ -425,11 +425,22 @@ let InferSKK () =
 let InferTypeAnn () =
   let result =
     result {
-      let src = "let x: number = 5"
+      let src =
+        """
+        let a: number = 5
+        let [b, c]: [string, boolean] = ["hello", true]
+        type Point = {x: number, y: number}
+        let {x, y}: Point = {x: 5, y: 10}
+        """
 
       let! env = inferScript src
 
-      Assert.Value(env, "x", "number")
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "b", "string")
+      Assert.Value(env, "c", "boolean")
+    // TODO: make these assertions pass
+    // Assert.Value(env, "x", "number")
+    // Assert.Value(env, "y", "number")
     }
 
   Assert.False(Result.isError result)

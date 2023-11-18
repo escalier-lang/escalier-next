@@ -49,6 +49,7 @@ module Syntax =
     // TODO: Add syntax for specifying callables
     // TODO: Add support for getters, setters, and methods
     | Property of span: Span * key: string * value: Expr
+    | Shorthand of span: Span * key: string
     | Spread of span: Span * value: Expr
 
   type Call =

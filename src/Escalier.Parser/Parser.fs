@@ -183,11 +183,13 @@ module Parser =
         InferredType = None }
 
   let objElemProperty: Parser<ObjElem, unit> =
-    pipe4 getPosition ident (strWs ":" >>. expr) getPosition
+    pipe4 getPosition ident (opt (strWs ":" >>. expr)) getPosition
     <| fun start key value stop ->
       let span = { Start = start; Stop = stop }
 
-      ObjElem.Property(span = span, key = key, value = value)
+      match value with
+      | Some(value) -> ObjElem.Property(span = span, key = key, value = value)
+      | None -> ObjElem.Shorthand(span = span, key = key)
 
   let objElemSpread: Parser<ObjElem, unit> =
     withSpan (strWs "..." >>. expr)

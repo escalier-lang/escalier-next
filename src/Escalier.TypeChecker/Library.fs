@@ -581,15 +581,21 @@ module rec TypeChecker =
       | TypeRef { Name = name
                   TypeArgs = typeArgs
                   Scheme = scheme } ->
-        let t =
-          match scheme with
-          | Some scheme -> expandScheme env scheme typeArgs
-          | None ->
-            match env.Schemes.TryFind name with
-            | Some scheme -> expandScheme env scheme typeArgs
-            | None -> failwith "${name} is not in scope"
 
-        expand t
+        // TODO: figure out a better solution for this, we may need to
+        // reintroduce Primitive and Keyword types
+        if name = "undefined" then
+          t
+        else
+          let t =
+            match scheme with
+            | Some scheme -> expandScheme env scheme typeArgs
+            | None ->
+              match env.Schemes.TryFind name with
+              | Some scheme -> expandScheme env scheme typeArgs
+              | None -> failwith $"{name} is not in scope"
+
+          expand t
       | _ -> t
 
     expand t
@@ -741,6 +747,15 @@ module rec TypeChecker =
                           Optional = false
                           Readonly = false
                           Type = t }
+                  | ObjElem.Shorthand(_span, key) ->
+                    let value = getType key env nonGeneric
+
+                    return
+                      Property
+                        { Name = key
+                          Optional = false
+                          Readonly = false
+                          Type = value }
                   | ObjElem.Spread(span, value) ->
                     return!
                       Error(

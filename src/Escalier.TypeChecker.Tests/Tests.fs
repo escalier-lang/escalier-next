@@ -443,3 +443,23 @@ let InferTypeAnn () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferObjectDestructuring () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        let {x, y}: Point = {x: 5, y: 10}
+        let p: Point = {x, y}
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "number")
+      Assert.Value(env, "p", "Point")
+    }
+
+  Assert.False(Result.isError result)

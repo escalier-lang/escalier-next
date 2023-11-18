@@ -35,12 +35,12 @@ output: Success: { Kind =
        Body =
         Block { Span = { Start = (Ln: 1, Col: 30)
                          Stop = (Ln: 1, Col: 35) }
-                Stmts = [{ Span = { Start = (Ln: 1, Col: 32)
-                                    Stop = (Ln: 1, Col: 34) }
-                           Kind = Expr { Kind = Identifier "x"
+                Stmts = [{ Kind = Expr { Kind = Identifier "x"
                                          Span = { Start = (Ln: 1, Col: 32)
                                                   Stop = (Ln: 1, Col: 34) }
-                                         InferredType = None } }] } }
+                                         InferredType = None }
+                           Span = { Start = (Ln: 1, Col: 32)
+                                    Stop = (Ln: 1, Col: 34) } }] } }
   Span = { Start = (Ln: 1, Col: 1)
            Stop = (Ln: 1, Col: 35) }
   InferredType = None }

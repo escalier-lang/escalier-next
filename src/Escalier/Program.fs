@@ -80,24 +80,24 @@ let test' p str =
   | Success(result, _, _) -> printfn "Success: %A" result
   | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
 
-test' Parser.expr "1 + 2 * -abc"
-test' Parser.expr "msg = \"Hello,\\tworld!\""
-// test' Parser.expr "`a ${b} c ${d} e`"
-test' Parser.expr "`a ${`b ${c} d`} e`"
-test' Parser.expr "`a ${`b ${c} d` e`"
+test' (run Parser.expr) "1 + 2 * -abc"
+test' (run Parser.expr) "msg = \"Hello,\\tworld!\""
+// test' (run Parser.expr) "`a ${b} c ${d} e`"
+test' (run Parser.expr) "`a ${`b ${c} d`} e`"
+test' (run Parser.expr) "`a ${`b ${c} d` e`"
 
-test' Parser.expr "array[0]()"
-test' Parser.expr "foo()[0]"
+test' (run Parser.expr) "array[0]()"
+test' (run Parser.expr) "foo()[0]"
 
-test' Parser.expr "fn (x, y) { return x + y }"
-test' Parser.expr "fn (x, y) { return }"
-test' Parser.stmt "let sum = x + y"
+test' (run Parser.expr) "fn (x, y) { return x + y }"
+test' (run Parser.expr) "fn (x, y) { return }"
+test' (run Parser.stmt) "let sum = x + y"
 
-test' Parser.typeAnn "number | string | boolean"
-test' Parser.typeAnn "number & string & boolean"
+test' (run Parser.typeAnn) "number | string | boolean"
+test' (run Parser.typeAnn) "number & string & boolean"
 // TODO: figure out how to parse this
-test' Parser.typeAnn "number[]"
-test' Parser.typeAnn "Foo"
+test' (run Parser.typeAnn) "number[]"
+test' (run Parser.typeAnn) "Foo"
 
 let src =
   """
@@ -110,6 +110,6 @@ if (true) {
 }
 """
 
-test' Parser.script src
+test' (run (many Parser.stmt)) src
 
-test' Parser.expr "fn (x, y) => x + y"
+test' (run Parser.expr) "fn (x, y) => x + y"

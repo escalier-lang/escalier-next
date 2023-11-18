@@ -1,74 +1,139 @@
 module Tests
 
 open Xunit
-open Escalier.Parser
-open Escalier.TypeChecker
-open Escalier.TypeChecker.Env
+open Escalier.Parser.Parser
 open Escalier.Data.Type
+open Escalier.TypeChecker.Errors
+open Escalier.TypeChecker.TypeChecker
 open FsToolkit.ErrorHandling
 open FParsec
 
 type Assert with
 
   static member inline Value(env: Env, name: string, expected: string) =
-    let (t, _) = Map.find name env.Values
+    let t, _ = Map.find name env.Values
     Assert.Equal(expected, t.ToString())
 
   static member inline Type(env: Env, name: string, expected: string) =
     let scheme = Map.find name env.Schemes
-    Assert.Equal(expected, scheme.Type.ToString())
+    Assert.Equal(expected, scheme.ToString())
 
 type CompileError =
   | ParseError of ParserError
-  | TypeError of Errors.TypeError
+  | TypeError of TypeError
+
+let makeParam (name: string) (ty: Type) : FuncParam =
+  { Pattern = Pattern.Identifier name
+    Type = ty
+    Optional = false }
+
+let getEnv () =
+  let arithemtic =
+    (makeFunctionType
+      None
+      [ makeParam "left" numType; makeParam "right" numType ]
+      numType,
+     false)
+
+  let comparison =
+    (makeFunctionType
+      None
+      [ makeParam "left" numType; makeParam "right" numType ]
+      boolType,
+     false)
+
+  let logical =
+    (makeFunctionType
+      None
+      [ makeParam "left" boolType; makeParam "right" boolType ]
+      boolType,
+     false)
+
+  let typeRefA =
+    { Kind = makePrimitiveKind "A"
+      Provenance = None }
+
+  let typeRefB =
+    { Kind = makePrimitiveKind "B"
+      Provenance = None }
+
+  let typeParams: list<TypeParam> =
+    [ { Name = "A"
+        Constraint = None
+        Default = None }
+      { Name = "B"
+        Constraint = None
+        Default = None } ]
+
+  let equality =
+    (makeFunctionType
+      (Some(typeParams))
+      [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+      boolType,
+     false)
+
+  { Env.Values =
+      Map.ofList
+        [ ("+", arithemtic)
+          ("-", arithemtic)
+          ("*", arithemtic)
+          ("/", arithemtic)
+          ("%", arithemtic)
+          ("**", arithemtic)
+          ("<", comparison)
+          ("<=", comparison)
+          (">", comparison)
+          (">=", comparison)
+          ("==", equality)
+          ("!=", equality)
+          ("||", logical)
+          ("&&", logical) ]
+    Env.Schemes = Map([])
+    Env.IsAsync = false }
 
 let infer src =
   result {
     let! ast =
-      match Parser.expr src with
+      match run expr src with
       | Success(value, _, _) -> Result.Ok(value)
-      | Failure(s, parserError, unit) ->
-        Result.mapError (CompileError.ParseError) (Result.Error(parserError))
+      | Failure(_s, parserError, _unit) ->
+        Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let env =
-      { Env.Values = Map([])
-        Env.Schemes = Map([])
-        Env.IsAsync = false
-        Env.NonGeneric = Set([]) }
+    let env = getEnv ()
+    let nonGeneric = Set([])
 
-    let! t = Result.mapError (CompileError.TypeError) (Infer.inferExpr env ast)
+    let! t =
+      Result.mapError CompileError.TypeError (inferExpr ast env nonGeneric)
+
     return t
   }
 
 let inferScript src =
   result {
-    let! script =
-      match Parser.script src with
+    let! ast =
+      match run (many stmt) src with
       | Success(value, _, _) -> Result.Ok(value)
-      | Failure(s, parserError, unit) ->
-        Result.mapError (CompileError.ParseError) (Result.Error(parserError))
+      | Failure(_s, parserError, _unit) ->
+        Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let env =
-      { Env.Values = Map([])
-        Env.Schemes = Map([])
-        Env.IsAsync = false
-        Env.NonGeneric = Set([]) }
+    let env = getEnv ()
 
-    let! env =
-      Result.mapError (CompileError.TypeError) (Infer.inferScript env script)
+    let! env = Result.mapError CompileError.TypeError (inferScript ast env)
 
     return env
   }
 
-let inferWithEnv src env =
+let inferWithEnv src env nonGeneric =
   result {
     let! ast =
-      match Parser.expr src with
+      match run expr src with
       | Success(value, _, _) -> Result.Ok(value)
-      | Failure(s, parserError, unit) ->
-        Result.mapError (CompileError.ParseError) (Result.Error(parserError))
+      | Failure(_s, parserError, _unit) ->
+        Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let! t = Result.mapError (CompileError.TypeError) (Infer.inferExpr env ast)
+    let! t =
+      Result.mapError CompileError.TypeError (inferExpr ast env nonGeneric)
+
     return t
   }
 
@@ -115,6 +180,7 @@ let InferIfElse () =
       Assert.Equal("5 | \"hello\"", t.ToString())
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -142,18 +208,19 @@ let InferIfElseChaining () =
 [<Fact>]
 let InferIdentifier () =
   let t: Type =
-    { Type.Kind = TypeKind.Primitive(Primitive.Number)
+    { Type.Kind = makePrimitiveKind "number"
       Provenance = None }
 
   let env =
     { Env.Values = Map([ ("foo", (t, false)) ])
       Env.Schemes = Map([])
-      Env.IsAsync = false
-      Env.NonGeneric = Set([]) }
+      Env.IsAsync = false }
+
+  let nonGeneric = Set([])
 
   let result =
     result {
-      let! t = inferWithEnv "foo" env
+      let! t = inferWithEnv "foo" env nonGeneric
       Assert.Equal("number", t.ToString())
     }
 
@@ -302,6 +369,7 @@ let InferTypeDecls () =
           type B = [string, boolean]
           type C = 5 | "hello"
           type D = fn (x: number) -> number
+          type Nullable<T> = T | undefined
           """
 
       let! env = inferScript src
@@ -310,6 +378,7 @@ let InferTypeDecls () =
       Assert.Type(env, "B", "[string, boolean]")
       Assert.Type(env, "C", "5 | \"hello\"")
       Assert.Type(env, "D", "fn (x: number) -> number")
+      Assert.Type(env, "Nullable", "<T>(T | undefined)")
     }
 
   Assert.False(Result.isError result)
@@ -327,7 +396,7 @@ let InferLambda () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "fix this test")>]
+[<Fact>]
 let InferSKK () =
   let result =
     result {
@@ -343,13 +412,24 @@ let InferSKK () =
       Assert.Value(
         env,
         "S",
-        "fn <A, E, C, D, B, F>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C"
+        "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C"
       )
 
       Assert.Value(env, "K", "fn <A, B>(x: A) -> fn (y: B) -> A")
-      // This should be `fn <A>(x: A) -> A`
-      Assert.Value(env, "I", "fn <A, B>(x: A) -> B")
+      Assert.Value(env, "I", "fn <A>(x: A) -> A")
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTypeAnn () =
+  let result =
+    result {
+      let src = "let x: number = 5"
+
+      let! env = inferScript src
+
+      Assert.Value(env, "x", "number")
+    }
+
   Assert.False(Result.isError result)

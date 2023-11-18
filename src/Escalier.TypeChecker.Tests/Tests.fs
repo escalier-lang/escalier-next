@@ -438,9 +438,8 @@ let InferTypeAnn () =
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string")
       Assert.Value(env, "c", "boolean")
-    // TODO: make these assertions pass
-    // Assert.Value(env, "x", "number")
-    // Assert.Value(env, "y", "number")
+      Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "number")
     }
 
   Assert.False(Result.isError result)

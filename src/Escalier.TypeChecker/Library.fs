@@ -1054,6 +1054,10 @@ module rec TypeChecker =
               | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
                 let t = TypeVariable.makeVariable None
 
+                // TODO: check if `name` already exists in `assump`
+                let isMut = false
+                assump <- assump.Add(name, (t, isMut))
+
                 ObjTypeElem.Property
                   { Name = name
                     Optional = false

@@ -1,20 +1,18 @@
 // TODO: get rid of shared `nextVariableId`
 [<Xunit.Collection("Sequential")>]
-module Tests
+module NoParseTests
 
 open Xunit
 open FParsec
 open FsToolkit.ErrorHandling
 
-open Escalier.HindleyMilner.Syntax
-open Escalier.HindleyMilner.TypeChecker
-open Escalier.HindleyMilner.TypeVariable
+open Escalier.Data
+open Escalier.Data.Syntax
+open Escalier.TypeChecker.TypeChecker
+open Escalier.TypeChecker.TypeVariable
 
-let makeParam
-  (name: string)
-  (ty: Escalier.HindleyMilner.Type.Type)
-  : Escalier.HindleyMilner.Type.FuncParam =
-  { Pattern = Escalier.HindleyMilner.Type.Pattern.Identifier name
+let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
+  { Pattern = Type.Pattern.Identifier name
     Type = ty
     Optional = false }
 

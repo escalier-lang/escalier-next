@@ -4,14 +4,6 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="ParserRefs.fs"/>
-        <Compile Include="Shared.fs"/>
-        <Compile Include="Literals.fs"/>
-        <Compile Include="Expressions.fs"/>
-        <Compile Include="Statements.fs"/>
-        <Compile Include="TypeAnnotations.fs"/>
-        <Compile Include="Patterns.fs"/>
-        <Compile Include="JsonParser.fs"/>
         <Compile Include="Parser.fs"/>
         <Compile Include="Library.fs"/>
     </ItemGroup>

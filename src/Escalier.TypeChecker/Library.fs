@@ -1,11 +1,20 @@
-﻿namespace Escalier.HindleyMilner
+namespace Escalier.TypeChecker
 
-open Escalier.HindleyMilner.Errors
-open Escalier.HindleyMilner.Syntax
-open FsToolkit.ErrorHandling
 open System.Collections.Generic
+open FsToolkit.ErrorHandling
 
-open Type
+open Escalier.Data
+open Escalier.Data.Syntax
+open Escalier.Data.Type
+
+module Errors =
+  type TypeError =
+    | NotImplemented of string
+    | SemanticError of string
+    | NotInferred
+    | TypeMismatch of Type * Type
+    | RecursiveUnification
+    | WrongNumberOfTypeArgs
 
 module TypeVariable =
   let mutable nextVariableId = 0
@@ -22,6 +31,8 @@ module TypeVariable =
       Provenance = None }
 
 module rec TypeChecker =
+  open Errors
+
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>
   type SchemeAssump = string * Scheme

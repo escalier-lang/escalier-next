@@ -25,5 +25,3 @@ module Say =
     { Kind = Identifier("foo")
       Span = { Start = start; Stop = stop }
       InferredType = Some(t) }
-
-  t.Provenance <- Some(Provenance.Expr(expr))

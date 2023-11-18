@@ -6,26 +6,89 @@ open System.Text
 module Syntax =
   type Span = { Start: Position; Stop: Position }
 
-  type DeclKind =
-    | TypeDecl of
-      name: string *
-      type_ann: TypeAnn *
-      type_params: option<list<TypeParam>>
-    | VarDecl of
-      pattern: Pattern *
-      init: option<Expr> *
-      type_ann: option<TypeAnn> *
-      is_declare: bool
+  type Block = { Span: Span; Stmts: list<Stmt> }
 
-  type Decl = { Span: Span; Kind: DeclKind }
-
-  type StmtKind =
+  type BlockOrExpr =
+    | Block of Block
     | Expr of Expr
-    | For of leff: Pattern * right: Expr * body: Block
-    | Return of option<Expr>
-    | Decl of Decl
 
-  type Stmt = { Span: Span; Kind: StmtKind }
+  type TypeParam =
+    { Span: Span
+      Name: string
+      Constraint: option<TypeAnn>
+      Default: option<TypeAnn> }
+
+  type FuncParam<'T> =
+    { Pattern: Pattern
+      TypeAnn: 'T
+      Optional: bool }
+
+    override this.ToString() = this.Pattern.ToString()
+
+  type FuncSig<'T> =
+    { TypeParams: option<list<TypeParam>>
+      ParamList: list<FuncParam<'T>>
+      ReturnType: 'T
+      Throws: option<TypeAnn> }
+
+  type Function =
+    { Sig: FuncSig<option<TypeAnn>>
+      Body: BlockOrExpr }
+
+  type MatchCase =
+    { Span: Span
+      Pattern: Pattern
+      Guard: option<Expr>
+      Body: Expr }
+
+  type TemplateLiteral =
+    { Parts: list<string>
+      Exprs: list<Expr> }
+
+  type ObjElem =
+    | Property of span: Span * key: string * value: Expr
+    | Spread of span: Span * value: Expr
+
+  type Call =
+    { Callee: Expr
+      TypeArgs: option<list<TypeAnn>>
+      Args: list<Expr>
+      OptChain: bool
+      mutable Throws: option<Type.Type> }
+
+  type ExprKind =
+    | Identifier of name: string
+    | Literal of Literal
+    | Function of Function
+    | Call of Call
+    | Tuple of elements: list<Expr>
+    | Index of target: Expr * index: Expr * opt_chain: bool
+    | Member of target: Expr * name: string * opt_chain: bool
+    | IfElse of
+      condition: Expr *
+      thenBranch: BlockOrExpr *
+      elseBranch: option<BlockOrExpr> // Expr is only used when chaining if-else expressions
+    | Match of target: Expr * cases: list<MatchCase>
+    | Assign of op: string * left: Expr * right: Expr
+    | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
+    | Unary of op: string * value: Expr
+    | Object of elems: list<ObjElem>
+    | Try of body: Block * catch: option<Expr * Block> * finally_: option<Block>
+    | Do of body: Block
+    | Await of value: Expr // TODO: convert rejects to throws
+    | Throw of value: Expr
+    | TemplateLiteral of TemplateLiteral
+    | TaggedTemplateLiteral of
+      tag: Expr *
+      template: TemplateLiteral *
+      throws: option<Type.Type>
+
+  type Expr =
+    { Kind: ExprKind
+      Span: Span
+      mutable InferredType: option<Type.Type> }
+
+    override this.ToString() = this.Kind.ToString()
 
   type Literal =
     | Number of string
@@ -36,10 +99,9 @@ module Syntax =
 
     override this.ToString() =
       match this with
-      | Number(value) -> value
-      | String(value) -> $"\"{value}\""
-      | Boolean(true) -> "true"
-      | Boolean(false) -> "false"
+      | Number value -> value
+      | String value -> $"\"{value}\""
+      | Boolean value -> if value then "true" else "false"
       | Null -> "null"
       | Undefined -> "undefined"
 
@@ -63,116 +125,41 @@ module Syntax =
   [<RequireQualifiedAccess>]
   type PatternKind =
     | Identifier of BindingIdent
-    | Object of elems: list<ObjPatElem>
-    | Tuple of elems: list<Pattern>
+    | Object of elems: list<ObjPatElem> // TODO: rest patterns
+    | Tuple of elems: list<Pattern> // TODO: rest patterns
     | Wildcard
     | Literal of span: Span * value: Literal
     // TODO: get rid of `is_mut` since it's covered by `ident: BindingIdent`
     | Is of span: Span * ident: BindingIdent * is_name: string * is_mut: bool
+
+    override this.ToString() =
+      match this with
+      | Identifier(bi) -> bi.Name // TODO: isMut
+      | _ -> failwith "TODO"
 
   type Pattern =
     { Kind: PatternKind
       Span: Span
       InferredType: option<Type.Type> }
 
-  type Block = { Span: Span; Stmts: list<Stmt> }
+    override this.ToString() = this.Kind.ToString()
 
-  [<RequireQualifiedAccess>]
-  type BlockOrExpr =
-    | Block of Block
+  type DeclKind =
+    | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
+    | TypeDecl of
+      name: string *
+      typeAnn: TypeAnn *
+      typeParams: option<list<TypeParam>>
+
+  type Decl = { Kind: DeclKind; Span: Span }
+
+  type StmtKind =
     | Expr of Expr
+    | For of left: Pattern * right: Expr * body: Block
+    | Return of option<Expr>
+    | Decl of Decl
 
-  type ObjElem =
-    | Property of span: Span * key: string * value: Expr
-    | Spread of span: Span * value: Expr
-
-  type AssignOp =
-    | Assign
-    | AddAssign
-    | SubAssign
-    | MulAssign
-    | DivAssign
-    | ModAssign
-    | ExpAssign
-
-  type BinaryOp =
-    | Add
-    | Sub
-    | Mul
-    | Div
-    | Mod
-    | Exp
-    | Equal
-    | NotEqual
-    | LessThan
-    | LessThanOrEqual
-    | GreaterThan
-    | GreaterThanOrEqual
-    | And
-    | Or
-
-  type UnaryOp =
-    | Pos
-    | Neg
-    | Not
-
-  type MatchCase =
-    { Span: Span
-      Pattern: Pattern
-      Guard: option<Expr>
-      Body: Expr }
-
-  type TemplateLiteral =
-    { Parts: list<string>
-      Exprs: list<Expr> }
-
-  type FuncParam<'T> =
-    { Pattern: Pattern
-      TypeAnn: 'T
-      Optional: bool }
-
-  type Function =
-    { Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
-
-  type Call =
-    { Callee: Expr
-      TypeArgs: option<list<TypeAnn>>
-      Args: list<Expr>
-      OptChain: bool
-      mutable Throws: option<Type.Type> }
-
-  type ExprKind =
-    | Identifier of string
-    | Literal of Literal
-    | Object of elems: list<ObjElem>
-    | Tuple of elems: list<Expr>
-    | Assign of left: Expr * op: AssignOp * right: Expr
-    | Binary of left: Expr * op: BinaryOp * right: Expr
-    | Unary of op: string * value: Expr
-    | Function of Function
-    | Call of Call
-    | Index of target: Expr * index: Expr * opt_chain: bool
-    | Member of target: Expr * name: string * opt_chain: bool
-    | IfElse of
-      cond: Expr *
-      then_branch: BlockOrExpr *
-      else_branch: option<BlockOrExpr>
-    | Match of target: Expr * cases: list<MatchCase>
-    | Try of body: Block * catch: option<Expr> * finally_: option<Expr>
-    | Do of body: Block
-    | Await of value: Expr // TODO: convert rejects to throws
-    | Throw of value: Expr
-    | TemplateLiteral of TemplateLiteral
-    | TaggedTemplateLiteral of
-      tag: Expr *
-      template: TemplateLiteral *
-      throws: option<Type.Type>
-
-  type Expr =
-    { Kind: ExprKind
-      Span: Span
-      mutable InferredType: option<Type.Type> }
+  type Stmt = { Kind: StmtKind; Span: Span }
 
   type ObjTypeAnnElem =
     | Callable of Function
@@ -191,37 +178,6 @@ module Syntax =
     | Unknown
     | Never
     | Object
-
-  type TypeParam =
-    { Span: Span
-      Name: string
-      Constraint: option<TypeAnn>
-      Default: option<TypeAnn> }
-
-    override this.ToString() =
-      let sb = StringBuilder()
-
-      sb
-        .Append(this.Name)
-        .Append(
-          match this.Constraint with
-          | Some(constraint_) -> $" : {constraint_}"
-          | None -> ""
-        )
-        .Append(
-          match this.Default with
-          | Some(default_) -> $" = {default_}"
-          | None -> ""
-        )
-      |> ignore
-
-      sb.ToString()
-
-  type FuncSig<'T> =
-    { TypeParams: option<list<TypeParam>>
-      ParamList: list<FuncParam<'T>>
-      ReturnType: 'T
-      Throws: option<TypeAnn> }
 
   type FunctionType = FuncSig<TypeAnn>
 
@@ -255,45 +211,37 @@ module Syntax =
     | Match of MatchType
     | Infer of name: string
     | Wildcard
-    | Binary of left: TypeAnn * op: BinaryOp * right: TypeAnn
+    | Binary of left: TypeAnn * op: string * right: TypeAnn // TODO: BinaryOp
 
   type TypeAnn =
     { Kind: TypeAnnKind
       Span: Span
       mutable InferredType: option<Type.Type> }
 
-  // TODO: add support for imports
-  type Script = list<Stmt>
-
 module Type =
-  type TypeParam =
+  [<RequireQualifiedAccess>]
+  type Provenance =
+    | Type of Type
+    | Expr of Syntax.Expr
+    | Pattern of Syntax.Pattern
+
+  ///A type variable standing for an arbitrary type.
+  ///All type variables have a unique id, but names are only assigned lazily, when required.
+  type TypeVar =
+    { Id: int
+      Bound: option<Type>
+      mutable Instance: option<Type> }
+
+  ///An n-ary type constructor which builds a new type from old
+  type TypeRef =
     { Name: string
-      Constraint: option<Type>
-      Default: option<Type> }
+      TypeArgs: option<list<Type>>
+      Scheme: option<Scheme> }
 
-    override this.ToString() =
-      let sb = StringBuilder()
-
-      sb
-        .Append(this.Name)
-        .Append(
-          match this.Constraint with
-          | Some(constraint_) -> $" : {constraint_}"
-          | None -> ""
-        )
-        .Append(
-          match this.Default with
-          | Some(default_) -> $" = {default_}"
-          | None -> ""
-        )
-      |> ignore
-
-      sb.ToString()
-
-  type Scheme =
-    { TypeParams: list<TypeParam>
-      Type: Type
-      IsTypeParam: bool }
+  type ObjPatElem =
+    | KeyValuePat of key: string * value: Pattern
+    | ShorthandPat of name: string * value: option<Type>
+    | RestPat of target: Pattern
 
   type Pattern =
     | Identifier of name: string
@@ -306,93 +254,54 @@ module Type =
 
     override this.ToString() =
       match this with
-      | Identifier(name) -> name
-      | Object(elems) ->
-        sprintf
-          "{%A}"
-          (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
-      | Tuple(elems) ->
-        let elems =
-          elems |> List.map (fun e -> e.ToString()) |> String.concat ", "
-
-        $"[{elems}]"
-      | Wildcard -> "_"
-      | Literal(lit) -> lit.ToString()
-      | Is(target, id) -> $"{target} is {id}"
-      | Rest(target) -> $"...{target}"
-
-  type ObjPatElem =
-    | KeyValuePat of key: string * value: Pattern
-    | ShorthandPat of name: string * value: option<Type>
-    | RestPat of target: Pattern
+      | Identifier name -> name
+      | _ -> failwith "TODO: Pattern.ToString()"
 
   type FuncParam =
     { Pattern: Pattern
       Type: Type
       Optional: bool }
 
-    override this.ToString() =
-      sprintf "%s: %s" (this.Pattern.ToString()) (this.Type.ToString())
+    override this.ToString() = $"{this.Pattern}: {this.Type}"
 
-  [<RequireQualifiedAccess>]
-  type KeywordType =
-    | Never
-    | Object
-    | Unknown
+  type TypeParam =
+    { Name: string
+      Constraint: option<Type>
+      Default: option<Type> }
 
     override this.ToString() =
-      match this with
-      | Never -> "never"
-      | Object -> "object"
-      | Unknown -> "unknown"
+      let c =
+        match this.Constraint with
+        | Some(c) -> $": {c}"
+        | None -> ""
 
-  type Primitive =
-    | Boolean
-    | Number
-    | String
-    | Symbol
+      let d =
+        match this.Default with
+        | Some(d) -> $" = {d}"
+        | None -> ""
 
-    override this.ToString() =
-      match this with
-      | Boolean -> "boolean"
-      | Number -> "number"
-      | String -> "string"
-      | Symbol -> "symbol"
+      $"{this.Name}{c}{d}"
 
   type Function =
-    { ParamList: list<FuncParam>
-      ReturnType: Type
-      TypeParams: option<list<TypeParam>>
+    { TypeParams: option<list<TypeParam>>
+      ParamList: list<FuncParam>
+      Return: Type
       Throws: Type }
 
     override this.ToString() =
-      let sb = StringBuilder()
+      let args =
+        List.map (fun item -> item.ToString()) this.ParamList
+        |> String.concat ", "
 
-      // TODO: handle throws
-      sb
-        .Append("fn ")
-        .Append(
-          match this.TypeParams with
-          | Some(typeParams) ->
-            let typeParams =
-              typeParams
-              |> List.map (fun p -> p.ToString())
-              |> String.concat ", "
+      let typeParams =
+        match this.TypeParams with
+        | Some(typeParams) ->
+          let sep = ", "
+          let typeParams = List.map (fun t -> t.ToString()) typeParams
+          $"<{String.concat sep typeParams}>"
+        | None -> ""
 
-            $"<{typeParams}>"
-          | None -> ""
-        )
-        .Append("(")
-        .Append(
-          this.ParamList
-          |> List.map (fun p -> p.ToString())
-          |> String.concat ", "
-        )
-        .Append(") -> ")
-        .Append(this.ReturnType.ToString())
-      |> ignore
-
-      sb.ToString()
+      $"fn {typeParams}({args}) -> {this.Return}"
 
   type Mapped =
     { Key: Type
@@ -440,7 +349,7 @@ module Type =
       | Method(name,
                is_mut,
                { ParamList = paramList
-                 ReturnType = return_type }) ->
+                 Return = return_type }) ->
         let sb = StringBuilder()
 
         let self = if is_mut then "mut self" else "self"
@@ -452,7 +361,7 @@ module Type =
           .Append("(")
           // Do we need to include `self` in types?
           .Append(if is_mut then "mut self" else "self")
-          .Append(String.concat (", ") paramList')
+          .Append(String.concat ", " paramList')
           .Append(") -> ")
           .Append(return_type)
         |> ignore
@@ -463,7 +372,7 @@ module Type =
           "get %s() -> %s%s"
           name
           (return_type.ToString())
-          (if throws.Kind = TypeKind.Keyword(KeywordType.Never) then
+          (if throws.Kind = makePrimitiveKind "never" then
              ""
            else
              " throws " + throws.ToString())
@@ -472,7 +381,7 @@ module Type =
           "set %s(%s)%s"
           name
           (param.ToString())
-          (if throws.Kind = TypeKind.Keyword(KeywordType.Never) then
+          (if throws.Kind = makePrimitiveKind "never" then
              ""
            else
              " throws " + throws.ToString())
@@ -492,30 +401,17 @@ module Type =
           name
           (type_.ToString())
 
-  type TypeVar =
-    { Id: int
-      mutable Instance: option<Type>
-      Bound: option<Type> }
-
-  type TypeRef =
-    { Name: string
-      TypeArgs: option<list<Type>>
-      // used so that we can reference a type ref's scheme without importing it
-      Scheme: option<Scheme> }
-
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
-    | Literal of Syntax.Literal
-    | Primitive of Primitive // use TypeRef
-    | Tuple of list<Type> // use TypeRef
-    | Array of Type // use TypeRef
-    | Union of list<Type>
-    | Intersection of list<Type>
-    | Keyword of KeywordType // use TypeRef
     | Function of Function
     | Object of list<ObjTypeElem>
     | Rest of Type
+    | Literal of Syntax.Literal
+    | Union of list<Type> // TODO: use `Set<type>`
+    | Intersection of list<Type> // TODO: use `Set<type>`
+    | Tuple of list<Type>
+    | Array of Type
     | KeyOf of Type
     | Index of target: Type * index: Type
     | Condition of
@@ -524,68 +420,56 @@ module Type =
       true_type: Type *
       false_type: Type
     | Infer of name: string
+    | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
     | Wildcard
-    | Binary of left: Type * op: Syntax.BinaryOp * right: Type // use TypeRef? - const folding is probably a better approach
-
-    // TODO: add parenthesizes where necessary
-    override this.ToString() =
-      match this with
-      | TypeVar({ Id = id; Instance = instance }) ->
-        match instance with
-        | Some(instance) -> instance.ToString()
-        | None -> $"t{id}"
-      | TypeRef { Name = name; TypeArgs = typeArgs } ->
-        let sb = StringBuilder()
-        sb.Append(name) |> ignore
-
-        match typeArgs with
-        | Some(type_args) ->
-          sb
-            .Append("<")
-            .Append(
-              String.concat
-                (", ")
-                (type_args |> List.map (fun t -> t.ToString()))
-            )
-            .Append(">")
-          |> ignore
-        | None -> ()
-
-        sb.ToString()
-      | Literal(lit) -> lit.ToString()
-      | Primitive(prim) -> prim.ToString()
-      | Tuple(elems) ->
-        let elems =
-          elems |> List.map (fun e -> e.ToString()) |> String.concat ", "
-
-        $"[{elems}]"
-      | Array(elem) -> $"{elem}[]"
-      | Union(types) ->
-        (types |> List.map (fun t -> t.ToString()) |> String.concat " | ")
-      | Intersection(types) ->
-        (types |> List.map (fun t -> t.ToString()) |> String.concat " & ")
-      | Keyword(keyword) -> keyword.ToString()
-      | Function(func) -> func.ToString()
-      | Object(elems) ->
-        sprintf
-          "{%A}"
-          (elems |> List.map (fun e -> e.ToString()) |> String.concat ", ")
-      | Rest(target) -> $"...{target}"
-      | KeyOf(target) -> $"keyof {target}"
-      | Index(target, index) -> $"{target}[{index}]"
-      | Condition(check, extends, true_type, false_type) ->
-        $"{check} extends {extends} ? {true_type} : {false_type}"
-      | Infer(name) -> $"infer {name}"
-      | Wildcard -> "_"
-      | Binary(left, op, right) -> $"{left} {op} {right}"
-
-  [<RequireQualifiedAccess>]
-  type Provenance =
-    | Type of Type
-    | Expr of Syntax.Expr
 
   type Type =
     { Kind: TypeKind
-      mutable Provenance: option<Provenance> }
+      Provenance: option<Provenance> }
 
-    override this.ToString() = this.Kind.ToString()
+    // TODO: handle operator precedence when converting types to strings
+    override this.ToString() =
+      match this.Kind with
+      | TypeVar({ Instance = Some(instance) }) -> instance.ToString()
+      | TypeVar({ Instance = None } as v) -> $"t{v.Id}"
+      | TypeRef({ Name = name; TypeArgs = typeArgs }) ->
+        let typeArgs =
+          match typeArgs with
+          | Some(typeArgs) ->
+            let sep = ", "
+            $"<{typeArgs |> List.map (fun t -> t.ToString()) |> String.concat sep}>"
+          | None -> ""
+
+        $"{name}{typeArgs}"
+      | Function f -> f.ToString()
+      | Literal lit -> lit.ToString()
+      | Union types ->
+        List.map (fun item -> item.ToString()) types |> String.concat " | "
+      | Intersection types ->
+        List.map (fun item -> item.ToString()) types |> String.concat " & "
+      | Tuple elems ->
+        let elems =
+          List.map (fun item -> item.ToString()) elems |> String.concat ", "
+
+        $"[{elems}]"
+      | Array t -> $"{t}[]"
+      | Wildcard -> "_"
+      | _ -> failwith "TODO: finish implementing Type.ToString"
+
+  type Scheme =
+    { TypeParams: list<string>
+      Type: Type }
+
+    override this.ToString() =
+      let typeParams = String.concat ", " this.TypeParams
+
+      if typeParams.Length > 0 then
+        $"<{typeParams}>({this.Type})"
+      else
+        this.Type.ToString()
+
+  let makePrimitiveKind name =
+    { Name = name
+      TypeArgs = None
+      Scheme = None }
+    |> TypeKind.TypeRef

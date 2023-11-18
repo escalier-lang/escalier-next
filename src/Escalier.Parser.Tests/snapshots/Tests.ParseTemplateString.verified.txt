@@ -1,10 +1,10 @@
 ﻿input: msg = `foo ${`bar ${baz}`}`
 output: Success: { Kind =
    Assign
-     ({ Kind = Identifier "msg"
-        Span = { Start = (Ln: 1, Col: 1)
-                 Stop = (Ln: 1, Col: 5) }
-        InferredType = None }, Assign,
+     ("=", { Kind = Identifier "msg"
+             Span = { Start = (Ln: 1, Col: 1)
+                      Stop = (Ln: 1, Col: 5) }
+             InferredType = None },
       { Kind =
          TemplateLiteral
            { Parts = ["foo "; ""]

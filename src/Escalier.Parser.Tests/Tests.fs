@@ -4,8 +4,18 @@ module Tests
 open Xunit
 open VerifyTests
 open VerifyXunit
+open FParsec
 
 open Escalier.Parser
+
+let lit = run Parser.lit
+let expr = run Parser.expr
+let pattern = run Parser.pattern
+let stmt = run Parser.stmt
+let typeAnn = run Parser.typeAnn
+
+let script = run (many Parser.stmt)
+
 
 let settings = VerifySettings()
 settings.UseDirectory("snapshots")
@@ -14,7 +24,7 @@ settings.DisableDiff()
 [<Fact>]
 let ParseArithmetic () =
   let src = "0.1 + 2 * (3 - 4) / -5.6"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -22,7 +32,7 @@ let ParseArithmetic () =
 [<Fact>]
 let ParseString () =
   let src = """msg = "Hello,\n\t\"world!\"" """
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -30,7 +40,7 @@ let ParseString () =
 [<Fact>]
 let ParseTemplateString () =
   let src = """msg = `foo ${`bar ${baz}`}`"""
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -38,7 +48,7 @@ let ParseTemplateString () =
 [<Fact>]
 let ParseFunctionCall () =
   let src = "add(x, y)"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -46,7 +56,7 @@ let ParseFunctionCall () =
 [<Fact>]
 let ParseFunctionCallExtraSpaces () =
   let src = "add( x , y )"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -54,7 +64,7 @@ let ParseFunctionCallExtraSpaces () =
 [<Fact>]
 let ParseEmptyCall () =
   let src = "add()"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -62,7 +72,7 @@ let ParseEmptyCall () =
 [<Fact>]
 let ParseIndexer () =
   let src = "array[0]"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -70,7 +80,7 @@ let ParseIndexer () =
 [<Fact>]
 let ParseIndexerThenCall () =
   let src = "array[0]()"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -78,7 +88,7 @@ let ParseIndexerThenCall () =
 [<Fact>]
 let ParseCallThenIndexer () =
   let src = "foo()[0]"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -86,7 +96,7 @@ let ParseCallThenIndexer () =
 [<Fact>]
 let ParseFuncDef () =
   let src = "fn (x, y) { x }"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -94,7 +104,7 @@ let ParseFuncDef () =
 [<Fact>]
 let ParseFuncDefWithTypes () =
   let src = "fn (x: number) -> number throws \"RangeError\" { x }"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -102,7 +112,7 @@ let ParseFuncDefWithTypes () =
 [<Fact>]
 let ParseFuncDefWithTypeParams () =
   let src = "fn <T: Foo = Bar>(x: T) -> T { x }"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -110,7 +120,7 @@ let ParseFuncDefWithTypeParams () =
 [<Fact>]
 let ParseTuple () =
   let src = "[1, 2, 3]"
-  let expr = Parser.expr src
+  let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -118,7 +128,7 @@ let ParseTuple () =
 [<Fact>]
 let ParseUnionType () =
   let src = "number | string | boolean"
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -126,7 +136,7 @@ let ParseUnionType () =
 [<Fact>]
 let ParseUnionTypeWithLiterals () =
   let src = "5 | \"hello\""
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -134,7 +144,7 @@ let ParseUnionTypeWithLiterals () =
 [<Fact>]
 let ParseIntersectionType () =
   let src = "number & string & boolean"
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -142,7 +152,7 @@ let ParseIntersectionType () =
 [<Fact>]
 let ParseUnionAndIntersectionType () =
   let src = "A & B | C & D"
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -150,7 +160,7 @@ let ParseUnionAndIntersectionType () =
 [<Fact>]
 let ParseArrayType () =
   let src = "number[][]"
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -158,7 +168,7 @@ let ParseArrayType () =
 [<Fact>]
 let ParseParenthesizedType () =
   let src = "(number | string)[]"
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -166,7 +176,7 @@ let ParseParenthesizedType () =
 [<Fact>]
 let ParseFunctionType () =
   let src = "fn <T: Foo = Bar>(x: T) -> T throws \"RangeError\""
-  let expr = Parser.typeAnn src
+  let expr = typeAnn src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

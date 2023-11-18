@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <Compile Include="Tests.fs"/>
+        <Compile Include="NoParseTests.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
 

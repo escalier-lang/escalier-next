@@ -466,5 +466,22 @@ let InferObjectDestructuring () =
       Assert.Value(env, "sum", "number")
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferObjectRestSpread () =
+  let result =
+    result {
+      let src =
+        """
+        let obj = {a: 5, b: "hello", c: true}
+        let {a, ...rest} = obj
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "a", "5")
+      Assert.Value(env, "rest", "{b: \"hello\", c: true}")
+    }
+
   Assert.False(Result.isError result)

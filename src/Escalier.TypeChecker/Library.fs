@@ -444,13 +444,55 @@ module rec TypeChecker =
             elems2
           |> Map.ofList
 
-
         for KeyValue(name, prop2) in namedProps2 do
           match namedProps1.TryFind name with
           | Some(prop1) -> do! unify env prop1.Type prop2.Type
           | None ->
             if not prop2.Optional then
               return! Error(TypeError.TypeMismatch(t1, t2))
+
+      | Object allElems, Intersection types ->
+        let mutable combinedElems = []
+        let mutable restTypes = []
+
+        for t in types do
+          match t.Kind with
+          | Object elems -> combinedElems <- combinedElems @ elems
+          | Rest t -> restTypes <- t :: restTypes
+          | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+
+        let objType =
+          { Kind = TypeKind.Object(combinedElems)
+            Provenance = None }
+
+        printfn "restTypes = %A" restTypes
+
+        match restTypes with
+        | [] -> do! unify env t1 objType
+        | [ restType ] ->
+          let objElems, restElems =
+            List.partition
+              (fun (ae: ObjTypeElem) ->
+                List.exists
+                  (fun ce ->
+                    match ae, ce with
+                    | Property ap, Property cp -> ap.Name = cp.Name
+                    | _ -> false)
+                  combinedElems)
+              allElems
+
+          let newObjType =
+            { Kind = TypeKind.Object(objElems)
+              Provenance = None }
+
+          do! unify env newObjType objType
+
+          let newRestType =
+            { Kind = TypeKind.Object(restElems)
+              Provenance = None }
+
+          do! unify env newRestType restType
+        | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | _, _ ->
 
@@ -1054,18 +1096,22 @@ module rec TypeChecker =
         { Type.Kind = TypeKind.Literal(literal)
           Provenance = None }
       | PatternKind.Object elems ->
+        let mutable restType: option<Type> = None
+
         let elems: list<ObjTypeElem> =
-          List.map
+          List.choose
             (fun (elem: Syntax.ObjPatElem) ->
               match elem with
               | Syntax.ObjPatElem.KeyValuePat(_span, key, value, _init) ->
                 let t = infer_pattern_rec value
 
-                ObjTypeElem.Property
-                  { Name = key
-                    Optional = false
-                    Readonly = false
-                    Type = t }
+                Some(
+                  ObjTypeElem.Property
+                    { Name = key
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+                )
               | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
                 let t = TypeVariable.makeVariable None
 
@@ -1073,15 +1119,33 @@ module rec TypeChecker =
                 let isMut = false
                 assump <- assump.Add(name, (t, isMut))
 
-                ObjTypeElem.Property
-                  { Name = name
-                    Optional = false
-                    Readonly = false
-                    Type = t })
+                Some(
+                  ObjTypeElem.Property
+                    { Name = name
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+                )
+
+              | Syntax.ObjPatElem.RestPat(span, pattern, isMut) ->
+                restType <-
+                  Some(
+                    { Type.Kind = infer_pattern_rec pattern |> TypeKind.Rest
+                      Provenance = None }
+                  )
+
+                None)
             elems
 
-        { Type.Kind = TypeKind.Object(elems)
-          Provenance = None }
+        let objType =
+          { Type.Kind = TypeKind.Object(elems)
+            Provenance = None }
+
+        match restType with
+        | Some(restType) ->
+          { Type.Kind = TypeKind.Intersection([ objType; restType ])
+            Provenance = None }
+        | None -> objType
       | PatternKind.Tuple elems ->
         let elems' = List.map infer_pattern_rec elems
 
@@ -1116,7 +1180,9 @@ module rec TypeChecker =
               ObjPatElem.KeyValuePat(key, patternToPattern value)
             | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) ->
               // TODO: init, isMut
-              ObjPatElem.ShorthandPat(name, None))
+              ObjPatElem.ShorthandPat(name, None)
+            | Syntax.ObjPatElem.RestPat(span, target, isMut) ->
+              ObjPatElem.RestPat(patternToPattern target))
           elems
       )
     | PatternKind.Tuple elems -> Pattern.Tuple(List.map patternToPattern elems)
@@ -1293,8 +1359,9 @@ module rec TypeChecker =
               match elem with
               | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
                 walk value
-              | Syntax.ObjPatElem.ShorthandPat(span, name, init, is_mut) ->
-                Option.iter (walkExpr visitor) init)
+              | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) ->
+                Option.iter (walkExpr visitor) init
+              | Syntax.ObjPatElem.RestPat(span, target, isMut) -> walk target)
             elems
         | PatternKind.Tuple elems -> List.iter walk elems
         | PatternKind.Wildcard -> ()

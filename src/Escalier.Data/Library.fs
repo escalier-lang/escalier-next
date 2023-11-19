@@ -119,7 +119,8 @@ module Syntax =
       span: Span *
       name: string *
       init: option<Expr> *
-      is_mut: bool
+      isMut: bool
+    | RestPat of span: Span * target: Pattern * isMut: bool
 
   type BindingIdent =
     { Span: Span
@@ -469,6 +470,25 @@ module Type =
         $"[{elems}]"
       | Array t -> $"{t}[]"
       | Wildcard -> "_"
+      | Object elems ->
+        let elems =
+          List.map
+            (fun (elem: ObjTypeElem) ->
+              match elem with
+              | Property { Name = name
+                           Optional = optional
+                           Readonly = readonly
+                           Type = type_ } ->
+                let optional = if optional then "?" else ""
+                let readonly = if readonly then "readonly " else ""
+                $"{readonly}{name}{optional}: {type_}"
+              | _ -> failwith "TODO: Type.ToString - Object - Elem"
+
+            )
+            elems
+
+        let elems = String.concat ", " elems
+        $"{{{elems}}}"
       | _ -> failwith "TODO: finish implementing Type.ToString"
 
   type Scheme =

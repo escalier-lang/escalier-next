@@ -451,7 +451,7 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private objPatElem =
+  let private objPatKeyValueOrShorthand =
     pipe4 getPosition ident (opt (strWs ":" >>. (ws >>. pattern))) getPosition
     <| fun start key value stop ->
       let span = { Start = start; Stop = stop }
@@ -460,7 +460,14 @@ module Parser =
       | Some(value) ->
         KeyValuePat(span = span, key = key, value = value, init = None)
       | None ->
-        ShorthandPat(span = span, name = key, init = None, is_mut = false)
+        ShorthandPat(span = span, name = key, init = None, isMut = false)
+
+  let private objPatRestElem =
+    withSpan (strWs "..." >>. pattern)
+    |>> fun (pattern, span) ->
+      RestPat(span = span, target = pattern, isMut = false)
+
+  let private objPatElem = choice [ objPatKeyValueOrShorthand; objPatRestElem ]
 
   let private objectPattern =
     withSpan (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))

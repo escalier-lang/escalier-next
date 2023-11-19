@@ -108,8 +108,8 @@ module Syntax =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  // TODO: add SpreadPat?
   type ObjPatElem =
+    // TODO: add isMut
     | KeyValuePat of
       span: Span *
       key: string *
@@ -120,6 +120,7 @@ module Syntax =
       name: string *
       init: option<Expr> *
       isMut: bool
+    // TODO: rename to RestSpreadPat
     | RestPat of span: Span * target: Pattern * isMut: bool
 
   type BindingIdent =
@@ -246,8 +247,8 @@ module Type =
       Scheme: option<Scheme> }
 
   type ObjPatElem =
-    | KeyValuePat of key: string * value: Pattern
-    | ShorthandPat of name: string * value: option<Syntax.Expr>
+    | KeyValuePat of key: string * value: Pattern * init: option<Syntax.Expr>
+    | ShorthandPat of name: string * init: option<Syntax.Expr>
     | RestPat of target: Pattern
 
   type Pattern =
@@ -262,7 +263,33 @@ module Type =
     override this.ToString() =
       match this with
       | Identifier name -> name
-      | _ -> failwith "TODO: Pattern.ToString()"
+      | Object elems ->
+        let elems =
+          List.map
+            (fun elem ->
+              match elem with
+              | KeyValuePat(key, value, init) ->
+                match init with
+                | Some(init) -> $"{key}: {value} = {init}"
+                | None -> $"{key}: {value}"
+              | ShorthandPat(name, init) ->
+                match init with
+                | Some(value) -> $"{name} = {value}"
+                | None -> name
+              | RestPat(target) -> $"...{target}")
+            elems
+
+        let elems = String.concat ", " elems
+        $"{{{elems}}}"
+      | Tuple elems ->
+        let elems =
+          List.map (fun item -> item.ToString()) elems |> String.concat ", "
+
+        $"[{elems}]"
+      | Wildcard -> "_"
+      | Literal lit -> lit.ToString()
+      | Is({ Name = name }, id) -> $"{name} is {id}"
+      | Rest(target) -> $"...{target}"
 
   type FuncParam =
     { Pattern: Pattern
@@ -489,7 +516,10 @@ module Type =
 
         let elems = String.concat ", " elems
         $"{{{elems}}}"
-      | _ -> failwith "TODO: finish implementing Type.ToString"
+      | Rest t -> $"...{t}"
+      | _ ->
+        printfn "this.Kind = %A" this.Kind
+        failwith "TODO: finish implementing Type.ToString"
 
   type Scheme =
     { TypeParams: option<list<string>>

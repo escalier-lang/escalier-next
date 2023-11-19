@@ -474,14 +474,19 @@ let InferObjectRestSpread () =
     result {
       let src =
         """
-        let obj = {a: 5, b: "hello", c: true}
-        let {a, ...rest} = obj
+        let obj1 = {a: 5, b: "hello", c: true}
+        let {a, ...rest} = obj1
+        let obj2 = {a, ...rest}
+        let foo = fn({a, ...rest}: {a: number, b: string, c: boolean}) => a
+        foo(obj2)
         """
 
       let! env = inferScript src
 
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
+      Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)

@@ -2,10 +2,10 @@
     <PropertyGroup>
         <OtherFlags>$(OtherFlags) --warnon:3559 --warnon:3560 --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
     </PropertyGroup>
-    <Target Name="FSharpLint" AfterTargets="BeforeBuild">
-        <Exec
-                Command="dotnet fsharplint -f msbuild lint $(MSBuildProjectFullPath)"
-                IgnoreExitCode="true"
-        />
-    </Target>
+    <!--    <Target Name="FSharpLint" AfterTargets="BeforeBuild">-->
+    <!--        <Exec-->
+    <!--                Command="dotnet fsharplint -f msbuild lint $(MSBuildProjectFullPath)"-->
+    <!--                IgnoreExitCode="true"-->
+    <!--        />-->
+    <!--    </Target>-->
 </Project>

@@ -137,7 +137,17 @@ module rec TypeChecker =
             Provenance = None }
         | Literal _ -> t
         | Wildcard -> t
-        | Object _ -> failwith "TODO: foldType - Object"
+        | Object elems ->
+          let elems =
+            List.map
+              (fun elem ->
+                match elem with
+                | Property p -> Property { p with Type = fold p.Type }
+                | _ -> failwith "TODO: foldType - ObjTypeElem")
+              elems
+
+          { Kind = Object(elems)
+            Provenance = None }
         | Rest t ->
           { Kind = Rest(fold t)
             Provenance = None }
@@ -371,6 +381,8 @@ module rec TypeChecker =
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
   let unify (env: Env) (t1: Type) (t2: Type) : Result<unit, TypeError> =
+    // printfn $"unify {t1} {t2}"
+
     result {
       match (prune t1).Kind, (prune t2).Kind with
       | TypeVar _, _ -> do! bind t1 t2
@@ -465,8 +477,6 @@ module rec TypeChecker =
           { Kind = TypeKind.Object(combinedElems)
             Provenance = None }
 
-        printfn "restTypes = %A" restTypes
-
         match restTypes with
         | [] -> do! unify env t1 objType
         | [ restType ] ->
@@ -492,6 +502,47 @@ module rec TypeChecker =
               Provenance = None }
 
           do! unify env newRestType restType
+        | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+
+      | Intersection types, Object allElems ->
+        let mutable combinedElems = []
+        let mutable restTypes = []
+
+        for t in types do
+          match t.Kind with
+          | Object elems -> combinedElems <- combinedElems @ elems
+          | Rest t -> restTypes <- t :: restTypes
+          | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+
+        let objType =
+          { Kind = TypeKind.Object(combinedElems)
+            Provenance = None }
+
+        match restTypes with
+        | [] -> do! unify env objType t2
+        | [ restType ] ->
+          let objElems, restElems =
+            List.partition
+              (fun (ae: ObjTypeElem) ->
+                List.exists
+                  (fun ce ->
+                    match ae, ce with
+                    | Property ap, Property cp -> ap.Name = cp.Name
+                    | _ -> false)
+                  combinedElems)
+              allElems
+
+          let newObjType =
+            { Kind = TypeKind.Object(objElems)
+              Provenance = None }
+
+          do! unify env objType newObjType
+
+          let newRestType =
+            { Kind = TypeKind.Object(restElems)
+              Provenance = None }
+
+          do! unify env restType newRestType
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | _, _ ->
@@ -775,6 +826,8 @@ module rec TypeChecker =
               { Kind = makePrimitiveKind "undefined"
                 Provenance = None }
         | ExprKind.Object elems ->
+          let mutable spreadTypes = []
+
           let! elems =
             List.traverseResultM
               (fun (elem: ObjElem) ->
@@ -784,32 +837,44 @@ module rec TypeChecker =
                     let! t = inferExpr value env nonGeneric
 
                     return
-                      Property
-                        { Name = key
-                          Optional = false
-                          Readonly = false
-                          Type = t }
+                      Some(
+                        Property
+                          { Name = key
+                            Optional = false
+                            Readonly = false
+                            Type = t }
+                      )
                   | ObjElem.Shorthand(_span, key) ->
                     let value = getType key env nonGeneric
 
                     return
-                      Property
-                        { Name = key
-                          Optional = false
-                          Readonly = false
-                          Type = value }
-                  | ObjElem.Spread(span, value) ->
-                    return!
-                      Error(
-                        TypeError.NotImplemented
-                          "TODO: inferExpr - ObjElem.Spread"
+                      Some(
+                        Property
+                          { Name = key
+                            Optional = false
+                            Readonly = false
+                            Type = value }
                       )
+                  | ObjElem.Spread(span, value) ->
+                    let! t = inferExpr value env nonGeneric
+                    spreadTypes <- t :: spreadTypes
+                    return None
                 })
               elems
 
-          return
+          let elems = elems |> List.choose id
+
+          let objType =
             { Kind = Object(elems)
               Provenance = None }
+
+          match spreadTypes with
+          | [] -> return objType
+          | _ ->
+            return
+              { Kind = Intersection([ objType ] @ spreadTypes)
+                Provenance = None }
+
         | _ ->
           return!
             Error(
@@ -1176,11 +1241,10 @@ module rec TypeChecker =
           (fun (elem: Syntax.ObjPatElem) ->
             match elem with
             | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
-              // TODO: init
-              ObjPatElem.KeyValuePat(key, patternToPattern value)
+              ObjPatElem.KeyValuePat(key, patternToPattern value, init)
             | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) ->
-              // TODO: init, isMut
-              ObjPatElem.ShorthandPat(name, None)
+              // TODO: isMut
+              ObjPatElem.ShorthandPat(name, init)
             | Syntax.ObjPatElem.RestPat(span, target, isMut) ->
               ObjPatElem.RestPat(patternToPattern target))
           elems

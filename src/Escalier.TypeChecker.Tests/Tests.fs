@@ -425,11 +425,68 @@ let InferSKK () =
 let InferTypeAnn () =
   let result =
     result {
-      let src = "let x: number = 5"
+      let src =
+        """
+        let a: number = 5
+        let [b, c]: [string, boolean] = ["hello", true]
+        type Point = {x: number, y: number}
+        let {x, y}: Point = {x: 5, y: 10}
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "b", "string")
+      Assert.Value(env, "c", "boolean")
+      Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferObjectDestructuring () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        let {x, y}: Point = {x: 5, y: 10}
+        let p: Point = {x, y}
+        let foo = fn ({x, y}: Point) => x + y
+        let sum = foo({x: 5, y: 10})
+        foo({x, y})
+        """
 
       let! env = inferScript src
 
       Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "number")
+      Assert.Value(env, "p", "Point")
+      Assert.Value(env, "sum", "number")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferObjectRestSpread () =
+  let result =
+    result {
+      let src =
+        """
+        let obj1 = {a: 5, b: "hello", c: true}
+        let {a, ...rest} = obj1
+        let obj2 = {a, ...rest}
+        let foo = fn({a, ...rest}: {a: number, b: string, c: boolean}) => a
+        foo(obj2)
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "a", "5")
+      Assert.Value(env, "rest", "{b: \"hello\", c: true}")
+      Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)

@@ -182,6 +182,28 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let objElemProperty: Parser<ObjElem, unit> =
+    pipe4 getPosition ident (opt (strWs ":" >>. expr)) getPosition
+    <| fun start key value stop ->
+      let span = { Start = start; Stop = stop }
+
+      match value with
+      | Some(value) -> ObjElem.Property(span = span, key = key, value = value)
+      | None -> ObjElem.Shorthand(span = span, key = key)
+
+  let objElemSpread: Parser<ObjElem, unit> =
+    withSpan (strWs "..." >>. expr)
+    |>> fun (expr, span) -> ObjElem.Spread(span, expr)
+
+  let objElem = choice [ objElemProperty; objElemSpread ]
+
+  let objectExpr: Parser<Expr, unit> =
+    withSpan (between (strWs "{") (strWs "}") (sepBy objElem (strWs ",")))
+    |>> fun (objElems, span) ->
+      { Kind = ExprKind.Object(objElems)
+        Span = span
+        InferredType = None }
+
   let ifElse, ifElseRef = createParserForwardedToRef<Expr, unit> ()
 
   ifElseRef.Value <-
@@ -211,6 +233,7 @@ module Parser =
         funcExpr
         ifElse
         tupleExpr
+        objectExpr
         templateStringLiteral
         identExpr ]
 
@@ -428,13 +451,23 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private objPatKeyValue =
-    pipe4 getPosition ident pattern getPosition
-    <| fun start id pat stop ->
+  let private objPatKeyValueOrShorthand =
+    pipe4 getPosition ident (opt (strWs ":" >>. (ws >>. pattern))) getPosition
+    <| fun start key value stop ->
       let span = { Start = start; Stop = stop }
-      KeyValuePat(span = span, key = id, value = pat, init = None)
 
-  let private objPatElem = objPatKeyValue
+      match value with
+      | Some(value) ->
+        KeyValuePat(span = span, key = key, value = value, init = None)
+      | None ->
+        ShorthandPat(span = span, name = key, init = None, isMut = false)
+
+  let private objPatRestElem =
+    withSpan (strWs "..." >>. pattern)
+    |>> fun (pattern, span) ->
+      RestPat(span = span, target = pattern, isMut = false)
+
+  let private objPatElem = choice [ objPatKeyValueOrShorthand; objPatRestElem ]
 
   let private objectPattern =
     withSpan (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))
@@ -494,6 +527,25 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private objTypeAnnKeyValue: Parser<ObjTypeAnnElem, unit> =
+    pipe4 getPosition ident (strWs ":" >>. typeAnn) getPosition
+    <| fun p1 name typeAnn p2 ->
+      // TODO: add location information
+      let span = { Start = p1; Stop = p2 }
+      ObjTypeAnnElem.Property(name, typeAnn)
+
+  let private objTypeAnnElem = choice [ objTypeAnnKeyValue ]
+
+  let private objectTypeAnn =
+    withSpan (
+      between (strWs "{") (strWs "}") (sepBy objTypeAnnElem (strWs ","))
+    )
+    |>> fun (objElems, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Object(objElems)
+        Span = span
+        InferredType = None }
+
+  // TODO: don't include strWs in the span
   let private keyofTypeAnn =
     withSpan (strWs "keyof" >>. typeAnn)
     |>> fun (typeAnn, span) ->
@@ -501,6 +553,7 @@ module Parser =
         Span = span
         InferredType = None }
 
+  // TODO: don't include strWs in the span
   let private restTypeAnn =
     withSpan (strWs "..." >>. typeAnn)
     |>> fun (typeAnn, span) ->
@@ -508,6 +561,7 @@ module Parser =
         Span = span
         InferredType = None }
 
+  // TODO: don't include strWs in the span
   let private typeofTypeAnn =
     withSpan (strWs "typeof" >>. expr)
     |>> fun (e, span) ->
@@ -560,7 +614,7 @@ module Parser =
         typeofTypeAnn // aka TypeQuery
         keyofTypeAnn
         restTypeAnn
-        // TODO: objectTypeAnn
+        objectTypeAnn
         // TODO: thisTypeAnn
         // NOTE: should come last since any identifier can be a type reference
         typeRef ]

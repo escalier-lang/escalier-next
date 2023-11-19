@@ -1,0 +1,153 @@
+﻿input: 
+    type Point = {x: number, y: number}
+    let {x, y}: Point = {x: 5, y: 10}
+    let p: Point = {x, y}
+    let foo = fn ({x, y}: Point) => x + y
+  
+output: Success: [{ Kind =
+    Decl
+      { Kind =
+         TypeDecl
+           ("Point",
+            { Kind =
+               Object
+                 [Property ("x", { Kind = Keyword Number
+                                   Span = { Start = (Ln: 2, Col: 22)
+                                            Stop = (Ln: 2, Col: 28) }
+                                   InferredType = None });
+                  Property ("y", { Kind = Keyword Number
+                                   Span = { Start = (Ln: 2, Col: 33)
+                                            Stop = (Ln: 2, Col: 39) }
+                                   InferredType = None })]
+              Span = { Start = (Ln: 2, Col: 18)
+                       Stop = (Ln: 3, Col: 5) }
+              InferredType = None }, None)
+        Span = { Start = (Ln: 2, Col: 5)
+                 Stop = (Ln: 3, Col: 5) } }
+   Span = { Start = (Ln: 2, Col: 5)
+            Stop = (Ln: 3, Col: 5) } };
+ { Kind =
+    Decl
+      { Kind =
+         VarDecl
+           ({ Kind =
+               Object
+                 [ShorthandPat ({ Start = (Ln: 3, Col: 10)
+                                  Stop = (Ln: 3, Col: 11) }, "x", None, false);
+                  ShorthandPat ({ Start = (Ln: 3, Col: 13)
+                                  Stop = (Ln: 3, Col: 14) }, "y", None, false)]
+              Span = { Start = (Ln: 3, Col: 9)
+                       Stop = (Ln: 3, Col: 15) }
+              InferredType = None },
+            { Kind =
+               Object
+                 [Property
+                    ({ Start = (Ln: 3, Col: 26)
+                       Stop = (Ln: 3, Col: 30) }, "x",
+                     { Kind = Literal (Number "5")
+                       Span = { Start = (Ln: 3, Col: 29)
+                                Stop = (Ln: 3, Col: 30) }
+                       InferredType = None });
+                  Property
+                    ({ Start = (Ln: 3, Col: 32)
+                       Stop = (Ln: 3, Col: 37) }, "y",
+                     { Kind = Literal (Number "10")
+                       Span = { Start = (Ln: 3, Col: 35)
+                                Stop = (Ln: 3, Col: 37) }
+                       InferredType = None })]
+              Span = { Start = (Ln: 3, Col: 25)
+                       Stop = (Ln: 4, Col: 5) }
+              InferredType = None }, Some { Kind = TypeRef ("Point", None)
+                                            Span = { Start = (Ln: 3, Col: 17)
+                                                     Stop = (Ln: 3, Col: 23) }
+                                            InferredType = None })
+        Span = { Start = (Ln: 3, Col: 5)
+                 Stop = (Ln: 4, Col: 5) } }
+   Span = { Start = (Ln: 3, Col: 5)
+            Stop = (Ln: 4, Col: 5) } };
+ { Kind =
+    Decl
+      { Kind =
+         VarDecl
+           ({ Kind = Identifier { Span = { Start = (Ln: 4, Col: 9)
+                                           Stop = (Ln: 4, Col: 10) }
+                                  Name = "p"
+                                  IsMut = false }
+              Span = { Start = (Ln: 4, Col: 9)
+                       Stop = (Ln: 4, Col: 10) }
+              InferredType = None },
+            { Kind =
+               Object
+                 [Shorthand ({ Start = (Ln: 4, Col: 21)
+                               Stop = (Ln: 4, Col: 22) }, "x");
+                  Shorthand ({ Start = (Ln: 4, Col: 24)
+                               Stop = (Ln: 4, Col: 25) }, "y")]
+              Span = { Start = (Ln: 4, Col: 20)
+                       Stop = (Ln: 5, Col: 5) }
+              InferredType = None }, Some { Kind = TypeRef ("Point", None)
+                                            Span = { Start = (Ln: 4, Col: 12)
+                                                     Stop = (Ln: 4, Col: 18) }
+                                            InferredType = None })
+        Span = { Start = (Ln: 4, Col: 5)
+                 Stop = (Ln: 5, Col: 5) } }
+   Span = { Start = (Ln: 4, Col: 5)
+            Stop = (Ln: 5, Col: 5) } };
+ { Kind =
+    Decl
+      { Kind =
+         VarDecl
+           ({ Kind = Identifier { Span = { Start = (Ln: 5, Col: 9)
+                                           Stop = (Ln: 5, Col: 13) }
+                                  Name = "foo"
+                                  IsMut = false }
+              Span = { Start = (Ln: 5, Col: 9)
+                       Stop = (Ln: 5, Col: 13) }
+              InferredType = None },
+            { Kind =
+               Function
+                 { Sig =
+                    { TypeParams = None
+                      ParamList =
+                       [{ Pattern =
+                           { Kind =
+                              Object
+                                [ShorthandPat
+                                   ({ Start = (Ln: 5, Col: 20)
+                                      Stop = (Ln: 5, Col: 21) }, "x", None,
+                                    false);
+                                 ShorthandPat
+                                   ({ Start = (Ln: 5, Col: 23)
+                                      Stop = (Ln: 5, Col: 24) }, "y", None,
+                                    false)]
+                             Span = { Start = (Ln: 5, Col: 19)
+                                      Stop = (Ln: 5, Col: 25) }
+                             InferredType = None }
+                          TypeAnn = Some { Kind = TypeRef ("Point", None)
+                                           Span = { Start = (Ln: 5, Col: 27)
+                                                    Stop = (Ln: 5, Col: 32) }
+                                           InferredType = None }
+                          Optional = false }]
+                      ReturnType = None
+                      Throws = None }
+                   Body =
+                    Expr
+                      { Kind =
+                         Binary
+                           ("+", { Kind = Identifier "x"
+                                   Span = { Start = (Ln: 5, Col: 37)
+                                            Stop = (Ln: 5, Col: 39) }
+                                   InferredType = None },
+                            { Kind = Identifier "y"
+                              Span = { Start = (Ln: 5, Col: 41)
+                                       Stop = (Ln: 6, Col: 3) }
+                              InferredType = None })
+                        Span = { Start = (Ln: 5, Col: 37)
+                                 Stop = (Ln: 6, Col: 3) }
+                        InferredType = None } }
+              Span = { Start = (Ln: 5, Col: 15)
+                       Stop = (Ln: 6, Col: 3) }
+              InferredType = None }, None)
+        Span = { Start = (Ln: 5, Col: 5)
+                 Stop = (Ln: 6, Col: 3) } }
+   Span = { Start = (Ln: 5, Col: 5)
+            Stop = (Ln: 6, Col: 3) } }]

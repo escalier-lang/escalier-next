@@ -1106,7 +1106,19 @@ module rec TypeChecker =
       Pattern.Identifier(name)
     | PatternKind.Is(span, bindingIdent, isName, isMut) ->
       Pattern.Is(bindingIdent, isName)
-    | PatternKind.Object elems -> failwith "todo" // TODO
+    | PatternKind.Object elems ->
+      Pattern.Object(
+        List.map
+          (fun (elem: Syntax.ObjPatElem) ->
+            match elem with
+            | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
+              // TODO: init
+              ObjPatElem.KeyValuePat(key, patternToPattern value)
+            | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) ->
+              // TODO: init, isMut
+              ObjPatElem.ShorthandPat(name, None))
+          elems
+      )
     | PatternKind.Tuple elems -> Pattern.Tuple(List.map patternToPattern elems)
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)

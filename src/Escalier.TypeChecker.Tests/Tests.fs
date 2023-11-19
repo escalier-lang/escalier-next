@@ -453,6 +453,9 @@ let InferObjectDestructuring () =
         type Point = {x: number, y: number}
         let {x, y}: Point = {x: 5, y: 10}
         let p: Point = {x, y}
+        let foo = fn ({x, y}: Point) => x + y
+        let sum = foo({x: 5, y: 10})
+        foo({x, y})
         """
 
       let! env = inferScript src
@@ -460,6 +463,8 @@ let InferObjectDestructuring () =
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
       Assert.Value(env, "p", "Point")
+      Assert.Value(env, "sum", "number")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)

@@ -188,7 +188,8 @@ let ParseObjLitAndObjPat () =
     type Point = {x: number, y: number}
     let {x, y}: Point = {x: 5, y: 10}
     let p: Point = {x, y}
-    """
+    let foo = fn ({x, y}: Point) => x + y
+  """
 
   let ast = script src
   let result = $"input: %s{src}\noutput: %A{ast}"

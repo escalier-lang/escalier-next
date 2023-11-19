@@ -108,6 +108,7 @@ module Syntax =
       | Null -> "null"
       | Undefined -> "undefined"
 
+  // TODO: add SpreadPat?
   type ObjPatElem =
     | KeyValuePat of
       span: Span *
@@ -245,7 +246,7 @@ module Type =
 
   type ObjPatElem =
     | KeyValuePat of key: string * value: Pattern
-    | ShorthandPat of name: string * value: option<Type>
+    | ShorthandPat of name: string * value: option<Syntax.Expr>
     | RestPat of target: Pattern
 
   type Pattern =

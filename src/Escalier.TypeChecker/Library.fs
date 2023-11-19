@@ -874,8 +874,15 @@ module rec TypeChecker =
             return
               { Kind = Intersection([ objType ] @ spreadTypes)
                 Provenance = None }
+        | Member(obj, prop, optChain) ->
+          let! objType = inferExpr obj env nonGeneric
 
+          // TODO: handle optional chaining
+          // TODO: lookup properties on object type
+          return getPropType objType prop
         | _ ->
+          printfn "expr.Kind = %A" expr.Kind
+
           return!
             Error(
               TypeError.NotImplemented "TODO: finish implementing infer_expr"
@@ -887,6 +894,27 @@ module rec TypeChecker =
         expr.InferredType <- Some(t)
         t)
       r
+
+  let getPropType (t: Type) (name: string) : Type =
+    let t = prune t
+
+    match t.Kind with
+    | Object elems ->
+      let elems =
+        List.choose
+          (fun (elem: ObjTypeElem) ->
+            match elem with
+            | Property p -> Some(p.Name, p)
+            | _ -> None)
+          elems
+        |> Map.ofList
+
+      match elems.TryFind name with
+      | Some(p) -> p.Type
+      | None -> failwithf $"Property {name} not found"
+    // TODO: intersection types
+    // TODO: union types
+    | _ -> failwith $"TODO: lookup member on type - {t}"
 
   let inferBlockOrExpr
     (env: Env)
@@ -973,15 +1001,18 @@ module rec TypeChecker =
               (fun (elem: ObjTypeAnnElem) ->
                 result {
                   match elem with
-                  | ObjTypeAnnElem.Property(name, typeAnn) ->
+                  | ObjTypeAnnElem.Property { Name = name
+                                              TypeAnn = typeAnn
+                                              Optional = optional
+                                              Readonly = readonly } ->
                     let! t = inferTypeAnn env typeAnn
 
                     return
                       Property
                         { Name = name
-                          Optional = false
-                          Readonly = false
-                          Type = t }
+                          Type = t
+                          Optional = optional
+                          Readonly = readonly }
                   | ObjTypeAnnElem.Callable ``function`` ->
                     return! Error(TypeError.NotImplemented "todo")
                   | ObjTypeAnnElem.Constructor ``function`` ->
@@ -1035,7 +1066,7 @@ module rec TypeChecker =
 
           let! paramList =
             List.traverseResultM
-              (fun p ->
+              (fun (p: FuncParam<TypeAnn>) ->
                 result {
                   let! t = inferTypeAnn env p.TypeAnn
                   let pattern = patternToPattern p.Pattern
@@ -1450,7 +1481,10 @@ module rec TypeChecker =
         | TypeAnnKind.Function f ->
           walk f.ReturnType
           Option.iter walk f.Throws
-          List.iter (fun param -> walk param.TypeAnn) f.ParamList
+
+          List.iter
+            (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+            f.ParamList
         | TypeAnnKind.Keyof target -> walk target
         | TypeAnnKind.Rest target -> walk target
         | TypeAnnKind.Typeof target -> walkExpr visitor target

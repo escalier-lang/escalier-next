@@ -180,7 +180,6 @@ let InferIfElse () =
       Assert.Equal("5 | \"hello\"", t.ToString())
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -488,5 +487,41 @@ let InferObjectRestSpread () =
       Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferObjProps () =
+  let result =
+    result {
+      let src =
+        """
+        let obj = {a: {b: 5, c: "hello"}}
+        let b = obj.a.b
+        let c = obj.a.c
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "b", "5")
+      Assert.Value(env, "c", "\"hello\"")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "Need to change how we deal with 'undefined'")>]
+let InferOptionalChaining () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {a?: {b?: {c?: number}}}
+        let obj: Obj = {a: {b: undefined}}
+        let c = obj?.a?.b?.c
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "c", "number | undefined")
+    }
+
   Assert.False(Result.isError result)

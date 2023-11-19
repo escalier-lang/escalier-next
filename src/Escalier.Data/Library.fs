@@ -167,6 +167,12 @@ module Syntax =
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
+  type Property =
+    { Name: string
+      TypeAnn: TypeAnn
+      Optional: bool
+      Readonly: bool }
+
   // TODO: add location information
   type ObjTypeAnnElem =
     | Callable of Function
@@ -174,7 +180,7 @@ module Syntax =
     | Method of name: string * is_mut: bool * type_: Function
     | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
     | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
-    | Property of name: string * typeAnn: TypeAnn // TODO: readonly, optional
+    | Property of Property
 
   type KeywordTypeAnn =
     | Boolean

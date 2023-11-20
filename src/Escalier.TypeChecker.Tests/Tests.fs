@@ -519,6 +519,9 @@ let InferOptionalChaining () =
         let a = obj.a
         let b = obj.a?.b
         let c = obj.a?.b?.c
+        type Point = {x: number, y: number}
+        let p: Point = {x: 5, y: 10}
+        let x = p?.x
         """
 
       let! env = inferScript src
@@ -527,6 +530,8 @@ let InferOptionalChaining () =
       Assert.Value(env, "a", "{b?: {c: number}} | undefined")
       Assert.Value(env, "b", "{c: number} | undefined")
       Assert.Value(env, "c", "number | undefined")
+      Assert.Value(env, "p", "Point")
+      Assert.Value(env, "x", "number")
     }
 
   printf "result = %A" result

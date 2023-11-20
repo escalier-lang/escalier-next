@@ -508,20 +508,26 @@ let InferObjProps () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "Need to change how we deal with 'undefined'")>]
+[<Fact>]
 let InferOptionalChaining () =
   let result =
     result {
       let src =
         """
-        type Obj = {a?: {b?: {c?: number}}}
+        type Obj = {a?: {b?: {c: number}}}
         let obj: Obj = {a: {b: undefined}}
-        let c = obj?.a?.b?.c
+        let a = obj.a
+        let b = obj.a?.b
+        let c = obj.a?.b?.c
         """
 
       let! env = inferScript src
 
+      Assert.Value(env, "obj", "Obj")
+      Assert.Value(env, "a", "{b?: {c: number}} | undefined")
+      Assert.Value(env, "b", "{c: number} | undefined")
       Assert.Value(env, "c", "number | undefined")
     }
 
+  printf "result = %A" result
   Assert.False(Result.isError result)

@@ -96,7 +96,11 @@ module Parser =
     (pstring "true" |>> fun _ -> Literal.Boolean true)
     <|> (pstring "false" |>> fun _ -> Literal.Boolean false)
 
-  litRef.Value <- number <|> string <|> boolean
+  let otherLiterals =
+    (pstring "undefined" |>> fun _ -> Literal.Undefined)
+    <|> (pstring "null" |>> fun _ -> Literal.Null)
+
+  litRef.Value <- number <|> string <|> boolean <|> otherLiterals
 
   let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
 

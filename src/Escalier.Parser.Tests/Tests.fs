@@ -38,6 +38,19 @@ let ParseString () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseOtherLiterals () =
+  let src =
+    """
+  let a = undefined
+  let b = null
+  """
+
+  let ast = script src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseTemplateString () =
   let src = """msg = `foo ${`bar ${baz}`}`"""
   let expr = expr src

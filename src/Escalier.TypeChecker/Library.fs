@@ -434,6 +434,14 @@ module rec TypeChecker =
         | Literal.String _, "string" -> ()
         | Literal.Boolean _, "boolean" -> ()
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | Literal l1, Literal l2 ->
+        match l1, l2 with
+        | Literal.Number n1, Literal.Number n2 when n1 = n2 -> ()
+        | Literal.String s1, Literal.String s2 when s1 = s2 -> ()
+        | Literal.Boolean b1, Literal.Boolean b2 when b1 = b2 -> ()
+        | Literal.Null, Literal.Null -> ()
+        | Literal.Undefined, Literal.Undefined -> ()
+        | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | Object elems1, Object elems2 ->
 
         let namedProps1 =
@@ -456,9 +464,24 @@ module rec TypeChecker =
             elems2
           |> Map.ofList
 
+        let undefined =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Provenance = None }
+
         for KeyValue(name, prop2) in namedProps2 do
           match namedProps1.TryFind name with
-          | Some(prop1) -> do! unify env prop1.Type prop2.Type
+          | Some(prop1) ->
+            let p1Type =
+              match prop1.Optional with
+              | true -> union [ prop1.Type; undefined ]
+              | false -> prop1.Type
+
+            let p2Type =
+              match prop2.Optional with
+              | true -> union [ prop2.Type; undefined ]
+              | false -> prop2.Type
+
+            do! unify env p1Type p2Type
           | None ->
             if not prop2.Optional then
               return! Error(TypeError.TypeMismatch(t1, t2))
@@ -543,6 +566,15 @@ module rec TypeChecker =
               Provenance = None }
 
           do! unify env restType newRestType
+        | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+
+      | _, TypeKind.Union(types) ->
+
+        let unifier =
+          List.tryFind (fun t -> unify env t1 t |> Result.isOk) types
+
+        match unifier with
+        | Some _ -> return ()
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | _, _ ->
@@ -674,21 +706,15 @@ module rec TypeChecker =
       | TypeRef { Name = name
                   TypeArgs = typeArgs
                   Scheme = scheme } ->
-
-        // TODO: figure out a better solution for this, we may need to
-        // reintroduce Primitive and Keyword types
-        if name = "undefined" then
-          t
-        else
-          let t =
-            match scheme with
+        let t =
+          match scheme with
+          | Some scheme -> expandScheme env scheme typeArgs
+          | None ->
+            match env.Schemes.TryFind name with
             | Some scheme -> expandScheme env scheme typeArgs
-            | None ->
-              match env.Schemes.TryFind name with
-              | Some scheme -> expandScheme env scheme typeArgs
-              | None -> failwith $"{name} is not in scope"
+            | None -> failwith $"{name} is not in scope"
 
-          expand t
+        expand t
       | _ -> t
 
     expand t
@@ -766,7 +792,7 @@ module rec TypeChecker =
           let retExprs = findReturns f
 
           let undefined =
-            { Kind = makePrimitiveKind "undefined"
+            { Kind = TypeKind.Literal(Literal.Undefined)
               Provenance = None }
 
           let! retType =
@@ -823,7 +849,7 @@ module rec TypeChecker =
             match elseBranchTy with
             | Some(elseBranchTy) -> union [ thenBranchTy; elseBranchTy ]
             | None ->
-              { Kind = makePrimitiveKind "undefined"
+              { Kind = TypeKind.Literal(Literal.Undefined)
                 Provenance = None }
         | ExprKind.Object elems ->
           let mutable spreadTypes = []
@@ -874,8 +900,15 @@ module rec TypeChecker =
             return
               { Kind = Intersection([ objType ] @ spreadTypes)
                 Provenance = None }
+        | Member(obj, prop, optChain) ->
+          let! objType = inferExpr obj env nonGeneric
 
+          // TODO: handle optional chaining
+          // TODO: lookup properties on object type
+          return getPropType env objType prop optChain
         | _ ->
+          printfn "expr.Kind = %A" expr.Kind
+
           return!
             Error(
               TypeError.NotImplemented "TODO: finish implementing infer_expr"
@@ -887,6 +920,68 @@ module rec TypeChecker =
         expr.InferredType <- Some(t)
         t)
       r
+
+  let getPropType (env: Env) (t: Type) (name: string) (optChain: bool) : Type =
+    let t = prune t
+
+    match t.Kind with
+    | Object elems ->
+      let elems =
+        List.choose
+          (fun (elem: ObjTypeElem) ->
+            match elem with
+            | Property p -> Some(p.Name, p)
+            | _ -> None)
+          elems
+        |> Map.ofList
+
+      match elems.TryFind name with
+      | Some(p) ->
+        match p.Optional with
+        | true ->
+          let undefined =
+            { Kind = TypeKind.Literal(Literal.Undefined)
+              Provenance = None }
+
+          union [ p.Type; undefined ]
+        | false -> p.Type
+      | None -> failwithf $"Property {name} not found"
+    | TypeRef { Name = typeRefName
+                Scheme = scheme
+                TypeArgs = typeArgs } ->
+      match scheme with
+      | Some scheme ->
+        getPropType env (expandScheme env scheme typeArgs) name optChain
+      | None ->
+        match env.Schemes.TryFind typeRefName with
+        | Some scheme ->
+          getPropType env (expandScheme env scheme typeArgs) name optChain
+        | None -> failwithf $"{name} not in scope"
+    | Union types ->
+      let undefinedTypes, definedTypes =
+        List.partition
+          (fun t -> t.Kind = TypeKind.Literal(Literal.Undefined))
+          types
+
+      if undefinedTypes.IsEmpty then
+        failwith "TODO: lookup member on union type"
+      else if not optChain then
+        failwith "Can't lookup property on undefined"
+      else
+        match definedTypes with
+        | [ t ] ->
+          let t = getPropType env t name optChain
+
+          let undefined =
+            { Kind = TypeKind.Literal(Literal.Undefined)
+              Provenance = None }
+
+          union [ t; undefined ]
+        | _ -> failwith "TODO: lookup member on union type"
+
+    // TODO: intersection types
+    // TODO: union types
+    | _ -> failwith $"TODO: lookup member on type - {t}"
 
   let inferBlockOrExpr
     (env: Env)
@@ -917,7 +1012,7 @@ module rec TypeChecker =
             stmts
 
         let undefined =
-          { Kind = makePrimitiveKind "undefined"
+          { Kind = TypeKind.Literal(Literal.Undefined)
             Provenance = None }
 
         match List.tryLast stmtResults with
@@ -973,15 +1068,18 @@ module rec TypeChecker =
               (fun (elem: ObjTypeAnnElem) ->
                 result {
                   match elem with
-                  | ObjTypeAnnElem.Property(name, typeAnn) ->
+                  | ObjTypeAnnElem.Property { Name = name
+                                              TypeAnn = typeAnn
+                                              Optional = optional
+                                              Readonly = readonly } ->
                     let! t = inferTypeAnn env typeAnn
 
                     return
                       Property
                         { Name = name
-                          Optional = false
-                          Readonly = false
-                          Type = t }
+                          Type = t
+                          Optional = optional
+                          Readonly = readonly }
                   | ObjTypeAnnElem.Callable ``function`` ->
                     return! Error(TypeError.NotImplemented "todo")
                   | ObjTypeAnnElem.Constructor ``function`` ->
@@ -1035,7 +1133,7 @@ module rec TypeChecker =
 
           let! paramList =
             List.traverseResultM
-              (fun p ->
+              (fun (p: FuncParam<TypeAnn>) ->
                 result {
                   let! t = inferTypeAnn env p.TypeAnn
                   let pattern = patternToPattern p.Pattern
@@ -1450,7 +1548,10 @@ module rec TypeChecker =
         | TypeAnnKind.Function f ->
           walk f.ReturnType
           Option.iter walk f.Throws
-          List.iter (fun param -> walk param.TypeAnn) f.ParamList
+
+          List.iter
+            (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+            f.ParamList
         | TypeAnnKind.Keyof target -> walk target
         | TypeAnnKind.Rest target -> walk target
         | TypeAnnKind.Typeof target -> walkExpr visitor target
@@ -1471,8 +1572,17 @@ module rec TypeChecker =
 
     walk typeAnn
 
+
+  let rec flatten (types: list<Type>) : list<Type> =
+    List.collect
+      (fun t ->
+        match t.Kind with
+        | TypeKind.Union ts -> flatten ts
+        | _ -> [ t ])
+      types
+
   let union (types: list<Type>) : Type =
-    match types with
+    match flatten types with
     | [] ->
       { Kind = makePrimitiveKind "never"
         Provenance = None }

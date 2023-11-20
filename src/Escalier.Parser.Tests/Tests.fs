@@ -9,7 +9,7 @@ open FParsec
 open Escalier.Parser
 
 let lit = run Parser.lit
-let expr = run Parser.expr
+let expr = run (Parser.expr .>> eof)
 let pattern = run Parser.pattern
 let stmt = run Parser.stmt
 let typeAnn = run Parser.typeAnn
@@ -34,6 +34,19 @@ let ParseString () =
   let src = """msg = "Hello,\n\t\"world!\"" """
   let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseOtherLiterals () =
+  let src =
+    """
+  let a = undefined
+  let b = null
+  """
+
+  let ast = script src
+  let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
@@ -88,6 +101,22 @@ let ParseIndexerThenCall () =
 [<Fact>]
 let ParseCallThenIndexer () =
   let src = "foo()[0]"
+  let expr = expr src
+  let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseObjProperty () =
+  let src = "obj.a.b"
+  let expr = expr src
+  let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseObjPropWithOptChain () =
+  let src = "obj?.a?.b"
   let expr = expr src
   let result = $"input: %s{src}\noutput: %A{expr}"
 
@@ -202,6 +231,30 @@ let ParseObjRestSpread () =
     """
     let obj = {a: 5, b: "hello", c: true}
     let {a, ...rest} = obj
+  """
+
+  let ast = script src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseOptionalProps () =
+  let src =
+    """
+    type Obj = {a?: {b?: {c?: number}}}
+  """
+
+  let ast = script src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseOptionalParams () =
+  let src =
+    """
+    let foo = fn(a?: number, b?: string) => a
   """
 
   let ast = script src

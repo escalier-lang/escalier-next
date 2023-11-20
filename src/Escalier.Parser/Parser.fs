@@ -96,7 +96,11 @@ module Parser =
     (pstring "true" |>> fun _ -> Literal.Boolean true)
     <|> (pstring "false" |>> fun _ -> Literal.Boolean false)
 
-  litRef.Value <- number <|> string <|> boolean
+  let otherLiterals =
+    (pstring "undefined" |>> fun _ -> Literal.Undefined)
+    <|> (pstring "null" |>> fun _ -> Literal.Null)
+
+  litRef.Value <- number <|> string <|> boolean <|> otherLiterals
 
   let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
 
@@ -239,7 +243,26 @@ module Parser =
 
   let term = (atom .>> ws) <|> between (strWs "(") (strWs ")") expr
 
-  opp.TermParser <- term
+  let memberOp =
+    fun (optChain: bool) (x: Expr) (y: Expr) ->
+      match y.Kind with
+      | Identifier ident ->
+        { Expr.Kind = ExprKind.Member(x, ident, optChain)
+          Span = mergeSpans x.Span y.Span
+          InferredType = None }
+      | _ -> failwith "Expected identifier"
+
+  let member': Parser<(Expr -> Expr -> Expr), unit> =
+    (pstring "?." <|> pstring ".") .>> spaces
+    >>= fun op ->
+      match op with
+      | "." -> preturn (memberOp false)
+      | "?." -> preturn (memberOp true)
+      | _ -> failwith "Expected '.' or '?.'"
+
+  let termWithPropSuffix = chainl1 term member'
+
+  opp.TermParser <- termWithPropSuffix
 
   type Assoc = Associativity
 
@@ -255,7 +278,7 @@ module Parser =
       "[",
       (pipe2 getPosition ((ws >>. expr) .>> (strWs "]"))
        <| fun p1 expr -> ([ expr ], p1)), // (indices, position)
-      18,
+      17,
       true,
       (),
       (fun (indices, stop) target ->
@@ -272,7 +295,7 @@ module Parser =
       "(",
       (pipe2 getPosition (sepBy (ws >>. expr) (strWs ",") .>> (strWs ")"))
        <| fun p1 args -> (args, p1)), // args
-      18,
+      17,
       true,
       (),
       (fun (args, stop) callee ->
@@ -528,11 +551,21 @@ module Parser =
         InferredType = None }
 
   let private objTypeAnnKeyValue: Parser<ObjTypeAnnElem, unit> =
-    pipe4 getPosition ident (strWs ":" >>. typeAnn) getPosition
-    <| fun p1 name typeAnn p2 ->
+    pipe5
+      getPosition
+      ident
+      (opt (strWs "?"))
+      (strWs ":" >>. typeAnn)
+      getPosition
+    <| fun p1 name optional typeAnn p2 ->
       // TODO: add location information
       let span = { Start = p1; Stop = p2 }
-      ObjTypeAnnElem.Property(name, typeAnn)
+
+      ObjTypeAnnElem.Property
+        { Name = name
+          TypeAnn = typeAnn
+          Optional = optional.IsSome
+          Readonly = false }
 
   let private objTypeAnnElem = choice [ objTypeAnnKeyValue ]
 

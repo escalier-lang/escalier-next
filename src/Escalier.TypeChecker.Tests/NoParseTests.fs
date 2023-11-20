@@ -302,7 +302,6 @@ let RecursiveUnification () =
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
-    printfn "InferGenericAndNonGeneric - start"
     nextVariableId <- 0
 
     let ast =
@@ -330,7 +329,6 @@ let InferGenericAndNonGeneric () =
     let t = getType "foo" newEnv nonGeneric
     (* fn g => let f = fn x => g in [f 3, f true] *)
     Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
-    printfn "InferGenericAndNonGeneric - end"
   }
 
 [<Fact>]

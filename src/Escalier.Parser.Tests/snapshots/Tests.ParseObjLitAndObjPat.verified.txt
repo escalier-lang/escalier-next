@@ -11,14 +11,20 @@ output: Success: [{ Kind =
            ("Point",
             { Kind =
                Object
-                 [Property ("x", { Kind = Keyword Number
-                                   Span = { Start = (Ln: 2, Col: 22)
-                                            Stop = (Ln: 2, Col: 28) }
-                                   InferredType = None });
-                  Property ("y", { Kind = Keyword Number
-                                   Span = { Start = (Ln: 2, Col: 33)
-                                            Stop = (Ln: 2, Col: 39) }
-                                   InferredType = None })]
+                 [Property { Name = "x"
+                             TypeAnn = { Kind = Keyword Number
+                                         Span = { Start = (Ln: 2, Col: 22)
+                                                  Stop = (Ln: 2, Col: 28) }
+                                         InferredType = None }
+                             Optional = false
+                             Readonly = false };
+                  Property { Name = "y"
+                             TypeAnn = { Kind = Keyword Number
+                                         Span = { Start = (Ln: 2, Col: 33)
+                                                  Stop = (Ln: 2, Col: 39) }
+                                         InferredType = None }
+                             Optional = false
+                             Readonly = false }]
               Span = { Start = (Ln: 2, Col: 18)
                        Stop = (Ln: 3, Col: 5) }
               InferredType = None }, None)

@@ -1,6 +1,5 @@
 namespace Escalier.Codegen
 
-open System.Text
 open System.Globalization
 
 open Escalier.Codegen.TypeScript
@@ -32,129 +31,230 @@ module Printer =
     | BinaryOperator.Divide -> 13
     | BinaryOperator.Modulo -> 13
 
-  let getUnaryPrecedence (op: UnaryOperator) : int =
+  let getLogicalPrecendence (op: LogicalOperator) : int =
     match op with
-    | UnaryOperator.Not -> 15
-    | UnaryOperator.BitwiseNot -> 15
-    | UnaryOperator.Plus -> 15
-    | UnaryOperator.Minus -> 15
-    | UnaryOperator.Typeof -> 15
-    | UnaryOperator.Void -> 15
-    | UnaryOperator.Delete -> 15
-    | UnaryOperator.Await -> 15
+    | LogicalOperator.And -> 3
+    | LogicalOperator.Or -> 2
 
-  let rec printExpr
-    (sb: StringBuilder)
-    (prec: int)
-    (e: Expression)
-    : StringBuilder =
+  let printLit (lit: Literal) : string =
+    match lit.Value with
+    | LiteralValue.String s -> s
+    | LiteralValue.Number f -> f.ToString(ci)
+    | LiteralValue.Boolean b -> if b then "true" else "false"
+    | LiteralValue.Regex { Pattern = pat; Flags = flags } -> $"/{pat}/{flags}"
+    | LiteralValue.Null -> "null"
+    | LiteralValue.Undefined -> "undefined"
+
+  let rec printExpr (prec: int) (e: Expression) : string =
 
     match e with
-    | Expression.Identifier { Name = name } -> sb.Append(name)
-    | Expression.Literal { Value = value } ->
-      match value with
-      | LiteralValue.String s -> sb.Append(s)
-      | LiteralValue.Number f -> sb.Append(f.ToString(ci))
-      | LiteralValue.Boolean b -> sb.Append(b)
-      | LiteralValue.Regex regex -> failwith "TODO - regex"
-      | LiteralValue.Null -> sb.Append("null")
-      | LiteralValue.Undefined -> sb.Append("undefined")
-
-    | Expression.This _ -> sb.Append("this")
+    | Expression.Identifier { Name = name } -> name
+    | Expression.Literal lit -> printLit lit
+    | Expression.This _ -> "this"
     | Expression.Array { Elements = elements } ->
-      sb.Append("[") |> ignore
+      let elements =
+        List.map
+          (fun e ->
+            match e with
+            | Some(e) -> printExpr prec e
+            | None -> "")
+          elements
 
-      List.iteri
-        (fun i e ->
-          sb.Append(if i > 0 then ", " else "") |> ignore
+        |> String.concat ", "
 
-          match e with
-          | Some(e) -> printExpr sb prec e
-          | None -> sb.Append("")
-          |> ignore)
-        elements
+      $"[{elements}]"
+    // TODO: support shorthand syntax
+    | Expression.Object { Properties = props } ->
 
-      sb.Append("]")
+      let props =
+        props
+        |> List.map
+          (fun
+               { Key = key
+                 Value = value
+                 Kind = _kind } ->
 
-    | Expression.Object objectExpression -> failwith "todo"
+            let key =
+              match key with
+              | PropertyKey.Literal lit -> printLit lit // wrap this?
+              | PropertyKey.Identifier id -> id.Name
+
+            let value = printExpr prec value
+
+            // TODO: handle getter/setter kinds
+            $"{key}: {value}")
+        |> String.concat ", "
+
+      $"{{{props}}}"
     | Expression.Unary { Operator = op
-                         Prefix = prefix
-                         Argument = args } ->
-      let _ =
+                         Prefix = _prefix
+                         Argument = arg } ->
+
+      let outerPrec = prec
+      let innerPrec = 15
+
+      let op =
         match op with
-        | UnaryOperator.Minus -> sb.Append("-")
-        | UnaryOperator.Plus -> sb.Append("+")
-        | UnaryOperator.Not -> sb.Append("!")
-        | UnaryOperator.BitwiseNot -> sb.Append("~")
-        | UnaryOperator.Typeof -> sb.Append("typeof ")
-        | UnaryOperator.Void -> sb.Append("void ")
-        | UnaryOperator.Delete -> sb.Append("delete ")
+        | UnaryOperator.Minus -> "-"
+        | UnaryOperator.Plus -> "+"
+        | UnaryOperator.Not -> "!"
+        | UnaryOperator.BitwiseNot -> "~"
+        | UnaryOperator.Typeof -> "typeof "
+        | UnaryOperator.Void -> "void "
+        | UnaryOperator.Delete -> "delete "
+        | UnaryOperator.Await -> "await "
 
-      let prec = getUnaryPrecedence op
+      let arg = printExpr prec arg
+      let expr = $"{op}{arg}"
 
-      printExpr sb prec args
+      if innerPrec < outerPrec then $"({expr})" else expr
+
     | Expression.Update { Operator = op
                           Argument = arg
                           Prefix = prefix } ->
-      if prefix then
-        printExpr sb prec arg |> ignore
 
-      let _ =
+      let outerPrec = prec
+      let innerPrec = if prefix then 15 else 16
+
+      let op =
         match op with
-        | Decrement -> sb.Append("--")
-        | Increment -> sb.Append("++")
+        | Decrement -> "--"
+        | Increment -> "++"
 
-      if not prefix then
-        printExpr sb prec arg |> ignore
+      let arg = printExpr innerPrec arg
+      let expr = if prefix then $"{op}{arg}" else $"{arg}{op}"
 
-      sb
+      if innerPrec < outerPrec then $"({expr})" else expr
     | Expression.Binary { Operator = op
                           Left = left
                           Right = right } ->
 
       let outerPrec = prec
-      let innerprec = getBinaryPrecedence op
+      let innerPrec = getBinaryPrecedence op
 
-      if innerprec < outerPrec then
-        sb.Append("(") |> ignore
-
-      printExpr sb innerprec left |> ignore
-
-      let _ =
+      let op =
         match op with
-        | Equal -> sb.Append(" == ")
-        | NotEqual -> sb.Append(" != ")
-        | StrictEqual -> sb.Append(" === ")
-        | StrictNotEqual -> sb.Append(" !== ")
-        | LessThan -> sb.Append(" < ")
-        | LessThanOrEqual -> sb.Append(" <= ")
-        | GreaterThan -> sb.Append(" > ")
-        | GreaterThanOrEqual -> sb.Append(" >= ")
-        | LeftShift -> sb.Append(" << ")
-        | RightShift -> sb.Append(" >> ")
-        | UnsignedRightShift -> sb.Append(" >>> ")
-        | Plus -> sb.Append(" + ")
-        | Minus -> sb.Append(" - ")
-        | Multiply -> sb.Append(" * ")
-        | Divide -> sb.Append(" / ")
-        | Modulo -> sb.Append(" % ")
-        | BitwiseAnd -> sb.Append(" & ")
-        | BitwiseOr -> sb.Append(" | ")
-        | BitwiseXor -> sb.Append(" ^ ")
-        | In -> sb.Append(" in ")
-        | InstanceOf -> sb.Append(" instanceof ")
+        | Equal -> "=="
+        | NotEqual -> "!="
+        | StrictEqual -> "==="
+        | StrictNotEqual -> "!=="
+        | LessThan -> "<"
+        | LessThanOrEqual -> "<="
+        | GreaterThan -> ">"
+        | GreaterThanOrEqual -> ">="
+        | LeftShift -> "<<"
+        | RightShift -> ">>"
+        | UnsignedRightShift -> ">>>"
+        | Plus -> "+"
+        | Minus -> "-"
+        | Multiply -> "*"
+        | Divide -> "/"
+        | Modulo -> "%"
+        | BitwiseAnd -> "&"
+        | BitwiseOr -> "|"
+        | BitwiseXor -> "^"
+        | In -> "in"
+        | InstanceOf -> "instanceof"
 
-      printExpr sb innerprec right |> ignore
+      let left = printExpr innerPrec left
+      let right = printExpr innerPrec right
+      let expr = $"{left} {op} {right}"
 
-      if innerprec < outerPrec then
-        sb.Append(")") |> ignore
+      if innerPrec < outerPrec then $"({expr})" else expr
 
-      sb
+    | Expression.Assignment { Operator = op
+                              Left = left
+                              Right = right } ->
 
-    | Expression.Assignment assignmentExpression -> failwith "todo"
-    | Expression.Logical logicalExpression -> failwith "todo"
-    | Expression.Member memberExpression -> failwith "todo"
-    | Expression.Conditional conditionalExpression -> failwith "todo"
-    | Expression.Call callExpression -> failwith "todo"
-    | Expression.New newExpression -> failwith "todo"
-    | Expression.Sequence sequenceExpression -> failwith "todo"
+      let outerPrec = prec
+      let innerPrec = 2
+
+      let op =
+        match op with
+        | AssignmentOperator.Assign -> "="
+        | AssignmentOperator.PlusAssign -> "+="
+        | AssignmentOperator.MinusAssign -> "-="
+        | AssignmentOperator.MultiplyAssign -> "*="
+        | AssignmentOperator.DivideAssign -> "/="
+        | AssignmentOperator.ModuloAssign -> "%="
+        | AssignmentOperator.LeftShiftAssign -> "<<="
+        | AssignmentOperator.RightShiftAssign -> ">>="
+        | AssignmentOperator.UnsignedRightShiftAssign -> ">>>="
+        | AssignmentOperator.BitwiseAndAssign -> "&="
+        | AssignmentOperator.BitwiseOrAssign -> "|="
+        | AssignmentOperator.BitwiseXorAssign -> "^="
+
+      let left = printExpr prec left
+      let right = printExpr prec right
+      let expr = $"{left} {op} {right}"
+
+      if innerPrec < outerPrec then $"({expr})" else expr
+    | Expression.Logical { Operator = op
+                           Left = left
+                           Right = right } ->
+      let outerPrec = prec
+      let innerPrec = getLogicalPrecendence op
+
+      let op =
+        match op with
+        | And -> "&&"
+        | Or -> "||"
+
+      let left = printExpr innerPrec left
+      let right = printExpr innerPrec right
+      let expr = $"{left} {op} {right}"
+
+      if innerPrec < outerPrec then $"({expr})" else expr
+    | Expression.Member { Object = obj
+                          Property = prop
+                          Computed = computed } ->
+
+      let outerPrec = prec
+      let innerPrec = 18
+
+      let obj = printExpr innerPrec obj
+      let prop = printExpr innerPrec prop
+      let expr = if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
+
+      if innerPrec < outerPrec then $"({expr})" else expr
+    | Expression.Conditional { Test = test
+                               Alternate = alt
+                               Consequent = cons } ->
+
+      let outerPrec = prec
+      let innerPrec = 3
+
+      let test = printExpr innerPrec test
+      let alt = printExpr innerPrec alt
+      let cons = printExpr innerPrec cons
+
+      let expr = $"{test} ? {alt} : {cons}"
+
+      if innerPrec < outerPrec then $"({expr}" else expr
+
+    | Expression.Call { Callee = callee; Arguments = args } ->
+      let outerPrec = prec
+      let innerPrec = 18
+
+      let callee = printExpr innerPrec callee
+      let args = args |> List.map (printExpr innerPrec) |> String.concat ", "
+      let expr = $"{callee}({args})"
+
+      if innerPrec < outerPrec then $"({expr}" else expr
+    | Expression.New { Callee = callee; Arguments = args } ->
+      let outerPrec = prec
+      let innerPrec = 18
+
+      let callee = printExpr innerPrec callee
+      let args = args |> List.map (printExpr innerPrec) |> String.concat ", "
+      let expr = $"{callee}({args})"
+
+      if innerPrec < outerPrec then $"new ({expr}" else expr
+    | Expression.Sequence { Expressions = exprs } ->
+
+      let outerPrec = prec
+      let innerPrec = 1
+
+      let exprs = exprs |> List.map (printExpr innerPrec) |> String.concat ", "
+
+      if innerPrec < outerPrec then $"({exprs})" else exprs

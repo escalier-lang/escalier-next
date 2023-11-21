@@ -1,6 +1,5 @@
 module Tests
 
-open System.Text
 open Escalier.Codegen.TypeScript
 open Escalier.Codegen.Printer
 open Xunit
@@ -8,8 +7,7 @@ open Xunit
 [<Fact>]
 let CodegenIdent () =
   let ident: Identifier = { Name = "foo"; Loc = None }
-  let sb = StringBuilder()
-  let code = printExpr sb 0 (Expression.Identifier ident)
+  let code = printExpr 0 (Expression.Identifier ident)
 
   Assert.Equal("foo", code.ToString())
 
@@ -19,8 +17,7 @@ let CodegenLiteral () =
     { Value = LiteralValue.Number 1.23
       Loc = None }
 
-  let sb = StringBuilder()
-  let code = printExpr sb 0 (Expression.Literal lit)
+  let code = printExpr 0 (Expression.Literal lit)
 
   Assert.Equal("1.23", code.ToString())
 
@@ -36,8 +33,7 @@ let CodegenAddition () =
         Right = Expression.Identifier b
         Loc = None }
 
-  let sb = StringBuilder()
-  let code = printExpr sb 0 sum
+  let code = printExpr 0 sum
 
   Assert.Equal("a + b", code.ToString())
 
@@ -75,8 +71,7 @@ let CodegenExpressRequiresParens () =
         Right = diff
         Loc = None }
 
-  let sb = StringBuilder()
-  let code = printExpr sb 0 prod
+  let code = printExpr 0 prod
 
   Assert.Equal("(a + 1) * (b - 2)", code.ToString())
 
@@ -114,7 +109,6 @@ let CodegenNoParensExpression () =
         Right = quot
         Loc = None }
 
-  let sb = StringBuilder()
-  let code = printExpr sb 0 sum
+  let code = printExpr 0 sum
 
   Assert.Equal("a * 1 + b / 2", code.ToString())

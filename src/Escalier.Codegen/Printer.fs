@@ -86,6 +86,16 @@ module Printer =
         |> String.concat ", "
 
       $"{{{props}}}"
+    | Expression.Function { Id = id; Params = ps; Body = body } ->
+      let id =
+        match id with
+        | Some(id) -> id.Name
+        | None -> ""
+
+      let ps = ps |> List.map printPattern |> String.concat ", "
+      let body = body.Body |> List.map printStmt |> String.concat "\n"
+
+      $"function {id}({ps}) {{\n{body}\n}}"
     | Expression.Unary { Operator = op
                          Prefix = _prefix
                          Argument = arg } ->
@@ -218,17 +228,17 @@ module Printer =
 
       if innerPrec < outerPrec then $"({expr})" else expr
     | Expression.Conditional { Test = test
-                               Alternate = alt
-                               Consequent = cons } ->
+                               Consequent = cons
+                               Alternate = alt } ->
 
       let outerPrec = prec
       let innerPrec = 3
 
       let test = printExpr innerPrec test
-      let alt = printExpr innerPrec alt
       let cons = printExpr innerPrec cons
+      let alt = printExpr innerPrec alt
 
-      let expr = $"{test} ? {alt} : {cons}"
+      let expr = $"{test} ? {cons} : {alt}"
 
       if innerPrec < outerPrec then $"({expr}" else expr
 
@@ -258,3 +268,174 @@ module Printer =
       let exprs = exprs |> List.map (printExpr innerPrec) |> String.concat ", "
 
       if innerPrec < outerPrec then $"({exprs})" else exprs
+
+  and printStmt (stmt: Statement) : string =
+
+    match stmt with
+    | Statement.Block { Body = body } ->
+      let body = body |> List.map printStmt |> String.concat "\n"
+      $"{{\n{body}\n}}"
+    | Statement.Expression { Expr = expr } -> $"{printExpr 0 expr};"
+    | Statement.Empty _ -> ";"
+    | Statement.Debugger _ -> "debugger;"
+    | Statement.Return { Argument = arg } ->
+      match arg with
+      | Some(arg) -> $"return {printExpr 0 arg};"
+      | None -> "return;"
+    | Statement.Labeled { Label = label; Body = body } ->
+      let label = label.Name
+      let body = printStmt body
+      $"{label}: {body}"
+    | Statement.Break { Label = label } ->
+      match label with
+      | Some(label) -> $"break {label.Name};"
+      | None -> "break;"
+    | Statement.Continue { Label = label } ->
+      match label with
+      | Some(label) -> $"continue {label.Name};"
+      | None -> "continue;"
+    | Statement.If { Test = test
+                     Consequent = cons
+                     Alternate = alt } ->
+
+      let test = printExpr 0 test
+      let cons = printStmt cons
+
+      match alt with
+      | Some(alt) -> $"if ({test}) {cons} else {printStmt alt}"
+      | None -> $"if ({test}) {cons}"
+    | Statement.Switch { Discriminant = disc; Cases = cases } ->
+      let disc = printExpr 0 disc
+
+      let cases =
+        cases
+        |> List.map (fun case ->
+          let test =
+            match case.Test with
+            | Some(test) -> $"case {printExpr 0 test}:"
+            | None -> "default:"
+
+          let cons =
+            match case.Consequent with
+            | [ stmt ] -> printStmt stmt
+            | stmts -> stmts |> List.map printStmt |> String.concat "\n"
+
+          $"{test} {cons}")
+        |> String.concat "\n"
+
+      $"switch ({disc}) {{\n{cases}\n}}"
+    | Statement.Throw { Argument = arg } ->
+      let arg = printExpr 0 arg
+      $"throw {arg};"
+    | Statement.Try { Block = block
+                      Handler = handler
+                      Finalizer = finalizer } ->
+      let block = block.Body |> List.map printStmt |> String.concat "\n"
+      let block = $"try {{\n{block}\n}}"
+
+      let handler =
+        match handler with
+        | Some(handler) ->
+          let param = printPattern handler.Param
+
+          let body =
+            handler.Body.Body |> List.map printStmt |> String.concat "\n"
+
+          $"catch ({param}) {{\n{body}\n}}"
+        | None -> ""
+
+      let finalizer =
+        match finalizer with
+        | Some(finalizer) ->
+          let body = finalizer.Body |> List.map printStmt |> String.concat "\n"
+
+          $"finally {{\n{body}\n}}"
+        | None -> ""
+
+      $"{block}{handler}{finalizer}"
+    | Statement.While { Test = test; Body = body } ->
+      let test = printExpr 0 test
+      let body = printStmt body
+
+      $"while ({test}) {body}"
+    | Statement.DoWhile { Test = test; Body = body } ->
+      let test = printExpr 0 test
+      let body = printStmt body
+
+      $"do {body} while ({test});"
+    | Statement.For { Init = init
+                      Test = test
+                      Update = update
+                      Body = body } ->
+
+      let init =
+        match init with
+        | Some(ForInit.Variable decl) ->
+          printStmt (Statement.Declaration(Declaration.Variable decl))
+        | Some(ForInit.Expression expr) -> printExpr 0 expr
+        | None -> ""
+
+      let test =
+        match test with
+        | Some(test) -> printExpr 0 test
+        | None -> ""
+
+      let update =
+        match update with
+        | Some(update) -> printExpr 0 update
+        | None -> ""
+
+      let body = printStmt body
+
+      $"for ({init}; {test}; {update}) {body}"
+    | Statement.ForIn { Left = left
+                        Right = right
+                        Body = body } ->
+      let left =
+        match left with
+        | ForInLeft.Variable decl ->
+          printStmt (Statement.Declaration(Declaration.Variable decl))
+        | ForInLeft.Pattern p -> printPattern p
+
+      let right = printExpr 0 right
+      let body = printStmt body
+
+      $"for ({left} in {right}) {body}"
+    | Statement.Declaration decl ->
+      match decl with
+      | Declaration.Function { Id = id; Params = ps; Body = body } ->
+        let id = id.Name
+        let ps = ps |> List.map printPattern |> String.concat ", "
+        let body = body.Body |> List.map printStmt |> String.concat "\n"
+
+        $"function {id}({ps}) {{\n{body}\n}}"
+      | Declaration.Variable { Declarations = decls; Kind = kind } ->
+        let decls =
+          List.map
+            (fun { Id = id; Init = init } ->
+              let id = printPattern id
+
+              match init with
+              | Some(init) -> $"{id} = {printExpr 0 init}"
+              | None -> id)
+            decls
+          |> String.concat ", "
+
+        match kind with
+        | VariableDeclarationKind.Var -> $"var {decls};"
+        | VariableDeclarationKind.Let -> $"let {decls};"
+        | VariableDeclarationKind.Const -> $"const {decls};"
+
+  and printPattern (p: Pattern) : string =
+
+    match p with
+    | Pattern.Identifier { Name = name } -> name
+    | Pattern.Member { Object = obj
+                       Property = prop
+                       Computed = computed } ->
+
+      let prec = 18
+
+      let obj = printExpr prec obj
+      let prop = printExpr prec prop
+      if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"

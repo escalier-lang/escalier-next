@@ -76,16 +76,16 @@ module rec TypeScript =
 
   type LabeledStatement =
     { Label: Identifier
-      body: Statement
+      Body: Statement
       Loc: option<SourceLocation> }
 
   type BreakStatement =
     { Label: option<Identifier>
-      loc: option<SourceLocation> }
+      Loc: option<SourceLocation> }
 
   type ContinueStatement =
     { Label: option<Identifier>
-      loc: option<SourceLocation> }
+      Loc: option<SourceLocation> }
 
   type IfStatement =
     { Test: Expression
@@ -108,12 +108,12 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TryStatement =
-    { block: BlockStatement
-      handler: option<CatchClause>
-      finalizer: option<BlockStatement> }
+    { Block: BlockStatement
+      Handler: option<CatchClause>
+      Finalizer: option<BlockStatement> }
 
   type CatchClause =
-    { param: Pattern; body: BlockStatement }
+    { Param: Pattern; Body: BlockStatement }
 
   type WhileStatement =
     { Test: Expression
@@ -130,19 +130,19 @@ module rec TypeScript =
     | Expression of Expression
 
   type ForStatement =
-    { init: option<ForInit>
-      test: option<Expression>
-      update: option<Expression>
-      body: Statement }
+    { Init: option<ForInit>
+      Test: option<Expression>
+      Update: option<Expression>
+      Body: Statement }
 
   type ForInLeft =
     | Variable of VariableDeclaration
     | Pattern of Pattern
 
   type ForInStatement =
-    { left: ForInLeft
-      right: Expression
-      body: Statement }
+    { Left: ForInLeft
+      Right: Expression
+      Body: Statement }
 
   // Declarations
 
@@ -167,7 +167,7 @@ module rec TypeScript =
 
   type VariableDeclarator =
     { Id: Pattern
-      init: option<Expression> }
+      Init: option<Expression> }
 
   // Expressions
   type Expression =
@@ -176,6 +176,7 @@ module rec TypeScript =
     | This of ThisExpression
     | Array of ArrayExpression
     | Object of ObjectExpression
+    | Function of FunctionExpression
     | Unary of UnaryExpression
     | Update of UpdateExpression
     | Binary of BinaryExpression

@@ -14,24 +14,22 @@
         }
         
 output:
+var temp0;
 {
-  var temp0;
+  var temp1;
   {
-    var temp1;
-    {
-      var a = 5;
-      var b = 10;
-      temp1 = a + b;
-    }
-    var x = temp1;
-    var temp2;
-    {
-      var c = 15;
-      var d = 20;
-      temp2 = c - d;
-    }
-    var y = temp2;
-    temp0 = x * y;
+    var a = 5;
+    var b = 10;
+    temp1 = a + b;
   }
-  var sum = temp0;
+  var x = temp1;
+  var temp2;
+  {
+    var c = 15;
+    var d = 20;
+    temp2 = c - d;
+  }
+  var y = temp2;
+  temp0 = x * y;
 }
+var sum = temp0;

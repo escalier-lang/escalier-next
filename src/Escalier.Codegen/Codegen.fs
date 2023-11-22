@@ -26,7 +26,8 @@ module rec Codegen =
       let callExpr =
         Expression.Call
           { Callee = calleeExpr
-            Arguments = argExprs }
+            Arguments = argExprs
+            Loc = None }
 
       (callExpr, calleeStmts @ (argStmts |> List.concat))
     | ExprKind.Identifier name ->
@@ -81,22 +82,81 @@ module rec Codegen =
           Kind = VariableDeclarationKind.Var }
 
       let finalizer = Finalizer.Assign tempId
-
       let blockStmt = buildBlock ctx block finalizer
-
       let expr = Expression.Identifier { Name = tempId; Loc = None }
 
       let stmts =
-        [ Statement.Declaration(Declaration.Variable tempDecl) ] @ blockStmt
+        [ Statement.Declaration(Declaration.Variable tempDecl)
+          Statement.Block blockStmt ]
 
       (expr, stmts)
-    | _ -> failwith "TODO"
+    | ExprKind.Function { Sig = s; Body = body } ->
+      let ps = s.ParamList |> List.map (fun p -> buildPattern ctx p.Pattern)
+
+      match body with
+      | BlockOrExpr.Block block ->
+        let body = buildBlock ctx block Finalizer.Empty
+        let expr = Expression.Function { Id = None; Params = ps; Body = body }
+        let stmts = []
+
+        (expr, stmts)
+      | BlockOrExpr.Expr expr ->
+        let (bodyExpr, bodyStmts) = buildExpr ctx expr
+
+        let body =
+          bodyStmts
+          @ [ Statement.Return { Argument = Some bodyExpr; Loc = None } ]
+
+        let body = { Body = body; Loc = None }
+        let expr = Expression.ArrowFunction { Params = ps; Body = body }
+
+        (expr, [])
+    | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+      // TODO: figure out how to do chaining
+
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
+      let finalizer = Finalizer.Assign tempId
+
+      let tempDecl =
+        { Declarations =
+            [ { Id = Pattern.Identifier { Name = tempId; Loc = None }
+                Init = None } ]
+          Kind = VariableDeclarationKind.Var }
+
+      let conditionExpr, conditionStmts = buildExpr ctx condition
+      let thenBlock = buildBlock ctx thenBranch finalizer
+
+      let alt =
+        Option.map
+          (fun elseBranch ->
+            match elseBranch with
+            | BlockOrExpr.Block block -> buildBlock ctx block finalizer
+            | BlockOrExpr.Expr expr -> failwith "TODO: if-else chaining")
+          elseBranch
+
+      let ifStmt =
+        Statement.If
+          { Test = conditionExpr
+            Consequent = Statement.Block thenBlock
+            Alternate = Option.map Statement.Block alt
+            Loc = None }
+
+      let stmts =
+        [ Statement.Declaration(Declaration.Variable tempDecl) ]
+        @ conditionStmts
+        @ [ ifStmt ]
+
+      let expr = Expression.Identifier { Name = tempId; Loc = None }
+
+      (expr, stmts)
+    | _ -> failwith (sprintf "TODO: buildExpr - %A" expr)
 
   let buildBlock
     (ctx: Ctx)
     (body: Block)
     (finalizer: Finalizer)
-    : list<Statement> =
+    : BlockStatement =
     // TODO: check if the last statement is an expression statement
     // and use the appropriate finalizer with it
 
@@ -116,12 +176,7 @@ module rec Codegen =
         | StmtKind.Decl decl ->
           match decl.Kind with
           | VarDecl(pattern, init, typeAnnOption) ->
-            let pattern =
-              match pattern.Kind with
-              | PatternKind.Identifier id ->
-                Pattern.Identifier { Name = id.Name; Loc = None }
-              | _ -> failwith "TODO"
-
+            let pattern = buildPattern ctx pattern
             let initExpr, initStmts = buildExpr ctx init
 
             let decl =
@@ -137,9 +192,7 @@ module rec Codegen =
 
       stmts <- stmts @ stmts'
 
-    let blockStmt = Statement.Block { Body = stmts; Loc = None }
-
-    [ blockStmt ]
+    { Body = stmts; Loc = None }
 
   let buildFinalizer
     (ctx: Ctx)
@@ -163,3 +216,9 @@ module rec Codegen =
       [ assignStmt ]
 
     | Finalizer.Return -> [ Statement.Return { Argument = None; Loc = None } ]
+
+  let buildPattern (ctx: Ctx) (pattern: Pattern) : TS.Pattern =
+    match pattern.Kind with
+    | PatternKind.Identifier id ->
+      Pattern.Identifier { Name = id.Name; Loc = None }
+    | _ -> failwith "TODO"

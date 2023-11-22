@@ -142,8 +142,8 @@ let CodegenDoExpression () =
 
       let! escAst = Parser.parseScript src
       let ctx: Ctx = { NextTempId = 0 }
-      let stmts = buildScript ctx escAst
-      let js = stmts |> List.map (printStmt printCtx) |> String.concat "\n"
+      let block = buildScript ctx escAst
+      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -177,8 +177,33 @@ let CodegenNestedDoExpressions () =
 
       let! escAst = Parser.parseScript src
       let ctx: Ctx = { NextTempId = 0 }
-      let stmts = buildScript ctx escAst
-      let js = stmts |> List.map (printStmt printCtx) |> String.concat "\n"
+      let block = buildScript ctx escAst
+      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenFunction () =
+  let res =
+    result {
+      let src =
+        """
+        let factorial = fn (n) =>
+          if (n == 0) { 1 } else { n * factorial(n - 1) } 
+        """
+
+      let! escAst = Parser.parseScript src
+      let ctx: Ctx = { NextTempId = 0 }
+      let block = buildScript ctx escAst
+
+      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
 
       return $"input: %s{src}\noutput:\n{js}"
     }

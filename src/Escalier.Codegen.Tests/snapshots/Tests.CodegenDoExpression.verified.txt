@@ -6,12 +6,10 @@
         }
         
 output:
+var temp0;
 {
-  var temp0;
-  {
-    var x = 5;
-    var y = 10;
-    temp0 = x + y;
-  }
-  var sum = temp0;
+  var x = 5;
+  var y = 10;
+  temp0 = x + y;
 }
+var sum = temp0;

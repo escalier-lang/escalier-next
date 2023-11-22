@@ -89,17 +89,20 @@ module Printer =
 
       $"{{{props}}}"
     | Expression.Function { Id = id; Params = ps; Body = body } ->
-      let ctx = { ctx with Precedence = 0 }
-
       let id =
         match id with
         | Some(id) -> id.Name
         | None -> ""
 
+      let ctx = { ctx with Precedence = 0 }
       let ps = ps |> List.map (printPattern ctx) |> String.concat ", "
-      let body = body.Body |> List.map (printStmt ctx) |> String.concat "\n"
 
-      $"function {id}({ps}) {{\n{body}\n}}"
+      $"function {id}({ps}) {printBlock ctx body}"
+    | Expression.ArrowFunction { Params = ps; Body = body } ->
+      let ctx = { ctx with Precedence = 0 }
+      let ps = ps |> List.map (printPattern ctx) |> String.concat ", "
+
+      $"({ps}) => {printBlock ctx body}"
     | Expression.Unary { Operator = op
                          Prefix = _prefix
                          Argument = arg } ->
@@ -288,18 +291,18 @@ module Printer =
 
   and printStmt (ctx: PrintCtx) (stmt: Statement) : string =
     match stmt with
-    | Statement.Block { Body = body } ->
-      let oldIdent = String.replicate ctx.Indent " "
-
-      let ctx = { ctx with Indent = ctx.Indent + 2 }
-      let ident = String.replicate ctx.Indent " "
-
-      let body =
-        body
-        |> List.map (fun stmt -> ident + printStmt ctx stmt)
-        |> String.concat "\n"
-
-      $"{{\n{body}\n{oldIdent}}}"
+    | Statement.Block block -> printBlock ctx block
+    // let oldIdent = String.replicate ctx.Indent " "
+    //
+    // let ctx = { ctx with Indent = ctx.Indent + 2 }
+    // let ident = String.replicate ctx.Indent " "
+    //
+    // let body =
+    //   body
+    //   |> List.map (fun stmt -> ident + printStmt ctx stmt)
+    //   |> String.concat "\n"
+    //
+    // $"{{\n{body}\n{oldIdent}}}"
     | Statement.Expression { Expr = expr } ->
       let ctx = { ctx with Precedence = 0 }
       $"{printExpr ctx expr};"
@@ -477,8 +480,21 @@ module Printer =
                        Property = prop
                        Computed = computed } ->
 
-      let prec = 18
+      let ctx = { ctx with Precedence = 18 }
 
       let obj = printExpr ctx obj
       let prop = printExpr ctx prop
       if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
+
+  and printBlock (ctx: PrintCtx) (block: BlockStatement) =
+    let oldIdent = String.replicate ctx.Indent " "
+
+    let ctx = { ctx with Indent = ctx.Indent + 2 }
+    let ident = String.replicate ctx.Indent " "
+
+    let body =
+      block.Body
+      |> List.map (fun stmt -> ident + printStmt ctx stmt)
+      |> String.concat "\n"
+
+    $"{{\n{body}\n{oldIdent}}}"

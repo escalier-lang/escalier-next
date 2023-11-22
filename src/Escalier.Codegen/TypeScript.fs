@@ -179,6 +179,7 @@ module rec TypeScript =
     | Array of ArrayExpression
     | Object of ObjectExpression
     | Function of FunctionExpression
+    | ArrowFunction of ArrowFunctionExpression
     | Unary of UnaryExpression
     | Update of UpdateExpression
     | Binary of BinaryExpression
@@ -218,6 +219,11 @@ module rec TypeScript =
   type FunctionExpression =
     { Id: option<Identifier>
       Params: list<Pattern>
+      Body: BlockStatement }
+
+  // TODO: also allow blocks bodies
+  type ArrowFunctionExpression =
+    { Params: list<Pattern>
       Body: BlockStatement }
 
   type UnaryOperator =
@@ -314,18 +320,23 @@ module rec TypeScript =
   type ConditionalExpression =
     { Test: Expression
       Alternate: Expression
-      Consequent: Expression }
+      Consequent: Expression
+      Loc: option<SourceLocation> }
 
   type CallExpression =
     { Callee: Expression
-      Arguments: list<Expression> }
+      Arguments: list<Expression>
+      Loc: option<SourceLocation> }
 
   // TODO: combine with CallExpression
   type NewExpression =
     { Callee: Expression
-      Arguments: list<Expression> }
+      Arguments: list<Expression>
+      Loc: option<SourceLocation> }
 
-  type SequenceExpression = { Expressions: list<Expression> }
+  type SequenceExpression =
+    { Expressions: list<Expression>
+      Loc: option<SourceLocation> }
 
   // Patterns
   // TODO: finish this off

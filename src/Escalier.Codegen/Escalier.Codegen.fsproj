@@ -1,16 +1,20 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
+
     <ItemGroup>
-        <Compile Include="Parser.fs"/>
+        <Compile Include="Library.fs"/>
+        <Compile Include="TypeScript.fs"/>
+        <Compile Include="Printer.fs"/>
+        <Compile Include="Codegen.fs"/>
     </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>
+        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
     </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="FParsec" Version="1.1.1"/>
-        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
-    </ItemGroup>
+
 </Project>

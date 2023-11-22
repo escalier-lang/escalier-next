@@ -69,7 +69,7 @@ module Syntax =
     | Member of target: Expr * name: string * opt_chain: bool
     | IfElse of
       condition: Expr *
-      thenBranch: BlockOrExpr *
+      thenBranch: Block *
       elseBranch: option<BlockOrExpr> // Expr is only used when chaining if-else expressions
     | Match of target: Expr * cases: list<MatchCase>
     | Assign of op: string * left: Expr * right: Expr

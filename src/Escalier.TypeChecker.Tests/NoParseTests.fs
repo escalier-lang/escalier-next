@@ -193,7 +193,8 @@ let InferFactorial () =
           [ "n" ] (* fn n => *)
           (ifelse (
             call (ident "zero", [ ident "n" ]),
-            (block [ ident "1" |> StmtKind.Expr |> stmt ]),
+            { Stmts = [ ident "1" |> StmtKind.Expr |> stmt ]
+              Span = dummySpan },
             Some(
               BlockOrExpr.Expr(
                 binary (

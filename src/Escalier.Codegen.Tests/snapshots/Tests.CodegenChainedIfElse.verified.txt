@@ -1,0 +1,23 @@
+﻿input: 
+        let result = if (cond1) {
+          foo
+        } else if (cond2) {
+          bar
+        } else {
+          baz
+        }
+        
+output:
+var temp0;
+if (cond1) {
+  temp0 = foo;
+} else {
+  var temp1;
+  if (cond2) {
+    temp1 = bar;
+  } else {
+    temp1 = baz;
+  }
+  temp0 = temp1;
+}
+var result = temp0;

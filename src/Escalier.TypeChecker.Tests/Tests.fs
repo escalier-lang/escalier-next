@@ -65,10 +65,11 @@ let getEnv () =
         Constraint = None
         Default = None } ]
 
+  // TODO: figure out how to make quality polymorphic
   let equality =
     (makeFunctionType
       (Some(typeParams))
-      [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+      [ makeParam "left" numType; makeParam "right" numType ]
       boolType,
      false)
 
@@ -163,7 +164,7 @@ let InferBinaryOperators () =
       let! lt = infer "5 < 10"
       Assert.Equal("boolean", lt.ToString())
 
-      let! eq = infer "\"hello\" == 5"
+      let! eq = infer "5 == 10"
       Assert.Equal("boolean", eq.ToString())
 
       let! b = infer "true || false"
@@ -532,6 +533,25 @@ let InferOptionalChaining () =
       Assert.Value(env, "c", "number | undefined")
       Assert.Value(env, "p", "Point")
       Assert.Value(env, "x", "number")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFactorial () =
+  let result =
+    result {
+
+      let src =
+        """
+        let factorial = fn (n) =>
+          if (n == 0) { 1 } else { n * factorial(n - 1) } 
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "factorial", "fn (n: number) -> 1 | number")
     }
 
   printf "result = %A" result

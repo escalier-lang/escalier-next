@@ -39,6 +39,7 @@ module rec TypeScript =
 
   // Statements
 
+  [<RequireQualifiedAccess>]
   type Statement =
     | Expression of ExpressionStatement
     | Block of BlockStatement
@@ -170,6 +171,7 @@ module rec TypeScript =
       Init: option<Expression> }
 
   // Expressions
+  [<RequireQualifiedAccess>]
   type Expression =
     | Literal of Literal
     | Identifier of Identifier

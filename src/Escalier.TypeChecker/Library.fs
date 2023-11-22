@@ -838,7 +838,9 @@ module rec TypeChecker =
               Provenance = None }
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           let! conditionTy = inferExpr condition env nonGeneric
-          let! thenBranchTy = inferBlockOrExpr env nonGeneric thenBranch
+
+          let! thenBranchTy =
+            inferBlockOrExpr env nonGeneric (thenBranch |> BlockOrExpr.Block)
 
           let! elseBranchTy =
             Option.traverseResult (inferBlockOrExpr env nonGeneric) elseBranch
@@ -1444,9 +1446,7 @@ module rec TypeChecker =
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           walk condition
 
-          match thenBranch with
-          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
-          | BlockOrExpr.Expr expr -> walk expr
+          List.iter (walkStmt visitor) thenBranch.Stmts
 
           Option.iter
             (fun elseBranch ->

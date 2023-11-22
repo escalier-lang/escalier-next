@@ -5,7 +5,6 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Parser.fs"/>
-        <Compile Include="Library.fs"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>

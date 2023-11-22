@@ -162,20 +162,28 @@ module Parser =
       else
         Reply(Error, messageError "Expected '`'")
 
-  let block: Parser<BlockOrExpr, unit> =
+  let block: Parser<Block, unit> =
     withSpan (between (strWs "{") (strWs "}") (many stmt))
-    |>> fun (stmts, span) -> BlockOrExpr.Block({ Span = span; Stmts = stmts })
+    |>> fun (stmts, span) -> { Span = span; Stmts = stmts }
 
   let func: Parser<Function, unit> =
     pipe2
       (funcSig opt)
-      (block <|> (strWs "=>" >>. expr |>> fun e -> BlockOrExpr.Expr(e)))
+      (block |>> BlockOrExpr.Block
+       <|> (strWs "=>" >>. expr |>> BlockOrExpr.Expr))
     <| fun sig' body -> { Sig = sig'; Body = body }
 
   let funcExpr: Parser<Expr, unit> =
     withSpan func
     |>> fun (f, span) ->
       { Kind = ExprKind.Function f
+        Span = span
+        InferredType = None }
+
+  let doExpr: Parser<Expr, unit> =
+    withSpan (strWs "do" >>. block)
+    |>> fun (body, span) ->
+      { Kind = ExprKind.Do(body)
         Span = span
         InferredType = None }
 
@@ -216,7 +224,9 @@ module Parser =
       ((strWs "if") >>. expr)
       block
       (opt (
-        strWs "else" >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e))) <|> block)
+        strWs "else"
+        >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e)))
+             <|> (block |>> BlockOrExpr.Block))
       ))
       getPosition
     <| fun start cond then_ else_ stop ->
@@ -235,6 +245,7 @@ module Parser =
     choice
       [ literalExpr
         funcExpr
+        doExpr
         ifElse
         tupleExpr
         objectExpr
@@ -678,3 +689,21 @@ module Parser =
           InferredType = None }
 
   typeAnnRef.Value <- unionOrIntersectionOrPrimaryType
+
+  // Public Exports
+  let parseExpr (input: string) : Result<Expr, ParserError> =
+    match run expr input with
+    | ParserResult.Success(result, _, _) -> Result.Ok(result)
+    | ParserResult.Failure(_, error, _) -> Result.Error(error)
+
+  let parseScript (input: string) =
+    match run (many stmt) input with
+    | ParserResult.Success(result, _, _) ->
+      let dummySpan =
+        { Start = Position("", 0, 0, 0)
+          Stop = Position("", 0, 0, 0) }
+
+      let block = { Stmts = result; Span = dummySpan }
+
+      Result.Ok(block)
+    | ParserResult.Failure(_, error, _) -> Result.Error(error)

@@ -1,8 +1,20 @@
+[<VerifyXunit.UsesVerify>]
 module Tests
+
+open Xunit
+open VerifyXunit
+open VerifyTests
+open FsToolkit.ErrorHandling
 
 open Escalier.Codegen.TypeScript
 open Escalier.Codegen.Printer
-open Xunit
+open Escalier.Codegen.Codegen
+open Escalier.Parser
+
+
+let settings = VerifySettings()
+settings.UseDirectory("snapshots")
+settings.DisableDiff()
 
 [<Fact>]
 let CodegenIdent () =
@@ -112,3 +124,31 @@ let CodegenNoParensExpression () =
   let code = printExpr 0 sum
 
   Assert.Equal("a * 1 + b / 2", code.ToString())
+
+[<Fact>]
+let CodegenDoExpression () =
+  let res =
+    result {
+      let src =
+        """
+        let sum = do {
+          let x = 5
+          let y = 10
+          x + y
+        }
+        """
+
+      let! escAst = Parser.parseScript src
+      let ctx: Ctx = { nextTempId = 0 }
+      let stmts = buildScript ctx escAst
+      let js = stmts |> List.map printStmt |> String.concat "\n"
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) ->
+    Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask |> ignore
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"

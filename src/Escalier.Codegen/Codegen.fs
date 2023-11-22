@@ -6,7 +6,7 @@ open Escalier.Data.Syntax
 module rec Codegen =
   module TS = TypeScript
 
-  type Ctx = { mutable nextTempId: int }
+  type Ctx = { mutable NextTempId: int }
 
   type Finalizer =
     | Assign of string
@@ -15,16 +15,6 @@ module rec Codegen =
 
   let buildScript (ctx: Ctx) (block: Block) =
     buildBlock ctx block Finalizer.Empty
-  // let buildStmt (ctx: Ctx) (stmt: Stmt) : list<Statement> =
-  //
-  //   let outStmts: list<Statement> =
-  //     match stmt.Kind with
-  //     | StmtKind.Expr expr -> buildExpr ctx expr |> snd
-  //     | StmtKind.Decl decl -> failwith "TODO"
-  //     | StmtKind.Return expr -> failwith "TODO"
-  //     | For(left, right, body) -> failwith "todo"
-  //
-  //   outStmts
 
   let buildExpr (ctx: Ctx) (expr: Expr) : (Expression * list<Statement>) =
 
@@ -81,8 +71,8 @@ module rec Codegen =
 
       (binExpr, leftStmts @ rightStmts)
     | ExprKind.Do block ->
-      let tempId = $"temp{ctx.nextTempId}"
-      ctx.nextTempId <- ctx.nextTempId + 1
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
 
       let tempDecl =
         { Declarations =
@@ -120,7 +110,7 @@ module rec Codegen =
           let expr, stmts = buildExpr ctx expr
 
           if stmt = lastStmt then
-            stmts @ buildFinalizer expr finalizer
+            stmts @ buildFinalizer ctx expr finalizer
           else
             stmts
         | StmtKind.Decl decl ->
@@ -152,6 +142,7 @@ module rec Codegen =
     [ blockStmt ]
 
   let buildFinalizer
+    (ctx: Ctx)
     (expr: Expression)
     (finalizer: Finalizer)
     : list<Statement> =

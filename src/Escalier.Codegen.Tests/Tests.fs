@@ -16,10 +16,12 @@ let settings = VerifySettings()
 settings.UseDirectory("snapshots")
 settings.DisableDiff()
 
+let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
+
 [<Fact>]
 let CodegenIdent () =
   let ident: Identifier = { Name = "foo"; Loc = None }
-  let code = printExpr 0 (Expression.Identifier ident)
+  let code = printExpr printCtx (Expression.Identifier ident)
 
   Assert.Equal("foo", code.ToString())
 
@@ -29,7 +31,7 @@ let CodegenLiteral () =
     { Value = LiteralValue.Number 1.23
       Loc = None }
 
-  let code = printExpr 0 (Expression.Literal lit)
+  let code = printExpr printCtx (Expression.Literal lit)
 
   Assert.Equal("1.23", code.ToString())
 
@@ -45,7 +47,7 @@ let CodegenAddition () =
         Right = Expression.Identifier b
         Loc = None }
 
-  let code = printExpr 0 sum
+  let code = printExpr printCtx sum
 
   Assert.Equal("a + b", code.ToString())
 
@@ -83,7 +85,7 @@ let CodegenExpressRequiresParens () =
         Right = diff
         Loc = None }
 
-  let code = printExpr 0 prod
+  let code = printExpr printCtx prod
 
   Assert.Equal("(a + 1) * (b - 2)", code.ToString())
 
@@ -121,7 +123,7 @@ let CodegenNoParensExpression () =
         Right = quot
         Loc = None }
 
-  let code = printExpr 0 sum
+  let code = printExpr printCtx sum
 
   Assert.Equal("a * 1 + b / 2", code.ToString())
 
@@ -139,16 +141,50 @@ let CodegenDoExpression () =
         """
 
       let! escAst = Parser.parseScript src
-      let ctx: Ctx = { nextTempId = 0 }
+      let ctx: Ctx = { NextTempId = 0 }
       let stmts = buildScript ctx escAst
-      let js = stmts |> List.map printStmt |> String.concat "\n"
+      let js = stmts |> List.map (printStmt printCtx) |> String.concat "\n"
 
       return $"input: %s{src}\noutput:\n{js}"
     }
 
   match res with
-  | Ok(res) ->
-    Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask |> ignore
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenNestedDoExpressions () =
+  let res =
+    result {
+      let src =
+        """
+        let sum = do {
+          let x = do {
+            let a = 5
+            let b = 10
+            a + b
+          }
+          let y = do {
+            let c = 15
+            let d = 20
+            c - d
+          }
+          x * y
+        }
+        """
+
+      let! escAst = Parser.parseScript src
+      let ctx: Ctx = { NextTempId = 0 }
+      let stmts = buildScript ctx escAst
+      let js = stmts |> List.map (printStmt printCtx) |> String.concat "\n"
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"

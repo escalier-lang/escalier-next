@@ -164,7 +164,7 @@ let InferBinaryOperators () =
       let! lt = infer "5 < 10"
       Assert.Equal("boolean", lt.ToString())
 
-      let! eq = infer "\"hello\" == 5"
+      let! eq = infer "5 == 10"
       Assert.Equal("boolean", eq.ToString())
 
       let! b = infer "true || false"

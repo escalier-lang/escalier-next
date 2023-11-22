@@ -213,3 +213,33 @@ let CodegenFunction () =
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"
+
+[<Fact>]
+let CodegenChainedIfElse () =
+  let res =
+    result {
+      let src =
+        """
+        let result = if (cond1) {
+          foo
+        } else if (cond2) {
+          bar
+        } else {
+          baz
+        }
+        """
+
+      let! escAst = Parser.parseScript src
+      let ctx: Ctx = { NextTempId = 0 }
+      let block = buildScript ctx escAst
+
+      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"

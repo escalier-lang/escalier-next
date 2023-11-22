@@ -112,8 +112,6 @@ module rec Codegen =
 
         (expr, [])
     | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-      // TODO: figure out how to do chaining
-
       let tempId = $"temp{ctx.NextTempId}"
       ctx.NextTempId <- ctx.NextTempId + 1
       let finalizer = Finalizer.Assign tempId
@@ -132,7 +130,10 @@ module rec Codegen =
           (fun elseBranch ->
             match elseBranch with
             | BlockOrExpr.Block block -> buildBlock ctx block finalizer
-            | BlockOrExpr.Expr expr -> failwith "TODO: if-else chaining")
+            | BlockOrExpr.Expr expr ->
+              let (expr, stmts) = buildExpr ctx expr
+              let finalizer = buildFinalizer ctx expr finalizer
+              { Body = stmts @ finalizer; Loc = None })
           elseBranch
 
       let ifStmt =
@@ -216,6 +217,7 @@ module rec Codegen =
       [ assignStmt ]
 
     | Finalizer.Return -> [ Statement.Return { Argument = None; Loc = None } ]
+    | Finalizer.Empty -> []
 
   let buildPattern (ctx: Ctx) (pattern: Pattern) : TS.Pattern =
     match pattern.Kind with

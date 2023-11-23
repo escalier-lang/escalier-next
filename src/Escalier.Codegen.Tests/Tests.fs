@@ -21,17 +21,15 @@ let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
 [<Fact>]
 let CodegenIdent () =
   let ident: Ident = { Name = "foo"; Loc = None }
-  let code = printExpr printCtx (Expr.Identifier ident)
+  let code = printExpr printCtx (Expr.Ident ident)
 
   Assert.Equal("foo", code.ToString())
 
 [<Fact>]
 let CodegenLiteral () =
-  let lit: Literal =
-    { Value = LiteralValue.Number 1.23
-      Loc = None }
+  let lit: Lit = Lit.Num { Value = 1.23; Raw = None; Loc = None }
 
-  let code = printExpr printCtx (Expr.Literal lit)
+  let code = printExpr printCtx (Expr.Lit lit)
 
   Assert.Equal("1.23", code.ToString())
 
@@ -41,10 +39,10 @@ let CodegenAddition () =
   let b: Ident = { Name = "b"; Loc = None }
 
   let sum =
-    Expr.Binary
-      { Operator = BinaryOperator.Plus
-        Left = Expr.Identifier a
-        Right = Expr.Identifier b
+    Expr.Bin
+      { Operator = BinOp.Add
+        Left = Expr.Ident a
+        Right = Expr.Ident b
         Loc = None }
 
   let code = printExpr printCtx sum
@@ -56,31 +54,26 @@ let CodegenExpressRequiresParens () =
   let a: Ident = { Name = "a"; Loc = None }
   let b: Ident = { Name = "b"; Loc = None }
 
-  let one: Literal =
-    { Value = LiteralValue.Number 1.0
-      Loc = None }
-
-  let two: Literal =
-    { Value = LiteralValue.Number 2.0
-      Loc = None }
+  let one: Lit = Lit.Num { Value = 1.0; Raw = None; Loc = None }
+  let two: Lit = Lit.Num { Value = 2.0; Raw = None; Loc = None }
 
   let sum =
-    Expr.Binary
-      { Operator = BinaryOperator.Plus
-        Left = Expr.Identifier a
-        Right = Expr.Literal one
+    Expr.Bin
+      { Operator = BinOp.Add
+        Left = Expr.Ident a
+        Right = Expr.Lit one
         Loc = None }
 
   let diff =
-    Expr.Binary
-      { Operator = BinaryOperator.Minus
-        Left = Expr.Identifier b
-        Right = Expr.Literal two
+    Expr.Bin
+      { Operator = BinOp.Sub
+        Left = Expr.Ident b
+        Right = Expr.Lit two
         Loc = None }
 
   let prod =
-    Expr.Binary
-      { Operator = BinaryOperator.Multiply
+    Expr.Bin
+      { Operator = BinOp.Mul
         Left = sum
         Right = diff
         Loc = None }
@@ -94,31 +87,26 @@ let CodegenNoParensExpression () =
   let a: Ident = { Name = "a"; Loc = None }
   let b: Ident = { Name = "b"; Loc = None }
 
-  let one: Literal =
-    { Value = LiteralValue.Number 1.0
-      Loc = None }
-
-  let two: Literal =
-    { Value = LiteralValue.Number 2.0
-      Loc = None }
+  let one: Lit = Lit.Num { Value = 1.0; Raw = None; Loc = None }
+  let two: Lit = Lit.Num { Value = 2.0; Raw = None; Loc = None }
 
   let prod =
-    Expr.Binary
-      { Operator = BinaryOperator.Multiply
-        Left = Expr.Identifier a
-        Right = Expr.Literal one
+    Expr.Bin
+      { Operator = BinOp.Mul
+        Left = Expr.Ident a
+        Right = Expr.Lit one
         Loc = None }
 
   let quot =
-    Expr.Binary
-      { Operator = BinaryOperator.Divide
-        Left = Expr.Identifier b
-        Right = Expr.Literal two
+    Expr.Bin
+      { Operator = BinOp.Div
+        Left = Expr.Ident b
+        Right = Expr.Lit two
         Loc = None }
 
   let sum =
-    Expr.Binary
-      { Operator = BinaryOperator.Plus
+    Expr.Bin
+      { Operator = BinOp.Add
         Left = prod
         Right = quot
         Loc = None }

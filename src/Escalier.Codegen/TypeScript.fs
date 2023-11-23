@@ -20,80 +20,115 @@ module rec TypeScript =
     { Name: string
       Loc: option<SourceLocation> }
 
-  type Regex = { Pattern: string; Flags: string }
-
-  type LiteralValue =
-    | String of string
-    | Number of float
-    | Boolean of bool
-    | Regex of Regex
-    | Null
-    | Undefined
-
-  type Literal =
-    { Value: LiteralValue
+  type Function =
+    { Params: list<Param>
+      // TODO: Decorators
+      // Decorators: list<Decorator>
+      Body: option<BlockStmt>
+      IsGenerator: bool
+      IsAsync: bool
+      TypeParams: option<TsTypeParamDecl>
+      ReturnType: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
   type Program(body: list<Stmt>, loc: option<SourceLocation>) =
     member this.Body = body
 
+  // Literals
+  [<RequireQualifiedAccess>]
+  type Lit =
+    | Str of Str
+    | Bool of Bool
+    | Num of Number
+    | Null of Null
+    // | BigInt of BigInt
+    | Regex of Regex
+    | JSXText of JSXText
+
+  type Str =
+    { Value: string
+      Raw: Option<string>
+      Loc: option<SourceLocation> }
+
+  type Bool =
+    { Value: bool
+      Loc: option<SourceLocation> }
+
+  type Null = { Loc: option<SourceLocation> }
+
+  type Number =
+    { Value: float
+      Raw: Option<string>
+      Loc: option<SourceLocation> }
+
+  type Regex =
+    { Exp: string
+      Flags: string
+      Loc: option<SourceLocation> }
+
+  type JSXText =
+    { Value: string
+      Raw: string
+      Loc: option<SourceLocation> }
+
   // Statements
+  // TODO: add missing statements from swc_ecma_ast
   [<RequireQualifiedAccess>]
   type Stmt =
-    | Expression of ExpressionStatement
-    | Block of BlockStatement
-    | Empty of EmptyStatement
-    | Debugger of DebuggerStatement
-    | Return of ReturnStatement
-    | Labeled of LabeledStatement
-    | Break of BreakStatement
-    | Continue of ContinueStatement
-    | If of IfStatement
-    | Switch of SwitchStatement
-    | Throw of ThrowStatement
-    | Try of TryStatement
-    | While of WhileStatement
-    | DoWhile of DoWhileStatement
-    | For of ForStatement
-    | ForIn of ForInStatement
-    | Declaration of Declaration
+    | Expr of ExprStmt
+    | Block of BlockStmt
+    | Empty of EmptyStmt
+    | Debugger of DebuggerStmt
+    | Return of ReturnStmt
+    | Labeled of LabeledStmt
+    | Break of BreakStmt
+    | Continue of ContinueStmt
+    | If of IfStmt
+    | Switch of SwitchStmt
+    | Throw of ThrowStmt
+    | Try of TryStmt
+    | While of WhileStmt
+    | DoWhile of DoWhileStmt
+    | For of ForStmt
+    | ForIn of ForInStmt
+    | Declaration of Decl
 
-  type ExpressionStatement =
+  type ExprStmt =
     { Expr: Expr
       Loc: option<SourceLocation> }
 
-  type BlockStatement =
+  type BlockStmt =
     { Body: list<Stmt>
       Loc: option<SourceLocation> }
 
-  type EmptyStatement = { Loc: option<SourceLocation> }
+  type EmptyStmt = { Loc: option<SourceLocation> }
 
-  type DebuggerStatement = { Loc: option<SourceLocation> }
+  type DebuggerStmt = { Loc: option<SourceLocation> }
 
-  type ReturnStatement =
+  type ReturnStmt =
     { Argument: option<Expr>
       Loc: option<SourceLocation> }
 
-  type LabeledStatement =
+  type LabeledStmt =
     { Label: Ident
       Body: Stmt
       Loc: option<SourceLocation> }
 
-  type BreakStatement =
+  type BreakStmt =
     { Label: option<Ident>
       Loc: option<SourceLocation> }
 
-  type ContinueStatement =
+  type ContinueStmt =
     { Label: option<Ident>
       Loc: option<SourceLocation> }
 
-  type IfStatement =
+  type IfStmt =
     { Test: Expr
       Consequent: Stmt
       Alternate: option<Stmt>
       Loc: option<SourceLocation> }
 
-  type SwitchStatement =
+  type SwitchStmt =
     { Discriminant: Expr
       Cases: list<SwitchCase>
       Loc: option<SourceLocation> }
@@ -103,103 +138,125 @@ module rec TypeScript =
       Consequent: list<Stmt>
       Loc: option<SourceLocation> }
 
-  type ThrowStatement =
+  type ThrowStmt =
     { Argument: Expr
       Loc: option<SourceLocation> }
 
-  type TryStatement =
-    { Block: BlockStatement
+  type TryStmt =
+    { Block: BlockStmt
       Handler: option<CatchClause>
-      Finalizer: option<BlockStatement> }
+      Finalizer: option<BlockStmt> }
 
-  type CatchClause = { Param: Pat; Body: BlockStatement }
+  type CatchClause = { Param: Pat; Body: BlockStmt }
 
-  type WhileStatement =
+  type WhileStmt =
     { Test: Expr
       Body: Stmt
       Loc: option<SourceLocation> }
 
-  type DoWhileStatement =
+  type DoWhileStmt =
     { Body: Stmt
       Test: Expr
       Loc: option<SourceLocation> }
 
   type ForInit =
-    | Variable of VariableDeclaration
-    | Expression of Expr
+    | Variable of VarDecl
+    | Expr of Expr
 
-  type ForStatement =
+  type ForStmt =
     { Init: option<ForInit>
       Test: option<Expr>
       Update: option<Expr>
       Body: Stmt }
 
   type ForInLeft =
-    | Variable of VariableDeclaration
+    | Variable of VarDecl
     | Pattern of Pat
 
-  type ForInStatement =
+  type ForInStmt =
     { Left: ForInLeft
       Right: Expr
       Body: Stmt }
 
   // Declarations
 
-  type Declaration =
-    | Function of FunctionDeclaration
-    | Variable of VariableDeclaration
+  type Decl =
+    | Fn of FnDecl
+    | Var of VarDecl
 
   // TODO: reuse with function expressions
-  type FunctionDeclaration =
-    { Id: Ident
-      Params: list<Pat>
-      Body: BlockStatement }
+  type FnDecl = { Id: Ident; Fn: Function }
 
   type VariableDeclarationKind =
     | Var
     | Let
     | Const
 
-  type VariableDeclaration =
+  type VarDecl =
     { Declarations: list<VariableDeclarator>
       Kind: VariableDeclarationKind }
 
   type VariableDeclarator = { Id: Pat; Init: option<Expr> }
 
-  // Expressions
+  // Exprs
   [<RequireQualifiedAccess>]
   type Expr =
-    | Literal of Literal
-    | Identifier of Ident
-    | This of ThisExpression
-    | Array of ArrayExpression
-    | Object of ObjectExpression
-    | Function of FunctionExpression
-    | ArrowFunction of ArrowFunctionExpression
-    | Unary of UnaryExpression
-    | Update of UpdateExpression
-    | Binary of BinaryExpression
-    | Assignment of AssignmentExpression
-    | Logical of LogicalExpression
-    | Member of MemberExpression
-    | Conditional of ConditionalExpression
-    | Call of CallExpression
-    | New of NewExpression
-    | Sequence of SequenceExpression
+    | This of ThisExpr
+    | Array of ArrayLit
+    | Object of ObjectLit
+    | Fn of FnExpr
+    | Unary of UnaryExpr
+    | Update of UpdateExpr
+    | Bin of BinExpr
+    | Assign of AssignExpr
+    | Member of MemberExpr
+    | SuperProp of SuperPropExpr
+    | Cond of CondExpr
+    | Call of CallExpr
+    | New of NewExpr
+    | Seq of SeqExpr
+    | Ident of Ident
+    | Lit of Lit
+    | Tpl of Tpl
+    | TaggedTpl of TaggedTpl
+    | Arrow of ArrowExpr
+    | Class of ClassExpr
+    | Yield of YieldExpr
+    | MetaProp of MetaPropExpr
+    | Await of AwaitExpr
+    | Paren of ParenExpr
+    | JSXMember of JSXMemberExpr
+    | JSXNamespacedName of JSXNamespacedName
+    | JSXEmpty of JSXEmptyExpr
+    | JSXElement of JSXElement
+    | JSXFragment of JSXFragment
+    | TsTypeAssertion of TsTypeAssertion
+    | TsConstAssertion of TsConstAssertion
+    | TsNonNull of TsNonNullExpr
+    | TsAs of TsAsExpr
+    | TsInstantiation of TsInstantiation
+    | TsSatisfies of TsSatisfiesExpr
+    | PrivateName of PrivateName
+    | OptChain of OptChainExpr
+    | Invalid of Invalid
 
-  type ThisExpression = { Loc: option<SourceLocation> }
+  type ThisExpr = { Loc: option<SourceLocation> }
 
-  type ArrayExpression =
-    { Elements: list<option<Expr>>
+  type ArrayLit =
+    { Elements: list<option<ExprOrSpread>>
       Loc: option<SourceLocation> }
 
-  type ObjectExpression =
+  type ExprOrSpread =
+    { Spread: bool // was a span
+      Expr: Expr }
+
+  type ObjectLit =
     { Properties: list<Property>
       Loc: option<SourceLocation> }
 
   type PropertyKey =
-    | Literal of Literal
-    | Identifier of Ident
+    | Lit of Lit
+    | Ident of Ident
 
   type PropertyKind =
     | Init
@@ -212,15 +269,10 @@ module rec TypeScript =
       Kind: PropertyKind
       Loc: option<SourceLocation> }
 
-  type FunctionExpression =
-    { Id: option<Ident>
-      Params: list<Pat>
-      Body: BlockStatement }
+  type FnExpr = { Id: option<Ident>; Fn: Function }
 
   // TODO: also allow blocks bodies
-  type ArrowFunctionExpression =
-    { Params: list<Pat>
-      Body: BlockStatement }
+  type ArrowExpr = { Params: list<Pat>; Body: BlockStmt }
 
   type UnaryOperator =
     | Minus
@@ -232,7 +284,7 @@ module rec TypeScript =
     | Delete
     | Await
 
-  type UnaryExpression =
+  type UnaryExpr =
     { Operator: UnaryOperator
       Prefix: bool
       Argument: Expr
@@ -242,43 +294,47 @@ module rec TypeScript =
     | Increment
     | Decrement
 
-  type UpdateExpression =
+  type UpdateExpr =
     { Operator: UpdateOperator
       Argument: Expr
       Prefix: bool
       Loc: option<SourceLocation> }
 
   [<RequireQualifiedAccess>]
-  type BinaryOperator =
-    | Equal
-    | NotEqual
-    | StrictEqual
-    | StrictNotEqual
-    | LessThan
-    | LessThanOrEqual
-    | GreaterThan
-    | GreaterThanOrEqual
-    | LeftShift
-    | RightShift
-    | UnsignedRightShift
-    | Plus
-    | Minus
-    | Multiply
-    | Divide
-    | Modulo
-    | BitwiseAnd
-    | BitwiseOr
-    | BitwiseXor
+  type BinOp =
+    | EqEq
+    | NotEq
+    | EqEqEq
+    | NotEqEq
+    | Lt
+    | LtEq
+    | Gt
+    | GtEq
+    | LShift
+    | RShift
+    | ZeroFillRShift
+    | Add
+    | Sub
+    | Mul
+    | Div
+    | Mod
+    | BitOr
+    | BitXor
+    | BitAnd
+    | LogicalOr
+    | LogicalAnd
     | In
     | InstanceOf
+    | Exp
+    | NullishCoalescing
 
-  type BinaryExpression =
-    { Operator: BinaryOperator
+  type BinExpr =
+    { Operator: BinOp
       Left: Expr
       Right: Expr
       Loc: option<SourceLocation> }
 
-  type AssignmentOperator =
+  type AssignOp =
     | Assign
     | PlusAssign
     | MinusAssign
@@ -292,8 +348,8 @@ module rec TypeScript =
     | BitwiseOrAssign
     | BitwiseXorAssign
 
-  type AssignmentExpression =
-    { Operator: AssignmentOperator
+  type AssignExpr =
+    { Operator: AssignOp
       Left: Expr
       Right: Expr
       Loc: option<SourceLocation> }
@@ -302,37 +358,40 @@ module rec TypeScript =
     | And
     | Or
 
-  type LogicalExpression =
+  type LogicalExpr =
     { Operator: LogicalOperator
       Left: Expr
       Right: Expr
       Loc: option<SourceLocation> }
 
-  type MemberExpression =
+  type MemberExpr =
     { Object: Expr
       Property: Expr
       Computed: bool
       Loc: option<SourceLocation> }
 
-  type ConditionalExpression =
+  // TODO: SuperPropExpr
+  type SuperPropExpr = { Loc: option<SourceLocation> }
+
+  type CondExpr =
     { Test: Expr
       Alternate: Expr
       Consequent: Expr
       Loc: option<SourceLocation> }
 
-  type CallExpression =
+  type CallExpr =
     { Callee: Expr
       Arguments: list<Expr>
       Loc: option<SourceLocation> }
 
-  // TODO: combine with CallExpression
-  type NewExpression =
+  // TODO: combine with CallExpr
+  type NewExpr =
     { Callee: Expr
       Arguments: list<Expr>
       Loc: option<SourceLocation> }
 
-  type SequenceExpression =
-    { Expressions: list<Expr>
+  type SeqExpr =
+    { Exprs: list<Expr>
       Loc: option<SourceLocation> }
 
   // Patterns
@@ -373,10 +432,323 @@ module rec TypeScript =
       Right: Expr
       Loc: option<SourceLocation> }
 
+  type Tpl =
+    { Exprs: list<Expr>
+      Quasis: list<TplElement>
+      Loc: option<SourceLocation> }
+
+  type TplElement =
+    { Tail: bool
+      Cooked: option<string>
+      Raw: string
+      Loc: option<SourceLocation> }
+
+  type TaggedTpl =
+    { Tag: Expr
+      TypeParams: option<TsTypeParamInstantiation>
+      Tpl: Tpl
+      Loc: option<SourceLocation> }
+
+  type ClassExpr =
+    { Id: option<Ident>
+      Class: Class
+      Loc: option<SourceLocation> }
+
+  type Class =
+    {
+      // TODO: Decorators
+      // Decorators: list<Decorator>
+      Body: list<ClassMember>
+      SuperClass: Option<Expr>
+      IsAbstract: bool
+      TypeParams: Option<TsTypeParamDecl>
+      SuperTypeParams: Option<TsTypeParamInstantiation>
+      Implements: list<TsExprWithTypeArgs>
+      Loc: option<SourceLocation> }
+
+  type TsExprWithTypeArgs =
+    { Expr: Expr
+      TypeArgs: Option<TsTypeParamInstantiation> }
+
+  type ClassMember =
+    | Constructor of Constructor
+    | Method of ClassMethod
+    | PrivateMethod of PrivateMethod
+    | ClassProp of ClassProp
+    | PrivateProp of PrivateProp
+    | TsIndexSignature of TsIndexSignature
+    | Empty of EmptyStmt
+    | StaticBlock of StaticBlock
+    | AutoAccessor of AutoAccessor
+
+  type Constructor =
+    { Key: PropName
+      Params: list<ParamOrTsParamProp>
+      Body: Option<BlockStmt>
+      Accessibility: Option<Accessibility>
+      IsOptional: bool
+      Loc: option<SourceLocation> }
+
+  type ParamOrTsParamProp =
+    | Param of Param
+    | TsParamProp of TsParamProp
+
+  type Param =
+    {
+      // TODO: Decorators
+      // decorators: list<Decorator>
+      Pat: Pat
+      Loc: option<SourceLocation> }
+
+  type TsParamProp =
+    {
+      // TODO: Decorators
+      // decorators: list<Decorator>
+      Accessibility: Option<Accessibility>
+      IsOverride: bool
+      Readonly: bool
+      Param: TsParamPropParam
+      Loc: option<SourceLocation> }
+
+  type Accessibility =
+    | Public
+    | Protected
+    | Private
+
+  type TsParamPropParam =
+    | Ident of BindingIdent
+    | Assign of AssignPat
+
+  type ClassMethod =
+    { Key: PropName
+      Function: Function
+      Kind: MethodKind
+      IsStatic: bool
+      Accessibility: option<Accessibility>
+      IsAbstract: bool
+      IsOptional: bool
+      IsOverride: bool
+      Loc: option<SourceLocation> }
+
+  type MethodKind =
+    | Method
+    | Getter
+    | Setter
+
+  type PrivateMethod =
+    { Key: PrivateName
+      Function: Function
+      Kind: MethodKind
+      IsStatic: bool
+      Accessibility: option<Accessibility>
+      IsAbstract: bool
+      IsOptional: bool
+      IsOverride: bool
+      Loc: option<SourceLocation> }
+
+  type PrivateName =
+    { Id: Ident
+      Loc: option<SourceLocation> }
+
+  type ClassProp =
+    { Key: PropName
+      Value: option<Expr>
+      TypeAnn: option<TsTypeAnn>
+      IsStatic: bool
+      // TODO: Decorators
+      // decorators: list<Decorator>
+      Accessibility: option<Accessibility>
+      IsAbstract: bool
+      IsOptional: bool
+      IsOverride: bool
+      Readonly: bool
+      Declare: bool
+      Definite: bool
+      Loc: option<SourceLocation> }
+
+  type PrivateProp =
+    { Key: PrivateName
+      Value: option<Expr>
+      TypeAnn: option<TsTypeAnn>
+      IsStatic: bool
+      // TODO: Decorators
+      // decorators: list<Decorator>
+      Accessibility: option<Accessibility>
+      IsOptional: bool
+      IsOverride: bool
+      Readonly: bool
+      Definite: bool
+      Loc: option<SourceLocation> }
+
+  type StaticBlock =
+    { Body: BlockStmt
+      Loc: option<SourceLocation> }
+
+  type AutoAccessor =
+    { Key: Key
+      Value: option<Expr>
+      TypeAnn: option<TsTypeAnn>
+      IsStatic: bool
+      // TODO: Decorators
+      // decorators: list<Decorator>
+      Accessibility: option<Accessibility>
+      Loc: option<SourceLocation> }
+
+  type Key =
+    | Private of PrivateName
+    | Public of PropName
+
+  type YieldExpr =
+    { Arg: option<Expr>
+      Delegate: bool
+      Loc: option<SourceLocation> }
+
+  type MetaPropExpr =
+    { Kind: MetaPropKind
+      Loc: option<SourceLocation> }
+
+  type MetaPropKind =
+    | NewTarget
+    | ImportMeta
+
+  type AwaitExpr =
+    { Arg: Expr
+      Loc: option<SourceLocation> }
+
+  // NOTE: we don't actually use this
+  type ParenExpr =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type JSXMemberExpr = { Obj: JSXObject; Prop: Ident }
+
+  type JSXObject =
+    | JSXMemberExpr of JSXMemberExpr
+    | Ident of Ident
+
+  type JSXNamespacedName = { NS: Ident; Name: Ident }
+
+  type JSXEmptyExpr = { Loc: option<SourceLocation> }
+
+  type JSXElement =
+    { OpeningElement: JSXOpeningElement
+      Children: list<JSXElementChild>
+      ClosingElement: option<JSXClosingElement>
+      Loc: option<SourceLocation> }
+
+  type JSXOpeningElement =
+    { Name: JSXElementName
+      Attrs: list<JSXAttrOrSpread>
+      SelfClosing: bool
+      TypeArgs: Option<TsTypeParamInstantiation>
+      Loc: option<SourceLocation> }
+
+  type JSXAttrOrSpread =
+    | JSXAttr of JSXAttr
+    | SpreadElement of SpreadElement
+
+  type SpreadElement =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type JSXAttr =
+    { Name: JSXAttrName
+      Value: option<JSXAttrValue>
+      Loc: option<SourceLocation> }
+
+  type JSXAttrName =
+    | JSXIdent of Ident
+    | JSXNamespacedName of JSXNamespacedName
+
+  type JSXAttrValue =
+    | Lit of Lit
+    | JSXExprContainer of JSXExprContainer
+    | JSXElement of JSXElement
+    | JSXFragment of JSXFragment
+
+  type JSXExprContainer =
+    { Expr: JSXExpr
+      Loc: option<SourceLocation> }
+
+  type JSXExpr =
+    | JSXEmptyExpr of JSXEmptyExpr
+    | Expr of Expr
+
+  type JSXElementName =
+    | Ident of Ident
+    | JSXMemberExpr of JSXMemberExpr
+    | JSXNamespacedName of JSXNamespacedName
+
+  type JSXElementChild =
+    | JSXText of JSXText
+    | JSXExprContainer of JSXExprContainer
+    | JSXSpreadChild of JSXSpreadChild
+    | JSXElement of JSXElement
+    | JSXFragment of JSXFragment
+
+  type JSXSpreadChild =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type JSXClosingElement =
+    { Name: JSXElementName
+      Loc: option<SourceLocation> }
+
+  type JSXFragment =
+    { Opening: JSXOpeningFragment
+      Children: list<JSXElementChild>
+      Closing: JSXClosingFragment
+      Loc: option<SourceLocation> }
+
+  type JSXOpeningFragment = { Loc: option<SourceLocation> }
+  type JSXClosingFragment = { Loc: option<SourceLocation> }
+
+  type TsTypeAssertion =
+    { Expr: Expr
+      TypeAnn: TsTypeAnn
+      Loc: option<SourceLocation> }
+
+  type TsConstAssertion =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type TsNonNullExpr =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type TsAsExpr =
+    { Expr: Expr
+      TypeAnn: TsTypeAnn
+      Loc: option<SourceLocation> }
+
+  type TsInstantiation =
+    { Expr: Expr
+      TypeArgs: TsTypeParamInstantiation
+      Loc: option<SourceLocation> }
+
+  type TsSatisfiesExpr =
+    { Expr: Expr
+      TypeAnn: TsType
+      Loc: option<SourceLocation> }
+
+  type OptChainExpr =
+    { Optional: bool
+      Base: OptChainBase
+      Loc: option<SourceLocation> }
+
+  type OptChainBase =
+    | Member of MemberExpr
+    | Call of OptCall
+
+  type OptCall =
+    { Callee: Expr
+      Args: list<ExprOrSpread>
+      TypeArgs: Option<TsTypeParamInstantiation>
+      Loc: option<SourceLocation> }
+
   type Invalid = { Loc: option<SourceLocation> }
 
   // Type Annotations
-  // NOTE: we might not need this
   type TsTypeAnn =
     { TypeAnn: TsType
       Loc: option<SourceLocation> }
@@ -446,7 +818,7 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsTypeParam =
-    { name: Ident
+    { Name: Ident
       IsIn: bool
       IsOut: bool
       IsConst: bool
@@ -665,12 +1037,6 @@ module rec TypeScript =
       Quasis: list<TplElement>
       Loc: option<SourceLocation> }
 
-  type TplElement =
-    { Tail: bool
-      Cooked: option<string>
-      Raw: string
-      Loc: option<SourceLocation> }
-
   type TsTypePredicate =
     { Asserts: bool
       ParamName: TsThisTypeOrIdent
@@ -682,22 +1048,7 @@ module rec TypeScript =
     | Ident of Ident
 
   type TsImportType =
-    { arg: Str
-      qualifier: Option<TsEntityName>
-      type_args: Option<TsTypeParamInstantiation>
-      Loc: option<SourceLocation> }
-
-  // Literals
-  type Str =
-    { Value: string
-      Raw: Option<string>
-      Loc: option<SourceLocation> }
-
-  type Number =
-    { Value: float
-      Raw: Option<string>
-      Loc: option<SourceLocation> }
-
-  type Bool =
-    { Value: bool
+    { Arg: Str
+      Qualifier: Option<TsEntityName>
+      Type_args: Option<TsTypeParamInstantiation>
       Loc: option<SourceLocation> }

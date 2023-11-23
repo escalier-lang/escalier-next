@@ -30,31 +30,37 @@ module rec Codegen =
             Loc = None }
 
       (callExpr, calleeStmts @ (argStmts |> List.concat))
-    | ExprKind.Identifier name ->
-      Expr.Identifier { Name = name; Loc = None }, []
+    | ExprKind.Identifier name -> Expr.Ident { Name = name; Loc = None }, []
     | ExprKind.Literal lit ->
-      let litVal =
+      let lit =
         match lit with
-        | Literal.Boolean b -> LiteralValue.Boolean b
-        | Literal.String s -> LiteralValue.String s
-        | Literal.Number n -> LiteralValue.Number(n |> float)
-        | Literal.Null -> LiteralValue.Null
-        | Literal.Undefined -> LiteralValue.Undefined
+        | Literal.Boolean b -> Lit.Bool { Value = b; Loc = None } |> Expr.Lit
+        | Literal.String s ->
+          Lit.Str { Value = s; Raw = None; Loc = None } |> Expr.Lit
+        | Literal.Number n ->
+          Lit.Num
+            { Value = n |> float
+              Raw = None
+              Loc = None }
+          |> Expr.Lit
+        | Literal.Null -> Lit.Null { Loc = None } |> Expr.Lit
+        | Literal.Undefined ->
+          { Ident.Name = "undefined"; Loc = None } |> Expr.Ident
 
-      Expr.Literal { Value = litVal; Loc = None }, []
+      lit, []
     | ExprKind.Binary(op, left, right) ->
       let binaryOp =
         match op with
-        | "+" -> Some(BinaryOperator.Plus)
-        | "-" -> Some(BinaryOperator.Minus)
-        | "*" -> Some(BinaryOperator.Multiply)
-        | "/" -> Some(BinaryOperator.Divide)
-        | "==" -> Some(BinaryOperator.Equal)
-        | "!=" -> Some(BinaryOperator.NotEqual)
-        | "<" -> Some(BinaryOperator.LessThan)
-        | "<=" -> Some(BinaryOperator.LessThanOrEqual)
-        | ">" -> Some(BinaryOperator.GreaterThan)
-        | ">=" -> Some(BinaryOperator.GreaterThanOrEqual)
+        | "+" -> Some(BinOp.Add)
+        | "-" -> Some(BinOp.Sub)
+        | "*" -> Some(BinOp.Mul)
+        | "/" -> Some(BinOp.Div)
+        | "==" -> Some(BinOp.EqEq)
+        | "!=" -> Some(BinOp.NotEq)
+        | "<" -> Some(BinOp.Lt)
+        | "<=" -> Some(BinOp.LtEq)
+        | ">" -> Some(BinOp.Gt)
+        | ">=" -> Some(BinOp.GtEq)
         | _ -> None
 
       let leftExpr, leftStmts = buildExpr ctx left
@@ -63,7 +69,7 @@ module rec Codegen =
       let binExpr =
         match binaryOp with
         | Some(op) ->
-          Expr.Binary
+          Expr.Bin
             { Operator = op
               Left = leftExpr
               Right = rightExpr
@@ -87,31 +93,46 @@ module rec Codegen =
 
       let finalizer = Finalizer.Assign tempId
       let blockStmt = buildBlock ctx block finalizer
-      let expr = Expr.Identifier { Name = tempId; Loc = None }
+      let expr = Expr.Ident { Name = tempId; Loc = None }
 
-      let stmts =
-        [ Stmt.Declaration(Declaration.Variable tempDecl)
-          Stmt.Block blockStmt ]
+      let stmts = [ Stmt.Declaration(Decl.Var tempDecl); Stmt.Block blockStmt ]
 
       (expr, stmts)
     | ExprKind.Function { Sig = s; Body = body } ->
-      let ps = s.ParamList |> List.map (fun p -> buildPattern ctx p.Pattern)
+
 
       match body with
       | BlockOrExpr.Block block ->
+        let ps =
+          s.ParamList
+          |> List.map (fun p ->
+            let pat = buildPattern ctx p.Pattern
+            { Pat = pat; Loc = None })
+
         let body = buildBlock ctx block Finalizer.Empty
-        let expr = Expr.Function { Id = None; Params = ps; Body = body }
+
+        let func: TS.Function =
+          { Params = ps
+            Body = Some({ Body = body.Body; Loc = None })
+            IsGenerator = false
+            IsAsync = false
+            TypeParams = None
+            ReturnType = None
+            Loc = None }
+
+        let expr = Expr.Fn { Id = None; Fn = func }
         let stmts = []
 
         (expr, stmts)
       | BlockOrExpr.Expr expr ->
+        let ps = s.ParamList |> List.map (fun p -> buildPattern ctx p.Pattern)
         let bodyExpr, bodyStmts = buildExpr ctx expr
 
         let body =
           bodyStmts @ [ Stmt.Return { Argument = Some bodyExpr; Loc = None } ]
 
-        let body = { Body = body; Loc = None }
-        let expr = Expr.ArrowFunction { Params = ps; Body = body }
+        let body: BlockStmt = { Body = body; Loc = None }
+        let expr = Expr.Arrow { Params = ps; Body = body }
 
         (expr, [])
     | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
@@ -151,20 +172,14 @@ module rec Codegen =
             Loc = None }
 
       let stmts =
-        [ Stmt.Declaration(Declaration.Variable tempDecl) ]
-        @ conditionStmts
-        @ [ ifStmt ]
+        [ Stmt.Declaration(Decl.Var tempDecl) ] @ conditionStmts @ [ ifStmt ]
 
-      let expr = Expr.Identifier { Name = tempId; Loc = None }
+      let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
     | _ -> failwith (sprintf "TODO: buildExpr - %A" expr)
 
-  let buildBlock
-    (ctx: Ctx)
-    (body: Block)
-    (finalizer: Finalizer)
-    : BlockStatement =
+  let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
     // TODO: check if the last statement is an expression statement
     // and use the appropriate finalizer with it
 
@@ -191,7 +206,7 @@ module rec Codegen =
               { Declarations = [ { Id = pattern; Init = Some initExpr } ]
                 Kind = VariableDeclarationKind.Var }
 
-            let declStmt = Stmt.Declaration(Declaration.Variable decl)
+            let declStmt = Stmt.Declaration(Decl.Var decl)
 
             initStmts @ [ declStmt ]
           | TypeDecl _ -> [] // Ignore types when generating JS code
@@ -209,13 +224,13 @@ module rec Codegen =
     : list<TS.Stmt> =
     match finalizer with
     | Finalizer.Assign id ->
-      let left = Expr.Identifier { Name = id; Loc = None }
+      let left = Expr.Ident { Name = id; Loc = None }
 
       let assignStmt =
-        Stmt.Expression
+        Stmt.Expr
           { Expr =
-              Expr.Assignment
-                { Operator = AssignmentOperator.Assign
+              Expr.Assign
+                { Operator = AssignOp.Assign
                   Left = left
                   Right = expr
                   Loc = None }

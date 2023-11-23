@@ -47,13 +47,13 @@ module Printer =
     | LiteralValue.Null -> "null"
     | LiteralValue.Undefined -> "undefined"
 
-  let rec printExpr (ctx: PrintCtx) (e: Expression) : string =
+  let rec printExpr (ctx: PrintCtx) (e: Expr) : string =
 
     match e with
-    | Expression.Identifier { Name = name } -> name
-    | Expression.Literal lit -> printLit lit
-    | Expression.This _ -> "this"
-    | Expression.Array { Elements = elements } ->
+    | Expr.Identifier { Name = name } -> name
+    | Expr.Literal lit -> printLit lit
+    | Expr.This _ -> "this"
+    | Expr.Array { Elements = elements } ->
       let elements =
         List.map
           (fun e ->
@@ -66,7 +66,7 @@ module Printer =
 
       $"[{elements}]"
     // TODO: support shorthand syntax
-    | Expression.Object { Properties = props } ->
+    | Expr.Object { Properties = props } ->
 
       let props =
         props
@@ -88,7 +88,7 @@ module Printer =
         |> String.concat ", "
 
       $"{{{props}}}"
-    | Expression.Function { Id = id; Params = ps; Body = body } ->
+    | Expr.Function { Id = id; Params = ps; Body = body } ->
       let id =
         match id with
         | Some(id) -> id.Name
@@ -98,14 +98,14 @@ module Printer =
       let ps = ps |> List.map (printPattern ctx) |> String.concat ", "
 
       $"function {id}({ps}) {printBlock ctx body}"
-    | Expression.ArrowFunction { Params = ps; Body = body } ->
+    | Expr.ArrowFunction { Params = ps; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
       let ps = ps |> List.map (printPattern ctx) |> String.concat ", "
 
       $"({ps}) => {printBlock ctx body}"
-    | Expression.Unary { Operator = op
-                         Prefix = _prefix
-                         Argument = arg } ->
+    | Expr.Unary { Operator = op
+                   Prefix = _prefix
+                   Argument = arg } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 15
@@ -126,9 +126,9 @@ module Printer =
 
       if innerPrec < outerPrec then $"({expr})" else expr
 
-    | Expression.Update { Operator = op
-                          Argument = arg
-                          Prefix = prefix } ->
+    | Expr.Update { Operator = op
+                    Argument = arg
+                    Prefix = prefix } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = if prefix then 15 else 16
@@ -142,9 +142,9 @@ module Printer =
       let expr = if prefix then $"{op}{arg}" else $"{arg}{op}"
 
       if innerPrec < outerPrec then $"({expr})" else expr
-    | Expression.Binary { Operator = op
-                          Left = left
-                          Right = right } ->
+    | Expr.Binary { Operator = op
+                    Left = left
+                    Right = right } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = getBinaryPrecedence op
@@ -179,9 +179,9 @@ module Printer =
 
       if innerPrec < outerPrec then $"({expr})" else expr
 
-    | Expression.Assignment { Operator = op
-                              Left = left
-                              Right = right } ->
+    | Expr.Assignment { Operator = op
+                        Left = left
+                        Right = right } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 2
@@ -206,9 +206,9 @@ module Printer =
       let expr = $"{left} {op} {right}"
 
       if innerPrec < outerPrec then $"({expr})" else expr
-    | Expression.Logical { Operator = op
-                           Left = left
-                           Right = right } ->
+    | Expr.Logical { Operator = op
+                     Left = left
+                     Right = right } ->
       let outerPrec = ctx.Precedence
       let innerPrec = getLogicalPrecendence op
 
@@ -222,9 +222,9 @@ module Printer =
       let expr = $"{left} {op} {right}"
 
       if innerPrec < outerPrec then $"({expr})" else expr
-    | Expression.Member { Object = obj
-                          Property = prop
-                          Computed = computed } ->
+    | Expr.Member { Object = obj
+                    Property = prop
+                    Computed = computed } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 18
@@ -234,9 +234,9 @@ module Printer =
       let expr = if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
 
       if innerPrec < outerPrec then $"({expr})" else expr
-    | Expression.Conditional { Test = test
-                               Consequent = cons
-                               Alternate = alt } ->
+    | Expr.Conditional { Test = test
+                         Consequent = cons
+                         Alternate = alt } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 3
@@ -249,7 +249,7 @@ module Printer =
 
       if innerPrec < outerPrec then $"({expr}" else expr
 
-    | Expression.Call { Callee = callee; Arguments = args } ->
+    | Expr.Call { Callee = callee; Arguments = args } ->
       let outerPrec = ctx.Precedence
       let innerPrec = 18
 
@@ -263,7 +263,7 @@ module Printer =
       let expr = $"{callee}({args})"
 
       if innerPrec < outerPrec then $"({expr}" else expr
-    | Expression.New { Callee = callee; Arguments = args } ->
+    | Expr.New { Callee = callee; Arguments = args } ->
       let outerPrec = ctx.Precedence
       let innerPrec = 18
 
@@ -277,7 +277,7 @@ module Printer =
       let expr = $"{callee}({args})"
 
       if innerPrec < outerPrec then $"new ({expr}" else expr
-    | Expression.Sequence { Expressions = exprs } ->
+    | Expr.Sequence { Expressions = exprs } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 1
@@ -289,9 +289,9 @@ module Printer =
 
       if innerPrec < outerPrec then $"({exprs})" else exprs
 
-  and printStmt (ctx: PrintCtx) (stmt: Statement) : string =
+  and printStmt (ctx: PrintCtx) (stmt: Stmt) : string =
     match stmt with
-    | Statement.Block block -> printBlock ctx block
+    | Stmt.Block block -> printBlock ctx block
     // let oldIdent = String.replicate ctx.Indent " "
     //
     // let ctx = { ctx with Indent = ctx.Indent + 2 }
@@ -303,32 +303,32 @@ module Printer =
     //   |> String.concat "\n"
     //
     // $"{{\n{body}\n{oldIdent}}}"
-    | Statement.Expression { Expr = expr } ->
+    | Stmt.Expression { Expr = expr } ->
       let ctx = { ctx with Precedence = 0 }
       $"{printExpr ctx expr};"
-    | Statement.Empty _ -> ";"
-    | Statement.Debugger _ -> "debugger;"
-    | Statement.Return { Argument = arg } ->
+    | Stmt.Empty _ -> ";"
+    | Stmt.Debugger _ -> "debugger;"
+    | Stmt.Return { Argument = arg } ->
       let ctx = { ctx with Precedence = 0 }
 
       match arg with
       | Some(arg) -> $"return {printExpr ctx arg};"
       | None -> "return;"
-    | Statement.Labeled { Label = label; Body = body } ->
+    | Stmt.Labeled { Label = label; Body = body } ->
       let label = label.Name
       let body = printStmt ctx body
       $"{label}: {body}"
-    | Statement.Break { Label = label } ->
+    | Stmt.Break { Label = label } ->
       match label with
       | Some(label) -> $"break {label.Name};"
       | None -> "break;"
-    | Statement.Continue { Label = label } ->
+    | Stmt.Continue { Label = label } ->
       match label with
       | Some(label) -> $"continue {label.Name};"
       | None -> "continue;"
-    | Statement.If { Test = test
-                     Consequent = cons
-                     Alternate = alt } ->
+    | Stmt.If { Test = test
+                Consequent = cons
+                Alternate = alt } ->
       let ctx = { ctx with Precedence = 0 }
       let test = printExpr ctx test
       let cons = printStmt ctx cons
@@ -336,7 +336,7 @@ module Printer =
       match alt with
       | Some(alt) -> $"if ({test}) {cons} else {printStmt ctx alt}"
       | None -> $"if ({test}) {cons}"
-    | Statement.Switch { Discriminant = disc; Cases = cases } ->
+    | Stmt.Switch { Discriminant = disc; Cases = cases } ->
       let ctx = { ctx with Precedence = 0 }
       let disc = printExpr ctx disc
 
@@ -357,13 +357,13 @@ module Printer =
         |> String.concat "\n"
 
       $"switch ({disc}) {{\n{cases}\n}}"
-    | Statement.Throw { Argument = arg } ->
+    | Stmt.Throw { Argument = arg } ->
       let ctx = { ctx with Precedence = 0 }
       let arg = printExpr ctx arg
       $"throw {arg};"
-    | Statement.Try { Block = block
-                      Handler = handler
-                      Finalizer = finalizer } ->
+    | Stmt.Try { Block = block
+                 Handler = handler
+                 Finalizer = finalizer } ->
       let ctx = { ctx with Precedence = 0 }
 
       let block = block.Body |> List.map (printStmt ctx) |> String.concat "\n"
@@ -390,30 +390,30 @@ module Printer =
         | None -> ""
 
       $"{block}{handler}{finalizer}"
-    | Statement.While { Test = test; Body = body } ->
+    | Stmt.While { Test = test; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
       let test = printExpr ctx test
       let body = printStmt ctx body
 
       $"while ({test}) {body}"
-    | Statement.DoWhile { Test = test; Body = body } ->
+    | Stmt.DoWhile { Test = test; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
       let test = printExpr ctx test
       let body = printStmt ctx body
 
       $"do {body} while ({test});"
-    | Statement.For { Init = init
-                      Test = test
-                      Update = update
-                      Body = body } ->
+    | Stmt.For { Init = init
+                 Test = test
+                 Update = update
+                 Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
       let init =
         match init with
         | Some(ForInit.Variable decl) ->
-          printStmt ctx (Statement.Declaration(Declaration.Variable decl))
+          printStmt ctx (Stmt.Declaration(Declaration.Variable decl))
         | Some(ForInit.Expression expr) -> printExpr ctx expr
         | None -> ""
 
@@ -430,22 +430,22 @@ module Printer =
       let body = printStmt ctx body
 
       $"for ({init}; {test}; {update}) {body}"
-    | Statement.ForIn { Left = left
-                        Right = right
-                        Body = body } ->
+    | Stmt.ForIn { Left = left
+                   Right = right
+                   Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
       let left =
         match left with
         | ForInLeft.Variable decl ->
-          printStmt ctx (Statement.Declaration(Declaration.Variable decl))
+          printStmt ctx (Stmt.Declaration(Declaration.Variable decl))
         | ForInLeft.Pattern p -> printPattern ctx p
 
       let right = printExpr ctx right
       let body = printStmt ctx body
 
       $"for ({left} in {right}) {body}"
-    | Statement.Declaration decl ->
+    | Stmt.Declaration decl ->
       let ctx = { ctx with Precedence = 0 }
 
       match decl with
@@ -472,19 +472,20 @@ module Printer =
         | VariableDeclarationKind.Let -> $"let {decls};"
         | VariableDeclarationKind.Const -> $"const {decls};"
 
-  and printPattern (ctx: PrintCtx) (p: Pattern) : string =
+  and printPattern (ctx: PrintCtx) (p: Pat) : string =
 
     match p with
-    | Pattern.Identifier { Name = name } -> name
-    | Pattern.Member { Object = obj
-                       Property = prop
-                       Computed = computed } ->
-
-      let ctx = { ctx with Precedence = 18 }
-
-      let obj = printExpr ctx obj
-      let prop = printExpr ctx prop
-      if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
+    | Pat.Ident { Id = id } -> id.Name
+    | _ -> failwith "TODO"
+  // | Pat.Member { Object = obj
+  //                Property = prop
+  //                Computed = computed } ->
+  //
+  //   let ctx = { ctx with Precedence = 18 }
+  //
+  //   let obj = printExpr ctx obj
+  //   let prop = printExpr ctx prop
+  //   if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
 
   and printBlock (ctx: PrintCtx) (block: BlockStatement) =
     let oldIdent = String.replicate ctx.Indent " "

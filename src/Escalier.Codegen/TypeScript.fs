@@ -16,8 +16,7 @@ module rec TypeScript =
   type Node =
     abstract member Loc: option<SourceLocation>
 
-  // TODO: rename to Ident
-  type Identifier =
+  type Ident =
     { Name: string
       Loc: option<SourceLocation> }
 
@@ -35,13 +34,12 @@ module rec TypeScript =
     { Value: LiteralValue
       Loc: option<SourceLocation> }
 
-  type Program(body: list<Statement>, loc: option<SourceLocation>) =
+  type Program(body: list<Stmt>, loc: option<SourceLocation>) =
     member this.Body = body
 
   // Statements
-
   [<RequireQualifiedAccess>]
-  type Statement =
+  type Stmt =
     | Expression of ExpressionStatement
     | Block of BlockStatement
     | Empty of EmptyStatement
@@ -61,11 +59,11 @@ module rec TypeScript =
     | Declaration of Declaration
 
   type ExpressionStatement =
-    { Expr: Expression
+    { Expr: Expr
       Loc: option<SourceLocation> }
 
   type BlockStatement =
-    { Body: list<Statement>
+    { Body: list<Stmt>
       Loc: option<SourceLocation> }
 
   type EmptyStatement = { Loc: option<SourceLocation> }
@@ -73,40 +71,40 @@ module rec TypeScript =
   type DebuggerStatement = { Loc: option<SourceLocation> }
 
   type ReturnStatement =
-    { Argument: option<Expression>
+    { Argument: option<Expr>
       Loc: option<SourceLocation> }
 
   type LabeledStatement =
-    { Label: Identifier
-      Body: Statement
+    { Label: Ident
+      Body: Stmt
       Loc: option<SourceLocation> }
 
   type BreakStatement =
-    { Label: option<Identifier>
+    { Label: option<Ident>
       Loc: option<SourceLocation> }
 
   type ContinueStatement =
-    { Label: option<Identifier>
+    { Label: option<Ident>
       Loc: option<SourceLocation> }
 
   type IfStatement =
-    { Test: Expression
-      Consequent: Statement
-      Alternate: option<Statement>
+    { Test: Expr
+      Consequent: Stmt
+      Alternate: option<Stmt>
       Loc: option<SourceLocation> }
 
   type SwitchStatement =
-    { Discriminant: Expression
+    { Discriminant: Expr
       Cases: list<SwitchCase>
       Loc: option<SourceLocation> }
 
   type SwitchCase =
-    { Test: option<Expression>
-      Consequent: list<Statement>
+    { Test: option<Expr>
+      Consequent: list<Stmt>
       Loc: option<SourceLocation> }
 
   type ThrowStatement =
-    { Argument: Expression
+    { Argument: Expr
       Loc: option<SourceLocation> }
 
   type TryStatement =
@@ -114,37 +112,36 @@ module rec TypeScript =
       Handler: option<CatchClause>
       Finalizer: option<BlockStatement> }
 
-  type CatchClause =
-    { Param: Pattern; Body: BlockStatement }
+  type CatchClause = { Param: Pat; Body: BlockStatement }
 
   type WhileStatement =
-    { Test: Expression
-      Body: Statement
+    { Test: Expr
+      Body: Stmt
       Loc: option<SourceLocation> }
 
   type DoWhileStatement =
-    { Body: Statement
-      Test: Expression
+    { Body: Stmt
+      Test: Expr
       Loc: option<SourceLocation> }
 
   type ForInit =
     | Variable of VariableDeclaration
-    | Expression of Expression
+    | Expression of Expr
 
   type ForStatement =
     { Init: option<ForInit>
-      Test: option<Expression>
-      Update: option<Expression>
-      Body: Statement }
+      Test: option<Expr>
+      Update: option<Expr>
+      Body: Stmt }
 
   type ForInLeft =
     | Variable of VariableDeclaration
-    | Pattern of Pattern
+    | Pattern of Pat
 
   type ForInStatement =
     { Left: ForInLeft
-      Right: Expression
-      Body: Statement }
+      Right: Expr
+      Body: Stmt }
 
   // Declarations
 
@@ -154,8 +151,8 @@ module rec TypeScript =
 
   // TODO: reuse with function expressions
   type FunctionDeclaration =
-    { Id: Identifier
-      Params: list<Pattern>
+    { Id: Ident
+      Params: list<Pat>
       Body: BlockStatement }
 
   type VariableDeclarationKind =
@@ -167,16 +164,13 @@ module rec TypeScript =
     { Declarations: list<VariableDeclarator>
       Kind: VariableDeclarationKind }
 
-  type VariableDeclarator =
-    { Id: Pattern
-      Init: option<Expression> }
+  type VariableDeclarator = { Id: Pat; Init: option<Expr> }
 
   // Expressions
-  // TODO: rename to Expr
   [<RequireQualifiedAccess>]
-  type Expression =
+  type Expr =
     | Literal of Literal
-    | Identifier of Identifier
+    | Identifier of Ident
     | This of ThisExpression
     | Array of ArrayExpression
     | Object of ObjectExpression
@@ -196,7 +190,7 @@ module rec TypeScript =
   type ThisExpression = { Loc: option<SourceLocation> }
 
   type ArrayExpression =
-    { Elements: list<option<Expression>>
+    { Elements: list<option<Expr>>
       Loc: option<SourceLocation> }
 
   type ObjectExpression =
@@ -205,7 +199,7 @@ module rec TypeScript =
 
   type PropertyKey =
     | Literal of Literal
-    | Identifier of Identifier
+    | Identifier of Ident
 
   type PropertyKind =
     | Init
@@ -214,18 +208,18 @@ module rec TypeScript =
 
   type Property =
     { Key: PropertyKey
-      Value: Expression
+      Value: Expr
       Kind: PropertyKind
       Loc: option<SourceLocation> }
 
   type FunctionExpression =
-    { Id: option<Identifier>
-      Params: list<Pattern>
+    { Id: option<Ident>
+      Params: list<Pat>
       Body: BlockStatement }
 
   // TODO: also allow blocks bodies
   type ArrowFunctionExpression =
-    { Params: list<Pattern>
+    { Params: list<Pat>
       Body: BlockStatement }
 
   type UnaryOperator =
@@ -241,7 +235,7 @@ module rec TypeScript =
   type UnaryExpression =
     { Operator: UnaryOperator
       Prefix: bool
-      Argument: Expression
+      Argument: Expr
       Loc: option<SourceLocation> }
 
   type UpdateOperator =
@@ -250,7 +244,7 @@ module rec TypeScript =
 
   type UpdateExpression =
     { Operator: UpdateOperator
-      Argument: Expression
+      Argument: Expr
       Prefix: bool
       Loc: option<SourceLocation> }
 
@@ -280,8 +274,8 @@ module rec TypeScript =
 
   type BinaryExpression =
     { Operator: BinaryOperator
-      Left: Expression
-      Right: Expression
+      Left: Expr
+      Right: Expr
       Loc: option<SourceLocation> }
 
   type AssignmentOperator =
@@ -300,8 +294,8 @@ module rec TypeScript =
 
   type AssignmentExpression =
     { Operator: AssignmentOperator
-      Left: Expression
-      Right: Expression
+      Left: Expr
+      Right: Expr
       Loc: option<SourceLocation> }
 
   type LogicalOperator =
@@ -310,43 +304,76 @@ module rec TypeScript =
 
   type LogicalExpression =
     { Operator: LogicalOperator
-      Left: Expression
-      Right: Expression
+      Left: Expr
+      Right: Expr
       Loc: option<SourceLocation> }
 
   type MemberExpression =
-    { Object: Expression
-      Property: Expression
+    { Object: Expr
+      Property: Expr
       Computed: bool
       Loc: option<SourceLocation> }
 
   type ConditionalExpression =
-    { Test: Expression
-      Alternate: Expression
-      Consequent: Expression
+    { Test: Expr
+      Alternate: Expr
+      Consequent: Expr
       Loc: option<SourceLocation> }
 
   type CallExpression =
-    { Callee: Expression
-      Arguments: list<Expression>
+    { Callee: Expr
+      Arguments: list<Expr>
       Loc: option<SourceLocation> }
 
   // TODO: combine with CallExpression
   type NewExpression =
-    { Callee: Expression
-      Arguments: list<Expression>
+    { Callee: Expr
+      Arguments: list<Expr>
       Loc: option<SourceLocation> }
 
   type SequenceExpression =
-    { Expressions: list<Expression>
+    { Expressions: list<Expr>
       Loc: option<SourceLocation> }
 
   // Patterns
-  // TODO: finish this off
   [<RequireQualifiedAccess>]
-  type Pattern =
-    | Identifier of Identifier
-    | Member of MemberExpression
+  type Pat =
+    | Ident of BindingIdent
+    | Array of ArrayPat
+    | Rest of RestPat
+    | Object of ObjectPat
+    | Assign of AssignPat
+    | Invalid of Invalid
+    | Expr of Expr // only valid in for-in/for-of loops
+
+  type BindingIdent =
+    { Id: Ident
+      TypeAnn: option<TsTypeAnn>
+      Loc: option<SourceLocation> }
+
+  type ArrayPat =
+    { Elems: list<option<Pat>>
+      Optional: bool
+      TypeAnn: option<TsTypeAnn>
+      Loc: option<SourceLocation> }
+
+  type RestPat =
+    { Arg: Pat
+      TypeAnn: option<TsTypeAnn>
+      Loc: option<SourceLocation> }
+
+  type ObjectPat =
+    { Props: list<ObjectPatProp>
+      Optional: bool
+      TypeAnn: option<TsTypeAnn>
+      Loc: option<SourceLocation> }
+
+  type AssignPat =
+    { Left: Pat
+      Right: Expr
+      Loc: option<SourceLocation> }
+
+  type Invalid = { Loc: option<SourceLocation> }
 
   // Type Annotations
   // NOTE: we might not need this
@@ -419,7 +446,7 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsTypeParam =
-    { name: Identifier
+    { name: Ident
       IsIn: bool
       IsOut: bool
       IsConst: bool
@@ -444,19 +471,19 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type PropName =
-    | Ident of Identifier
+    | Ident of Ident
     | Str of Str
     | Num of Number
     | Computed of ComputedPropName
   // TODO: BigInt of BigInt
 
   type ComputedPropName =
-    { Expr: Expression
+    { Expr: Expr
       Loc: option<SourceLocation> }
 
   type AssignPatProp =
-    { Key: Identifier
-      Value: option<Expression>
+    { Key: Ident
+      Value: option<Expr>
       Loc: option<SourceLocation> }
 
   type TsTypeRef =
@@ -464,13 +491,11 @@ module rec TypeScript =
       typeName: TsEntityName
       type_params: option<TsTypeParamInstantiation> }
 
-  type TsQualifiedName =
-    { Left: TsEntityName
-      Right: Identifier }
+  type TsQualifiedName = { Left: TsEntityName; Right: Ident }
 
   type TsEntityName =
     | TsQualifiedName of TsQualifiedName
-    | Identifier of Identifier
+    | Identifier of Ident
 
   type TsTypeParamInstantiation =
     { Params: list<TsType>
@@ -505,10 +530,10 @@ module rec TypeScript =
 
   type TsPropertySignature =
     { Readonly: bool
-      Key: Expression
+      Key: Expr
       Computed: bool
       Optional: bool
-      Init: Option<Expression>
+      Init: Option<Expr>
       Params: list<TsFnParam>
       TypeAnn: option<TsTypeAnn>
       TypeParams: option<TsTypeParamDecl>
@@ -516,7 +541,7 @@ module rec TypeScript =
 
   type TsGetterSignature =
     { Readonly: bool
-      Key: Expression
+      Key: Expr
       Computed: bool
       Optional: bool
       TypeAnn: option<TsTypeAnn>
@@ -524,7 +549,7 @@ module rec TypeScript =
 
   type TsSetterSignature =
     { Readonly: bool
-      Key: Expression
+      Key: Expr
       Computed: bool
       Optional: bool
       Param: TsFnParam
@@ -532,7 +557,7 @@ module rec TypeScript =
 
   type TsMethodSignature =
     { Readonly: bool
-      Key: Expression
+      Key: Expr
       Computed: bool
       Optional: bool
       Params: list<TsFnParam>
@@ -654,52 +679,13 @@ module rec TypeScript =
 
   type TsThisTypeOrIdent =
     | TsThisType of TsThisType
-    | Ident of Identifier
+    | Ident of Ident
 
   type TsImportType =
     { arg: Str
       qualifier: Option<TsEntityName>
       type_args: Option<TsTypeParamInstantiation>
       Loc: option<SourceLocation> }
-
-  // swc_ecma_ast - Pat
-  type Pat =
-    | Ident of BindingIdent
-    | Array of ArrayPat
-    | Rest of RestPat
-    | Object of ObjectPat
-    | Assign of AssignPat
-    | Invalid of Invalid
-    | Expr of Expression // only valid in for-in/for-of loops
-
-  type BindingIdent =
-    { Id: Identifier
-      TypeAnn: option<TsTypeAnn> }
-
-  type ArrayPat =
-    { Elems: list<option<Pat>>
-      Optional: bool
-      TypeAnn: option<TsTypeAnn>
-      Loc: option<SourceLocation> }
-
-  type RestPat =
-    { Arg: Pat
-      TypeAnn: option<TsTypeAnn>
-      Loc: option<SourceLocation> }
-
-  type ObjectPat =
-    { Props: list<ObjectPatProp>
-      Optional: bool
-      TypeAnn: option<TsTypeAnn>
-      Loc: option<SourceLocation> }
-
-  type AssignPat =
-    { Left: Pat
-      Right: Expression
-      Loc: option<SourceLocation> }
-
-  type Invalid = { Loc: option<SourceLocation> }
-
 
   // Literals
   type Str =

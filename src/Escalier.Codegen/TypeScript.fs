@@ -31,8 +31,19 @@ module rec TypeScript =
       ReturnType: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
-  type Program(body: list<Stmt>, loc: option<SourceLocation>) =
-    member this.Body = body
+  type Program =
+    | Module of Module
+    | Script of Script
+
+  type Module =
+    { body: list<ModuleItem>
+      shebang: Option<string>
+      Loc: option<SourceLocation> }
+
+  type Script =
+    { Body: list<Stmt>
+      Shebang: Option<string>
+      Loc: option<SourceLocation> }
 
   // Literals
   [<RequireQualifiedAccess>]
@@ -75,10 +86,10 @@ module rec TypeScript =
   // TODO: add missing statements from swc_ecma_ast
   [<RequireQualifiedAccess>]
   type Stmt =
-    | Expr of ExprStmt
     | Block of BlockStmt
     | Empty of EmptyStmt
     | Debugger of DebuggerStmt
+    // | With of WithStmt
     | Return of ReturnStmt
     | Labeled of LabeledStmt
     | Break of BreakStmt
@@ -91,7 +102,9 @@ module rec TypeScript =
     | DoWhile of DoWhileStmt
     | For of ForStmt
     | ForIn of ForInStmt
-    | Declaration of Decl
+    | ForOf of ForOfStmt
+    | Decl of Decl
+    | Expr of ExprStmt
 
   type ExprStmt =
     { Expr: Expr
@@ -167,24 +180,48 @@ module rec TypeScript =
     { Init: option<ForInit>
       Test: option<Expr>
       Update: option<Expr>
-      Body: Stmt }
+      Body: Stmt
+      Loc: option<SourceLocation> }
 
   type ForInLeft =
     | Variable of VarDecl
     | Pattern of Pat
 
   type ForInStmt =
-    { Left: ForInLeft
+    { Left: ForHead
       Right: Expr
-      Body: Stmt }
+      Body: Stmt
+      Loc: option<SourceLocation> }
+
+  type ForOfStmt =
+    { IsAwait: bool
+      Left: ForHead
+      Right: Expr
+      Body: Stmt
+      Loc: option<SourceLocation> }
+
+  type ForHead =
+    | VarDecl of VarDecl
+    | UsingDecl of UsingDecl
+    | Pat of Pat
 
   // Declarations
-
+  [<RequireQualifiedAccess>]
   type Decl =
+    | Class of ClassDecl
     | Fn of FnDecl
     | Var of VarDecl
+    | Using of UsingDecl
+    | TsInterface of TsInterfaceDecl
+    | TsTypeAlias of TsTypeAliasDecl
+    | TsEnum of TsEnumDecl
+    | TsModule of TsModuleDecl
 
-  // TODO: reuse with function expressions
+  type ClassDecl =
+    { Ident: Ident
+      Declare: bool
+      Class: Class }
+
   type FnDecl = { Id: Ident; Fn: Function }
 
   type VariableDeclarationKind =
@@ -193,10 +230,191 @@ module rec TypeScript =
     | Const
 
   type VarDecl =
-    { Declarations: list<VariableDeclarator>
+    { Declarations: list<VarDeclarator>
       Kind: VariableDeclarationKind }
 
-  type VariableDeclarator = { Id: Pat; Init: option<Expr> }
+  type VarDeclarator = { Id: Pat; Init: option<Expr> }
+
+  type UsingDecl =
+    { IsAwait: bool
+      Decls: list<VarDeclarator>
+      Loc: option<SourceLocation> }
+
+  type TsInterfaceDecl =
+    { id: Ident
+      declare: bool
+      type_params: Option<TsTypeParamDecl>
+      extends: list<TsExprWithTypeArgs>
+      body: TsInterfaceBody
+      Loc: option<SourceLocation> }
+
+  type TsInterfaceBody =
+    { Body: list<TsTypeElement>
+      Loc: option<SourceLocation> }
+
+  type TsTypeAliasDecl =
+    { Declare: bool
+      Id: Ident
+      TypeParams: option<TsTypeParamDecl>
+      TypeAnn: TsType
+      Loc: option<SourceLocation> }
+
+  type TsEnumDecl =
+    { Declare: bool
+      IsConst: bool
+      Id: Ident
+      Members: list<TsEnumMember>
+      Loc: option<SourceLocation> }
+
+  type TsEnumMember =
+    { Id: TsEnumMemberId
+      Init: option<Expr>
+      Loc: option<SourceLocation> }
+
+  type TsEnumMemberId =
+    | Ident of Ident
+    | Str of Str
+
+  type TsModuleDecl =
+    { Declare: bool
+      Global: bool
+      Id: TsModuleName
+      Body: Option<TsNamespaceBody>
+      Loc: option<SourceLocation> }
+
+  type TsModuleName =
+    | Ident of Ident
+    | Str of Str
+
+  type TsNamespaceBody =
+    | TsModuleBlock of TsModuleBlock
+    | TsNamespaceDecl of TsNamespaceDecl
+
+  type TsModuleBlock =
+    { body: list<ModuleItem>
+      Loc: option<SourceLocation> }
+
+  type TsNamespaceDecl =
+    { Declare: bool
+      Global: bool
+      Id: Ident
+      Body: TsNamespaceBody }
+
+  type ModuleItem =
+    | ModuleDecl of ModuleDecl
+    | Stmt of Stmt
+
+  type ModuleDecl =
+    | Import of ImportDecl
+    | ExportDecl of ExportDecl
+    | ExportNamed of NamedExport
+    | ExportDefaultDecl of ExportDefaultDecl
+    | ExportDefaultExpr of ExportDefaultExpr
+    | ExportAll of ExportAll
+    | TsImportEquals of TsImportEqualsDecl
+    | TsExportAssignment of TsExportAssignment
+    | TsNamespaceExport of TsNamespaceExportDecl
+
+  type ImportDecl =
+    { Specifiers: list<ImportSpecifier>
+      Src: Str
+      IsTypeOnly: bool
+      With: Option<ObjectLit>
+      Loc: option<SourceLocation> }
+
+  type ImportSpecifier =
+    | Named of ImportNamedSpecifier
+    | Default of ImportDefaultSpecifier
+    | Namespace of ImportStarAsSpecifier
+
+  type ImportNamedSpecifier =
+    { Local: Ident
+      Imported: Option<ModuleExportName>
+      IsTypeOnly: bool
+      Loc: option<SourceLocation> }
+
+  type ModuleExportName =
+    | Ident of Ident
+    | Str of Str
+
+  type ImportDefaultSpecifier =
+    { Local: Ident
+      Loc: option<SourceLocation> }
+
+  type ImportStarAsSpecifier =
+    { Local: Ident
+      Loc: option<SourceLocation> }
+
+  type ExportDecl =
+    { Decl: Decl
+      Loc: option<SourceLocation> }
+
+  type NamedExport =
+    { Specifiers: list<ExportSpecifier>
+      Src: option<Str>
+      IsTypeOnly: bool
+      With: option<ObjectLit>
+      Loc: option<SourceLocation> }
+
+  type ExportSpecifier =
+    | Namespace of ExportNamespaceSpecifier
+    | Default of ExportDefaultSpecifier
+    | Named of ExportNamedSpecifier
+
+  type ExportNamespaceSpecifier =
+    { Name: ModuleExportName
+      Loc: option<SourceLocation> }
+
+  type ExportDefaultSpecifier = { Exported: Ident }
+
+  type ExportNamedSpecifier =
+    { Orig: ModuleExportName
+      Exported: option<ModuleExportName>
+      IsTypeOnly: bool
+      Loc: option<SourceLocation> }
+
+  type ExportDefaultDecl =
+    { Decl: DefaultDecl
+      Loc: option<SourceLocation> }
+
+  type DefaultDecl =
+    | Class of ClassExpr
+    | Fn of FnExpr
+    | TsInterfaceDecl of TsInterfaceDecl
+
+  type ExportDefaultExpr =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type ExportAll =
+    { Src: Str
+      IsTypeOnly: bool
+      With: Option<ObjectLit>
+      Loc: option<SourceLocation> }
+
+  type TsImportEqualsDecl =
+    { IsExport: bool
+      IsTypeOnly: bool
+      Id: Ident
+      ModuleRef: TsModuleRef
+      Loc: option<SourceLocation> }
+
+  type TsModuleRef =
+    | TsEntityName of TsEntityName
+    | TsExternalModuleRef of TsExternalModuleRef
+
+  type TsExternalModuleRef =
+    { Expr: Str
+      Loc: option<SourceLocation> }
+
+  type TsExportAssignment =
+    { Expr: Expr
+      Loc: option<SourceLocation> }
+
+  type TsNamespaceExportDecl =
+    { Id: Ident
+      Loc: option<SourceLocation> }
+
 
   // Exprs
   [<RequireQualifiedAccess>]

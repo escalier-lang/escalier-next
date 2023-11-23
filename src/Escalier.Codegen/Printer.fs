@@ -406,7 +406,7 @@ module Printer =
       let init =
         match init with
         | Some(ForInit.Variable decl) ->
-          printStmt ctx (Stmt.Declaration(Decl.Var decl))
+          printStmt ctx (Stmt.Decl(Decl.Var decl))
         | Some(ForInit.Expr expr) -> printExpr ctx expr
         | None -> ""
 
@@ -430,15 +430,15 @@ module Printer =
 
       let left =
         match left with
-        | ForInLeft.Variable decl ->
-          printStmt ctx (Stmt.Declaration(Decl.Var decl))
-        | ForInLeft.Pattern p -> printPattern ctx p
+        | ForHead.VarDecl decl -> printStmt ctx (Stmt.Decl(Decl.Var decl))
+        | ForHead.Pat p -> printPattern ctx p
+        | ForHead.UsingDecl decl -> failwith "TODO"
 
       let right = printExpr ctx right
       let body = printStmt ctx body
 
       $"for ({left} in {right}) {body}"
-    | Stmt.Declaration decl ->
+    | Stmt.Decl decl ->
       let ctx = { ctx with Precedence = 0 }
 
       match decl with

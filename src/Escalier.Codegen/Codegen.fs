@@ -95,7 +95,7 @@ module rec Codegen =
       let blockStmt = buildBlock ctx block finalizer
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
-      let stmts = [ Stmt.Declaration(Decl.Var tempDecl); Stmt.Block blockStmt ]
+      let stmts = [ Stmt.Decl(Decl.Var tempDecl); Stmt.Block blockStmt ]
 
       (expr, stmts)
     | ExprKind.Function { Sig = s; Body = body } ->
@@ -171,8 +171,7 @@ module rec Codegen =
             Alternate = Option.map Stmt.Block alt
             Loc = None }
 
-      let stmts =
-        [ Stmt.Declaration(Decl.Var tempDecl) ] @ conditionStmts @ [ ifStmt ]
+      let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ conditionStmts @ [ ifStmt ]
 
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
@@ -206,7 +205,7 @@ module rec Codegen =
               { Declarations = [ { Id = pattern; Init = Some initExpr } ]
                 Kind = VariableDeclarationKind.Var }
 
-            let declStmt = Stmt.Declaration(Decl.Var decl)
+            let declStmt = Stmt.Decl(Decl.Var decl)
 
             initStmts @ [ declStmt ]
           | TypeDecl _ -> [] // Ignore types when generating JS code

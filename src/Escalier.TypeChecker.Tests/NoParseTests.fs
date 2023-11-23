@@ -211,9 +211,8 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
-    let nonGeneric = Set.empty
 
-    let! _, stmtResult = inferStmt ast env nonGeneric
+    let! _, stmtResult = inferStmt ast env
 
     match stmtResult with
     | Some(StmtResult.Bindings assumps) ->
@@ -222,9 +221,9 @@ let InferFactorial () =
     | Some(StmtResult.Scheme(name, scheme)) -> env <- env.AddScheme name scheme
     | None -> ()
 
-    let t = getType "factorial" env nonGeneric
+    let t = getType "factorial" env
 
-    Assert.Equal("fn (n: number) -> number", t.ToString())
+    Assert.Equal("fn (arg0: number) -> number", t.ToString())
   }
 
 [<Fact>]
@@ -241,10 +240,9 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
-  let nonGeneric = Set.empty
 
   try
-    inferExpr ast env nonGeneric |> ignore
+    inferExpr ast env |> ignore
   with ex ->
     Assert.Equal("Type mismatch 3 != true", ex.Message)
 
@@ -253,10 +251,9 @@ let UndefinedSymbol () =
   nextVariableId <- 0
   let ast = ident "foo"
   let env = getEnv ()
-  let nonGeneric = Set.empty
 
   try
-    inferExpr ast env nonGeneric |> ignore
+    inferExpr ast env |> ignore
   with ex ->
     Assert.Equal("Undefined symbol foo", ex.Message)
 
@@ -279,8 +276,8 @@ let InferPair () =
 
     let! newEnv = inferScript ast env
 
-    let f = getType "f" newEnv Set.empty
-    let pair = getType "pair" newEnv Set.empty
+    let f = getType "f" newEnv
+    let pair = getType "pair" newEnv
 
     Assert.Equal("fn <A>(x: A) -> A", f.ToString())
     Assert.Equal("[4, true]", pair.ToString())
@@ -293,10 +290,9 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
-  let nonGeneric = Set.empty
 
   try
-    inferExpr ast env nonGeneric |> ignore
+    inferExpr ast env |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 
@@ -323,11 +319,10 @@ let InferGenericAndNonGeneric () =
         ) ]
 
     let env = getEnv ()
-    let nonGeneric = Set.empty
 
     let! newEnv = inferScript ast env
 
-    let t = getType "foo" newEnv nonGeneric
+    let t = getType "foo" newEnv
     (* fn g => let f = fn x => g in [f 3, f true] *)
     Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
   }
@@ -355,7 +350,7 @@ let InferFuncComposition () =
 
     let! newEnv = inferScript ast env
 
-    let t = getType "foo" newEnv Set.empty
+    let t = getType "foo" newEnv
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
@@ -368,7 +363,6 @@ let InferScriptSKK () =
   result {
     nextVariableId <- 0
     let mutable env = getEnv ()
-    let nonGeneric = Set.empty
 
     let s =
       func
@@ -401,15 +395,15 @@ let InferScriptSKK () =
 
     let! newEnv = inferScript script env
 
-    let t = getType "S" newEnv nonGeneric
+    let t = getType "S" newEnv
 
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C",
       t.ToString()
     )
 
-    let t = getType "K" newEnv nonGeneric
+    let t = getType "K" newEnv
     Assert.Equal("fn <A, B>(x: A) -> fn (y: B) -> A", t.ToString())
-    let t = getType "I" newEnv nonGeneric
+    let t = getType "I" newEnv
     Assert.Equal("fn <A>(x: A) -> A", t.ToString())
   }

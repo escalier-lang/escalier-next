@@ -331,7 +331,6 @@ module rec TypeChecker =
     | Some(var) ->
       // TODO: check `isMut` and return an immutable type if necessary
       let (t, isMut) = var
-      // fresh t
       t
     | None ->
       if isIntegerLiteral name then
@@ -1268,6 +1267,9 @@ module rec TypeChecker =
         | None -> failwith "todo"
 
     let t = infer_pattern_rec pat
+
+    pat.InferredType <- Some(t)
+
     Result.Ok((assump, t))
 
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =

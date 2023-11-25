@@ -146,7 +146,7 @@ module Syntax =
   type Pattern =
     { Kind: PatternKind
       Span: Span
-      InferredType: option<Type.Type> }
+      mutable InferredType: option<Type.Type> }
 
     override this.ToString() = this.Kind.ToString()
 
@@ -382,7 +382,7 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: ObjKey * is_mut: bool * type_: Function
+    | Method of name: ObjKey * is_mut: bool * fn: Function
     | Getter of name: ObjKey * return_type: Type * throws: Type
     | Setter of name: ObjKey * param: FuncParam * throws: Type
     | Mapped of Mapped
@@ -466,8 +466,8 @@ module Type =
     | Condition of
       check: Type *
       extends: Type *
-      true_type: Type *
-      false_type: Type
+      trueType: Type *
+      falseType: Type
     | Infer of name: string
     | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
     | Wildcard

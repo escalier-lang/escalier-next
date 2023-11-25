@@ -10,7 +10,8 @@ open Escalier.Codegen.TypeScript
 open Escalier.Codegen.Printer
 open Escalier.Codegen.Codegen
 open Escalier.Parser
-
+open Escalier.TypeChecker
+open Escalier.Data.Type
 
 let settings = VerifySettings()
 settings.UseDirectory("snapshots")
@@ -224,6 +225,115 @@ let CodegenChainedIfElse () =
       let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
 
       return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+let makeParam (name: string) (ty: Type) : FuncParam =
+  { Pattern = Pattern.Identifier name
+    Type = ty
+    Optional = false }
+
+let getEnv () : TypeChecker.Env =
+  let arithemtic =
+    (TypeChecker.makeFunctionType
+      None
+      [ makeParam "left" TypeChecker.numType
+        makeParam "right" TypeChecker.numType ]
+      TypeChecker.numType,
+     false)
+
+  let comparison =
+    (TypeChecker.makeFunctionType
+      None
+      [ makeParam "left" TypeChecker.numType
+        makeParam "right" TypeChecker.numType ]
+      TypeChecker.boolType,
+     false)
+
+  let logical =
+    (TypeChecker.makeFunctionType
+      None
+      [ makeParam "left" TypeChecker.boolType
+        makeParam "right" TypeChecker.boolType ]
+      TypeChecker.boolType,
+     false)
+
+  let typeRefA =
+    { Kind = TypeChecker.makePrimitiveKind "A"
+      Provenance = None }
+
+  let typeRefB =
+    { Kind = TypeChecker.makePrimitiveKind "B"
+      Provenance = None }
+
+  let typeParams: list<TypeParam> =
+    [ { Name = "A"
+        Constraint = None
+        Default = None }
+      { Name = "B"
+        Constraint = None
+        Default = None } ]
+
+  // TODO: figure out how to make quality polymorphic
+  let equality =
+    (TypeChecker.makeFunctionType
+      (Some(typeParams))
+      [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+      TypeChecker.boolType,
+     false)
+
+  { TypeChecker.Env.Values =
+      Map.ofList
+        [ ("+", arithemtic)
+          ("-", arithemtic)
+          ("*", arithemtic)
+          ("/", arithemtic)
+          ("%", arithemtic)
+          ("**", arithemtic)
+          ("<", comparison)
+          ("<=", comparison)
+          (">", comparison)
+          (">=", comparison)
+          ("==", equality)
+          ("!=", equality)
+          ("||", logical)
+          ("&&", logical) ]
+    TypeChecker.Env.Schemes = Map([])
+    TypeChecker.Env.IsAsync = false }
+
+type CompileError =
+  | ParseError of FParsec.Error.ParserError
+  | TypeError of Errors.TypeError
+
+[<Fact>]
+let CodegenDtsBasics () =
+  let res =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        let add = fn (a: number, b: number) => a + b
+        """
+
+      let! escAst =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let env = getEnv ()
+
+      let! t =
+        TypeChecker.inferScript escAst.Stmts env
+        |> Result.mapError CompileError.TypeError
+
+      let ctx: Ctx = { NextTempId = 0 }
+      let js = buildModuleTypes ctx escAst
+      let dts = printModule printCtx js
+
+      return $"input: %s{src}\noutput:\n{dts}"
     }
 
   match res with

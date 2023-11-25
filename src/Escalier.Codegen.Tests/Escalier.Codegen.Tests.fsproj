@@ -30,6 +30,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Codegen\Escalier.Codegen.fsproj"/>
+        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
     </ItemGroup>
 
 </Project>

@@ -36,8 +36,8 @@ module rec TypeScript =
     | Script of Script
 
   type Module =
-    { body: list<ModuleItem>
-      shebang: Option<string>
+    { Body: list<ModuleItem>
+      Shebang: Option<string>
       Loc: option<SourceLocation> }
 
   type Script =
@@ -304,6 +304,7 @@ module rec TypeScript =
     | ModuleDecl of ModuleDecl
     | Stmt of Stmt
 
+  [<RequireQualifiedAccess>]
   type ModuleDecl =
     | Import of ImportDecl
     | ExportDecl of ExportDecl
@@ -971,13 +972,14 @@ module rec TypeScript =
     { TypeAnn: TsType
       Loc: option<SourceLocation> }
 
+  [<RequireQualifiedAccess>]
   type TsType =
     | TsKeywordType of TsKeywordType
     | TsThisType of TsThisType
     | TsFnOrConstructorType of TsFnOrConstructorType
     | TsTypeRef of TsTypeRef
     | TsTypeQuery of TsTypeQuery
-    | TsTypeLit of TsTypeLit
+    | TsTypeLit of TsTypeLit // TODO: rename this to TsObjType
     | TsArrayType of TsArrayType
     | TsTupleType of TsTupleType
     | TsOptionalType of TsOptionalType
@@ -1044,6 +1046,9 @@ module rec TypeScript =
       Default: option<TsType>
       Loc: option<SourceLocation> }
 
+  // TODO: Make BindingIdent, ArrayPat, RestPat, and ObjectPat
+  // parametric so that we can make `.TypeAnn` required
+  [<RequireQualifiedAccess>]
   type TsFnParam =
     | Ident of BindingIdent
     | Array of ArrayPat
@@ -1078,8 +1083,9 @@ module rec TypeScript =
 
   type TsTypeRef =
     { Loc: option<SourceLocation>
-      typeName: TsEntityName
-      type_params: option<TsTypeParamInstantiation> }
+      TypeName: TsEntityName
+      // TODO: consider renaming to TypeArgs
+      TypeParams: option<TsTypeParamInstantiation> }
 
   type TsQualifiedName = { Left: TsEntityName; Right: Ident }
 
@@ -1091,7 +1097,14 @@ module rec TypeScript =
     { Params: list<TsType>
       Loc: option<SourceLocation> }
 
-  type TsTypeQuery = { Loc: option<SourceLocation> }
+  type TsTypeQuery =
+    { ExprName: TsTypeQueryExpr
+      TypeArgs: Option<TsTypeParamInstantiation>
+      Loc: option<SourceLocation> }
+
+  type TsTypeQueryExpr =
+    | TsEntityName of TsEntityName
+    | Import of TsImportType
 
   type TsTypeLit =
     { Members: list<TsTypeElement>
@@ -1123,14 +1136,15 @@ module rec TypeScript =
       Key: Expr
       Computed: bool
       Optional: bool
-      Init: Option<Expr>
-      Params: list<TsFnParam>
+      // Init: Option<Expr>
+      // Params: list<TsFnParam>
       TypeAnn: option<TsTypeAnn>
-      TypeParams: option<TsTypeParamDecl>
+      // TypeParams: option<TsTypeParamDecl>
       Loc: option<SourceLocation> }
 
   type TsGetterSignature =
-    { Readonly: bool
+    {
+      // Readonly: bool
       Key: Expr
       Computed: bool
       Optional: bool
@@ -1138,7 +1152,8 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsSetterSignature =
-    { Readonly: bool
+    {
+      // Readonly: bool
       Key: Expr
       Computed: bool
       Optional: bool
@@ -1146,7 +1161,9 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsMethodSignature =
-    { Readonly: bool
+    {
+      // Methods are always readonly
+      // Readonly: bool
       Key: Expr
       Computed: bool
       Optional: bool
@@ -1157,7 +1174,7 @@ module rec TypeScript =
 
   type TsIndexSignature =
     { Params: list<TsFnParam>
-      TypeAnn: option<TsTypeAnn>
+      TypeAnn: TsTypeAnn
       Readonly: bool
       IsStatic: bool
       Loc: option<SourceLocation> }
@@ -1171,7 +1188,7 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsTupleElement =
-    { label: option<Pat>
+    { Label: option<Pat>
       Type: TsType
       Loc: option<SourceLocation> }
 
@@ -1215,10 +1232,11 @@ module rec TypeScript =
       TypeAnn: TsType
       Loc: option<SourceLocation> }
 
+  [<RequireQualifiedAccess>]
   type TsTypeOperatorOp =
     | KeyOf
     | Unique
-    | ReadOnly
+    | Readonly
 
   type TsIndexedAccessType =
     { Readonly: bool
@@ -1231,7 +1249,7 @@ module rec TypeScript =
       TypeParam: TsTypeParam
       NameType: option<TsType>
       Optional: option<TruePlusMinus>
-      Typeann: option<TsType>
+      TypeAnn: TsType
       Loc: option<SourceLocation> }
 
   type TruePlusMinus =

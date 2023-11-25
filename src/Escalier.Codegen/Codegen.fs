@@ -1,7 +1,10 @@
 namespace Escalier.Codegen
 
 open Escalier.Codegen.TypeScript
+open Escalier.Data
 open Escalier.Data.Syntax
+open Escalier.Data.Type
+open Escalier.TypeChecker
 
 module rec Codegen =
   module TS = TypeScript
@@ -105,7 +108,7 @@ module rec Codegen =
       | BlockOrExpr.Block block ->
         let ps =
           s.ParamList
-          |> List.map (fun p ->
+          |> List.map (fun (p: FuncParam<TypeAnn option>) ->
             let pat = buildPattern ctx p.Pattern
             { Pat = pat; Loc = None })
 
@@ -240,7 +243,7 @@ module rec Codegen =
     | Finalizer.Return -> [ Stmt.Return { Argument = None; Loc = None } ]
     | Finalizer.Empty -> []
 
-  let buildPattern (ctx: Ctx) (pattern: Pattern) : TS.Pat =
+  let buildPattern (ctx: Ctx) (pattern: Syntax.Pattern) : TS.Pat =
     match pattern.Kind with
     | PatternKind.Identifier id ->
       Pat.Ident
@@ -248,3 +251,267 @@ module rec Codegen =
           TypeAnn = None
           Loc = None }
     | _ -> failwith "TODO"
+
+  // TODO: our ModuleItem enum should contain: Decl and Imports
+  let buildModuleTypes (ctx: Ctx) (block: Block) : TS.Module =
+    let mutable items: list<TS.ModuleItem> = []
+
+    for stmt in block.Stmts do
+      match stmt.Kind with
+      | StmtKind.Decl decl ->
+        match decl.Kind with
+        | TypeDecl(name, typeAnn, typeParams) ->
+          match typeAnn.InferredType with
+          | Some(typeAnn) ->
+            let decl =
+              TS.Decl.TsTypeAlias
+                { Declare = false
+                  Id = { Name = name; Loc = None }
+                  TypeParams = None // TODO: typeParams
+                  TypeAnn = buildType ctx typeAnn
+                  Loc = None }
+
+            let item =
+              ModuleItem.ModuleDecl(
+                ModuleDecl.ExportDecl { Decl = decl; Loc = None }
+              )
+
+            items <- item :: items
+          | None -> ()
+        | VarDecl(pattern, init, typeAnnOption) ->
+          for Operators.KeyValue(name, (t, isMut)) in findBindings pattern do
+            printfn $"name = {name}"
+            printfn $"t = {t}"
+
+            let n: string = name
+
+            let decl =
+              TS.Decl.TsTypeAlias
+                { Declare = false
+                  Id = { Name = n; Loc = None }
+                  TypeParams = None // TODO: typeParams
+                  TypeAnn = buildType ctx t
+                  Loc = None }
+
+            let item =
+              ModuleItem.ModuleDecl(
+                ModuleDecl.ExportDecl { Decl = decl; Loc = None }
+              )
+
+            items <- item :: items
+      | _ -> ()
+
+    { Body = items
+      Shebang = None
+      Loc = None }
+
+  let buildTypeAnn (ctx: Ctx) (t: Type) : TsTypeAnn =
+    { TypeAnn = buildType ctx t
+      Loc = None }
+
+  let buildType (ctx: Ctx) (t: Type) : TsType =
+    let t = TypeChecker.prune t
+
+    match t.Kind with
+    | TypeKind.TypeVar _ ->
+      // TODO: Do we need to prun types as we're codegening?
+      failwith "TODO: buildType - TypeVar"
+    | TypeKind.TypeRef { Name = name; TypeArgs = typeArgs } ->
+      let typeArgs =
+        typeArgs
+        |> Option.map (fun args ->
+          { Params = args |> List.map (buildType ctx)
+            Loc = None })
+
+      TsType.TsTypeRef
+        { TypeName = TsEntityName.Identifier { Name = name; Loc = None }
+          TypeParams = typeArgs
+          Loc = None }
+    | TypeKind.Function f ->
+      let ps =
+        f.ParamList
+        |> List.map (fun p ->
+          let t = buildTypeAnn ctx p.Type
+
+          match p.Pattern with
+          | Pattern.Identifier name ->
+            TsFnParam.Ident
+              { Id = { Name = name; Loc = None }
+                TypeAnn = Some(t)
+                Loc = None }
+          | Pattern.Object _ -> failwith "TODO"
+          | Pattern.Tuple _ -> failwith "TODO"
+          | Pattern.Rest _ -> failwith "TODO"
+          | _ -> failwith "Invalid pattern for function parameter")
+
+      let typeParams: option<TsTypeParamDecl> =
+        f.TypeParams
+        |> Option.map (fun typeParams ->
+          { Params =
+              typeParams
+              |> List.map
+                (fun
+                     { Name = name
+                       Constraint = c
+                       Default = d } ->
+                  { Name = { Name = name; Loc = None }
+                    IsIn = false
+                    IsOut = false
+                    IsConst = false
+                    Constraint = Option.map (buildType ctx) c
+                    Default = Option.map (buildType ctx) d
+                    Loc = None })
+            Loc = None })
+
+      TsFnOrConstructorType.TsFnType
+        { Params = ps
+          TypeParams = typeParams
+          TypeAnn = buildTypeAnn ctx f.Return
+          Loc = None }
+      |> TsType.TsFnOrConstructorType
+    | TypeKind.Object objTypeElems ->
+      let members = objTypeElems |> List.map (buildObjTypeElem ctx)
+      TsType.TsTypeLit { Members = members; Loc = None }
+    | TypeKind.Rest rest ->
+      TsType.TsRestType
+        { TypeAnn = buildType ctx rest
+          Loc = None }
+    | TypeKind.Literal lit ->
+      match lit with
+      | Literal.Boolean value ->
+        TsType.TsLitType
+          { Lit = TsLit.Bool { Value = value; Loc = None }
+            Loc = None }
+      | Literal.Number value ->
+        TsType.TsLitType
+          { Lit =
+              TsLit.Number
+                { Value = float value
+                  Raw = None
+                  Loc = None }
+            Loc = None }
+      | Literal.String value ->
+        TsType.TsLitType
+          { Lit =
+              TsLit.Str
+                { Value = value
+                  Raw = None
+                  Loc = None }
+            Loc = None }
+      | Literal.Null ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsNullKeyword
+            Loc = None }
+      | Literal.Undefined ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsNullKeyword
+            Loc = None }
+    | TypeKind.Union types ->
+      let types = types |> List.map (buildType ctx)
+
+      TsType.TsUnionOrIntersectionType(
+        TS.TsUnionType { Types = types; Loc = None }
+      )
+    | TypeKind.Intersection types ->
+      let types = types |> List.map (buildType ctx)
+
+      TsType.TsUnionOrIntersectionType(
+        TS.TsIntersectionType { Types = types; Loc = None }
+      )
+    | TypeKind.Tuple types ->
+      let elemTypes: list<TsTupleElement> =
+        types
+        |> List.map (buildType ctx)
+        |> List.map (fun t -> { Label = None; Type = t; Loc = None })
+
+      TsType.TsTupleType { ElemTypes = elemTypes; Loc = None }
+    | TypeKind.Array t ->
+      TsType.TsArrayType
+        { ElemType = buildType ctx t
+          Loc = None }
+    | TypeKind.KeyOf t ->
+      TsType.TsTypeOperator
+        { Op = TsTypeOperatorOp.KeyOf
+          TypeAnn = buildType ctx t
+          Loc = None }
+    | TypeKind.Index(target, index) ->
+      TsType.TsIndexedAccessType
+        { Readonly = false // TODO: figure out when this should be true
+          ObjType = buildType ctx target
+          IndexType = buildType ctx index
+          Loc = None }
+    | TypeKind.Condition(check, extends, trueType, falseType) ->
+      TsType.TsConditionalType
+        { CheckType = buildType ctx check
+          ExtendsType = buildType ctx extends
+          TrueType = buildType ctx trueType
+          FalseType = buildType ctx falseType
+          Loc = None }
+    | TypeKind.Infer name ->
+      let typeParam =
+        { Name = { Name = name; Loc = None }
+          IsIn = false
+          IsOut = false
+          IsConst = false
+          Constraint = None
+          Default = None
+          Loc = None }
+
+      TsType.TsInferType { TypeParam = typeParam; Loc = None }
+    | TypeKind.Binary _ ->
+      // TODO: This should be const time evaluated to determine the
+      // actual type to export
+      failwith "TODO: buildType - Binary"
+    | Wildcard ->
+      // TODO: Use `any`?
+      failwith "TODO: buildType - Wildcard"
+
+  let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
+    match elem with
+    | Callable(callable) -> failwith "TODO: buildObjTypeElem - Callable"
+    | Constructor(ctor) -> failwith "TODO: buildObjTypeElem - Constructor"
+    | Property(prop) ->
+      TsTypeElement.TsPropertySignature
+        { Readonly = false
+          Key = Expr.Ident { Name = prop.Name; Loc = None }
+          Computed = false
+          Optional = false
+          TypeAnn = Some(buildTypeAnn ctx prop.Type)
+          Loc = None }
+    | Method(name, isMut, fn) -> failwith "todo"
+    | Getter(name, returnType, throws) -> failwith "todo"
+    | Setter(name, param, throws) -> failwith "todo"
+    | Mapped mapped -> failwith "todo"
+
+  type Binding = Type * bool
+  type BindingAssump = Map<string, Binding>
+
+  let findBindings (pat: Syntax.Pattern) : BindingAssump =
+    let mutable assump: BindingAssump = Map.empty
+
+    let rec walk (pat: Syntax.Pattern) : unit =
+      match pat.Kind with
+      | PatternKind.Identifier { Name = name; IsMut = isMut } ->
+        match pat.InferredType with
+        | Some(t) ->
+          let t = TypeChecker.prune t
+          let binding = (t, isMut)
+          assump <- Map.add name binding assump
+        | None -> ()
+      | PatternKind.Object elems ->
+        List.iter
+          (fun (elem: Syntax.ObjPatElem) ->
+            match elem with
+            | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
+              walk value
+            | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) -> ()
+            | Syntax.ObjPatElem.RestPat(span, target, isMut) -> walk target)
+          elems
+      | PatternKind.Tuple elems -> List.iter walk elems
+      | PatternKind.Wildcard -> ()
+      | PatternKind.Literal(span, value) -> ()
+      | PatternKind.Is(span, ident, isName, isMut) -> ()
+
+    walk pat
+
+    assump

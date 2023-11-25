@@ -4,37 +4,37 @@ open System.Globalization
 
 open Escalier.Codegen.TypeScript
 
-module Printer =
+module rec Printer =
   let ci = CultureInfo("en-US", true)
 
   type PrintCtx = { Precedence: int; Indent: int }
 
   let getBinaryPrecedence (op: BinOp) : int =
     match op with
-    | BinOp.BitOr -> 6
-    | BinOp.BitXor -> 7
-    | BinOp.BitAnd -> 8
-    | BinOp.EqEq -> 9
-    | BinOp.NotEq -> 9
-    | BinOp.EqEqEq -> 9
-    | BinOp.NotEqEq -> 9
+    | BinOp.Exp -> 14
+    | BinOp.Mul -> 13
+    | BinOp.Div -> 13
+    | BinOp.Mod -> 13
+    | BinOp.Add -> 12
+    | BinOp.Sub -> 12
+    | BinOp.LShift -> 11
+    | BinOp.RShift -> 11
+    | BinOp.ZeroFillRShift -> 11
     | BinOp.Lt -> 10
     | BinOp.LtEq -> 10
     | BinOp.Gt -> 10
     | BinOp.GtEq -> 10
     | BinOp.In -> 10
     | BinOp.InstanceOf -> 10
-    | BinOp.LShift -> 11
-    | BinOp.RShift -> 11
-    | BinOp.ZeroFillRShift -> 11
-    | BinOp.Add -> 12
-    | BinOp.Sub -> 12
-    | BinOp.Mul -> 13
-    | BinOp.Div -> 13
-    | BinOp.Mod -> 13
-    | BinOp.LogicalOr -> 2
+    | BinOp.EqEq -> 9
+    | BinOp.NotEq -> 9
+    | BinOp.EqEqEq -> 9
+    | BinOp.NotEqEq -> 9
+    | BinOp.BitAnd -> 8
+    | BinOp.BitXor -> 7
+    | BinOp.BitOr -> 6
     | BinOp.LogicalAnd -> 3
-    | BinOp.Exp -> 14
+    | BinOp.LogicalOr -> 2
     | BinOp.NullishCoalescing -> 2
 
   let printLit (lit: Lit) : string =
@@ -46,7 +46,7 @@ module Printer =
     | Lit.Null _ -> "null"
     | Lit.JSXText jsxText -> failwith "todo"
 
-  let rec printExpr (ctx: PrintCtx) (e: Expr) : string =
+  let rec printExpr (ctx: PrintCtx) (e: TypeScript.Expr) : string =
 
     match e with
     | Expr.Ident { Name = name } -> name
@@ -282,20 +282,9 @@ module Printer =
 
       if innerPrec < outerPrec then $"({exprs})" else exprs
 
-  and printStmt (ctx: PrintCtx) (stmt: Stmt) : string =
+  let printStmt (ctx: PrintCtx) (stmt: TypeScript.Stmt) : string =
     match stmt with
     | Stmt.Block block -> printBlock ctx block
-    // let oldIdent = String.replicate ctx.Indent " "
-    //
-    // let ctx = { ctx with Indent = ctx.Indent + 2 }
-    // let ident = String.replicate ctx.Indent " "
-    //
-    // let body =
-    //   body
-    //   |> List.map (fun stmt -> ident + printStmt ctx stmt)
-    //   |> String.concat "\n"
-    //
-    // $"{{\n{body}\n{oldIdent}}}"
     | Stmt.Expr { Expr = expr } ->
       let ctx = { ctx with Precedence = 0 }
       $"{printExpr ctx expr};"
@@ -471,24 +460,19 @@ module Printer =
         | VariableDeclarationKind.Let -> $"let {decls};"
         | VariableDeclarationKind.Const -> $"const {decls};"
 
-  and printPattern (ctx: PrintCtx) (p: Pat) : string =
+  let printPattern (ctx: PrintCtx) (p: Pat) : string =
 
     match p with
-    | Pat.Ident { Id = id } -> id.Name
+    | Pat.Ident { Id = id; TypeAnn = typeAnn } ->
+      match typeAnn with
+      | Some(typeAnn) ->
+        let t = printTypeAnn ctx typeAnn
+        $"{id.Name}: {t}"
+      | None -> id.Name
     | _ -> failwith "TODO"
-  // | Pat.Member { Object = obj
-  //                Property = prop
-  //                Computed = computed } ->
-  //
-  //   let ctx = { ctx with Precedence = 18 }
-  //
-  //   let obj = printExpr ctx obj
-  //   let prop = printExpr ctx prop
-  //   if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
 
-  and printBlock (ctx: PrintCtx) (block: BlockStmt) =
+  let printBlock (ctx: PrintCtx) (block: BlockStmt) =
     let oldIdent = String.replicate ctx.Indent " "
-
     let ctx = { ctx with Indent = ctx.Indent + 2 }
     let ident = String.replicate ctx.Indent " "
 
@@ -498,3 +482,416 @@ module Printer =
       |> String.concat "\n"
 
     $"{{\n{body}\n{oldIdent}}}"
+
+  let printModule (ctx: PrintCtx) (m: Module) : string =
+
+    let body =
+      m.Body
+      |> List.map (fun stmt -> printModuleItem ctx stmt)
+      |> String.concat "\n"
+
+    body
+
+  let printModuleItem (ctx: PrintCtx) (mi: ModuleItem) : string =
+    match mi with
+    | ModuleItem.Stmt stmt -> printStmt ctx stmt
+    | ModuleItem.ModuleDecl decl -> printModuleDecl ctx decl
+
+  let printModuleDecl (ctx: PrintCtx) (decl: ModuleDecl) : string =
+    match decl with
+    | ModuleDecl.Import importDecl -> failwith "TODO: printModuleDecl - Import"
+    | ModuleDecl.ExportDecl { Decl = decl; Loc = loc } ->
+      $"export {printDecl ctx decl}"
+    | ModuleDecl.ExportNamed namedExport ->
+      failwith "TODO: printModuleDecl - ExportNamed"
+    | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+      failwith "TODO: printModuleDecl - ExportDefaultDecl"
+    | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+      failwith "TODO: printModuleDecl - ExportDefaultExpr"
+    | ModuleDecl.ExportAll exportAll ->
+      failwith "TODO: printModuleDecl - ExportAll"
+    | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+      failwith "TODO: printModuleDecl - TsImportEquals"
+    | ModuleDecl.TsExportAssignment tsExportAssignment ->
+      failwith "TODO: printModuleDecl - TsExportAssignment"
+    | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+      failwith "TODO: printModuleDecl - TsNamespaceExport"
+
+  let printDecl (ctx: PrintCtx) (decl: Decl) : string =
+    match decl with
+    | Decl.Class _ -> failwith "TODO: printDecl - Class"
+    | Decl.Fn _ -> failwith "TODO: printDecl - Fn"
+    | Decl.Var { Declarations = decls; Kind = kind } ->
+      let decls =
+        List.map
+          (fun ({ Id = id; Init = init }: VarDeclarator) ->
+            let id = printPattern ctx id
+
+            match init with
+            | Some(init) -> $"{id} = {printExpr ctx init}"
+            | None -> id)
+          decls
+        |> String.concat ", "
+
+      match kind with
+      | VariableDeclarationKind.Var -> $"var {decls};"
+      | VariableDeclarationKind.Let -> $"let {decls};"
+      | VariableDeclarationKind.Const -> $"const {decls};"
+    | Decl.Using usingDecl -> failwith "TODO: printDecl - Using"
+    | Decl.TsInterface tsInterfaceDecl ->
+      failwith "TODO: printDecl - TsInterface"
+    | Decl.TsTypeAlias decl ->
+
+      let name = decl.Id.Name
+
+      let typeParams =
+        match decl.TypeParams with
+        | Some(typeParams) ->
+          let typeParams =
+            typeParams.Params
+            |> List.map (printTsTypeParam ctx)
+            |> String.concat ", "
+
+          $"<{typeParams}>"
+        | None -> ""
+
+      let typeAnn = printType ctx decl.TypeAnn
+
+      match decl.Declare with
+      | true -> $"declare type {name}{typeParams} = {typeAnn};"
+      | false -> $"type {name}{typeParams} = {typeAnn};"
+    | Decl.TsEnum tsEnumDecl -> failwith "TODO: printDecl - TsEnum"
+    | Decl.TsModule tsModuleDecl -> failwith "TODO: printDecl - TsModule"
+
+  let printTypeAnn (ctx: PrintCtx) (typeAnn: TsTypeAnn) : string =
+    printType ctx typeAnn.TypeAnn
+
+  // TODO: handle precedence
+  let printType (ctx: PrintCtx) (t: TsType) : string =
+    match t with
+    | TsType.TsKeywordType { Kind = kind } ->
+      match kind with
+      | TsAnyKeyword -> "any"
+      | TsUnknownKeyword -> "unknown"
+      | TsNumberKeyword -> "number"
+      | TsObjectKeyword -> "object"
+      | TsBooleanKeyword -> "boolean"
+      | TsBigIntKeyword -> "BigInt"
+      | TsStringKeyword -> "string"
+      | TsSymbolKeyword -> "symbol"
+      | TsVoidKeyword -> "void"
+      | TsUndefinedKeyword -> "undefined"
+      | TsNullKeyword -> "null"
+      | TsNeverKeyword -> "never"
+      | TsIntrinsicKeyword -> "intrinsic"
+    | TsType.TsThisType _ -> "this"
+    | TsType.TsFnOrConstructorType fnOrConst ->
+      match fnOrConst with
+      | TsConstructorType { Params = ps
+                            TypeParams = typeParams
+                            TypeAnn = typeAnn } ->
+        let typeParams =
+          match typeParams with
+          | Some({ Params = typeParams }) ->
+            typeParams |> List.map (printTsTypeParam ctx) |> String.concat ", "
+          | None -> ""
+
+        let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
+        let typeAnn = printTypeAnn ctx typeAnn
+
+        $"new {typeParams}({ps}): {typeAnn}"
+      | TsFnType { Params = ps
+                   TypeParams = typeParams
+                   TypeAnn = typeAnn } ->
+        let typeParams =
+          match typeParams with
+          | Some({ Params = typeParams }) ->
+            typeParams |> List.map (printTsTypeParam ctx) |> String.concat ", "
+          | None -> ""
+
+        let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
+        let typeAnn = printTypeAnn ctx typeAnn
+
+        $"({typeParams}({ps}): {typeAnn})"
+    | TsType.TsTypeRef { TypeName = name
+                         TypeParams = typeParams } ->
+      let name = printEntityName name
+
+      match typeParams with
+      | Some(typeParams: TsTypeParamInstantiation) ->
+        let typeParams =
+          typeParams.Params |> List.map (printType ctx) |> String.concat ", "
+
+        $"{name}<{typeParams}>"
+      | None -> name
+    | TsType.TsTypeQuery { ExprName = name; TypeArgs = typeArgs } ->
+      let name =
+        match name with
+        | TsEntityName name -> printEntityName name
+        | Import _ -> failwith "TODO: printType - TsTypeQuery - Import"
+
+      match typeArgs with
+      | Some(typeArgs: TsTypeParamInstantiation) ->
+        let typeArgs =
+          typeArgs.Params |> List.map (printType ctx) |> String.concat ", "
+
+        $"{name}<{typeArgs}>"
+      | None -> name
+    | TsType.TsTypeLit { Members = members } ->
+      let oldIdent = String.replicate ctx.Indent " "
+      let ctx = { ctx with Indent = ctx.Indent + 2 }
+      let ident = String.replicate ctx.Indent " "
+
+      let members =
+        members
+        |> List.map (fun m -> ident + printTypeMember ctx m)
+        |> String.concat ";\n"
+
+      $"{{\n{members}\n{oldIdent}}}"
+    | TsType.TsArrayType { ElemType = t } ->
+      let t = printType ctx t
+      $"{t}[]"
+    | TsType.TsTupleType { ElemTypes = types } ->
+      let types =
+        types
+        |> List.map (fun { Label = label; Type = t } ->
+          match label with
+          | Some(label) -> $"{label}: {printType ctx t}"
+          | None -> printType ctx t)
+        |> String.concat ", "
+
+      $"[{types}]"
+    | TsType.TsOptionalType { TypeAnn = t } ->
+      let t = printType ctx t
+      $"{t}?" // can appear in tuple types
+    | TsType.TsRestType { TypeAnn = t } ->
+      let t = printType ctx t
+      $"...{t}"
+    | TsType.TsUnionOrIntersectionType tsUnionOrIntersectionType ->
+      match tsUnionOrIntersectionType with
+      | TsIntersectionType { Types = types } ->
+        types |> List.map (printType ctx) |> String.concat " & "
+      | TsUnionType { Types = types } ->
+        types |> List.map (printType ctx) |> String.concat " | "
+    | TsType.TsConditionalType { CheckType = checkType
+                                 ExtendsType = extendsType
+                                 TrueType = trueType
+                                 FalseType = falseType } ->
+      let checkType = printType ctx checkType
+      let extendsType = printType ctx extendsType
+      let trueType = printType ctx trueType
+      let falseType = printType ctx falseType
+
+      $"({checkType} extends {extendsType} ? {trueType} : {falseType})"
+    | TsType.TsInferType { TypeParam = tp } ->
+      $"infer {printTsTypeParam ctx tp}"
+    | TsType.TsParenthesizedType { TypeAnn = t } -> $"({printType ctx t})"
+    | TsType.TsTypeOperator { Op = op; TypeAnn = t } ->
+      match op with
+      | TsTypeOperatorOp.KeyOf -> $"keyof {printType ctx t}"
+      | TsTypeOperatorOp.Unique -> $"unique {printType ctx t}"
+      | TsTypeOperatorOp.Readonly -> $"readonly {printType ctx t}"
+    | TsType.TsIndexedAccessType { ObjType = objType
+                                   IndexType = indexType } ->
+      let objType = printType ctx objType
+      let indexType = printType ctx indexType
+      $"{objType}[{indexType}]"
+    | TsType.TsMappedType mappedType ->
+
+      let tp = printTsTypeParam ctx mappedType.TypeParam
+
+      let nameType =
+        match mappedType.NameType with
+        | Some(nameType) -> $"as {printType ctx nameType}"
+        | None -> ""
+
+      let readonly =
+        match mappedType.Readonly with
+        | Some(True) -> "readonly "
+        | Some(Plus) -> "+readonly "
+        | Some(Minus) -> "-readonly "
+        | None -> ""
+
+      let optional =
+        match mappedType.Optional with
+        | Some(True) -> "?"
+        | Some(Plus) -> "+?"
+        | Some(Minus) -> "-?"
+        | None -> ""
+
+      let typeAnn = printType ctx mappedType.TypeAnn
+
+      $"{readonly}[{tp} in {nameType}]{optional}: {typeAnn}"
+
+    | TsType.TsLitType { Lit = lit } ->
+      match lit with
+      | Bool { Value = value } -> if value then "true" else "false"
+      | Number { Value = value } -> value.ToString(ci)
+      | Str { Value = value } -> $"\"{value}\""
+      | Tpl _ -> failwith "TODO: printType - TsLitType - Tpl"
+    | TsType.TsTypePredicate _ -> failwith "TODO: printType - TsTypePredicate"
+    | TsType.TsImportType _ -> failwith "TODO: printType - TsImportType"
+
+  let printTypeMember (ctx: PrintCtx) (typeMember: TsTypeElement) : string =
+    match typeMember with
+    | TsCallSignatureDecl { Params = ps
+                            TypeAnn = typeAnn
+                            TypeParams = typeParams } ->
+      let typeParams =
+        match typeParams with
+        | Some(typeParams) ->
+          let typeParams =
+            typeParams.Params
+            |> List.map (printTsTypeParam ctx)
+            |> String.concat ", "
+
+          $"<{typeParams}>"
+        | None -> ""
+
+      let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
+
+      let typeAnn =
+        match typeAnn with
+        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
+        | None -> ""
+
+      $"{typeParams}({ps}){typeAnn}"
+    | TsConstructSignatureDecl { Params = ps
+                                 TypeAnn = typeAnn
+                                 TypeParams = typeParams } ->
+      let typeParams =
+        match typeParams with
+        | Some(typeParams) ->
+          let typeParams =
+            typeParams.Params
+            |> List.map (printTsTypeParam ctx)
+            |> String.concat ", "
+
+          $"<{typeParams}>"
+        | None -> ""
+
+      let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
+
+      let typeAnn =
+        match typeAnn with
+        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
+        | None -> ""
+
+      $"new {typeParams}({ps}){typeAnn}"
+    | TsPropertySignature propSig ->
+      let key =
+        match propSig.Computed with
+        | true -> $"[{printExpr ctx propSig.Key}]"
+        | false -> printExpr ctx propSig.Key
+
+      let typeAnn =
+        match propSig.TypeAnn with
+        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
+        | None -> ""
+
+      match propSig.Readonly, propSig.Optional with
+      | true, true -> $"readonly {key}?: {typeAnn}"
+      | true, false -> $"readonly {key}: {typeAnn}"
+      | false, true -> $"{key}?: {typeAnn}"
+      | false, false -> $"{key}: {typeAnn}"
+
+    | TsGetterSignature { Key = key
+                          Computed = computed
+                          Optional = optional
+                          TypeAnn = typeAnn } ->
+      let key =
+        match computed with
+        | true -> $"[printExpr ctx key]"
+        | false -> printExpr ctx key
+
+      let typeAnn =
+        match typeAnn with
+        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
+        | None -> ""
+
+      match optional with
+      | true -> $"get {key}?(): {typeAnn}"
+      | false -> $"get {key}(): {typeAnn}"
+    | TsSetterSignature { Key = key
+                          Computed = computed
+                          Optional = optional
+                          Param = param } ->
+      let key =
+        match computed with
+        | true -> $"[printExpr ctx key]"
+        | false -> printExpr ctx key
+
+      let param = printTsFnParam ctx param
+
+      match optional with
+      | true -> $"set {key}?({param})"
+      | false -> $"set {key}({param})"
+    | TsMethodSignature method ->
+      let key = printExpr ctx method.Key
+
+      let ps =
+        method.Params |> List.map (printTsFnParam ctx) |> String.concat ", "
+
+      let typeParams =
+        match method.TypeParams with
+        | Some(typeParams) ->
+          let typeParams =
+            typeParams.Params
+            |> List.map (printTsTypeParam ctx)
+            |> String.concat ", "
+
+          $"<{typeParams}>"
+        | None -> ""
+
+      let typeAnn =
+        match method.TypeAnn with
+        | Some(typeAnn) -> $": {printTypeAnn ctx typeAnn}"
+        | None -> ""
+
+      match method.Optional with
+      | true -> $"{key}?{typeParams}({ps}){typeAnn}"
+      | false -> $"{key}{typeParams}({ps}){typeAnn}"
+    | TsIndexSignature indexSig ->
+      let ps =
+        indexSig.Params |> List.map (printTsFnParam ctx) |> String.concat ", "
+
+      let typeAnn = $"{printTypeAnn ctx indexSig.TypeAnn}"
+
+      match indexSig.IsStatic, indexSig.Readonly with
+      | true, true -> $"static readonly [{ps}]: {typeAnn}"
+      | true, false -> $"static [{ps}]: {typeAnn}"
+      | false, true -> $"readonly [{ps}]: {typeAnn}"
+      | false, false -> $"[{ps}]: {typeAnn}"
+
+  let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : string =
+    match param with
+    | TsFnParam.Ident { Id = { Name = name }
+                        TypeAnn = typeAnn } ->
+      match typeAnn with
+      | Some({ TypeAnn = t }) -> $"{name}: {printType ctx t}"
+      | None -> name
+
+    | TsFnParam.Array arrayPat -> failwith "TODO: printTsFnParam - arrayPat"
+    | TsFnParam.Rest restPat -> failwith "TODO: printTsFnParam - restPat"
+    | TsFnParam.Object objectPat -> failwith "TODO: printTsFnParam - objectPat"
+
+  let printTsTypeParam (ctx: PrintCtx) (typeParam: TsTypeParam) : string =
+    let c =
+      match typeParam.Constraint with
+      | Some(c) -> $" extends {printType ctx c}"
+      | None -> ""
+
+    let d =
+      match typeParam.Default with
+      | Some(d) -> $" = {printType ctx d}"
+      | None -> ""
+
+    $"{typeParam.Name.Name}{c}{d}"
+
+  let printEntityName (name: TsEntityName) : string =
+    match name with
+    | TsQualifiedName { Left = left; Right = right } ->
+      let left = printEntityName left
+      let right = right.Name
+      $"{left}.{right}"
+    | Identifier { Name = name } -> name

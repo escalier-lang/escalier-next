@@ -330,8 +330,8 @@ let CodegenDtsBasics () =
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
-      let js = buildModuleTypes ctx escAst
-      let dts = printModule printCtx js
+      let mod' = buildModuleTypes ctx escAst
+      let dts = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{dts}"
     }

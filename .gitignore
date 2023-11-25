@@ -2,6 +2,7 @@ node_modules
 fable_modules
 bin
 obj
+out
 .fake
 TestResults
 coverage.opencover.xml

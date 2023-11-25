@@ -1138,7 +1138,7 @@ module rec TypeScript =
       Optional: bool
       // Init: Option<Expr>
       // Params: list<TsFnParam>
-      TypeAnn: option<TsTypeAnn>
+      TypeAnn: TsTypeAnn
       // TypeParams: option<TsTypeParamDecl>
       Loc: option<SourceLocation> }
 

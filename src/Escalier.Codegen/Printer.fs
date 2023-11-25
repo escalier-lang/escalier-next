@@ -599,7 +599,7 @@ module rec Printer =
         let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
         let typeAnn = printTypeAnn ctx typeAnn
 
-        $"new {typeParams}({ps}): {typeAnn}"
+        $"new {typeParams}({ps}) => {typeAnn}"
       | TsFnType { Params = ps
                    TypeParams = typeParams
                    TypeAnn = typeAnn } ->
@@ -612,7 +612,7 @@ module rec Printer =
         let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
         let typeAnn = printTypeAnn ctx typeAnn
 
-        $"({typeParams}({ps}): {typeAnn})"
+        $"{typeParams}({ps}) => {typeAnn}"
     | TsType.TsTypeRef { TypeName = name
                          TypeParams = typeParams } ->
       let name = printEntityName name
@@ -644,8 +644,8 @@ module rec Printer =
 
       let members =
         members
-        |> List.map (fun m -> ident + printTypeMember ctx m)
-        |> String.concat ";\n"
+        |> List.map (fun m -> $"{ident}{printTypeMember ctx m};")
+        |> String.concat "\n"
 
       $"{{\n{members}\n{oldIdent}}}"
     | TsType.TsArrayType { ElemType = t } ->
@@ -784,10 +784,7 @@ module rec Printer =
         | true -> $"[{printExpr ctx propSig.Key}]"
         | false -> printExpr ctx propSig.Key
 
-      let typeAnn =
-        match propSig.TypeAnn with
-        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
-        | None -> ""
+      let typeAnn = printTypeAnn ctx propSig.TypeAnn
 
       match propSig.Readonly, propSig.Optional with
       | true, true -> $"readonly {key}?: {typeAnn}"

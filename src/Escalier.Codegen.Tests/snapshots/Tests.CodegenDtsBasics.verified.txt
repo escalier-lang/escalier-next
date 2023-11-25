@@ -3,8 +3,8 @@
         let add = fn (a: number, b: number) => a + b
         
 output:
-export type add = ((a: number, b: number): number);
+export type add = (a: number, b: number) => number;
 export type Point = {
-  x: : number;
-  y: : number
+  x: number;
+  y: number;
 };

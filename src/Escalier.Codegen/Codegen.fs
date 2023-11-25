@@ -102,8 +102,6 @@ module rec Codegen =
 
       (expr, stmts)
     | ExprKind.Function { Sig = s; Body = body } ->
-
-
       match body with
       | BlockOrExpr.Block block ->
         let ps =
@@ -476,7 +474,7 @@ module rec Codegen =
           Key = Expr.Ident { Name = prop.Name; Loc = None }
           Computed = false
           Optional = false
-          TypeAnn = Some(buildTypeAnn ctx prop.Type)
+          TypeAnn = buildTypeAnn ctx prop.Type
           Loc = None }
     | Method(name, isMut, fn) -> failwith "todo"
     | Getter(name, returnType, throws) -> failwith "todo"

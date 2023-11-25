@@ -5,6 +5,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Library.fs"/>
+        <Compile Include="Prelude.fs"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>

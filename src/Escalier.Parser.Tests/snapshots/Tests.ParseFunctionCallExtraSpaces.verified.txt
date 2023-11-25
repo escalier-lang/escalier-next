@@ -15,5 +15,5 @@ output: Success: { Kind =
           OptChain = false
           Throws = None }
   Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 5) }
+           Stop = (Ln: 1, Col: 13) }
   InferredType = None }

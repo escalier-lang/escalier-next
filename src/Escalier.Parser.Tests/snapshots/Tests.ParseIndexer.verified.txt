@@ -7,5 +7,5 @@ output: Success: { Kind = Index ({ Kind = Identifier "array"
                                                     Stop = (Ln: 1, Col: 8) }
                                            InferredType = None }, false)
   Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 7) }
+           Stop = (Ln: 1, Col: 9) }
   InferredType = None }

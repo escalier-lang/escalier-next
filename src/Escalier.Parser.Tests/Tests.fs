@@ -91,6 +91,14 @@ let ParseIndexer () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseMultipleIndexers () =
+  let src = "array[0][1]"
+  let expr = expr src
+  let result = $"input: %s{src}\noutput: %A{expr}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseIndexerThenCall () =
   let src = "array[0]()"
   let expr = expr src

@@ -254,26 +254,53 @@ module Parser =
 
   let term = (atom .>> ws) <|> between (strWs "(") (strWs ")") expr
 
+  let arrayIndexSuffix: Parser<Expr -> Expr, unit> =
+    pipe2 (strWs "[" >>. expr .>> strWs "]") getPosition
+    <| fun index p2 target ->
+      { Expr.Kind = ExprKind.Index(target, index, false)
+        Span = { Start = target.Span.Start; Stop = p2 }
+        InferredType = None }
+
+  let callSuffix: Parser<Expr -> Expr, unit> =
+    pipe2 (strWs "(" >>. sepBy expr (strWs ",") .>> strWs ")") getPosition
+    <| fun args p2 callee ->
+      { Expr.Kind =
+          ExprKind.Call(
+            { Callee = callee
+              TypeArgs = None
+              Args = args
+              OptChain = false
+              Throws = None }
+          )
+        Span = { Start = callee.Span.Start; Stop = p2 }
+        InferredType = None }
+
   let memberOp =
-    fun (optChain: bool) (x: Expr) (y: Expr) ->
-      match y.Kind with
+    fun (optChain: bool) (obj: Expr) (prop: Expr) ->
+      match prop.Kind with
       | Identifier ident ->
-        { Expr.Kind = ExprKind.Member(x, ident, optChain)
-          Span = mergeSpans x.Span y.Span
+        { Expr.Kind = ExprKind.Member(obj, ident, optChain)
+          Span = mergeSpans obj.Span prop.Span
           InferredType = None }
       | _ -> failwith "Expected identifier"
 
-  let member': Parser<(Expr -> Expr -> Expr), unit> =
-    (pstring "?." <|> pstring ".") .>> spaces
-    >>= fun op ->
+  let memberSuffix: Parser<Expr -> Expr, unit> =
+    pipe3 (choice [ strWs "?."; strWs "." ]) identExpr getPosition
+    <| fun op prop p2 obj ->
       match op with
-      | "." -> preturn (memberOp false)
-      | "?." -> preturn (memberOp true)
-      | _ -> failwith "Expected '.' or '?.'"
+      | "?." -> memberOp true obj prop
+      | "." -> memberOp false obj prop
 
-  let termWithPropSuffix = chainl1 term member'
+  let suffix = choice [ arrayIndexSuffix; callSuffix; memberSuffix ]
 
-  opp.TermParser <- termWithPropSuffix
+  let termWithSuffix: Parser<Expr, unit> =
+    pipe2 term (many (suffix))
+    <| fun expr suffixes ->
+      match suffixes with
+      | suffixes -> List.fold (fun x suffix -> suffix x) expr suffixes
+      | [] -> expr
+
+  opp.TermParser <- termWithSuffix
 
   type Assoc = Associativity
 
@@ -283,47 +310,6 @@ module Parser =
       InferredType = None }
 
   let after = getPosition .>> ws |>> fun pos -> ([], pos)
-
-  opp.AddOperator(
-    PostfixOperator(
-      "[",
-      (pipe2 getPosition ((ws >>. expr) .>> (strWs "]"))
-       <| fun p1 expr -> ([ expr ], p1)), // (indices, position)
-      17,
-      true,
-      (),
-      (fun (indices, stop) target ->
-        { Expr.Kind = ExprKind.Index(target, indices[0], false)
-          Span =
-            { Start = target.Span.Start
-              Stop = stop }
-          InferredType = None })
-    )
-  )
-
-  opp.AddOperator(
-    PostfixOperator(
-      "(",
-      (pipe2 getPosition (sepBy (ws >>. expr) (strWs ",") .>> (strWs ")"))
-       <| fun p1 args -> (args, p1)), // args
-      17,
-      true,
-      (),
-      (fun (args, stop) callee ->
-        { Expr.Kind =
-            ExprKind.Call(
-              { Callee = callee
-                TypeArgs = None
-                Args = args
-                OptChain = false
-                Throws = None }
-            )
-          Span =
-            { Start = callee.Span.Start
-              Stop = stop }
-          InferredType = None })
-    )
-  )
 
   // logical not (14)
   // bitwise not (14)

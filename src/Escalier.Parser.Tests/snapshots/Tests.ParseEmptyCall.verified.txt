@@ -8,5 +8,5 @@ output: Success: { Kind = Call { Callee = { Kind = Identifier "add"
                 OptChain = false
                 Throws = None }
   Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 5) }
+           Stop = (Ln: 1, Col: 6) }
   InferredType = None }

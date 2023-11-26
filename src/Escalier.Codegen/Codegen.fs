@@ -278,28 +278,30 @@ module rec Codegen =
           | None -> ()
         | VarDecl(pattern, init, typeAnnOption) ->
           for Operators.KeyValue(name, (t, isMut)) in findBindings pattern do
-            printfn $"name = {name}"
-            printfn $"t = {t}"
-
             let n: string = name
 
             let decl =
-              TS.Decl.TsTypeAlias
-                { Declare = false
-                  Id = { Name = n; Loc = None }
-                  TypeParams = None // TODO: typeParams
-                  TypeAnn = buildType ctx t
-                  Loc = None }
+              { Id =
+                  Pat.Ident
+                    { Id = { Name = n; Loc = None }
+                      TypeAnn = Some(buildTypeAnn ctx t)
+                      Loc = None }
+                Init = None }
+
+            let varDecl =
+              TS.Decl.Var
+                { Declarations = [ decl ]
+                  Kind = VariableDeclarationKind.Const }
 
             let item =
               ModuleItem.ModuleDecl(
-                ModuleDecl.ExportDecl { Decl = decl; Loc = None }
+                ModuleDecl.ExportDecl { Decl = varDecl; Loc = None }
               )
 
             items <- item :: items
       | _ -> ()
 
-    { Body = items
+    { Body = List.rev items
       Shebang = None
       Loc = None }
 

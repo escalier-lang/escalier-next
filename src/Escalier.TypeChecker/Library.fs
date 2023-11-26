@@ -326,17 +326,17 @@ module rec TypeChecker =
     | Some _ -> true
 
   ///Get the type of identifier name from the type environment env
-  let getType (name: string) (env: Env) : Type =
+  let getType (name: string) (env: Env) : Result<Type, TypeError> =
     match env.Values |> Map.tryFind name with
     | Some(var) ->
       // TODO: check `isMut` and return an immutable type if necessary
       let (t, isMut) = var
-      t
+      Ok(t)
     | None ->
       if isIntegerLiteral name then
-        numType
+        Ok(numType)
       else
-        failwithf $"Undefined symbol {name}"
+        Error(TypeError.SemanticError $"Undefined symbol {name}")
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
   let unify (env: Env) (t1: Type) (t2: Type) : Result<unit, TypeError> =
@@ -684,7 +684,7 @@ module rec TypeChecker =
     let r =
       result {
         match expr.Kind with
-        | ExprKind.Identifier(name) -> return getType name env
+        | ExprKind.Identifier(name) -> return! getType name env
         | ExprKind.Literal(literal) ->
           return
             { Type.Kind = Literal(literal)
@@ -698,8 +698,7 @@ module rec TypeChecker =
 
           return result
         | ExprKind.Binary(op, left, right) ->
-          let funTy = getType op env
-
+          let! funTy = getType op env
           let! result, throws = unifyCall [ left; right ] None funTy env
 
           // TODO: handle throws
@@ -815,7 +814,7 @@ module rec TypeChecker =
                             Type = t }
                       )
                   | ObjElem.Shorthand(_span, key) ->
-                    let value = getType key env
+                    let! value = getType key env
 
                     return
                       Some(

@@ -20,7 +20,6 @@ jobs:
       - name: Upload Page Artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          file_glob: true # Upload all files in the directory
           path: |
             ./src/Escalier.Playground/out/wwwroot/*.html
             ./src/Escalier.Playground/out/wwwroot/_framework/**

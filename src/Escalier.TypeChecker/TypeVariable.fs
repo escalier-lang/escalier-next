@@ -13,7 +13,7 @@ module TypeVariable =
 
     nextVariableId <- nextVariableId + 1
 
-    { Kind = TypeVar(newVar)
+    { Kind = TypeKind.TypeVar(newVar)
       Provenance = None }
 
   /// Returns the currently defining instance of t.
@@ -24,7 +24,7 @@ module TypeVariable =
   /// prune them from expressions to remove long chains of instantiated variables.
   let rec prune (t: Type) : Type =
     match t.Kind with
-    | TypeVar({ Instance = Some(instance) } as v) ->
+    | TypeKind.TypeVar({ Instance = Some(instance) } as v) ->
       let newInstance = prune instance
       v.Instance <- Some(newInstance)
       newInstance

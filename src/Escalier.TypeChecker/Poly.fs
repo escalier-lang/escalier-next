@@ -15,8 +15,8 @@ module Poly =
 
       let t =
         match t.Kind with
-        | TypeVar _ -> t
-        | Function f ->
+        | TypeKind.TypeVar _ -> t
+        | TypeKind.Function f ->
           { Kind =
               TypeKind.Function
                 { f with
@@ -27,14 +27,14 @@ module Poly =
                     // TODO: fold TypeParams
                     Return = fold f.Return }
             Provenance = None }
-        | Tuple(elems) ->
+        | TypeKind.Tuple(elems) ->
           let elems = List.map fold elems
 
-          { Kind = Tuple(elems)
+          { Kind = TypeKind.Tuple(elems)
             Provenance = None }
-        | TypeRef({ Name = name
-                    TypeArgs = typeArgs
-                    Scheme = scheme }) ->
+        | TypeKind.TypeRef({ Name = name
+                             TypeArgs = typeArgs
+                             Scheme = scheme }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
 
           let scheme =
@@ -43,15 +43,15 @@ module Poly =
               scheme
 
           { Kind =
-              TypeRef(
+              TypeKind.TypeRef(
                 { Name = name
                   TypeArgs = typeArgs
                   Scheme = scheme }
               )
             Provenance = None }
-        | Literal _ -> t
-        | Wildcard -> t
-        | Object elems ->
+        | TypeKind.Literal _ -> t
+        | TypeKind.Wildcard -> t
+        | TypeKind.Object elems ->
           let elems =
             List.map
               (fun elem ->
@@ -60,33 +60,38 @@ module Poly =
                 | _ -> failwith "TODO: foldType - ObjTypeElem")
               elems
 
-          { Kind = Object(elems)
+          { Kind = TypeKind.Object(elems)
             Provenance = None }
-        | Rest t ->
-          { Kind = Rest(fold t)
+        | TypeKind.Rest t ->
+          { Kind = TypeKind.Rest(fold t)
             Provenance = None }
-        | Union types ->
-          { Kind = Union(List.map fold types)
+        | TypeKind.Union types ->
+          { Kind = TypeKind.Union(List.map fold types)
             Provenance = None }
-        | Intersection types ->
-          { Kind = Intersection(List.map fold types)
+        | TypeKind.Intersection types ->
+          { Kind = TypeKind.Intersection(List.map fold types)
             Provenance = None }
-        | Array t ->
-          { Kind = Array(fold t)
+        | TypeKind.Array t ->
+          { Kind = TypeKind.Array(fold t)
             Provenance = None }
-        | KeyOf t ->
-          { Kind = KeyOf(fold t)
+        | TypeKind.KeyOf t ->
+          { Kind = TypeKind.KeyOf(fold t)
             Provenance = None }
-        | Index(target, index) ->
-          { Kind = Index(fold target, fold index)
+        | TypeKind.Index(target, index) ->
+          { Kind = TypeKind.Index(fold target, fold index)
             Provenance = None }
-        | Condition(check, extends, trueType, falseType) ->
+        | TypeKind.Condition(check, extends, trueType, falseType) ->
           { Kind =
-              Condition(fold check, fold extends, fold trueType, fold falseType)
+              TypeKind.Condition(
+                fold check,
+                fold extends,
+                fold trueType,
+                fold falseType
+              )
             Provenance = None }
-        | Infer _ -> t
-        | Binary(left, op, right) ->
-          { Kind = Binary(fold left, op, fold right)
+        | TypeKind.Infer _ -> t
+        | TypeKind.Binary(left, op, right) ->
+          { Kind = TypeKind.Binary(fold left, op, fold right)
             Provenance = None }
 
       match f t with
@@ -102,12 +107,12 @@ module Poly =
     // QUESTION: should we call `prune` inside the folder as well?
     let folder t =
       match t.Kind with
-      | TypeVar { Id = id } ->
+      | TypeKind.TypeVar { Id = id } ->
         match Map.tryFind id mapping with
         | Some(name) ->
           Some(
             { Kind =
-                TypeRef
+                TypeKind.TypeRef
                   { Name = name
                     TypeArgs = None
                     Scheme = None }
@@ -120,7 +125,7 @@ module Poly =
 
           Some(
             { Kind =
-                TypeRef
+                TypeKind.TypeRef
                   { Name = tpName
                     TypeArgs = None
                     Scheme = None }
@@ -169,7 +174,7 @@ module Poly =
 
       let folder t =
         match t.Kind with
-        | TypeRef({ Name = name }) ->
+        | TypeKind.TypeRef({ Name = name }) ->
           match Map.tryFind name mapping with
           | Some(tv) -> Some(tv)
           | None -> None

@@ -34,8 +34,10 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
+    let typeChecker = TypeChecker()
 
-    let! t = Result.mapError CompileError.TypeError (inferExpr ast env)
+    let! t =
+      Result.mapError CompileError.TypeError (typeChecker.InferExpr ast env)
 
     return t
   }
@@ -49,8 +51,10 @@ let inferScript src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
+    let typeChecker = TypeChecker()
 
-    let! env = Result.mapError CompileError.TypeError (inferScript ast env)
+    let! env =
+      Result.mapError CompileError.TypeError (typeChecker.InferScript ast env)
 
     return env
   }
@@ -63,7 +67,10 @@ let inferWithEnv src env =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let! t = Result.mapError CompileError.TypeError (inferExpr ast env)
+    let typeChecker = TypeChecker()
+
+    let! t =
+      Result.mapError CompileError.TypeError (typeChecker.InferExpr ast env)
 
     return t
   }

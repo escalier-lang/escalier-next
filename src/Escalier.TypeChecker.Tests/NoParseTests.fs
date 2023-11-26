@@ -7,6 +7,7 @@ open FParsec
 open FsToolkit.ErrorHandling
 
 open Escalier.Data
+open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.TypeChecker
@@ -136,7 +137,7 @@ let fatArrow paramList expr =
     InferredType = None }
 
 let ifelse (cond, thenExpr, elseExpr) =
-  { Expr.Kind = IfElse(cond, thenExpr, elseExpr)
+  { Expr.Kind = ExprKind.IfElse(cond, thenExpr, elseExpr)
     Span = dummySpan
     InferredType = None }
 
@@ -212,8 +213,9 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
+    let typeChecker = TypeChecker()
 
-    let! _, stmtResult = inferStmt ast env
+    let! _, stmtResult = typeChecker.InferStmt ast env
 
     match stmtResult with
     | Some(StmtResult.Bindings assumps) ->
@@ -222,7 +224,7 @@ let InferFactorial () =
     | Some(StmtResult.Scheme(name, scheme)) -> env <- env.AddScheme name scheme
     | None -> ()
 
-    let! t = getType "factorial" env
+    let! t = env.GetType "factorial"
 
     Assert.Equal("fn (arg0: number) -> number", t.ToString())
   }
@@ -241,9 +243,10 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
+  let typeChecker = TypeChecker()
 
   try
-    inferExpr ast env |> ignore
+    typeChecker.InferExpr ast env |> ignore
   with ex ->
     Assert.Equal("Type mismatch 3 != true", ex.Message)
 
@@ -252,9 +255,10 @@ let UndefinedSymbol () =
   nextVariableId <- 0
   let ast = ident "foo"
   let env = getEnv ()
+  let typeChecker = TypeChecker()
 
   try
-    inferExpr ast env |> ignore
+    typeChecker.InferExpr ast env |> ignore
   with ex ->
     Assert.Equal("Undefined symbol foo", ex.Message)
 
@@ -274,11 +278,11 @@ let InferPair () =
         ) ]
 
     let env = getEnv ()
+    let typeChecker = TypeChecker()
+    let! newEnv = typeChecker.InferScript ast env
 
-    let! newEnv = inferScript ast env
-
-    let! f = getType "f" newEnv
-    let! pair = getType "pair" newEnv
+    let! f = newEnv.GetType "f"
+    let! pair = newEnv.GetType "pair"
 
     Assert.Equal("fn <A>(x: A) -> A", f.ToString())
     Assert.Equal("[4, true]", pair.ToString())
@@ -291,9 +295,10 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
+  let typeChecker = TypeChecker()
 
   try
-    inferExpr ast env |> ignore
+    typeChecker.InferExpr ast env |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 
@@ -320,10 +325,10 @@ let InferGenericAndNonGeneric () =
         ) ]
 
     let env = getEnv ()
+    let typeChecker = TypeChecker()
+    let! newEnv = typeChecker.InferScript ast env
 
-    let! newEnv = inferScript ast env
-
-    let! t = getType "foo" newEnv
+    let! t = newEnv.GetType "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
     Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
   }
@@ -348,10 +353,10 @@ let InferFuncComposition () =
 
 
     let env = getEnv ()
+    let typeChecker = TypeChecker()
+    let! newEnv = typeChecker.InferScript ast env
 
-    let! newEnv = inferScript ast env
-
-    let! t = getType "foo" newEnv
+    let! t = newEnv.GetType "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
@@ -393,18 +398,18 @@ let InferScriptSKK () =
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
     let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
+    let typeChecker = TypeChecker()
+    let! newEnv = typeChecker.InferScript script env
 
-    let! newEnv = inferScript script env
-
-    let! t = getType "S" newEnv
+    let! t = newEnv.GetType "S"
 
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C",
       t.ToString()
     )
 
-    let! t = getType "K" newEnv
+    let! t = newEnv.GetType "K"
     Assert.Equal("fn <A, B>(x: A) -> fn (y: B) -> A", t.ToString())
-    let! t = getType "I" newEnv
+    let! t = newEnv.GetType "I"
     Assert.Equal("fn <A>(x: A) -> A", t.ToString())
   }

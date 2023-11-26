@@ -2,9 +2,9 @@ namespace Escalier.Codegen
 
 open Escalier.Codegen.TypeScript
 open Escalier.Data
+open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
-open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.TypeVariable
 
@@ -288,7 +288,7 @@ module rec Codegen =
             let n: string = name
 
             let t =
-              match TypeChecker.getType name env with
+              match env.GetType name with
               | Ok(t) -> t
               | Error(e) -> failwith $"Couldn't find symbol: {name}"
 
@@ -473,7 +473,7 @@ module rec Codegen =
       // TODO: This should be const time evaluated to determine the
       // actual type to export
       failwith "TODO: buildType - Binary"
-    | Wildcard ->
+    | TypeKind.Wildcard ->
       // TODO: Use `any`?
       failwith "TODO: buildType - Wildcard"
 

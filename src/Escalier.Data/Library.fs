@@ -3,6 +3,23 @@
 open FParsec
 open System.Text
 
+module Common =
+  type Literal =
+    | Number of string
+    | String of string
+    | Boolean of bool
+    | Null
+    | Undefined
+
+    override this.ToString() =
+      match this with
+      | Number value -> value
+      | String value -> $"\"{value}\""
+      | Boolean value -> if value then "true" else "false"
+      | Null -> "null"
+      | Undefined -> "undefined"
+
+
 module Syntax =
   type Span = { Start: Position; Stop: Position }
 
@@ -59,9 +76,10 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
+  [<RequireQualifiedAccess>]
   type ExprKind =
     | Identifier of name: string
-    | Literal of Literal
+    | Literal of Common.Literal
     | Function of Function
     | Call of Call
     | Tuple of elements: list<Expr>
@@ -93,21 +111,6 @@ module Syntax =
 
     override this.ToString() = this.Kind.ToString()
 
-  type Literal =
-    | Number of string
-    | String of string
-    | Boolean of bool
-    | Null
-    | Undefined
-
-    override this.ToString() =
-      match this with
-      | Number value -> value
-      | String value -> $"\"{value}\""
-      | Boolean value -> if value then "true" else "false"
-      | Null -> "null"
-      | Undefined -> "undefined"
-
   type ObjPatElem =
     // TODO: add isMut
     | KeyValuePat of
@@ -134,7 +137,7 @@ module Syntax =
     | Object of elems: list<ObjPatElem> // TODO: rest patterns
     | Tuple of elems: list<Pattern> // TODO: rest patterns
     | Wildcard
-    | Literal of span: Span * value: Literal
+    | Literal of span: Span * value: Common.Literal
     // TODO: get rid of `is_mut` since it's covered by `ident: BindingIdent`
     | Is of span: Span * ident: BindingIdent * is_name: string * is_mut: bool
 
@@ -208,7 +211,7 @@ module Syntax =
   type MatchTypeCase = { Extends: TypeAnn; TrueType: TypeAnn }
 
   type TypeAnnKind =
-    | Literal of Literal
+    | Literal of Common.Literal
     | Keyword of keyword: KeywordTypeAnn
     | Object of elems: list<ObjTypeAnnElem>
     | Tuple of elems: list<TypeAnn>
@@ -262,7 +265,7 @@ module Type =
     | Object of elems: list<ObjPatElem>
     | Tuple of elems: list<Pattern> // TODO: support rest patterns
     | Wildcard
-    | Literal of Syntax.Literal
+    | Literal of Common.Literal
     | Is of target: Syntax.BindingIdent * id: string
     | Rest of target: Pattern
 
@@ -450,13 +453,14 @@ module Type =
           name
           (type_.ToString())
 
+  [<RequireQualifiedAccess>]
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
     | Function of Function
     | Object of list<ObjTypeElem>
     | Rest of Type
-    | Literal of Syntax.Literal
+    | Literal of Common.Literal
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
     | Tuple of list<Type>
@@ -479,9 +483,9 @@ module Type =
     // TODO: handle operator precedence when converting types to strings
     override this.ToString() =
       match this.Kind with
-      | TypeVar({ Instance = Some(instance) }) -> instance.ToString()
-      | TypeVar({ Instance = None } as v) -> $"t{v.Id}"
-      | TypeRef({ Name = name; TypeArgs = typeArgs }) ->
+      | TypeKind.TypeVar({ Instance = Some(instance) }) -> instance.ToString()
+      | TypeKind.TypeVar({ Instance = None } as v) -> $"t{v.Id}"
+      | TypeKind.TypeRef({ Name = name; TypeArgs = typeArgs }) ->
         let typeArgs =
           match typeArgs with
           | Some(typeArgs) ->
@@ -490,20 +494,20 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
-      | Function f -> f.ToString()
-      | Literal lit -> lit.ToString()
-      | Union types ->
+      | TypeKind.Function f -> f.ToString()
+      | TypeKind.Literal lit -> lit.ToString()
+      | TypeKind.Union types ->
         List.map (fun item -> item.ToString()) types |> String.concat " | "
-      | Intersection types ->
+      | TypeKind.Intersection types ->
         List.map (fun item -> item.ToString()) types |> String.concat " & "
-      | Tuple elems ->
+      | TypeKind.Tuple elems ->
         let elems =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
-      | Array t -> $"{t}[]"
-      | Wildcard -> "_"
-      | Object elems ->
+      | TypeKind.Array t -> $"{t}[]"
+      | TypeKind.Wildcard -> "_"
+      | TypeKind.Object elems ->
         let elems =
           List.map
             (fun (elem: ObjTypeElem) ->
@@ -522,7 +526,7 @@ module Type =
 
         let elems = String.concat ", " elems
         $"{{{elems}}}"
-      | Rest t -> $"...{t}"
+      | TypeKind.Rest t -> $"...{t}"
       | _ ->
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"

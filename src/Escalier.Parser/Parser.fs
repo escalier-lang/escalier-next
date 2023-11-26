@@ -3,6 +3,7 @@ namespace Escalier.Parser
 open FParsec
 open System.Text
 
+open Escalier.Data.Common
 open Escalier.Data.Syntax
 
 module Parser =
@@ -109,7 +110,7 @@ module Parser =
   let identExpr: Parser<Expr, unit> =
     withSpan ident
     |>> fun (sl, span) ->
-      { Kind = Identifier(sl)
+      { Kind = ExprKind.Identifier(sl)
         Span = span
         InferredType = None }
 
@@ -150,7 +151,7 @@ module Parser =
 
           let result: Expr =
             { Kind =
-                TemplateLiteral(
+                ExprKind.TemplateLiteral(
                   { Parts = List.rev parts
                     Exprs = List.rev exprs }
                 )
@@ -278,7 +279,7 @@ module Parser =
   let memberOp =
     fun (optChain: bool) (obj: Expr) (prop: Expr) ->
       match prop.Kind with
-      | Identifier ident ->
+      | ExprKind.Identifier ident ->
         { Expr.Kind = ExprKind.Member(obj, ident, optChain)
           Span = mergeSpans obj.Span prop.Span
           InferredType = None }
@@ -321,7 +322,7 @@ module Parser =
       14,
       true,
       (fun x ->
-        { Expr.Kind = Unary("+", x)
+        { Expr.Kind = ExprKind.Unary("+", x)
           Span = x.Span
           InferredType = None })
     )
@@ -334,7 +335,7 @@ module Parser =
       14,
       true,
       (fun x ->
-        { Expr.Kind = Unary("-", x)
+        { Expr.Kind = ExprKind.Unary("-", x)
           Span = x.Span
           InferredType = None })
     )
@@ -383,7 +384,7 @@ module Parser =
       2,
       Assoc.Right,
       (fun x y ->
-        { Expr.Kind = Assign("=", x, y)
+        { Expr.Kind = ExprKind.Assign("=", x, y)
           Span = mergeSpans x.Span y.Span
           InferredType = None })
     )

@@ -85,13 +85,14 @@ module rec Codegen =
       ctx.NextTempId <- ctx.NextTempId + 1
 
       let tempDecl =
-        { Declarations =
+        { Decls =
             [ { Id =
                   Pat.Ident
                     { Id = { Name = tempId; Loc = None }
                       TypeAnn = None
                       Loc = None }
                 Init = None } ]
+          Declare = false
           Kind = VariableDeclarationKind.Var }
 
       let finalizer = Finalizer.Assign tempId
@@ -102,8 +103,6 @@ module rec Codegen =
 
       (expr, stmts)
     | ExprKind.Function { Sig = s; Body = body } ->
-
-
       match body with
       | BlockOrExpr.Block block ->
         let ps =
@@ -144,13 +143,14 @@ module rec Codegen =
       let finalizer = Finalizer.Assign tempId
 
       let tempDecl =
-        { Declarations =
+        { Decls =
             [ { Id =
                   Pat.Ident
                     { Id = { Name = tempId; Loc = None }
                       TypeAnn = None
                       Loc = None }
                 Init = None } ]
+          Declare = false
           Kind = VariableDeclarationKind.Var }
 
       let conditionExpr, conditionStmts = buildExpr ctx condition
@@ -205,7 +205,8 @@ module rec Codegen =
             let initExpr, initStmts = buildExpr ctx init
 
             let decl =
-              { Declarations = [ { Id = pattern; Init = Some initExpr } ]
+              { Decls = [ { Id = pattern; Init = Some initExpr } ]
+                Declare = false
                 Kind = VariableDeclarationKind.Var }
 
             let declStmt = Stmt.Decl(Decl.Var decl)
@@ -253,7 +254,13 @@ module rec Codegen =
     | _ -> failwith "TODO"
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
-  let buildModuleTypes (ctx: Ctx) (block: Block) : TS.Module =
+  // TODO: pass in `env: Env` so that we can look up the types of
+  // the exported symbols since we aren't tracking provenance consistently yet
+  let buildModuleTypes
+    (env: TypeChecker.Env)
+    (ctx: Ctx)
+    (block: Block)
+    : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
     for stmt in block.Stmts do
@@ -279,29 +286,37 @@ module rec Codegen =
             items <- item :: items
           | None -> ()
         | VarDecl(pattern, init, typeAnnOption) ->
-          for Operators.KeyValue(name, (t, isMut)) in findBindings pattern do
-            printfn $"name = {name}"
-            printfn $"t = {t}"
-
+          for Operators.KeyValue(name, _) in findBindings pattern do
             let n: string = name
 
+            let t =
+              match TypeChecker.getType name env with
+              | Ok(t) -> t
+              | Error(e) -> failwith $"Couldn't find symbol: {name}"
+
             let decl =
-              TS.Decl.TsTypeAlias
-                { Declare = false
-                  Id = { Name = n; Loc = None }
-                  TypeParams = None // TODO: typeParams
-                  TypeAnn = buildType ctx t
-                  Loc = None }
+              { Id =
+                  Pat.Ident
+                    { Id = { Name = n; Loc = None }
+                      TypeAnn = Some(buildTypeAnn ctx t)
+                      Loc = None }
+                Init = None }
+
+            let varDecl =
+              TS.Decl.Var
+                { Decls = [ decl ]
+                  Declare = true
+                  Kind = VariableDeclarationKind.Const }
 
             let item =
               ModuleItem.ModuleDecl(
-                ModuleDecl.ExportDecl { Decl = decl; Loc = None }
+                ModuleDecl.ExportDecl { Decl = varDecl; Loc = None }
               )
 
             items <- item :: items
       | _ -> ()
 
-    { Body = items
+    { Body = List.rev items
       Shebang = None
       Loc = None }
 
@@ -313,9 +328,7 @@ module rec Codegen =
     let t = TypeChecker.prune t
 
     match t.Kind with
-    | TypeKind.TypeVar _ ->
-      // TODO: Do we need to prun types as we're codegening?
-      failwith "TODO: buildType - TypeVar"
+    | TypeKind.TypeVar _ -> failwith "TODO: buildType - TypeVar"
     | TypeKind.TypeRef { Name = name; TypeArgs = typeArgs } ->
       let typeArgs =
         typeArgs
@@ -476,7 +489,7 @@ module rec Codegen =
           Key = Expr.Ident { Name = prop.Name; Loc = None }
           Computed = false
           Optional = false
-          TypeAnn = Some(buildTypeAnn ctx prop.Type)
+          TypeAnn = buildTypeAnn ctx prop.Type
           Loc = None }
     | Method(name, isMut, fn) -> failwith "todo"
     | Getter(name, returnType, throws) -> failwith "todo"

@@ -230,7 +230,8 @@ module rec TypeScript =
     | Const
 
   type VarDecl =
-    { Declarations: list<VarDeclarator>
+    { Decls: list<VarDeclarator>
+      Declare: bool
       Kind: VariableDeclarationKind }
 
   type VarDeclarator = { Id: Pat; Init: option<Expr> }
@@ -1138,7 +1139,7 @@ module rec TypeScript =
       Optional: bool
       // Init: Option<Expr>
       // Params: list<TsFnParam>
-      TypeAnn: option<TsTypeAnn>
+      TypeAnn: TsTypeAnn
       // TypeParams: option<TsTypeParamDecl>
       Loc: option<SourceLocation> }
 

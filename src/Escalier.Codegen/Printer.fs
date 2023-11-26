@@ -443,7 +443,9 @@ module rec Printer =
           let body = body.Body |> List.map (printStmt ctx) |> String.concat "\n"
           $"function {id}({ps}) {{\n{body}\n}}"
         | None -> $"function {id}({ps}) {{}}"
-      | Decl.Var { Declarations = decls; Kind = kind } ->
+      | Decl.Var { Decls = decls
+                   Declare = declare
+                   Kind = kind } ->
         let decls =
           List.map
             (fun { Id = id; Init = init } ->
@@ -455,10 +457,15 @@ module rec Printer =
             decls
           |> String.concat ", "
 
-        match kind with
-        | VariableDeclarationKind.Var -> $"var {decls};"
-        | VariableDeclarationKind.Let -> $"let {decls};"
-        | VariableDeclarationKind.Const -> $"const {decls};"
+        let declare = if declare then "declare " else ""
+
+        let kind =
+          match kind with
+          | VariableDeclarationKind.Var -> "var"
+          | VariableDeclarationKind.Let -> "let"
+          | VariableDeclarationKind.Const -> "const"
+
+        $"{declare}{kind} {decls};"
 
   let printPattern (ctx: PrintCtx) (p: Pat) : string =
 
@@ -521,7 +528,9 @@ module rec Printer =
     match decl with
     | Decl.Class _ -> failwith "TODO: printDecl - Class"
     | Decl.Fn _ -> failwith "TODO: printDecl - Fn"
-    | Decl.Var { Declarations = decls; Kind = kind } ->
+    | Decl.Var { Decls = decls
+                 Declare = declare
+                 Kind = kind } ->
       let decls =
         List.map
           (fun ({ Id = id; Init = init }: VarDeclarator) ->
@@ -533,10 +542,15 @@ module rec Printer =
           decls
         |> String.concat ", "
 
-      match kind with
-      | VariableDeclarationKind.Var -> $"var {decls};"
-      | VariableDeclarationKind.Let -> $"let {decls};"
-      | VariableDeclarationKind.Const -> $"const {decls};"
+      let kind =
+        match kind with
+        | VariableDeclarationKind.Var -> "var"
+        | VariableDeclarationKind.Let -> "let"
+        | VariableDeclarationKind.Const -> "const"
+
+      let declare = if declare then "declare " else ""
+
+      $"{declare}{kind} {decls};"
     | Decl.Using usingDecl -> failwith "TODO: printDecl - Using"
     | Decl.TsInterface tsInterfaceDecl ->
       failwith "TODO: printDecl - TsInterface"
@@ -593,26 +607,36 @@ module rec Printer =
         let typeParams =
           match typeParams with
           | Some({ Params = typeParams }) ->
-            typeParams |> List.map (printTsTypeParam ctx) |> String.concat ", "
+            let typeParams =
+              typeParams
+              |> List.map (printTsTypeParam ctx)
+              |> String.concat ", "
+
+            $"<{typeParams}>"
           | None -> ""
 
         let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
         let typeAnn = printTypeAnn ctx typeAnn
 
-        $"new {typeParams}({ps}): {typeAnn}"
+        $"new {typeParams}({ps}) => {typeAnn}"
       | TsFnType { Params = ps
                    TypeParams = typeParams
                    TypeAnn = typeAnn } ->
         let typeParams =
           match typeParams with
           | Some({ Params = typeParams }) ->
-            typeParams |> List.map (printTsTypeParam ctx) |> String.concat ", "
+            let typeParams =
+              typeParams
+              |> List.map (printTsTypeParam ctx)
+              |> String.concat ", "
+
+            $"<{typeParams}>"
           | None -> ""
 
         let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
         let typeAnn = printTypeAnn ctx typeAnn
 
-        $"({typeParams}({ps}): {typeAnn})"
+        $"{typeParams}({ps}) => {typeAnn}"
     | TsType.TsTypeRef { TypeName = name
                          TypeParams = typeParams } ->
       let name = printEntityName name
@@ -644,8 +668,8 @@ module rec Printer =
 
       let members =
         members
-        |> List.map (fun m -> ident + printTypeMember ctx m)
-        |> String.concat ";\n"
+        |> List.map (fun m -> $"{ident}{printTypeMember ctx m};")
+        |> String.concat "\n"
 
       $"{{\n{members}\n{oldIdent}}}"
     | TsType.TsArrayType { ElemType = t } ->
@@ -784,10 +808,7 @@ module rec Printer =
         | true -> $"[{printExpr ctx propSig.Key}]"
         | false -> printExpr ctx propSig.Key
 
-      let typeAnn =
-        match propSig.TypeAnn with
-        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
-        | None -> ""
+      let typeAnn = printTypeAnn ctx propSig.TypeAnn
 
       match propSig.Readonly, propSig.Optional with
       | true, true -> $"readonly {key}?: {typeAnn}"

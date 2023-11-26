@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Main.fs"/>
+        <Compile Include="Startup.fs"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Bolero" Version="0.*"/>
+        <PackageReference Include="Bolero.Build" Version="0.*"/>
+        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.*"/>
+        <PackageReference Include="System.Net.Http.Json" Version="7.0.*"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Escalier.Codegen\Escalier.Codegen.fsproj"/>
+        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
+        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
+    </ItemGroup>
+</Project>

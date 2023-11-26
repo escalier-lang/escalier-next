@@ -21,6 +21,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Codegen", "src\Esc
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Codegen.Tests", "src\Escalier.Codegen.Tests\Escalier.Codegen.Tests.fsproj", "{50C20403-EB03-4D2B-941B-55320C1EB970}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Playground", "src\Escalier.Playground\Escalier.Playground.fsproj", "{9B740BF6-B515-48AB-BB44-3C87761F1D10}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -62,6 +64,10 @@ Global
 		{50C20403-EB03-4D2B-941B-55320C1EB970}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{50C20403-EB03-4D2B-941B-55320C1EB970}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{50C20403-EB03-4D2B-941B-55320C1EB970}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B740BF6-B515-48AB-BB44-3C87761F1D10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B740BF6-B515-48AB-BB44-3C87761F1D10}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B740BF6-B515-48AB-BB44-3C87761F1D10}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B740BF6-B515-48AB-BB44-3C87761F1D10}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{ECDE29DB-D373-48EF-AAFB-5E74CC122047} = {5AD00356-5D98-4E4F-90BC-6240E4AAF017}
@@ -72,5 +78,6 @@ Global
 		{F3784E73-1D13-4EAD-8D18-CD6BDF3BC69C} = {5AD00356-5D98-4E4F-90BC-6240E4AAF017}
 		{5D437CF2-4CBD-4912-8E49-5514E17A8511} = {5AD00356-5D98-4E4F-90BC-6240E4AAF017}
 		{50C20403-EB03-4D2B-941B-55320C1EB970} = {5AD00356-5D98-4E4F-90BC-6240E4AAF017}
+		{9B740BF6-B515-48AB-BB44-3C87761F1D10} = {5AD00356-5D98-4E4F-90BC-6240E4AAF017}
 	EndGlobalSection
 EndGlobal

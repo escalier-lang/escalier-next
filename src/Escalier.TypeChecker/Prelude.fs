@@ -2,6 +2,8 @@ namespace Escalier.TypeChecker
 
 open Escalier.Data.Type
 
+open Env
+
 module Prelude =
 
   let makeParam (name: string) (ty: Type) : FuncParam =
@@ -9,37 +11,34 @@ module Prelude =
       Type = ty
       Optional = false }
 
-  let getEnv () : TypeChecker.Env =
+  let getEnv () : Env =
     let arithemtic =
-      (TypeChecker.makeFunctionType
+      (makeFunctionType
         None
-        [ makeParam "left" TypeChecker.numType
-          makeParam "right" TypeChecker.numType ]
-        TypeChecker.numType,
+        [ makeParam "left" numType; makeParam "right" numType ]
+        numType,
        false)
 
     let comparison =
-      (TypeChecker.makeFunctionType
+      (makeFunctionType
         None
-        [ makeParam "left" TypeChecker.numType
-          makeParam "right" TypeChecker.numType ]
-        TypeChecker.boolType,
+        [ makeParam "left" numType; makeParam "right" numType ]
+        boolType,
        false)
 
     let logical =
-      (TypeChecker.makeFunctionType
+      (makeFunctionType
         None
-        [ makeParam "left" TypeChecker.boolType
-          makeParam "right" TypeChecker.boolType ]
-        TypeChecker.boolType,
+        [ makeParam "left" boolType; makeParam "right" boolType ]
+        boolType,
        false)
 
     let typeRefA =
-      { Kind = TypeChecker.makePrimitiveKind "A"
+      { Kind = makePrimitiveKind "A"
         Provenance = None }
 
     let typeRefB =
-      { Kind = TypeChecker.makePrimitiveKind "B"
+      { Kind = makePrimitiveKind "B"
         Provenance = None }
 
     let typeParams: list<TypeParam> =
@@ -52,13 +51,13 @@ module Prelude =
 
     // TODO: figure out how to make quality polymorphic
     let equality =
-      (TypeChecker.makeFunctionType
+      (makeFunctionType
         (Some(typeParams))
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        TypeChecker.boolType,
+        boolType,
        false)
 
-    { TypeChecker.Env.Values =
+    { Env.Values =
         Map.ofList
           [ ("+", arithemtic)
             ("-", arithemtic)
@@ -74,5 +73,5 @@ module Prelude =
             ("!=", equality)
             ("||", logical)
             ("&&", logical) ]
-      TypeChecker.Env.Schemes = Map([])
-      TypeChecker.Env.IsAsync = false }
+      Env.Schemes = Map([])
+      Env.IsAsync = false }

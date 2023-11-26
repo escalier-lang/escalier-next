@@ -7,7 +7,8 @@ open Xunit
 open Escalier.Data.Type
 open Escalier.Parser.Parser
 open Escalier.TypeChecker
-open Escalier.TypeChecker.Errors
+open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.TypeChecker
 
 type Assert with
@@ -33,8 +34,10 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
+    let typeChecker = TypeChecker()
 
-    let! t = Result.mapError CompileError.TypeError (inferExpr ast env)
+    let! t =
+      Result.mapError CompileError.TypeError (typeChecker.InferExpr ast env)
 
     return t
   }
@@ -48,8 +51,10 @@ let inferScript src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
+    let typeChecker = TypeChecker()
 
-    let! env = Result.mapError CompileError.TypeError (inferScript ast env)
+    let! env =
+      Result.mapError CompileError.TypeError (typeChecker.InferScript ast env)
 
     return env
   }
@@ -62,7 +67,10 @@ let inferWithEnv src env =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let! t = Result.mapError CompileError.TypeError (inferExpr ast env)
+    let typeChecker = TypeChecker()
+
+    let! t =
+      Result.mapError CompileError.TypeError (typeChecker.InferExpr ast env)
 
     return t
   }

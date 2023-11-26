@@ -2,9 +2,11 @@ namespace Escalier.Codegen
 
 open Escalier.Codegen.TypeScript
 open Escalier.Data
+open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
-open Escalier.TypeChecker
+open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.TypeVariable
 
 module rec Codegen =
   module TS = TypeScript
@@ -256,11 +258,7 @@ module rec Codegen =
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
   // the exported symbols since we aren't tracking provenance consistently yet
-  let buildModuleTypes
-    (env: TypeChecker.Env)
-    (ctx: Ctx)
-    (block: Block)
-    : TS.Module =
+  let buildModuleTypes (env: Env) (ctx: Ctx) (block: Block) : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
     for stmt in block.Stmts do
@@ -290,7 +288,7 @@ module rec Codegen =
             let n: string = name
 
             let t =
-              match TypeChecker.getType name env with
+              match env.GetType name with
               | Ok(t) -> t
               | Error(e) -> failwith $"Couldn't find symbol: {name}"
 
@@ -325,7 +323,7 @@ module rec Codegen =
       Loc = None }
 
   let buildType (ctx: Ctx) (t: Type) : TsType =
-    let t = TypeChecker.prune t
+    let t = prune t
 
     match t.Kind with
     | TypeKind.TypeVar _ -> failwith "TODO: buildType - TypeVar"
@@ -475,7 +473,7 @@ module rec Codegen =
       // TODO: This should be const time evaluated to determine the
       // actual type to export
       failwith "TODO: buildType - Binary"
-    | Wildcard ->
+    | TypeKind.Wildcard ->
       // TODO: Use `any`?
       failwith "TODO: buildType - Wildcard"
 
@@ -507,7 +505,7 @@ module rec Codegen =
       | PatternKind.Identifier { Name = name; IsMut = isMut } ->
         match pat.InferredType with
         | Some(t) ->
-          let t = TypeChecker.prune t
+          let t = prune t
           let binding = (t, isMut)
           assump <- Map.add name binding assump
         | None -> ()

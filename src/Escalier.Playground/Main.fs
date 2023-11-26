@@ -24,7 +24,7 @@ type Message = Recompile of string
 
 type CompileError =
   | ParseError of FParsec.Error.ParserError
-  | TypeError of Errors.TypeError
+  | TypeError of Error.TypeError
 
 type CompilerOutput = { Js: string; Dts: string }
 
@@ -39,9 +39,10 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let env = Prelude.getEnv ()
+    let typeChecker = TypeChecker.TypeChecker()
 
     let! env =
-      TypeChecker.inferScript ast.Stmts env
+      typeChecker.InferScript ast.Stmts env
       |> Result.mapError CompileError.TypeError
 
     let mod' = Codegen.buildModuleTypes env ctx ast

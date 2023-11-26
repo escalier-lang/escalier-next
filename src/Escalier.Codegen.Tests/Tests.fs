@@ -234,7 +234,7 @@ let CodegenChainedIfElse () =
 
 type CompileError =
   | ParseError of FParsec.Error.ParserError
-  | TypeError of Errors.TypeError
+  | TypeError of Error.TypeError
 
 [<Fact>]
 let CodegenDtsBasics () =
@@ -250,9 +250,10 @@ let CodegenDtsBasics () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
+      let typeChecker = TypeChecker.TypeChecker()
 
       let! env =
-        TypeChecker.inferScript escAst.Stmts env
+        typeChecker.InferScript escAst.Stmts env
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
@@ -281,11 +282,12 @@ let CodegenDtsGeneric () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
+      let typeChecker = TypeChecker.TypeChecker()
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
-        TypeChecker.inferScript ast.Stmts env
+        typeChecker.InferScript ast.Stmts env
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }

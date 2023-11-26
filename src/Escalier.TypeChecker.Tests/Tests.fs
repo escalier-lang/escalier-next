@@ -485,3 +485,17 @@ let InferFactorial () =
 
   printf "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncGeneralization () =
+  let result =
+    result {
+      let src = "let fst = fn (x, y) => x"
+
+      let! env = inferScript src
+
+      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)

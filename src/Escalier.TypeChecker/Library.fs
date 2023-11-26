@@ -1308,7 +1308,6 @@ module rec TypeChecker =
               match stmtResult with
               | Some(StmtResult.Bindings assumps) ->
                 for KeyValue(name, binding) in assumps do
-
                   let t = prune (fst binding)
 
                   match t.Kind with

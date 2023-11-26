@@ -251,12 +251,45 @@ let CodegenDtsBasics () =
 
       let env = Prelude.getEnv ()
 
-      let! t =
+      let! env =
         TypeChecker.inferScript escAst.Stmts env
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
-      let mod' = buildModuleTypes ctx escAst
+      let mod' = buildModuleTypes env ctx escAst
+      let dts = printModule printCtx mod'
+
+      return $"input: %s{src}\noutput:\n{dts}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenDtsGeneric () =
+  let res =
+    result {
+      let src =
+        """
+        let fst = fn (a, b) => a
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let env = Prelude.getEnv ()
+
+      // TODO: as part of generalization, we need to update the function's
+      // inferred type
+      let! env =
+        TypeChecker.inferScript ast.Stmts env
+        |> Result.mapError CompileError.TypeError
+
+      let ctx: Ctx = { NextTempId = 0 }
+      let mod' = buildModuleTypes env ctx ast
       let dts = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{dts}"

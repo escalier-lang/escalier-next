@@ -11,7 +11,7 @@ open Escalier.Parser
 let lit = run Parser.lit
 let expr = run (Parser.expr .>> eof)
 let pattern = run Parser.pattern
-let stmt = run Parser.stmt
+let stmt = run (Parser.stmt .>> eof)
 let typeAnn = run Parser.typeAnn
 
 let script = run (many Parser.stmt)
@@ -265,6 +265,14 @@ let ParseOptionalParams () =
     let foo = fn(a?: number, b?: string) => a
   """
 
+  let ast = script src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseArrowIdentifier () =
+  let src = "let fst = fn (x, y) => x"
   let ast = script src
   let result = $"input: %s{src}\noutput: %A{ast}"
 

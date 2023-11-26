@@ -17,6 +17,7 @@ let initModel =
 type Point = {x: number, y: number}
 let add = fn (x, y) => x + y
 let sum = add(5, 10)
+let fst = fn (x, y) => x
 """ }
 
 type Message = Recompile of string
@@ -39,11 +40,11 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
 
     let env = Prelude.getEnv ()
 
-    let! t =
+    let! env =
       TypeChecker.inferScript ast.Stmts env
       |> Result.mapError CompileError.TypeError
 
-    let mod' = Codegen.buildModuleTypes ctx ast
+    let mod' = Codegen.buildModuleTypes env ctx ast
     let dts = Printer.printModule printCtx mod'
 
     return { Js = js; Dts = dts }

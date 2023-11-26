@@ -221,7 +221,7 @@ let InferFactorial () =
     | Some(StmtResult.Scheme(name, scheme)) -> env <- env.AddScheme name scheme
     | None -> ()
 
-    let t = getType "factorial" env
+    let! t = getType "factorial" env
 
     Assert.Equal("fn (arg0: number) -> number", t.ToString())
   }
@@ -276,8 +276,8 @@ let InferPair () =
 
     let! newEnv = inferScript ast env
 
-    let f = getType "f" newEnv
-    let pair = getType "pair" newEnv
+    let! f = getType "f" newEnv
+    let! pair = getType "pair" newEnv
 
     Assert.Equal("fn <A>(x: A) -> A", f.ToString())
     Assert.Equal("[4, true]", pair.ToString())
@@ -322,7 +322,7 @@ let InferGenericAndNonGeneric () =
 
     let! newEnv = inferScript ast env
 
-    let t = getType "foo" newEnv
+    let! t = getType "foo" newEnv
     (* fn g => let f = fn x => g in [f 3, f true] *)
     Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
   }
@@ -350,7 +350,7 @@ let InferFuncComposition () =
 
     let! newEnv = inferScript ast env
 
-    let t = getType "foo" newEnv
+    let! t = getType "foo" newEnv
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
@@ -395,15 +395,15 @@ let InferScriptSKK () =
 
     let! newEnv = inferScript script env
 
-    let t = getType "S" newEnv
+    let! t = getType "S" newEnv
 
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C",
       t.ToString()
     )
 
-    let t = getType "K" newEnv
+    let! t = getType "K" newEnv
     Assert.Equal("fn <A, B>(x: A) -> fn (y: B) -> A", t.ToString())
-    let t = getType "I" newEnv
+    let! t = getType "I" newEnv
     Assert.Equal("fn <A>(x: A) -> A", t.ToString())
   }

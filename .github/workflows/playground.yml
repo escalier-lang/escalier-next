@@ -14,19 +14,20 @@ jobs:
           dotnet-version: "8.x"
       - name: Install tools
         run: dotnet tool restore
-      - name: Build
-        run: dotnet build
       - name: Publish
         working-directory: ./src/Escalier.Playground
         run: dotnet publish -c Release --self-contained -o out
       - name: Upload Page Artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: ./src/Escalier.Playground/out
+          path: ./src/Escalier.Playground/out/wwwroot
     
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

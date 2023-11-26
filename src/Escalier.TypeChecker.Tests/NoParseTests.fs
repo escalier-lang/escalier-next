@@ -8,6 +8,7 @@ open FsToolkit.ErrorHandling
 
 open Escalier.Data
 open Escalier.Data.Syntax
+open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.TypeChecker
 open Escalier.TypeChecker.TypeVariable
 

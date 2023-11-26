@@ -234,7 +234,7 @@ let CodegenChainedIfElse () =
 
 type CompileError =
   | ParseError of FParsec.Error.ParserError
-  | TypeError of Errors.TypeError
+  | TypeError of Error.TypeError
 
 [<Fact>]
 let CodegenDtsBasics () =

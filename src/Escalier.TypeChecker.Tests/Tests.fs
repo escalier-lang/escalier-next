@@ -7,7 +7,8 @@ open Xunit
 open Escalier.Data.Type
 open Escalier.Parser.Parser
 open Escalier.TypeChecker
-open Escalier.TypeChecker.Errors
+open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.TypeChecker
 
 type Assert with

@@ -4,6 +4,11 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="Visitor.fs"/>
+        <Compile Include="Env.fs"/>
+        <Compile Include="Error.fs"/>
+        <Compile Include="TypeVariable.fs"/>
+        <Compile Include="Poly.fs"/>
         <Compile Include="Library.fs"/>
         <Compile Include="Prelude.fs"/>
     </ItemGroup>

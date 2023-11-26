@@ -24,7 +24,7 @@ type Message = Recompile of string
 
 type CompileError =
   | ParseError of FParsec.Error.ParserError
-  | TypeError of Errors.TypeError
+  | TypeError of Error.TypeError
 
 type CompilerOutput = { Js: string; Dts: string }
 

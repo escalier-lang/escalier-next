@@ -2,7 +2,8 @@ namespace Escalier.Codegen
 
 open System.Globalization
 
-open Escalier.Codegen.TypeScript
+open Escalier.Interop
+open Escalier.Interop.TypeScript
 
 module rec Printer =
   let ci = CultureInfo("en-US", true)

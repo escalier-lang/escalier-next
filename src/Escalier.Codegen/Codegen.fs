@@ -1,6 +1,7 @@
 namespace Escalier.Codegen
 
-open Escalier.Codegen.TypeScript
+open Escalier.Interop
+open Escalier.Interop.TypeScript
 open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax

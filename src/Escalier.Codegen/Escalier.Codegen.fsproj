@@ -6,14 +6,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Library.fs"/>
-        <Compile Include="TypeScript.fs"/>
         <Compile Include="Printer.fs"/>
         <Compile Include="Codegen.fs"/>
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>
+        <ProjectReference Include="..\Escalier.Interop\Escalier.Interop.fsproj"/>
         <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
         <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
     </ItemGroup>

@@ -215,14 +215,8 @@ let InferFactorial () =
     let mutable env = getEnv ()
     let typeChecker = TypeChecker()
 
-    let! _, stmtResult = typeChecker.InferStmt ast env
-
-    match stmtResult with
-    | Some(StmtResult.Bindings assumps) ->
-      for KeyValue(name, t) in assumps do
-        env <- env.AddValue name t
-    | Some(StmtResult.Scheme(name, scheme)) -> env <- env.AddScheme name scheme
-    | None -> ()
+    let! stmtEnv = typeChecker.InferStmt ast env false
+    env <- stmtEnv
 
     let! t = env.GetType "factorial"
 

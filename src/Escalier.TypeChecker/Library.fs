@@ -67,10 +67,6 @@ module rec TypeChecker =
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 
-  type StmtResult =
-    | Bindings of BindingAssump
-    | Scheme of SchemeAssump
-
   type TypeChecker() =
 
     ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
@@ -648,30 +644,22 @@ module rec TypeChecker =
 
         match blockOrExpr with
         | BlockOrExpr.Block({ Stmts = stmts }) ->
-          let! stmtResults =
-            List.traverseResultM
-              (fun stmt ->
-                result {
-                  let! t, stmtResult = this.InferStmt stmt newEnv
-
-                  match stmtResult with
-                  | Some(StmtResult.Bindings assumps) ->
-                    for KeyValue(name, binding) in assumps do
-                      newEnv <- newEnv.AddValue name binding
-                  | Some(StmtResult.Scheme(name, scheme)) ->
-                    newEnv <- newEnv.AddScheme name scheme
-                  | None -> ()
-
-                  return t
-                })
-              stmts
+          for stmt in stmts do
+            let! stmtEnv = this.InferStmt stmt newEnv false
+            newEnv <- stmtEnv
 
           let undefined =
             { Kind = TypeKind.Literal(Literal.Undefined)
               Provenance = None }
 
-          match List.tryLast stmtResults with
-          | Some(Some(t)) -> return t
+          match List.tryLast stmts with
+          | Some(stmt) ->
+            match stmt.Kind with
+            | StmtKind.Expr expr ->
+              match expr.InferredType with
+              | Some(t) -> return t
+              | None -> return undefined
+            | _ -> return undefined
           | _ -> return undefined
         | BlockOrExpr.Expr expr -> return! this.InferExpr expr newEnv
       }
@@ -853,17 +841,17 @@ module rec TypeChecker =
     member this.InferStmt
       (stmt: Stmt)
       (env: Env)
-      : Result<option<Type> * option<StmtResult>, TypeError> =
+      (generalize: bool)
+      : Result<Env, TypeError> =
       result {
         match stmt.Kind with
         | StmtKind.Expr expr ->
-          let! t = this.InferExpr expr env
-          return (Some(t), None)
+          let! _ = this.InferExpr expr env
+          return env
         | StmtKind.For(pattern, right, block) ->
           return! Error(TypeError.NotImplemented "TODO: infer for")
         | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
           let! patBindings, patType = this.InferPattern env pattern
-
           let mutable newEnv = env
 
           for KeyValue(name, binding) in patBindings do
@@ -878,7 +866,26 @@ module rec TypeChecker =
             do! this.Unify env typeAnnType patType
           | None -> do! this.Unify env initType patType
 
-          return (None, Some(StmtResult.Bindings patBindings))
+          for KeyValue(name, binding) in patBindings do
+            let binding =
+              match generalize with
+              | true ->
+                let t, isMut = binding
+                let t = prune t
+
+                let t =
+                  match t.Kind with
+                  | TypeKind.Function f ->
+                    { t with
+                        Kind = generalizeFunc f |> TypeKind.Function }
+                  | _ -> t
+
+                t, isMut
+              | false -> binding
+
+            newEnv <- newEnv.AddValue name binding
+
+          return newEnv
         | StmtKind.Decl({ Kind = DeclKind.TypeDecl(name, typeAnn, typeParams) }) ->
 
           let! t = this.InferTypeAnn env typeAnn
@@ -889,13 +896,14 @@ module rec TypeChecker =
               typeParams
 
           let scheme = { TypeParams = typeParams; Type = t }
-          return (None, Some(StmtResult.Scheme(name, scheme)))
+
+          return env.AddScheme name scheme
         | StmtKind.Return expr ->
           match expr with
           | Some(expr) ->
-            let! t = this.InferExpr expr env
-            return (Some(t), None)
-          | None -> return (None, None)
+            let! _ = this.InferExpr expr env
+            return env
+          | None -> return env
       }
 
     member this.InferPattern
@@ -999,24 +1007,8 @@ module rec TypeChecker =
           List.traverseResultM
             (fun stmt ->
               result {
-                let! _, stmtResult = this.InferStmt stmt newEnv
-
-                match stmtResult with
-                | Some(StmtResult.Bindings assumps) ->
-                  for KeyValue(name, binding) in assumps do
-                    let t = prune (fst binding)
-
-                    match t.Kind with
-                    | TypeKind.Function f ->
-                      let t =
-                        { t with
-                            Kind = generalizeFunc f |> TypeKind.Function }
-
-                      newEnv <- newEnv.AddValue name (t, snd binding)
-                    | _ -> newEnv <- newEnv.AddValue name (t, snd binding)
-                | Some(StmtResult.Scheme(name, scheme)) ->
-                  newEnv <- newEnv.AddScheme name scheme
-                | None -> ()
+                let! stmtEnv = this.InferStmt stmt newEnv true
+                newEnv <- stmtEnv
               })
             stmts
 

@@ -6,7 +6,7 @@ open VerifyXunit
 open VerifyTests
 open FsToolkit.ErrorHandling
 
-open Escalier.Codegen.TypeScript
+open Escalier.Interop.TypeScript
 open Escalier.Codegen.Printer
 open Escalier.Codegen.Codegen
 open Escalier.Parser

@@ -1,4 +1,4 @@
-namespace Escalier.Codegen
+namespace Escalier.Interop
 
 module rec TypeScript =
 

@@ -69,7 +69,7 @@ module rec TypeScript =
 
   type Number =
     { Value: float
-      Raw: Option<string>
+      Raw: option<string>
       Loc: option<SourceLocation> }
 
   type Regex =
@@ -222,7 +222,10 @@ module rec TypeScript =
       Declare: bool
       Class: Class }
 
-  type FnDecl = { Id: Ident; Fn: Function }
+  type FnDecl =
+    { Id: Ident
+      Declare: bool
+      Fn: Function }
 
   type VariableDeclarationKind =
     | Var
@@ -242,11 +245,11 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsInterfaceDecl =
-    { id: Ident
-      declare: bool
-      type_params: Option<TsTypeParamDecl>
-      extends: list<TsExprWithTypeArgs>
-      body: TsInterfaceBody
+    { Id: Ident
+      Declare: bool
+      TypeParams: option<TsTypeParamDecl>
+      Extends: list<TsExprWithTypeArgs>
+      Body: TsInterfaceBody
       Loc: option<SourceLocation> }
 
   type TsInterfaceBody =

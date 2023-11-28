@@ -1,0 +1,94 @@
+﻿input: 
+    declare var a: A;
+    declare var b: B.C;
+    declare var c: number;
+    declare var d: string | boolean;
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id =
+                   Ident
+                     { Id = { Name = "a"
+                              Loc = None }
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsTypeRef { Loc = None
+                                         TypeName = Identifier { Name = "A"
+                                                                 Loc = None }
+                                         TypeParams = None }
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }));
+    Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id =
+                   Ident
+                     { Id = { Name = "b"
+                              Loc = None }
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsTypeRef
+                               { Loc = None
+                                 TypeName =
+                                  TsQualifiedName
+                                    { Left = Identifier { Name = "B"
+                                                          Loc = None }
+                                      Right = { Name = "C"
+                                                Loc = None } }
+                                 TypeParams = None }
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }));
+    Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id =
+                   Ident
+                     { Id = { Name = "c"
+                              Loc = None }
+                       TypeAnn =
+                        Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                         Loc = None }
+                               Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }));
+    Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id =
+                   Ident
+                     { Id = { Name = "d"
+                              Loc = None }
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsUnionOrIntersectionType
+                               (TsUnionType
+                                  { Types =
+                                     [TsKeywordType { Kind = TsStringKeyword
+                                                      Loc = None };
+                                      TsKeywordType { Kind = TsBooleanKeyword
+                                                      Loc = None }]
+                                    Loc = None })
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }))]
+  Shebang = None
+  Loc = None }

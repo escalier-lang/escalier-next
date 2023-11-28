@@ -1,0 +1,126 @@
+﻿input: 
+    declare function eval(x: string): any;
+    declare function fst<A, B>(a: A, b: B): A;
+    declare async function foo(): Promise<void>;
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Fn
+            { Id = { Name = "eval"
+                     Loc = None }
+              Declare = true
+              Fn =
+               { Params =
+                  [{ Pat =
+                      Ident
+                        { Id = { Name = "x"
+                                 Loc = None }
+                          TypeAnn =
+                           Some
+                             { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                         Loc = None }
+                               Loc = None }
+                          Loc = None }
+                     Loc = None }]
+                 Body = None
+                 IsGenerator = false
+                 IsAsync = false
+                 TypeParams = None
+                 ReturnType =
+                  Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                   Loc = None }
+                         Loc = None }
+                 Loc = None } }));
+    Stmt
+      (Decl
+         (Fn
+            { Id = { Name = "fst"
+                     Loc = None }
+              Declare = true
+              Fn =
+               { Params =
+                  [{ Pat =
+                      Ident
+                        { Id = { Name = "a"
+                                 Loc = None }
+                          TypeAnn =
+                           Some
+                             { TypeAnn =
+                                TsTypeRef { Loc = None
+                                            TypeName = Identifier { Name = "A"
+                                                                    Loc = None }
+                                            TypeParams = None }
+                               Loc = None }
+                          Loc = None }
+                     Loc = None };
+                   { Pat =
+                      Ident
+                        { Id = { Name = "b"
+                                 Loc = None }
+                          TypeAnn =
+                           Some
+                             { TypeAnn =
+                                TsTypeRef { Loc = None
+                                            TypeName = Identifier { Name = "B"
+                                                                    Loc = None }
+                                            TypeParams = None }
+                               Loc = None }
+                          Loc = None }
+                     Loc = None }]
+                 Body = None
+                 IsGenerator = false
+                 IsAsync = false
+                 TypeParams =
+                  Some { Params = [{ Name = { Name = "A"
+                                              Loc = None }
+                                     IsIn = false
+                                     IsOut = false
+                                     IsConst = false
+                                     Constraint = None
+                                     Default = None
+                                     Loc = None }; { Name = { Name = "B"
+                                                              Loc = None }
+                                                     IsIn = false
+                                                     IsOut = false
+                                                     IsConst = false
+                                                     Constraint = None
+                                                     Default = None
+                                                     Loc = None }]
+                         Loc = None }
+                 ReturnType =
+                  Some
+                    { TypeAnn = TsTypeRef { Loc = None
+                                            TypeName = Identifier { Name = "A"
+                                                                    Loc = None }
+                                            TypeParams = None }
+                      Loc = None }
+                 Loc = None } }));
+    Stmt
+      (Decl
+         (Fn
+            { Id = { Name = "foo"
+                     Loc = None }
+              Declare = true
+              Fn =
+               { Params = []
+                 Body = None
+                 IsGenerator = false
+                 IsAsync = true
+                 TypeParams = None
+                 ReturnType =
+                  Some
+                    { TypeAnn =
+                       TsTypeRef
+                         { Loc = None
+                           TypeName = Identifier { Name = "Promise"
+                                                   Loc = None }
+                           TypeParams =
+                            Some
+                              { Params = [TsKeywordType { Kind = TsVoidKeyword
+                                                          Loc = None }]
+                                Loc = None } }
+                      Loc = None }
+                 Loc = None } }))]
+  Shebang = None
+  Loc = None }

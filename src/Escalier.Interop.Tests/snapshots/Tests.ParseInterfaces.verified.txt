@@ -1,0 +1,100 @@
+﻿input: 
+    interface Point {
+      x: number;
+      y: number;
+    }
+    interface Array<T> {
+      length: number;
+      [index: number]: T;
+    }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsInterface
+            { Id = { Name = "Point"
+                     Loc = None }
+              Declare = false
+              TypeParams = None
+              Extends = []
+              Body =
+               { Body =
+                  [TsPropertySignature
+                     { Readonly = false
+                       Key = Ident { Name = "x"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       TypeAnn =
+                        { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                    Loc = None }
+                          Loc = None }
+                       Loc = None };
+                   TsPropertySignature
+                     { Readonly = false
+                       Key = Ident { Name = "y"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       TypeAnn =
+                        { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                    Loc = None }
+                          Loc = None }
+                       Loc = None }]
+                 Loc = None }
+              Loc = None }));
+    Stmt
+      (Decl
+         (TsInterface
+            { Id = { Name = "Array"
+                     Loc = None }
+              Declare = false
+              TypeParams = Some { Params = [{ Name = { Name = "T"
+                                                       Loc = None }
+                                              IsIn = false
+                                              IsOut = false
+                                              IsConst = false
+                                              Constraint = None
+                                              Default = None
+                                              Loc = None }]
+                                  Loc = None }
+              Extends = []
+              Body =
+               { Body =
+                  [TsPropertySignature
+                     { Readonly = false
+                       Key = Ident { Name = "length"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       TypeAnn =
+                        { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                    Loc = None }
+                          Loc = None }
+                       Loc = None };
+                   TsIndexSignature
+                     { Params =
+                        [Ident
+                           { Id = { Name = "index"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsKeywordType { Kind = TsNumberKeyword
+                                                   Loc = None }
+                                  Loc = None }
+                             Loc = None }]
+                       TypeAnn =
+                        { TypeAnn =
+                           TsTypeRef { Loc = None
+                                       TypeName = Identifier { Name = "T"
+                                                               Loc = None }
+                                       TypeParams = None }
+                          Loc = None }
+                       Readonly = false
+                       IsStatic = false
+                       Loc = None }]
+                 Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

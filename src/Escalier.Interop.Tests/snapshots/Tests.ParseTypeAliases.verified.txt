@@ -1,0 +1,69 @@
+﻿input: 
+    declare type Foo = Bar;
+    declare type Node = {
+      value: T,
+      next: Node | null
+    };
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = true
+              Id = { Name = "Foo"
+                     Loc = None }
+              TypeParams = None
+              TypeAnn = TsTypeRef { Loc = None
+                                    TypeName = Identifier { Name = "Bar"
+                                                            Loc = None }
+                                    TypeParams = None }
+              Loc = None }));
+    Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = true
+              Id = { Name = "Node"
+                     Loc = None }
+              TypeParams = None
+              TypeAnn =
+               TsTypeLit
+                 { Members =
+                    [TsPropertySignature
+                       { Readonly = false
+                         Key = Ident { Name = "value"
+                                       Loc = None }
+                         Computed = false
+                         Optional = false
+                         TypeAnn =
+                          { TypeAnn =
+                             TsTypeRef { Loc = None
+                                         TypeName = Identifier { Name = "T"
+                                                                 Loc = None }
+                                         TypeParams = None }
+                            Loc = None }
+                         Loc = None };
+                     TsPropertySignature
+                       { Readonly = false
+                         Key = Ident { Name = "next"
+                                       Loc = None }
+                         Computed = false
+                         Optional = false
+                         TypeAnn =
+                          { TypeAnn =
+                             TsUnionOrIntersectionType
+                               (TsUnionType
+                                  { Types =
+                                     [TsTypeRef
+                                        { Loc = None
+                                          TypeName = Identifier { Name = "Node"
+                                                                  Loc = None }
+                                          TypeParams = None };
+                                      TsKeywordType { Kind = TsNullKeyword
+                                                      Loc = None }]
+                                    Loc = None })
+                            Loc = None }
+                         Loc = None }]
+                   Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

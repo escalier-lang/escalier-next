@@ -26,3 +26,31 @@ let ParseBasicVarDecls () =
   let result = $"input: %s{input}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTypeAliases () =
+  let input =
+    """
+    declare type Foo = Bar;
+    declare type Node = {
+      value: T,
+      next: Node | null
+    };
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+// [<Fact>]
+// let ParseSimpleFunctions () =
+//   let input =
+//     """
+//     declare function eval(x: string): any;
+//     """
+//
+//   let ast = parseModule input
+//   let result = $"input: %s{input}\noutput: %A{ast}"
+//
+//   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

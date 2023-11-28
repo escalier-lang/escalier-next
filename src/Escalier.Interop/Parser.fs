@@ -181,15 +181,16 @@ module Parser =
       |> TsTypeElement.TsConstructSignatureDecl
 
   let propSig: Parser<TsTypeElement, unit> =
-    pipe3
+    pipe4
       (opt (strWs "readonly"))
-      (strWs "?" >>. ident) // TODO: support computed properties
+      (ident) // TODO: support computed properties
+      (opt (strWs "?"))
       (strWs ":" >>. tsTypeAnn)
-    <| fun readonly id typeAnn ->
+    <| fun readonly id optional typeAnn ->
       { Readonly = readonly.IsSome
         Key = Expr.Ident id
-        Computed = false
-        Optional = false // TODO
+        Computed = false // TODO
+        Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
       |> TsTypeElement.TsPropertySignature
@@ -279,9 +280,8 @@ module Parser =
     sepBy tsType (strWs "&") |>> fun types -> { Types = types; Loc = None }
 
   let unionOrIntersectionType: Parser<TsUnionOrIntersectionType, unit> =
-    choice
-      [ unionType |>> TsUnionOrIntersectionType.TsUnionType
-        intersectionType |>> TsUnionOrIntersectionType.TsIntersectionType ]
+    choice [ unionType |>> TsUnionOrIntersectionType.TsUnionType ]
+  // intersectionType |>> TsUnionOrIntersectionType.TsIntersectionType ]
 
   let conditionalType: Parser<TsConditionalType, unit> =
     pipe4 tsType (strWs "extends" >>. tsType) tsType (strWs "?" >>. tsType)
@@ -400,7 +400,7 @@ module Parser =
   let litType: Parser<TsLitType, unit> =
     choice [ number; string; bool ] |>> fun lit -> { Lit = lit; Loc = None }
 
-  tsTypeRef.Value <-
+  let primaryType =
     choice
       [ keywordType |>> TsType.TsKeywordType
         thisType |>> TsType.TsThisType
@@ -412,7 +412,6 @@ module Parser =
         tupleType |>> TsType.TsTupleType
         // TODO: optionalType |>> TsType.TsOptionalType
         restType |>> TsType.TsRestType
-        unionOrIntersectionType |>> TsType.TsUnionOrIntersectionType
         conditionalType |>> TsType.TsConditionalType
         inferType |>> TsType.TsInferType
         parenthesizedType |>> TsType.TsParenthesizedType
@@ -424,6 +423,31 @@ module Parser =
         // TODO: importType |>> TsType.TsImportType
         ]
 
+  let intersectionOrPrimaryType: Parser<TsType, unit> =
+    sepBy1 primaryType (strWs "&")
+    |>> fun typeAnns ->
+      match typeAnns with
+      | [ typeAnn ] -> typeAnn
+      | types ->
+        let intersection =
+          TsUnionOrIntersectionType.TsIntersectionType
+            { Types = types; Loc = None }
+
+        TsType.TsUnionOrIntersectionType intersection
+
+  let unionOrIntersectionOrPrimaryType: Parser<TsType, unit> =
+    sepBy1 primaryType (strWs "|")
+    |>> fun typeAnns ->
+      match typeAnns with
+      | [ typeAnn ] -> typeAnn
+      | types ->
+        let union =
+          TsUnionOrIntersectionType.TsUnionType { Types = types; Loc = None }
+
+        TsType.TsUnionOrIntersectionType union
+
+  tsTypeRef.Value <- unionOrIntersectionOrPrimaryType
+
   tsTypeAnnRef.Value <- tsType |>> fun t -> { TypeAnn = t; Loc = None }
 
   // Declarations
@@ -431,19 +455,19 @@ module Parser =
   // let interfaceDecl: Parser<Decl, unit> = failwith "TODO"
   // let fnDecl: Parser<Decl, unit> = failwith "TODO"
 
-  let typeAliasDecl: Parser<Decl, unit> =
-    pipe4
-      (opt (strWs "declare"))
-      (strWs "type" >>. ident)
+  let typeAliasDecl: Parser<bool -> Decl, unit> =
+    pipe3
+      ((strWs "type") >>. ident)
       (opt typeParams)
-      (strWs "=" >>. tsType)
-    <| fun declare id typeParam typeAnn ->
-      { Declare = declare.IsSome
-        Id = id
-        TypeParams = typeParam
-        TypeAnn = typeAnn
-        Loc = None }
-      |> Decl.TsTypeAlias
+      ((strWs "=") >>. tsType)
+    <| fun id typeParams typeAnn ->
+      fun declare ->
+        { Declare = declare
+          Id = id
+          TypeParams = typeParams
+          TypeAnn = typeAnn
+          Loc = None }
+        |> Decl.TsTypeAlias
 
   let varDeclKind: Parser<VariableDeclarationKind, unit> =
     choice
@@ -455,28 +479,31 @@ module Parser =
     pipe2 pat (opt (strWs "=" >>. expr))
     <| fun id init -> { Id = id; Init = init }
 
-  let varDecl: Parser<Decl, unit> =
-    pipe3 (opt (strWs "declare")) varDeclKind (sepBy1 declarator (strWs ","))
-    <| fun declare kind declarators ->
-      { Declare = declare.IsSome
-        Decls = declarators
-        Kind = kind }
-      |> Decl.Var
+  let varDecl: Parser<bool -> Decl, unit> =
+    pipe2 varDeclKind (sepBy1 declarator (strWs ","))
+    <| fun kind declarators ->
+      fun declare ->
+        { Declare = declare
+          Decls = declarators
+          Kind = kind }
+        |> Decl.Var
 
-  // let decl = choice [ (attempt varDecl); (attempt typeAliasDecl) ]
-  let decl = varDecl
+  let declare: Parser<Decl, unit> =
+    pipe2 (opt (strWs "declare")) (choice [ typeAliasDecl; varDecl ])
+    <| fun declare decl -> decl declare.IsSome
 
-  let export =
-    (strWs "export") >>. decl
-    |>> fun decl -> ModuleDecl.ExportDecl { Decl = decl; Loc = None }
-
-  let stmt: Parser<Stmt, unit> = decl |>> Stmt.Decl
+  let decl = declare
 
   let moduleItem =
-    (export |>> ModuleItem.ModuleDecl) <|> (stmt |>> ModuleItem.Stmt)
+    pipe2 (ws >>. opt (strWs "export")) (decl .>> (opt (strWs ";")))
+    <| fun export decl ->
+      match export with
+      | Some _ ->
+        ModuleItem.ModuleDecl(ModuleDecl.ExportDecl { Decl = decl; Loc = None })
+      | None -> ModuleItem.Stmt(Stmt.Decl decl)
 
   let mod': Parser<Module, unit> =
-    many moduleItem
+    many moduleItem .>> eof
     |>> fun items ->
       { Body = items
         Shebang = None

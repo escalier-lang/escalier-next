@@ -75,3 +75,34 @@ let ParseInterfaces () =
   let result = $"input: %s{input}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBlockComments () =
+  let input =
+    """
+    /**
+     * multiline comment
+     */
+    declare var a: A;
+    declare var b: /* inline comment */ B;
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseLineComments () =
+  let input =
+    """
+    // line 1
+    // line 2
+    declare var a: A; // trailing
+    declare var b: B;
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

@@ -1,0 +1,49 @@
+﻿input: 
+    // line 1
+    // line 2
+    declare var a: A; // trailing
+    declare var b: B;
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id =
+                   Ident
+                     { Id = { Name = "a"
+                              Loc = None }
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsTypeRef { Loc = None
+                                         TypeName = Identifier { Name = "A"
+                                                                 Loc = None }
+                                         TypeParams = None }
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }));
+    Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id =
+                   Ident
+                     { Id = { Name = "b"
+                              Loc = None }
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsTypeRef { Loc = None
+                                         TypeName = Identifier { Name = "B"
+                                                                 Loc = None }
+                                         TypeParams = None }
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }))]
+  Shebang = None
+  Loc = None }

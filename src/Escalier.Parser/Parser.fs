@@ -105,7 +105,7 @@ module Parser =
 
   let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
 
-  let opp = OperatorPrecedenceParser<Expr, list<Expr> * Position, unit>()
+  let opp = OperatorPrecedenceParser<Expr, unit, unit>()
 
   let identExpr: Parser<Expr, unit> =
     withSpan ident
@@ -296,10 +296,7 @@ module Parser =
 
   let termWithSuffix: Parser<Expr, unit> =
     pipe2 term (many (suffix))
-    <| fun expr suffixes ->
-      match suffixes with
-      | suffixes -> List.fold (fun x suffix -> suffix x) expr suffixes
-      | [] -> expr
+    <| fun expr suffixes -> List.fold (fun x suffix -> suffix x) expr suffixes
 
   opp.TermParser <- termWithSuffix
 
@@ -310,15 +307,13 @@ module Parser =
       Span = mergeSpans x.Span y.Span
       InferredType = None }
 
-  let after = getPosition .>> ws |>> fun pos -> ([], pos)
-
   // logical not (14)
   // bitwise not (14)
 
   opp.AddOperator(
     PrefixOperator(
       "+",
-      after,
+      ws,
       14,
       true,
       (fun x ->
@@ -331,7 +326,7 @@ module Parser =
   opp.AddOperator(
     PrefixOperator(
       "-",
-      after,
+      ws,
       14,
       true,
       (fun x ->
@@ -345,42 +340,30 @@ module Parser =
   // delete (14)
   // await (14)
 
-  opp.AddOperator(InfixOperator("**", after, 13, Assoc.Right, binary "**"))
-
-  opp.AddOperator(InfixOperator("*", after, 12, Assoc.Left, binary "*"))
-
-  opp.AddOperator(InfixOperator("/", after, 12, Assoc.Left, binary "/"))
-
-  opp.AddOperator(InfixOperator("%", after, 12, Assoc.Left, binary "%"))
-
-  opp.AddOperator(InfixOperator("+", after, 11, Assoc.Left, binary "+"))
-
-  opp.AddOperator(InfixOperator("-", after, 11, Assoc.Left, binary "-"))
-
-  opp.AddOperator(InfixOperator("<", after, 9, Assoc.Left, binary "<"))
-
-  opp.AddOperator(InfixOperator("<=", after, 9, Assoc.Left, binary "<="))
-
-  opp.AddOperator(InfixOperator(">", after, 9, Assoc.Left, binary ">"))
-
-  opp.AddOperator(InfixOperator(">=", after, 9, Assoc.Left, binary ">="))
-
-  opp.AddOperator(InfixOperator("==", after, 8, Assoc.Left, binary "=="))
-
-  opp.AddOperator(InfixOperator("!=", after, 8, Assoc.Left, binary "!="))
+  opp.AddOperator(InfixOperator("**", ws, 13, Assoc.Right, binary "**"))
+  opp.AddOperator(InfixOperator("*", ws, 12, Assoc.Left, binary "*"))
+  opp.AddOperator(InfixOperator("/", ws, 12, Assoc.Left, binary "/"))
+  opp.AddOperator(InfixOperator("%", ws, 12, Assoc.Left, binary "%"))
+  opp.AddOperator(InfixOperator("+", ws, 11, Assoc.Left, binary "+"))
+  opp.AddOperator(InfixOperator("-", ws, 11, Assoc.Left, binary "-"))
+  opp.AddOperator(InfixOperator("<", ws, 9, Assoc.Left, binary "<"))
+  opp.AddOperator(InfixOperator("<=", ws, 9, Assoc.Left, binary "<="))
+  opp.AddOperator(InfixOperator(">", ws, 9, Assoc.Left, binary ">"))
+  opp.AddOperator(InfixOperator(">=", ws, 9, Assoc.Left, binary ">="))
+  opp.AddOperator(InfixOperator("==", ws, 8, Assoc.Left, binary "=="))
+  opp.AddOperator(InfixOperator("!=", ws, 8, Assoc.Left, binary "!="))
 
   // bitwise and (7)
   // bitwise xor (6)
   // bitwise or (5)
 
-  opp.AddOperator(InfixOperator("&&", after, 4, Assoc.Left, binary "&&"))
-
-  opp.AddOperator(InfixOperator("||", after, 3, Assoc.Left, binary "||"))
+  opp.AddOperator(InfixOperator("&&", ws, 4, Assoc.Left, binary "&&"))
+  opp.AddOperator(InfixOperator("||", ws, 3, Assoc.Left, binary "||"))
 
   opp.AddOperator(
     InfixOperator(
       "=",
-      after,
+      ws,
       2,
       Assoc.Right,
       (fun x y ->
@@ -611,31 +594,7 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
-  // let private func: Parser<TypeAnn, unit> = failwith "todo"
-
-  let opp' = OperatorPrecedenceParser<TypeAnn, Position, unit>()
-
-  let primaryType = opp'.ExpressionParser
-
-  // NOTE(kevinb): We use an operator precedence parser to workaround the
-  // fact that `[]` is left recursive.
-  opp'.AddOperator(
-    PostfixOperator(
-      "[]",
-      getPosition .>> ws,
-      1,
-      true,
-      (),
-      (fun stop target ->
-        { TypeAnn.Kind = Array(target)
-          Span =
-            { Start = target.Span.Start
-              Stop = stop }
-          InferredType = None })
-    )
-  )
-
-  opp'.TermParser <-
+  let primaryType =
     choice
       [ litTypeAnn
         parenthesizedTypeAnn
@@ -651,10 +610,22 @@ module Parser =
         typeRef ]
     .>> ws
 
+  let arrayTypeSuffix: Parser<TypeAnn -> TypeAnn, unit> =
+    pipe2 (strWs "[" >>. strWs "]") getPosition
+    <| fun _ p2 target ->
+      { TypeAnn.Kind = Array(target)
+        Span = { Start = target.Span.Start; Stop = p2 }
+        InferredType = None }
+
+  let primaryTypeWithSuffix: Parser<TypeAnn, unit> =
+    pipe2 primaryType (many (arrayTypeSuffix))
+    <| fun typeAnn suffixes ->
+      List.fold (fun x suffix -> suffix x) typeAnn suffixes
+
   // NOTE: We don't use InfixOperator here because that only supports
   // binary operators and intersection types are n-ary.
   let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 primaryType (strWs "&"))
+    withSpan (sepBy1 primaryTypeWithSuffix (strWs "&"))
     |>> fun (typeAnns, span) ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn

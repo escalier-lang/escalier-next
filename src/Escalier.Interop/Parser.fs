@@ -89,11 +89,14 @@ module Parser =
         restPat |>> TsFnParam.Rest
         objectPat |>> TsFnParam.Object ]
 
-  let paramList: Parser<list<TsFnParam>, unit> =
+  let tsFnParams: Parser<list<TsFnParam>, unit> =
     between (strWs "(") (strWs ")") (sepBy funcParam (strWs ","))
 
   let fnType: Parser<TsFnType, unit> =
-    pipe3 (strWs "fn" >>. (opt typeParams)) paramList (strWs "=>" >>. tsTypeAnn)
+    pipe3
+      (strWs "fn" >>. (opt typeParams))
+      tsFnParams
+      (strWs "=>" >>. tsTypeAnn)
     <| fun type_params param_list return_type ->
       { TypeParams = type_params
         Params = param_list
@@ -103,7 +106,7 @@ module Parser =
   let constructorType: Parser<TsConstructorType, unit> =
     pipe3
       (strWs "new" >>. (opt typeParams))
-      paramList
+      tsFnParams
       (strWs "=>" >>. tsTypeAnn)
     <| fun type_params param_list return_type ->
       { TypeParams = type_params
@@ -160,7 +163,7 @@ module Parser =
   // let typeQuery: Parser<TsTypeQuery, unit> = ...
 
   let callSignDecl: Parser<TsTypeElement, unit> =
-    pipe3 (opt typeParams) paramList (opt (strWs ":" >>. tsTypeAnn))
+    pipe3 (opt typeParams) tsFnParams (opt (strWs ":" >>. tsTypeAnn))
     <| fun typeParams ps typeAnn ->
       { TsCallSignatureDecl.TypeParams = typeParams
         Params = ps
@@ -171,7 +174,7 @@ module Parser =
   let constructorSignDecl: Parser<TsTypeElement, unit> =
     pipe3
       (strWs "new" >>. (opt typeParams))
-      paramList
+      tsFnParams
       (opt (strWs ":" >>. tsTypeAnn))
     <| fun typeParams ps typeAnn ->
       { TsConstructSignatureDecl.TypeParams = typeParams
@@ -219,7 +222,7 @@ module Parser =
       |> TsTypeElement.TsSetterSignature
 
   let methodSig: Parser<TsTypeElement, unit> =
-    pipe4 ident (opt typeParams) paramList (opt (strWs ":" >>. tsTypeAnn))
+    pipe4 ident (opt typeParams) tsFnParams (opt (strWs ":" >>. tsTypeAnn))
     <| fun key typeParams ps typeAnn ->
       { Key = Expr.Ident key
         Computed = false // TODO
@@ -453,13 +456,37 @@ module Parser =
   // Declarations
 
   // let interfaceDecl: Parser<Decl, unit> = failwith "TODO"
-  // let fnDecl: Parser<Decl, unit> = failwith "TODO"
+
+  let param: Parser<Param, unit> = pat |>> fun p -> { Pat = p; Loc = None }
+
+  let fnParams: Parser<list<Param>, unit> =
+    between (strWs "(") (strWs ")") (sepBy param (strWs ","))
+
+  let fnDecl: Parser<bool -> Decl, unit> =
+    pipe5
+      (opt (strWs "async"))
+      ((strWs "function") >>. ident)
+      (opt typeParams)
+      fnParams
+      (opt ((strWs ":") >>. tsTypeAnn))
+    <| fun async id typeParams ps typeAnn ->
+      fun declare ->
+        let fn: Function =
+          { Params = ps
+            Body = None
+            IsGenerator = false // TODO
+            IsAsync = async.IsSome
+            TypeParams = typeParams
+            ReturnType = typeAnn
+            Loc = None }
+
+        { FnDecl.Id = id
+          Declare = declare
+          Fn = fn }
+        |> Decl.Fn
 
   let typeAliasDecl: Parser<bool -> Decl, unit> =
-    pipe3
-      ((strWs "type") >>. ident)
-      (opt typeParams)
-      ((strWs "=") >>. tsType)
+    pipe3 ((strWs "type") >>. ident) (opt typeParams) ((strWs "=") >>. tsType)
     <| fun id typeParams typeAnn ->
       fun declare ->
         { Declare = declare
@@ -489,7 +516,7 @@ module Parser =
         |> Decl.Var
 
   let declare: Parser<Decl, unit> =
-    pipe2 (opt (strWs "declare")) (choice [ typeAliasDecl; varDecl ])
+    pipe2 (opt (strWs "declare")) (choice [ typeAliasDecl; varDecl; fnDecl ])
     <| fun declare decl -> decl declare.IsSome
 
   let decl = declare

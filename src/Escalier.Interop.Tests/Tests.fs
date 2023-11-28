@@ -43,14 +43,16 @@ let ParseTypeAliases () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-// [<Fact>]
-// let ParseSimpleFunctions () =
-//   let input =
-//     """
-//     declare function eval(x: string): any;
-//     """
-//
-//   let ast = parseModule input
-//   let result = $"input: %s{input}\noutput: %A{ast}"
-//
-//   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+[<Fact>]
+let ParseSimpleFunctions () =
+  let input =
+    """
+    declare function eval(x: string): any;
+    declare function fst<A, B>(a: A, b: B): A;
+    declare async function foo(): Promise<void>;
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

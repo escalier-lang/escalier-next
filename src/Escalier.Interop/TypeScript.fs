@@ -222,7 +222,10 @@ module rec TypeScript =
       Declare: bool
       Class: Class }
 
-  type FnDecl = { Id: Ident; Fn: Function }
+  type FnDecl =
+    { Id: Ident
+      Declare: bool
+      Fn: Function }
 
   type VariableDeclarationKind =
     | Var

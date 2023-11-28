@@ -370,7 +370,7 @@ module Parser =
         Loc = None }
       |> TsLit.Number
 
-  let string: Parser<TsLit, unit> =
+  let strLit: Parser<TsLit, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
 
     let unescape c =
@@ -401,7 +401,7 @@ module Parser =
   // let tpl: Parser<TsLit, unit> = ...
 
   let litType: Parser<TsLitType, unit> =
-    choice [ number; string; bool ] |>> fun lit -> { Lit = lit; Loc = None }
+    choice [ number; strLit; bool ] |>> fun lit -> { Lit = lit; Loc = None }
 
   let primaryType =
     choice
@@ -455,7 +455,32 @@ module Parser =
 
   // Declarations
 
-  // let interfaceDecl: Parser<Decl, unit> = failwith "TODO"
+  let interfaceBody: Parser<TsInterfaceBody, unit> =
+    (strWs "{" >>. (sepEndBy typeMember (strWs ";" <|> strWs ","))
+     .>> (strWs "}"))
+    |>> fun members -> { Body = members; Loc = None }
+
+  let extend: Parser<TsExprWithTypeArgs, unit> =
+    pipe2 ident (opt typeArgs)
+    <| fun ident typeArgs ->
+      { Expr = Expr.Ident ident
+        TypeArgs = typeArgs }
+
+  let interfaceDecl: Parser<bool -> Decl, unit> =
+    pipe4
+      ((strWs "interface") >>. ident)
+      (opt typeParams)
+      (sepBy extend (strWs ","))
+      interfaceBody
+    <| fun id typeParams extends body ->
+      fun declare ->
+        { Id = id
+          Declare = declare
+          TypeParams = typeParams
+          Extends = extends
+          Body = body
+          Loc = None }
+        |> Decl.TsInterface
 
   let param: Parser<Param, unit> = pat |>> fun p -> { Pat = p; Loc = None }
 
@@ -516,7 +541,9 @@ module Parser =
         |> Decl.Var
 
   let declare: Parser<Decl, unit> =
-    pipe2 (opt (strWs "declare")) (choice [ typeAliasDecl; varDecl; fnDecl ])
+    pipe2
+      (opt (strWs "declare"))
+      (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl ])
     <| fun declare decl -> decl declare.IsSome
 
   let decl = declare

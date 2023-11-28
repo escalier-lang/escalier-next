@@ -245,11 +245,11 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsInterfaceDecl =
-    { id: Ident
-      declare: bool
-      type_params: Option<TsTypeParamDecl>
-      extends: list<TsExprWithTypeArgs>
-      body: TsInterfaceBody
+    { Id: Ident
+      Declare: bool
+      TypeParams: option<TsTypeParamDecl>
+      Extends: list<TsExprWithTypeArgs>
+      Body: TsInterfaceBody
       Loc: option<SourceLocation> }
 
   type TsInterfaceBody =

@@ -56,3 +56,22 @@ let ParseSimpleFunctions () =
   let result = $"input: %s{input}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseInterfaces () =
+  let input =
+    """
+    interface Point {
+      x: number;
+      y: number;
+    }
+    interface Array<T> {
+      length: number;
+      [index: number]: T;
+    }
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

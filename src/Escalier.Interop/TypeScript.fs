@@ -69,7 +69,7 @@ module rec TypeScript =
 
   type Number =
     { Value: float
-      Raw: Option<string>
+      Raw: option<string>
       Loc: option<SourceLocation> }
 
   type Regex =

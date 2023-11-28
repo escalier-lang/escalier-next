@@ -1,0 +1,9 @@
+﻿input: 
+    declare var a: A;
+    declare var b: B.C;
+    declare var c: number;
+    declare var d: string | boolean;
+    
+output: Success: { Body = []
+  Shebang = None
+  Loc = None }

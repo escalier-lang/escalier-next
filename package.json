@@ -1,0 +1,22 @@
+{
+  "name": "escalier",
+  "version": "0.0.1",
+  "description": "[![CI](https://github.com/escalier-lang/escalier/actions/workflows/ci.yml/badge.svg)](https://github.com/escalier-lang/escalier/actions/workflows/ci.yml) [![codecov](https://codecov.io/github/escalier-lang/escalier-next/graph/badge.svg?token=XL2SFYNEID)](https://codecov.io/github/escalier-lang/escalier-next)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/escalier-lang/escalier-next.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/escalier-lang/escalier-next/issues"
+  },
+  "homepage": "https://github.com/escalier-lang/escalier-next#readme",
+  "dependencies": {
+    "typescript": "^5.3.2"
+  }
+}

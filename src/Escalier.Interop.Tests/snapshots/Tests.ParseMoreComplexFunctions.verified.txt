@@ -1,0 +1,47 @@
+﻿input: 
+    declare function parseInt(string: string, radix?: number): number;
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Fn
+            { Id = { Name = "parseInt"
+                     Loc = None }
+              Declare = true
+              Fn =
+               { Params =
+                  [{ Pat =
+                      Ident
+                        { Id = { Name = "string"
+                                 Loc = None }
+                          TypeAnn =
+                           Some
+                             { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                         Loc = None }
+                               Loc = None }
+                          Optional = false
+                          Loc = None }
+                     Loc = None };
+                   { Pat =
+                      Ident
+                        { Id = { Name = "radix"
+                                 Loc = None }
+                          TypeAnn =
+                           Some
+                             { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                         Loc = None }
+                               Loc = None }
+                          Optional = true
+                          Loc = None }
+                     Loc = None }]
+                 Body = None
+                 IsGenerator = false
+                 IsAsync = false
+                 TypeParams = None
+                 ReturnType =
+                  Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                   Loc = None }
+                         Loc = None }
+                 Loc = None } }))]
+  Shebang = None
+  Loc = None }

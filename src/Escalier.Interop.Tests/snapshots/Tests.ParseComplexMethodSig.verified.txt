@@ -1,0 +1,52 @@
+﻿input: 
+    type T = { [idx: string]: U | null | undefined | object; }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = false
+              Id = { Name = "T"
+                     Loc = None }
+              TypeParams = None
+              TypeAnn =
+               TsTypeLit
+                 { Members =
+                    [TsIndexSignature
+                       { Params =
+                          [Ident
+                             { Id = { Name = "idx"
+                                      Loc = None }
+                               TypeAnn =
+                                Some
+                                  { TypeAnn =
+                                     TsKeywordType { Kind = TsStringKeyword
+                                                     Loc = None }
+                                    Loc = None }
+                               Optional = false
+                               Loc = None }]
+                         TypeAnn =
+                          { TypeAnn =
+                             TsUnionOrIntersectionType
+                               (TsUnionType
+                                  { Types =
+                                     [TsTypeRef
+                                        { Loc = None
+                                          TypeName = Identifier { Name = "U"
+                                                                  Loc = None }
+                                          TypeParams = None };
+                                      TsKeywordType { Kind = TsNullKeyword
+                                                      Loc = None };
+                                      TsKeywordType { Kind = TsUndefinedKeyword
+                                                      Loc = None };
+                                      TsKeywordType { Kind = TsObjectKeyword
+                                                      Loc = None }]
+                                    Loc = None })
+                            Loc = None }
+                         Readonly = false
+                         IsStatic = false
+                         Loc = None }]
+                   Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

@@ -1,0 +1,80 @@
+﻿input: 
+    type ThisParameterType<T> = T extends (this: infer U, ...args: never) => any ? U : unknown;
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = false
+              Id = { Name = "ThisParameterType"
+                     Loc = None }
+              TypeParams = Some { Params = [{ Name = { Name = "T"
+                                                       Loc = None }
+                                              IsIn = false
+                                              IsOut = false
+                                              IsConst = false
+                                              Constraint = None
+                                              Default = None
+                                              Loc = None }]
+                                  Loc = None }
+              TypeAnn =
+               TsConditionalType
+                 { CheckType = TsTypeRef { Loc = None
+                                           TypeName = Identifier { Name = "T"
+                                                                   Loc = None }
+                                           TypeParams = None }
+                   ExtendsType =
+                    TsFnOrConstructorType
+                      (TsFnType
+                         { Params =
+                            [Ident
+                               { Id = { Name = "this"
+                                        Loc = None }
+                                 TypeAnn =
+                                  Some
+                                    { TypeAnn =
+                                       TsInferType
+                                         { TypeParam = { Name = { Name = "U"
+                                                                  Loc = None }
+                                                         IsIn = false
+                                                         IsOut = false
+                                                         IsConst = false
+                                                         Constraint = None
+                                                         Default = None
+                                                         Loc = None }
+                                           Loc = None }
+                                      Loc = None }
+                                 Optional = false
+                                 Loc = None };
+                             Rest
+                               { Arg =
+                                  Ident
+                                    { Id = { Name = "args"
+                                             Loc = None }
+                                      TypeAnn =
+                                       Some
+                                         { TypeAnn =
+                                            TsKeywordType
+                                              { Kind = TsNeverKeyword
+                                                Loc = None }
+                                           Loc = None }
+                                      Optional = false
+                                      Loc = None }
+                                 TypeAnn = None
+                                 Loc = None }]
+                           TypeParams = None
+                           TypeAnn =
+                            { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                        Loc = None }
+                              Loc = None }
+                           Loc = None })
+                   TrueType = TsTypeRef { Loc = None
+                                          TypeName = Identifier { Name = "U"
+                                                                  Loc = None }
+                                          TypeParams = None }
+                   FalseType = TsKeywordType { Kind = TsUnknownKeyword
+                                               Loc = None }
+                   Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

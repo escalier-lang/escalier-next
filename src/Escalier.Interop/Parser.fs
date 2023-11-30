@@ -30,6 +30,49 @@ module Parser =
   let tsTypeAnn, tsTypeAnnRef = createParserForwardedToRef<TsTypeAnn, unit> ()
   let tsType, tsTypeRef = createParserForwardedToRef<TsType, unit> ()
 
+  let moduleItem, moduleItemRef =
+    createParserForwardedToRef<ModuleItem, unit> ()
+
+  // Literals
+
+  let num: Parser<Number, unit> =
+    pfloat .>> ws
+    |>> fun value ->
+      { Number.Value = value
+        Raw = None
+        Loc = None }
+
+  let str: Parser<Str, unit> =
+    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
+
+    let unescape c =
+      match c with
+      | 'n' -> "\n"
+      | 'r' -> "\r"
+      | 't' -> "\t"
+      | c -> string c
+
+    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> unescape)
+
+    (between
+      (pstring "\"")
+      (pstring "\"")
+      (stringsSepBy normalCharSnippet escapedChar))
+    .>> ws
+    |>> fun value ->
+      { Str.Value = value
+        Raw = None
+        Loc = None }
+
+  let bool: Parser<TsLit, unit> =
+    choice
+      [ (strWs "true") |>> fun _ -> TsLit.Bool { Value = true; Loc = None }
+        (strWs "false") |>> fun _ -> TsLit.Bool { Value = false; Loc = None } ]
+
+  // TODO
+  // let tpl: Parser<TsLit, unit> = ...
+
+
   // Expressions
 
   exprRef.Value <- ident |>> Expr.Ident
@@ -37,38 +80,21 @@ module Parser =
   // Patterns
 
   let bindingIdent: Parser<BindingIdent, unit> =
-    pipe2 ident (opt (strWs ":" >>. tsTypeAnn))
-    <| fun ident typeAnn ->
+    pipe3 ident (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
+    <| fun ident question typeAnn ->
       { Id = ident
+        Optional = question.IsSome
         TypeAnn = typeAnn
         Loc = None }
 
-  patRef.Value <- bindingIdent |>> Pat.Ident
-
-  // Type Annotations
-
-  let typeParam: Parser<TsTypeParam, unit> =
-    pipe3 ident (opt (strWs ":" >>. tsType)) (opt (strWs "=" >>. tsType))
-    <| fun name c d ->
-      { Name = name
-        IsIn = false
-        IsOut = false
-        IsConst = false
-        Constraint = c
-        Default = d
-        Loc = None }
-
-  let typeParams: Parser<TsTypeParamDecl, unit> =
-    between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))
-    |>> fun typeParams -> { Params = typeParams; Loc = None }
-
   let arrayPat: Parser<ArrayPat, unit> =
-    pipe2
+    pipe3
       ((strWs "[") >>. (sepBy (opt pat) (strWs ",")) .>> (strWs "]"))
+      (opt (strWs "?"))
       (opt (strWs ":" >>. tsTypeAnn))
-    <| fun elems typeAnn ->
+    <| fun elems question typeAnn ->
       { Elems = elems
-        Optional = false
+        Optional = question.IsSome
         TypeAnn = typeAnn
         Loc = None }
 
@@ -84,14 +110,40 @@ module Parser =
     <| fun name typeAnn loc -> failwith "TODO: objectPatProp"
 
   let objectPat: Parser<ObjectPat, unit> =
-    pipe2
+    pipe3
       ((strWs "{") >>. (sepBy objectPatProp (strWs ",")) .>> (strWs "}"))
+      (opt (strWs "?"))
       (opt (strWs ":" >>. tsTypeAnn))
-    <| fun props typeAnn ->
+    <| fun props question typeAnn ->
       { Props = props
-        Optional = false
+        Optional = question.IsSome
         TypeAnn = typeAnn
         Loc = None }
+
+  // TODO flesh this out
+  patRef.Value <-
+    choice
+      [ bindingIdent |>> Pat.Ident
+        arrayPat |>> Pat.Array
+        restPat |>> Pat.Rest
+        objectPat |>> Pat.Object ]
+
+  // Type Annotations
+
+  let typeParam: Parser<TsTypeParam, unit> =
+    pipe3 ident (opt (strWs "extends" >>. tsType)) (opt (strWs "=" >>. tsType))
+    <| fun name c d ->
+      { Name = name
+        IsIn = false
+        IsOut = false
+        IsConst = false
+        Constraint = c
+        Default = d
+        Loc = None }
+
+  let typeParams: Parser<TsTypeParamDecl, unit> =
+    between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))
+    |>> fun typeParams -> { Params = typeParams; Loc = None }
 
   let funcParam: Parser<TsFnParam, unit> =
     choice
@@ -104,10 +156,7 @@ module Parser =
     between (strWs "(") (strWs ")") (sepBy funcParam (strWs ","))
 
   let fnType: Parser<TsFnType, unit> =
-    pipe3
-      (strWs "fn" >>. (opt typeParams))
-      tsFnParams
-      (strWs "=>" >>. tsTypeAnn)
+    pipe3 (opt typeParams) tsFnParams (strWs "=>" >>. tsTypeAnn)
     <| fun type_params param_list return_type ->
       { TypeParams = type_params
         Params = param_list
@@ -115,17 +164,19 @@ module Parser =
         Loc = None }
 
   let constructorType: Parser<TsConstructorType, unit> =
-    pipe3
+    pipe4
+      (opt (strWs "abstract"))
       (strWs "new" >>. (opt typeParams))
       tsFnParams
       (strWs "=>" >>. tsTypeAnn)
-    <| fun type_params param_list return_type ->
+    <| fun abs type_params param_list return_type ->
       { TypeParams = type_params
         Params = param_list
         TypeAnn = return_type
-        IsAbstract = false // TODO: handle `abstract new`
+        IsAbstract = abs.IsSome
         Loc = None }
 
+  // TODO: split this up
   let fnOrConstructorType: Parser<TsFnOrConstructorType, unit> =
     choice
       [ fnType |>> TsFnOrConstructorType.TsFnType
@@ -171,6 +222,19 @@ module Parser =
         TypeParams = typeArgs
         Loc = None }
 
+  let typePredicate: Parser<TsTypePredicate, unit> =
+    pipe2 ident (pstring "is" .>> spaces1 >>. ws >>. tsTypeAnn)
+    <| fun id typeAnn ->
+      let paramName =
+        match id.Name with
+        | "this" -> TsThisTypeOrIdent.TsThisType({ Loc = None })
+        | _ -> TsThisTypeOrIdent.Ident id
+
+      { Asserts = false // TODO
+        ParamName = paramName
+        Typeann = Some typeAnn
+        Loc = None }
+
   // let typeQuery: Parser<TsTypeQuery, unit> = ...
 
   let callSignDecl: Parser<TsTypeElement, unit> =
@@ -197,33 +261,39 @@ module Parser =
   let propSig: Parser<TsTypeElement, unit> =
     pipe4
       (opt (strWs "readonly"))
-      (ident) // TODO: support computed properties
+      ((ident |>> Expr.Ident)
+       <|> (num |>> fun value -> Expr.Lit(Lit.Num value))
+       <|> (str |>> fun value -> Expr.Lit(Lit.Str value))) // TODO: support computed properties
       (opt (strWs "?"))
       (strWs ":" >>. tsTypeAnn)
     <| fun readonly id optional typeAnn ->
       { Readonly = readonly.IsSome
-        Key = Expr.Ident id
+        Key = id
         Computed = false // TODO
         Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
       |> TsTypeElement.TsPropertySignature
 
+  // TODO: require at least one whitepsace character after `set`
   let getterSig: Parser<TsTypeElement, unit> =
     pipe3
-      (strWs "get" >>. ident)
+      (pstring "get" .>> spaces1 >>. ws >>. ident)
       (strWs "(" >>. strWs ")")
       (opt (strWs ":" >>. tsTypeAnn))
     <| fun id _ typeAnn ->
       { Key = Expr.Ident id
         Computed = false
-        Optional = false // TODO
+        Optional = false
         TypeAnn = typeAnn
         Loc = None }
       |> TsTypeElement.TsGetterSignature
 
+  // TODO: require at least one whitepsace character after `set`
   let setterSig: Parser<TsTypeElement, unit> =
-    pipe2 (strWs "set" >>. ident) (strWs "(" >>. funcParam .>> strWs ")")
+    pipe2
+      (pstring "set" .>> spaces1 >>. ws >>. ident)
+      (strWs "(" >>. funcParam .>> strWs ")")
     <| fun id param ->
       { Key = Expr.Ident id
         Computed = false // TODO
@@ -233,11 +303,16 @@ module Parser =
       |> TsTypeElement.TsSetterSignature
 
   let methodSig: Parser<TsTypeElement, unit> =
-    pipe4 ident (opt typeParams) tsFnParams (opt (strWs ":" >>. tsTypeAnn))
-    <| fun key typeParams ps typeAnn ->
+    pipe5
+      ident
+      (opt (strWs "?"))
+      (opt typeParams)
+      tsFnParams
+      (opt (strWs ":" >>. tsTypeAnn))
+    <| fun key question typeParams ps typeAnn ->
       { Key = Expr.Ident key
         Computed = false // TODO
-        Optional = false // TODO
+        Optional = question.IsSome
         Params = ps
         TypeAnn = typeAnn
         TypeParams = typeParams
@@ -262,22 +337,21 @@ module Parser =
       [ callSignDecl
         constructorSignDecl
         attempt propSig
-        getterSig
-        setterSig
+        attempt getterSig
+        attempt setterSig
         attempt methodSig
         indexSig ]
 
   let typeLit: Parser<TsTypeLit, unit> =
-    between (strWs "{") (strWs "}") (sepBy typeMember (strWs ","))
+    between
+      (strWs "{")
+      (strWs "}")
+      (sepEndBy typeMember (strWs "," <|> strWs ";"))
     |>> fun members -> { Members = members; Loc = None }
 
-  let arrayType: Parser<TsArrayType, unit> =
-    between (strWs "[") (strWs "]") tsType
-    |>> fun elemType -> { ElemType = elemType; Loc = None }
-
+  // TODO: figure out how to parse tuple elements with a label
   let tupleElement: Parser<TsTupleElement, unit> =
-    pipe2 (opt pat) (strWs ":" >>. tsType)
-    <| fun label t -> { Label = label; Type = t; Loc = None }
+    tsType |>> fun t -> { Label = None; Type = t; Loc = None }
 
   let tupleType: Parser<TsTupleType, unit> =
     between (strWs "[") (strWs "]") (sepBy tupleElement (strWs ","))
@@ -298,7 +372,12 @@ module Parser =
   // intersectionType |>> TsUnionOrIntersectionType.TsIntersectionType ]
 
   let conditionalType: Parser<TsConditionalType, unit> =
-    pipe4 tsType (strWs "extends" >>. tsType) tsType (strWs "?" >>. tsType)
+    pipe4
+      tsType
+      // TODO: require at least one whitepsace character after `extends`
+      (strWs "extends" >>. tsType)
+      (strWs "?" >>. tsType)
+      (strWs ":" >>. tsType)
     <| fun check extends trueType falseType ->
       { CheckType = check
         ExtendsType = extends
@@ -307,6 +386,7 @@ module Parser =
         Loc = None }
 
   let inferType: Parser<TsInferType, unit> =
+    // TODO: require at least one whitepsace character after `infer`
     strWs "infer" >>. typeParam
     |>> fun typeParam -> { TypeParam = typeParam; Loc = None }
 
@@ -327,14 +407,6 @@ module Parser =
         TypeAnn = typeAnn
         Loc = None }
 
-  let indexedAccessType: Parser<TsIndexedAccessType, unit> =
-    pipe2 tsType (between (strWs "[") (strWs "]") tsType)
-    <| fun objType indexType ->
-      { Readonly = false
-        ObjType = objType
-        IndexType = indexType
-        Loc = None }
-
   let mappedTypeParam: Parser<TsTypeParam, unit> =
     pipe2 ident (opt (strWs "in" >>. tsType))
     <| fun name c ->
@@ -348,23 +420,23 @@ module Parser =
 
   let readonlyTruePlusMinus: Parser<TruePlusMinus, unit> =
     choice
-      [ strWs "readonly+" |>> fun _ -> TruePlusMinus.Plus
-        strWs "readonly-" |>> fun _ -> TruePlusMinus.Minus
+      [ strWs "+readonly" |>> fun _ -> TruePlusMinus.Plus
+        strWs "-readonly" |>> fun _ -> TruePlusMinus.Minus
         strWs "readonly" |>> fun _ -> TruePlusMinus.True ]
 
   let optionalTruePlusMinus: Parser<TruePlusMinus, unit> =
     choice
-      [ strWs "?+" |>> fun _ -> TruePlusMinus.Plus
-        strWs "?-" |>> fun _ -> TruePlusMinus.Minus
+      [ strWs "+?" |>> fun _ -> TruePlusMinus.Plus
+        strWs "-?" |>> fun _ -> TruePlusMinus.Minus
         strWs "?" |>> fun _ -> TruePlusMinus.True ]
 
   let mappedType: Parser<TsMappedType, unit> =
     pipe5
-      (opt readonlyTruePlusMinus)
-      ((strWs "[") >>. mappedTypeParam)
-      ((opt tsType) .>> (strWs "]"))
+      (strWs "{" >>. opt readonlyTruePlusMinus)
+      (strWs "[" >>. mappedTypeParam)
+      (opt (strWs "as" >>. spaces1 >>. tsType) .>> strWs "]")
       (opt optionalTruePlusMinus)
-      (strWs ":" >>. tsType)
+      (strWs ":" >>. tsType .>> opt (strWs ";") .>> strWs "}")
     <| fun readonly param name optional typeAnn ->
       { Readonly = readonly
         TypeParam = param
@@ -373,72 +445,77 @@ module Parser =
         TypeAnn = typeAnn
         Loc = None }
 
-  let number: Parser<TsLit, unit> =
-    pfloat
-    |>> fun value ->
-      { Number.Value = value
-        Raw = None
-        Loc = None }
-      |> TsLit.Number
-
-  let strLit: Parser<TsLit, unit> =
-    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
-
-    let unescape c =
-      match c with
-      | 'n' -> "\n"
-      | 'r' -> "\r"
-      | 't' -> "\t"
-      | c -> string c
-
-    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> unescape)
-
-    (between
-      (pstring "\"")
-      (pstring "\"")
-      (stringsSepBy normalCharSnippet escapedChar))
-    |>> fun value ->
-      { Str.Value = value
-        Raw = None
-        Loc = None }
-      |> TsLit.Str
-
-  let bool: Parser<TsLit, unit> =
-    choice
-      [ (strWs "true") |>> fun _ -> TsLit.Bool { Value = true; Loc = None }
-        (strWs "false") |>> fun _ -> TsLit.Bool { Value = false; Loc = None } ]
-
-  // TODO
-  // let tpl: Parser<TsLit, unit> = ...
+  // between (strWs "{") (strWs "}") inner
 
   let litType: Parser<TsLitType, unit> =
-    choice [ number; strLit; bool ] |>> fun lit -> { Lit = lit; Loc = None }
+    choice [ num |>> TsLit.Number; str |>> TsLit.Str; bool ]
+    |>> fun lit -> { Lit = lit; Loc = None }
 
   let primaryType =
     choice
       [ keywordType |>> TsType.TsKeywordType
-        thisType |>> TsType.TsThisType
-        fnOrConstructorType |>> TsType.TsFnOrConstructorType
-        typeRef |>> TsType.TsTypeRef
-        // TODO: typeQuery |>> TsType.TsTypeQuery
-        typeLit |>> TsType.TsTypeLit
-        arrayType |>> TsType.TsArrayType
         tupleType |>> TsType.TsTupleType
-        // TODO: optionalType |>> TsType.TsOptionalType
         restType |>> TsType.TsRestType
-        conditionalType |>> TsType.TsConditionalType
         inferType |>> TsType.TsInferType
-        parenthesizedType |>> TsType.TsParenthesizedType
         typeOperator |>> TsType.TsTypeOperator
-        indexedAccessType |>> TsType.TsIndexedAccessType
-        mappedType |>> TsType.TsMappedType
         litType |>> TsType.TsLitType
-        // TODO: typePredicate |>> TsType.TsTypePredicate
+
+        // TODO: typeQuery |>> TsType.TsTypeQuery
+        // TODO: optionalType |>> TsType.TsOptionalType
         // TODO: importType |>> TsType.TsImportType
-        ]
+
+        // These both start with '{'
+        attempt mappedType |>> TsType.TsMappedType
+        typeLit |>> TsType.TsTypeLit
+
+        // These both start with a '('
+        attempt parenthesizedType |>> TsType.TsParenthesizedType
+        fnOrConstructorType |>> TsType.TsFnOrConstructorType
+
+        // typePredicate conflicts with both typeRef and thisType
+        attempt (typePredicate |>> TsType.TsTypePredicate)
+        thisType |>> TsType.TsThisType
+        typeRef |>> TsType.TsTypeRef ]
+
+  let arrayTypeSuffix: Parser<TsType -> TsType, unit> =
+    (strWs "[" >>. strWs "]")
+    |>> fun _ target -> { ElemType = target; Loc = None } |> TsType.TsArrayType
+
+  let indexedAccessTypeSuffix: Parser<TsType -> TsType, unit> =
+    (between (strWs "[") (strWs "]") tsType)
+    |>> fun indexType objType ->
+      { Readonly = false
+        ObjType = objType
+        IndexType = indexType
+        Loc = None }
+      |> TsType.TsIndexedAccessType
+
+  let conditionalTypeSuffix: Parser<TsType -> TsType, unit> =
+    pipe3
+      (strWs "extends" >>. tsType)
+      (strWs "?" >>. tsType)
+      (strWs ":" >>. tsType)
+    <| fun extendsType trueType falseType checkType ->
+      { CheckType = checkType
+        ExtendsType = extendsType
+        TrueType = trueType
+        FalseType = falseType
+        Loc = None }
+      |> TsType.TsConditionalType
+
+  let suffix: Parser<TsType -> TsType, unit> =
+    choice
+      [ attempt arrayTypeSuffix
+        attempt indexedAccessTypeSuffix
+        conditionalTypeSuffix ]
+
+  let primaryTypeWithSuffix =
+    pipe2 primaryType (many suffix)
+    <| fun typeAnn suffixes ->
+      List.fold (fun x suffix -> suffix x) typeAnn suffixes
 
   let intersectionOrPrimaryType: Parser<TsType, unit> =
-    sepBy1 primaryType (strWs "&")
+    sepBy1 primaryTypeWithSuffix (strWs "&")
     |>> fun typeAnns ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
@@ -450,7 +527,7 @@ module Parser =
         TsType.TsUnionOrIntersectionType intersection
 
   let unionOrIntersectionOrPrimaryType: Parser<TsType, unit> =
-    sepBy1 primaryType (strWs "|")
+    sepBy1 intersectionOrPrimaryType (strWs "|")
     |>> fun typeAnns ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
@@ -481,7 +558,7 @@ module Parser =
     pipe4
       ((strWs "interface") >>. ident)
       (opt typeParams)
-      (sepBy extend (strWs ","))
+      (opt ((strWs "extends") >>. (sepBy1 extend (strWs ","))))
       interfaceBody
     <| fun id typeParams extends body ->
       fun declare ->
@@ -551,15 +628,33 @@ module Parser =
           Kind = kind }
         |> Decl.Var
 
+  let moduleBlock: Parser<TsNamespaceBody, unit> =
+    (strWs "{" >>. many moduleItem .>> strWs "}")
+    |>> fun body -> TsNamespaceBody.TsModuleBlock { Body = body; Loc = None }
+
+  let namespaceBody = moduleBlock
+
+  let moduleName = (ident |>> TsModuleName.Ident) <|> (str |>> TsModuleName.Str)
+
+  let moduleDecl: Parser<bool -> Decl, unit> =
+    pipe2 (strWs "namespace" >>. moduleName) moduleBlock
+    <| fun id body declare ->
+      { Declare = declare
+        Global = false
+        Id = id
+        Body = Some(body)
+        Loc = None }
+      |> Decl.TsModule
+
   let declare: Parser<Decl, unit> =
     pipe2
       (opt (strWs "declare"))
-      (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl ])
+      (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl; moduleDecl ])
     <| fun declare decl -> decl declare.IsSome
 
   let decl = declare
 
-  let moduleItem =
+  moduleItemRef.Value <-
     pipe2 (ws >>. opt (strWs "export")) (decl .>> (opt (strWs ";")))
     <| fun export decl ->
       match export with

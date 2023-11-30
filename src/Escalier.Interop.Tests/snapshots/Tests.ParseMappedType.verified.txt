@@ -1,0 +1,62 @@
+﻿input: 
+    type Partial<T> = {
+        [P in keyof T]?: T[P];
+    };
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = false
+              Id = { Name = "Partial"
+                     Loc = None }
+              TypeParams = Some { Params = [{ Name = { Name = "T"
+                                                       Loc = None }
+                                              IsIn = false
+                                              IsOut = false
+                                              IsConst = false
+                                              Constraint = None
+                                              Default = None
+                                              Loc = None }]
+                                  Loc = None }
+              TypeAnn =
+               TsMappedType
+                 { Readonly = None
+                   TypeParam =
+                    { Name = { Name = "P"
+                               Loc = None }
+                      IsIn = true
+                      IsOut = false
+                      IsConst = false
+                      Constraint =
+                       Some
+                         (TsTypeOperator
+                            { Op = KeyOf
+                              TypeAnn =
+                               TsTypeRef { Loc = None
+                                           TypeName = Identifier { Name = "T"
+                                                                   Loc = None }
+                                           TypeParams = None }
+                              Loc = None })
+                      Default = None
+                      Loc = None }
+                   NameType = None
+                   Optional = Some True
+                   TypeAnn =
+                    TsIndexedAccessType
+                      { Readonly = false
+                        ObjType =
+                         TsTypeRef { Loc = None
+                                     TypeName = Identifier { Name = "T"
+                                                             Loc = None }
+                                     TypeParams = None }
+                        IndexType =
+                         TsTypeRef { Loc = None
+                                     TypeName = Identifier { Name = "P"
+                                                             Loc = None }
+                                     TypeParams = None }
+                        Loc = None }
+                   Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

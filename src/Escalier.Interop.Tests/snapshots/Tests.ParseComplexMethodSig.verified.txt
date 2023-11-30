@@ -1,0 +1,278 @@
+﻿input: 
+    interface T {
+      stringify(value: any, replacer?: (number | string)[] | null, space?: string | number): string;
+      every<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArg?: any): this is readonly S[];
+      [idx: string]: U | null | undefined | object;
+    }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsInterface
+            { Id = { Name = "T"
+                     Loc = None }
+              Declare = false
+              TypeParams = None
+              Extends = None
+              Body =
+               { Body =
+                  [TsMethodSignature
+                     { Key = Ident { Name = "stringify"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       Params =
+                        [Ident
+                           { Id = { Name = "value"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                            Loc = None }
+                                  Loc = None }
+                             Optional = false
+                             Loc = None };
+                         Ident
+                           { Id = { Name = "replacer"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsUnionOrIntersectionType
+                                     (TsUnionType
+                                        { Types =
+                                           [TsArrayType
+                                              { ElemType =
+                                                 TsParenthesizedType
+                                                   { TypeAnn =
+                                                      TsUnionOrIntersectionType
+                                                        (TsUnionType
+                                                           { Types =
+                                                              [TsKeywordType
+                                                                 { Kind =
+                                                                    TsNumberKeyword
+                                                                   Loc = None };
+                                                               TsKeywordType
+                                                                 { Kind =
+                                                                    TsStringKeyword
+                                                                   Loc = None }]
+                                                             Loc = None })
+                                                     Loc = None }
+                                                Loc = None };
+                                            TsKeywordType { Kind = TsNullKeyword
+                                                            Loc = None }]
+                                          Loc = None })
+                                  Loc = None }
+                             Optional = true
+                             Loc = None };
+                         Ident
+                           { Id = { Name = "space"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsUnionOrIntersectionType
+                                     (TsUnionType
+                                        { Types =
+                                           [TsKeywordType
+                                              { Kind = TsStringKeyword
+                                                Loc = None };
+                                            TsKeywordType
+                                              { Kind = TsNumberKeyword
+                                                Loc = None }]
+                                          Loc = None })
+                                  Loc = None }
+                             Optional = true
+                             Loc = None }]
+                       TypeAnn =
+                        Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                         Loc = None }
+                               Loc = None }
+                       TypeParams = None
+                       Loc = None };
+                   TsMethodSignature
+                     { Key = Ident { Name = "every"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       Params =
+                        [Ident
+                           { Id = { Name = "predicate"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsFnOrConstructorType
+                                     (TsFnType
+                                        { Params =
+                                           [Ident
+                                              { Id = { Name = "value"
+                                                       Loc = None }
+                                                TypeAnn =
+                                                 Some
+                                                   { TypeAnn =
+                                                      TsTypeRef
+                                                        { Loc = None
+                                                          TypeName =
+                                                           Identifier
+                                                             { Name = "T"
+                                                               Loc = None }
+                                                          TypeParams = None }
+                                                     Loc = None }
+                                                Optional = false
+                                                Loc = None };
+                                            Ident
+                                              { Id = { Name = "index"
+                                                       Loc = None }
+                                                TypeAnn =
+                                                 Some
+                                                   { TypeAnn =
+                                                      TsKeywordType
+                                                        { Kind = TsNumberKeyword
+                                                          Loc = None }
+                                                     Loc = None }
+                                                Optional = false
+                                                Loc = None };
+                                            Ident
+                                              { Id = { Name = "array"
+                                                       Loc = None }
+                                                TypeAnn =
+                                                 Some
+                                                   { TypeAnn =
+                                                      TsTypeOperator
+                                                        { Op = Readonly
+                                                          TypeAnn =
+                                                           TsArrayType
+                                                             { ElemType =
+                                                                TsTypeRef
+                                                                  { Loc = None
+                                                                    TypeName =
+                                                                     Identifier
+                                                                       { Name =
+                                                                          "T"
+                                                                         Loc =
+                                                                          None }
+                                                                    TypeParams =
+                                                                     None }
+                                                               Loc = None }
+                                                          Loc = None }
+                                                     Loc = None }
+                                                Optional = false
+                                                Loc = None }]
+                                          TypeParams = None
+                                          TypeAnn =
+                                           { TypeAnn =
+                                              TsTypePredicate
+                                                { Asserts = false
+                                                  ParamName =
+                                                   Ident { Name = "value"
+                                                           Loc = None }
+                                                  Typeann =
+                                                   Some
+                                                     { TypeAnn =
+                                                        TsTypeRef
+                                                          { Loc = None
+                                                            TypeName =
+                                                             Identifier
+                                                               { Name = "S"
+                                                                 Loc = None }
+                                                            TypeParams = None }
+                                                       Loc = None }
+                                                  Loc = None }
+                                             Loc = None }
+                                          Loc = None })
+                                  Loc = None }
+                             Optional = false
+                             Loc = None };
+                         Ident
+                           { Id = { Name = "thisArg"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                            Loc = None }
+                                  Loc = None }
+                             Optional = true
+                             Loc = None }]
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsTypePredicate
+                               { Asserts = false
+                                 ParamName = TsThisType { Loc = None }
+                                 Typeann =
+                                  Some
+                                    { TypeAnn =
+                                       TsTypeOperator
+                                         { Op = Readonly
+                                           TypeAnn =
+                                            TsArrayType
+                                              { ElemType =
+                                                 TsTypeRef
+                                                   { Loc = None
+                                                     TypeName =
+                                                      Identifier { Name = "S"
+                                                                   Loc = None }
+                                                     TypeParams = None }
+                                                Loc = None }
+                                           Loc = None }
+                                      Loc = None }
+                                 Loc = None }
+                            Loc = None }
+                       TypeParams =
+                        Some
+                          { Params =
+                             [{ Name = { Name = "S"
+                                         Loc = None }
+                                IsIn = false
+                                IsOut = false
+                                IsConst = false
+                                Constraint =
+                                 Some
+                                   (TsTypeRef
+                                      { Loc = None
+                                        TypeName = Identifier { Name = "T"
+                                                                Loc = None }
+                                        TypeParams = None })
+                                Default = None
+                                Loc = None }]
+                            Loc = None }
+                       Loc = None };
+                   TsIndexSignature
+                     { Params =
+                        [Ident
+                           { Id = { Name = "idx"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsKeywordType { Kind = TsStringKeyword
+                                                   Loc = None }
+                                  Loc = None }
+                             Optional = false
+                             Loc = None }]
+                       TypeAnn =
+                        { TypeAnn =
+                           TsUnionOrIntersectionType
+                             (TsUnionType
+                                { Types =
+                                   [TsTypeRef
+                                      { Loc = None
+                                        TypeName = Identifier { Name = "U"
+                                                                Loc = None }
+                                        TypeParams = None };
+                                    TsKeywordType { Kind = TsNullKeyword
+                                                    Loc = None };
+                                    TsKeywordType { Kind = TsUndefinedKeyword
+                                                    Loc = None };
+                                    TsKeywordType { Kind = TsObjectKeyword
+                                                    Loc = None }]
+                                  Loc = None })
+                          Loc = None }
+                       Readonly = false
+                       IsStatic = false
+                       Loc = None }]
+                 Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

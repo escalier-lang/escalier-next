@@ -248,7 +248,7 @@ module rec TypeScript =
     { Id: Ident
       Declare: bool
       TypeParams: option<TsTypeParamDecl>
-      Extends: list<TsExprWithTypeArgs>
+      Extends: option<list<TsExprWithTypeArgs>>
       Body: TsInterfaceBody
       Loc: option<SourceLocation> }
 
@@ -295,7 +295,7 @@ module rec TypeScript =
     | TsNamespaceDecl of TsNamespaceDecl
 
   type TsModuleBlock =
-    { body: list<ModuleItem>
+    { Body: list<ModuleItem>
       Loc: option<SourceLocation> }
 
   type TsNamespaceDecl =
@@ -631,6 +631,7 @@ module rec TypeScript =
   type BindingIdent =
     { Id: Ident
       TypeAnn: option<TsTypeAnn>
+      Optional: bool
       Loc: option<SourceLocation> }
 
   type ArrayPat =

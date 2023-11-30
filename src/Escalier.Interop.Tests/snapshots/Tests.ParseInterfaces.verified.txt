@@ -16,7 +16,7 @@ output: Success: { Body =
                      Loc = None }
               Declare = false
               TypeParams = None
-              Extends = []
+              Extends = None
               Body =
                { Body =
                   [TsPropertySignature
@@ -58,7 +58,7 @@ output: Success: { Body =
                                               Default = None
                                               Loc = None }]
                                   Loc = None }
-              Extends = []
+              Extends = None
               Body =
                { Body =
                   [TsPropertySignature
@@ -83,6 +83,7 @@ output: Success: { Body =
                                    TsKeywordType { Kind = TsNumberKeyword
                                                    Loc = None }
                                   Loc = None }
+                             Optional = false
                              Loc = None }]
                        TypeAnn =
                         { TypeAnn =

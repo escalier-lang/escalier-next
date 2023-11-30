@@ -632,6 +632,7 @@ module rec TypeScript =
     | Object of ObjectPat
     | Assign of AssignPat
     | Invalid of Invalid
+    // TODO: create an ExprOrPat enum or something like that to handle this case
     | Expr of Expr // only valid in for-in/for-of loops
 
   type BindingIdent =

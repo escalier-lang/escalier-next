@@ -92,9 +92,9 @@ module rec Codegen =
             [ { Id =
                   Pat.Ident
                     { Id = { Name = tempId; Loc = None }
-                      TypeAnn = None
                       Optional = false
                       Loc = None }
+                TypeAnn = None
                 Init = None } ]
           Declare = false
           Kind = VariableDeclarationKind.Var }
@@ -109,11 +109,14 @@ module rec Codegen =
     | ExprKind.Function { Sig = s; Body = body } ->
       match body with
       | BlockOrExpr.Block block ->
-        let ps =
+        let ps: list<Param> =
           s.ParamList
           |> List.map (fun (p: FuncParam<TypeAnn option>) ->
             let pat = buildPattern ctx p.Pattern
-            { Pat = pat; Loc = None })
+
+            { Pat = pat
+              TypeAnn = None
+              Loc = None })
 
         let body = buildBlock ctx block Finalizer.Empty
 
@@ -151,9 +154,9 @@ module rec Codegen =
             [ { Id =
                   Pat.Ident
                     { Id = { Name = tempId; Loc = None }
-                      TypeAnn = None
                       Optional = false
                       Loc = None }
+                TypeAnn = None
                 Init = None } ]
           Declare = false
           Kind = VariableDeclarationKind.Var }
@@ -210,7 +213,10 @@ module rec Codegen =
             let initExpr, initStmts = buildExpr ctx init
 
             let decl =
-              { Decls = [ { Id = pattern; Init = Some initExpr } ]
+              { Decls =
+                  [ { Id = pattern
+                      TypeAnn = None
+                      Init = Some initExpr } ]
                 Declare = false
                 Kind = VariableDeclarationKind.Var }
 
@@ -254,7 +260,6 @@ module rec Codegen =
     | PatternKind.Identifier id ->
       Pat.Ident
         { Id = { Name = id.Name; Loc = None }
-          TypeAnn = None
           Optional = false
           Loc = None }
     | _ -> failwith "TODO"
@@ -300,9 +305,9 @@ module rec Codegen =
               { Id =
                   Pat.Ident
                     { Id = { Name = n; Loc = None }
-                      TypeAnn = Some(buildTypeAnn ctx t)
                       Optional = false
                       Loc = None }
+                TypeAnn = Some(buildTypeAnn ctx t)
                 Init = None }
 
             let varDecl =
@@ -344,18 +349,22 @@ module rec Codegen =
           TypeParams = typeArgs
           Loc = None }
     | TypeKind.Function f ->
-      let ps =
+      let ps: list<TsFnParam> =
         f.ParamList
         |> List.map (fun p ->
           let t = buildTypeAnn ctx p.Type
 
           match p.Pattern with
           | Pattern.Identifier name ->
-            TsFnParam.Ident
-              { Id = { Name = name; Loc = None }
-                TypeAnn = Some(t)
-                Optional = false
-                Loc = None }
+            let pat =
+              TsFnParamPat.Ident
+                { Id = { Name = name; Loc = None }
+                  Optional = false
+                  Loc = None }
+
+            { Pat = pat
+              TypeAnn = Some(t)
+              Loc = None }
           | Pattern.Object _ -> failwith "TODO"
           | Pattern.Tuple _ -> failwith "TODO"
           | Pattern.Rest _ -> failwith "TODO"

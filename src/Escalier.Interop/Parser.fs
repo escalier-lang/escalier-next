@@ -80,44 +80,35 @@ module Parser =
   // Patterns
 
   let bindingIdent: Parser<BindingIdent, unit> =
-    pipe3 ident (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
-    <| fun ident question typeAnn ->
+    pipe2 ident (opt (strWs "?"))
+    <| fun ident question ->
       { Id = ident
         Optional = question.IsSome
-        TypeAnn = typeAnn
         Loc = None }
 
   let arrayPat: Parser<ArrayPat, unit> =
-    pipe3
+    pipe2
       ((strWs "[") >>. (sepBy (opt pat) (strWs ",")) .>> (strWs "]"))
       (opt (strWs "?"))
-      (opt (strWs ":" >>. tsTypeAnn))
-    <| fun elems question typeAnn ->
+    <| fun elems question ->
       { Elems = elems
         Optional = question.IsSome
-        TypeAnn = typeAnn
         Loc = None }
 
   let restPat: Parser<RestPat, unit> =
-    pipe2 (strWs "..." >>. pat) (opt (strWs ":" >>. tsTypeAnn))
-    <| fun arg typeAnn ->
-      { Arg = arg
-        TypeAnn = typeAnn
-        Loc = None }
+    (strWs "..." >>. pat) |>> fun arg -> { Arg = arg; Loc = None }
 
   let objectPatProp: Parser<ObjectPatProp, unit> =
     pipe3 (strWs "readonly" >>. ident) (strWs ":" >>. tsTypeAnn) getPosition
     <| fun name typeAnn loc -> failwith "TODO: objectPatProp"
 
   let objectPat: Parser<ObjectPat, unit> =
-    pipe3
+    pipe2
       ((strWs "{") >>. (sepBy objectPatProp (strWs ",")) .>> (strWs "}"))
       (opt (strWs "?"))
-      (opt (strWs ":" >>. tsTypeAnn))
-    <| fun props question typeAnn ->
+    <| fun props question ->
       { Props = props
         Optional = question.IsSome
-        TypeAnn = typeAnn
         Loc = None }
 
   // TODO flesh this out
@@ -146,11 +137,18 @@ module Parser =
     |>> fun typeParams -> { Params = typeParams; Loc = None }
 
   let funcParam: Parser<TsFnParam, unit> =
-    choice
-      [ bindingIdent |>> TsFnParam.Ident
-        arrayPat |>> TsFnParam.Array
-        restPat |>> TsFnParam.Rest
-        objectPat |>> TsFnParam.Object ]
+    let paramPat =
+      choice
+        [ bindingIdent |>> TsFnParamPat.Ident
+          arrayPat |>> TsFnParamPat.Array
+          restPat |>> TsFnParamPat.Rest
+          objectPat |>> TsFnParamPat.Object ]
+
+    pipe2 paramPat (opt (strWs ":" >>. tsTypeAnn))
+    <| fun pat typeAnn ->
+      { Pat = pat
+        TypeAnn = typeAnn
+        Loc = None }
 
   let tsFnParams: Parser<list<TsFnParam>, unit> =
     between (strWs "(") (strWs ")") (sepBy funcParam (strWs ","))
@@ -570,7 +568,12 @@ module Parser =
           Loc = None }
         |> Decl.TsInterface
 
-  let param: Parser<Param, unit> = pat |>> fun p -> { Pat = p; Loc = None }
+  let param: Parser<Param, unit> =
+    pipe2 pat (opt (strWs ":" >>. tsTypeAnn))
+    <| fun p typeAnn ->
+      { Pat = p
+        TypeAnn = typeAnn
+        Loc = None }
 
   let fnParams: Parser<list<Param>, unit> =
     between (strWs "(") (strWs ")") (sepBy param (strWs ","))
@@ -616,8 +619,11 @@ module Parser =
         strWs "const" |>> fun _ -> VariableDeclarationKind.Const ]
 
   let declarator: Parser<VarDeclarator, unit> =
-    pipe2 pat (opt (strWs "=" >>. expr))
-    <| fun id init -> { Id = id; Init = init }
+    pipe3 pat (opt (strWs ":" >>. tsTypeAnn)) (opt (strWs "=" >>. expr))
+    <| fun id typeAnn init ->
+      { Id = id
+        TypeAnn = typeAnn
+        Init = init }
 
   let varDecl: Parser<bool -> Decl, unit> =
     pipe2 varDeclKind (sepBy1 declarator (strWs ","))

@@ -160,7 +160,10 @@ module rec TypeScript =
       Handler: option<CatchClause>
       Finalizer: option<BlockStmt> }
 
-  type CatchClause = { Param: Pat; Body: BlockStmt }
+  type CatchClause =
+    { Param: Pat
+      TypeAnn: option<TsTypeAnn>
+      Body: BlockStmt }
 
   type WhileStmt =
     { Test: Expr
@@ -237,7 +240,10 @@ module rec TypeScript =
       Declare: bool
       Kind: VariableDeclarationKind }
 
-  type VarDeclarator = { Id: Pat; Init: option<Expr> }
+  type VarDeclarator =
+    { Id: Pat
+      TypeAnn: option<TsTypeAnn>
+      Init: option<Expr> }
 
   type UsingDecl =
     { IsAwait: bool
@@ -630,25 +636,25 @@ module rec TypeScript =
 
   type BindingIdent =
     { Id: Ident
-      TypeAnn: option<TsTypeAnn>
+      // TypeAnn: option<TsTypeAnn>
       Optional: bool
       Loc: option<SourceLocation> }
 
   type ArrayPat =
     { Elems: list<option<Pat>>
       Optional: bool
-      TypeAnn: option<TsTypeAnn>
+      // TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
   type RestPat =
     { Arg: Pat
-      TypeAnn: option<TsTypeAnn>
+      // TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
   type ObjectPat =
     { Props: list<ObjectPatProp>
       Optional: bool
-      TypeAnn: option<TsTypeAnn>
+      // TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
   type AssignPat =
@@ -722,6 +728,7 @@ module rec TypeScript =
       // TODO: Decorators
       // decorators: list<Decorator>
       Pat: Pat
+      TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
   type TsParamProp =
@@ -732,6 +739,7 @@ module rec TypeScript =
       IsOverride: bool
       Readonly: bool
       Param: TsParamPropParam
+      TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
   type Accessibility =
@@ -1051,14 +1059,17 @@ module rec TypeScript =
       Default: option<TsType>
       Loc: option<SourceLocation> }
 
-  // TODO: Make BindingIdent, ArrayPat, RestPat, and ObjectPat
-  // parametric so that we can make `.TypeAnn` required
   [<RequireQualifiedAccess>]
-  type TsFnParam =
+  type TsFnParamPat =
     | Ident of BindingIdent
     | Array of ArrayPat
     | Rest of RestPat
     | Object of ObjectPat
+
+  type TsFnParam =
+    { Pat: TsFnParamPat
+      TypeAnn: option<TsTypeAnn>
+      Loc: option<SourceLocation> }
 
   type ObjectPatProp =
     | KeyValue of KeyValuePatProp

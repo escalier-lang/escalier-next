@@ -31,17 +31,16 @@ output: Success: { Body =
                        Computed = false
                        Optional = false
                        Param =
-                        Ident
-                          { Id = { Name = "value"
-                                   Loc = None }
-                            TypeAnn =
-                             Some
-                               { TypeAnn =
-                                  TsKeywordType { Kind = TsNumberKeyword
-                                                  Loc = None }
-                                 Loc = None }
-                            Optional = false
-                            Loc = None }
+                        { Pat = Ident { Id = { Name = "value"
+                                               Loc = None }
+                                        Optional = false
+                                        Loc = None }
+                          TypeAnn =
+                           Some
+                             { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                         Loc = None }
+                               Loc = None }
+                          Loc = None }
                        Loc = None }]
                  Loc = None }
               Loc = None }))]

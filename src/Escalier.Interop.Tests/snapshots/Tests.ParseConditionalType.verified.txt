@@ -27,41 +27,37 @@ output: Success: { Body =
                     TsFnOrConstructorType
                       (TsFnType
                          { Params =
-                            [Ident
-                               { Id = { Name = "this"
-                                        Loc = None }
-                                 TypeAnn =
-                                  Some
-                                    { TypeAnn =
-                                       TsInferType
-                                         { TypeParam = { Name = { Name = "U"
-                                                                  Loc = None }
-                                                         IsIn = false
-                                                         IsOut = false
-                                                         IsConst = false
-                                                         Constraint = None
-                                                         Default = None
-                                                         Loc = None }
-                                           Loc = None }
-                                      Loc = None }
-                                 Optional = false
-                                 Loc = None };
-                             Rest
-                               { Arg =
-                                  Ident
-                                    { Id = { Name = "args"
+                            [{ Pat = Ident { Id = { Name = "this"
+                                                    Loc = None }
+                                             Optional = false
                                              Loc = None }
-                                      TypeAnn =
-                                       Some
-                                         { TypeAnn =
-                                            TsKeywordType
-                                              { Kind = TsNeverKeyword
-                                                Loc = None }
-                                           Loc = None }
-                                      Optional = false
-                                      Loc = None }
-                                 TypeAnn = None
-                                 Loc = None }]
+                               TypeAnn =
+                                Some
+                                  { TypeAnn =
+                                     TsInferType
+                                       { TypeParam = { Name = { Name = "U"
+                                                                Loc = None }
+                                                       IsIn = false
+                                                       IsOut = false
+                                                       IsConst = false
+                                                       Constraint = None
+                                                       Default = None
+                                                       Loc = None }
+                                         Loc = None }
+                                    Loc = None }
+                               Loc = None };
+                             { Pat = Rest { Arg = Ident { Id = { Name = "args"
+                                                                 Loc = None }
+                                                          Optional = false
+                                                          Loc = None }
+                                            Loc = None }
+                               TypeAnn =
+                                Some
+                                  { TypeAnn =
+                                     TsKeywordType { Kind = TsNeverKeyword
+                                                     Loc = None }
+                                    Loc = None }
+                               Loc = None }]
                            TypeParams = None
                            TypeAnn =
                             { TypeAnn = TsKeywordType { Kind = TsAnyKeyword

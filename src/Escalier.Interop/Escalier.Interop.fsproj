@@ -8,10 +8,16 @@
     <ItemGroup>
         <Compile Include="TypeScript.fs"/>
         <Compile Include="Parser.fs"/>
+        <Compile Include="Infer.fs"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="FParsec" Version="1.1.1"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>
+        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
     </ItemGroup>
 
 </Project>

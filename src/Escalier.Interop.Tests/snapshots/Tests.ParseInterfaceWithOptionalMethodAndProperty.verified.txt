@@ -2,6 +2,7 @@
     interface PropertyDescriptor {
       foo?: boolean;
       bar?(): any;
+      setTime(a: number): boolean;
     }
     
 output: Success: { Body =
@@ -34,6 +35,29 @@ output: Success: { Body =
                        Params = []
                        TypeAnn =
                         Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                         Loc = None }
+                               Loc = None }
+                       TypeParams = None
+                       Loc = None };
+                   TsMethodSignature
+                     { Key = Ident { Name = "setTime"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       Params =
+                        [Ident
+                           { Id = { Name = "a"
+                                    Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsKeywordType { Kind = TsNumberKeyword
+                                                   Loc = None }
+                                  Loc = None }
+                             Optional = false
+                             Loc = None }]
+                       TypeAnn =
+                        Some { TypeAnn = TsKeywordType { Kind = TsBooleanKeyword
                                                          Loc = None }
                                Loc = None }
                        TypeParams = None

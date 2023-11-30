@@ -91,12 +91,29 @@ let ParseInterfaces () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseInterfacesWithGetterSetter () =
+  let input =
+    """
+    interface Foo {
+      get bar(): number;
+      set bar(value: number);
+    }
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+
+[<Fact>]
 let ParseInterfaceWithOptionalMethodAndProperty () =
   let input =
     """
     interface PropertyDescriptor {
       foo?: boolean;
       bar?(): any;
+      setTime(a: number): boolean;
     }
     """
 
@@ -109,13 +126,32 @@ let ParseInterfaceWithOptionalMethodAndProperty () =
 let ParseComplexMethodSig () =
   let input =
     """
-    type T = { [idx: string]: U | null | undefined | object; }
+    interface T {
+      stringify(value: any, replacer?: (number | string)[] | null, space?: string | number): string;
+      every<S extends T>(predicate: (value: T, index: number, array: readonly T[]) => value is S, thisArg?: any): this is readonly S[];
+      [idx: string]: U | null | undefined | object;
+    }
     """
 
   let ast = parseModule input
   let result = $"input: %s{input}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseMappedType () =
+  let input =
+    """
+    type Partial<T> = {
+        [P in keyof T]?: T[P];
+    };
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
 
 [<Fact>]
 let ParseConditionalType () =

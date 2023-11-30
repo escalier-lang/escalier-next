@@ -30,6 +30,45 @@ module Parser =
   let tsTypeAnn, tsTypeAnnRef = createParserForwardedToRef<TsTypeAnn, unit> ()
   let tsType, tsTypeRef = createParserForwardedToRef<TsType, unit> ()
 
+  // Literals
+
+  let num: Parser<Number, unit> =
+    pfloat
+    |>> fun value ->
+      { Number.Value = value
+        Raw = None
+        Loc = None }
+
+  let str: Parser<Str, unit> =
+    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
+
+    let unescape c =
+      match c with
+      | 'n' -> "\n"
+      | 'r' -> "\r"
+      | 't' -> "\t"
+      | c -> string c
+
+    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> unescape)
+
+    (between
+      (pstring "\"")
+      (pstring "\"")
+      (stringsSepBy normalCharSnippet escapedChar))
+    |>> fun value ->
+      { Str.Value = value
+        Raw = None
+        Loc = None }
+
+  let bool: Parser<TsLit, unit> =
+    choice
+      [ (strWs "true") |>> fun _ -> TsLit.Bool { Value = true; Loc = None }
+        (strWs "false") |>> fun _ -> TsLit.Bool { Value = false; Loc = None } ]
+
+  // TODO
+  // let tpl: Parser<TsLit, unit> = ...
+
+
   // Expressions
 
   exprRef.Value <- ident |>> Expr.Ident
@@ -78,7 +117,12 @@ module Parser =
         Loc = None }
 
   // TODO flesh this out
-  patRef.Value <- bindingIdent |>> Pat.Ident
+  patRef.Value <-
+    choice
+      [ bindingIdent |>> Pat.Ident
+        arrayPat |>> Pat.Array
+        restPat |>> Pat.Rest
+        objectPat |>> Pat.Object ]
 
   // Type Annotations
 
@@ -172,6 +216,19 @@ module Parser =
         TypeParams = typeArgs
         Loc = None }
 
+  let typePredicate: Parser<TsTypePredicate, unit> =
+    pipe2 ident (pstring "is" .>> spaces1 >>. ws >>. tsTypeAnn)
+    <| fun id typeAnn ->
+      let paramName =
+        match id.Name with
+        | "this" -> TsThisTypeOrIdent.TsThisType({ Loc = None })
+        | _ -> TsThisTypeOrIdent.Ident id
+
+      { Asserts = false // TODO
+        ParamName = paramName
+        Typeann = Some typeAnn
+        Loc = None }
+
   // let typeQuery: Parser<TsTypeQuery, unit> = ...
 
   let callSignDecl: Parser<TsTypeElement, unit> =
@@ -198,21 +255,24 @@ module Parser =
   let propSig: Parser<TsTypeElement, unit> =
     pipe4
       (opt (strWs "readonly"))
-      (ident) // TODO: support computed properties
+      ((ident |>> Expr.Ident)
+       <|> (num |>> fun value -> Expr.Lit(Lit.Num value))
+       <|> (str |>> fun value -> Expr.Lit(Lit.Str value))) // TODO: support computed properties
       (opt (strWs "?"))
       (strWs ":" >>. tsTypeAnn)
     <| fun readonly id optional typeAnn ->
       { Readonly = readonly.IsSome
-        Key = Expr.Ident id
+        Key = id
         Computed = false // TODO
         Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
       |> TsTypeElement.TsPropertySignature
 
+  // TODO: require at least one whitepsace character after `set`
   let getterSig: Parser<TsTypeElement, unit> =
     pipe3
-      (strWs "get" >>. ident)
+      (pstring "get" .>> spaces1 >>. ws >>. ident)
       (strWs "(" >>. strWs ")")
       (opt (strWs ":" >>. tsTypeAnn))
     <| fun id _ typeAnn ->
@@ -223,8 +283,11 @@ module Parser =
         Loc = None }
       |> TsTypeElement.TsGetterSignature
 
+  // TODO: require at least one whitepsace character after `set`
   let setterSig: Parser<TsTypeElement, unit> =
-    pipe2 (strWs "set" >>. ident) (strWs "(" >>. funcParam .>> strWs ")")
+    pipe2
+      (pstring "set" .>> spaces1 >>. ws >>. ident)
+      (strWs "(" >>. funcParam .>> strWs ")")
     <| fun id param ->
       { Key = Expr.Ident id
         Computed = false // TODO
@@ -280,9 +343,9 @@ module Parser =
       (sepEndBy typeMember (strWs "," <|> strWs ";"))
     |>> fun members -> { Members = members; Loc = None }
 
+  // TODO: figure out how to parse tuple elements with a label
   let tupleElement: Parser<TsTupleElement, unit> =
-    pipe2 (opt pat) (strWs ":" >>. tsType)
-    <| fun label t -> { Label = label; Type = t; Loc = None }
+    tsType |>> fun t -> { Label = None; Type = t; Loc = None }
 
   let tupleType: Parser<TsTupleType, unit> =
     between (strWs "[") (strWs "]") (sepBy tupleElement (strWs ","))
@@ -305,6 +368,7 @@ module Parser =
   let conditionalType: Parser<TsConditionalType, unit> =
     pipe4
       tsType
+      // TODO: require at least one whitepsace character after `extends`
       (strWs "extends" >>. tsType)
       (strWs "?" >>. tsType)
       (strWs ":" >>. tsType)
@@ -316,6 +380,7 @@ module Parser =
         Loc = None }
 
   let inferType: Parser<TsInferType, unit> =
+    // TODO: require at least one whitepsace character after `infer`
     strWs "infer" >>. typeParam
     |>> fun typeParam -> { TypeParam = typeParam; Loc = None }
 
@@ -336,14 +401,6 @@ module Parser =
         TypeAnn = typeAnn
         Loc = None }
 
-  let indexedAccessType: Parser<TsIndexedAccessType, unit> =
-    pipe2 tsType (between (strWs "[") (strWs "]") tsType)
-    <| fun objType indexType ->
-      { Readonly = false
-        ObjType = objType
-        IndexType = indexType
-        Loc = None }
-
   let mappedTypeParam: Parser<TsTypeParam, unit> =
     pipe2 ident (opt (strWs "in" >>. tsType))
     <| fun name c ->
@@ -357,23 +414,23 @@ module Parser =
 
   let readonlyTruePlusMinus: Parser<TruePlusMinus, unit> =
     choice
-      [ strWs "readonly+" |>> fun _ -> TruePlusMinus.Plus
-        strWs "readonly-" |>> fun _ -> TruePlusMinus.Minus
+      [ strWs "+readonly" |>> fun _ -> TruePlusMinus.Plus
+        strWs "-readonly" |>> fun _ -> TruePlusMinus.Minus
         strWs "readonly" |>> fun _ -> TruePlusMinus.True ]
 
   let optionalTruePlusMinus: Parser<TruePlusMinus, unit> =
     choice
-      [ strWs "?+" |>> fun _ -> TruePlusMinus.Plus
-        strWs "?-" |>> fun _ -> TruePlusMinus.Minus
+      [ strWs "+?" |>> fun _ -> TruePlusMinus.Plus
+        strWs "-?" |>> fun _ -> TruePlusMinus.Minus
         strWs "?" |>> fun _ -> TruePlusMinus.True ]
 
   let mappedType: Parser<TsMappedType, unit> =
     pipe5
-      (opt readonlyTruePlusMinus)
-      ((strWs "[") >>. mappedTypeParam)
-      ((opt tsType) .>> (strWs "]"))
+      (strWs "{" >>. opt readonlyTruePlusMinus)
+      (strWs "[" >>. mappedTypeParam)
+      (opt (strWs "as" >>. spaces1 >>. tsType) .>> strWs "]")
       (opt optionalTruePlusMinus)
-      (strWs ":" >>. tsType)
+      (strWs ":" >>. tsType .>> opt (strWs ";") .>> strWs "}")
     <| fun readonly param name optional typeAnn ->
       { Readonly = readonly
         TypeParam = param
@@ -382,73 +439,50 @@ module Parser =
         TypeAnn = typeAnn
         Loc = None }
 
-  let number: Parser<TsLit, unit> =
-    pfloat
-    |>> fun value ->
-      { Number.Value = value
-        Raw = None
-        Loc = None }
-      |> TsLit.Number
-
-  let strLit: Parser<TsLit, unit> =
-    let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
-
-    let unescape c =
-      match c with
-      | 'n' -> "\n"
-      | 'r' -> "\r"
-      | 't' -> "\t"
-      | c -> string c
-
-    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> unescape)
-
-    (between
-      (pstring "\"")
-      (pstring "\"")
-      (stringsSepBy normalCharSnippet escapedChar))
-    |>> fun value ->
-      { Str.Value = value
-        Raw = None
-        Loc = None }
-      |> TsLit.Str
-
-  let bool: Parser<TsLit, unit> =
-    choice
-      [ (strWs "true") |>> fun _ -> TsLit.Bool { Value = true; Loc = None }
-        (strWs "false") |>> fun _ -> TsLit.Bool { Value = false; Loc = None } ]
-
-  // TODO
-  // let tpl: Parser<TsLit, unit> = ...
+  // between (strWs "{") (strWs "}") inner
 
   let litType: Parser<TsLitType, unit> =
-    choice [ number; strLit; bool ] |>> fun lit -> { Lit = lit; Loc = None }
+    choice [ num |>> TsLit.Number; str |>> TsLit.Str; bool ]
+    |>> fun lit -> { Lit = lit; Loc = None }
 
   let primaryType =
     choice
       [ keywordType |>> TsType.TsKeywordType
-        thisType |>> TsType.TsThisType
-        fnOrConstructorType |>> TsType.TsFnOrConstructorType
-        // TODO: typeQuery |>> TsType.TsTypeQuery
-        typeLit |>> TsType.TsTypeLit
         tupleType |>> TsType.TsTupleType
-        // TODO: optionalType |>> TsType.TsOptionalType
         restType |>> TsType.TsRestType
-        // conditionalType |>> TsType.TsConditionalType
         inferType |>> TsType.TsInferType
-        parenthesizedType |>> TsType.TsParenthesizedType
         typeOperator |>> TsType.TsTypeOperator
-        typeRef |>> TsType.TsTypeRef // This should come last
-        indexedAccessType |>> TsType.TsIndexedAccessType // TODO: make this a suffix
-        mappedType |>> TsType.TsMappedType
         litType |>> TsType.TsLitType
 
-        // TODO: typePredicate |>> TsType.TsTypePredicate
+        // TODO: typeQuery |>> TsType.TsTypeQuery
+        // TODO: optionalType |>> TsType.TsOptionalType
         // TODO: importType |>> TsType.TsImportType
-        ]
+
+        // These both start with '{'
+        attempt (mappedType) |>> TsType.TsMappedType
+        typeLit |>> TsType.TsTypeLit
+
+        // These both start with a '('
+        attempt (fnOrConstructorType |>> TsType.TsFnOrConstructorType)
+        parenthesizedType |>> TsType.TsParenthesizedType
+
+        // typePredicate conflicts with both typeRef and thisType
+        attempt (typePredicate |>> TsType.TsTypePredicate)
+        thisType |>> TsType.TsThisType
+        typeRef |>> TsType.TsTypeRef ]
 
   let arrayTypeSuffix: Parser<TsType -> TsType, unit> =
     (strWs "[" >>. strWs "]")
     |>> fun _ target -> { ElemType = target; Loc = None } |> TsType.TsArrayType
+
+  let indexedAccessTypeSuffix: Parser<TsType -> TsType, unit> =
+    (between (strWs "[") (strWs "]") tsType)
+    |>> fun indexType objType ->
+      { Readonly = false
+        ObjType = objType
+        IndexType = indexType
+        Loc = None }
+      |> TsType.TsIndexedAccessType
 
   let conditionalTypeSuffix: Parser<TsType -> TsType, unit> =
     pipe3
@@ -464,7 +498,10 @@ module Parser =
       |> TsType.TsConditionalType
 
   let suffix: Parser<TsType -> TsType, unit> =
-    choice [ arrayTypeSuffix; conditionalTypeSuffix ]
+    choice
+      [ attempt arrayTypeSuffix
+        attempt indexedAccessTypeSuffix
+        conditionalTypeSuffix ]
 
   let primaryTypeWithSuffix =
     pipe2 primaryType (many suffix)

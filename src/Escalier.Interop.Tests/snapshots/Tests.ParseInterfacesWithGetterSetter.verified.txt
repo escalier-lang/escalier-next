@@ -1,0 +1,49 @@
+﻿input: 
+    interface Foo {
+      get bar(): number;
+      set bar(value: number);
+    }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsInterface
+            { Id = { Name = "Foo"
+                     Loc = None }
+              Declare = false
+              TypeParams = None
+              Extends = None
+              Body =
+               { Body =
+                  [TsGetterSignature
+                     { Key = Ident { Name = "bar"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       TypeAnn =
+                        Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                         Loc = None }
+                               Loc = None }
+                       Loc = None };
+                   TsSetterSignature
+                     { Key = Ident { Name = "bar"
+                                     Loc = None }
+                       Computed = false
+                       Optional = false
+                       Param =
+                        Ident
+                          { Id = { Name = "value"
+                                   Loc = None }
+                            TypeAnn =
+                             Some
+                               { TypeAnn =
+                                  TsKeywordType { Kind = TsNumberKeyword
+                                                  Loc = None }
+                                 Loc = None }
+                            Optional = false
+                            Loc = None }
+                       Loc = None }]
+                 Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

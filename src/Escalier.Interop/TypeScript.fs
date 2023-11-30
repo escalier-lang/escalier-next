@@ -295,7 +295,7 @@ module rec TypeScript =
     | TsNamespaceDecl of TsNamespaceDecl
 
   type TsModuleBlock =
-    { body: list<ModuleItem>
+    { Body: list<ModuleItem>
       Loc: option<SourceLocation> }
 
   type TsNamespaceDecl =

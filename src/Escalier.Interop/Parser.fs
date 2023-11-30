@@ -30,10 +30,13 @@ module Parser =
   let tsTypeAnn, tsTypeAnnRef = createParserForwardedToRef<TsTypeAnn, unit> ()
   let tsType, tsTypeRef = createParserForwardedToRef<TsType, unit> ()
 
+  let moduleItem, moduleItemRef =
+    createParserForwardedToRef<ModuleItem, unit> ()
+
   // Literals
 
   let num: Parser<Number, unit> =
-    pfloat
+    pfloat .>> ws
     |>> fun value ->
       { Number.Value = value
         Raw = None
@@ -55,6 +58,7 @@ module Parser =
       (pstring "\"")
       (pstring "\"")
       (stringsSepBy normalCharSnippet escapedChar))
+    .>> ws
     |>> fun value ->
       { Str.Value = value
         Raw = None
@@ -160,17 +164,19 @@ module Parser =
         Loc = None }
 
   let constructorType: Parser<TsConstructorType, unit> =
-    pipe3
+    pipe4
+      (opt (strWs "abstract"))
       (strWs "new" >>. (opt typeParams))
       tsFnParams
       (strWs "=>" >>. tsTypeAnn)
-    <| fun type_params param_list return_type ->
+    <| fun abs type_params param_list return_type ->
       { TypeParams = type_params
         Params = param_list
         TypeAnn = return_type
-        IsAbstract = false // TODO: handle `abstract new`
+        IsAbstract = abs.IsSome
         Loc = None }
 
+  // TODO: split this up
   let fnOrConstructorType: Parser<TsFnOrConstructorType, unit> =
     choice
       [ fnType |>> TsFnOrConstructorType.TsFnType
@@ -459,12 +465,12 @@ module Parser =
         // TODO: importType |>> TsType.TsImportType
 
         // These both start with '{'
-        attempt (mappedType) |>> TsType.TsMappedType
+        attempt mappedType |>> TsType.TsMappedType
         typeLit |>> TsType.TsTypeLit
 
         // These both start with a '('
-        attempt (fnOrConstructorType |>> TsType.TsFnOrConstructorType)
-        parenthesizedType |>> TsType.TsParenthesizedType
+        attempt parenthesizedType |>> TsType.TsParenthesizedType
+        fnOrConstructorType |>> TsType.TsFnOrConstructorType
 
         // typePredicate conflicts with both typeRef and thisType
         attempt (typePredicate |>> TsType.TsTypePredicate)
@@ -622,15 +628,33 @@ module Parser =
           Kind = kind }
         |> Decl.Var
 
+  let moduleBlock: Parser<TsNamespaceBody, unit> =
+    (strWs "{" >>. many moduleItem .>> strWs "}")
+    |>> fun body -> TsNamespaceBody.TsModuleBlock { Body = body; Loc = None }
+
+  let namespaceBody = moduleBlock
+
+  let moduleName = (ident |>> TsModuleName.Ident) <|> (str |>> TsModuleName.Str)
+
+  let moduleDecl: Parser<bool -> Decl, unit> =
+    pipe2 (strWs "namespace" >>. moduleName) moduleBlock
+    <| fun id body declare ->
+      { Declare = declare
+        Global = false
+        Id = id
+        Body = Some(body)
+        Loc = None }
+      |> Decl.TsModule
+
   let declare: Parser<Decl, unit> =
     pipe2
       (opt (strWs "declare"))
-      (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl ])
+      (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl; moduleDecl ])
     <| fun declare decl -> decl declare.IsSome
 
   let decl = declare
 
-  let moduleItem =
+  moduleItemRef.Value <-
     pipe2 (ws >>. opt (strWs "export")) (decl .>> (opt (strWs ";")))
     <| fun export decl ->
       match export with

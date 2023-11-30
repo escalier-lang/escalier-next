@@ -45,17 +45,16 @@ output: Success: { Body =
                        Computed = false
                        Optional = false
                        Params =
-                        [Ident
-                           { Id = { Name = "a"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn =
-                                   TsKeywordType { Kind = TsNumberKeyword
-                                                   Loc = None }
-                                  Loc = None }
-                             Optional = false
-                             Loc = None }]
+                        [{ Pat = Ident { Id = { Name = "a"
+                                                Loc = None }
+                                         Optional = false
+                                         Loc = None }
+                           TypeAnn =
+                            Some
+                              { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                          Loc = None }
+                                Loc = None }
+                           Loc = None }]
                        TypeAnn =
                         Some { TypeAnn = TsKeywordType { Kind = TsBooleanKeyword
                                                          Loc = None }

@@ -449,7 +449,7 @@ module rec Printer =
                    Kind = kind } ->
         let decls =
           List.map
-            (fun { Id = id; Init = init } ->
+            (fun { VarDeclarator.Id = id; Init = init } ->
               let id = printPattern ctx id
 
               match init with
@@ -471,12 +471,7 @@ module rec Printer =
   let printPattern (ctx: PrintCtx) (p: Pat) : string =
 
     match p with
-    | Pat.Ident { Id = id; TypeAnn = typeAnn } ->
-      match typeAnn with
-      | Some(typeAnn) ->
-        let t = printTypeAnn ctx typeAnn
-        $"{id.Name}: {t}"
-      | None -> id.Name
+    | Pat.Ident { Id = id } -> id.Name
     | _ -> failwith "TODO"
 
   let printBlock (ctx: PrintCtx) (block: BlockStmt) =
@@ -886,16 +881,18 @@ module rec Printer =
       | false, false -> $"[{ps}]: {typeAnn}"
 
   let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : string =
-    match param with
-    | TsFnParam.Ident { Id = { Name = name }
-                        TypeAnn = typeAnn } ->
-      match typeAnn with
-      | Some({ TypeAnn = t }) -> $"{name}: {printType ctx t}"
-      | None -> name
+    let pat =
+      match param.Pat with
+      | TsFnParamPat.Ident id -> id.Id.Name
+      | TsFnParamPat.Array arrayPat ->
+        failwith "TODO: printTsFnParam - arrayPat"
+      | TsFnParamPat.Rest restPat -> failwith "TODO: printTsFnParam - restPat"
+      | TsFnParamPat.Object objectPat ->
+        failwith "TODO: printTsFnParam - objectPat"
 
-    | TsFnParam.Array arrayPat -> failwith "TODO: printTsFnParam - arrayPat"
-    | TsFnParam.Rest restPat -> failwith "TODO: printTsFnParam - restPat"
-    | TsFnParam.Object objectPat -> failwith "TODO: printTsFnParam - objectPat"
+    match param.TypeAnn with
+    | Some(typeAnn) -> $"{pat}: {printTypeAnn ctx typeAnn}"
+    | None -> pat
 
   let printTsTypeParam (ctx: PrintCtx) (typeParam: TsTypeParam) : string =
     let c =

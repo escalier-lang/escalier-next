@@ -12,17 +12,14 @@ output: Success: { Body =
               Declare = true
               Fn =
                { Params =
-                  [{ Pat =
-                      Ident
-                        { Id = { Name = "x"
-                                 Loc = None }
-                          TypeAnn =
-                           Some
-                             { TypeAnn = TsKeywordType { Kind = TsStringKeyword
-                                                         Loc = None }
-                               Loc = None }
-                          Optional = false
-                          Loc = None }
+                  [{ Pat = Ident { Id = { Name = "x"
+                                          Loc = None }
+                                   Optional = false
+                                   Loc = None }
+                     TypeAnn =
+                      Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                       Loc = None }
+                             Loc = None }
                      Loc = None }]
                  Body = None
                  IsGenerator = false
@@ -41,34 +38,30 @@ output: Success: { Body =
               Declare = true
               Fn =
                { Params =
-                  [{ Pat =
-                      Ident
-                        { Id = { Name = "a"
-                                 Loc = None }
-                          TypeAnn =
-                           Some
-                             { TypeAnn =
-                                TsTypeRef { Loc = None
-                                            TypeName = Identifier { Name = "A"
-                                                                    Loc = None }
-                                            TypeParams = None }
-                               Loc = None }
-                          Optional = false
+                  [{ Pat = Ident { Id = { Name = "a"
+                                          Loc = None }
+                                   Optional = false
+                                   Loc = None }
+                     TypeAnn =
+                      Some
+                        { TypeAnn =
+                           TsTypeRef { Loc = None
+                                       TypeName = Identifier { Name = "A"
+                                                               Loc = None }
+                                       TypeParams = None }
                           Loc = None }
                      Loc = None };
-                   { Pat =
-                      Ident
-                        { Id = { Name = "b"
-                                 Loc = None }
-                          TypeAnn =
-                           Some
-                             { TypeAnn =
-                                TsTypeRef { Loc = None
-                                            TypeName = Identifier { Name = "B"
-                                                                    Loc = None }
-                                            TypeParams = None }
-                               Loc = None }
-                          Optional = false
+                   { Pat = Ident { Id = { Name = "b"
+                                          Loc = None }
+                                   Optional = false
+                                   Loc = None }
+                     TypeAnn =
+                      Some
+                        { TypeAnn =
+                           TsTypeRef { Loc = None
+                                       TypeName = Identifier { Name = "B"
+                                                               Loc = None }
+                                       TypeParams = None }
                           Loc = None }
                      Loc = None }]
                  Body = None

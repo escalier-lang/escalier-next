@@ -10,29 +10,23 @@ output: Success: { Body =
               Declare = true
               Fn =
                { Params =
-                  [{ Pat =
-                      Ident
-                        { Id = { Name = "string"
-                                 Loc = None }
-                          TypeAnn =
-                           Some
-                             { TypeAnn = TsKeywordType { Kind = TsStringKeyword
-                                                         Loc = None }
-                               Loc = None }
-                          Optional = false
-                          Loc = None }
+                  [{ Pat = Ident { Id = { Name = "string"
+                                          Loc = None }
+                                   Optional = false
+                                   Loc = None }
+                     TypeAnn =
+                      Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                       Loc = None }
+                             Loc = None }
                      Loc = None };
-                   { Pat =
-                      Ident
-                        { Id = { Name = "radix"
-                                 Loc = None }
-                          TypeAnn =
-                           Some
-                             { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
-                                                         Loc = None }
-                               Loc = None }
-                          Optional = true
-                          Loc = None }
+                   { Pat = Ident { Id = { Name = "radix"
+                                          Loc = None }
+                                   Optional = true
+                                   Loc = None }
+                     TypeAnn =
+                      Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                       Loc = None }
+                             Loc = None }
                      Loc = None }]
                  Body = None
                  IsGenerator = false

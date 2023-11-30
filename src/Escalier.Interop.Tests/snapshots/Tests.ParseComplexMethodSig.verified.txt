@@ -22,68 +22,65 @@ output: Success: { Body =
                        Computed = false
                        Optional = false
                        Params =
-                        [Ident
-                           { Id = { Name = "value"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
-                                                            Loc = None }
-                                  Loc = None }
-                             Optional = false
-                             Loc = None };
-                         Ident
-                           { Id = { Name = "replacer"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn =
-                                   TsUnionOrIntersectionType
-                                     (TsUnionType
-                                        { Types =
-                                           [TsArrayType
-                                              { ElemType =
-                                                 TsParenthesizedType
-                                                   { TypeAnn =
-                                                      TsUnionOrIntersectionType
-                                                        (TsUnionType
-                                                           { Types =
-                                                              [TsKeywordType
-                                                                 { Kind =
-                                                                    TsNumberKeyword
-                                                                   Loc = None };
-                                                               TsKeywordType
-                                                                 { Kind =
-                                                                    TsStringKeyword
-                                                                   Loc = None }]
-                                                             Loc = None })
-                                                     Loc = None }
-                                                Loc = None };
-                                            TsKeywordType { Kind = TsNullKeyword
-                                                            Loc = None }]
-                                          Loc = None })
-                                  Loc = None }
-                             Optional = true
-                             Loc = None };
-                         Ident
-                           { Id = { Name = "space"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn =
-                                   TsUnionOrIntersectionType
-                                     (TsUnionType
-                                        { Types =
-                                           [TsKeywordType
-                                              { Kind = TsStringKeyword
-                                                Loc = None };
-                                            TsKeywordType
-                                              { Kind = TsNumberKeyword
-                                                Loc = None }]
-                                          Loc = None })
-                                  Loc = None }
-                             Optional = true
-                             Loc = None }]
+                        [{ Pat = Ident { Id = { Name = "value"
+                                                Loc = None }
+                                         Optional = false
+                                         Loc = None }
+                           TypeAnn =
+                            Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                             Loc = None }
+                                   Loc = None }
+                           Loc = None };
+                         { Pat = Ident { Id = { Name = "replacer"
+                                                Loc = None }
+                                         Optional = true
+                                         Loc = None }
+                           TypeAnn =
+                            Some
+                              { TypeAnn =
+                                 TsUnionOrIntersectionType
+                                   (TsUnionType
+                                      { Types =
+                                         [TsArrayType
+                                            { ElemType =
+                                               TsParenthesizedType
+                                                 { TypeAnn =
+                                                    TsUnionOrIntersectionType
+                                                      (TsUnionType
+                                                         { Types =
+                                                            [TsKeywordType
+                                                               { Kind =
+                                                                  TsNumberKeyword
+                                                                 Loc = None };
+                                                             TsKeywordType
+                                                               { Kind =
+                                                                  TsStringKeyword
+                                                                 Loc = None }]
+                                                           Loc = None })
+                                                   Loc = None }
+                                              Loc = None };
+                                          TsKeywordType { Kind = TsNullKeyword
+                                                          Loc = None }]
+                                        Loc = None })
+                                Loc = None }
+                           Loc = None };
+                         { Pat = Ident { Id = { Name = "space"
+                                                Loc = None }
+                                         Optional = true
+                                         Loc = None }
+                           TypeAnn =
+                            Some
+                              { TypeAnn =
+                                 TsUnionOrIntersectionType
+                                   (TsUnionType
+                                      { Types =
+                                         [TsKeywordType { Kind = TsStringKeyword
+                                                          Loc = None };
+                                          TsKeywordType { Kind = TsNumberKeyword
+                                                          Loc = None }]
+                                        Loc = None })
+                                Loc = None }
+                           Loc = None }]
                        TypeAnn =
                         Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
                                                          Loc = None }
@@ -96,104 +93,100 @@ output: Success: { Body =
                        Computed = false
                        Optional = false
                        Params =
-                        [Ident
-                           { Id = { Name = "predicate"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn =
-                                   TsFnOrConstructorType
-                                     (TsFnType
-                                        { Params =
-                                           [Ident
-                                              { Id = { Name = "value"
-                                                       Loc = None }
-                                                TypeAnn =
+                        [{ Pat = Ident { Id = { Name = "predicate"
+                                                Loc = None }
+                                         Optional = false
+                                         Loc = None }
+                           TypeAnn =
+                            Some
+                              { TypeAnn =
+                                 TsFnOrConstructorType
+                                   (TsFnType
+                                      { Params =
+                                         [{ Pat = Ident { Id = { Name = "value"
+                                                                 Loc = None }
+                                                          Optional = false
+                                                          Loc = None }
+                                            TypeAnn =
+                                             Some
+                                               { TypeAnn =
+                                                  TsTypeRef
+                                                    { Loc = None
+                                                      TypeName =
+                                                       Identifier { Name = "T"
+                                                                    Loc = None }
+                                                      TypeParams = None }
+                                                 Loc = None }
+                                            Loc = None };
+                                          { Pat = Ident { Id = { Name = "index"
+                                                                 Loc = None }
+                                                          Optional = false
+                                                          Loc = None }
+                                            TypeAnn =
+                                             Some
+                                               { TypeAnn =
+                                                  TsKeywordType
+                                                    { Kind = TsNumberKeyword
+                                                      Loc = None }
+                                                 Loc = None }
+                                            Loc = None };
+                                          { Pat = Ident { Id = { Name = "array"
+                                                                 Loc = None }
+                                                          Optional = false
+                                                          Loc = None }
+                                            TypeAnn =
+                                             Some
+                                               { TypeAnn =
+                                                  TsTypeOperator
+                                                    { Op = Readonly
+                                                      TypeAnn =
+                                                       TsArrayType
+                                                         { ElemType =
+                                                            TsTypeRef
+                                                              { Loc = None
+                                                                TypeName =
+                                                                 Identifier
+                                                                   { Name = "T"
+                                                                     Loc = None }
+                                                                TypeParams =
+                                                                 None }
+                                                           Loc = None }
+                                                      Loc = None }
+                                                 Loc = None }
+                                            Loc = None }]
+                                        TypeParams = None
+                                        TypeAnn =
+                                         { TypeAnn =
+                                            TsTypePredicate
+                                              { Asserts = false
+                                                ParamName =
+                                                 Ident { Name = "value"
+                                                         Loc = None }
+                                                Typeann =
                                                  Some
                                                    { TypeAnn =
                                                       TsTypeRef
                                                         { Loc = None
                                                           TypeName =
                                                            Identifier
-                                                             { Name = "T"
+                                                             { Name = "S"
                                                                Loc = None }
                                                           TypeParams = None }
                                                      Loc = None }
-                                                Optional = false
-                                                Loc = None };
-                                            Ident
-                                              { Id = { Name = "index"
-                                                       Loc = None }
-                                                TypeAnn =
-                                                 Some
-                                                   { TypeAnn =
-                                                      TsKeywordType
-                                                        { Kind = TsNumberKeyword
-                                                          Loc = None }
-                                                     Loc = None }
-                                                Optional = false
-                                                Loc = None };
-                                            Ident
-                                              { Id = { Name = "array"
-                                                       Loc = None }
-                                                TypeAnn =
-                                                 Some
-                                                   { TypeAnn =
-                                                      TsTypeOperator
-                                                        { Op = Readonly
-                                                          TypeAnn =
-                                                           TsArrayType
-                                                             { ElemType =
-                                                                TsTypeRef
-                                                                  { Loc = None
-                                                                    TypeName =
-                                                                     Identifier
-                                                                       { Name =
-                                                                          "T"
-                                                                         Loc =
-                                                                          None }
-                                                                    TypeParams =
-                                                                     None }
-                                                               Loc = None }
-                                                          Loc = None }
-                                                     Loc = None }
-                                                Optional = false
-                                                Loc = None }]
-                                          TypeParams = None
-                                          TypeAnn =
-                                           { TypeAnn =
-                                              TsTypePredicate
-                                                { Asserts = false
-                                                  ParamName =
-                                                   Ident { Name = "value"
-                                                           Loc = None }
-                                                  Typeann =
-                                                   Some
-                                                     { TypeAnn =
-                                                        TsTypeRef
-                                                          { Loc = None
-                                                            TypeName =
-                                                             Identifier
-                                                               { Name = "S"
-                                                                 Loc = None }
-                                                            TypeParams = None }
-                                                       Loc = None }
-                                                  Loc = None }
-                                             Loc = None }
-                                          Loc = None })
-                                  Loc = None }
-                             Optional = false
-                             Loc = None };
-                         Ident
-                           { Id = { Name = "thisArg"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
-                                                            Loc = None }
-                                  Loc = None }
-                             Optional = true
-                             Loc = None }]
+                                                Loc = None }
+                                           Loc = None }
+                                        Loc = None })
+                                Loc = None }
+                           Loc = None };
+                         { Pat = Ident { Id = { Name = "thisArg"
+                                                Loc = None }
+                                         Optional = true
+                                         Loc = None }
+                           TypeAnn =
+                            Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
+                                                             Loc = None }
+                                   Loc = None }
+                           Loc = None }]
                        TypeAnn =
                         Some
                           { TypeAnn =
@@ -240,17 +233,16 @@ output: Success: { Body =
                        Loc = None };
                    TsIndexSignature
                      { Params =
-                        [Ident
-                           { Id = { Name = "idx"
-                                    Loc = None }
-                             TypeAnn =
-                              Some
-                                { TypeAnn =
-                                   TsKeywordType { Kind = TsStringKeyword
-                                                   Loc = None }
-                                  Loc = None }
-                             Optional = false
-                             Loc = None }]
+                        [{ Pat = Ident { Id = { Name = "idx"
+                                                Loc = None }
+                                         Optional = false
+                                         Loc = None }
+                           TypeAnn =
+                            Some
+                              { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                          Loc = None }
+                                Loc = None }
+                           Loc = None }]
                        TypeAnn =
                         { TypeAnn =
                            TsUnionOrIntersectionType

@@ -9,19 +9,17 @@ output: Success: { Body =
       (Decl
          (Var
             { Decls =
-               [{ Id =
-                   Ident
-                     { Id = { Name = "a"
-                              Loc = None }
-                       TypeAnn =
-                        Some
-                          { TypeAnn =
-                             TsTypeRef { Loc = None
-                                         TypeName = Identifier { Name = "A"
-                                                                 Loc = None }
-                                         TypeParams = None }
-                            Loc = None }
-                       Optional = false
+               [{ Id = Ident { Id = { Name = "a"
+                                      Loc = None }
+                               Optional = false
+                               Loc = None }
+                  TypeAnn =
+                   Some
+                     { TypeAnn =
+                        TsTypeRef { Loc = None
+                                    TypeName = Identifier { Name = "A"
+                                                            Loc = None }
+                                    TypeParams = None }
                        Loc = None }
                   Init = None }]
               Declare = true
@@ -30,19 +28,17 @@ output: Success: { Body =
       (Decl
          (Var
             { Decls =
-               [{ Id =
-                   Ident
-                     { Id = { Name = "b"
-                              Loc = None }
-                       TypeAnn =
-                        Some
-                          { TypeAnn =
-                             TsTypeRef { Loc = None
-                                         TypeName = Identifier { Name = "B"
-                                                                 Loc = None }
-                                         TypeParams = None }
-                            Loc = None }
-                       Optional = false
+               [{ Id = Ident { Id = { Name = "b"
+                                      Loc = None }
+                               Optional = false
+                               Loc = None }
+                  TypeAnn =
+                   Some
+                     { TypeAnn =
+                        TsTypeRef { Loc = None
+                                    TypeName = Identifier { Name = "B"
+                                                            Loc = None }
+                                    TypeParams = None }
                        Loc = None }
                   Init = None }]
               Declare = true

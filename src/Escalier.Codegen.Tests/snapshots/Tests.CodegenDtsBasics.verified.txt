@@ -7,4 +7,4 @@ export type Point = {
   x: number;
   y: number;
 };
-export declare const add: (a: number, b: number) => number;
+export declare const add;

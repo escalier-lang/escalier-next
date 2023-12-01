@@ -10,7 +10,7 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.TypeChecker.Env
-open Escalier.TypeChecker.TypeChecker
+open Escalier.TypeChecker.Infer
 open Escalier.TypeChecker.TypeVariable
 
 let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
@@ -213,9 +213,8 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
-    let typeChecker = TypeChecker()
 
-    let! stmtEnv = typeChecker.InferStmt ast env false
+    let! stmtEnv = inferStmt env ast false
     env <- stmtEnv
 
     let! t = env.GetType "factorial"
@@ -237,10 +236,9 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
-  let typeChecker = TypeChecker()
 
   try
-    typeChecker.InferExpr ast env |> ignore
+    inferExpr env ast |> ignore
   with ex ->
     Assert.Equal("Type mismatch 3 != true", ex.Message)
 
@@ -249,10 +247,9 @@ let UndefinedSymbol () =
   nextVariableId <- 0
   let ast = ident "foo"
   let env = getEnv ()
-  let typeChecker = TypeChecker()
 
   try
-    typeChecker.InferExpr ast env |> ignore
+    inferExpr env ast |> ignore
   with ex ->
     Assert.Equal("Undefined symbol foo", ex.Message)
 
@@ -272,8 +269,7 @@ let InferPair () =
         ) ]
 
     let env = getEnv ()
-    let typeChecker = TypeChecker()
-    let! newEnv = typeChecker.InferScript ast env
+    let! newEnv = inferScript env ast
 
     let! f = newEnv.GetType "f"
     let! pair = newEnv.GetType "pair"
@@ -289,10 +285,9 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
-  let typeChecker = TypeChecker()
 
   try
-    typeChecker.InferExpr ast env |> ignore
+    inferExpr env ast |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 
@@ -319,8 +314,7 @@ let InferGenericAndNonGeneric () =
         ) ]
 
     let env = getEnv ()
-    let typeChecker = TypeChecker()
-    let! newEnv = typeChecker.InferScript ast env
+    let! newEnv = inferScript env ast
 
     let! t = newEnv.GetType "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
@@ -347,8 +341,7 @@ let InferFuncComposition () =
 
 
     let env = getEnv ()
-    let typeChecker = TypeChecker()
-    let! newEnv = typeChecker.InferScript ast env
+    let! newEnv = inferScript env ast
 
     let! t = newEnv.GetType "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
@@ -392,8 +385,7 @@ let InferScriptSKK () =
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
     let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
-    let typeChecker = TypeChecker()
-    let! newEnv = typeChecker.InferScript script env
+    let! newEnv = inferScript env script
 
     let! t = newEnv.GetType "S"
 

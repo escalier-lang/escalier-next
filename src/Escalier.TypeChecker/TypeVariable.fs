@@ -1,6 +1,10 @@
 namespace Escalier.TypeChecker
 
+open FsToolkit.ErrorHandling
+
 open Escalier.Data.Type
+
+open Error
 
 module TypeVariable =
   let mutable nextVariableId = 0
@@ -29,3 +33,31 @@ module TypeVariable =
       v.Instance <- Some(newInstance)
       newInstance
     | _ -> t
+
+  let rec bind (t1: Type) (t2: Type) =
+    let t1 = prune t1
+    let t2 = prune t2
+
+    result {
+      if t1.Kind <> t2.Kind then
+        if occursInType t1 t2 then
+          return! Error(TypeError.RecursiveUnification)
+
+        match t1.Kind with
+        | TypeKind.TypeVar(v) ->
+          v.Instance <- Some(t2)
+          return ()
+        | _ -> return! Error(TypeError.NotImplemented "bind error")
+    }
+
+  and occursInType (v: Type) (t2: Type) : bool =
+    match (prune t2).Kind with
+    | pruned when pruned = v.Kind -> true
+    | TypeKind.TypeRef({ TypeArgs = typeArgs }) ->
+      match typeArgs with
+      | Some(typeArgs) -> occursIn v typeArgs
+      | None -> false
+    | _ -> false
+
+  and occursIn (t: Type) (types: list<Type>) : bool =
+    List.exists (occursInType t) types

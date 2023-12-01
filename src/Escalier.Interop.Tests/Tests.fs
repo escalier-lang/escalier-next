@@ -1,13 +1,29 @@
 [<VerifyXunit.UsesVerify>]
 module Tests
 
+open Escalier.TypeChecker
+open FsToolkit.ErrorHandling
 open FParsec.CharParsers
+open FParsec.Error
 open VerifyTests
 open VerifyXunit
 open Xunit
 open System.IO
 
+open Escalier.TypeChecker.Error
+open Escalier.TypeChecker.Env
 open Escalier.Interop.Parser
+open Escalier.Interop.Infer
+
+type Assert with
+
+  static member inline Value(env: Env, name: string, expected: string) =
+    let t, _ = Map.find name env.Values
+    Assert.Equal(expected, t.ToString())
+
+  static member inline Type(env: Env, name: string, expected: string) =
+    let scheme = Map.find name env.Schemes
+    Assert.Equal(expected, scheme.ToString())
 
 
 let settings = VerifySettings()
@@ -195,6 +211,37 @@ let ParseLineComments () =
   let result = $"input: %s{input}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+type CompileError =
+  | ParseError of ParserError
+  | TypeError of TypeError
+
+[<Fact>]
+let InferBasicVarDecls () =
+  let res =
+    result {
+      let input =
+        """
+        declare var a: number;
+        declare const b: string | undefined;
+        """
+
+      // declare let c: (a: number) => string;
+      // declare function d<T>(x: T): T;
+
+      let! ast =
+        match parseModule input with
+        | Success(value, _, _) -> Result.Ok(value)
+        | Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let env = Prelude.getEnv ()
+      let newEnv = inferModule env ast
+
+      Assert.Value(newEnv, "a", "number")
+    }
+
+  Assert.True(Result.isOk res)
 
 [<Fact>]
 let ParseLibES5 () =

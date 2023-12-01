@@ -63,7 +63,8 @@ module rec TypeChecker =
               ObjPatElem.RestPat(patternToPattern target))
           elems
       )
-    | PatternKind.Tuple elems -> Pattern.Tuple(List.map patternToPattern elems)
+    | PatternKind.Tuple elems ->
+      Pattern.Tuple(List.map (patternToPattern >> Some) elems)
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 
@@ -293,8 +294,8 @@ module rec TypeChecker =
       result {
         let callee = prune callee
 
-        let retType = TypeVariable.makeVariable None
-        let throwsType = TypeVariable.makeVariable None
+        let retType = makeVariable None
+        let throwsType = makeVariable None
 
         match callee.Kind with
         | TypeKind.Function func ->
@@ -915,7 +916,7 @@ module rec TypeChecker =
       let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
         match pat.Kind with
         | PatternKind.Identifier({ Name = name; IsMut = isMut }) ->
-          let t = TypeVariable.makeVariable None
+          let t = makeVariable None
 
           // TODO: check if `name` already exists in `assump`
           assump <- assump.Add(name, (t, isMut))
@@ -941,7 +942,7 @@ module rec TypeChecker =
                         Type = t }
                   )
                 | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
-                  let t = TypeVariable.makeVariable None
+                  let t = makeVariable None
 
                   // TODO: check if `name` already exists in `assump`
                   let isMut = false

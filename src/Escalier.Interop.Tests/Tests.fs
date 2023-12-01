@@ -236,7 +236,9 @@ let InferBasicVarDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
-      let newEnv = inferModule env ast
+
+      let! newEnv =
+        inferModule env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(newEnv, "a", "number")
     }

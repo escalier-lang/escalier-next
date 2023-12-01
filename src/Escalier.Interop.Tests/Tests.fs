@@ -224,10 +224,9 @@ let InferBasicVarDecls () =
         """
         declare var a: number;
         declare const b: string | undefined;
+        declare let c: (a: number) => string;
+        declare function d<T>(x: T): T;
         """
-
-      // declare let c: (a: number) => string;
-      // declare function d<T>(x: T): T;
 
       let! ast =
         match parseModule input with
@@ -241,6 +240,9 @@ let InferBasicVarDecls () =
         inferModule env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(newEnv, "a", "number")
+      Assert.Value(newEnv, "b", "string | undefined")
+      Assert.Value(newEnv, "c", "fn (a: number) -> string")
+      Assert.Value(newEnv, "d", "fn <T>(x: T) -> T")
     }
 
   Assert.True(Result.isOk res)

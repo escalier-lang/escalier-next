@@ -3,9 +3,11 @@ namespace Escalier.Interop
 open FsToolkit.ErrorHandling
 
 open Escalier.Data.Type
+open Escalier.Data.Common
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
+open Escalier.TypeChecker.Unify
 open Escalier.Interop.TypeScript
 
 // NOTES:
@@ -16,7 +18,181 @@ open Escalier.Interop.TypeScript
 //   a time
 
 module rec Infer =
-  let inferTsType (env: Env) (t: TsType) : Type = failwith "TODO"
+  let rec printTsEntityName (name: TsEntityName) : string =
+    match name with
+    | TsEntityName.Identifier id -> id.Name
+    | TsEntityName.TsQualifiedName { Left = left; Right = right } ->
+      sprintf "%s.%s" (printTsEntityName left) right.Name
+
+  let inferTsType (env: Env) (t: TsType) : Type =
+    let kind =
+      match t with
+      | TsType.TsKeywordType keyword ->
+        match keyword.Kind with
+        | TsAnyKeyword ->
+          let t = TypeVariable.makeVariable None
+          t.Kind // TODO: find a better way to do this
+        | TsUnknownKeyword -> makePrimitiveKind "unknown"
+        | TsNumberKeyword -> makePrimitiveKind "number"
+        | TsObjectKeyword -> makePrimitiveKind "object"
+        | TsBooleanKeyword -> makePrimitiveKind "boolean"
+        | TsBigIntKeyword -> failwith "TODO: TsBigIntKeyword"
+        | TsStringKeyword -> makePrimitiveKind "string"
+        | TsSymbolKeyword -> makePrimitiveKind "symbol"
+        | TsVoidKeyword -> failwith "TODO: TsVoidKeyword"
+        | TsUndefinedKeyword -> TypeKind.Literal(Literal.Undefined)
+        | TsNullKeyword -> TypeKind.Literal(Literal.Null)
+        | TsNeverKeyword -> makePrimitiveKind "never"
+        | TsIntrinsicKeyword -> failwith "TODO: TsIntrinsicKeyword"
+
+      | TsType.TsThisType tsThisType ->
+        // TODO: use a TypeRef for this, but we need to know what `this`
+        // is reference so we can create a Scheme for it
+        failwith "TODO: inferTsType - TsThisType"
+      | TsType.TsFnOrConstructorType tsFnOrConstructorType ->
+        match tsFnOrConstructorType with
+        | TsFnOrConstructorType.TsFnType f ->
+          let typeParams =
+            f.TypeParams
+            |> Option.map (fun typeParamDecl ->
+              typeParamDecl.Params
+              |> List.map (fun typeParam ->
+                { Name = typeParam.Name.Name
+                  Constraint =
+                    Option.map (inferTsType env) typeParam.Constraint
+                  Default = Option.map (inferTsType env) typeParam.Default }))
+
+          let paramList: list<FuncParam> =
+            f.Params
+            |> List.map (fun param ->
+              let typeAnn =
+                match param.TypeAnn with
+                | Some(t) -> inferTsTypeAnn env t
+                | None -> TypeVariable.makeVariable None
+
+              let pat =
+                match param.Pat with
+                | TsFnParamPat.Ident binding -> Pat.Ident binding
+                | TsFnParamPat.Array arrayPat -> Pat.Array arrayPat
+                | TsFnParamPat.Rest restPat -> Pat.Rest restPat
+                | TsFnParamPat.Object objectPat -> Pat.Object objectPat
+
+              let pat = patToPattern env pat
+
+              { Pattern = pat
+                Type = typeAnn
+                Optional = false })
+
+          let retType = inferTsTypeAnn env f.TypeAnn
+
+          let t = makeFunctionType typeParams paramList retType
+          t.Kind // TODO: find a better way to do this
+        | TsFnOrConstructorType.TsConstructorType f ->
+          let typeParams =
+            f.TypeParams
+            |> Option.map (fun typeParamDecl ->
+              typeParamDecl.Params
+              |> List.map (fun typeParam ->
+                { Name = typeParam.Name.Name
+                  Constraint =
+                    Option.map (inferTsType env) typeParam.Constraint
+                  Default = Option.map (inferTsType env) typeParam.Default }))
+
+          let paramList: list<FuncParam> =
+            f.Params
+            |> List.map (fun param ->
+              let typeAnn =
+                match param.TypeAnn with
+                | Some(t) -> inferTsTypeAnn env t
+                | None -> TypeVariable.makeVariable None
+
+              let pat =
+                match param.Pat with
+                | TsFnParamPat.Ident binding -> Pat.Ident binding
+                | TsFnParamPat.Array arrayPat -> Pat.Array arrayPat
+                | TsFnParamPat.Rest restPat -> Pat.Rest restPat
+                | TsFnParamPat.Object objectPat -> Pat.Object objectPat
+
+              let pat = patToPattern env pat
+
+              { Pattern = pat
+                Type = typeAnn
+                Optional = false })
+
+          let retType = inferTsTypeAnn env f.TypeAnn
+
+          let t = makeFunctionType typeParams paramList retType
+          t.Kind // TODO: find a better way to do this
+      | TsType.TsTypeRef tsTypeRef ->
+        let kind =
+          { Name = printTsEntityName tsTypeRef.TypeName
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+
+        kind
+      | TsType.TsTypeQuery tsTypeQuery ->
+        failwith "TODO: inferTsType - TsTypeQuery"
+      | TsType.TsTypeLit tsTypeLit ->
+        // NOTE: this makes to TypeKind.Object
+        failwith "TODO: inferTsType - TsTypeLit"
+      | TsType.TsArrayType tsArrayType ->
+        TypeKind.Array(inferTsType env tsArrayType.ElemType)
+      | TsType.TsTupleType tsTupleType ->
+        TypeKind.Tuple(
+          List.map (fun elem -> inferTsType env elem.Type) tsTupleType.ElemTypes
+        )
+      | TsType.TsOptionalType tsOptionalType ->
+        failwith "TODO: inferTsType - TsOptionalType"
+      | TsType.TsRestType tsRestType ->
+        TypeKind.Rest(inferTsType env tsRestType.TypeAnn)
+      | TsType.TsUnionOrIntersectionType tsUnionOrIntersectionType ->
+        match tsUnionOrIntersectionType with
+        | TsIntersectionType { Types = types } ->
+          let types = types |> List.map (fun t -> inferTsType env t)
+          TypeKind.Intersection types
+        | TsUnionType { Types = types } ->
+          let t = union (List.map (inferTsType env) types)
+          t.Kind // TODO: find a better way to do this
+      | TsType.TsConditionalType tsConditionalType ->
+        let checkType = inferTsType env tsConditionalType.CheckType
+        let extendsType = inferTsType env tsConditionalType.ExtendsType
+        let trueType = inferTsType env tsConditionalType.TrueType
+        let falseType = inferTsType env tsConditionalType.FalseType
+        TypeKind.Condition(checkType, extendsType, trueType, falseType)
+      | TsType.TsInferType tsInferType ->
+        TypeKind.Infer tsInferType.TypeParam.Name.Name
+      | TsType.TsParenthesizedType tsParenthesizedType ->
+        let t = inferTsType env tsParenthesizedType.TypeAnn
+        t.Kind // TODO: find a better way to do this
+      | TsType.TsTypeOperator tsTypeOperator ->
+        match tsTypeOperator.Op with
+        | TsTypeOperatorOp.KeyOf ->
+          TypeKind.KeyOf(inferTsType env tsTypeOperator.TypeAnn)
+        | TsTypeOperatorOp.Unique -> failwith "TODO: inferTsType - Unique"
+        | TsTypeOperatorOp.Readonly -> failwith "TODO: inferTsType - Readonly"
+      | TsType.TsIndexedAccessType tsIndexedAccessType ->
+        let objType = inferTsType env tsIndexedAccessType.ObjType
+        let indexType = inferTsType env tsIndexedAccessType.IndexType
+        TypeKind.Index(objType, indexType)
+      | TsType.TsMappedType tsMappedType ->
+        failwith "TODO: inferTsType - TsMappedType"
+      | TsType.TsLitType tsLitType ->
+        let lit =
+          match tsLitType.Lit with
+          | Number num -> Literal.Number(num.Value |> string)
+          | Str str -> Literal.String str.Value
+          | Bool bool -> Literal.Boolean bool.Value
+          | Tpl tsTplLitType -> failwith "TODO: inferTsType - TsTplLitType"
+
+        TypeKind.Literal lit
+      | TsType.TsTypePredicate tsTypePredicate ->
+        failwith "TODO: inferTsType - TsTypePredicate"
+      | TsType.TsImportType tsImportType ->
+        failwith "TODO: inferTsType - TsImportType"
+
+    { Kind = kind; Provenance = None }
+
 
   let inferTsTypeAnn (env: Env) (ta: TsTypeAnn) : Type =
     inferTsType env ta.TypeAnn
@@ -84,6 +260,15 @@ module rec Infer =
     | Pat.Expr expr -> failwith "TODO: remove Pat.Expr from Expr"
 
   let inferFunction (env: Env) (f: Function) : Type =
+    let typeParams =
+      f.TypeParams
+      |> Option.map (fun typeParamDecl ->
+        typeParamDecl.Params
+        |> List.map (fun typeParam ->
+          { Name = typeParam.Name.Name
+            Constraint = Option.map (inferTsType env) typeParam.Constraint
+            Default = Option.map (inferTsType env) typeParam.Default }))
+
     let paramList: list<FuncParam> =
       f.Params
       |> List.map (fun param ->
@@ -103,8 +288,12 @@ module rec Infer =
       | Some(retType) -> inferTsTypeAnn env retType
       | None -> failwith "Function decl has no return type"
 
-    makeFunctionType None paramList ret
+    makeFunctionType typeParams paramList ret
 
+  // TODO: generalize inferred types
+  // NOTE: some types with free variables will not be function types which
+  // means the type checker will need to be able to instantiate generic types
+  // that aren't function types
   let inferDecl (env: Env) (decl: Decl) : Result<Env, TypeError> =
     result {
 
@@ -119,10 +308,16 @@ module rec Infer =
         newEnv <- env.AddValue name (t, isMut)
       | Decl.Var varDecl ->
         for decl in varDecl.Decls do
-          let! assumps, _ = inferPattern env decl.Id
+          let! assumps, patType = inferPattern env decl.Id
 
           for Operators.KeyValue(name, binding) in assumps do
             newEnv <- env.AddValue name binding
+
+          match decl.TypeAnn with
+          | Some(typeAnn) ->
+            let typeAnnType = inferTsTypeAnn env typeAnn
+            do! unify env typeAnnType patType
+          | None -> ()
 
       | Decl.Using usingDecl -> failwith "TODO: usingDecl"
       | Decl.TsInterface tsInterfaceDecl ->

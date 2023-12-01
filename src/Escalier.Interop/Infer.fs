@@ -1,8 +1,11 @@
 namespace Escalier.Interop
 
+open FsToolkit.ErrorHandling
+
 open Escalier.Data.Type
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.Error
 open Escalier.Interop.TypeScript
 
 // NOTES:
@@ -18,28 +21,33 @@ module rec Infer =
   let inferTsTypeAnn (env: Env) (ta: TsTypeAnn) : Type =
     inferTsType env ta.TypeAnn
 
-  let inferPattern (env: Env) (p: Pat) : BindingAssump * Type =
-    let mutable assump = BindingAssump([])
+  let inferPattern
+    (env: Env)
+    (p: Pat)
+    : Result<BindingAssump * Type, TypeError> =
+    result {
+      let mutable assump = BindingAssump([])
 
-    let rec infer_pattern_rec (pat: Pat) : Type =
-      match pat with
-      | Pat.Ident id ->
-        let t = TypeVariable.makeVariable None
-        // TODO:
-        let isMut = false
-        // TODO: check if `name` already exists in `assump`
-        assump <- assump.Add(id.Id.Name, (t, isMut))
-        t
-      | Pat.Array arrayPat -> failwith "TODO: infer_pattern_rec - Array"
-      | Pat.Rest restPat -> failwith "TODO: infer_pattern_rec - Rest"
-      | Pat.Object objectPat -> failwith "TODO: infer_pattern_rec - Object"
-      | Pat.Assign assignPat -> failwith "TODO: infer_pattern_rec - Assign"
-      | Pat.Invalid invalid -> failwith "TODO: infer_pattern_rec - Invalid"
-      // TODO: remove Pat.Expr from Pat
-      | Pat.Expr expr -> failwith "TODO: infer_pattern_rec - Expr"
+      let rec infer_pattern_rec (pat: Pat) : Type =
+        match pat with
+        | Pat.Ident id ->
+          let t = TypeVariable.makeVariable None
+          // TODO:
+          let isMut = false
+          // TODO: check if `name` already exists in `assump`
+          assump <- assump.Add(id.Id.Name, (t, isMut))
+          t
+        | Pat.Array arrayPat -> failwith "TODO: infer_pattern_rec - Array"
+        | Pat.Rest restPat -> failwith "TODO: infer_pattern_rec - Rest"
+        | Pat.Object objectPat -> failwith "TODO: infer_pattern_rec - Object"
+        | Pat.Assign assignPat -> failwith "TODO: infer_pattern_rec - Assign"
+        | Pat.Invalid invalid -> failwith "TODO: infer_pattern_rec - Invalid"
+        // TODO: remove Pat.Expr from Pat
+        | Pat.Expr expr -> failwith "TODO: infer_pattern_rec - Expr"
 
-    let t = infer_pattern_rec p
-    (assump, t)
+      let t = infer_pattern_rec p
+      return (assump, t)
+    }
 
   let patToPattern (env: Env) (p: Pat) : Pattern =
     match p with
@@ -97,74 +105,88 @@ module rec Infer =
 
     makeFunctionType None paramList ret
 
-  let inferDecl (env: Env) (decl: Decl) : Env =
-    let mutable newEnv = env
+  let inferDecl (env: Env) (decl: Decl) : Result<Env, TypeError> =
+    result {
 
-    match decl with
-    | Decl.Class classDecl -> failwith "TODO: classDecl"
-    | Decl.Fn fnDecl ->
-      let t = inferFunction env fnDecl.Fn
-      let name = fnDecl.Id.Name
-      let isMut = false
-      newEnv <- env.AddValue name (t, isMut)
-    | Decl.Var varDecl ->
-      for decl in varDecl.Decls do
-        let assumps, _ = inferPattern env decl.Id
+      let mutable newEnv = env
 
-        for Operators.KeyValue(name, binding) in assumps do
-          newEnv <- env.AddValue name binding
+      match decl with
+      | Decl.Class classDecl -> failwith "TODO: classDecl"
+      | Decl.Fn fnDecl ->
+        let t = inferFunction env fnDecl.Fn
+        let name = fnDecl.Id.Name
+        let isMut = false
+        newEnv <- env.AddValue name (t, isMut)
+      | Decl.Var varDecl ->
+        for decl in varDecl.Decls do
+          let! assumps, _ = inferPattern env decl.Id
 
-    | Decl.Using usingDecl -> failwith "TODO: usingDecl"
-    | Decl.TsInterface tsInterfaceDecl ->
-      // TODO: handle interface merging
-      failwith "TODO: tsInterfaceDecl"
-    | Decl.TsTypeAlias decl ->
-      let typeParams = None
-      let t = inferTsType env decl.TypeAnn
-      let scheme = { TypeParams = typeParams; Type = t }
+          for Operators.KeyValue(name, binding) in assumps do
+            newEnv <- env.AddValue name binding
 
-      // TODO: if decl.Global is true, add to the global env
-      newEnv <- env.AddScheme decl.Id.Name scheme
-    | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
-    | Decl.TsModule tsModuleDecl -> failwith "TODO: tsModuleDecl"
+      | Decl.Using usingDecl -> failwith "TODO: usingDecl"
+      | Decl.TsInterface tsInterfaceDecl ->
+        // TODO: handle interface merging
+        failwith "TODO: tsInterfaceDecl"
+      | Decl.TsTypeAlias decl ->
+        let typeParams = None
+        let t = inferTsType env decl.TypeAnn
+        let scheme = { TypeParams = typeParams; Type = t }
 
-    newEnv
+        // TODO: if decl.Global is true, add to the global env
+        newEnv <- env.AddScheme decl.Id.Name scheme
+      | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
+      | Decl.TsModule tsModuleDecl -> failwith "TODO: tsModuleDecl"
 
-  let inferStmt (env: Env) (stmt: Stmt) : Env =
-    match stmt with
-    | Stmt.Decl decl -> inferDecl env decl
-    | _ -> env // .d.ts files shouldn't have any other statement kinds
+      return newEnv
+    }
 
-  let inferModuleDecl (env: Env) (decl: ModuleDecl) : Env =
-    match decl with
-    | ModuleDecl.Import importDecl ->
-      failwith "TODO: inferModuleDecl - importDecl"
-    | ModuleDecl.ExportDecl exportDecl ->
-      failwith "TODO: inferModuleDecl - exportDecl"
-    | ModuleDecl.ExportNamed namedExport ->
-      failwith "TODO: inferModuleDecl - namedExport"
-    | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
-      failwith "TODO: inferModuleDecl - exportDefaultDecl"
-    | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
-      failwith "TODO: inferModuleDecl - exportDefaultExpr"
-    | ModuleDecl.ExportAll exportAll ->
-      failwith "TODO: inferModuleDecl - exportAll"
-    | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
-      failwith "TODO: inferModuleDecl - tsImportEqualsDecl"
-    | ModuleDecl.TsExportAssignment tsExportAssignment ->
-      failwith "TODO: inferModuleDecl - tsExportAssignment"
-    | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
-      failwith "TODO: inferModuleDecl - tsNamespaceExportDecl"
+  let inferStmt (env: Env) (stmt: Stmt) : Result<Env, TypeError> =
+    result {
+      match stmt with
+      | Stmt.Decl decl -> return! inferDecl env decl
+      | _ -> return env // .d.ts files shouldn't have any other statement kinds
+    }
 
-  let inferModuleItem (env: Env) (item: ModuleItem) : Env =
-    match item with
-    | ModuleItem.Stmt stmt -> inferStmt env stmt
-    | ModuleItem.ModuleDecl decl -> env
+  let inferModuleDecl (env: Env) (decl: ModuleDecl) : Result<Env, TypeError> =
+    result {
+      match decl with
+      | ModuleDecl.Import importDecl ->
+        failwith "TODO: inferModuleDecl - importDecl"
+      | ModuleDecl.ExportDecl exportDecl ->
+        failwith "TODO: inferModuleDecl - exportDecl"
+      | ModuleDecl.ExportNamed namedExport ->
+        failwith "TODO: inferModuleDecl - namedExport"
+      | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+        failwith "TODO: inferModuleDecl - exportDefaultDecl"
+      | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+        failwith "TODO: inferModuleDecl - exportDefaultExpr"
+      | ModuleDecl.ExportAll exportAll ->
+        failwith "TODO: inferModuleDecl - exportAll"
+      | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+        failwith "TODO: inferModuleDecl - tsImportEqualsDecl"
+      | ModuleDecl.TsExportAssignment tsExportAssignment ->
+        failwith "TODO: inferModuleDecl - tsExportAssignment"
+      | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+        failwith "TODO: inferModuleDecl - tsNamespaceExportDecl"
 
-  let inferModule (env: Env) (m: Module) : Env =
-    let mutable newEnv = env
+      return env
+    }
 
-    for item in m.Body do
-      newEnv <- inferModuleItem newEnv item
+  let inferModuleItem (env: Env) (item: ModuleItem) : Result<Env, TypeError> =
+    result {
+      match item with
+      | ModuleItem.Stmt stmt -> return! inferStmt env stmt
+      | ModuleItem.ModuleDecl decl -> return env
+    }
 
-    newEnv
+  let inferModule (env: Env) (m: Module) : Result<Env, TypeError> =
+    result {
+      let mutable newEnv = env
+
+      for item in m.Body do
+        let! env = inferModuleItem newEnv item
+        newEnv <- env
+
+      return newEnv
+    }

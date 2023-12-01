@@ -9,7 +9,7 @@ open Escalier.Parser.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
-open Escalier.TypeChecker.TypeChecker
+open Escalier.TypeChecker.Infer
 
 type Assert with
 
@@ -34,10 +34,8 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
-    let typeChecker = TypeChecker()
 
-    let! t =
-      Result.mapError CompileError.TypeError (typeChecker.InferExpr ast env)
+    let! t = Result.mapError CompileError.TypeError (inferExpr env ast)
 
     return t
   }
@@ -51,10 +49,8 @@ let inferScript src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
-    let typeChecker = TypeChecker()
 
-    let! env =
-      Result.mapError CompileError.TypeError (typeChecker.InferScript ast env)
+    let! env = Result.mapError CompileError.TypeError (inferScript env ast)
 
     return env
   }
@@ -67,10 +63,7 @@ let inferWithEnv src env =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let typeChecker = TypeChecker()
-
-    let! t =
-      Result.mapError CompileError.TypeError (typeChecker.InferExpr ast env)
+    let! t = Result.mapError CompileError.TypeError (inferExpr env ast)
 
     return t
   }

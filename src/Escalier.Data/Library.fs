@@ -263,7 +263,9 @@ module Type =
   type Pattern =
     | Identifier of name: string
     | Object of elems: list<ObjPatElem>
-    | Tuple of elems: list<Pattern> // TODO: support rest patterns
+    // TODO: support sparse tuples
+    // TODO: support rest patterns
+    | Tuple of elems: list<option<Pattern>>
     | Wildcard
     | Literal of Common.Literal
     | Is of target: Syntax.BindingIdent * id: string

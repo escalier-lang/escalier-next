@@ -124,9 +124,14 @@ module rec Infer =
           let t = makeFunctionType typeParams paramList retType
           t.Kind // TODO: find a better way to do this
       | TsType.TsTypeRef tsTypeRef ->
+        let typeArgs =
+          tsTypeRef.TypeParams
+          |> Option.map (fun ({ Params = typeParams }) ->
+            typeParams |> List.map (fun t -> inferTsType env t))
+
         let kind =
           { Name = printTsEntityName tsTypeRef.TypeName
-            TypeArgs = None
+            TypeArgs = typeArgs
             Scheme = None }
           |> TypeKind.TypeRef
 
@@ -176,7 +181,33 @@ module rec Infer =
         let indexType = inferTsType env tsIndexedAccessType.IndexType
         TypeKind.Index(objType, indexType)
       | TsType.TsMappedType tsMappedType ->
-        failwith "TODO: inferTsType - TsMappedType"
+
+        let srcKey = tsMappedType.TypeParam.Name.Name
+
+        let object =
+          match tsMappedType.TypeParam.Constraint with
+          | Some(c) -> inferTsType env c
+          | None -> failwith "TODO: inferTsType - TsMappedType"
+
+        let valueType = inferTsType env tsMappedType.TypeAnn
+
+        let mapped =
+          { SrcKey = srcKey
+            SrcKeys = object
+            DestKey = None // reuse SrcKey when DestKey is None
+            DestValue = valueType
+
+            // modifiers
+            Optional = None
+            Readonly = None
+
+            // filtering
+            Check = None
+            Extends = None }
+
+        let elem = ObjTypeElem.Mapped mapped
+
+        TypeKind.Object [ elem ]
       | TsType.TsLitType tsLitType ->
         let lit =
           match tsLitType.Lit with

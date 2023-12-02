@@ -226,6 +226,7 @@ let InferBasicVarDecls () =
         declare const b: string | undefined;
         declare let c: (a: number) => string;
         declare function d<T>(x: T): T;
+        declare let e: [5, "hello", true];
         """
 
       let! ast =
@@ -243,6 +244,38 @@ let InferBasicVarDecls () =
       Assert.Value(newEnv, "b", "string | undefined")
       Assert.Value(newEnv, "c", "fn (a: number) -> string")
       Assert.Value(newEnv, "d", "fn <T>(x: T) -> T")
+      Assert.Value(newEnv, "e", "[5, \"hello\", true]")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferTypeDecls () =
+  let res =
+    result {
+      let input =
+        """
+        type Pick<T, K extends keyof T> = {
+          [P in K]: T[P];
+        };
+        type Exclude<T, U> = T extends U ? never : T;
+        type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(value, _, _) -> Result.Ok(value)
+        | Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let env = Prelude.getEnv ()
+
+      let! newEnv =
+        inferModule env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Type(newEnv, "Pick", "{[P]: T[P] for P in K}")
+      Assert.Type(newEnv, "Exclude", "T extends U ? never : T")
+      Assert.Type(newEnv, "Omit", "Pick<T, Exclude<keyof T, K>>")
     }
 
   Assert.True(Result.isOk res)

@@ -2,6 +2,7 @@ namespace Escalier.Interop
 
 open FsToolkit.ErrorHandling
 
+open Escalier.Data
 open Escalier.Data.Type
 open Escalier.Data.Common
 open Escalier.TypeChecker
@@ -24,6 +25,115 @@ module rec Infer =
     | TsEntityName.TsQualifiedName { Left = left; Right = right } ->
       sprintf "%s.%s" (printTsEntityName left) right.Name
 
+  let inferFnParam (env: Env) (param: TsFnParam) : FuncParam =
+    let typeAnn =
+      match param.TypeAnn with
+      | Some(t) -> inferTsTypeAnn env t
+      | None -> TypeVariable.makeVariable None
+
+    let pat =
+      match param.Pat with
+      | TsFnParamPat.Ident binding -> Pat.Ident binding
+      | TsFnParamPat.Array arrayPat -> Pat.Array arrayPat
+      | TsFnParamPat.Rest restPat -> Pat.Rest restPat
+      | TsFnParamPat.Object objectPat -> Pat.Object objectPat
+
+    let pat = patToPattern env pat
+
+    { Pattern = pat
+      Type = typeAnn
+      Optional = false }
+
+  let inferTypeElement (env: Env) (elem: TsTypeElement) : ObjTypeElem =
+    match elem with
+    | TsCallSignatureDecl tsCallSignatureDecl ->
+      failwith "TODO: inferTypeElement - TsCallSignatureDecl"
+    | TsConstructSignatureDecl tsConstructSignatureDecl ->
+      failwith "TODO: inferTypeElement - TsConstructSignatureDecl"
+    | TsPropertySignature tsPropertySignature ->
+      // TODO: handle computed keys
+      let name =
+        match tsPropertySignature.Key with
+        | Expr.Ident id -> id.Name
+        | Expr.Lit(Lit.Str str) -> str.Value
+        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | _ -> failwith "TODO: computed property name"
+
+      let t = inferTsTypeAnn env tsPropertySignature.TypeAnn
+
+      let property =
+        { Name = name
+          Optional = tsPropertySignature.Optional
+          Readonly = tsPropertySignature.Readonly
+          Type = t }
+
+      ObjTypeElem.Property(property)
+    | TsGetterSignature tsGetterSignature ->
+      // TODO: handle computed keys
+      let name =
+        match tsGetterSignature.Key with
+        | Expr.Ident id -> id.Name
+        | Expr.Lit(Lit.Str str) -> str.Value
+        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | _ -> failwith "TODO: computed property name"
+
+      let returnType =
+        match tsGetterSignature.TypeAnn with
+        | Some(typeAnn) -> inferTsTypeAnn env typeAnn
+        | None -> TypeVariable.makeVariable None
+
+      let throws =
+        { Kind = makePrimitiveKind "never"
+          Provenance = None }
+
+      ObjTypeElem.Getter(name, returnType, throws)
+    | TsSetterSignature tsSetterSignature ->
+      // TODO: handle computed keys
+      let name =
+        match tsSetterSignature.Key with
+        | Expr.Ident id -> id.Name
+        | Expr.Lit(Lit.Str str) -> str.Value
+        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | _ -> failwith "TODO: computed property name"
+
+      let param = inferFnParam env tsSetterSignature.Param
+
+      let throws =
+        { Kind = makePrimitiveKind "never"
+          Provenance = None }
+
+      ObjTypeElem.Setter(name, param, throws)
+    | TsMethodSignature tsMethodSignature ->
+      let name =
+        match tsMethodSignature.Key with
+        | Expr.Ident id -> id.Name
+        | Expr.Lit(Lit.Str str) -> str.Value
+        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | _ -> failwith "TODO: computed property name"
+
+      let typeParams = None // TODO: handle type params
+      let paramList = tsMethodSignature.Params |> List.map (inferFnParam env)
+
+      let returnType =
+        match tsMethodSignature.TypeAnn with
+        | Some(typeAnn) -> inferTsTypeAnn env typeAnn
+        | None -> TypeVariable.makeVariable None
+
+      let throws =
+        { Kind = makePrimitiveKind "never"
+          Provenance = None }
+
+      let f: Type.Function =
+        { TypeParams = typeParams
+          ParamList = paramList
+          Return = returnType
+          Throws = throws }
+
+      ObjTypeElem.Method(name, false, f)
+    | TsIndexSignature tsIndexSignature ->
+      // TODO: convert this to a mapped type
+      failwith "TODO: inferTypeElement - TsIndexSignature"
+
   let inferTsType (env: Env) (t: TsType) : Type =
     let kind =
       match t with
@@ -39,7 +149,8 @@ module rec Infer =
         | TsBigIntKeyword -> failwith "TODO: TsBigIntKeyword"
         | TsStringKeyword -> makePrimitiveKind "string"
         | TsSymbolKeyword -> makePrimitiveKind "symbol"
-        | TsVoidKeyword -> failwith "TODO: TsVoidKeyword"
+        // TODO: figure out if Escalier needs its own `void` type
+        | TsVoidKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsUndefinedKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsNullKeyword -> TypeKind.Literal(Literal.Null)
         | TsNeverKeyword -> makePrimitiveKind "never"
@@ -63,25 +174,7 @@ module rec Infer =
                   Default = Option.map (inferTsType env) typeParam.Default }))
 
           let paramList: list<FuncParam> =
-            f.Params
-            |> List.map (fun param ->
-              let typeAnn =
-                match param.TypeAnn with
-                | Some(t) -> inferTsTypeAnn env t
-                | None -> TypeVariable.makeVariable None
-
-              let pat =
-                match param.Pat with
-                | TsFnParamPat.Ident binding -> Pat.Ident binding
-                | TsFnParamPat.Array arrayPat -> Pat.Array arrayPat
-                | TsFnParamPat.Rest restPat -> Pat.Rest restPat
-                | TsFnParamPat.Object objectPat -> Pat.Object objectPat
-
-              let pat = patToPattern env pat
-
-              { Pattern = pat
-                Type = typeAnn
-                Optional = false })
+            f.Params |> List.map (inferFnParam env)
 
           let retType = inferTsTypeAnn env f.TypeAnn
 
@@ -99,25 +192,7 @@ module rec Infer =
                   Default = Option.map (inferTsType env) typeParam.Default }))
 
           let paramList: list<FuncParam> =
-            f.Params
-            |> List.map (fun param ->
-              let typeAnn =
-                match param.TypeAnn with
-                | Some(t) -> inferTsTypeAnn env t
-                | None -> TypeVariable.makeVariable None
-
-              let pat =
-                match param.Pat with
-                | TsFnParamPat.Ident binding -> Pat.Ident binding
-                | TsFnParamPat.Array arrayPat -> Pat.Array arrayPat
-                | TsFnParamPat.Rest restPat -> Pat.Rest restPat
-                | TsFnParamPat.Object objectPat -> Pat.Object objectPat
-
-              let pat = patToPattern env pat
-
-              { Pattern = pat
-                Type = typeAnn
-                Optional = false })
+            f.Params |> List.map (inferFnParam env)
 
           let retType = inferTsTypeAnn env f.TypeAnn
 
@@ -139,8 +214,8 @@ module rec Infer =
       | TsType.TsTypeQuery tsTypeQuery ->
         failwith "TODO: inferTsType - TsTypeQuery"
       | TsType.TsTypeLit tsTypeLit ->
-        // NOTE: this makes to TypeKind.Object
-        failwith "TODO: inferTsType - TsTypeLit"
+        let elems = tsTypeLit.Members |> List.map (inferTypeElement env)
+        TypeKind.Object elems
       | TsType.TsArrayType tsArrayType ->
         TypeKind.Array(inferTsType env tsArrayType.ElemType)
       | TsType.TsTupleType tsTupleType ->
@@ -352,8 +427,17 @@ module rec Infer =
 
       | Decl.Using usingDecl -> failwith "TODO: usingDecl"
       | Decl.TsInterface tsInterfaceDecl ->
+        // TODO: handle type params
+        // TODO: handle extends
+        let elems = tsInterfaceDecl.Body.Body |> List.map (inferTypeElement env)
+
+        let t =
+          { Kind = TypeKind.Object elems
+            Provenance = None }
+
+        let scheme = { TypeParams = None; Type = t }
         // TODO: handle interface merging
-        failwith "TODO: tsInterfaceDecl"
+        newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
       | Decl.TsTypeAlias decl ->
         let typeParams = None
         let t = inferTsType env decl.TypeAnn

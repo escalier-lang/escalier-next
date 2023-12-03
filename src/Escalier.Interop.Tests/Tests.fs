@@ -260,6 +260,7 @@ let InferTypeDecls () =
         };
         type Exclude<T, U> = T extends U ? never : T;
         type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+        type Point = {x: number, y: number};
         """
 
       let! ast =
@@ -276,6 +277,7 @@ let InferTypeDecls () =
       Assert.Type(newEnv, "Pick", "{[P]: T[P] for P in K}")
       Assert.Type(newEnv, "Exclude", "T extends U ? never : T")
       Assert.Type(newEnv, "Omit", "Pick<T, Exclude<keyof T, K>>")
+      Assert.Type(newEnv, "Point", "{x: number, y: number}")
     }
 
   Assert.True(Result.isOk res)
@@ -291,3 +293,26 @@ let ParseLibES5 () =
   | Failure(_, error, _) ->
     printfn "%A" error
     Assert.Fail("failed to parse lib.es5.d.ts")
+
+[<Fact>]
+let InferLibES5 () =
+  let result =
+    result {
+      let input = File.ReadAllText("./lib/lib.es5.d.ts")
+
+      let! ast =
+        match parseModule input with
+        | Success(value, _, _) -> Result.Ok(value)
+        | Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let env = Prelude.getEnv ()
+
+      let! newEnv =
+        inferModule env ast |> Result.mapError CompileError.TypeError
+
+      return newEnv
+    }
+
+  printfn "result = %A" result
+  Assert.True(Result.isOk result)

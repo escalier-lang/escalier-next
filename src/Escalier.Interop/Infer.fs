@@ -47,9 +47,47 @@ module rec Infer =
   let inferTypeElement (env: Env) (elem: TsTypeElement) : ObjTypeElem =
     match elem with
     | TsCallSignatureDecl tsCallSignatureDecl ->
-      failwith "TODO: inferTypeElement - TsCallSignatureDecl"
+      let typeParams = None // TODO: handle type params
+      let paramList = tsCallSignatureDecl.Params |> List.map (inferFnParam env)
+
+      let returnType =
+        match tsCallSignatureDecl.TypeAnn with
+        | Some(typeAnn) -> inferTsTypeAnn env typeAnn
+        | None -> TypeVariable.makeVariable None
+
+      let throws =
+        { Kind = makePrimitiveKind "never"
+          Provenance = None }
+
+      let f: Type.Function =
+        { TypeParams = typeParams
+          ParamList = paramList
+          Return = returnType
+          Throws = throws }
+
+      ObjTypeElem.Callable f
     | TsConstructSignatureDecl tsConstructSignatureDecl ->
-      failwith "TODO: inferTypeElement - TsConstructSignatureDecl"
+      let typeParams = None // TODO: handle type params
+
+      let paramList =
+        tsConstructSignatureDecl.Params |> List.map (inferFnParam env)
+
+      let returnType =
+        match tsConstructSignatureDecl.TypeAnn with
+        | Some(typeAnn) -> inferTsTypeAnn env typeAnn
+        | None -> TypeVariable.makeVariable None
+
+      let throws =
+        { Kind = makePrimitiveKind "never"
+          Provenance = None }
+
+      let f: Type.Function =
+        { TypeParams = typeParams
+          ParamList = paramList
+          Return = returnType
+          Throws = throws }
+
+      ObjTypeElem.Constructor f
     | TsPropertySignature tsPropertySignature ->
       // TODO: handle computed keys
       let name =
@@ -131,8 +169,29 @@ module rec Infer =
 
       ObjTypeElem.Method(name, false, f)
     | TsIndexSignature tsIndexSignature ->
-      // TODO: convert this to a mapped type
-      failwith "TODO: inferTypeElement - TsIndexSignature"
+      let readonly =
+        match tsIndexSignature.Readonly with
+        | true -> Some(MappedModifier.Add)
+        | false -> Some(MappedModifier.Remove)
+
+      let optional = None
+
+      let mapped: Mapped =
+        { SrcKey = tsIndexSignature.Param.Name.Name
+          SrcKeys = inferTsType env tsIndexSignature.Param.Constraint
+          DestKey = None
+          DestValue = inferTsTypeAnn env tsIndexSignature.TypeAnn
+
+          // modifiers
+          Optional = optional
+          Readonly = readonly
+
+          // filtering
+          Check = None
+          Extends = None }
+
+      // TODO: handle tsIndexSignature.IsStatic
+      ObjTypeElem.Mapped mapped
 
   let inferTsType (env: Env) (t: TsType) : Type =
     let kind =
@@ -159,7 +218,10 @@ module rec Infer =
       | TsType.TsThisType tsThisType ->
         // TODO: use a TypeRef for this, but we need to know what `this`
         // is reference so we can create a Scheme for it
-        failwith "TODO: inferTsType - TsThisType"
+        { Name = "Self"
+          TypeArgs = None
+          Scheme = None }
+        |> TypeKind.TypeRef
       | TsType.TsFnOrConstructorType tsFnOrConstructorType ->
         match tsFnOrConstructorType with
         | TsFnOrConstructorType.TsFnType f ->
@@ -250,7 +312,10 @@ module rec Infer =
         | TsTypeOperatorOp.KeyOf ->
           TypeKind.KeyOf(inferTsType env tsTypeOperator.TypeAnn)
         | TsTypeOperatorOp.Unique -> failwith "TODO: inferTsType - Unique"
-        | TsTypeOperatorOp.Readonly -> failwith "TODO: inferTsType - Readonly"
+        | TsTypeOperatorOp.Readonly ->
+          // TODO: Add support for readonly types
+          let t = inferTsType env tsTypeOperator.TypeAnn
+          t.Kind // TODO: find a better way to do this
       | TsType.TsIndexedAccessType tsIndexedAccessType ->
         let objType = inferTsType env tsIndexedAccessType.ObjType
         let indexType = inferTsType env tsIndexedAccessType.IndexType
@@ -293,7 +358,8 @@ module rec Infer =
 
         TypeKind.Literal lit
       | TsType.TsTypePredicate tsTypePredicate ->
-        failwith "TODO: inferTsType - TsTypePredicate"
+        // TODO: add proper support for type predicates
+        boolType.Kind
       | TsType.TsImportType tsImportType ->
         failwith "TODO: inferTsType - TsImportType"
 
@@ -446,7 +512,9 @@ module rec Infer =
         // TODO: if decl.Global is true, add to the global env
         newEnv <- env.AddScheme decl.Id.Name scheme
       | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
-      | Decl.TsModule tsModuleDecl -> failwith "TODO: tsModuleDecl"
+      | Decl.TsModule tsModuleDecl ->
+        // TODO: handle namespaces
+        ()
 
       return newEnv
     }

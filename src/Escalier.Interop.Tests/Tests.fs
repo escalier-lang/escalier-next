@@ -311,8 +311,17 @@ let InferLibES5 () =
       let! newEnv =
         inferModule env ast |> Result.mapError CompileError.TypeError
 
+      printfn "---- Schemes ----"
+
+      for KeyValue(name, scheme) in newEnv.Schemes do
+        printfn $"{name}"
+
+      printfn "---- Values ----"
+
+      for KeyValue(name, t) in newEnv.Values do
+        printfn $"{name}"
+
       return newEnv
     }
 
-  printfn "result = %A" result
   Assert.True(Result.isOk result)

@@ -1189,8 +1189,10 @@ module rec TypeScript =
       TypeParams: option<TsTypeParamDecl>
       Loc: option<SourceLocation> }
 
+  type TsIndexParam = { Name: Ident; Constraint: TsType }
+
   type TsIndexSignature =
-    { Params: list<TsFnParam>
+    { Param: TsIndexParam
       TypeAnn: TsTypeAnn
       Readonly: bool
       IsStatic: bool

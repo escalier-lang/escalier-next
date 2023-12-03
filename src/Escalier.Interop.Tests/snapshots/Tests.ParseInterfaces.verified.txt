@@ -73,17 +73,11 @@ output: Success: { Body =
                           Loc = None }
                        Loc = None };
                    TsIndexSignature
-                     { Params =
-                        [{ Pat = Ident { Id = { Name = "index"
-                                                Loc = None }
-                                         Optional = false
-                                         Loc = None }
-                           TypeAnn =
-                            Some
-                              { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
-                                                          Loc = None }
-                                Loc = None }
-                           Loc = None }]
+                     { Param =
+                        { Name = { Name = "index"
+                                   Loc = None }
+                          Constraint = TsKeywordType { Kind = TsNumberKeyword
+                                                       Loc = None } }
                        TypeAnn =
                         { TypeAnn =
                            TsTypeRef { Loc = None

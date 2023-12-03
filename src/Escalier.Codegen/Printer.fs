@@ -869,16 +869,16 @@ module rec Printer =
       | true -> $"{key}?{typeParams}({ps}){typeAnn}"
       | false -> $"{key}{typeParams}({ps}){typeAnn}"
     | TsIndexSignature indexSig ->
-      let ps =
-        indexSig.Params |> List.map (printTsFnParam ctx) |> String.concat ", "
-
+      let name = indexSig.Param.Name
+      let c = indexSig.Param.Constraint
+      let param = $"{name}: {c}"
       let typeAnn = $"{printTypeAnn ctx indexSig.TypeAnn}"
 
       match indexSig.IsStatic, indexSig.Readonly with
-      | true, true -> $"static readonly [{ps}]: {typeAnn}"
-      | true, false -> $"static [{ps}]: {typeAnn}"
-      | false, true -> $"readonly [{ps}]: {typeAnn}"
-      | false, false -> $"[{ps}]: {typeAnn}"
+      | true, true -> $"static readonly [{param}]: {typeAnn}"
+      | true, false -> $"static [{param}]: {typeAnn}"
+      | false, true -> $"readonly [{param}]: {typeAnn}"
+      | false, false -> $"[{param}]: {typeAnn}"
 
   let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : string =
     let pat =

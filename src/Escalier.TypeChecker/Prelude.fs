@@ -12,10 +12,36 @@ module Prelude =
       Optional = false }
 
   let getEnv () : Env =
+    let tpA =
+      { Name = "A"
+        Constraint = Some(numType)
+        Default = None }
+
+    let tpB =
+      { Name = "B"
+        Constraint = Some(numType)
+        Default = None }
+
+    let typeRefA =
+      { Kind =
+          { Name = "A"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let typeRefB =
+      { Kind =
+          { Name = "B"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
     let arithemtic =
       (makeFunctionType
-        None
-        [ makeParam "left" numType; makeParam "right" numType ]
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         numType,
        false)
 
@@ -57,9 +83,44 @@ module Prelude =
         boolType,
        false)
 
+    let tpA =
+      { Name = "A"
+        Constraint = Some(strType)
+        Default = None }
+
+    let tpB =
+      { Name = "B"
+        Constraint = Some(strType)
+        Default = None }
+
+    let typeRefA =
+      { Kind =
+          { Name = "A"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let typeRefB =
+      { Kind =
+          { Name = "B"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let stringConcat =
+      (makeFunctionType
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        strType,
+       false)
+
+    let t = intersection [ fst arithemtic; fst stringConcat ]
+
     { Env.Values =
         Map.ofList
-          [ ("+", arithemtic)
+          [ ("+", (t, false))
             ("-", arithemtic)
             ("*", arithemtic)
             ("/", arithemtic)

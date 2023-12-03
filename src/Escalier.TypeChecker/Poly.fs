@@ -5,7 +5,7 @@ open FsToolkit.ErrorHandling
 open Escalier.Data.Type
 
 open Error
-open TypeVariable
+open Env
 
 module Poly =
 
@@ -101,15 +101,15 @@ module Poly =
     fold t
 
   let generalizeFunc (f: Function) : Function =
-    let mutable mapping: Map<int, string> = Map.empty
+    // printfn "f = %A" f
+    let mutable mapping: Map<int, string * option<Type>> = Map.empty
     let mutable nextId = 0
 
-    // QUESTION: should we call `prune` inside the folder as well?
     let folder t =
-      match t.Kind with
-      | TypeKind.TypeVar { Id = id } ->
+      match (prune t).Kind with
+      | TypeKind.TypeVar { Id = id; Bound = bound } ->
         match Map.tryFind id mapping with
-        | Some(name) ->
+        | Some(name, _) ->
           Some(
             { Kind =
                 TypeKind.TypeRef
@@ -121,7 +121,7 @@ module Poly =
         | None ->
           let tpName = 65 + nextId |> char |> string
           nextId <- nextId + 1
-          mapping <- mapping |> Map.add id tpName
+          mapping <- mapping |> Map.add id (tpName, bound)
 
           Some(
             { Kind =
@@ -147,9 +147,9 @@ module Poly =
 
     let mutable newTypeParams: list<TypeParam> =
       List.map
-        (fun name ->
+        (fun (name, bound) ->
           { Name = name
-            Constraint = None
+            Constraint = bound
             Default = None })
         values
 

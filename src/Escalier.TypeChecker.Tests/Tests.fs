@@ -85,11 +85,31 @@ let InfersLiterals () =
   }
 
 [<Fact>]
+let InferSimpleTypeError () =
+  let result =
+    result {
+      let src =
+        """
+        let y: string = "hello"
+        let x: number = y
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
 let InferBinaryOperators () =
   let result =
     result {
       let! sum = infer "5 + 10"
       Assert.Equal("number", sum.ToString())
+
+      let! str = infer "\"Hello, \" + \"world!\""
+      Assert.Equal("string", str.ToString())
 
       let! lt = infer "5 < 10"
       Assert.Equal("boolean", lt.ToString())
@@ -197,7 +217,11 @@ let InferFuncParams () =
 
       let! env = inferScript src
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(
+        env,
+        "add",
+        "fn <A: number, B: number>(x: A, y: B) -> number"
+      )
     }
 
   Assert.False(Result.isError result)
@@ -319,7 +343,11 @@ let InferLambda () =
 
       let! env = inferScript src
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(
+        env,
+        "add",
+        "fn <A: number, B: number>(x: A, y: B) -> number"
+      )
     }
 
   Assert.False(Result.isError result)

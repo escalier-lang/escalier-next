@@ -1,13 +1,29 @@
 [<VerifyXunit.UsesVerify>]
 module Tests
 
+open Escalier.TypeChecker
+open FsToolkit.ErrorHandling
 open FParsec.CharParsers
+open FParsec.Error
 open VerifyTests
 open VerifyXunit
 open Xunit
 open System.IO
 
+open Escalier.TypeChecker.Error
+open Escalier.TypeChecker.Env
 open Escalier.Interop.Parser
+open Escalier.Interop.Infer
+
+type Assert with
+
+  static member inline Value(env: Env, name: string, expected: string) =
+    let t, _ = Map.find name env.Values
+    Assert.Equal(expected, t.ToString())
+
+  static member inline Type(env: Env, name: string, expected: string) =
+    let scheme = Map.find name env.Schemes
+    Assert.Equal(expected, scheme.ToString())
 
 
 let settings = VerifySettings()
@@ -196,6 +212,76 @@ let ParseLineComments () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+type CompileError =
+  | ParseError of ParserError
+  | TypeError of TypeError
+
+[<Fact>]
+let InferBasicVarDecls () =
+  let res =
+    result {
+      let input =
+        """
+        declare var a: number;
+        declare const b: string | undefined;
+        declare let c: (a: number) => string;
+        declare function d<T>(x: T): T;
+        declare let e: [5, "hello", true];
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(value, _, _) -> Result.Ok(value)
+        | Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let env = Prelude.getEnv ()
+
+      let! newEnv =
+        inferModule env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Value(newEnv, "a", "number")
+      Assert.Value(newEnv, "b", "string | undefined")
+      Assert.Value(newEnv, "c", "fn (a: number) -> string")
+      Assert.Value(newEnv, "d", "fn <T>(x: T) -> T")
+      Assert.Value(newEnv, "e", "[5, \"hello\", true]")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferTypeDecls () =
+  let res =
+    result {
+      let input =
+        """
+        type Pick<T, K extends keyof T> = {
+          [P in K]: T[P];
+        };
+        type Exclude<T, U> = T extends U ? never : T;
+        type Omit<T, K extends keyof any> = Pick<T, Exclude<keyof T, K>>;
+        type Point = {x: number, y: number};
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(value, _, _) -> Result.Ok(value)
+        | Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let env = Prelude.getEnv ()
+
+      let! newEnv =
+        inferModule env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Type(newEnv, "Pick", "{[P]: T[P] for P in K}")
+      Assert.Type(newEnv, "Exclude", "T extends U ? never : T")
+      Assert.Type(newEnv, "Omit", "Pick<T, Exclude<keyof T, K>>")
+      Assert.Type(newEnv, "Point", "{x: number, y: number}")
+    }
+
+  Assert.True(Result.isOk res)
+
 [<Fact>]
 let ParseLibES5 () =
   let input = File.ReadAllText("./lib/lib.es5.d.ts")
@@ -207,3 +293,35 @@ let ParseLibES5 () =
   | Failure(_, error, _) ->
     printfn "%A" error
     Assert.Fail("failed to parse lib.es5.d.ts")
+
+[<Fact>]
+let InferLibES5 () =
+  let result =
+    result {
+      let input = File.ReadAllText("./lib/lib.es5.d.ts")
+
+      let! ast =
+        match parseModule input with
+        | Success(value, _, _) -> Result.Ok(value)
+        | Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let env = Prelude.getEnv ()
+
+      let! newEnv =
+        inferModule env ast |> Result.mapError CompileError.TypeError
+
+      // printfn "---- Schemes ----"
+      //
+      // for KeyValue(name, scheme) in newEnv.Schemes do
+      //   printfn $"{name}"
+      //
+      // printfn "---- Values ----"
+      //
+      // for KeyValue(name, t) in newEnv.Values do
+      //   printfn $"{name}"
+
+      return newEnv
+    }
+
+  Assert.True(Result.isOk result)

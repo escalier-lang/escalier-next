@@ -263,7 +263,9 @@ module Type =
   type Pattern =
     | Identifier of name: string
     | Object of elems: list<ObjPatElem>
-    | Tuple of elems: list<Pattern> // TODO: support rest patterns
+    // TODO: support sparse tuples
+    // TODO: support rest patterns
+    | Tuple of elems: list<option<Pattern>>
     | Wildcard
     | Literal of Common.Literal
     | Is of target: Syntax.BindingIdent * id: string
@@ -347,23 +349,43 @@ module Type =
       $"fn {typeParams}({args}) -> {this.Return}"
 
   type Mapped =
-    { Key: Type
-      Value: Type
-      Target: string
-      Source: Type
-      Optional: option<MappedModifier>
+    { SrcKey: string
+      SrcKeys: Type // e.g. `keyof T` or `"foo" | "bar"`
+      // maps to `as` clause in TypeScript
+      // can be used to filter as well as rename
+      DestKey: option<Type>
+      DestValue: Type
 
+      Optional: option<MappedModifier>
+      Readonly: option<MappedModifier>
+
+      // TODO: use for filtering
       // First half of Conditional
       Check: option<Type>
       Extends: option<Type> }
 
     override this.ToString() =
+      let srcKey = this.SrcKey
+
+      let destKey =
+        match this.DestKey with
+        | Some(destKey) -> $"[{destKey}]"
+        | None -> srcKey
+
+      let destValue = this.DestValue.ToString()
+      let object = this.SrcKeys.ToString()
+
       let optional =
         match this.Optional with
-        | Some(modifier) -> modifier.ToString()
+        | Some(optional) -> optional.ToString()
         | None -> ""
 
-      $"[{this.Key}]{optional}: {this.Value} for {this.Target} in {this.Source}"
+      let readonly =
+        match this.Readonly with
+        | Some(readonly) -> readonly.ToString()
+        | None -> ""
+
+      $"{readonly}[{destKey}]{optional}: {destValue} for {srcKey} in {object}"
 
   type MappedModifier =
     | Add
@@ -434,14 +456,7 @@ module Type =
              ""
            else
              " throws " + throws.ToString())
-      | Mapped(mapped) ->
-        sprintf
-          "%s%s%s%s%s"
-          (if mapped.Optional.IsSome then "optional " else "")
-          (if mapped.Check.IsSome then "check " else "")
-          (if mapped.Extends.IsSome then "extends " else "")
-          (mapped.Key.ToString())
-          (mapped.Value.ToString())
+      | Mapped(mapped) -> mapped.ToString()
       | Property { Name = name
                    Optional = optional
                    Readonly = readonly
@@ -519,6 +534,7 @@ module Type =
                 let optional = if optional then "?" else ""
                 let readonly = if readonly then "readonly " else ""
                 $"{readonly}{name}{optional}: {type_}"
+              | Mapped mapped -> mapped.ToString()
               | _ -> failwith "TODO: Type.ToString - Object - Elem"
 
             )
@@ -527,6 +543,10 @@ module Type =
         let elems = String.concat ", " elems
         $"{{{elems}}}"
       | TypeKind.Rest t -> $"...{t}"
+      | TypeKind.Index(target, index) -> $"{target}[{index}]"
+      | TypeKind.Condition(check, extends, trueType, falseType) ->
+        $"{check} extends {extends} ? {trueType} : {falseType}"
+      | TypeKind.KeyOf t -> $"keyof {t}"
       | _ ->
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"

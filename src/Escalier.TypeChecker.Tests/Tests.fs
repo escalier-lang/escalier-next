@@ -500,3 +500,24 @@ let InferFuncGeneralization () =
 
   printf "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: unify tuples and arrays")>]
+let InferTuple () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = [1, 2, 3]
+        let bar = fn(nums: number[]) => nums
+        let baz = bar(foo)
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "foo", "[1, 2, 3]")
+      Assert.Value(env, "bar", "fn (nums: number[]) -> number[]")
+      Assert.Value(env, "baz", "number[]")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

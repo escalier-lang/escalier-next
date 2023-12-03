@@ -35,7 +35,8 @@ module rec Infer =
               ObjPatElem.RestPat(patternToPattern target))
           elems
       )
-    | PatternKind.Tuple elems -> Pattern.Tuple(List.map patternToPattern elems)
+    | PatternKind.Tuple elems ->
+      Pattern.Tuple(List.map (patternToPattern >> Some) elems)
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 

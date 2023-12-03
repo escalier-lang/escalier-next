@@ -318,12 +318,15 @@ module Parser =
       |> TsTypeElement.TsMethodSignature
 
   let indexSig: Parser<TsTypeElement, unit> =
-    pipe3
+    pipe4
       (opt (strWs "readonly"))
-      (strWs "[" >>. funcParam .>> strWs "]")
+      (strWs "[" >>. ident)
+      (strWs ":" >>. tsType .>> strWs "]")
       (strWs ":" >>. tsTypeAnn)
-    <| fun readonly key typeAnn ->
-      { Params = [ key ]
+    <| fun readonly name c typeAnn ->
+      let param: TsIndexParam = { Name = name; Constraint = c }
+
+      { Param = param
         Readonly = readonly.IsSome
         TypeAnn = typeAnn
         IsStatic = false

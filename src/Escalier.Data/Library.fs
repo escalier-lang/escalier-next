@@ -5,7 +5,7 @@ open System.Text
 
 module Common =
   type Literal =
-    | Number of string
+    | Number of float
     | String of string
     | Boolean of bool
     | Null
@@ -13,7 +13,7 @@ module Common =
 
     override this.ToString() =
       match this with
-      | Number value -> value
+      | Number value -> value |> string
       | String value -> $"\"{value}\""
       | Boolean value -> if value then "true" else "false"
       | Null -> "null"

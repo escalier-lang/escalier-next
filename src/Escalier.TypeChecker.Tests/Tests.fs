@@ -109,7 +109,7 @@ let InferBinaryOperators () =
       Assert.Equal("15", sum.ToString())
 
       let! str = infer "\"Hello, \" ++ \"world!\""
-      Assert.Equal("Hello, world!", str.ToString())
+      Assert.Equal("\"Hello, world!\"", str.ToString())
 
       let! lt = infer "5 < 10"
       Assert.Equal("boolean", lt.ToString())
@@ -235,7 +235,7 @@ let InferFuncParams () =
         "fn <A: string, B: string>(x: A, y: B) -> A ++ B"
       )
 
-      Assert.Value(env, "msg", "Hello, world!")
+      Assert.Value(env, "msg", "\"Hello, world!\"")
       Assert.Value(env, "frMsg", "string")
     }
 

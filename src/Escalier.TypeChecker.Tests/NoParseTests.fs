@@ -230,8 +230,7 @@ let UnificationFailure () =
     func
       [ "x" ]
       [ tuple
-          [ call (ident "x", [ number "3" ])
-            call (ident "x", [ boolean true ]) ]
+          [ call (ident "x", [ number 3 ]); call (ident "x", [ boolean true ]) ]
         |> StmtKind.Expr
         |> stmt ]
 
@@ -264,7 +263,7 @@ let InferPair () =
         varDecl (
           "pair",
           tuple
-            [ call (ident "f", [ number "4" ])
+            [ call (ident "f", [ number 4 ])
               call (ident "f", [ boolean true ]) ]
         ) ]
 
@@ -306,7 +305,7 @@ let InferGenericAndNonGeneric () =
                 StmtKind.Return(
                   Some(
                     tuple
-                      [ call (ident "f", [ number "3" ])
+                      [ call (ident "f", [ number 3 ])
                         call (ident "f", [ boolean true ]) ]
                   )
                 )

@@ -293,6 +293,7 @@ module rec Env =
 
         { Kind = TypeKind.Literal(Literal.Number(string result))
           Provenance = None }
+      // TODO: Check `op` when collapsing binary expressions involving numbers
       | _, TypeKind.TypeRef { Name = "number" } -> right
       | TypeKind.TypeRef { Name = "number" }, _ -> left
       | TypeKind.Literal(Literal.String s1), TypeKind.Literal(Literal.String s2) ->
@@ -304,6 +305,9 @@ module rec Env =
 
         { Kind = TypeKind.Literal(Literal.Number(string result))
           Provenance = None }
+      // TODO: Check `op` when collapsing binary expressions involving strings
+      | _, TypeKind.TypeRef { Name = "string" } -> right
+      | TypeKind.TypeRef { Name = "string" }, _ -> left
       | _ -> t
     | _ -> t
 

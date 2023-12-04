@@ -289,13 +289,10 @@ let InferFuncParamsWithTypeAnns () =
       let! env = inferScript src
 
       Assert.Value(env, "addNums", "fn (x: number, y: number) -> number")
-
-      Assert.Value(
-        env,
-        "addStrs",
-        "fn (x: string, y: string) -> string ++ string"
-      )
+      Assert.Value(env, "addStrs", "fn (x: string, y: string) -> string")
     }
+
+  printfn "result = %A" result
 
   Assert.False(Result.isError result)
 

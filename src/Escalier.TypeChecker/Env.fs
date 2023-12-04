@@ -291,7 +291,7 @@ module rec Env =
           | "**" -> n1 ** n2
           | _ -> failwith "TODO: simplify binary"
 
-        { Kind = TypeKind.Literal(Literal.Number(string result))
+        { Kind = TypeKind.Literal(Literal.Number result)
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving numbers
       | _, TypeKind.TypeRef { Name = "number" } -> right
@@ -303,7 +303,7 @@ module rec Env =
           | "++" -> s1 + s2
           | _ -> failwith "TODO: simplify binary"
 
-        { Kind = TypeKind.Literal(Literal.Number(string result))
+        { Kind = TypeKind.Literal(Literal.String result)
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving strings
       | _, TypeKind.TypeRef { Name = "string" } -> right

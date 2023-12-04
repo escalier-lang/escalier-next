@@ -351,7 +351,7 @@ module rec Infer =
       | TsType.TsLitType tsLitType ->
         let lit =
           match tsLitType.Lit with
-          | Number num -> Literal.Number(num.Value |> string)
+          | Number num -> Literal.Number(num.Value)
           | Str str -> Literal.String str.Value
           | Bool bool -> Literal.Boolean bool.Value
           | Tpl tsTplLitType -> failwith "TODO: inferTsType - TsTplLitType"

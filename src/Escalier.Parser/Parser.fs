@@ -73,7 +73,7 @@ module Parser =
         ReturnType = return_type
         Throws = throws }
 
-  let number: Parser<Literal, unit> = pfloat |>> (string >> Literal.Number)
+  let number: Parser<Literal, unit> = pfloat |>> Literal.Number
 
   let string: Parser<Literal, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')

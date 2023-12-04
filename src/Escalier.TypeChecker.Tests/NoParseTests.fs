@@ -11,7 +11,6 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
-open Escalier.TypeChecker.TypeVariable
 
 let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
   { Pattern = Type.Pattern.Identifier name
@@ -179,8 +178,6 @@ let varDecl (name, expr) =
 [<Fact>]
 let InferFactorial () =
   result {
-    nextVariableId <- 0
-
     (* let factorial =
         fn n =>
           if (zero n) 
@@ -213,8 +210,8 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
-
-    let! stmtEnv = inferStmt env ast false
+    let ctx = { nextVariableId = 0 }
+    let! stmtEnv = inferStmt ctx env ast false
     env <- stmtEnv
 
     let! t = env.GetType "factorial"
@@ -224,7 +221,6 @@ let InferFactorial () =
 
 [<Fact>]
 let UnificationFailure () =
-  nextVariableId <- 0
   (* fn x => [x(3) x(true)] *)
   let ast =
     func
@@ -235,28 +231,27 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
+  let ctx = { nextVariableId = 0 }
 
   try
-    inferExpr env ast |> ignore
+    inferExpr ctx env ast |> ignore
   with ex ->
     Assert.Equal("Type mismatch 3 != true", ex.Message)
 
 [<Fact>]
 let UndefinedSymbol () =
-  nextVariableId <- 0
   let ast = ident "foo"
   let env = getEnv ()
+  let ctx = { nextVariableId = 0 }
 
   try
-    inferExpr env ast |> ignore
+    inferExpr ctx env ast |> ignore
   with ex ->
     Assert.Equal("Undefined symbol foo", ex.Message)
 
 [<Fact>]
 let InferPair () =
   result {
-    nextVariableId <- 0
-
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
       [ varDecl ("f", fatArrow [ "x" ] (ident "x"))
@@ -268,7 +263,8 @@ let InferPair () =
         ) ]
 
     let env = getEnv ()
-    let! newEnv = inferScript env ast
+    let ctx = { nextVariableId = 0 }
+    let! newEnv = inferScript ctx env ast
 
     let! f = newEnv.GetType "f"
     let! pair = newEnv.GetType "pair"
@@ -284,17 +280,16 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
+  let ctx = { nextVariableId = 0 }
 
   try
-    inferExpr env ast |> ignore
+    inferExpr ctx env ast |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
-    nextVariableId <- 0
-
     let ast =
       [ varDecl (
           "foo",
@@ -313,7 +308,8 @@ let InferGenericAndNonGeneric () =
         ) ]
 
     let env = getEnv ()
-    let! newEnv = inferScript env ast
+    let ctx = { nextVariableId = 0 }
+    let! newEnv = inferScript ctx env ast
 
     let! t = newEnv.GetType "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
@@ -323,8 +319,6 @@ let InferGenericAndNonGeneric () =
 [<Fact>]
 let InferFuncComposition () =
   result {
-    nextVariableId <- 0
-
     let ast =
       [ varDecl (
           "foo",
@@ -340,7 +334,8 @@ let InferFuncComposition () =
 
 
     let env = getEnv ()
-    let! newEnv = inferScript env ast
+    let ctx = { nextVariableId = 0 }
+    let! newEnv = inferScript ctx env ast
 
     let! t = newEnv.GetType "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
@@ -353,7 +348,6 @@ let InferFuncComposition () =
 [<Fact>]
 let InferScriptSKK () =
   result {
-    nextVariableId <- 0
     let mutable env = getEnv ()
 
     let s =
@@ -384,7 +378,8 @@ let InferScriptSKK () =
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
     let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
-    let! newEnv = inferScript env script
+    let ctx = { nextVariableId = 0 }
+    let! newEnv = inferScript ctx env script
 
     let! t = newEnv.GetType "S"
 

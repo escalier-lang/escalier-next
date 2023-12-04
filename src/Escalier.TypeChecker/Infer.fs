@@ -10,7 +10,6 @@ open Escalier.Data.Type
 open Env
 open Error
 open Poly
-open TypeVariable
 open Visitor
 open Unify
 
@@ -46,7 +45,7 @@ module rec Infer =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
-  let inferExpr (env: Env) (expr: Expr) : Result<Type, TypeError> =
+  let inferExpr (ctx: Ctx) (env: Env) (expr: Expr) : Result<Type, TypeError> =
     let r =
       result {
         match expr.Kind with
@@ -56,9 +55,10 @@ module rec Infer =
             { Type.Kind = TypeKind.Literal(literal)
               Provenance = None }
         | ExprKind.Call call ->
-          let! callee = inferExpr env call.Callee
+          let! callee = inferExpr ctx env call.Callee
 
-          let! result, throws = unifyCall env inferExpr call.Args None callee
+          let! result, throws =
+            unifyCall ctx env inferExpr call.Args None callee
 
           // TODO: handle throws
 
@@ -67,7 +67,7 @@ module rec Infer =
           let! funTy = env.GetType op
 
           let! result, throws =
-            unifyCall env inferExpr [ left; right ] None funTy
+            unifyCall ctx env inferExpr [ left; right ] None funTy
 
           // TODO: handle throws
 
@@ -82,11 +82,12 @@ module rec Infer =
                   let! paramType =
                     match param.TypeAnn with
                     | Some(typeAnn) -> inferTypeAnn env typeAnn
-                    | None -> Result.Ok(makeVariable None)
+                    | None -> Result.Ok(makeVariable ctx None)
 
-                  let! assumps, patternType = inferPattern env param.Pattern
+                  let! assumps, patternType =
+                    inferPattern ctx env param.Pattern
 
-                  do! unify env patternType paramType
+                  do! unify ctx env patternType paramType
 
                   for KeyValue(name, binding) in assumps do
                     // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
@@ -99,7 +100,7 @@ module rec Infer =
                 })
               f.Sig.ParamList
 
-          inferBlockOrExpr newEnv f.Body |> ignore
+          inferBlockOrExpr ctx newEnv f.Body |> ignore
 
           let retExprs = findReturns f
 
@@ -136,7 +137,7 @@ module rec Infer =
               match f.Sig.ReturnType with
               | Some(sigRetType) ->
                 let! sigRetType = inferTypeAnn env sigRetType
-                do! unify env retType sigRetType
+                do! unify ctx env retType sigRetType
                 return sigRetType
               | None -> return retType
             }
@@ -152,21 +153,21 @@ module rec Infer =
 
           return makeFunctionType typeParams paramList retType
         | ExprKind.Tuple elems ->
-          let! elems = List.traverseResultM (inferExpr env) elems
+          let! elems = List.traverseResultM (inferExpr ctx env) elems
 
           return
             { Type.Kind = TypeKind.Tuple(elems)
               Provenance = None }
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-          let! conditionTy = inferExpr env condition
+          let! conditionTy = inferExpr ctx env condition
 
           let! thenBranchTy =
-            inferBlockOrExpr env (thenBranch |> BlockOrExpr.Block)
+            inferBlockOrExpr ctx env (thenBranch |> BlockOrExpr.Block)
 
           let! elseBranchTy =
-            Option.traverseResult (inferBlockOrExpr env) elseBranch
+            Option.traverseResult (inferBlockOrExpr ctx env) elseBranch
 
-          do! unify env conditionTy boolType
+          do! unify ctx env conditionTy boolType
 
           return
             match elseBranchTy with
@@ -183,7 +184,7 @@ module rec Infer =
                 result {
                   match elem with
                   | ObjElem.Property(_span, key, value) ->
-                    let! t = inferExpr env value
+                    let! t = inferExpr ctx env value
 
                     return
                       Some(
@@ -205,7 +206,7 @@ module rec Infer =
                             Type = value }
                       )
                   | ObjElem.Spread(span, value) ->
-                    let! t = inferExpr env value
+                    let! t = inferExpr ctx env value
                     spreadTypes <- t :: spreadTypes
                     return None
                 })
@@ -224,7 +225,7 @@ module rec Infer =
               { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
                 Provenance = None }
         | ExprKind.Member(obj, prop, optChain) ->
-          let! objType = inferExpr env obj
+          let! objType = inferExpr ctx env obj
 
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
@@ -307,6 +308,7 @@ module rec Infer =
     | _ -> failwith $"TODO: lookup member on type - {t}"
 
   let inferBlockOrExpr
+    (ctx: Ctx)
     (env: Env)
     (blockOrExpr: BlockOrExpr)
     : Result<Type, TypeError> =
@@ -316,7 +318,7 @@ module rec Infer =
       match blockOrExpr with
       | BlockOrExpr.Block({ Stmts = stmts }) ->
         for stmt in stmts do
-          let! stmtEnv = inferStmt newEnv stmt false
+          let! stmtEnv = inferStmt ctx newEnv stmt false
           newEnv <- stmtEnv
 
         let undefined =
@@ -332,7 +334,7 @@ module rec Infer =
             | None -> return undefined
           | _ -> return undefined
         | _ -> return undefined
-      | BlockOrExpr.Expr expr -> return! inferExpr newEnv expr
+      | BlockOrExpr.Expr expr -> return! inferExpr ctx newEnv expr
     }
 
   let inferTypeAnn (env: Env) (typeAnn: TypeAnn) : Result<Type, TypeError> =
@@ -482,6 +484,7 @@ module rec Infer =
     t
 
   let inferPattern
+    (ctx: Ctx)
     (env: Env)
     (pat: Syntax.Pattern)
     : Result<BindingAssump * Type, TypeError> =
@@ -490,7 +493,7 @@ module rec Infer =
     let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
       match pat.Kind with
       | PatternKind.Identifier({ Name = name; IsMut = isMut }) ->
-        let t = TypeVariable.makeVariable None
+        let t = makeVariable ctx None
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
@@ -516,7 +519,7 @@ module rec Infer =
                       Type = t }
                 )
               | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
-                let t = TypeVariable.makeVariable None
+                let t = makeVariable ctx None
 
                 // TODO: check if `name` already exists in `assump`
                 let isMut = false
@@ -593,6 +596,7 @@ module rec Infer =
 
   // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
   let inferStmt
+    (ctx: Ctx)
     (env: Env)
     (stmt: Stmt)
     (generalize: bool)
@@ -600,25 +604,25 @@ module rec Infer =
     result {
       match stmt.Kind with
       | StmtKind.Expr expr ->
-        let! _ = inferExpr env expr
+        let! _ = inferExpr ctx env expr
         return env
       | StmtKind.For(pattern, right, block) ->
         return! Error(TypeError.NotImplemented "TODO: infer for")
       | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
-        let! patBindings, patType = inferPattern env pattern
+        let! patBindings, patType = inferPattern ctx env pattern
         let mutable newEnv = env
 
         for KeyValue(name, binding) in patBindings do
           newEnv <- newEnv.AddValue name binding
 
-        let! initType = inferExpr newEnv init
+        let! initType = inferExpr ctx newEnv init
 
         match typeAnn with
         | Some(typeAnn) ->
           let! typeAnnType = inferTypeAnn env typeAnn
-          do! unify env initType typeAnnType
-          do! unify env typeAnnType patType
-        | None -> do! unify env initType patType
+          do! unify ctx env initType typeAnnType
+          do! unify ctx env typeAnnType patType
+        | None -> do! unify ctx env initType patType
 
         for KeyValue(name, binding) in patBindings do
           let binding =
@@ -655,13 +659,17 @@ module rec Infer =
       | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->
-          let! _ = inferExpr env expr
+          let! _ = inferExpr ctx env expr
           return env
         | None -> return env
     }
 
   // TODO: Create an `InferModule` that treats all decls as mutually recursive
-  let inferScript (env: Env) (stmts: list<Stmt>) : Result<Env, TypeError> =
+  let inferScript
+    (ctx: Ctx)
+    (env: Env)
+    (stmts: list<Stmt>)
+    : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
 
@@ -669,7 +677,7 @@ module rec Infer =
         List.traverseResultM
           (fun stmt ->
             result {
-              let! stmtEnv = inferStmt newEnv stmt true
+              let! stmtEnv = inferStmt ctx newEnv stmt true
               newEnv <- stmtEnv
             })
           stmts

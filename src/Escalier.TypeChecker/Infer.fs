@@ -107,6 +107,8 @@ module rec Infer =
             { Kind = TypeKind.Literal(Literal.Undefined)
               Provenance = None }
 
+          // TODO: unify body return type with return type annotation
+          // if it exists
           let! retType =
             result {
               match retExprs with
@@ -127,6 +129,16 @@ module rec Infer =
                 return
                   { Kind = TypeKind.Union types
                     Provenance = None }
+            }
+
+          let! retType =
+            result {
+              match f.Sig.ReturnType with
+              | Some(sigRetType) ->
+                let! sigRetType = inferTypeAnn env sigRetType
+                do! unify env retType sigRetType
+                return sigRetType
+              | None -> return retType
             }
 
           // TODO: move this up so that we can reference any type params in the

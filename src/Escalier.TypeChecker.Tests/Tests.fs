@@ -37,7 +37,7 @@ let infer src =
 
     let! t = Result.mapError CompileError.TypeError (inferExpr env ast)
 
-    return t
+    return simplify t
   }
 
 let inferScript src =
@@ -85,11 +85,31 @@ let InfersLiterals () =
   }
 
 [<Fact>]
+let InferSimpleTypeError () =
+  let result =
+    result {
+      let src =
+        """
+        let y: string = "hello"
+        let x: number = y
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
 let InferBinaryOperators () =
   let result =
     result {
       let! sum = infer "5 + 10"
-      Assert.Equal("number", sum.ToString())
+      Assert.Equal("15", sum.ToString())
+
+      let! str = infer "\"Hello, \" ++ \"world!\""
+      Assert.Equal("Hello, world!", str.ToString())
 
       let! lt = infer "5 < 10"
       Assert.Equal("boolean", lt.ToString())
@@ -179,7 +199,7 @@ let InferBinOpsOnPrimitives () =
 
       let! env = inferScript src
 
-      Assert.Value(env, "sum", "number")
+      Assert.Value(env, "sum", "15")
     }
 
   Assert.False(Result.isError result)
@@ -190,16 +210,72 @@ let InferFuncParams () =
     result {
       let src =
         """
-          let add = fn (x, y) {
+          let addNums = fn (x, y) {
             return x + y
           }
+          let addStrs = fn (x, y) {
+            return x ++ y
+          }
+          let msg = addStrs("Hello, ", "world!")
+          let greeting: string = "Bonjour, "
+          let frMsg = addStrs(greeting, "monde!")
           """
 
       let! env = inferScript src
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(
+        env,
+        "addNums",
+        "fn <A: number, B: number>(x: A, y: B) -> A + B"
+      )
+
+      Assert.Value(
+        env,
+        "addStrs",
+        "fn <A: string, B: string>(x: A, y: B) -> A ++ B"
+      )
+
+      Assert.Value(env, "msg", "Hello, world!")
+      Assert.Value(env, "frMsg", "string")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferBinaryOpStressTest () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn (a, b, c) {
+            return a * b + c
+          }
+          let double = fn (x) {
+            return 2 * x
+          }
+          let inc = fn (x) {
+            return x + 1
+          }
+          let bar = foo(double(1), inc(2), 3)
+          let baz: number = 5
+          let qux = double(baz)
+          """
+
+      let! env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn <C: number, A: number, B: number>(a: A, b: B, c: C) -> A * B + C"
+      )
+
+      Assert.Value(env, "double", "fn <A: number>(x: A) -> 2 * A")
+      Assert.Value(env, "inc", "fn <A: number>(x: A) -> A + 1")
+      Assert.Value(env, "bar", "9")
+      Assert.Value(env, "qux", "number")
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -208,15 +284,21 @@ let InferFuncParamsWithTypeAnns () =
     result {
       let src =
         """
-          let add = fn (x: number, y: number) -> number {
+          let addNums = fn (x: number, y: number) -> number {
             return x + y
+          }
+          let addStrs = fn (x: string, y: string) -> string {
+            return x ++ y
           }
           """
 
       let! env = inferScript src
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(env, "addNums", "fn (x: number, y: number) -> number")
+      Assert.Value(env, "addStrs", "fn (x: string, y: string) -> string")
     }
+
+  printfn "result = %A" result
 
   Assert.False(Result.isError result)
 
@@ -319,7 +401,7 @@ let InferLambda () =
 
       let! env = inferScript src
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
     }
 
   Assert.False(Result.isError result)
@@ -463,7 +545,7 @@ let InferOptionalChaining () =
       Assert.Value(env, "x", "number")
     }
 
-  printf "result = %A" result
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

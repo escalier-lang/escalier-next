@@ -12,11 +12,38 @@ module Prelude =
       Optional = false }
 
   let getEnv () : Env =
-    let arithemtic =
+    let tpA =
+      { Name = "A"
+        Constraint = Some(numType)
+        Default = None }
+
+    let tpB =
+      { Name = "B"
+        Constraint = Some(numType)
+        Default = None }
+
+    let typeRefA =
+      { Kind =
+          { Name = "A"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let typeRefB =
+      { Kind =
+          { Name = "B"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let arithemtic (op: string) =
       (makeFunctionType
-        None
-        [ makeParam "left" numType; makeParam "right" numType ]
-        numType,
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+          Provenance = None },
        false)
 
     let comparison =
@@ -57,14 +84,49 @@ module Prelude =
         boolType,
        false)
 
+    let tpA =
+      { Name = "A"
+        Constraint = Some(strType)
+        Default = None }
+
+    let tpB =
+      { Name = "B"
+        Constraint = Some(strType)
+        Default = None }
+
+    let typeRefA =
+      { Kind =
+          { Name = "A"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let typeRefB =
+      { Kind =
+          { Name = "B"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let stringConcat =
+      (makeFunctionType
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
+          Provenance = None },
+       false)
+
     { Env.Values =
         Map.ofList
-          [ ("+", arithemtic)
-            ("-", arithemtic)
-            ("*", arithemtic)
-            ("/", arithemtic)
-            ("%", arithemtic)
-            ("**", arithemtic)
+          [ ("+", arithemtic "+")
+            ("++", stringConcat)
+            ("-", arithemtic "-")
+            ("*", arithemtic "*")
+            ("/", arithemtic "/")
+            ("%", arithemtic "%")
+            ("**", arithemtic "**")
             ("<", comparison)
             ("<=", comparison)
             (">", comparison)

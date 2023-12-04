@@ -9,17 +9,16 @@ open Escalier.Data.Type
 open Env
 open Error
 open Poly
-open TypeVariable
 
 module rec Unify =
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
   let unify (env: Env) (t1: Type) (t2: Type) : Result<unit, TypeError> =
-    // printfn "unify %A %A" t1 t2
+    // printfn $"unify({t1}, {t2})"
 
     result {
       match (prune t1).Kind, (prune t2).Kind with
-      | TypeKind.TypeVar _, _ -> do! bind t1 t2
+      | TypeKind.TypeVar _, _ -> do! bind env unify t1 t2
       | _, TypeKind.TypeVar _ -> do! unify env t2 t1
       | TypeKind.Tuple(elems1), TypeKind.Tuple(elems2) ->
         if List.length elems1 <> List.length elems2 then
@@ -212,8 +211,15 @@ module rec Unify =
         | Some _ -> return ()
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
-      | _, _ ->
+      | TypeKind.Binary(left, op, right), TypeKind.TypeRef { Name = "number" } ->
+        if
+          op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
+        then
+          return ()
+        else
+          return! Error(TypeError.TypeMismatch(t1, t2))
 
+      | _, _ ->
         let t1' = env.ExpandType t1
         let t2' = env.ExpandType t2
 
@@ -241,6 +247,23 @@ module rec Unify =
       | TypeKind.Function func ->
         return!
           unifyFuncCall env inferExpr args typeArgs retType throwsType func
+      | TypeKind.Intersection types ->
+        let mutable result = None
+
+        for t in types do
+          match t.Kind with
+          | TypeKind.Function func ->
+            match unifyCall env inferExpr args typeArgs t with
+            | Result.Ok value ->
+              printfn $"unifyCall: {t} -> {value}"
+              result <- Some(value)
+            | Result.Error _ -> ()
+          | _ -> ()
+
+        match result with
+        | Some(value) -> return value
+        | None ->
+          return! Error(TypeError.NotImplemented $"kind = {callee.Kind}")
       | TypeKind.TypeVar _ ->
 
         // TODO: use a `result {}` CE here
@@ -265,7 +288,7 @@ module rec Unify =
                   TypeParams = None } // TODO
             Provenance = None }
 
-        match bind callee callType with
+        match bind env unify callee callType with
         | Ok _ -> return (prune retType, prune throwsType)
         | Error e -> return! Error e
       | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")

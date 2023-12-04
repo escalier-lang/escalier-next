@@ -547,6 +547,8 @@ module Type =
       | TypeKind.Condition(check, extends, trueType, falseType) ->
         $"{check} extends {extends} ? {trueType} : {falseType}"
       | TypeKind.KeyOf t -> $"keyof {t}"
+      // TODO: handle operator precedence
+      | TypeKind.Binary(left, op, right) -> $"{left} {op} {right}"
       | _ ->
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"

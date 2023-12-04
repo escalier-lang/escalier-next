@@ -211,8 +211,15 @@ module rec Unify =
         | Some _ -> return ()
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
-      | _, _ ->
+      | TypeKind.Binary(left, op, right), TypeKind.TypeRef { Name = "number" } ->
+        if
+          op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
+        then
+          return ()
+        else
+          return! Error(TypeError.TypeMismatch(t1, t2))
 
+      | _, _ ->
         let t1' = env.ExpandType t1
         let t2' = env.ExpandType t2
 

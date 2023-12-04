@@ -245,9 +245,9 @@ module Parser =
   let atom =
     choice
       [ literalExpr
-        funcExpr
-        doExpr
-        ifElse
+        attempt funcExpr // conflicts with identExpr
+        attempt doExpr // conflicts with identExpr
+        attempt ifElse // conflicts with identExpr
         tupleExpr
         objectExpr
         templateStringLiteral

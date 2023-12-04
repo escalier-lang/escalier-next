@@ -38,11 +38,12 @@ module Prelude =
           |> TypeKind.TypeRef
         Provenance = None }
 
-    let arithemtic =
+    let arithemtic (op: string) =
       (makeFunctionType
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        numType,
+        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+          Provenance = None },
        false)
 
     let comparison =
@@ -113,18 +114,19 @@ module Prelude =
       (makeFunctionType
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        strType,
+        { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
+          Provenance = None },
        false)
 
     { Env.Values =
         Map.ofList
-          [ ("+", arithemtic)
+          [ ("+", arithemtic "+")
             ("++", stringConcat)
-            ("-", arithemtic)
-            ("*", arithemtic)
-            ("/", arithemtic)
-            ("%", arithemtic)
-            ("**", arithemtic)
+            ("-", arithemtic "-")
+            ("*", arithemtic "*")
+            ("/", arithemtic "/")
+            ("%", arithemtic "%")
+            ("**", arithemtic "**")
             ("<", comparison)
             ("<=", comparison)
             (">", comparison)

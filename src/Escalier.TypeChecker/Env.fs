@@ -166,7 +166,7 @@ module rec Env =
         | TypeKind.KeyOf t -> failwith "TODO: expand keyof"
         | TypeKind.Index(target, index) -> failwith "TODO: expand index"
         | TypeKind.Condition _ -> failwith "TODO: expand condition"
-        | TypeKind.Binary(left, op, right) -> failwith "TODO: expand binary"
+        | TypeKind.Binary _ -> simplify t
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
         // since expansion can be quite expensive
@@ -273,6 +273,40 @@ module rec Env =
     { Kind = TypeKind.TypeVar(newVar)
       Provenance = None }
 
+  let simplify (t: Type) : Type =
+    match t.Kind with
+    | TypeKind.Binary(left, op, right) ->
+      match (prune left).Kind, (prune right).Kind with
+      | TypeKind.Literal(Literal.Number n1), TypeKind.Literal(Literal.Number n2) ->
+        let n1 = float n1
+        let n2 = float n2
+
+        let result =
+          match op with
+          | "+" -> n1 + n2
+          | "-" -> n1 - n2
+          | "*" -> n1 * n2
+          | "/" -> n1 / n2
+          | "%" -> n1 % n2
+          | "**" -> n1 ** n2
+          | _ -> failwith "TODO: simplify binary"
+
+        { Kind = TypeKind.Literal(Literal.Number(string result))
+          Provenance = None }
+      | _, TypeKind.TypeRef { Name = "number" } -> right
+      | TypeKind.TypeRef { Name = "number" }, _ -> left
+      | TypeKind.Literal(Literal.String s1), TypeKind.Literal(Literal.String s2) ->
+
+        let result =
+          match op with
+          | "++" -> s1 + s2
+          | _ -> failwith "TODO: simplify binary"
+
+        { Kind = TypeKind.Literal(Literal.Number(string result))
+          Provenance = None }
+      | _ -> t
+    | _ -> t
+
   /// Returns the currently defining instance of t.
   /// As a side effect, collapses the list of type instances. The function Prune
   /// is used whenever a type expression has to be inspected: it will always
@@ -285,7 +319,7 @@ module rec Env =
       let newInstance = prune instance
       v.Instance <- Some(newInstance)
       newInstance
-    | _ -> t
+    | _ -> simplify t
 
   let rec bind
     (env: Env)

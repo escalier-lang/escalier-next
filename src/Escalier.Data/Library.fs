@@ -553,6 +553,7 @@ module Type =
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"
 
+  // TODO: add `IsTypeParam` field
   type Scheme =
     { TypeParams: option<list<string>>
       Type: Type }

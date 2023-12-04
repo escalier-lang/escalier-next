@@ -309,7 +309,7 @@ module rec Unify =
     (retType: Type)
     (throwsType: Type)
     (callee: Function)
-    : Result<(Type * Type), TypeError> =
+    : Result<Type * Type, TypeError> =
 
     result {
       let! callee =

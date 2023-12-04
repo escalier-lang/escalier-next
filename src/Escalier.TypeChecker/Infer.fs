@@ -75,19 +75,48 @@ module rec Infer =
         | ExprKind.Function f ->
           let mutable newEnv = env
 
+          // TODO: move this up so that we can reference any type params in the
+          // function params, body, return or throws
+          let! typeParams =
+            match f.Sig.TypeParams with
+            | Some(typeParams) ->
+              List.traverseResultM
+                (fun typeParam ->
+                  result {
+                    let! typeParam = inferTypeParam newEnv typeParam
+
+                    let unknown =
+                      { Kind = makePrimitiveKind "unknown"
+                        Provenance = None }
+
+                    let scheme =
+                      { TypeParams = None
+                        Type =
+                          match typeParam.Constraint with
+                          | Some c -> c
+                          | None -> unknown }
+
+                    newEnv <- newEnv.AddScheme typeParam.Name scheme
+
+                    return typeParam
+                  })
+                typeParams
+              |> Result.map Some
+            | None -> Ok None
+
           let! paramList =
             List.traverseResultM
               (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
                 result {
                   let! paramType =
                     match param.TypeAnn with
-                    | Some(typeAnn) -> inferTypeAnn env typeAnn
+                    | Some(typeAnn) -> inferTypeAnn newEnv typeAnn
                     | None -> Result.Ok(makeVariable ctx None)
 
                   let! assumps, patternType =
-                    inferPattern ctx env param.Pattern
+                    inferPattern ctx newEnv param.Pattern
 
-                  do! unify ctx env patternType paramType
+                  do! unify ctx newEnv patternType paramType
 
                   for KeyValue(name, binding) in assumps do
                     // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
@@ -136,20 +165,11 @@ module rec Infer =
             result {
               match f.Sig.ReturnType with
               | Some(sigRetType) ->
-                let! sigRetType = inferTypeAnn env sigRetType
-                do! unify ctx env retType sigRetType
+                let! sigRetType = inferTypeAnn newEnv sigRetType
+                do! unify ctx newEnv retType sigRetType
                 return sigRetType
               | None -> return retType
             }
-
-          // TODO: move this up so that we can reference any type params in the
-          // function params, body, return or throws
-          let! typeParams =
-            match f.Sig.TypeParams with
-            | Some(typeParams) ->
-              List.traverseResultM (inferTypeParam env) typeParams
-              |> Result.map Some
-            | None -> Ok None
 
           return makeFunctionType typeParams paramList retType
         | ExprKind.Tuple elems ->
@@ -399,21 +419,27 @@ module rec Infer =
           let! types = List.traverseResultM (inferTypeAnn env) types
           return TypeKind.Intersection types
         | TypeAnnKind.TypeRef(name, typeArgs) ->
-          match typeArgs with
-          | Some(typeArgs) ->
-            let! typeArgs = List.traverseResultM (inferTypeAnn env) typeArgs
+          // TODO: look up the scheme for this
+          match env.Schemes.TryFind(name) with
+          | Some(scheme) ->
 
-            return
-              { Name = name
-                TypeArgs = Some(typeArgs)
-                Scheme = None }
-              |> TypeKind.TypeRef
+            match typeArgs with
+            | Some(typeArgs) ->
+              let! typeArgs = List.traverseResultM (inferTypeAnn env) typeArgs
+
+              return
+                { Name = name
+                  TypeArgs = Some(typeArgs)
+                  Scheme = Some(scheme) }
+                |> TypeKind.TypeRef
+            | None ->
+              return
+                { Name = name
+                  TypeArgs = None
+                  Scheme = Some(scheme) }
+                |> TypeKind.TypeRef
           | None ->
-            return
-              { Name = name
-                TypeArgs = None
-                Scheme = None }
-              |> TypeKind.TypeRef
+            return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
           let! returnType = inferTypeAnn env functionType.ReturnType
 
@@ -441,7 +467,7 @@ module rec Infer =
               functionType.ParamList
 
           let f =
-            { TypeParams = None
+            { TypeParams = None // TODO: type params
               ParamList = paramList
               Return = returnType
               Throws = throws }
@@ -645,14 +671,24 @@ module rec Infer =
 
         return newEnv
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl(name, typeAnn, typeParams) }) ->
-
-        let! t = inferTypeAnn env typeAnn
+        // Create a new environment to avoid polluting the current environment
+        // with the type parameters.
+        let mutable newEnv = env
 
         let typeParams =
-          Option.map
-            (List.map (fun (param: Syntax.TypeParam) -> param.Name))
+          typeParams
+          |> Option.map (fun typeParams ->
             typeParams
+            |> List.map (fun typeParam ->
+              let unknown =
+                { Kind = makePrimitiveKind "unknown"
+                  Provenance = None }
 
+              let scheme = { TypeParams = None; Type = unknown }
+              newEnv <- newEnv.AddScheme typeParam.Name scheme
+              typeParam.Name))
+
+        let! t = inferTypeAnn newEnv typeAnn
         let scheme = { TypeParams = typeParams; Type = t }
 
         return env.AddScheme name scheme

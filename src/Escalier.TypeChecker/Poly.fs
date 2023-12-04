@@ -165,6 +165,7 @@ module Poly =
       Throws = throws }
 
   let instantiateFunc
+    (ctx: Ctx)
     (f: Function)
     (typeArgs: option<list<Type>>)
     : Result<Function, TypeError> =
@@ -191,8 +192,7 @@ module Poly =
             mapping <- mapping.Add(tp.Name, ta)
         | None ->
           for tp in typeParams do
-            mapping <-
-              mapping.Add(tp.Name, TypeVariable.makeVariable tp.Constraint)
+            mapping <- mapping.Add(tp.Name, makeVariable ctx tp.Constraint)
       | None -> ()
 
       return

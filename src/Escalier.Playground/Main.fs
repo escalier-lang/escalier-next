@@ -39,9 +39,10 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let env = Prelude.getEnv ()
+    let tcCtx = { Env.nextVariableId = 0 }
 
     let! env =
-      Infer.inferScript env ast.Stmts
+      Infer.inferScript tcCtx env ast.Stmts
       |> Result.mapError CompileError.TypeError
 
     let mod' = Codegen.buildModuleTypes env ctx ast

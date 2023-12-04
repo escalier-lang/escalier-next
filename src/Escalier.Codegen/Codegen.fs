@@ -7,7 +7,6 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
 open Escalier.TypeChecker.Env
-open Escalier.TypeChecker.TypeVariable
 
 module rec Codegen =
   module TS = TypeScript

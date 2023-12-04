@@ -5,10 +5,10 @@ open FsToolkit.ErrorHandling
 open Escalier.Data.Common
 open Escalier.Data.Type
 
-open TypeVariable
 open Error
 
 module rec Env =
+  type Ctx = { mutable nextVariableId: int }
 
   let makePrimitiveKind name =
     { Name = name
@@ -262,13 +262,13 @@ module rec Env =
       // TODO: union types
       | _ -> failwith $"TODO: lookup member on type - {t}"
 
-  let makeVariable bound =
+  let makeVariable (ctx: Ctx) (bound: option<Type>) =
     let newVar =
-      { Id = TypeVariable.nextVariableId
+      { Id = ctx.nextVariableId
         Bound = bound
         Instance = None }
 
-    nextVariableId <- nextVariableId + 1
+    ctx.nextVariableId <- ctx.nextVariableId + 1
 
     { Kind = TypeKind.TypeVar(newVar)
       Provenance = None }
@@ -326,8 +326,9 @@ module rec Env =
     | _ -> simplify t
 
   let rec bind
+    (ctx: Ctx)
     (env: Env)
-    (unify: Env -> Type -> Type -> Result<unit, TypeError>)
+    (unify: Ctx -> Env -> Type -> Type -> Result<unit, TypeError>)
     (t1: Type)
     (t2: Type)
     =
@@ -343,7 +344,7 @@ module rec Env =
         | TypeKind.TypeVar(v) ->
           // printfn "Binding %A to %A" t1 t2
           match v.Bound with
-          | Some(bound) -> do! unify env t2 bound
+          | Some(bound) -> do! unify ctx env t2 bound
           | None -> ()
           // return! Error(TypeError.TypeBoundMismatch(t1, t2))
           v.Instance <- Some(t2)

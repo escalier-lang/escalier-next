@@ -236,9 +236,10 @@ let InferBasicVarDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
+      let ctx = { nextVariableId = 0 }
 
       let! newEnv =
-        inferModule env ast |> Result.mapError CompileError.TypeError
+        inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(newEnv, "a", "number")
       Assert.Value(newEnv, "b", "string | undefined")
@@ -270,9 +271,10 @@ let InferTypeDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
+      let ctx = { nextVariableId = 0 }
 
       let! newEnv =
-        inferModule env ast |> Result.mapError CompileError.TypeError
+        inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(newEnv, "Pick", "{[P]: T[P] for P in K}")
       Assert.Type(newEnv, "Exclude", "T extends U ? never : T")
@@ -307,9 +309,10 @@ let InferLibES5 () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
+      let ctx = { nextVariableId = 0 }
 
       let! newEnv =
-        inferModule env ast |> Result.mapError CompileError.TypeError
+        inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       // printfn "---- Schemes ----"
       //

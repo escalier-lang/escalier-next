@@ -250,9 +250,10 @@ let CodegenDtsBasics () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
+      let ctx = { Env.nextVariableId = 0 }
 
       let! env =
-        Infer.inferScript env escAst.Stmts
+        Infer.inferScript ctx env escAst.Stmts
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
@@ -281,11 +282,12 @@ let CodegenDtsGeneric () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
+      let ctx = { Env.nextVariableId = 0 }
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
-        Infer.inferScript env ast.Stmts
+        Infer.inferScript ctx env ast.Stmts
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }

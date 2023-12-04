@@ -13,22 +13,27 @@ open Poly
 module rec Unify =
 
   ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
-  let unify (env: Env) (t1: Type) (t2: Type) : Result<unit, TypeError> =
+  let unify
+    (ctx: Ctx)
+    (env: Env)
+    (t1: Type)
+    (t2: Type)
+    : Result<unit, TypeError> =
     // printfn $"unify({t1}, {t2})"
 
     result {
       match (prune t1).Kind, (prune t2).Kind with
-      | TypeKind.TypeVar _, _ -> do! bind env unify t1 t2
-      | _, TypeKind.TypeVar _ -> do! unify env t2 t1
+      | TypeKind.TypeVar _, _ -> do! bind ctx env unify t1 t2
+      | _, TypeKind.TypeVar _ -> do! unify ctx env t2 t1
       | TypeKind.Tuple(elems1), TypeKind.Tuple(elems2) ->
         if List.length elems1 <> List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        ignore (List.map2 (unify env) elems1 elems2)
+        ignore (List.map2 (unify ctx env) elems1 elems2)
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
-        let! f1 = instantiateFunc f1 None
-        let! f2 = instantiateFunc f2 None
+        let! f1 = instantiateFunc ctx f1 None
+        let! f2 = instantiateFunc ctx f2 None
 
         let paramList1 =
           List.map (fun (param: FuncParam) -> param.Type) f1.ParamList
@@ -43,9 +48,9 @@ module rec Unify =
         for i in 0 .. paramList1.Length - 1 do
           let param1 = paramList1[i]
           let param2 = paramList2[i]
-          do! unify env param2 param1 // params are contravariant
+          do! unify ctx env param2 param1 // params are contravariant
 
-        do! unify env f1.Return f2.Return // returns are covariant
+        do! unify ctx env f1.Return f2.Return // returns are covariant
       | TypeKind.TypeRef({ Name = name1; TypeArgs = types1 }),
         TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) ->
 
@@ -58,7 +63,7 @@ module rec Unify =
           if List.length types1 <> List.length types2 then
             return! Error(TypeError.TypeMismatch(t1, t2))
 
-          ignore (List.map2 (unify env) types1 types2)
+          ignore (List.map2 (unify ctx env) types1 types2)
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Literal lit,
         TypeKind.TypeRef({ Name = name; TypeArgs = typeArgs }) ->
@@ -115,7 +120,7 @@ module rec Unify =
               | true -> union [ prop2.Type; undefined ]
               | false -> prop2.Type
 
-            do! unify env p1Type p2Type
+            do! unify ctx env p1Type p2Type
           | None ->
             if not prop2.Optional then
               return! Error(TypeError.TypeMismatch(t1, t2))
@@ -135,7 +140,7 @@ module rec Unify =
             Provenance = None }
 
         match restTypes with
-        | [] -> do! unify env t1 objType
+        | [] -> do! unify ctx env t1 objType
         | [ restType ] ->
           let objElems, restElems =
             List.partition
@@ -152,13 +157,13 @@ module rec Unify =
             { Kind = TypeKind.Object(objElems)
               Provenance = None }
 
-          do! unify env newObjType objType
+          do! unify ctx env newObjType objType
 
           let newRestType =
             { Kind = TypeKind.Object(restElems)
               Provenance = None }
 
-          do! unify env newRestType restType
+          do! unify ctx env newRestType restType
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | TypeKind.Intersection types, TypeKind.Object allElems ->
@@ -176,7 +181,7 @@ module rec Unify =
             Provenance = None }
 
         match restTypes with
-        | [] -> do! unify env objType t2
+        | [] -> do! unify ctx env objType t2
         | [ restType ] ->
           let objElems, restElems =
             List.partition
@@ -193,19 +198,19 @@ module rec Unify =
             { Kind = TypeKind.Object(objElems)
               Provenance = None }
 
-          do! unify env objType newObjType
+          do! unify ctx env objType newObjType
 
           let newRestType =
             { Kind = TypeKind.Object(restElems)
               Provenance = None }
 
-          do! unify env restType newRestType
+          do! unify ctx env restType newRestType
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | _, TypeKind.Union(types) ->
 
         let unifier =
-          List.tryFind (fun t -> unify env t1 t |> Result.isOk) types
+          List.tryFind (fun t -> unify ctx env t1 t |> Result.isOk) types
 
         match unifier with
         | Some _ -> return ()
@@ -224,14 +229,15 @@ module rec Unify =
         let t2' = env.ExpandType t2
 
         if t1' <> t1 || t2' <> t2 then
-          return! unify env t1' t2'
+          return! unify ctx env t1' t2'
         else
           return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
   let unifyCall<'a>
+    (ctx: Ctx)
     (env: Env)
-    (inferExpr: Env -> 'a -> Result<Type, TypeError>)
+    (inferExpr: Ctx -> Env -> 'a -> Result<Type, TypeError>)
     (args: list<'a>)
     (typeArgs: option<list<Type>>)
     (callee: Type)
@@ -240,20 +246,20 @@ module rec Unify =
     result {
       let callee = prune callee
 
-      let retType = TypeVariable.makeVariable None
-      let throwsType = TypeVariable.makeVariable None
+      let retType = Env.makeVariable ctx None
+      let throwsType = Env.makeVariable ctx None
 
       match callee.Kind with
       | TypeKind.Function func ->
         return!
-          unifyFuncCall env inferExpr args typeArgs retType throwsType func
+          unifyFuncCall ctx env inferExpr args typeArgs retType throwsType func
       | TypeKind.Intersection types ->
         let mutable result = None
 
         for t in types do
           match t.Kind with
           | TypeKind.Function func ->
-            match unifyCall env inferExpr args typeArgs t with
+            match unifyCall ctx env inferExpr args typeArgs t with
             | Result.Ok value ->
               printfn $"unifyCall: {t} -> {value}"
               result <- Some(value)
@@ -267,7 +273,7 @@ module rec Unify =
       | TypeKind.TypeVar _ ->
 
         // TODO: use a `result {}` CE here
-        let! argTypes = List.traverseResultM (inferExpr env) args
+        let! argTypes = List.traverseResultM (inferExpr ctx env) args
 
         let paramList =
           List.mapi
@@ -288,15 +294,16 @@ module rec Unify =
                   TypeParams = None } // TODO
             Provenance = None }
 
-        match bind env unify callee callType with
+        match bind ctx env unify callee callType with
         | Ok _ -> return (prune retType, prune throwsType)
         | Error e -> return! Error e
       | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")
     }
 
   let unifyFuncCall<'a>
+    (ctx: Ctx)
     (env: Env)
-    (inferExpr: Env -> 'a -> Result<Type, TypeError>)
+    (inferExpr: Ctx -> Env -> 'a -> Result<Type, TypeError>)
     (args: list<'a>)
     (typeArgs: option<list<Type>>)
     (retType: Type)
@@ -308,7 +315,7 @@ module rec Unify =
       let! callee =
         result {
           if callee.TypeParams.IsSome then
-            return! instantiateFunc callee typeArgs
+            return! instantiateFunc ctx callee typeArgs
           else
             return callee
         }
@@ -317,7 +324,7 @@ module rec Unify =
         List.traverseResultM
           (fun arg ->
             result {
-              let! argType = inferExpr env arg
+              let! argType = inferExpr ctx env arg
               return arg, argType
             })
           args
@@ -329,10 +336,10 @@ module rec Unify =
           ()
         else
           // TODO: check_mutability of `arg`
-          do! unify env argType param.Type // contravariant
+          do! unify ctx env argType param.Type // contravariant
 
-      do! unify env retType callee.Return // covariant
-      do! unify env throwsType callee.Throws // covariant
+      do! unify ctx env retType callee.Return // covariant
+      do! unify ctx env throwsType callee.Throws // covariant
 
       return (retType, throwsType)
     }

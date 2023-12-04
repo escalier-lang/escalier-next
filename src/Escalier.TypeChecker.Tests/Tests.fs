@@ -108,7 +108,7 @@ let InferBinaryOperators () =
       let! sum = infer "5 + 10"
       Assert.Equal("number", sum.ToString())
 
-      let! str = infer "\"Hello, \" + \"world!\""
+      let! str = infer "\"Hello, \" ++ \"world!\""
       Assert.Equal("string", str.ToString())
 
       let! lt = infer "5 < 10"
@@ -210,8 +210,11 @@ let InferFuncParams () =
     result {
       let src =
         """
-          let add = fn (x, y) {
+          let addNums = fn (x, y) {
             return x + y
+          }
+          let addStrs = fn (x, y) {
+            return x ++ y
           }
           """
 
@@ -219,8 +222,14 @@ let InferFuncParams () =
 
       Assert.Value(
         env,
-        "add",
+        "addNums",
         "fn <A: number, B: number>(x: A, y: B) -> number"
+      )
+
+      Assert.Value(
+        env,
+        "addStrs",
+        "fn <A: string, B: string>(x: A, y: B) -> string"
       )
     }
 
@@ -232,14 +241,18 @@ let InferFuncParamsWithTypeAnns () =
     result {
       let src =
         """
-          let add = fn (x: number, y: number) -> number {
+          let addNums = fn (x: number, y: number) -> number {
             return x + y
+          }
+          let addStrs = fn (x: string, y: string) -> string {
+            return x ++ y
           }
           """
 
       let! env = inferScript src
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(env, "addNums", "fn (x: number, y: number) -> number")
+      Assert.Value(env, "addStrs", "fn (x: string, y: string) -> string")
     }
 
   Assert.False(Result.isError result)

@@ -345,6 +345,7 @@ module Parser =
   opp.AddOperator(InfixOperator("/", ws, 12, Assoc.Left, binary "/"))
   opp.AddOperator(InfixOperator("%", ws, 12, Assoc.Left, binary "%"))
   opp.AddOperator(InfixOperator("+", ws, 11, Assoc.Left, binary "+"))
+  opp.AddOperator(InfixOperator("++", ws, 11, Assoc.Left, binary "++"))
   opp.AddOperator(InfixOperator("-", ws, 11, Assoc.Left, binary "-"))
   opp.AddOperator(InfixOperator("<", ws, 9, Assoc.Left, binary "<"))
   opp.AddOperator(InfixOperator("<=", ws, 9, Assoc.Left, binary "<="))

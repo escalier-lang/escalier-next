@@ -247,7 +247,9 @@ module rec Unify =
           match t.Kind with
           | TypeKind.Function func ->
             match unifyCall env inferExpr args typeArgs t with
-            | Result.Ok value -> result <- Some(value)
+            | Result.Ok value ->
+              printfn $"unifyCall: {t} -> {value}"
+              result <- Some(value)
             | Result.Error _ -> ()
           | _ -> ()
 

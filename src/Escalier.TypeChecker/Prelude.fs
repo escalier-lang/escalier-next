@@ -116,11 +116,10 @@ module Prelude =
         strType,
        false)
 
-    let t = intersection [ fst arithemtic; fst stringConcat ]
-
     { Env.Values =
         Map.ofList
-          [ ("+", (t, false))
+          [ ("+", arithemtic)
+            ("++", stringConcat)
             ("-", arithemtic)
             ("*", arithemtic)
             ("/", arithemtic)

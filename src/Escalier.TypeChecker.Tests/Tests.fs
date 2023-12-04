@@ -217,6 +217,8 @@ let InferFuncParams () =
             return x ++ y
           }
           let msg = addStrs("Hello, ", "world!")
+          let greeting: string = "Bonjour, "
+          let frMsg = addStrs(greeting, "monde!")
           """
 
       let! env = inferScript src
@@ -234,6 +236,7 @@ let InferFuncParams () =
       )
 
       Assert.Value(env, "msg", "Hello, world!")
+      Assert.Value(env, "frMsg", "string")
     }
 
   Assert.False(Result.isError result)
@@ -254,6 +257,8 @@ let InferBinaryOpStressTest () =
             return x + 1
           }
           let bar = foo(double(1), inc(2), 3)
+          let baz: number = 5
+          let qux = double(baz)
           """
 
       let! env = inferScript src
@@ -267,6 +272,7 @@ let InferBinaryOpStressTest () =
       Assert.Value(env, "double", "fn <A: number>(x: A) -> 2 * A")
       Assert.Value(env, "inc", "fn <A: number>(x: A) -> A + 1")
       Assert.Value(env, "bar", "9")
+      Assert.Value(env, "qux", "number")
     }
 
   printfn "result = %A" result
@@ -539,7 +545,7 @@ let InferOptionalChaining () =
       Assert.Value(env, "x", "number")
     }
 
-  printf "result = %A" result
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

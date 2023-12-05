@@ -426,6 +426,23 @@ let InferPrivateDecl () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
+[<Fact(Skip = "TODO: add primitive types to fix this")>]
+let InferTypeAliasOfPrimtiveType () =
+  let result =
+    result {
+      let src =
+        """
+        type Bar = number
+        let x: Bar = 5
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "foo", "")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let InferLambda () =

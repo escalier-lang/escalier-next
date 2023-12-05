@@ -194,7 +194,7 @@ module Poly =
             mapping <- mapping.Add(tp.Name, ta)
         | None ->
           for tp in typeParams do
-            mapping <- mapping.Add(tp.Name, makeVariable ctx tp.Constraint)
+            mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar tp.Constraint)
       | None -> ()
 
       return

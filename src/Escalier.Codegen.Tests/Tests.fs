@@ -250,7 +250,7 @@ let CodegenDtsBasics () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
-      let ctx = { Env.nextVariableId = 0 }
+      let ctx = Env.Ctx()
 
       let! env =
         Infer.inferScript ctx env escAst.Stmts
@@ -282,7 +282,7 @@ let CodegenDtsGeneric () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
-      let ctx = { Env.nextVariableId = 0 }
+      let ctx = Env.Ctx()
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type

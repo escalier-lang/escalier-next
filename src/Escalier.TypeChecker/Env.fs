@@ -1,14 +1,32 @@
 namespace Escalier.TypeChecker
 
+open Escalier.TypeChecker.Error
 open FsToolkit.ErrorHandling
 
 open Escalier.Data.Common
 open Escalier.Data.Type
 
-open Error
 
 module rec Env =
-  type Ctx = { mutable nextVariableId: int }
+  type Ctx() =
+    let mutable nextVariableId = 0
+    let mutable diagnostics: list<Diagnostic> = []
+
+    member this.FreshTypeVar(bound: option<Type>) =
+      let newVar =
+        { Id = nextVariableId
+          Bound = bound
+          Instance = None }
+
+      nextVariableId <- nextVariableId + 1
+
+      { Kind = TypeKind.TypeVar newVar
+        Provenance = None }
+
+    member this.AddDiagnostic(diagnostic: Diagnostic) =
+      diagnostics <- diagnostic :: diagnostics
+
+    member this.Diagnostics = diagnostics
 
   let makeTypeRefKind name =
     { Name = name
@@ -257,17 +275,6 @@ module rec Env =
       // TODO: intersection types
       // TODO: union types
       | _ -> failwith $"TODO: lookup member on type - {t}"
-
-  let makeVariable (ctx: Ctx) (bound: option<Type>) =
-    let newVar =
-      { Id = ctx.nextVariableId
-        Bound = bound
-        Instance = None }
-
-    ctx.nextVariableId <- ctx.nextVariableId + 1
-
-    { Kind = TypeKind.TypeVar(newVar)
-      Provenance = None }
 
   let simplify (t: Type) : Type =
     match t.Kind with

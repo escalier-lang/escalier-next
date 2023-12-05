@@ -10,3 +10,5 @@ module Error =
     | TypeMismatch of Type * Type
     | RecursiveUnification
     | WrongNumberOfTypeArgs
+
+  type Diagnostic = { Reasons: list<TypeError> }

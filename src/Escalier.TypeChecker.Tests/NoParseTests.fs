@@ -210,7 +210,7 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
     let! stmtEnv = inferStmt ctx env ast false
     env <- stmtEnv
 
@@ -231,7 +231,7 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
-  let ctx = { nextVariableId = 0 }
+  let ctx = Ctx()
 
   try
     inferExpr ctx env ast |> ignore
@@ -242,7 +242,7 @@ let UnificationFailure () =
 let UndefinedSymbol () =
   let ast = ident "foo"
   let env = getEnv ()
-  let ctx = { nextVariableId = 0 }
+  let ctx = Ctx()
 
   try
     inferExpr ctx env ast |> ignore
@@ -263,7 +263,7 @@ let InferPair () =
         ) ]
 
     let env = getEnv ()
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
     let! newEnv = inferScript ctx env ast
 
     let! f = newEnv.GetType "f"
@@ -280,7 +280,7 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
-  let ctx = { nextVariableId = 0 }
+  let ctx = Ctx()
 
   try
     inferExpr ctx env ast |> ignore
@@ -308,7 +308,7 @@ let InferGenericAndNonGeneric () =
         ) ]
 
     let env = getEnv ()
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
     let! newEnv = inferScript ctx env ast
 
     let! t = newEnv.GetType "foo"
@@ -334,7 +334,7 @@ let InferFuncComposition () =
 
 
     let env = getEnv ()
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
     let! newEnv = inferScript ctx env ast
 
     let! t = newEnv.GetType "foo"
@@ -378,7 +378,7 @@ let InferScriptSKK () =
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
     let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
     let! newEnv = inferScript ctx env script
 
     let! t = newEnv.GetType "S"

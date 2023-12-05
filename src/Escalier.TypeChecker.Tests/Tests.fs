@@ -34,8 +34,8 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
-    let ctx = { nextVariableId = 0 }
 
+    let ctx = Ctx()
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 
     return simplify t
@@ -50,7 +50,7 @@ let inferScript src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
 
     let! env = Result.mapError CompileError.TypeError (inferScript ctx env ast)
 
@@ -65,7 +65,7 @@ let inferWithEnv src env =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let ctx = { nextVariableId = 0 }
+    let ctx = Ctx()
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 
     return t

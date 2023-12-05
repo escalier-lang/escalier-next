@@ -39,7 +39,7 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let env = Prelude.getEnv ()
-    let tcCtx = { Env.nextVariableId = 0 }
+    let tcCtx = Env.Ctx()
 
     let! env =
       Infer.inferScript tcCtx env ast.Stmts

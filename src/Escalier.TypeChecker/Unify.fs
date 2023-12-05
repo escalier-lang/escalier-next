@@ -253,8 +253,8 @@ module rec Unify =
     result {
       let callee = prune callee
 
-      let retType = Env.makeVariable ctx None
-      let throwsType = Env.makeVariable ctx None
+      let retType = ctx.FreshTypeVar None
+      let throwsType = ctx.FreshTypeVar None
 
       match callee.Kind with
       | TypeKind.Function func ->

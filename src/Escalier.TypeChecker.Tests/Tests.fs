@@ -370,6 +370,7 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
       Assert.Value(env, "baz", "\"hello\"")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -394,6 +395,53 @@ let InferTypeDecls () =
       Assert.Type(env, "Nullable", "<T>(T | undefined)")
     }
 
+  printfn "result = %A" result
+
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
+let InferPrivateDecl () =
+  let result =
+    result {
+      let src =
+        """
+          let makePoint = fn (x, y) {
+            type Point = {x: number, y: number}
+            let point: Point = {x, y}
+            return point
+          }
+          let p = makePoint(5, 10)
+          let {x, y} = p
+          """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
+      Assert.Value(env, "p", "Point")
+      Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: add primitive types to fix this")>]
+let InferTypeAliasOfPrimtiveType () =
+  let result =
+    result {
+      let src =
+        """
+        type Bar = number
+        let x: Bar = 5
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "foo", "")
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

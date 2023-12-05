@@ -16,6 +16,7 @@ module rec Visitor =
         | ExprKind.Identifier _ -> ()
         | ExprKind.Literal _ -> ()
         | ExprKind.Function f ->
+          // TODO: walk type annotations
           match f.Body with
           | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
           | BlockOrExpr.Expr expr -> walk expr
@@ -55,7 +56,10 @@ module rec Visitor =
           walk left
           walk right
         | ExprKind.Unary(_op, value) -> walk value
-        | ExprKind.Object elems -> failwith "todo"
+        | ExprKind.Object elems ->
+          // TODO:
+          // failwith "todo"
+          ()
         | ExprKind.Try(body, catch, fin) ->
           List.iter (walkStmt visitor) body.Stmts
 
@@ -87,8 +91,9 @@ module rec Visitor =
         | StmtKind.Decl({ Kind = DeclKind.VarDecl(_name, init, typeAnn) }) ->
           // TODO: walk typeAnn
           walkExpr visitor init
-        | StmtKind.Decl({ Kind = DeclKind.TypeDecl _ }) ->
-          failwith "TODO: walkStmt - TypeDecl"
+        | StmtKind.Decl({ Kind = DeclKind.TypeDecl(name, typeAnn, typeParams) }) ->
+          // TODO: walk type params
+          walkTypeAnn visitor typeAnn
         | StmtKind.Return exprOption ->
           Option.iter (walkExpr visitor) exprOption
 

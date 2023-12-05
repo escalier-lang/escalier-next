@@ -72,6 +72,10 @@ module rec Unify =
         | Literal.Number _, "number" -> ()
         | Literal.String _, "string" -> ()
         | Literal.Boolean _, "boolean" -> ()
+        // TODO: expand the type ref
+        // TODO: making `number`, `string`, `boolean`, primitives
+        // instead of type refs so that we don't have to have exceptions
+        // those types everywhere
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Literal l1, TypeKind.Literal l2 ->
         match l1, l2 with
@@ -309,7 +313,7 @@ module rec Unify =
     (retType: Type)
     (throwsType: Type)
     (callee: Function)
-    : Result<(Type * Type), TypeError> =
+    : Result<Type * Type, TypeError> =
 
     result {
       let! callee =

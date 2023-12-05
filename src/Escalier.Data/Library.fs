@@ -255,6 +255,17 @@ module Type =
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
 
+  type Primitive =
+    | Boolean
+    | Number
+    | String
+
+    override this.ToString() =
+      match this with
+      | Boolean -> "boolean"
+      | Number -> "number"
+      | String -> "string"
+
   type ObjPatElem =
     | KeyValuePat of key: string * value: Pattern * init: option<Syntax.Expr>
     | ShorthandPat of name: string * init: option<Syntax.Expr>
@@ -472,6 +483,7 @@ module Type =
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
+    | Primitive of Primitive
     | Function of Function
     | Object of list<ObjTypeElem>
     | Rest of Type
@@ -509,6 +521,7 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
+      | TypeKind.Primitive prim -> prim.ToString()
       | TypeKind.Function f -> f.ToString()
       | TypeKind.Literal lit -> lit.ToString()
       | TypeKind.Union types ->

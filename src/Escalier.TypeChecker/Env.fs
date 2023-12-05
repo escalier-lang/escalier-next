@@ -10,7 +10,7 @@ open Error
 module rec Env =
   type Ctx = { mutable nextVariableId: int }
 
-  let makePrimitiveKind name =
+  let makeTypeRefKind name =
     { Name = name
       TypeArgs = None
       Scheme = None }
@@ -18,7 +18,7 @@ module rec Env =
 
   let makeFunctionType typeParams paramList ret =
     let never =
-      { Kind = makePrimitiveKind "never"
+      { Kind = makeTypeRefKind "never"
         Provenance = None }
 
     { Kind =
@@ -30,15 +30,15 @@ module rec Env =
       Provenance = None }
 
   let numType =
-    { Kind = makePrimitiveKind "number"
+    { Kind = TypeKind.Primitive Primitive.Number
       Provenance = None }
 
   let boolType =
-    { Kind = makePrimitiveKind "boolean"
+    { Kind = TypeKind.Primitive Primitive.Boolean
       Provenance = None }
 
   let strType =
-    { Kind = makePrimitiveKind "string"
+    { Kind = TypeKind.Primitive Primitive.String
       Provenance = None }
 
   let isIntegerLiteral (name: string) =
@@ -69,7 +69,7 @@ module rec Env =
 
     match types with
     | [] ->
-      { Kind = makePrimitiveKind "never"
+      { Kind = makeTypeRefKind "never"
         Provenance = None }
     | [ t ] -> t
     | types ->
@@ -89,9 +89,9 @@ module rec Env =
 
     for t in types do
       match (prune t).Kind with
-      | TypeKind.TypeRef { Name = "number" } -> hasNum <- true
-      | TypeKind.TypeRef { Name = "string" } -> hasStr <- true
-      | TypeKind.TypeRef { Name = "boolean" } -> hasBool <- true
+      | TypeKind.Primitive Primitive.Number -> hasNum <- true
+      | TypeKind.Primitive Primitive.String -> hasStr <- true
+      | TypeKind.Primitive Primitive.Boolean -> hasBool <- true
       | _ -> ()
 
     // Removes literals if the corresponding primitive is already in
@@ -108,7 +108,7 @@ module rec Env =
 
     match types with
     | [] ->
-      { Kind = makePrimitiveKind "never"
+      { Kind = makeTypeRefKind "never"
         Provenance = None }
     | [ t ] -> t
     | types ->
@@ -174,19 +174,15 @@ module rec Env =
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
-          // TODO: do a better job of handling this
-          if name = "string" || name = "number" || name = "boolean" then
-            t
-          else
-            let t =
-              match scheme with
+          let t =
+            match scheme with
+            | Some scheme -> this.ExpandScheme scheme typeArgs
+            | None ->
+              match this.Schemes.TryFind name with
               | Some scheme -> this.ExpandScheme scheme typeArgs
-              | None ->
-                match this.Schemes.TryFind name with
-                | Some scheme -> this.ExpandScheme scheme typeArgs
-                | None -> failwith $"{name} is not in scope"
+              | None -> failwith $"{name} is not in scope"
 
-            expand t
+          expand t
         | _ -> t
 
       expand t
@@ -294,8 +290,8 @@ module rec Env =
         { Kind = TypeKind.Literal(Literal.Number result)
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving numbers
-      | _, TypeKind.TypeRef { Name = "number" } -> right
-      | TypeKind.TypeRef { Name = "number" }, _ -> left
+      | _, TypeKind.Primitive Primitive.Number -> right
+      | TypeKind.Primitive Primitive.Number, _ -> left
       | TypeKind.Literal(Literal.String s1), TypeKind.Literal(Literal.String s2) ->
 
         let result =
@@ -306,8 +302,8 @@ module rec Env =
         { Kind = TypeKind.Literal(Literal.String result)
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving strings
-      | _, TypeKind.TypeRef { Name = "string" } -> right
-      | TypeKind.TypeRef { Name = "string" }, _ -> left
+      | _, TypeKind.Primitive Primitive.String -> right
+      | TypeKind.Primitive Primitive.String, _ -> left
       | _ -> t
     | _ -> t
 

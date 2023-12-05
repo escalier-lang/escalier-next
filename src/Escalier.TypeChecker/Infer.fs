@@ -86,7 +86,7 @@ module rec Infer =
                     let! typeParam = inferTypeParam newEnv typeParam
 
                     let unknown =
-                      { Kind = makePrimitiveKind "unknown"
+                      { Kind = makeTypeRefKind "unknown"
                         Provenance = None }
 
                     let scheme =
@@ -367,16 +367,17 @@ module rec Infer =
         | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
         | TypeAnnKind.Keyword keyword ->
           match keyword with
-          | KeywordTypeAnn.Boolean -> return makePrimitiveKind "boolean"
-          | KeywordTypeAnn.Number -> return makePrimitiveKind "number"
-          | KeywordTypeAnn.String -> return makePrimitiveKind "string"
-          | KeywordTypeAnn.Symbol -> return makePrimitiveKind "symbol"
+          | KeywordTypeAnn.Boolean ->
+            return TypeKind.Primitive Primitive.Boolean
+          | KeywordTypeAnn.Number -> return TypeKind.Primitive Primitive.Number
+          | KeywordTypeAnn.String -> return TypeKind.Primitive Primitive.String
+          | KeywordTypeAnn.Symbol -> return makeTypeRefKind "symbol"
           | KeywordTypeAnn.Null -> return TypeKind.Literal(Literal.Null)
           | KeywordTypeAnn.Undefined ->
             return TypeKind.Literal(Literal.Undefined)
-          | KeywordTypeAnn.Unknown -> return makePrimitiveKind "unknown"
-          | KeywordTypeAnn.Never -> return makePrimitiveKind "never"
-          | KeywordTypeAnn.Object -> return makePrimitiveKind "object"
+          | KeywordTypeAnn.Unknown -> return makeTypeRefKind "unknown"
+          | KeywordTypeAnn.Never -> return makeTypeRefKind "never"
+          | KeywordTypeAnn.Object -> return makeTypeRefKind "object"
         | TypeAnnKind.Object elems ->
           let! elems =
             List.traverseResultM
@@ -448,7 +449,7 @@ module rec Infer =
             | Some(throws) -> inferTypeAnn env throws
             | None ->
               Result.Ok(
-                { Type.Kind = makePrimitiveKind "never"
+                { Type.Kind = makeTypeRefKind "never"
                   Provenance = None }
               )
 
@@ -681,7 +682,7 @@ module rec Infer =
             typeParams
             |> List.map (fun typeParam ->
               let unknown =
-                { Kind = makePrimitiveKind "unknown"
+                { Kind = makeTypeRefKind "unknown"
                   Provenance = None }
 
               let scheme = { TypeParams = None; Type = unknown }

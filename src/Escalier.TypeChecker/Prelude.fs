@@ -61,11 +61,11 @@ module Prelude =
        false)
 
     let typeRefA =
-      { Kind = makePrimitiveKind "A"
+      { Kind = makeTypeRefKind "A"
         Provenance = None }
 
     let typeRefB =
-      { Kind = makePrimitiveKind "B"
+      { Kind = makeTypeRefKind "B"
         Provenance = None }
 
     let typeParams: list<TypeParam> =

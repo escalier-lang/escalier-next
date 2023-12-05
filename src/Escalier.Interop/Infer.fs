@@ -61,7 +61,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makePrimitiveKind "never"
+        { Kind = makeTypeRefKind "never"
           Provenance = None }
 
       let f: Type.Function =
@@ -83,7 +83,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makePrimitiveKind "never"
+        { Kind = makeTypeRefKind "never"
           Provenance = None }
 
       let f: Type.Function =
@@ -126,7 +126,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makePrimitiveKind "never"
+        { Kind = makeTypeRefKind "never"
           Provenance = None }
 
       ObjTypeElem.Getter(name, returnType, throws)
@@ -142,7 +142,7 @@ module rec Infer =
       let param = inferFnParam ctx env tsSetterSignature.Param
 
       let throws =
-        { Kind = makePrimitiveKind "never"
+        { Kind = makeTypeRefKind "never"
           Provenance = None }
 
       ObjTypeElem.Setter(name, param, throws)
@@ -165,7 +165,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makePrimitiveKind "never"
+        { Kind = makeTypeRefKind "never"
           Provenance = None }
 
       let f: Type.Function =
@@ -208,18 +208,18 @@ module rec Infer =
         | TsAnyKeyword ->
           let t = makeVariable ctx None
           t.Kind // TODO: find a better way to do this
-        | TsUnknownKeyword -> makePrimitiveKind "unknown"
-        | TsNumberKeyword -> makePrimitiveKind "number"
-        | TsObjectKeyword -> makePrimitiveKind "object"
-        | TsBooleanKeyword -> makePrimitiveKind "boolean"
+        | TsUnknownKeyword -> makeTypeRefKind "unknown"
+        | TsNumberKeyword -> TypeKind.Primitive Primitive.Number
+        | TsObjectKeyword -> makeTypeRefKind "object"
+        | TsBooleanKeyword -> TypeKind.Primitive Primitive.Boolean
         | TsBigIntKeyword -> failwith "TODO: TsBigIntKeyword"
-        | TsStringKeyword -> makePrimitiveKind "string"
-        | TsSymbolKeyword -> makePrimitiveKind "symbol"
+        | TsStringKeyword -> TypeKind.Primitive Primitive.String
+        | TsSymbolKeyword -> makeTypeRefKind "symbol"
         // TODO: figure out if Escalier needs its own `void` type
         | TsVoidKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsUndefinedKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsNullKeyword -> TypeKind.Literal(Literal.Null)
-        | TsNeverKeyword -> makePrimitiveKind "never"
+        | TsNeverKeyword -> makeTypeRefKind "never"
         | TsIntrinsicKeyword -> failwith "TODO: TsIntrinsicKeyword"
 
       | TsType.TsThisType tsThisType ->

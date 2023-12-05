@@ -347,6 +347,14 @@ module rec Codegen =
         { TypeName = TsEntityName.Identifier { Name = name; Loc = None }
           TypeParams = typeArgs
           Loc = None }
+    | TypeKind.Primitive p ->
+      let kind =
+        match p with
+        | Boolean -> TsKeywordTypeKind.TsBooleanKeyword
+        | Number -> TsKeywordTypeKind.TsNumberKeyword
+        | String -> TsKeywordTypeKind.TsStringKeyword
+
+      TsType.TsKeywordType { Kind = kind; Loc = None }
     | TypeKind.Function f ->
       let ps: list<TsFnParam> =
         f.ParamList

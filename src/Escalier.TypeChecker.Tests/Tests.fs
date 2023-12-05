@@ -161,7 +161,7 @@ let InferIfElseChaining () =
 [<Fact>]
 let InferIdentifier () =
   let t: Type =
-    { Type.Kind = makePrimitiveKind "number"
+    { Type.Kind = makeTypeRefKind "number"
       Provenance = None }
 
   let env =
@@ -426,7 +426,7 @@ let InferPrivateDecl () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: add primitive types to fix this")>]
+[<Fact>]
 let InferTypeAliasOfPrimtiveType () =
   let result =
     result {
@@ -438,11 +438,42 @@ let InferTypeAliasOfPrimtiveType () =
 
       let! env = inferScript src
 
-      Assert.Value(env, "foo", "")
+      Assert.Value(env, "x", "Bar")
     }
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTypeAliasOfTypeParam () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn <A>(x: A) {
+          type B = A
+          let y: B = x
+          return y
+        }
+        let bar = fn <A>(x: A) -> A {
+          type B = A
+          let y: B = x
+          return y
+        }
+        let z = foo(5)
+        let w: number = z
+        """
+
+      let! env = inferScript src
+
+      Assert.Value(env, "foo", "fn <A>(x: A) -> B")
+      Assert.Value(env, "bar", "fn <A>(x: A) -> A")
+      Assert.Value(env, "z", "B")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
 
 [<Fact>]
 let InferLambda () =

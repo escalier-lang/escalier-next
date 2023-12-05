@@ -255,6 +255,30 @@ module Type =
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
 
+  type Primitive =
+    | Boolean
+    | Number
+    | String
+    | Symbol
+
+    override this.ToString() =
+      match this with
+      | Boolean -> "boolean"
+      | Number -> "number"
+      | String -> "string"
+      | Symbol -> "symbol"
+
+  type Keyword =
+    | Object
+    | Unknown
+    | Never
+
+    override this.ToString() =
+      match this with
+      | Object -> "object"
+      | Unknown -> "unknown"
+      | Never -> "never"
+
   type ObjPatElem =
     | KeyValuePat of key: string * value: Pattern * init: option<Syntax.Expr>
     | ShorthandPat of name: string * init: option<Syntax.Expr>
@@ -443,7 +467,7 @@ module Type =
           "get %s() -> %s%s"
           name
           (return_type.ToString())
-          (if throws.Kind = makePrimitiveKind "never" then
+          (if throws.Kind = TypeKind.Keyword Keyword.Never then
              ""
            else
              " throws " + throws.ToString())
@@ -452,7 +476,7 @@ module Type =
           "set %s(%s)%s"
           name
           (param.ToString())
-          (if throws.Kind = makePrimitiveKind "never" then
+          (if throws.Kind = TypeKind.Keyword Keyword.Never then
              ""
            else
              " throws " + throws.ToString())
@@ -472,6 +496,8 @@ module Type =
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
+    | Primitive of Primitive
+    | Keyword of Keyword
     | Function of Function
     | Object of list<ObjTypeElem>
     | Rest of Type
@@ -509,6 +535,8 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
+      | TypeKind.Primitive prim -> prim.ToString()
+      | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> f.ToString()
       | TypeKind.Literal lit -> lit.ToString()
       | TypeKind.Union types ->
@@ -553,10 +581,10 @@ module Type =
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"
 
-  // TODO: add `IsTypeParam` field
   type Scheme =
     { TypeParams: option<list<string>>
-      Type: Type }
+      Type: Type
+      IsTypeParam: bool }
 
     override this.ToString() =
       match this.TypeParams with
@@ -564,9 +592,3 @@ module Type =
         let typeParams = String.concat ", " typeParams
         $"<{typeParams}>({this.Type})"
       | None -> this.Type.ToString()
-
-  let makePrimitiveKind name =
-    { Name = name
-      TypeArgs = None
-      Scheme = None }
-    |> TypeKind.TypeRef

@@ -25,6 +25,10 @@ module rec Unify =
       match (prune t1).Kind, (prune t2).Kind with
       | TypeKind.TypeVar _, _ -> do! bind ctx env unify t1 t2
       | _, TypeKind.TypeVar _ -> do! unify ctx env t2 t1
+      | TypeKind.Primitive p1, TypeKind.Primitive p2 when p1 = p2 -> ()
+      | _, TypeKind.Keyword Keyword.Unknown ->
+        // All types are assignable to `unknown`
+        ()
       | TypeKind.Tuple(elems1), TypeKind.Tuple(elems2) ->
         if List.length elems1 <> List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
@@ -52,10 +56,10 @@ module rec Unify =
 
         do! unify ctx env f1.Return f2.Return // returns are covariant
       | TypeKind.TypeRef({ Name = name1; TypeArgs = types1 }),
-        TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) ->
+        TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) when name1 = name2 ->
 
-        if (name1 <> name2) then
-          return! Error(TypeError.TypeMismatch(t1, t2))
+        // if (name1 <> name2) then
+        //   return! Error(TypeError.TypeMismatch(t1, t2))
 
         match (types1, types2) with
         | None, None -> ()
@@ -65,13 +69,12 @@ module rec Unify =
 
           ignore (List.map2 (unify ctx env) types1 types2)
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
-      | TypeKind.Literal lit,
-        TypeKind.TypeRef({ Name = name; TypeArgs = typeArgs }) ->
+      | TypeKind.Literal lit, TypeKind.Primitive prim ->
         // TODO: check that `typeArgs` is `None`
-        match lit, name with
-        | Literal.Number _, "number" -> ()
-        | Literal.String _, "string" -> ()
-        | Literal.Boolean _, "boolean" -> ()
+        match lit, prim with
+        | Literal.Number _, Primitive.Number -> ()
+        | Literal.String _, Primitive.String -> ()
+        | Literal.Boolean _, Primitive.Boolean -> ()
         // TODO: expand the type ref
         // TODO: making `number`, `string`, `boolean`, primitives
         // instead of type refs so that we don't have to have exceptions
@@ -220,14 +223,14 @@ module rec Unify =
         | Some _ -> return ()
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
-      | TypeKind.Binary(left, op, right), TypeKind.TypeRef { Name = "number" } ->
-        if
-          op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
-        then
-          return ()
-        else
-          return! Error(TypeError.TypeMismatch(t1, t2))
-
+      | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.Number when
+        op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
+        ->
+        return ()
+      | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.String when
+        op = "++"
+        ->
+        return ()
       | _, _ ->
         let t1' = env.ExpandType t1
         let t2' = env.ExpandType t2

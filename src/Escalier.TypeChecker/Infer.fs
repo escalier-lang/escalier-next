@@ -86,7 +86,7 @@ module rec Infer =
                     let! typeParam = inferTypeParam newEnv typeParam
 
                     let unknown =
-                      { Kind = makePrimitiveKind "unknown"
+                      { Kind = TypeKind.Keyword Keyword.Unknown
                         Provenance = None }
 
                     let scheme =
@@ -94,7 +94,8 @@ module rec Infer =
                         Type =
                           match typeParam.Constraint with
                           | Some c -> c
-                          | None -> unknown }
+                          | None -> unknown
+                        IsTypeParam = true }
 
                     newEnv <- newEnv.AddScheme typeParam.Name scheme
 
@@ -367,16 +368,17 @@ module rec Infer =
         | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
         | TypeAnnKind.Keyword keyword ->
           match keyword with
-          | KeywordTypeAnn.Boolean -> return makePrimitiveKind "boolean"
-          | KeywordTypeAnn.Number -> return makePrimitiveKind "number"
-          | KeywordTypeAnn.String -> return makePrimitiveKind "string"
-          | KeywordTypeAnn.Symbol -> return makePrimitiveKind "symbol"
+          | KeywordTypeAnn.Boolean ->
+            return TypeKind.Primitive Primitive.Boolean
+          | KeywordTypeAnn.Number -> return TypeKind.Primitive Primitive.Number
+          | KeywordTypeAnn.String -> return TypeKind.Primitive Primitive.String
+          | KeywordTypeAnn.Symbol -> return TypeKind.Primitive Primitive.Symbol
           | KeywordTypeAnn.Null -> return TypeKind.Literal(Literal.Null)
           | KeywordTypeAnn.Undefined ->
             return TypeKind.Literal(Literal.Undefined)
-          | KeywordTypeAnn.Unknown -> return makePrimitiveKind "unknown"
-          | KeywordTypeAnn.Never -> return makePrimitiveKind "never"
-          | KeywordTypeAnn.Object -> return makePrimitiveKind "object"
+          | KeywordTypeAnn.Unknown -> return TypeKind.Keyword Keyword.Unknown
+          | KeywordTypeAnn.Never -> return TypeKind.Keyword Keyword.Never
+          | KeywordTypeAnn.Object -> return TypeKind.Keyword Keyword.Object
         | TypeAnnKind.Object elems ->
           let! elems =
             List.traverseResultM
@@ -423,6 +425,11 @@ module rec Infer =
           match env.Schemes.TryFind(name) with
           | Some(scheme) ->
 
+            let scheme =
+              match scheme.IsTypeParam with
+              | true -> None
+              | false -> Some(scheme)
+
             match typeArgs with
             | Some(typeArgs) ->
               let! typeArgs = List.traverseResultM (inferTypeAnn env) typeArgs
@@ -430,13 +437,13 @@ module rec Infer =
               return
                 { Name = name
                   TypeArgs = Some(typeArgs)
-                  Scheme = Some(scheme) }
+                  Scheme = scheme }
                 |> TypeKind.TypeRef
             | None ->
               return
                 { Name = name
                   TypeArgs = None
-                  Scheme = Some(scheme) }
+                  Scheme = scheme }
                 |> TypeKind.TypeRef
           | None ->
             return! Error(TypeError.SemanticError $"{name} is not in scope")
@@ -448,7 +455,7 @@ module rec Infer =
             | Some(throws) -> inferTypeAnn env throws
             | None ->
               Result.Ok(
-                { Type.Kind = makePrimitiveKind "never"
+                { Type.Kind = TypeKind.Keyword Keyword.Never
                   Provenance = None }
               )
 
@@ -681,15 +688,23 @@ module rec Infer =
             typeParams
             |> List.map (fun typeParam ->
               let unknown =
-                { Kind = makePrimitiveKind "unknown"
+                { Kind = TypeKind.Keyword Keyword.Unknown
                   Provenance = None }
 
-              let scheme = { TypeParams = None; Type = unknown }
+              let scheme =
+                { TypeParams = None
+                  Type = unknown
+                  IsTypeParam = false }
+
               newEnv <- newEnv.AddScheme typeParam.Name scheme
               typeParam.Name))
 
         let! t = inferTypeAnn newEnv typeAnn
-        let scheme = { TypeParams = typeParams; Type = t }
+
+        let scheme =
+          { TypeParams = typeParams
+            Type = t
+            IsTypeParam = false }
 
         return env.AddScheme name scheme
       | StmtKind.Return expr ->

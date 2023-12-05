@@ -26,6 +26,9 @@ module rec Unify =
       | TypeKind.TypeVar _, _ -> do! bind ctx env unify t1 t2
       | _, TypeKind.TypeVar _ -> do! unify ctx env t2 t1
       | TypeKind.Primitive p1, TypeKind.Primitive p2 when p1 = p2 -> ()
+      | _, TypeKind.Keyword Keyword.Unknown ->
+        // All types are assignable to `unknown`
+        ()
       | TypeKind.Tuple(elems1), TypeKind.Tuple(elems2) ->
         if List.length elems1 <> List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
@@ -53,10 +56,10 @@ module rec Unify =
 
         do! unify ctx env f1.Return f2.Return // returns are covariant
       | TypeKind.TypeRef({ Name = name1; TypeArgs = types1 }),
-        TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) ->
+        TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) when name1 = name2 ->
 
-        if (name1 <> name2) then
-          return! Error(TypeError.TypeMismatch(t1, t2))
+        // if (name1 <> name2) then
+        //   return! Error(TypeError.TypeMismatch(t1, t2))
 
         match (types1, types2) with
         | None, None -> ()

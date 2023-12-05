@@ -259,12 +259,24 @@ module Type =
     | Boolean
     | Number
     | String
+    // TODO: Symbol
 
     override this.ToString() =
       match this with
       | Boolean -> "boolean"
       | Number -> "number"
       | String -> "string"
+
+  type Keyword =
+    | Object
+    | Unknown
+    | Never
+
+    override this.ToString() =
+      match this with
+      | Object -> "object"
+      | Unknown -> "unknown"
+      | Never -> "never"
 
   type ObjPatElem =
     | KeyValuePat of key: string * value: Pattern * init: option<Syntax.Expr>
@@ -484,6 +496,7 @@ module Type =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
     | Primitive of Primitive
+    | Keyword of Keyword
     | Function of Function
     | Object of list<ObjTypeElem>
     | Rest of Type
@@ -522,6 +535,7 @@ module Type =
 
         $"{name}{typeArgs}"
       | TypeKind.Primitive prim -> prim.ToString()
+      | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> f.ToString()
       | TypeKind.Literal lit -> lit.ToString()
       | TypeKind.Union types ->
@@ -569,7 +583,8 @@ module Type =
   // TODO: add `IsTypeParam` field
   type Scheme =
     { TypeParams: option<list<string>>
-      Type: Type }
+      Type: Type
+      IsTypeParam: bool }
 
     override this.ToString() =
       match this.TypeParams with

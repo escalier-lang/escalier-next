@@ -444,7 +444,7 @@ let InferTypeAliasOfPrimtiveType () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: fixme")>]
+[<Fact>]
 let InferTypeAliasOfTypeParam () =
   let result =
     result {
@@ -453,14 +453,22 @@ let InferTypeAliasOfTypeParam () =
         let foo = fn <A>(x: A) {
           type B = A
           let y: B = x
-          return x
+          return y
+        }
+        let bar = fn <A>(x: A) -> A {
+          type B = A
+          let y: B = x
+          return y
         }
         let z = foo(5)
+        let w: number = z
         """
 
       let! env = inferScript src
 
-      Assert.Value(env, "foo", "fn <A>(x: A) -> A")
+      Assert.Value(env, "foo", "fn <A>(x: A) -> B")
+      Assert.Value(env, "bar", "fn <A>(x: A) -> A")
+      Assert.Value(env, "z", "B")
     }
 
   printfn "result = %A" result

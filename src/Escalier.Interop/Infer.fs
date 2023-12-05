@@ -61,7 +61,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makeTypeRefKind "never"
+        { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
       let f: Type.Function =
@@ -83,7 +83,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makeTypeRefKind "never"
+        { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
       let f: Type.Function =
@@ -126,7 +126,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makeTypeRefKind "never"
+        { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
       ObjTypeElem.Getter(name, returnType, throws)
@@ -142,7 +142,7 @@ module rec Infer =
       let param = inferFnParam ctx env tsSetterSignature.Param
 
       let throws =
-        { Kind = makeTypeRefKind "never"
+        { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
       ObjTypeElem.Setter(name, param, throws)
@@ -165,7 +165,7 @@ module rec Infer =
         | None -> makeVariable ctx None
 
       let throws =
-        { Kind = makeTypeRefKind "never"
+        { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
       let f: Type.Function =
@@ -208,9 +208,9 @@ module rec Infer =
         | TsAnyKeyword ->
           let t = makeVariable ctx None
           t.Kind // TODO: find a better way to do this
-        | TsUnknownKeyword -> makeTypeRefKind "unknown"
+        | TsUnknownKeyword -> TypeKind.Keyword Keyword.Unknown
         | TsNumberKeyword -> TypeKind.Primitive Primitive.Number
-        | TsObjectKeyword -> makeTypeRefKind "object"
+        | TsObjectKeyword -> TypeKind.Keyword Keyword.Object
         | TsBooleanKeyword -> TypeKind.Primitive Primitive.Boolean
         | TsBigIntKeyword -> failwith "TODO: TsBigIntKeyword"
         | TsStringKeyword -> TypeKind.Primitive Primitive.String
@@ -219,7 +219,7 @@ module rec Infer =
         | TsVoidKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsUndefinedKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsNullKeyword -> TypeKind.Literal(Literal.Null)
-        | TsNeverKeyword -> makeTypeRefKind "never"
+        | TsNeverKeyword -> TypeKind.Keyword Keyword.Never
         | TsIntrinsicKeyword -> failwith "TODO: TsIntrinsicKeyword"
 
       | TsType.TsThisType tsThisType ->
@@ -512,13 +512,20 @@ module rec Infer =
           { Kind = TypeKind.Object elems
             Provenance = None }
 
-        let scheme = { TypeParams = None; Type = t }
+        let scheme =
+          { TypeParams = None
+            Type = t
+            IsTypeParam = false }
         // TODO: handle interface merging
         newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
       | Decl.TsTypeAlias decl ->
         let typeParams = None
         let t = inferTsType ctx env decl.TypeAnn
-        let scheme = { TypeParams = typeParams; Type = t }
+
+        let scheme =
+          { TypeParams = typeParams
+            Type = t
+            IsTypeParam = false }
 
         // TODO: if decl.Global is true, add to the global env
         newEnv <- env.AddScheme decl.Id.Name scheme

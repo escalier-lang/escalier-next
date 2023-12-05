@@ -17,6 +17,7 @@ module Poly =
         match t.Kind with
         | TypeKind.TypeVar _ -> t
         | TypeKind.Primitive _ -> t
+        | TypeKind.Keyword _ -> t
         | TypeKind.Function f ->
           { Kind =
               TypeKind.Function

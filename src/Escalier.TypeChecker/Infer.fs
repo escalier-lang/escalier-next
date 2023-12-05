@@ -372,7 +372,7 @@ module rec Infer =
             return TypeKind.Primitive Primitive.Boolean
           | KeywordTypeAnn.Number -> return TypeKind.Primitive Primitive.Number
           | KeywordTypeAnn.String -> return TypeKind.Primitive Primitive.String
-          | KeywordTypeAnn.Symbol -> return makeTypeRefKind "symbol"
+          | KeywordTypeAnn.Symbol -> return TypeKind.Primitive Primitive.Symbol
           | KeywordTypeAnn.Null -> return TypeKind.Literal(Literal.Null)
           | KeywordTypeAnn.Undefined ->
             return TypeKind.Literal(Literal.Undefined)

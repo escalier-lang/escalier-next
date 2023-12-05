@@ -259,13 +259,14 @@ module Type =
     | Boolean
     | Number
     | String
-    // TODO: Symbol
+    | Symbol
 
     override this.ToString() =
       match this with
       | Boolean -> "boolean"
       | Number -> "number"
       | String -> "string"
+      | Symbol -> "symbol"
 
   type Keyword =
     | Object
@@ -466,7 +467,7 @@ module Type =
           "get %s() -> %s%s"
           name
           (return_type.ToString())
-          (if throws.Kind = makePrimitiveKind "never" then
+          (if throws.Kind = TypeKind.Keyword Keyword.Never then
              ""
            else
              " throws " + throws.ToString())
@@ -475,7 +476,7 @@ module Type =
           "set %s(%s)%s"
           name
           (param.ToString())
-          (if throws.Kind = makePrimitiveKind "never" then
+          (if throws.Kind = TypeKind.Keyword Keyword.Never then
              ""
            else
              " throws " + throws.ToString())
@@ -580,7 +581,6 @@ module Type =
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"
 
-  // TODO: add `IsTypeParam` field
   type Scheme =
     { TypeParams: option<list<string>>
       Type: Type
@@ -592,9 +592,3 @@ module Type =
         let typeParams = String.concat ", " typeParams
         $"<{typeParams}>({this.Type})"
       | None -> this.Type.ToString()
-
-  let makePrimitiveKind name =
-    { Name = name
-      TypeArgs = None
-      Scheme = None }
-    |> TypeKind.TypeRef

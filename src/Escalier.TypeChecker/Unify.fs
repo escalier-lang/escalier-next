@@ -12,7 +12,7 @@ open Poly
 
 module rec Unify =
 
-  ///Unify the two types t1 and t2. Makes the types t1 and t2 the same.
+  // Checks that t1 is assignable to t2
   let unify
     (ctx: Ctx)
     (env: Env)
@@ -26,9 +26,8 @@ module rec Unify =
       | TypeKind.TypeVar _, _ -> do! bind ctx env unify t1 t2
       | _, TypeKind.TypeVar _ -> do! unify ctx env t2 t1
       | TypeKind.Primitive p1, TypeKind.Primitive p2 when p1 = p2 -> ()
-      | _, TypeKind.Keyword Keyword.Unknown ->
-        // All types are assignable to `unknown`
-        ()
+      | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
+      | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
       | TypeKind.Tuple(elems1), TypeKind.Tuple(elems2) ->
         if List.length elems1 <> List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
@@ -253,13 +252,9 @@ module rec Unify =
     result {
       let callee = prune callee
 
-      let retType = ctx.FreshTypeVar None
-      let throwsType = ctx.FreshTypeVar None
-
       match callee.Kind with
       | TypeKind.Function func ->
-        return!
-          unifyFuncCall ctx env inferExpr args typeArgs retType throwsType func
+        return! unifyFuncCall ctx env inferExpr args typeArgs func
       | TypeKind.Intersection types ->
         let mutable result = None
 
@@ -292,6 +287,9 @@ module rec Unify =
                 Optional = false })
             argTypes
 
+        let retType = ctx.FreshTypeVar None
+        let throwsType = ctx.FreshTypeVar None
+
         let callType =
           { Type.Kind =
               TypeKind.Function
@@ -313,8 +311,6 @@ module rec Unify =
     (inferExpr: Ctx -> Env -> 'a -> Result<Type, TypeError>)
     (args: list<'a>)
     (typeArgs: option<list<Type>>)
-    (retType: Type)
-    (throwsType: Type)
     (callee: Function)
     : Result<Type * Type, TypeError> =
 
@@ -342,11 +338,22 @@ module rec Unify =
         then
           ()
         else
+          // TODO: collect errors and turn them into diagnostics
           // TODO: check_mutability of `arg`
-          do! unify ctx env argType param.Type // contravariant
+          // contravariant
+          match unify ctx env argType param.Type with
+          | Ok _ -> ()
+          | Error(reason) ->
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
 
-      do! unify ctx env retType callee.Return // covariant
-      do! unify ctx env throwsType callee.Throws // covariant
+            do! unify ctx env never param.Type
+            ctx.AddDiagnostic({ Reasons = [ reason ] })
+            ()
 
-      return (retType, throwsType)
+      // do! unify ctx env retType callee.Return // covariant
+      // do! unify ctx env throwsType callee.Throws // covariant
+
+      return (callee.Return, callee.Throws)
     }

@@ -246,7 +246,7 @@ module Type =
   ///All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
     { Id: int
-      Bound: option<Type>
+      mutable Bound: option<Type>
       mutable Instance: option<Type> }
 
   ///An n-ary type constructor which builds a new type from old
@@ -525,7 +525,13 @@ module Type =
     override this.ToString() =
       match this.Kind with
       | TypeKind.TypeVar({ Instance = Some(instance) }) -> instance.ToString()
-      | TypeKind.TypeVar({ Instance = None } as v) -> $"t{v.Id}"
+      | TypeKind.TypeVar({ Instance = None; Bound = bound } as v) ->
+        let bound =
+          match bound with
+          | Some(bound) -> $":{bound}"
+          | None -> ""
+
+        $"t{v.Id}{bound}"
       | TypeKind.TypeRef({ Name = name; TypeArgs = typeArgs }) ->
         let typeArgs =
           match typeArgs with

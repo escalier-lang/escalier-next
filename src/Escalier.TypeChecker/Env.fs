@@ -36,7 +36,7 @@ module rec Env =
 
   let makeFunctionType typeParams paramList ret =
     let never =
-      { Kind = makeTypeRefKind "never"
+      { Kind = TypeKind.Keyword Keyword.Never
         Provenance = None }
 
     { Kind =
@@ -279,7 +279,11 @@ module rec Env =
   let simplify (t: Type) : Type =
     match t.Kind with
     | TypeKind.Binary(left, op, right) ->
-      match (prune left).Kind, (prune right).Kind with
+      // printfn $"simplify binary: t = {t}"
+      let left = prune left
+      let right = prune right
+
+      match left.Kind, right.Kind with
       | TypeKind.Literal(Literal.Number n1), TypeKind.Literal(Literal.Number n2) ->
         let n1 = float n1
         let n2 = float n2
@@ -311,6 +315,20 @@ module rec Env =
       // TODO: Check `op` when collapsing binary expressions involving strings
       | _, TypeKind.Primitive Primitive.String -> right
       | TypeKind.Primitive Primitive.String, _ -> left
+      | TypeKind.Keyword Keyword.Never, _
+      | _, TypeKind.Keyword Keyword.Never ->
+        let kind =
+          match op with
+          | "+" -> TypeKind.Primitive Primitive.Number
+          | "-" -> TypeKind.Primitive Primitive.Number
+          | "*" -> TypeKind.Primitive Primitive.Number
+          | "/" -> TypeKind.Primitive Primitive.Number
+          | "%" -> TypeKind.Primitive Primitive.Number
+          | "**" -> TypeKind.Primitive Primitive.Number
+          | "++" -> TypeKind.Primitive Primitive.String
+          | _ -> failwith "TODO: simplify binary"
+
+        { Kind = kind; Provenance = None }
       | _ -> t
     | _ -> t
 
@@ -322,8 +340,18 @@ module rec Env =
   /// prune them from expressions to remove long chains of instantiated variables.
   let rec prune (t: Type) : Type =
     match t.Kind with
-    | TypeKind.TypeVar({ Instance = Some(instance) } as v) ->
+    | TypeKind.TypeVar({ Instance = Some(instance)
+                         Bound = bound } as v) ->
       let newInstance = prune instance
+
+      let newInstance =
+        match newInstance.Kind with
+        | TypeKind.Keyword Keyword.Never ->
+          match bound with
+          | Some(bound) -> bound
+          | None -> newInstance
+        | _ -> newInstance
+
       v.Instance <- Some(newInstance)
       newInstance
     | _ -> simplify t
@@ -334,27 +362,33 @@ module rec Env =
     (unify: Ctx -> Env -> Type -> Type -> Result<unit, TypeError>)
     (t1: Type)
     (t2: Type)
-    =
+    : Result<unit, TypeError> =
     let t1 = prune t1
     let t2 = prune t2
 
     result {
       if t1.Kind <> t2.Kind then
         if occursInType t1 t2 then
-          return! Error(TypeError.RecursiveUnification)
+          return! Error(TypeError.RecursiveUnification(t1, t2))
 
         match t1.Kind with
         | TypeKind.TypeVar(v) ->
-          // printfn "Binding %A to %A" t1 t2
           match v.Bound with
-          | Some(bound) -> do! unify ctx env t2 bound
-          | None -> ()
-          // return! Error(TypeError.TypeBoundMismatch(t1, t2))
-          v.Instance <- Some(t2)
+          | Some(bound) ->
+            // Type params are contravariant for similar reasons to
+            // why function params are contravariant
+            do! unify ctx env t2 bound
+
+            match t2.Kind with
+            | TypeKind.Keyword Keyword.Never -> v.Instance <- Some(bound)
+            | _ -> v.Instance <- Some(t2)
+          | None -> v.Instance <- Some(t2)
+
           return ()
         | _ -> return! Error(TypeError.NotImplemented "bind error")
     }
 
+  // TODO: finish implementing this function
   and occursInType (v: Type) (t2: Type) : bool =
     match (prune t2).Kind with
     | pruned when pruned = v.Kind -> true
@@ -362,6 +396,8 @@ module rec Env =
       match typeArgs with
       | Some(typeArgs) -> occursIn v typeArgs
       | None -> false
+    | TypeKind.Binary(left, op, right) ->
+      occursInType v left || occursInType v right
     | _ -> false
 
   and occursIn (t: Type) (types: list<Type>) : bool =

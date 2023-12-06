@@ -8,7 +8,7 @@ module Error =
     | SemanticError of string
     | NotInferred
     | TypeMismatch of Type * Type
-    | RecursiveUnification
+    | RecursiveUnification of Type * Type
     | WrongNumberOfTypeArgs
 
   type Diagnostic = { Reasons: list<TypeError> }

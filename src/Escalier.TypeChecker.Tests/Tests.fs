@@ -793,5 +793,23 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
 
   Assert.False(Result.isError result)
 
-// TODO: write tests for generic function type annotation, e.g.
-// type Foo = fn <T>(x: T) -> T
+[<Fact>]
+let InferFuncTypeAnnotation () =
+  let result =
+    result {
+      let src =
+        """
+        let foo: fn <T: number>(x: T) -> T = fn (x) => x
+        let x = foo(5)
+        let y = foo("hello")
+        """
+
+      let! ctx, env = inferScript src
+
+      printDiagnostics ctx.Diagnostics
+      Assert.Value(env, "foo", "fn <T: number>(x: T) -> T")
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "number")
+    }
+
+  Assert.False(Result.isError result)

@@ -112,7 +112,7 @@ module rec Infer =
                   let! paramType =
                     match param.TypeAnn with
                     | Some(typeAnn) -> inferTypeAnn newEnv typeAnn
-                    | None -> Result.Ok(makeVariable ctx None)
+                    | None -> Result.Ok(ctx.FreshTypeVar None)
 
                   let! assumps, patternType =
                     inferPattern ctx newEnv param.Pattern
@@ -526,7 +526,7 @@ module rec Infer =
     let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
       match pat.Kind with
       | PatternKind.Identifier({ Name = name; IsMut = isMut }) ->
-        let t = makeVariable ctx None
+        let t = ctx.FreshTypeVar None
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
@@ -552,7 +552,7 @@ module rec Infer =
                       Type = t }
                 )
               | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
-                let t = makeVariable ctx None
+                let t = ctx.FreshTypeVar None
 
                 // TODO: check if `name` already exists in `assump`
                 let isMut = false

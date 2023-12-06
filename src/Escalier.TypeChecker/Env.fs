@@ -1,14 +1,32 @@
 namespace Escalier.TypeChecker
 
+open Escalier.TypeChecker.Error
 open FsToolkit.ErrorHandling
 
 open Escalier.Data.Common
 open Escalier.Data.Type
 
-open Error
 
 module rec Env =
-  type Ctx = { mutable nextVariableId: int }
+  type Ctx() =
+    let mutable nextVariableId = 0
+    let mutable diagnostics: list<Diagnostic> = []
+
+    member this.FreshTypeVar(bound: option<Type>) =
+      let newVar =
+        { Id = nextVariableId
+          Bound = bound
+          Instance = None }
+
+      nextVariableId <- nextVariableId + 1
+
+      { Kind = TypeKind.TypeVar newVar
+        Provenance = None }
+
+    member this.AddDiagnostic(diagnostic: Diagnostic) =
+      diagnostics <- diagnostic :: diagnostics
+
+    member this.Diagnostics = diagnostics
 
   let makeTypeRefKind name =
     { Name = name
@@ -18,7 +36,7 @@ module rec Env =
 
   let makeFunctionType typeParams paramList ret =
     let never =
-      { Kind = makeTypeRefKind "never"
+      { Kind = TypeKind.Keyword Keyword.Never
         Provenance = None }
 
     { Kind =
@@ -258,21 +276,14 @@ module rec Env =
       // TODO: union types
       | _ -> failwith $"TODO: lookup member on type - {t}"
 
-  let makeVariable (ctx: Ctx) (bound: option<Type>) =
-    let newVar =
-      { Id = ctx.nextVariableId
-        Bound = bound
-        Instance = None }
-
-    ctx.nextVariableId <- ctx.nextVariableId + 1
-
-    { Kind = TypeKind.TypeVar(newVar)
-      Provenance = None }
-
   let simplify (t: Type) : Type =
     match t.Kind with
     | TypeKind.Binary(left, op, right) ->
-      match (prune left).Kind, (prune right).Kind with
+      // printfn $"simplify binary: t = {t}"
+      let left = prune left
+      let right = prune right
+
+      match left.Kind, right.Kind with
       | TypeKind.Literal(Literal.Number n1), TypeKind.Literal(Literal.Number n2) ->
         let n1 = float n1
         let n2 = float n2
@@ -327,27 +338,33 @@ module rec Env =
     (unify: Ctx -> Env -> Type -> Type -> Result<unit, TypeError>)
     (t1: Type)
     (t2: Type)
-    =
+    : Result<unit, TypeError> =
     let t1 = prune t1
     let t2 = prune t2
 
     result {
       if t1.Kind <> t2.Kind then
         if occursInType t1 t2 then
-          return! Error(TypeError.RecursiveUnification)
+          return! Error(TypeError.RecursiveUnification(t1, t2))
 
         match t1.Kind with
         | TypeKind.TypeVar(v) ->
-          // printfn "Binding %A to %A" t1 t2
           match v.Bound with
-          | Some(bound) -> do! unify ctx env t2 bound
-          | None -> ()
-          // return! Error(TypeError.TypeBoundMismatch(t1, t2))
-          v.Instance <- Some(t2)
+          | Some(bound) ->
+            // Type params are contravariant for similar reasons to
+            // why function params are contravariant
+            do! unify ctx env t2 bound
+
+            match t2.Kind with
+            | TypeKind.Keyword Keyword.Never -> v.Instance <- Some(bound)
+            | _ -> v.Instance <- Some(t2)
+          | None -> v.Instance <- Some(t2)
+
           return ()
         | _ -> return! Error(TypeError.NotImplemented "bind error")
     }
 
+  // TODO: finish implementing this function
   and occursInType (v: Type) (t2: Type) : bool =
     match (prune t2).Kind with
     | pruned when pruned = v.Kind -> true
@@ -355,6 +372,8 @@ module rec Env =
       match typeArgs with
       | Some(typeArgs) -> occursIn v typeArgs
       | None -> false
+    | TypeKind.Binary(left, op, right) ->
+      occursInType v left || occursInType v right
     | _ -> false
 
   and occursIn (t: Type) (types: list<Type>) : bool =

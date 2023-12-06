@@ -28,7 +28,7 @@ module rec Infer =
     let typeAnn =
       match param.TypeAnn with
       | Some(t) -> inferTsTypeAnn ctx env t
-      | None -> makeVariable ctx None
+      | None -> ctx.FreshTypeVar None
 
     let pat =
       match param.Pat with
@@ -58,7 +58,7 @@ module rec Infer =
       let returnType =
         match tsCallSignatureDecl.TypeAnn with
         | Some(typeAnn) -> inferTsTypeAnn ctx env typeAnn
-        | None -> makeVariable ctx None
+        | None -> ctx.FreshTypeVar None
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
@@ -80,7 +80,7 @@ module rec Infer =
       let returnType =
         match tsConstructSignatureDecl.TypeAnn with
         | Some(typeAnn) -> inferTsTypeAnn ctx env typeAnn
-        | None -> makeVariable ctx None
+        | None -> ctx.FreshTypeVar None
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
@@ -123,7 +123,7 @@ module rec Infer =
       let returnType =
         match tsGetterSignature.TypeAnn with
         | Some(typeAnn) -> inferTsTypeAnn ctx env typeAnn
-        | None -> makeVariable ctx None
+        | None -> ctx.FreshTypeVar None
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
@@ -162,7 +162,7 @@ module rec Infer =
       let returnType =
         match tsMethodSignature.TypeAnn with
         | Some(typeAnn) -> inferTsTypeAnn ctx env typeAnn
-        | None -> makeVariable ctx None
+        | None -> ctx.FreshTypeVar None
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
@@ -206,7 +206,7 @@ module rec Infer =
       | TsType.TsKeywordType keyword ->
         match keyword.Kind with
         | TsAnyKeyword ->
-          let t = makeVariable ctx None
+          let t = ctx.FreshTypeVar None
           t.Kind // TODO: find a better way to do this
         | TsUnknownKeyword -> TypeKind.Keyword Keyword.Unknown
         | TsNumberKeyword -> TypeKind.Primitive Primitive.Number
@@ -389,7 +389,7 @@ module rec Infer =
       let rec infer_pattern_rec (pat: Pat) : Type =
         match pat with
         | Pat.Ident id ->
-          let t = makeVariable ctx None
+          let t = ctx.FreshTypeVar None
           // TODO:
           let isMut = false
           // TODO: check if `name` already exists in `assump`
@@ -457,7 +457,7 @@ module rec Infer =
         let typeAnn =
           match param.TypeAnn with
           | Some(t) -> inferTsTypeAnn ctx env t
-          | None -> makeVariable ctx None
+          | None -> ctx.FreshTypeVar None
 
         let pat = patToPattern env param.Pat
 

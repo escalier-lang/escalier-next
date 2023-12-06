@@ -1,21 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="Program.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Program.fs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
+        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="FParsec" Version="1.1.1"/>
+        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
+    </ItemGroup>
 
 </Project>

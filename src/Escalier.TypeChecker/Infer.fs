@@ -53,7 +53,7 @@ module rec Infer =
         | ExprKind.Literal(literal) ->
           return
             { Type.Kind = TypeKind.Literal(literal)
-              Provenance = None }
+              Provenance = Some(Provenance.Expr expr) }
         | ExprKind.Call call ->
           let! callee = inferExpr ctx env call.Callee
 
@@ -263,6 +263,7 @@ module rec Infer =
     Result.map
       (fun t ->
         expr.InferredType <- Some(t)
+        t.Provenance <- Some(Provenance.Expr expr)
         t)
       r
 
@@ -421,7 +422,6 @@ module rec Infer =
           let! types = List.traverseResultM (inferTypeAnn env) types
           return TypeKind.Intersection types
         | TypeAnnKind.TypeRef(name, typeArgs) ->
-          // TODO: look up the scheme for this
           match env.Schemes.TryFind(name) with
           | Some(scheme) ->
 
@@ -448,11 +448,56 @@ module rec Infer =
           | None ->
             return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
-          let! returnType = inferTypeAnn env functionType.ReturnType
+          // let typeParams =
+          //   functionType.TypeParams
+          //   |> Option.map (fun typeParams ->
+          //
+          //     let result: list<TypeParam> =
+          //       typeParams
+          //       |> List.map (fun param ->
+          //
+          //         let c = param.Constraint |> Option.map (inferTypeAnn env)
+          //         let d = param.Default |> Option.map (inferTypeAnn env)
+          //         { Name = param.Name
+          //           Constraint = c
+          //           Default = d })
+          //
+          //     result)
+          let mutable newEnv = env
+
+          let! typeParams =
+            match functionType.TypeParams with
+            | Some(typeParams) ->
+              List.traverseResultM
+                (fun typeParam ->
+                  result {
+                    let! typeParam = inferTypeParam newEnv typeParam
+
+                    let unknown =
+                      { Kind = TypeKind.Keyword Keyword.Unknown
+                        Provenance = None }
+
+                    let scheme =
+                      { TypeParams = None
+                        Type =
+                          match typeParam.Constraint with
+                          | Some c -> c
+                          | None -> unknown
+                        IsTypeParam = true }
+
+                    newEnv <- newEnv.AddScheme typeParam.Name scheme
+
+                    return typeParam
+                  })
+                typeParams
+              |> Result.map Some
+            | None -> Ok None
+
+          let! returnType = inferTypeAnn newEnv functionType.ReturnType
 
           let! throws =
             match functionType.Throws with
-            | Some(throws) -> inferTypeAnn env throws
+            | Some(throws) -> inferTypeAnn newEnv throws
             | None ->
               Result.Ok(
                 { Type.Kind = TypeKind.Keyword Keyword.Never
@@ -463,7 +508,7 @@ module rec Infer =
             List.traverseResultM
               (fun (p: FuncParam<TypeAnn>) ->
                 result {
-                  let! t = inferTypeAnn env p.TypeAnn
+                  let! t = inferTypeAnn newEnv p.TypeAnn
                   let pattern = patternToPattern p.Pattern
 
                   return
@@ -474,7 +519,7 @@ module rec Infer =
               functionType.ParamList
 
           let f =
-            { TypeParams = None // TODO: type params
+            { TypeParams = typeParams
               ParamList = paramList
               Return = returnType
               Throws = throws }
@@ -509,7 +554,10 @@ module rec Infer =
     let t: Result<Type, TypeError> =
       Result.map
         (fun kind ->
-          let t = { Kind = kind; Provenance = None }
+          let t =
+            { Kind = kind
+              Provenance = Some(Provenance.TypeAnn typeAnn) }
+
           typeAnn.InferredType <- Some(t)
           t)
         kind
@@ -603,6 +651,7 @@ module rec Infer =
     let t = infer_pattern_rec pat
 
     pat.InferredType <- Some(t)
+    t.Provenance <- Some(Provenance.Pattern pat)
 
     Result.Ok((assump, t))
 

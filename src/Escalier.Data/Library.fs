@@ -104,12 +104,20 @@ module Syntax =
       template: TemplateLiteral *
       throws: option<Type.Type>
 
+  [<CustomEquality; NoComparison>]
   type Expr =
     { Kind: ExprKind
       Span: Span
       mutable InferredType: option<Type.Type> }
 
     override this.ToString() = this.Kind.ToString()
+
+    override this.Equals other =
+      match other with
+      | :? Expr as p -> p.Kind.Equals this.Kind
+      | _ -> false
+
+    override this.GetHashCode() = this.Kind.GetHashCode()
 
   type ObjPatElem =
     // TODO: add isMut
@@ -240,6 +248,7 @@ module Type =
   type Provenance =
     | Type of Type
     | Expr of Syntax.Expr
+    | TypeAnn of Syntax.TypeAnn
     | Pattern of Syntax.Pattern
 
   ///A type variable standing for an arbitrary type.
@@ -517,9 +526,17 @@ module Type =
     | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
     | Wildcard
 
+  [<CustomEquality; NoComparison>]
   type Type =
     { Kind: TypeKind
-      Provenance: option<Provenance> }
+      mutable Provenance: option<Provenance> }
+
+    override this.Equals other =
+      match other with
+      | :? Type as p -> p.Kind.Equals this.Kind
+      | _ -> false
+
+    override this.GetHashCode() = this.Kind.GetHashCode()
 
     // TODO: handle operator precedence when converting types to strings
     override this.ToString() =

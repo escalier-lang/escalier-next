@@ -71,6 +71,39 @@ let inferWithEnv src env =
     return t
   }
 
+let printDiagnostic (d: Diagnostic) =
+  let rec printReasons (rs: list<TypeError>) =
+    match rs with
+    | [] -> ()
+    | r :: rs ->
+      printReason r
+      printReasons rs
+
+  and printReason (r: TypeError) =
+    match r with
+    | NotImplemented s -> printf "- Not implemented: %s\n" s
+    | SemanticError s -> printf "- Semantic error: %s\n" s
+    | NotInferred -> printf "- Type could not be inferred\n"
+    | TypeMismatch(t1, t2) -> printf $"- Type mismatch: {t1} and {t2}\n"
+    // printfn "t1.Provenance = %A" (prune t1).Provenance
+    // printfn "t2.Provenance = %A" (prune t2).Provenance
+    // printfn "t2 = %A" t2
+    | RecursiveUnification(t1, t2) ->
+      printf "- Recursive unification: {t1} and {t2}\n"
+    | WrongNumberOfTypeArgs -> printf "- Wrong number of type arguments\n"
+
+  printf "ERROR: %s\n" d.Description
+
+  printReasons d.Reasons
+
+let rec printDiagnostics (ds: list<Diagnostic>) =
+  match ds with
+  | [] -> ()
+  | d :: ds ->
+    printDiagnostic d
+    printDiagnostics ds
+
+
 [<Fact>]
 let InfersLiterals () =
   result {
@@ -97,11 +130,12 @@ let InferSimpleTypeError () =
         let x: number = y
         """
 
-      let! _ = inferScript src
+      let! ctx, env = inferScript src
 
-      ()
+      printDiagnostics ctx.Diagnostics
     }
 
+  printfn "result = %A" result
   Assert.True(Result.isError result)
 
 [<Fact>]
@@ -712,7 +746,7 @@ let InferCallFuncWithWrongArgs () =
       let src =
         """
         let add = fn (x, y) => x + y
-        let sum = add("hello", "world")
+        let sum = "hello" + "world"
         """
 
       let! ctx, env = inferScript src
@@ -747,7 +781,7 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
     result {
       let src =
         """
-        let foo = fn <T: number>(x: T) -> {value: T} => {value: x}
+        let foo = fn <T: number>(x: T) => {value: x}
         let bar = foo("hello")
         """
 
@@ -758,3 +792,6 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
     }
 
   Assert.False(Result.isError result)
+
+// TODO: write tests for generic function type annotation, e.g.
+// type Foo = fn <T>(x: T) -> T

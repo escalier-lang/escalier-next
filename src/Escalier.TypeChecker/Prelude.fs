@@ -4,6 +4,8 @@ open Escalier.Data.Type
 
 open Env
 
+// TODO: move the prelude into its own file so that Provenance
+// can be set to something
 module Prelude =
 
   let makeParam (name: string) (ty: Type) : FuncParam =

@@ -315,20 +315,6 @@ module rec Env =
       // TODO: Check `op` when collapsing binary expressions involving strings
       | _, TypeKind.Primitive Primitive.String -> right
       | TypeKind.Primitive Primitive.String, _ -> left
-      | TypeKind.Keyword Keyword.Never, _
-      | _, TypeKind.Keyword Keyword.Never ->
-        let kind =
-          match op with
-          | "+" -> TypeKind.Primitive Primitive.Number
-          | "-" -> TypeKind.Primitive Primitive.Number
-          | "*" -> TypeKind.Primitive Primitive.Number
-          | "/" -> TypeKind.Primitive Primitive.Number
-          | "%" -> TypeKind.Primitive Primitive.Number
-          | "**" -> TypeKind.Primitive Primitive.Number
-          | "++" -> TypeKind.Primitive Primitive.String
-          | _ -> failwith "TODO: simplify binary"
-
-        { Kind = kind; Provenance = None }
       | _ -> t
     | _ -> t
 
@@ -340,18 +326,8 @@ module rec Env =
   /// prune them from expressions to remove long chains of instantiated variables.
   let rec prune (t: Type) : Type =
     match t.Kind with
-    | TypeKind.TypeVar({ Instance = Some(instance)
-                         Bound = bound } as v) ->
+    | TypeKind.TypeVar({ Instance = Some(instance) } as v) ->
       let newInstance = prune instance
-
-      let newInstance =
-        match newInstance.Kind with
-        | TypeKind.Keyword Keyword.Never ->
-          match bound with
-          | Some(bound) -> bound
-          | None -> newInstance
-        | _ -> newInstance
-
       v.Instance <- Some(newInstance)
       newInstance
     | _ -> simplify t

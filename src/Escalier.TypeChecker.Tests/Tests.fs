@@ -698,7 +698,7 @@ let InferCallFuncWithSingleWrongArg () =
 
       let! ctx, env = inferScript src
 
-      printfn "Diagnostic = %A" ctx.Diagnostics
+      printDiagnostics ctx.Diagnostics
       // TODO: simplify all binary types inside a complex type
       Assert.Value(env, "sum", "{value: number + number}")
     }
@@ -717,7 +717,7 @@ let InferCallFuncWithWrongArgs () =
 
       let! ctx, env = inferScript src
 
-      printfn "Diagnostic = %A" ctx.Diagnostics
+      printDiagnostics ctx.Diagnostics
       Assert.Value(env, "sum", "number")
     }
 
@@ -735,7 +735,7 @@ let InferCallGenericFuncWithWrongArg () =
 
       let! ctx, env = inferScript src
 
-      printfn "Diagnostic = %A" ctx.Diagnostics
+      printDiagnostics ctx.Diagnostics
       Assert.Value(env, "bar", "number")
     }
 
@@ -753,7 +753,7 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
 
       let! ctx, env = inferScript src
 
-      printfn "Diagnostic = %A" ctx.Diagnostics
+      printDiagnostics ctx.Diagnostics
       Assert.Value(env, "bar", "{value: number}")
     }
 

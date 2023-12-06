@@ -349,7 +349,13 @@ module rec Unify =
                 Provenance = None }
 
             do! unify ctx env never param.Type
-            ctx.AddDiagnostic({ Reasons = [ reason ] })
+
+            ctx.AddDiagnostic(
+              { Description =
+                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                Reasons = [ reason ] }
+            )
+
             ()
 
       // do! unify ctx env retType callee.Return // covariant

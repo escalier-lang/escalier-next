@@ -1,7 +1,8 @@
 ﻿namespace Escalier.Compiler
 
-open System.IO
 open FsToolkit.ErrorHandling
+open System.IO
+open System.IO.Abstractions
 
 open Escalier.Parser
 open Escalier.TypeChecker
@@ -24,13 +25,14 @@ module Compiler =
   /// <summary>
   /// Compiles the source code located at the specified base directory.
   /// </summary>
+  /// <param name="filesystem">The filesystem to use.</param>
   /// <param name="baseDir">The base directory where the source code is located.</param>
   /// <param name="source">The name of the source code file.</param>
   /// <returns>The compiled code.</returns>
-  let compile (baseDir: string) (source: string) =
+  let compile (filesystem: IFileSystem) (baseDir: string) (source: string) =
     result {
       let filename = Path.Join(baseDir, source)
-      let contents = File.ReadAllText filename
+      let contents = filesystem.File.ReadAllText filename
 
       let! ast =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
@@ -55,10 +57,10 @@ module Compiler =
         |> String.concat "\n"
 
       let outJsName = Path.ChangeExtension(filename, ".js")
-      File.WriteAllText(outJsName, js)
+      filesystem.File.WriteAllText(outJsName, js)
 
       let outDtsName = Path.ChangeExtension(filename, ".d.ts")
-      File.WriteAllText(outDtsName, dts)
+      filesystem.File.WriteAllText(outDtsName, dts)
 
       return ()
     }

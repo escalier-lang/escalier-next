@@ -19,6 +19,7 @@
 
     <ItemGroup>
         <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
+        <PackageReference Include="TestableIO.System.IO.Abstractions.Wrappers" Version="20.0.4"/>
     </ItemGroup>
 
 </Project>

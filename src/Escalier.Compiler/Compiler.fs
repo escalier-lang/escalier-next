@@ -9,15 +9,6 @@ open Escalier.TypeChecker
 open Escalier.Codegen
 
 module Compiler =
-  // TODO: Implement
-  // - parse
-  // - typecheck
-  // - codegen
-  // - report errors
-
-  // We also want to do these steps by reading from a file and
-  // then writing the output to disk.  In particular
-
   type CompileError =
     | ParseError of FParsec.Error.ParserError
     | TypeError of Error.TypeError

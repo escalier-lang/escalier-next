@@ -9,58 +9,47 @@ open Escalier.Compiler
 
 let baseDir = __SOURCE_DIRECTORY__
 // TODO: iterate over all subdirectories of `fixtures` instead of hardcoding basics
-let fixturePath = Path.Combine(baseDir, "fixtures", "basics")
+let fixtureDir = Path.Combine("fixtures", "basics")
 
 let fixturePaths: obj[] seq =
-  Directory.GetDirectories(fixturePath) |> Seq.map (fun dir -> [| box dir |])
+  Directory.GetDirectories(Path.Join(baseDir, fixtureDir))
+  |> Seq.map (fun dir -> [| box (dir.Substring baseDir.Length) |])
 
 [<Theory>]
-[<MemberData(nameof (fixturePaths))>]
-let BasicsTests (dirname: string) =
+[<MemberData(nameof fixturePaths)>]
+let BasicsTests (fixtureDir: string) =
   result {
-    let envVars = System.Environment.GetEnvironmentVariables()
-    let shouldUpdate = envVars.Contains("ESCALIER_UPDATE_FIXTURES")
+    let testName = (Path.GetFileName fixtureDir)
 
-    let filenameBase = (Path.GetFileName dirname)
+    let srcPath = Path.Join(fixtureDir, $"{testName}.esc")
+    let jsPath = Path.Join(fixtureDir, $"{testName}.js")
+    let dtsPath = Path.Join(fixtureDir, $"{testName}.d.ts")
 
-    // relative to the baseDir
-    let srcPath =
-      Path.Join(dirname, $"{filenameBase}.esc").Substring(baseDir.Length)
-
-    // relative to the baseDir
-    let jsPath =
-      if File.Exists(Path.Join(dirname, $"{filenameBase}.js")) then
-        Some(Path.ChangeExtension(srcPath, ".js"))
-      else
-        None
-
-    // relative to the baseDir
-    let dtsPath =
-      if File.Exists(Path.Join(dirname, $"{filenameBase}.d.ts")) then
-        Some(Path.ChangeExtension(srcPath, ".d.ts"))
-      else
-        None
-
-    let fullSrcPath = Path.Join(baseDir, srcPath)
-    let contents = File.ReadAllText(fullSrcPath)
+    let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
 
     // TODO: use the real filesystem when update fixtures
     let filesystem = MockFileSystem()
-    filesystem.AddFile(srcPath, contents)
+    filesystem.AddFile(srcPath, srcContents)
 
     do! Compiler.compile filesystem "" srcPath
 
     let jsOutputExpected =
-      jsPath
-      |> Option.map (fun jsPath -> File.ReadAllText(Path.Join(baseDir, jsPath)))
+      match File.Exists(Path.Join(baseDir, jsPath)) with
+      | true -> Some(File.ReadAllText(Path.Join(baseDir, jsPath)))
+      | false -> None
 
     let jsOutputActual =
-      jsPath |> Option.map (fun jsPath -> filesystem.File.ReadAllText(jsPath))
+      match filesystem.File.Exists(jsPath) with
+      | true -> Some(filesystem.File.ReadAllText(jsPath))
+      | false -> None
 
-    if shouldUpdate then
+    let envVars = System.Environment.GetEnvironmentVariables()
+    let shouldUpdate = envVars.Contains("ESCALIER_UPDATE_FIXTURES")
+
+    if envVars.Contains("ESCALIER_UPDATE_FIXTURES") then
       match jsOutputActual with
       | Some(output) ->
-        let path = Path.Join(dirname, $"{filenameBase}.js")
+        let path = Path.Join(baseDir, jsPath)
         File.WriteAllText(path, output)
         printfn "Updated %s" path
       | None ->
@@ -70,18 +59,19 @@ let BasicsTests (dirname: string) =
       Assert.Equal(jsOutputExpected, jsOutputActual)
 
     let dtsOutputExpected =
-      dtsPath
-      |> Option.map (fun dtsPath ->
-        File.ReadAllText(Path.Join(baseDir, dtsPath)))
+      match File.Exists(Path.Join(baseDir, dtsPath)) with
+      | true -> Some(File.ReadAllText(Path.Join(baseDir, dtsPath)))
+      | false -> None
 
     let dtsOutputActual =
-      dtsPath
-      |> Option.map (fun dtsPath -> filesystem.File.ReadAllText(dtsPath))
+      match filesystem.File.Exists(dtsPath) with
+      | true -> Some(filesystem.File.ReadAllText(dtsPath))
+      | false -> None
 
     if shouldUpdate then
       match dtsOutputActual with
       | Some(output) ->
-        let path = Path.Join(dirname, $"{filenameBase}.d.ts")
+        let path = Path.Join(baseDir, dtsPath)
         File.WriteAllText(path, output)
         printfn "Updated %s" path
       | None ->

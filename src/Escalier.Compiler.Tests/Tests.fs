@@ -18,67 +18,95 @@ let fixturePaths: obj[] seq =
 [<Theory>]
 [<MemberData(nameof fixturePaths)>]
 let BasicsTests (fixtureDir: string) =
-  result {
-    let testName = (Path.GetFileName fixtureDir)
+  let testResult =
+    result {
+      let testName = (Path.GetFileName fixtureDir)
 
-    let srcPath = Path.Join(fixtureDir, $"{testName}.esc")
-    let jsPath = Path.Join(fixtureDir, $"{testName}.js")
-    let dtsPath = Path.Join(fixtureDir, $"{testName}.d.ts")
+      let srcPath = Path.Join(fixtureDir, $"{testName}.esc")
+      let jsPath = Path.Join(fixtureDir, $"{testName}.js")
+      let dtsPath = Path.Join(fixtureDir, $"{testName}.d.ts")
+      let errorsPath = Path.Join(fixtureDir, $"{testName}.errors")
 
-    let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
+      let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
 
-    // TODO: use the real filesystem when update fixtures
-    let filesystem = MockFileSystem()
-    filesystem.AddFile(srcPath, srcContents)
+      // TODO: use the real filesystem when update fixtures
+      let mockFileSystem = MockFileSystem()
+      mockFileSystem.AddFile(srcPath, srcContents)
 
-    do! Compiler.compile filesystem "" srcPath
+      let mockWriter = new StringWriter()
 
-    let jsOutputExpected =
-      match File.Exists(Path.Join(baseDir, jsPath)) with
-      | true -> Some(File.ReadAllText(Path.Join(baseDir, jsPath)))
-      | false -> None
+      do! Compiler.compile mockFileSystem mockWriter "" srcPath
 
-    let jsOutputActual =
-      match filesystem.File.Exists(jsPath) with
-      | true -> Some(filesystem.File.ReadAllText(jsPath))
-      | false -> None
+      let jsOutputExpected =
+        match File.Exists(Path.Join(baseDir, jsPath)) with
+        | true -> Some(File.ReadAllText(Path.Join(baseDir, jsPath)))
+        | false -> None
 
-    let envVars = System.Environment.GetEnvironmentVariables()
-    let shouldUpdate = envVars.Contains("ESCALIER_UPDATE_FIXTURES")
+      let jsOutputActual =
+        match mockFileSystem.File.Exists(jsPath) with
+        | true -> Some(mockFileSystem.File.ReadAllText(jsPath))
+        | false -> None
 
-    if envVars.Contains("ESCALIER_UPDATE_FIXTURES") then
-      match jsOutputActual with
-      | Some(output) ->
-        let path = Path.Join(baseDir, jsPath)
-        File.WriteAllText(path, output)
-        printfn "Updated %s" path
-      | None ->
-        // TODO: delete the file
-        ()
-    else
-      Assert.Equal(jsOutputExpected, jsOutputActual)
+      let envVars = System.Environment.GetEnvironmentVariables()
+      let shouldUpdate = envVars.Contains("ESCALIER_UPDATE_FIXTURES")
 
-    let dtsOutputExpected =
-      match File.Exists(Path.Join(baseDir, dtsPath)) with
-      | true -> Some(File.ReadAllText(Path.Join(baseDir, dtsPath)))
-      | false -> None
+      if envVars.Contains("ESCALIER_UPDATE_FIXTURES") then
+        match jsOutputActual with
+        | Some(output) ->
+          let path = Path.Join(baseDir, jsPath)
+          File.WriteAllText(path, output)
+          printfn "Wrote %s" path
+        | None ->
+          // TODO: delete the file
+          ()
+      else
+        Assert.Equal(jsOutputExpected, jsOutputActual)
 
-    let dtsOutputActual =
-      match filesystem.File.Exists(dtsPath) with
-      | true -> Some(filesystem.File.ReadAllText(dtsPath))
-      | false -> None
+      let dtsOutputExpected =
+        match File.Exists(Path.Join(baseDir, dtsPath)) with
+        | true -> Some(File.ReadAllText(Path.Join(baseDir, dtsPath)))
+        | false -> None
 
-    if shouldUpdate then
-      match dtsOutputActual with
-      | Some(output) ->
-        let path = Path.Join(baseDir, dtsPath)
-        File.WriteAllText(path, output)
-        printfn "Updated %s" path
-      | None ->
-        // TODO: delete the file
-        ()
-    else
-      Assert.Equal(dtsOutputExpected, dtsOutputActual)
+      let dtsOutputActual =
+        match mockFileSystem.File.Exists(dtsPath) with
+        | true -> Some(mockFileSystem.File.ReadAllText(dtsPath))
+        | false -> None
 
-    return ()
-  }
+      if shouldUpdate then
+        match dtsOutputActual with
+        | Some(output) ->
+          let path = Path.Join(baseDir, dtsPath)
+          File.WriteAllText(path, output)
+          printfn "Wrote %s" path
+        | None ->
+          // TODO: delete the file
+          ()
+      else
+        Assert.Equal(dtsOutputExpected, dtsOutputActual)
+
+      let errorOutputExpected =
+        match File.Exists(Path.Join(baseDir, errorsPath)) with
+        | true -> Some(File.ReadAllText(Path.Join(baseDir, errorsPath)))
+        | false -> None
+
+      let errorOutputActual =
+        match mockWriter.ToString() with
+        | "" -> None
+        | output -> Some(output)
+
+      if shouldUpdate then
+        match errorOutputActual with
+        | Some(output) ->
+          let path = Path.Join(baseDir, errorsPath)
+          File.WriteAllText(path, output)
+          printf "Wrote %s" path
+        | None ->
+          // TODO: delete the file
+          ()
+      else
+        Assert.Equal(errorOutputExpected, errorOutputActual)
+
+      return ()
+    }
+
+  Assert.True(Result.isOk testResult)

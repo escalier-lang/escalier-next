@@ -1,47 +1,51 @@
 ﻿input: 
     type Obj = {a?: {b?: {c?: number}}}
   
-output: Success: [{ Kind =
-    Decl
-      { Kind =
-         TypeDecl
-           ("Obj",
-            { Kind =
-               Object
-                 [Property
-                    { Name = "a"
-                      TypeAnn =
-                       { Kind =
-                          Object
-                            [Property
-                               { Name = "b"
-                                 TypeAnn =
-                                  { Kind =
-                                     Object
-                                       [Property
-                                          { Name = "c"
-                                            TypeAnn =
-                                             { Kind = Keyword Number
-                                               Span =
-                                                { Start = (Ln: 2, Col: 31)
-                                                  Stop = (Ln: 2, Col: 37) }
-                                               InferredType = None }
-                                            Optional = true
-                                            Readonly = false }]
-                                    Span = { Start = (Ln: 2, Col: 26)
-                                             Stop = (Ln: 2, Col: 38) }
-                                    InferredType = None }
-                                 Optional = true
-                                 Readonly = false }]
-                         Span = { Start = (Ln: 2, Col: 21)
-                                  Stop = (Ln: 2, Col: 39) }
-                         InferredType = None }
-                      Optional = true
-                      Readonly = false }]
-              Span = { Start = (Ln: 2, Col: 16)
-                       Stop = (Ln: 3, Col: 3) }
-              InferredType = None }, None)
-        Span = { Start = (Ln: 2, Col: 5)
-                 Stop = (Ln: 3, Col: 3) } }
-   Span = { Start = (Ln: 2, Col: 5)
-            Stop = (Ln: 3, Col: 3) } }]
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  ("Obj",
+                   { Kind =
+                      Object
+                        [Property
+                           { Name = "a"
+                             TypeAnn =
+                              { Kind =
+                                 Object
+                                   [Property
+                                      { Name = "b"
+                                        TypeAnn =
+                                         { Kind =
+                                            Object
+                                              [Property
+                                                 { Name = "c"
+                                                   TypeAnn =
+                                                    { Kind = Keyword Number
+                                                      Span =
+                                                       { Start =
+                                                          (Ln: 2, Col: 31)
+                                                         Stop = (Ln: 2, Col: 37) }
+                                                      InferredType = None }
+                                                   Optional = true
+                                                   Readonly = false }]
+                                           Span = { Start = (Ln: 2, Col: 26)
+                                                    Stop = (Ln: 2, Col: 38) }
+                                           InferredType = None }
+                                        Optional = true
+                                        Readonly = false }]
+                                Span = { Start = (Ln: 2, Col: 21)
+                                         Stop = (Ln: 2, Col: 39) }
+                                InferredType = None }
+                             Optional = true
+                             Readonly = false }]
+                     Span = { Start = (Ln: 2, Col: 16)
+                              Stop = (Ln: 3, Col: 3) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 3) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 3) } }] }

@@ -693,7 +693,7 @@ module Parser =
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 
   let script: Parser<Module, unit> =
-    pipe2 (many moduleItem) eof <| fun items _ -> { Items = items }
+    (many moduleItem) .>> eof |>> fun items -> { Items = items }
 
   let parseScript (input: string) : Result<Module, ParserError> =
     match run script input with

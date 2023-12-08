@@ -243,6 +243,20 @@ module Syntax =
       Span: Span
       mutable InferredType: option<Type.Type> }
 
+  type ImportSpecifier =
+    | Named of name: string * alias: option<string>
+    | ModuleAlias of alias: string
+
+  type Import =
+    { Source: string
+      Specifiers: list<ImportSpecifier> }
+
+  type ModuleItem =
+    | Import of Import
+    | Stmt of Stmt
+
+  type Module = { Items: list<ModuleItem> }
+
 module Type =
   [<RequireQualifiedAccess>]
   type Provenance =

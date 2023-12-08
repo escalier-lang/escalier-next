@@ -70,7 +70,7 @@ module Compiler =
       let ctx = Env.Ctx()
 
       let! env =
-        Infer.inferScript ctx env ast.Stmts
+        Infer.inferScript ctx env ast
         |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Diagnostics

@@ -764,23 +764,39 @@ module rec Infer =
         | None -> return env
     }
 
-  // TODO: Create an `InferModule` that treats all decls as mutually recursive
-  let inferScript
+  let inferImport
     (ctx: Ctx)
     (env: Env)
-    (stmts: list<Stmt>)
+    (import: Import)
     : Result<Env, TypeError> =
+    // TODO: read the file and infer the module
+    // TODO: have a way of store
+    failwith "TODO - inferImport"
+
+  let inferModuleItem
+    (ctx: Ctx)
+    (env: Env)
+    (item: ModuleItem)
+    (generalize: bool)
+    : Result<Env, TypeError> =
+
+    match item with
+    | Import import -> failwith "TODO: Import"
+    | Stmt stmt -> inferStmt ctx env stmt generalize
+
+  // TODO: Create an `InferModule` that treats all decls as mutually recursive
+  let inferScript (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
 
       let! _ =
         List.traverseResultM
-          (fun stmt ->
+          (fun item ->
             result {
-              let! stmtEnv = inferStmt ctx newEnv stmt true
-              newEnv <- stmtEnv
+              let! itemEnv = inferModuleItem ctx newEnv item true
+              newEnv <- itemEnv
             })
-          stmts
+          m.Items
 
       return newEnv
     }

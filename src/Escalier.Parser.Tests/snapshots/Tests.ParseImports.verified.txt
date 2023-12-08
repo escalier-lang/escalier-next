@@ -1,0 +1,14 @@
+﻿input: 
+    import "./math" {add, sub as subtract}
+    import "~/net" as network
+    import "path"
+    
+output: Ok
+  { Items =
+     [Import
+        { Source = "./math"
+          Specifiers = [Named ("add", None); Named ("sub", Some "subtract")] };
+      Import { Source = "~/net"
+               Specifiers = [ModuleAlias "network"] };
+      Import { Source = "path"
+               Specifiers = [] }] }

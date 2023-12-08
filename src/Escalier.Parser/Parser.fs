@@ -75,7 +75,7 @@ module Parser =
 
   let number: Parser<Literal, unit> = pfloat |>> Literal.Number
 
-  let string: Parser<Literal, unit> =
+  let _string: Parser<string, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
 
     let unescape c =
@@ -91,7 +91,8 @@ module Parser =
       (pstring "\"")
       (pstring "\"")
       (stringsSepBy normalCharSnippet escapedChar))
-    |>> fun sl -> Literal.String(sl)
+
+  let string: Parser<Literal, unit> = _string |>> fun sl -> Literal.String(sl)
 
   let boolean =
     (pstring "true" |>> fun _ -> Literal.Boolean true)
@@ -649,20 +650,52 @@ module Parser =
 
   typeAnnRef.Value <- unionOrIntersectionOrPrimaryType
 
+  let namedSpecifier: Parser<ImportSpecifier, unit> =
+    pipe4 getPosition ident (opt (strWs "as" >>. ident)) getPosition
+    <| fun start name alias stop ->
+      let span = { Start = start; Stop = stop }
+      ImportSpecifier.Named(name, alias)
+
+  let private namedSpecifiers: Parser<list<ImportSpecifier>, unit> =
+    between (strWs "{") (strWs "}") (sepBy namedSpecifier (strWs ","))
+
+  let private moduleAlias: Parser<list<ImportSpecifier>, unit> =
+    pipe3 getPosition (strWs "as" >>. ident) getPosition
+    <| fun start alias stop ->
+      let span = { Start = start; Stop = stop }
+      [ ImportSpecifier.ModuleAlias alias ]
+
+  let private importSpecifiers = choice [ namedSpecifiers; moduleAlias ]
+
+  let import: Parser<Import, unit> =
+    pipe4
+      getPosition
+      (strWs "import" >>. _string .>> ws)
+      (opt importSpecifiers)
+      getPosition
+    <| fun start source specifiers stop ->
+      { Source = source
+        Specifiers = Option.defaultValue [] specifiers }
+
+  let private moduleItem: Parser<ModuleItem, unit> =
+    ws
+    >>. choice
+      [ import |>> ModuleItem.Import
+        varDecl |>> ModuleItem.Stmt
+        typeDecl |>> ModuleItem.Stmt
+        returnStmt |>> ModuleItem.Stmt
+        exprStmt |>> ModuleItem.Stmt ]
+
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =
     match run expr input with
     | ParserResult.Success(result, _, _) -> Result.Ok(result)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 
-  let parseScript (input: string) =
-    match run (many stmt) input with
-    | ParserResult.Success(result, _, _) ->
-      let dummySpan =
-        { Start = Position("", 0, 0, 0)
-          Stop = Position("", 0, 0, 0) }
+  let script: Parser<Module, unit> =
+    pipe2 (many moduleItem) eof <| fun items _ -> { Items = items }
 
-      let block = { Stmts = result; Span = dummySpan }
-
-      Result.Ok(block)
+  let parseScript (input: string) : Result<Module, ParserError> =
+    match run script input with
+    | ParserResult.Success(m, _, _) -> Result.Ok(m)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)

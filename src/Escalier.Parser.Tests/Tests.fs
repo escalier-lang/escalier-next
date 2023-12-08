@@ -277,3 +277,17 @@ let ParseArrowIdentifier () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseImports () =
+  let src =
+    """
+    import "./math" {add, sub as subtract}
+    import "~/net" as network
+    import "path"
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

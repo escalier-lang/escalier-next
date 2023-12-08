@@ -51,16 +51,16 @@ module Compiler =
   /// <param name="filesystem">The filesystem to use.</param>
   /// <param name="textwriter">The text writer to use for diagnostics.</param>
   /// <param name="baseDir">The base directory where the source code is located.</param>
-  /// <param name="source">The name of the source code file.</param>
+  /// <param name="srcFile">The name of the source code file.</param>
   /// <returns>The compiled code.</returns>
-  let compile
+  let compileFile
     (filesystem: IFileSystem)
     (textwriter: TextWriter)
     (baseDir: string)
-    (source: string)
+    (srcFile: string)
     =
     result {
-      let filename = Path.Join(baseDir, source)
+      let filename = Path.Join(baseDir, srcFile)
       let contents = filesystem.File.ReadAllText filename
 
       let! ast =
@@ -70,8 +70,7 @@ module Compiler =
       let ctx = Env.Ctx()
 
       let! env =
-        Infer.inferScript ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferScript ctx env ast |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Diagnostics
 
@@ -95,3 +94,22 @@ module Compiler =
 
       return ()
     }
+
+  let compileFiles
+    (filesystem: IFileSystem)
+    (textwriter: TextWriter)
+    (baseDir: string)
+    (srcFiles: list<string>)
+    =
+
+    // TODO:
+    // - parse each file
+    // - find the imports
+    // - build a dependency graph
+    // - typecheck and build each file in order
+
+    failwith "TODO"
+
+// TODO:
+// typecheckFile
+// typecheckFiles

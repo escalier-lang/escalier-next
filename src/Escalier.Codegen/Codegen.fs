@@ -1,5 +1,6 @@
 namespace Escalier.Codegen
 
+
 open Escalier.Interop
 open Escalier.Interop.TypeScript
 open Escalier.Data
@@ -18,7 +19,19 @@ module rec Codegen =
     | Return
     | Empty
 
-  let buildScript (ctx: Ctx) (block: Block) =
+  let dummySpan =
+    { Start = FParsec.Position("", 0, 0, 0)
+      Stop = FParsec.Position("", 0, 0, 0) }
+
+  let buildScript (ctx: Ctx) (m: Module) =
+    let stmts: list<Stmt> =
+      m.Items
+      |> List.choose (fun item ->
+        match item with
+        | Stmt stmt -> Some stmt
+        | _ -> None)
+
+    let block = { Stmts = stmts; Span = dummySpan }
     buildBlock ctx block Finalizer.Empty
 
   let buildExpr (ctx: Ctx) (expr: Expr) : TS.Expr * list<TS.Stmt> =
@@ -266,62 +279,65 @@ module rec Codegen =
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
   // the exported symbols since we aren't tracking provenance consistently yet
-  let buildModuleTypes (env: Env) (ctx: Ctx) (block: Block) : TS.Module =
+  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Module) : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
-    for stmt in block.Stmts do
-      match stmt.Kind with
-      | StmtKind.Decl decl ->
-        match decl.Kind with
-        | TypeDecl(name, typeAnn, typeParams) ->
-          match typeAnn.InferredType with
-          | Some(typeAnn) ->
-            let decl =
-              TS.Decl.TsTypeAlias
-                { Declare = false
-                  Id = { Name = name; Loc = None }
-                  TypeParams = None // TODO: typeParams
-                  TypeAnn = buildType ctx typeAnn
-                  Loc = None }
+    for item in m.Items do
+      match item with
+      | Import _ -> failwith "TODO: buildModuleTypes - Import"
+      | Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl decl ->
+          match decl.Kind with
+          | TypeDecl(name, typeAnn, typeParams) ->
+            match typeAnn.InferredType with
+            | Some(typeAnn) ->
+              let decl =
+                TS.Decl.TsTypeAlias
+                  { Declare = false
+                    Id = { Name = name; Loc = None }
+                    TypeParams = None // TODO: typeParams
+                    TypeAnn = buildType ctx typeAnn
+                    Loc = None }
 
-            let item =
-              ModuleItem.ModuleDecl(
-                ModuleDecl.ExportDecl { Decl = decl; Loc = None }
-              )
+              let item =
+                ModuleItem.ModuleDecl(
+                  ModuleDecl.ExportDecl { Decl = decl; Loc = None }
+                )
 
-            items <- item :: items
-          | None -> ()
-        | VarDecl(pattern, init, typeAnnOption) ->
-          for Operators.KeyValue(name, _) in findBindings pattern do
-            let n: string = name
+              items <- item :: items
+            | None -> ()
+          | VarDecl(pattern, init, typeAnnOption) ->
+            for Operators.KeyValue(name, _) in findBindings pattern do
+              let n: string = name
 
-            let t =
-              match env.GetType name with
-              | Ok(t) -> t
-              | Error(e) -> failwith $"Couldn't find symbol: {name}"
+              let t =
+                match env.GetType name with
+                | Ok(t) -> t
+                | Error(e) -> failwith $"Couldn't find symbol: {name}"
 
-            let decl =
-              { Id =
-                  Pat.Ident
-                    { Id = { Name = n; Loc = None }
-                      Optional = false
-                      Loc = None }
-                TypeAnn = Some(buildTypeAnn ctx t)
-                Init = None }
+              let decl =
+                { Id =
+                    Pat.Ident
+                      { Id = { Name = n; Loc = None }
+                        Optional = false
+                        Loc = None }
+                  TypeAnn = Some(buildTypeAnn ctx t)
+                  Init = None }
 
-            let varDecl =
-              TS.Decl.Var
-                { Decls = [ decl ]
-                  Declare = true
-                  Kind = VariableDeclarationKind.Const }
+              let varDecl =
+                TS.Decl.Var
+                  { Decls = [ decl ]
+                    Declare = true
+                    Kind = VariableDeclarationKind.Const }
 
-            let item =
-              ModuleItem.ModuleDecl(
-                ModuleDecl.ExportDecl { Decl = varDecl; Loc = None }
-              )
+              let item =
+                ModuleItem.ModuleDecl(
+                  ModuleDecl.ExportDecl { Decl = varDecl; Loc = None }
+                )
 
-            items <- item :: items
-      | _ -> ()
+              items <- item :: items
+        | _ -> ()
 
     { Body = List.rev items
       Shebang = None

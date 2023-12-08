@@ -5,7 +5,7 @@ open FsToolkit.ErrorHandling
 open Xunit
 
 open Escalier.Data.Type
-open Escalier.Parser.Parser
+open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
@@ -28,7 +28,7 @@ type CompileError =
 let infer src =
   result {
     let! ast =
-      match run expr src with
+      match run Parser.expr src with
       | Success(value, _, _) -> Result.Ok(value)
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
@@ -43,16 +43,12 @@ let infer src =
 
 let inferScript src =
   result {
-    let! ast =
-      match run (many stmt) src with
-      | Success(value, _, _) -> Result.Ok(value)
-      | Failure(_s, parserError, _unit) ->
-        Result.mapError CompileError.ParseError (Result.Error(parserError))
+    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
     let env = Prelude.getEnv ()
     let ctx = Ctx()
 
-    let! env = Result.mapError CompileError.TypeError (inferScript ctx env ast)
+    let! env = inferScript ctx env ast |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -60,7 +56,7 @@ let inferScript src =
 let inferWithEnv src env =
   result {
     let! ast =
-      match run expr src with
+      match run Parser.expr src with
       | Success(value, _, _) -> Result.Ok(value)
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))

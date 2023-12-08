@@ -253,7 +253,7 @@ let CodegenDtsBasics () =
       let ctx = Env.Ctx()
 
       let! env =
-        Infer.inferScript ctx env escAst.Stmts
+        Infer.inferScript ctx env escAst
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
@@ -287,8 +287,7 @@ let CodegenDtsGeneric () =
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
-        Infer.inferScript ctx env ast.Stmts
-        |> Result.mapError CompileError.TypeError
+        Infer.inferScript ctx env ast |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
       let mod' = buildModuleTypes env ctx ast

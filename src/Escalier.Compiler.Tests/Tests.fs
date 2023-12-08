@@ -35,7 +35,7 @@ let BasicsTests (fixtureDir: string) =
 
       let mockWriter = new StringWriter()
 
-      do! Compiler.compile mockFileSystem mockWriter "" srcPath
+      do! Compiler.compileFile mockFileSystem mockWriter "" srcPath
 
       let jsOutputExpected =
         match File.Exists(Path.Join(baseDir, jsPath)) with

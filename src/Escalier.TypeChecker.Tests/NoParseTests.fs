@@ -254,13 +254,15 @@ let InferPair () =
   result {
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ varDecl ("f", fatArrow [ "x" ] (ident "x"))
-        varDecl (
-          "pair",
-          tuple
-            [ call (ident "f", [ number 4 ])
-              call (ident "f", [ boolean true ]) ]
-        ) ]
+      { Items =
+          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ModuleItem.Stmt
+            varDecl (
+              "pair",
+              tuple
+                [ call (ident "f", [ number 4 ])
+                  call (ident "f", [ boolean true ]) ]
+            )
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
     let ctx = Ctx()
@@ -291,21 +293,23 @@ let RecursiveUnification () =
 let InferGenericAndNonGeneric () =
   result {
     let ast =
-      [ varDecl (
-          "foo",
-          func
-            [ "g" ]
-            [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
-              stmt (
-                StmtKind.Return(
-                  Some(
-                    tuple
-                      [ call (ident "f", [ number 3 ])
-                        call (ident "f", [ boolean true ]) ]
-                  )
-                )
-              ) ]
-        ) ]
+      { Items =
+          [ varDecl (
+              "foo",
+              func
+                [ "g" ]
+                [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
+                  stmt (
+                    StmtKind.Return(
+                      Some(
+                        tuple
+                          [ call (ident "f", [ number 3 ])
+                            call (ident "f", [ boolean true ]) ]
+                      )
+                    )
+                  ) ]
+            )
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
     let ctx = Ctx()
@@ -320,18 +324,21 @@ let InferGenericAndNonGeneric () =
 let InferFuncComposition () =
   result {
     let ast =
-      [ varDecl (
-          "foo",
-          fatArrow
-            [ "f" ]
-            (fatArrow
-              [ "g" ]
-              (fatArrow
-                [ "arg" ]
-                (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+      {
 
-        ) ]
+        Items =
+          [ varDecl (
+              "foo",
+              fatArrow
+                [ "f" ]
+                (fatArrow
+                  [ "g" ]
+                  (fatArrow
+                    [ "arg" ]
+                    (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
 
+            )
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
     let ctx = Ctx()
@@ -377,7 +384,12 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
+    let script =
+      { Items =
+          [ varDecl ("S", s) |> ModuleItem.Stmt
+            varDecl ("K", k) |> ModuleItem.Stmt
+            varDecl ("I", i) |> ModuleItem.Stmt ] }
+
     let ctx = Ctx()
     let! newEnv = inferScript ctx env script
 

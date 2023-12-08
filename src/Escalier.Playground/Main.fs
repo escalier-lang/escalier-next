@@ -42,7 +42,7 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
     let tcCtx = Env.Ctx()
 
     let! env =
-      Infer.inferScript tcCtx env ast.Stmts
+      Infer.inferScript tcCtx env ast
       |> Result.mapError CompileError.TypeError
 
     let mod' = Codegen.buildModuleTypes env ctx ast

@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Compiler.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Escalier.Codegen\Escalier.Codegen.fsproj"/>
+        <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>
+        <ProjectReference Include="..\Escalier.Interop\Escalier.Interop.fsproj"/>
+        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
+        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
+        <PackageReference Include="TestableIO.System.IO.Abstractions.Wrappers" Version="20.0.4"/>
+    </ItemGroup>
+
+</Project>

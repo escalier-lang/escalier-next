@@ -1,0 +1,2 @@
+let foo = fn (x: number) => x
+foo("hello")

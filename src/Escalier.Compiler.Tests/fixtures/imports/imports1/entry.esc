@@ -1,0 +1,7 @@
+import "./a" {add, sub}
+import "./b" {mul, div}
+
+let a = add(1, 2)
+let b = sub(1, 2)
+let c = mul(1, 2)
+let d = div(1, 2)

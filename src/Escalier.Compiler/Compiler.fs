@@ -4,6 +4,7 @@ open FsToolkit.ErrorHandling
 open System.IO
 open System.IO.Abstractions
 
+open Escalier.Data.Syntax
 open Escalier.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
@@ -60,7 +61,7 @@ module Compiler =
     (srcFile: string)
     =
     result {
-      let filename = Path.Join(baseDir, srcFile)
+      let filename = Path.GetFullPath(Path.Join(baseDir, srcFile))
       let contents = filesystem.File.ReadAllText filename
 
       let! ast =
@@ -95,20 +96,117 @@ module Compiler =
       return ()
     }
 
+  let getExports (ctx: Env.Ctx) (m: Module) : Result<Env.Env, CompileError> =
+    result {
+      let! env =
+        Infer.inferScript ctx (Prelude.getEnv ()) m
+        |> Result.mapError CompileError.TypeError
+
+      let names = Infer.findModuleBindingNames m
+
+      let mutable exports = Env.Env.empty
+
+      for name in names do
+        let binding = env.Values.[name]
+        exports <- exports.AddValue name binding
+
+      return exports
+    }
+
+  let getImports
+    (ctx: Env.Ctx)
+    (file: string)
+    (depsTree: Map<string, list<string>>)
+    (files: Map<string, Module>)
+    : Result<Env.Env, CompileError> =
+    result {
+
+      let mutable imports = Env.Env.empty
+
+      for dep in depsTree[file] do
+        let! exports = getExports ctx files[dep]
+
+        imports <-
+          { imports with
+              Values = FSharpPlus.Map.union imports.Values exports.Values
+              Schemes = FSharpPlus.Map.union imports.Schemes exports.Schemes }
+
+      return imports
+    }
+
   let compileFiles
     (filesystem: IFileSystem)
     (textwriter: TextWriter)
-    (baseDir: string)
+    (baseDir: string) // e.g. src/ or fixtures/basics/test1/
     (srcFiles: list<string>)
     =
+    result {
+      let mutable files: Map<string, Module> = Map.empty
 
-    // TODO:
-    // - parse each file
-    // - find the imports
-    // - build a dependency graph
-    // - typecheck and build each file in order
+      // Parse each file
+      for srcFile in srcFiles do
+        let contents = filesystem.File.ReadAllText(Path.Join(baseDir, srcFile))
+        printfn "contents = %s" contents
 
-    failwith "TODO"
+        let! ast =
+          Parser.parseScript contents |> Result.mapError CompileError.ParseError
+
+        files <- files.Add(srcFile, ast)
+
+      let mutable depTree: Map<string, list<string>> = Map.empty
+
+      // TODO: find the imports and build dependency graph
+      for KeyValue(filename, ast) in files do
+        let imports =
+          ast.Items
+          |> List.choose (fun item ->
+            match item with
+            | ModuleItem.Import i -> Some i
+            | _ -> None)
+
+        let deps =
+          imports
+          |> List.map (fun i ->
+            let path = i.Source
+
+            let resolvedPath =
+              if path.StartsWith "~" then
+                Path.GetFullPath(Path.Join(baseDir, path.Substring(1)))
+              else if path.StartsWith "." then
+                Path.GetFullPath(
+                  Path.Join(Path.GetDirectoryName(filename), path)
+                )
+              else
+                path
+
+            Path.ChangeExtension(resolvedPath, ".esc"))
+
+        depTree <- depTree.Add(filename, deps)
+
+
+      printfn "depTree = %A" depTree
+
+      let ctx = Env.Ctx()
+      let! imports = getImports ctx "/entry.esc" depTree files
+
+      printfn "imports for /entry.esc"
+
+      for KeyValue(name, binding) in imports.Values do
+        printfn $"{name}: {fst binding}"
+
+      let env = Prelude.getEnv ()
+
+      let env =
+        { Prelude.getEnv () with
+            Values = FSharpPlus.Map.union env.Values imports.Values
+            Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+
+      let _ =
+        Infer.inferScript ctx env files["/entry.esc"]
+        |> Result.mapError CompileError.TypeError
+
+      ()
+    }
 
 // TODO:
 // typecheckFile

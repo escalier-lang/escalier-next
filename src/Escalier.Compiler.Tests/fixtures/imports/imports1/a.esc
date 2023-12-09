@@ -1,0 +1,2 @@
+let add = fn (a, b) => a + b
+let sub = fn (a, b) => a - b

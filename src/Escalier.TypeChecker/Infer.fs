@@ -780,9 +780,12 @@ module rec Infer =
     (generalize: bool)
     : Result<Env, TypeError> =
 
-    match item with
-    | Import import -> failwith "TODO: Import"
-    | Stmt stmt -> inferStmt ctx env stmt generalize
+    result {
+      match item with
+      // TODO: look up the imported module and add it to the environment
+      | Import import -> return env
+      | Stmt stmt -> return! inferStmt ctx env stmt generalize
+    }
 
   // TODO: Create an `InferModule` that treats all decls as mutually recursive
   let inferScript (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
@@ -830,3 +833,40 @@ module rec Infer =
       returns <- expr :: returns // We treat the expression as a return in this case
 
     returns
+
+  let findBindingNames (p: Syntax.Pattern) : list<string> =
+    let mutable names: list<string> = []
+
+    let visitor =
+      { Visitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | _ -> true
+        Visitor.VisitStmt = fun _ -> false
+        Visitor.VisitPattern =
+          fun pat ->
+            match pat.Kind with
+            | PatternKind.Identifier({ Name = name }) ->
+              names <- name :: names
+              false
+            | _ -> true
+        Visitor.VisitTypeAnn = fun _ -> false }
+
+    walkPattern visitor p
+
+    List.rev names
+
+  let findModuleBindingNames (m: Module) : list<string> =
+    let mutable names: list<string> = []
+
+    for item in m.Items do
+      match item with
+      | Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, _, _) }) ->
+          names <- List.concat [ names; findBindingNames pattern ]
+        | _ -> ()
+      | _ -> ()
+
+    names

@@ -110,3 +110,31 @@ let BasicsTests (fixtureDir: string) =
     }
 
   Assert.True(Result.isOk testResult)
+
+[<Fact>]
+let SimpleNamedImports () =
+  let result =
+    result {
+
+      let mockFileSystem = MockFileSystem()
+
+      let files = [ "/entry.esc"; "/a.esc"; "/b.esc" ]
+
+      for file in files do
+        let srcPath = Path.Join("/fixtures/imports/imports1", file)
+        let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
+        mockFileSystem.AddFile(srcPath, srcContents)
+
+      let mockWriter = new StringWriter()
+
+      do!
+        Compiler.compileFiles
+          mockFileSystem
+          mockWriter
+          "/fixtures/imports/imports1"
+          files
+
+      return ()
+    }
+
+  printfn "result = %A" result

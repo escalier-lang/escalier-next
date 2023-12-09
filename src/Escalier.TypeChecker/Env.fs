@@ -144,11 +144,18 @@ module rec Env =
       Schemes: Map<string, Scheme>
       IsAsync: bool }
 
+    static member empty =
+      { Values = Map.empty
+        Schemes = Map.empty
+        IsAsync = false }
+
     // TODO: Rename to AddBinding
+    // TODO: don't curry this function
     member this.AddValue (name: string) (binding: Binding) =
       { this with
           Values = Map.add name binding this.Values }
 
+    // TODO: don't curry this function
     member this.AddScheme (name: string) (s: Scheme) =
       { this with
           Schemes = Map.add name s this.Schemes }

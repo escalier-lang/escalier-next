@@ -1,0 +1,2 @@
+let mul = fn (a, b) => a * b
+let div = fn (a, b) => a / b

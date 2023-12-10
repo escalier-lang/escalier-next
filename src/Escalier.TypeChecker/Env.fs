@@ -5,10 +5,12 @@ open FsToolkit.ErrorHandling
 
 open Escalier.Data.Common
 open Escalier.Data.Type
-
+open Escalier.Data
 
 module rec Env =
-  type Ctx() =
+  type Ctx(getExports: Ctx -> string -> Syntax.Import -> Env) =
+    // let baseDir = baseDir
+    // let filesystem = filesystem
     let mutable nextVariableId = 0
     let mutable diagnostics: list<Diagnostic> = []
 
@@ -27,6 +29,10 @@ module rec Env =
       diagnostics <- diagnostic :: diagnostics
 
     member this.Diagnostics = diagnostics
+
+    member this.GetExports = getExports this
+  // member this.BaseDir = baseDir
+  // member this.FileSystem = filesystem
 
   let makeTypeRefKind name =
     { Name = name

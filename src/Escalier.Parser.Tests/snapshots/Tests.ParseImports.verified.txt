@@ -6,9 +6,9 @@
 output: Ok
   { Items =
      [Import
-        { Source = "./math"
+        { Path = "./math"
           Specifiers = [Named ("add", None); Named ("sub", Some "subtract")] };
-      Import { Source = "~/net"
+      Import { Path = "~/net"
                Specifiers = [ModuleAlias "network"] };
-      Import { Source = "path"
+      Import { Path = "path"
                Specifiers = [] }] }

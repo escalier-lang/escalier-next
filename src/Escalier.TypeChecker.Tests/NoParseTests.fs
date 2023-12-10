@@ -210,7 +210,7 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
-    let ctx = Ctx()
+    let ctx = Ctx(fun ctx filename import -> env)
     let! stmtEnv = inferStmt ctx env ast false
     env <- stmtEnv
 
@@ -231,7 +231,7 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
-  let ctx = Ctx()
+  let ctx = Ctx(fun ctx filename import -> env)
 
   try
     inferExpr ctx env ast |> ignore
@@ -242,7 +242,7 @@ let UnificationFailure () =
 let UndefinedSymbol () =
   let ast = ident "foo"
   let env = getEnv ()
-  let ctx = Ctx()
+  let ctx = Ctx(fun ctx filename import -> env)
 
   try
     inferExpr ctx env ast |> ignore
@@ -265,8 +265,8 @@ let InferPair () =
             |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env ast
+    let ctx = Ctx(fun ctx filename import -> env)
+    let! newEnv = inferScript ctx env "input.esc" ast
 
     let! f = newEnv.GetType "f"
     let! pair = newEnv.GetType "pair"
@@ -282,7 +282,7 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
-  let ctx = Ctx()
+  let ctx = Ctx(fun ctx filename import -> env)
 
   try
     inferExpr ctx env ast |> ignore
@@ -312,8 +312,8 @@ let InferGenericAndNonGeneric () =
             |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env ast
+    let ctx = Ctx(fun ctx filename import -> env)
+    let! newEnv = inferScript ctx env "input.esc" ast
 
     let! t = newEnv.GetType "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
@@ -341,8 +341,8 @@ let InferFuncComposition () =
             |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env ast
+    let ctx = Ctx(fun ctx filename import -> env)
+    let! newEnv = inferScript ctx env "input.esc" ast
 
     let! t = newEnv.GetType "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
@@ -390,8 +390,8 @@ let InferScriptSKK () =
             varDecl ("K", k) |> ModuleItem.Stmt
             varDecl ("I", i) |> ModuleItem.Stmt ] }
 
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env script
+    let ctx = Ctx(fun ctx filename import -> env)
+    let! newEnv = inferScript ctx env "input.esc" script
 
     let! t = newEnv.GetType "S"
 

@@ -1,6 +1,7 @@
 namespace Escalier.TypeChecker
 
 open FsToolkit.ErrorHandling
+open System.IO
 
 open Escalier.Data
 open Escalier.Data.Common
@@ -764,6 +765,20 @@ module rec Infer =
         | None -> return env
     }
 
+  let resolvePath
+    (baseDir: string)
+    (currentPath: string)
+    (importPath: string)
+    : string =
+    if importPath.StartsWith "~" then
+      Path.GetFullPath(Path.Join(baseDir, importPath.Substring(1)))
+    else if importPath.StartsWith "." then
+      Path.GetFullPath(
+        Path.Join(Path.GetDirectoryName(currentPath), importPath)
+      )
+    else
+      importPath
+
   let inferImport
     (ctx: Ctx)
     (env: Env)
@@ -776,19 +791,34 @@ module rec Infer =
   let inferModuleItem
     (ctx: Ctx)
     (env: Env)
+    (filename: string)
     (item: ModuleItem)
     (generalize: bool)
     : Result<Env, TypeError> =
 
     result {
       match item with
-      // TODO: look up the imported module and add it to the environment
-      | Import import -> return env
+      | Import import ->
+        // TODO: check the imports against the exports
+        let exports = ctx.GetExports filename import
+
+        for KeyValue(name, binding) in exports.Values do
+          printfn $"{name} = {fst binding}"
+
+        return
+          { env with
+              Values = FSharpPlus.Map.union env.Values exports.Values
+              Schemes = FSharpPlus.Map.union env.Schemes exports.Schemes }
       | Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 
   // TODO: Create an `InferModule` that treats all decls as mutually recursive
-  let inferScript (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
+  let inferScript
+    (ctx: Ctx)
+    (env: Env)
+    (filename: string)
+    (m: Module)
+    : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
 
@@ -796,7 +826,7 @@ module rec Infer =
         List.traverseResultM
           (fun item ->
             result {
-              let! itemEnv = inferModuleItem ctx newEnv item true
+              let! itemEnv = inferModuleItem ctx newEnv filename item true
               newEnv <- itemEnv
             })
           m.Items

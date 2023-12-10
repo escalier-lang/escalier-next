@@ -34,8 +34,7 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let env = Prelude.getEnv ()
-
-    let ctx = Ctx()
+    let ctx = Ctx(fun ctx filename import -> env)
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 
     return simplify t
@@ -46,9 +45,11 @@ let inferScript src =
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
     let env = Prelude.getEnv ()
-    let ctx = Ctx()
+    let ctx = Ctx(fun ctx filename import -> env)
 
-    let! env = inferScript ctx env ast |> Result.mapError CompileError.TypeError
+    let! env =
+      inferScript ctx env "input.esc" ast
+      |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -61,7 +62,7 @@ let inferWithEnv src env =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let ctx = Ctx()
+    let ctx = Ctx(fun ctx filename import -> env)
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 
     return t

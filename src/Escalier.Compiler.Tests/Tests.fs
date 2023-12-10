@@ -118,23 +118,30 @@ let SimpleNamedImports () =
 
       let mockFileSystem = MockFileSystem()
 
-      let files = [ "/entry.esc"; "/a.esc"; "/b.esc" ]
+      let files =
+        [ "/imports1/entry.esc"; "/imports1/a.esc"; "/imports1/b.esc" ]
 
       for file in files do
-        let srcPath = Path.Join("/fixtures/imports/imports1", file)
+        let srcPath = Path.Join("/fixtures/imports", file)
         let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
         mockFileSystem.AddFile(srcPath, srcContents)
 
       let mockWriter = new StringWriter()
 
-      do!
+      let! diagnostics =
         Compiler.compileFiles
           mockFileSystem
           mockWriter
-          "/fixtures/imports/imports1"
+          "/fixtures/imports"
           files
+
+      if diagnostics.Length > 0 then
+        Compiler.printDiagnostics mockWriter diagnostics
+        printfn "DIAGNOSTICS:\n%s" (mockWriter.ToString())
+
+      Assert.Equal(diagnostics.Length, 0)
 
       return ()
     }
 
-  printfn "result = %A" result
+  Assert.True(Result.isOk result)

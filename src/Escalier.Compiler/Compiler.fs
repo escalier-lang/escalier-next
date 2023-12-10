@@ -9,6 +9,7 @@ open Escalier.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
+open Escalier.TypeChecker.Visitor
 
 module Compiler =
   type CompileError =
@@ -68,10 +69,11 @@ module Compiler =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
-      let ctx = Env.Ctx()
+      let ctx = Env.Ctx(fun ctx filename import -> env) // TODO: fix this
 
       let! env =
-        Infer.inferScript ctx env ast |> Result.mapError CompileError.TypeError
+        Infer.inferScript ctx env srcFile ast
+        |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Diagnostics
 
@@ -96,10 +98,16 @@ module Compiler =
       return ()
     }
 
-  let getExports (ctx: Env.Ctx) (m: Module) : Result<Env.Env, CompileError> =
+  let getExports
+    (ctx: Env.Ctx)
+    (filename: string)
+    (m: Module)
+    : Result<Env.Env, CompileError> =
     result {
+      let env = Prelude.getEnv ()
+
       let! env =
-        Infer.inferScript ctx (Prelude.getEnv ()) m
+        Infer.inferScript ctx env filename m
         |> Result.mapError CompileError.TypeError
 
       let names = Infer.findModuleBindingNames m
@@ -124,7 +132,7 @@ module Compiler =
       let mutable imports = Env.Env.empty
 
       for dep in depsTree[file] do
-        let! exports = getExports ctx files[dep]
+        let! exports = getExports ctx file files[dep]
 
         imports <-
           { imports with
@@ -134,6 +142,57 @@ module Compiler =
       return imports
     }
 
+  let resolvePath
+    (baseDir: string)
+    (currentPath: string)
+    (importPath: string)
+    : string =
+    if importPath.StartsWith "~" then
+      Path.GetFullPath(Path.Join(baseDir, importPath.Substring(1)))
+    else if importPath.StartsWith "." then
+      Path.GetFullPath(
+        Path.Join(Path.GetDirectoryName(currentPath), importPath)
+      )
+    else
+      importPath
+
+  let findBindingNames (p: Pattern) : list<string> =
+    let mutable names: list<string> = []
+
+    let visitor =
+      { Visitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | _ -> true
+        Visitor.VisitStmt = fun _ -> false
+        Visitor.VisitPattern =
+          fun pat ->
+            match pat.Kind with
+            | PatternKind.Identifier({ Name = name }) ->
+              names <- name :: names
+              false
+            | _ -> true
+        Visitor.VisitTypeAnn = fun _ -> false }
+
+    walkPattern visitor p
+
+    List.rev names
+
+  let findModuleBindingNames (m: Module) : list<string> =
+    let mutable names: list<string> = []
+
+    for item in m.Items do
+      match item with
+      | Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, _, _) }) ->
+          names <- List.concat [ names; findBindingNames pattern ]
+        | _ -> ()
+      | _ -> ()
+
+    names
+
   let compileFiles
     (filesystem: IFileSystem)
     (textwriter: TextWriter)
@@ -141,71 +200,58 @@ module Compiler =
     (srcFiles: list<string>)
     =
     result {
-      let mutable files: Map<string, Module> = Map.empty
+      let ctx =
+        Env.Ctx(fun ctx filename import ->
+          let env = Prelude.getEnv ()
 
-      // Parse each file
-      for srcFile in srcFiles do
-        let contents = filesystem.File.ReadAllText(Path.Join(baseDir, srcFile))
-        printfn "contents = %s" contents
+          let resolvedImportPath =
+            Path.ChangeExtension(
+              resolvePath baseDir filename import.Path,
+              ".esc"
+            )
 
-        let! ast =
-          Parser.parseScript contents |> Result.mapError CompileError.ParseError
+          printfn "resolvedImportPath = %s" resolvedImportPath
+          let contents = filesystem.File.ReadAllText(resolvedImportPath)
 
-        files <- files.Add(srcFile, ast)
+          let m =
+            match Parser.parseScript contents with
+            | Ok value -> value
+            | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
-      let mutable depTree: Map<string, list<string>> = Map.empty
+          let env =
+            match
+              Infer.inferScript
+                ctx
+                env
+                "/fixtures/imports/imports1/entry.esc"
+                m
+            with
+            | Ok value -> value
+            | Error _ -> failwith $"failed to infer {resolvedImportPath}"
 
-      // TODO: find the imports and build dependency graph
-      for KeyValue(filename, ast) in files do
-        let imports =
-          ast.Items
-          |> List.choose (fun item ->
-            match item with
-            | ModuleItem.Import i -> Some i
-            | _ -> None)
+          let mutable newEnv = Env.Env.empty
 
-        let deps =
-          imports
-          |> List.map (fun i ->
-            let path = i.Source
+          let bindings = findModuleBindingNames m
 
-            let resolvedPath =
-              if path.StartsWith "~" then
-                Path.GetFullPath(Path.Join(baseDir, path.Substring(1)))
-              else if path.StartsWith "." then
-                Path.GetFullPath(
-                  Path.Join(Path.GetDirectoryName(filename), path)
-                )
-              else
-                path
+          for name in bindings do
+            match env.Values.TryFind(name) with
+            | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
+            | None -> failwith $"binding {name} not found"
 
-            Path.ChangeExtension(resolvedPath, ".esc"))
-
-        depTree <- depTree.Add(filename, deps)
-
-
-      printfn "depTree = %A" depTree
-
-      let ctx = Env.Ctx()
-      let! imports = getImports ctx "/entry.esc" depTree files
-
-      printfn "imports for /entry.esc"
-
-      for KeyValue(name, binding) in imports.Values do
-        printfn $"{name}: {fst binding}"
+          newEnv)
 
       let env = Prelude.getEnv ()
+      let entry = "/imports1/entry.esc"
+      let contents = filesystem.File.ReadAllText(Path.Join(baseDir, entry))
 
-      let env =
-        { Prelude.getEnv () with
-            Values = FSharpPlus.Map.union env.Values imports.Values
-            Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+      let! m =
+        Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
       let _ =
-        Infer.inferScript ctx env files["/entry.esc"]
+        Infer.inferScript ctx env "/fixtures/imports/imports1/entry.esc" m
         |> Result.mapError CompileError.TypeError
 
-      ()
+      return ctx.Diagnostics
     }
 
 // TODO:

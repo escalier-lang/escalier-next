@@ -674,7 +674,7 @@ module Parser =
       (opt importSpecifiers)
       getPosition
     <| fun start source specifiers stop ->
-      { Source = source
+      { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
   let private moduleItem: Parser<ModuleItem, unit> =

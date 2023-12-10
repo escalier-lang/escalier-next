@@ -248,7 +248,7 @@ module Syntax =
     | ModuleAlias of alias: string
 
   type Import =
-    { Source: string
+    { Path: string
       Specifiers: list<ImportSpecifier> }
 
   type ModuleItem =

@@ -813,9 +813,24 @@ module rec Infer =
               | Some(alias) -> alias
               | None -> source
 
-            match Map.tryFind source exports.Values with
-            | Some(binding) -> imports <- imports.AddValue target binding
-            | None ->
+            let valueLookup =
+              match Map.tryFind source exports.Values with
+              | Some(binding) ->
+                imports <- imports.AddValue target binding
+                Ok(())
+              | None -> Error("not found")
+
+            let schemeLookup =
+              match Map.tryFind source exports.Schemes with
+              | Some(scheme) ->
+                imports <- imports.AddScheme target scheme
+                Ok(())
+              | None -> Error("not found")
+
+            match valueLookup, schemeLookup with
+            // If we can't find the symbol in either the values or schemes
+            // we report an error
+            | Error _, Error _ ->
               let resolvedPath = ctx.ResolvePath filename import
 
               return!
@@ -823,10 +838,8 @@ module rec Infer =
                   TypeError.SemanticError
                     $"{resolvedPath} doesn't export '{name}'"
                 )
+            | _, _ -> ()
           | ModuleAlias _ -> failwith "TODO"
-
-        for KeyValue(name, binding) in exports.Values do
-          printfn $"{name} = {fst binding}"
 
         return
           { env with

@@ -103,50 +103,6 @@ module Compiler =
       return ()
     }
 
-  let getExports
-    (ctx: Env.Ctx)
-    (filename: string)
-    (m: Module)
-    : Result<Env.Env, CompileError> =
-    result {
-      let env = Prelude.getEnv ()
-
-      let! env =
-        Infer.inferScript ctx env filename m
-        |> Result.mapError CompileError.TypeError
-
-      let names = Infer.findModuleBindingNames m
-
-      let mutable exports = Env.Env.empty
-
-      for name in names do
-        let binding = env.Values.[name]
-        exports <- exports.AddValue name binding
-
-      return exports
-    }
-
-  let getImports
-    (ctx: Env.Ctx)
-    (file: string)
-    (depsTree: Map<string, list<string>>)
-    (files: Map<string, Module>)
-    : Result<Env.Env, CompileError> =
-    result {
-
-      let mutable imports = Env.Env.empty
-
-      for dep in depsTree[file] do
-        let! exports = getExports ctx file files[dep]
-
-        imports <-
-          { imports with
-              Values = FSharpPlus.Map.union imports.Values exports.Values
-              Schemes = FSharpPlus.Map.union imports.Schemes exports.Schemes }
-
-      return imports
-    }
-
   let resolvePath
     (baseDir: string)
     (currentPath: string)
@@ -216,7 +172,6 @@ module Compiler =
                 ".esc"
               )
 
-            printfn "resolvedImportPath = %s" resolvedImportPath
             let contents = filesystem.File.ReadAllText(resolvedImportPath)
 
             let m =
@@ -235,8 +190,19 @@ module Compiler =
 
             for name in bindings do
               match env.Values.TryFind(name) with
+              // NOTE: exports are immutable
               | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
               | None -> failwith $"binding {name} not found"
+
+            for item in m.Items do
+              match item with
+              | Stmt { Kind = StmtKind.Decl { Kind = DeclKind.TypeDecl(name,
+                                                                       _,
+                                                                       _) } } ->
+                match env.Schemes.TryFind(name) with
+                | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
+                | None -> failwith $"scheme {name} not found"
+              | _ -> ()
 
             newEnv),
           (fun ctx filename import -> resolvePath baseDir filename import.Path)

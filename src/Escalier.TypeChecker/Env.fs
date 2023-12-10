@@ -5,10 +5,16 @@ open FsToolkit.ErrorHandling
 
 open Escalier.Data.Common
 open Escalier.Data.Type
-
+open Escalier.Data
 
 module rec Env =
-  type Ctx() =
+  type Ctx
+    (
+      getExports: Ctx -> string -> Syntax.Import -> Env,
+      resolvePath: Ctx -> string -> Syntax.Import -> string
+    ) =
+    // let baseDir = baseDir
+    // let filesystem = filesystem
     let mutable nextVariableId = 0
     let mutable diagnostics: list<Diagnostic> = []
 
@@ -27,6 +33,8 @@ module rec Env =
       diagnostics <- diagnostic :: diagnostics
 
     member this.Diagnostics = diagnostics
+    member this.GetExports = getExports this
+    member this.ResolvePath = resolvePath this
 
   let makeTypeRefKind name =
     { Name = name
@@ -144,11 +152,18 @@ module rec Env =
       Schemes: Map<string, Scheme>
       IsAsync: bool }
 
+    static member empty =
+      { Values = Map.empty
+        Schemes = Map.empty
+        IsAsync = false }
+
     // TODO: Rename to AddBinding
+    // TODO: don't curry this function
     member this.AddValue (name: string) (binding: Binding) =
       { this with
           Values = Map.add name binding this.Values }
 
+    // TODO: don't curry this function
     member this.AddScheme (name: string) (s: Scheme) =
       { this with
           Schemes = Map.add name s this.Schemes }

@@ -14,8 +14,11 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>
+        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="FSharpPlus" Version="1.5.0"/>
         <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
+        <PackageReference Include="TestableIO.System.IO.Abstractions.Wrappers" Version="20.0.4"/>
     </ItemGroup>
 </Project>

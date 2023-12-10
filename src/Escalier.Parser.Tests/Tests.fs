@@ -8,14 +8,9 @@ open FParsec
 
 open Escalier.Parser
 
-let lit = run Parser.lit
+let lit = run (Parser.lit .>> eof)
 let expr = run (Parser.expr .>> eof)
-let pattern = run Parser.pattern
-let stmt = run (Parser.stmt .>> eof)
-let typeAnn = run Parser.typeAnn
-
-let script = run (many Parser.stmt)
-
+let typeAnn = run (Parser.typeAnn .>> eof)
 
 let settings = VerifySettings()
 settings.UseDirectory("snapshots")
@@ -45,7 +40,7 @@ let ParseOtherLiterals () =
   let b = null
   """
 
-  let ast = script src
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -228,7 +223,7 @@ let ParseObjLitAndObjPat () =
     let foo = fn ({x, y}: Point) => x + y
   """
 
-  let ast = script src
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -241,7 +236,7 @@ let ParseObjRestSpread () =
     let {a, ...rest} = obj
   """
 
-  let ast = script src
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -253,7 +248,7 @@ let ParseOptionalProps () =
     type Obj = {a?: {b?: {c?: number}}}
   """
 
-  let ast = script src
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -265,7 +260,7 @@ let ParseOptionalParams () =
     let foo = fn(a?: number, b?: string) => a
   """
 
-  let ast = script src
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -273,7 +268,21 @@ let ParseOptionalParams () =
 [<Fact>]
 let ParseArrowIdentifier () =
   let src = "let fst = fn (x, y) => x"
-  let ast = script src
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseImports () =
+  let src =
+    """
+    import "./math" {add, sub as subtract}
+    import "~/net" as network
+    import "path"
+    """
+
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

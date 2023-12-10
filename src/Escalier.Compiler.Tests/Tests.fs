@@ -6,6 +6,18 @@ open System.IO
 open System.IO.Abstractions.TestingHelpers
 
 open Escalier.Compiler
+open Escalier.TypeChecker.Env
+
+type Assert with
+
+  static member inline Value(env: Env, name: string, expected: string) =
+    let t, _ = Map.find name env.Values
+    Assert.Equal(expected, t.ToString())
+
+  static member inline Type(env: Env, name: string, expected: string) =
+    let scheme = Map.find name env.Schemes
+    Assert.Equal(expected, scheme.ToString())
+
 
 let baseDir = __SOURCE_DIRECTORY__
 // TODO: iterate over all subdirectories of `fixtures` instead of hardcoding basics
@@ -35,7 +47,7 @@ let BasicsTests (fixtureDir: string) =
 
       let mockWriter = new StringWriter()
 
-      do! Compiler.compile mockFileSystem mockWriter "" srcPath
+      do! Compiler.compileFile mockFileSystem mockWriter "" srcPath
 
       let jsOutputExpected =
         match File.Exists(Path.Join(baseDir, jsPath)) with
@@ -110,3 +122,40 @@ let BasicsTests (fixtureDir: string) =
     }
 
   Assert.True(Result.isOk testResult)
+
+[<Fact>]
+let SimpleNamedImports () =
+  let result =
+    result {
+
+      let mockFileSystem = MockFileSystem()
+
+      let files =
+        [ "/imports1/entry.esc"; "/imports1/math.esc"; "/imports1/point.esc" ]
+
+      for file in files do
+        let srcPath = Path.Join("/fixtures/imports", file)
+        let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
+        mockFileSystem.AddFile(srcPath, srcContents)
+
+      let mockWriter = new StringWriter()
+
+      let! ctx, env =
+        Compiler.compileFiles
+          mockFileSystem
+          mockWriter
+          "/fixtures/imports"
+          "/fixtures/imports/imports1/entry.esc"
+
+      if ctx.Diagnostics.Length > 0 then
+        Compiler.printDiagnostics mockWriter ctx.Diagnostics
+        printfn "DIAGNOSTICS:\n%s" (mockWriter.ToString())
+
+      Assert.Value(env, "p", "Point")
+      Assert.Equal(ctx.Diagnostics.Length, 0)
+
+      return ()
+    }
+
+  printfn "result = %A" result
+  Assert.True(Result.isOk result)

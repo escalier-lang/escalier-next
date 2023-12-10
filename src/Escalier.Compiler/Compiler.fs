@@ -4,10 +4,12 @@ open FsToolkit.ErrorHandling
 open System.IO
 open System.IO.Abstractions
 
+open Escalier.Data.Syntax
 open Escalier.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
+open Escalier.TypeChecker.Visitor
 
 module Compiler =
   type CompileError =
@@ -51,26 +53,31 @@ module Compiler =
   /// <param name="filesystem">The filesystem to use.</param>
   /// <param name="textwriter">The text writer to use for diagnostics.</param>
   /// <param name="baseDir">The base directory where the source code is located.</param>
-  /// <param name="source">The name of the source code file.</param>
+  /// <param name="srcFile">The name of the source code file.</param>
   /// <returns>The compiled code.</returns>
-  let compile
+  let compileFile
     (filesystem: IFileSystem)
     (textwriter: TextWriter)
     (baseDir: string)
-    (source: string)
+    (srcFile: string)
     =
     result {
-      let filename = Path.Join(baseDir, source)
+      let filename = Path.GetFullPath(Path.Join(baseDir, srcFile))
       let contents = filesystem.File.ReadAllText filename
 
       let! ast =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
-      let ctx = Env.Ctx()
+
+      let ctx =
+        Env.Ctx(
+          (fun ctx filename import -> env),
+          (fun ctx filename import -> "")
+        ) // TODO: fix this
 
       let! env =
-        Infer.inferScript ctx env ast.Stmts
+        Infer.inferScript ctx env srcFile ast
         |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Diagnostics
@@ -95,3 +102,125 @@ module Compiler =
 
       return ()
     }
+
+  let resolvePath
+    (baseDir: string)
+    (currentPath: string)
+    (importPath: string)
+    : string =
+    if importPath.StartsWith "~" then
+      Path.GetFullPath(Path.Join(baseDir, importPath.Substring(1)))
+    else if importPath.StartsWith "." then
+      Path.GetFullPath(
+        Path.Join(Path.GetDirectoryName(currentPath), importPath)
+      )
+    else
+      importPath
+
+  let findBindingNames (p: Pattern) : list<string> =
+    let mutable names: list<string> = []
+
+    let visitor =
+      { Visitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | _ -> true
+        Visitor.VisitStmt = fun _ -> false
+        Visitor.VisitPattern =
+          fun pat ->
+            match pat.Kind with
+            | PatternKind.Identifier({ Name = name }) ->
+              names <- name :: names
+              false
+            | _ -> true
+        Visitor.VisitTypeAnn = fun _ -> false }
+
+    walkPattern visitor p
+
+    List.rev names
+
+  let findModuleBindingNames (m: Module) : list<string> =
+    let mutable names: list<string> = []
+
+    for item in m.Items do
+      match item with
+      | Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, _, _) }) ->
+          names <- List.concat [ names; findBindingNames pattern ]
+        | _ -> ()
+      | _ -> ()
+
+    names
+
+  let compileFiles
+    (filesystem: IFileSystem)
+    (textwriter: TextWriter)
+    (baseDir: string) // e.g. src/ or fixtures/basics/test1/
+    (entry: string)
+    =
+    result {
+      let ctx =
+        Env.Ctx(
+          (fun ctx filename import ->
+            let env = Prelude.getEnv ()
+
+            let resolvedImportPath =
+              Path.ChangeExtension(
+                resolvePath baseDir filename import.Path,
+                ".esc"
+              )
+
+            let contents = filesystem.File.ReadAllText(resolvedImportPath)
+
+            let m =
+              match Parser.parseScript contents with
+              | Ok value -> value
+              | Error _ -> failwith $"failed to parse {resolvedImportPath}"
+
+            let env =
+              match Infer.inferScript ctx env entry m with
+              | Ok value -> value
+              | Error _ -> failwith $"failed to infer {resolvedImportPath}"
+
+            let mutable newEnv = Env.Env.empty
+
+            let bindings = findModuleBindingNames m
+
+            for name in bindings do
+              match env.Values.TryFind(name) with
+              // NOTE: exports are immutable
+              | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
+              | None -> failwith $"binding {name} not found"
+
+            for item in m.Items do
+              match item with
+              | Stmt { Kind = StmtKind.Decl { Kind = DeclKind.TypeDecl(name,
+                                                                       _,
+                                                                       _) } } ->
+                match env.Schemes.TryFind(name) with
+                | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
+                | None -> failwith $"scheme {name} not found"
+              | _ -> ()
+
+            newEnv),
+          (fun ctx filename import -> resolvePath baseDir filename import.Path)
+        )
+
+      let env = Prelude.getEnv ()
+      let contents = filesystem.File.ReadAllText(entry)
+
+      let! m =
+        Parser.parseScript contents |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env entry m
+        |> Result.mapError CompileError.TypeError
+
+      return (ctx, env)
+    }
+
+// TODO:
+// typecheckFile
+// typecheckFiles

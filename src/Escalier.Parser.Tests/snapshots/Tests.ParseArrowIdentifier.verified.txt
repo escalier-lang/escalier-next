@@ -1,52 +1,57 @@
 ﻿input: let fst = fn (x, y) => x
-output: Success: [{ Kind =
-    Decl
-      { Kind =
-         VarDecl
-           ({ Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
-                                           Stop = (Ln: 1, Col: 9) }
-                                  Name = "fst"
-                                  IsMut = false }
-              Span = { Start = (Ln: 1, Col: 5)
-                       Stop = (Ln: 1, Col: 9) }
-              InferredType = None },
-            { Kind =
-               Function
-                 { Sig =
-                    { TypeParams = None
-                      ParamList =
-                       [{ Pattern =
-                           { Kind =
-                              Identifier { Span = { Start = (Ln: 1, Col: 15)
-                                                    Stop = (Ln: 1, Col: 16) }
-                                           Name = "x"
-                                           IsMut = false }
-                             Span = { Start = (Ln: 1, Col: 15)
-                                      Stop = (Ln: 1, Col: 16) }
-                             InferredType = None }
-                          TypeAnn = None
-                          Optional = false };
-                        { Pattern =
-                           { Kind =
-                              Identifier { Span = { Start = (Ln: 1, Col: 18)
-                                                    Stop = (Ln: 1, Col: 19) }
-                                           Name = "y"
-                                           IsMut = false }
-                             Span = { Start = (Ln: 1, Col: 18)
-                                      Stop = (Ln: 1, Col: 19) }
-                             InferredType = None }
-                          TypeAnn = None
-                          Optional = false }]
-                      ReturnType = None
-                      Throws = None }
-                   Body = Expr { Kind = Identifier "x"
-                                 Span = { Start = (Ln: 1, Col: 24)
-                                          Stop = (Ln: 1, Col: 25) }
-                                 InferredType = None } }
-              Span = { Start = (Ln: 1, Col: 11)
-                       Stop = (Ln: 1, Col: 25) }
-              InferredType = None }, None)
-        Span = { Start = (Ln: 1, Col: 1)
-                 Stop = (Ln: 1, Col: 25) } }
-   Span = { Start = (Ln: 1, Col: 1)
-            Stop = (Ln: 1, Col: 25) } }]
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
+                                                  Stop = (Ln: 1, Col: 9) }
+                                         Name = "fst"
+                                         IsMut = false }
+                     Span = { Start = (Ln: 1, Col: 5)
+                              Stop = (Ln: 1, Col: 9) }
+                     InferredType = None },
+                   { Kind =
+                      Function
+                        { Sig =
+                           { TypeParams = None
+                             ParamList =
+                              [{ Pattern =
+                                  { Kind =
+                                     Identifier
+                                       { Span = { Start = (Ln: 1, Col: 15)
+                                                  Stop = (Ln: 1, Col: 16) }
+                                         Name = "x"
+                                         IsMut = false }
+                                    Span = { Start = (Ln: 1, Col: 15)
+                                             Stop = (Ln: 1, Col: 16) }
+                                    InferredType = None }
+                                 TypeAnn = None
+                                 Optional = false };
+                               { Pattern =
+                                  { Kind =
+                                     Identifier
+                                       { Span = { Start = (Ln: 1, Col: 18)
+                                                  Stop = (Ln: 1, Col: 19) }
+                                         Name = "y"
+                                         IsMut = false }
+                                    Span = { Start = (Ln: 1, Col: 18)
+                                             Stop = (Ln: 1, Col: 19) }
+                                    InferredType = None }
+                                 TypeAnn = None
+                                 Optional = false }]
+                             ReturnType = None
+                             Throws = None }
+                          Body = Expr { Kind = Identifier "x"
+                                        Span = { Start = (Ln: 1, Col: 24)
+                                                 Stop = (Ln: 1, Col: 25) }
+                                        InferredType = None } }
+                     Span = { Start = (Ln: 1, Col: 11)
+                              Stop = (Ln: 1, Col: 25) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 25) } }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 25) } }] }

@@ -2,37 +2,43 @@
   let a = undefined
   let b = null
   
-output: Success: [{ Kind =
-    Decl
-      { Kind =
-         VarDecl ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 7)
-                                                 Stop = (Ln: 2, Col: 9) }
-                                        Name = "a"
-                                        IsMut = false }
-                    Span = { Start = (Ln: 2, Col: 7)
-                             Stop = (Ln: 2, Col: 9) }
-                    InferredType = None }, { Kind = Literal Undefined
-                                             Span = { Start = (Ln: 2, Col: 11)
-                                                      Stop = (Ln: 2, Col: 20) }
-                                             InferredType = None }, None)
-        Span = { Start = (Ln: 2, Col: 3)
-                 Stop = (Ln: 3, Col: 3) } }
-   Span = { Start = (Ln: 2, Col: 3)
-            Stop = (Ln: 3, Col: 3) } };
- { Kind =
-    Decl
-      { Kind =
-         VarDecl ({ Kind = Identifier { Span = { Start = (Ln: 3, Col: 7)
-                                                 Stop = (Ln: 3, Col: 9) }
-                                        Name = "b"
-                                        IsMut = false }
-                    Span = { Start = (Ln: 3, Col: 7)
-                             Stop = (Ln: 3, Col: 9) }
-                    InferredType = None }, { Kind = Literal Null
-                                             Span = { Start = (Ln: 3, Col: 11)
-                                                      Stop = (Ln: 3, Col: 15) }
-                                             InferredType = None }, None)
-        Span = { Start = (Ln: 3, Col: 3)
-                 Stop = (Ln: 4, Col: 3) } }
-   Span = { Start = (Ln: 3, Col: 3)
-            Stop = (Ln: 4, Col: 3) } }]
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 7)
+                                                  Stop = (Ln: 2, Col: 9) }
+                                         Name = "a"
+                                         IsMut = false }
+                     Span = { Start = (Ln: 2, Col: 7)
+                              Stop = (Ln: 2, Col: 9) }
+                     InferredType = None }, { Kind = Literal Undefined
+                                              Span = { Start = (Ln: 2, Col: 11)
+                                                       Stop = (Ln: 2, Col: 20) }
+                                              InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 3)
+                        Stop = (Ln: 3, Col: 3) } }
+          Span = { Start = (Ln: 2, Col: 3)
+                   Stop = (Ln: 3, Col: 3) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Identifier { Span = { Start = (Ln: 3, Col: 7)
+                                                  Stop = (Ln: 3, Col: 9) }
+                                         Name = "b"
+                                         IsMut = false }
+                     Span = { Start = (Ln: 3, Col: 7)
+                              Stop = (Ln: 3, Col: 9) }
+                     InferredType = None }, { Kind = Literal Null
+                                              Span = { Start = (Ln: 3, Col: 11)
+                                                       Stop = (Ln: 3, Col: 15) }
+                                              InferredType = None }, None)
+               Span = { Start = (Ln: 3, Col: 3)
+                        Stop = (Ln: 4, Col: 3) } }
+          Span = { Start = (Ln: 3, Col: 3)
+                   Stop = (Ln: 4, Col: 3) } }] }

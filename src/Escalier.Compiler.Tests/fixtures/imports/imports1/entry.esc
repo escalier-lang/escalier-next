@@ -1,0 +1,7 @@
+import "~/imports1/math" {add}
+import "./point" {makePoint, Point}
+
+let p = makePoint(5, 10)
+let q: Point = {x: 20, y: 30}
+let x = add(p.x, q.x)
+let y = add(p.y, q.y)

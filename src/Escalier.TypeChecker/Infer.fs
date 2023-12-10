@@ -1,6 +1,7 @@
 namespace Escalier.TypeChecker
 
 open FsToolkit.ErrorHandling
+open System.IO
 
 open Escalier.Data
 open Escalier.Data.Common
@@ -764,23 +765,107 @@ module rec Infer =
         | None -> return env
     }
 
+  let resolvePath
+    (baseDir: string)
+    (currentPath: string)
+    (importPath: string)
+    : string =
+    if importPath.StartsWith "~" then
+      Path.GetFullPath(Path.Join(baseDir, importPath.Substring(1)))
+    else if importPath.StartsWith "." then
+      Path.GetFullPath(
+        Path.Join(Path.GetDirectoryName(currentPath), importPath)
+      )
+    else
+      importPath
+
+  let inferImport
+    (ctx: Ctx)
+    (env: Env)
+    (import: Import)
+    : Result<Env, TypeError> =
+    // TODO: read the file and infer the module
+    // TODO: have a way of store
+    failwith "TODO - inferImport"
+
+  let inferModuleItem
+    (ctx: Ctx)
+    (env: Env)
+    (filename: string)
+    (item: ModuleItem)
+    (generalize: bool)
+    : Result<Env, TypeError> =
+
+    result {
+      match item with
+      | Import import ->
+        let exports = ctx.GetExports filename import
+
+        let mutable imports = Env.empty
+
+        for specifier in import.Specifiers do
+          match specifier with
+          | Named(name, alias) ->
+            let source = name
+
+            let target =
+              match alias with
+              | Some(alias) -> alias
+              | None -> source
+
+            let valueLookup =
+              match Map.tryFind source exports.Values with
+              | Some(binding) ->
+                imports <- imports.AddValue target binding
+                Ok(())
+              | None -> Error("not found")
+
+            let schemeLookup =
+              match Map.tryFind source exports.Schemes with
+              | Some(scheme) ->
+                imports <- imports.AddScheme target scheme
+                Ok(())
+              | None -> Error("not found")
+
+            match valueLookup, schemeLookup with
+            // If we can't find the symbol in either the values or schemes
+            // we report an error
+            | Error _, Error _ ->
+              let resolvedPath = ctx.ResolvePath filename import
+
+              return!
+                Error(
+                  TypeError.SemanticError
+                    $"{resolvedPath} doesn't export '{name}'"
+                )
+            | _, _ -> ()
+          | ModuleAlias _ -> failwith "TODO"
+
+        return
+          { env with
+              Values = FSharpPlus.Map.union env.Values imports.Values
+              Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+      | Stmt stmt -> return! inferStmt ctx env stmt generalize
+    }
+
   // TODO: Create an `InferModule` that treats all decls as mutually recursive
   let inferScript
     (ctx: Ctx)
     (env: Env)
-    (stmts: list<Stmt>)
+    (filename: string)
+    (m: Module)
     : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
 
       let! _ =
         List.traverseResultM
-          (fun stmt ->
+          (fun item ->
             result {
-              let! stmtEnv = inferStmt ctx newEnv stmt true
-              newEnv <- stmtEnv
+              let! itemEnv = inferModuleItem ctx newEnv filename item true
+              newEnv <- itemEnv
             })
-          stmts
+          m.Items
 
       return newEnv
     }
@@ -814,3 +899,40 @@ module rec Infer =
       returns <- expr :: returns // We treat the expression as a return in this case
 
     returns
+
+  let findBindingNames (p: Syntax.Pattern) : list<string> =
+    let mutable names: list<string> = []
+
+    let visitor =
+      { Visitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | _ -> true
+        Visitor.VisitStmt = fun _ -> false
+        Visitor.VisitPattern =
+          fun pat ->
+            match pat.Kind with
+            | PatternKind.Identifier({ Name = name }) ->
+              names <- name :: names
+              false
+            | _ -> true
+        Visitor.VisitTypeAnn = fun _ -> false }
+
+    walkPattern visitor p
+
+    List.rev names
+
+  let findModuleBindingNames (m: Module) : list<string> =
+    let mutable names: list<string> = []
+
+    for item in m.Items do
+      match item with
+      | Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, _, _) }) ->
+          names <- List.concat [ names; findBindingNames pattern ]
+        | _ -> ()
+      | _ -> ()
+
+    names

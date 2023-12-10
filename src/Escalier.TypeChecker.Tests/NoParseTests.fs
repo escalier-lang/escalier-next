@@ -210,7 +210,10 @@ let InferFactorial () =
       )
 
     let mutable env = getEnv ()
-    let ctx = Ctx()
+
+    let ctx =
+      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+
     let! stmtEnv = inferStmt ctx env ast false
     env <- stmtEnv
 
@@ -231,7 +234,9 @@ let UnificationFailure () =
         |> stmt ]
 
   let env = getEnv ()
-  let ctx = Ctx()
+
+  let ctx =
+    Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
   try
     inferExpr ctx env ast |> ignore
@@ -242,7 +247,9 @@ let UnificationFailure () =
 let UndefinedSymbol () =
   let ast = ident "foo"
   let env = getEnv ()
-  let ctx = Ctx()
+
+  let ctx =
+    Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
   try
     inferExpr ctx env ast |> ignore
@@ -254,17 +261,22 @@ let InferPair () =
   result {
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
-      [ varDecl ("f", fatArrow [ "x" ] (ident "x"))
-        varDecl (
-          "pair",
-          tuple
-            [ call (ident "f", [ number 4 ])
-              call (ident "f", [ boolean true ]) ]
-        ) ]
+      { Items =
+          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ModuleItem.Stmt
+            varDecl (
+              "pair",
+              tuple
+                [ call (ident "f", [ number 4 ])
+                  call (ident "f", [ boolean true ]) ]
+            )
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env ast
+
+    let ctx =
+      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+
+    let! newEnv = inferScript ctx env "input.esc" ast
 
     let! f = newEnv.GetType "f"
     let! pair = newEnv.GetType "pair"
@@ -280,7 +292,9 @@ let RecursiveUnification () =
     func [ "f" ] [ StmtKind.Expr(call (ident "f", [ ident "f" ])) |> stmt ]
 
   let env = getEnv ()
-  let ctx = Ctx()
+
+  let ctx =
+    Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
   try
     inferExpr ctx env ast |> ignore
@@ -291,25 +305,30 @@ let RecursiveUnification () =
 let InferGenericAndNonGeneric () =
   result {
     let ast =
-      [ varDecl (
-          "foo",
-          func
-            [ "g" ]
-            [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
-              stmt (
-                StmtKind.Return(
-                  Some(
-                    tuple
-                      [ call (ident "f", [ number 3 ])
-                        call (ident "f", [ boolean true ]) ]
-                  )
-                )
-              ) ]
-        ) ]
+      { Items =
+          [ varDecl (
+              "foo",
+              func
+                [ "g" ]
+                [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
+                  stmt (
+                    StmtKind.Return(
+                      Some(
+                        tuple
+                          [ call (ident "f", [ number 3 ])
+                            call (ident "f", [ boolean true ]) ]
+                      )
+                    )
+                  ) ]
+            )
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env ast
+
+    let ctx =
+      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+
+    let! newEnv = inferScript ctx env "input.esc" ast
 
     let! t = newEnv.GetType "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
@@ -320,22 +339,28 @@ let InferGenericAndNonGeneric () =
 let InferFuncComposition () =
   result {
     let ast =
-      [ varDecl (
-          "foo",
-          fatArrow
-            [ "f" ]
-            (fatArrow
-              [ "g" ]
-              (fatArrow
-                [ "arg" ]
-                (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+      {
 
-        ) ]
+        Items =
+          [ varDecl (
+              "foo",
+              fatArrow
+                [ "f" ]
+                (fatArrow
+                  [ "g" ]
+                  (fatArrow
+                    [ "arg" ]
+                    (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
 
+            )
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env ast
+
+    let ctx =
+      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+
+    let! newEnv = inferScript ctx env "input.esc" ast
 
     let! t = newEnv.GetType "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
@@ -377,9 +402,16 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script = [ varDecl ("S", s); varDecl ("K", k); varDecl ("I", i) ]
-    let ctx = Ctx()
-    let! newEnv = inferScript ctx env script
+    let script =
+      { Items =
+          [ varDecl ("S", s) |> ModuleItem.Stmt
+            varDecl ("K", k) |> ModuleItem.Stmt
+            varDecl ("I", i) |> ModuleItem.Stmt ] }
+
+    let ctx =
+      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+
+    let! newEnv = inferScript ctx env "input.esc" script
 
     let! t = newEnv.GetType "S"
 

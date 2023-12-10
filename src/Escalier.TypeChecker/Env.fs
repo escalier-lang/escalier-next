@@ -8,7 +8,11 @@ open Escalier.Data.Type
 open Escalier.Data
 
 module rec Env =
-  type Ctx(getExports: Ctx -> string -> Syntax.Import -> Env) =
+  type Ctx
+    (
+      getExports: Ctx -> string -> Syntax.Import -> Env,
+      resolvePath: Ctx -> string -> Syntax.Import -> string
+    ) =
     // let baseDir = baseDir
     // let filesystem = filesystem
     let mutable nextVariableId = 0
@@ -29,10 +33,8 @@ module rec Env =
       diagnostics <- diagnostic :: diagnostics
 
     member this.Diagnostics = diagnostics
-
     member this.GetExports = getExports this
-  // member this.BaseDir = baseDir
-  // member this.FileSystem = filesystem
+    member this.ResolvePath = resolvePath this
 
   let makeTypeRefKind name =
     { Name = name

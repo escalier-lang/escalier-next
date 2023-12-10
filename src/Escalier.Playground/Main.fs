@@ -39,7 +39,7 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let env = Prelude.getEnv ()
-    let tcCtx = Env.Ctx(fun ctx filename import -> env)
+    let tcCtx = Env.Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
     let! env =
       Infer.inferScript tcCtx env "input.esc" ast

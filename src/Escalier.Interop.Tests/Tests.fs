@@ -236,7 +236,9 @@ let InferBasicVarDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
-      let ctx = Ctx(fun ctx filename import -> env)
+
+      let ctx =
+        Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -271,7 +273,9 @@ let InferTypeDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
-      let ctx = Ctx(fun ctx filename import -> env)
+
+      let ctx =
+        Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -309,7 +313,9 @@ let InferLibES5 () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let env = Prelude.getEnv ()
-      let ctx = Ctx(fun ctx filename import -> env)
+
+      let ctx =
+        Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError

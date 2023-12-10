@@ -799,16 +799,39 @@ module rec Infer =
     result {
       match item with
       | Import import ->
-        // TODO: check the imports against the exports
         let exports = ctx.GetExports filename import
+
+        let mutable imports = Env.empty
+
+        for specifier in import.Specifiers do
+          match specifier with
+          | Named(name, alias) ->
+            let source = name
+
+            let target =
+              match alias with
+              | Some(alias) -> alias
+              | None -> source
+
+            match Map.tryFind source exports.Values with
+            | Some(binding) -> imports <- imports.AddValue target binding
+            | None ->
+              let resolvedPath = ctx.ResolvePath filename import
+
+              return!
+                Error(
+                  TypeError.SemanticError
+                    $"{resolvedPath} doesn't export '{name}'"
+                )
+          | ModuleAlias _ -> failwith "TODO"
 
         for KeyValue(name, binding) in exports.Values do
           printfn $"{name} = {fst binding}"
 
         return
           { env with
-              Values = FSharpPlus.Map.union env.Values exports.Values
-              Schemes = FSharpPlus.Map.union env.Schemes exports.Schemes }
+              Values = FSharpPlus.Map.union env.Values imports.Values
+              Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
       | Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 

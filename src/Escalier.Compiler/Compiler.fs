@@ -69,7 +69,12 @@ module Compiler =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
       let env = Prelude.getEnv ()
-      let ctx = Env.Ctx(fun ctx filename import -> env) // TODO: fix this
+
+      let ctx =
+        Env.Ctx(
+          (fun ctx filename import -> env),
+          (fun ctx filename import -> "")
+        ) // TODO: fix this
 
       let! env =
         Infer.inferScript ctx env srcFile ast
@@ -197,61 +202,57 @@ module Compiler =
     (filesystem: IFileSystem)
     (textwriter: TextWriter)
     (baseDir: string) // e.g. src/ or fixtures/basics/test1/
-    (srcFiles: list<string>)
+    (entry: string)
     =
     result {
       let ctx =
-        Env.Ctx(fun ctx filename import ->
-          let env = Prelude.getEnv ()
+        Env.Ctx(
+          (fun ctx filename import ->
+            let env = Prelude.getEnv ()
 
-          let resolvedImportPath =
-            Path.ChangeExtension(
-              resolvePath baseDir filename import.Path,
-              ".esc"
-            )
+            let resolvedImportPath =
+              Path.ChangeExtension(
+                resolvePath baseDir filename import.Path,
+                ".esc"
+              )
 
-          printfn "resolvedImportPath = %s" resolvedImportPath
-          let contents = filesystem.File.ReadAllText(resolvedImportPath)
+            printfn "resolvedImportPath = %s" resolvedImportPath
+            let contents = filesystem.File.ReadAllText(resolvedImportPath)
 
-          let m =
-            match Parser.parseScript contents with
-            | Ok value -> value
-            | Error _ -> failwith $"failed to parse {resolvedImportPath}"
+            let m =
+              match Parser.parseScript contents with
+              | Ok value -> value
+              | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
-          let env =
-            match
-              Infer.inferScript
-                ctx
-                env
-                "/fixtures/imports/imports1/entry.esc"
-                m
-            with
-            | Ok value -> value
-            | Error _ -> failwith $"failed to infer {resolvedImportPath}"
+            let env =
+              match Infer.inferScript ctx env entry m with
+              | Ok value -> value
+              | Error _ -> failwith $"failed to infer {resolvedImportPath}"
 
-          let mutable newEnv = Env.Env.empty
+            let mutable newEnv = Env.Env.empty
 
-          let bindings = findModuleBindingNames m
+            let bindings = findModuleBindingNames m
 
-          for name in bindings do
-            match env.Values.TryFind(name) with
-            | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
-            | None -> failwith $"binding {name} not found"
+            for name in bindings do
+              match env.Values.TryFind(name) with
+              | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
+              | None -> failwith $"binding {name} not found"
 
-          newEnv)
+            newEnv),
+          (fun ctx filename import -> resolvePath baseDir filename import.Path)
+        )
 
       let env = Prelude.getEnv ()
-      let entry = "/imports1/entry.esc"
-      let contents = filesystem.File.ReadAllText(Path.Join(baseDir, entry))
+      let contents = filesystem.File.ReadAllText(entry)
 
       let! m =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
-      let _ =
-        Infer.inferScript ctx env "/fixtures/imports/imports1/entry.esc" m
+      let! env =
+        Infer.inferScript ctx env entry m
         |> Result.mapError CompileError.TypeError
 
-      return ctx.Diagnostics
+      return (ctx, env)
     }
 
 // TODO:

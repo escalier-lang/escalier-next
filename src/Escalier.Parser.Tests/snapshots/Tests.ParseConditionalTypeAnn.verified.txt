@@ -1,0 +1,46 @@
+﻿input: 
+    type Exclude<T, U> = if (T: U) { never } else { T }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  ("Exclude",
+                   { Kind =
+                      Condition
+                        { Check = { Kind = TypeRef ("T", None)
+                                    Span = { Start = (Ln: 2, Col: 30)
+                                             Stop = (Ln: 2, Col: 31) }
+                                    InferredType = None }
+                          Extends = { Kind = TypeRef ("U", None)
+                                      Span = { Start = (Ln: 2, Col: 33)
+                                               Stop = (Ln: 2, Col: 34) }
+                                      InferredType = None }
+                          TrueType = { Kind = Keyword Never
+                                       Span = { Start = (Ln: 2, Col: 38)
+                                                Stop = (Ln: 2, Col: 44) }
+                                       InferredType = None }
+                          FalseType = { Kind = TypeRef ("T", None)
+                                        Span = { Start = (Ln: 2, Col: 53)
+                                                 Stop = (Ln: 2, Col: 55) }
+                                        InferredType = None } }
+                     Span = { Start = (Ln: 2, Col: 26)
+                              Stop = (Ln: 3, Col: 5) }
+                     InferredType = None },
+                   Some
+                     [{ Span = { Start = (Ln: 2, Col: 18)
+                                 Stop = (Ln: 2, Col: 19) }
+                        Name = "T"
+                        Constraint = None
+                        Default = None }; { Span = { Start = (Ln: 2, Col: 21)
+                                                     Stop = (Ln: 2, Col: 22) }
+                                            Name = "U"
+                                            Constraint = None
+                                            Default = None }])
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } }] }

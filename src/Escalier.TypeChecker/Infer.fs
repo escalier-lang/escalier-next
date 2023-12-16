@@ -8,10 +8,11 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
 
-open Env
 open Error
-open Poly
+open Prune
 open Visitor
+open Env
+open Poly
 open Unify
 
 module rec Infer =
@@ -158,9 +159,7 @@ module rec Infer =
                       | None -> Error(TypeError.SemanticError ""))
                     exprs
 
-                return
-                  { Kind = TypeKind.Union types
-                    Provenance = None }
+                return union types
             }
 
           let! retType =
@@ -251,7 +250,7 @@ module rec Infer =
 
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
-          return getPropType env objType prop optChain
+          return getPropType ctx env objType prop optChain
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -268,7 +267,13 @@ module rec Infer =
         t)
       r
 
-  let getPropType (env: Env) (t: Type) (name: string) (optChain: bool) : Type =
+  let getPropType
+    (ctx: Ctx)
+    (env: Env)
+    (t: Type)
+    (name: string)
+    (optChain: bool)
+    : Type =
     let t = prune t
 
     match t.Kind with
@@ -298,11 +303,21 @@ module rec Infer =
                          TypeArgs = typeArgs } ->
       match scheme with
       | Some scheme ->
-        getPropType env (env.ExpandScheme scheme typeArgs) name optChain
+        getPropType
+          ctx
+          env
+          (env.ExpandScheme (unify ctx) scheme typeArgs)
+          name
+          optChain
       | None ->
         match env.Schemes.TryFind typeRefName with
         | Some scheme ->
-          getPropType env (env.ExpandScheme scheme typeArgs) name optChain
+          getPropType
+            ctx
+            env
+            (env.ExpandScheme (unify ctx) scheme typeArgs)
+            name
+            optChain
         | None -> failwithf $"{name} not in scope"
     | TypeKind.Union types ->
       let undefinedTypes, definedTypes =
@@ -317,7 +332,7 @@ module rec Infer =
       else
         match definedTypes with
         | [ t ] ->
-          let t = getPropType env t name optChain
+          let t = getPropType ctx env t name optChain
 
           let undefined =
             { Kind = TypeKind.Literal(Literal.Undefined)
@@ -418,7 +433,7 @@ module rec Infer =
           return TypeKind.Tuple(elems)
         | TypeAnnKind.Union types ->
           let! types = List.traverseResultM (inferTypeAnn env) types
-          return TypeKind.Union(types)
+          return (union types).Kind
         | TypeAnnKind.Intersection types ->
           let! types = List.traverseResultM (inferTypeAnn env) types
           return TypeKind.Intersection types

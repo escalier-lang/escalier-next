@@ -191,11 +191,7 @@ module rec Infer =
 
           // modifiers
           Optional = optional
-          Readonly = readonly
-
-          // filtering
-          Check = None
-          Extends = None }
+          Readonly = readonly }
 
       // TODO: handle tsIndexSignature.IsStatic
       ObjTypeElem.Mapped mapped
@@ -348,11 +344,7 @@ module rec Infer =
 
             // modifiers
             Optional = None
-            Readonly = None
-
-            // filtering
-            Check = None
-            Extends = None }
+            Readonly = None }
 
         let elem = ObjTypeElem.Mapped mapped
 

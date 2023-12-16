@@ -1,0 +1,61 @@
+﻿input: 
+    type Foo<T> = if (T: number) { "number" } else if (T: string) { "string" } else { "other" }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  ("Foo",
+                   { Kind =
+                      Condition
+                        { Check = { Kind = TypeRef ("T", None)
+                                    Span = { Start = (Ln: 2, Col: 23)
+                                             Stop = (Ln: 2, Col: 24) }
+                                    InferredType = None }
+                          Extends = { Kind = Keyword Number
+                                      Span = { Start = (Ln: 2, Col: 26)
+                                               Stop = (Ln: 2, Col: 32) }
+                                      InferredType = None }
+                          TrueType = { Kind = Literal (String "number")
+                                       Span = { Start = (Ln: 2, Col: 36)
+                                                Stop = (Ln: 2, Col: 44) }
+                                       InferredType = None }
+                          FalseType =
+                           { Kind =
+                              Condition
+                                { Check = { Kind = TypeRef ("T", None)
+                                            Span = { Start = (Ln: 2, Col: 56)
+                                                     Stop = (Ln: 2, Col: 57) }
+                                            InferredType = None }
+                                  Extends = { Kind = Keyword String
+                                              Span = { Start = (Ln: 2, Col: 59)
+                                                       Stop = (Ln: 2, Col: 65) }
+                                              InferredType = None }
+                                  TrueType =
+                                   { Kind = Literal (String "string")
+                                     Span = { Start = (Ln: 2, Col: 69)
+                                              Stop = (Ln: 2, Col: 77) }
+                                     InferredType = None }
+                                  FalseType =
+                                   { Kind = Literal (String "other")
+                                     Span = { Start = (Ln: 2, Col: 87)
+                                              Stop = (Ln: 2, Col: 94) }
+                                     InferredType = None } }
+                             Span = { Start = (Ln: 2, Col: 52)
+                                      Stop = (Ln: 3, Col: 5) }
+                             InferredType = None } }
+                     Span = { Start = (Ln: 2, Col: 19)
+                              Stop = (Ln: 3, Col: 5) }
+                     InferredType = None },
+                   Some [{ Span = { Start = (Ln: 2, Col: 14)
+                                    Stop = (Ln: 2, Col: 15) }
+                           Name = "T"
+                           Constraint = None
+                           Default = None }])
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } }] }

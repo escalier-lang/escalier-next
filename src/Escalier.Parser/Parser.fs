@@ -588,8 +588,10 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let condTypeAnn, condTypeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
+
   // TODO: add support for chaining conditional types
-  let private conditionalTypeAnn =
+  condTypeAnnRef.Value <-
     pipe5
       getPosition
       (strWs "if"
@@ -599,7 +601,8 @@ module Parser =
          (pipe2 typeAnn (strWs ":" >>. typeAnn)
           <| fun check extends -> (check, extends))))
       (strWs "{" >>. typeAnn .>> strWs "}")
-      (strWs "else" >>. strWs "{" >>. typeAnn .>> strWs "}")
+      (strWs "else" >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
+      // strWs "{" >>. typeAnn .>> strWs "}")
       getPosition
     <| fun start (check, extends) trueType falseType stop ->
       { TypeAnn.Kind =
@@ -633,7 +636,7 @@ module Parser =
         keyofTypeAnn
         restTypeAnn
         objectTypeAnn
-        conditionalTypeAnn
+        condTypeAnn
         // TODO: thisTypeAnn
         // NOTE: should come last since any identifier can be a type reference
         typeRef ]

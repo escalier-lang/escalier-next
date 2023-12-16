@@ -299,6 +299,18 @@ let ParseConditionalTypeAnn () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+[<Fact>]
+let ParseChainedConditionalTypeAnn () =
+  let src =
+    """
+    type Foo<T> = if (T: number) { "number" } else if (T: string) { "string" } else { "other" }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
 [<Fact(Skip = "TODO")>]
 let ParseMappedTypes () =
   let src = """type Point = {[P]: number for P in "x" | "y"}"""

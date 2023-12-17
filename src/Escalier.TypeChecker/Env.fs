@@ -234,9 +234,6 @@ module rec Env =
 
         TypeVisitor.walkType findCond scheme.Type
 
-        printfn "checkTypes = %A" checkTypes
-
-        // TODO: filter checkTypes to only include union types
         let checkTypeNames =
           checkTypes
           |> List.choose (fun t ->
@@ -250,21 +247,43 @@ module rec Env =
         if checkTypeNames.IsEmpty then
           instantiateScheme scheme mapping
         else
-          // TODO: extract all of the check types that are union types
-          // TODO: create a cartesian product of all of the union types
+          let mutable unionMapping = Map.empty
+          let mutable unionNames = []
 
-          let name = checkTypeNames[0]
-          let unionType = Map.find name mapping
+          for name in checkTypeNames do
+            let unionType = Map.find name mapping
 
-          match unionType.Kind with
-          | TypeKind.Union types ->
-            types
-            |> List.map (fun t ->
-              let mapping = Map.add name t mapping
-              let t = instantiateScheme scheme mapping
-              this.ExpandType unify t)
-            |> union
-          | _ -> instantiateScheme scheme mapping
+            match unionType.Kind with
+            | TypeKind.Union types ->
+              unionMapping <- Map.add name types unionMapping
+              unionNames <- name :: unionNames
+            | _ -> ()
+
+          // The elements of each list in the cartesian product
+          // appearin the same order as the names in unionNames.
+          let product = cartesian (Seq.toList unionMapping.Values)
+
+          match product.IsEmpty with
+          | true -> instantiateScheme scheme mapping
+          | false ->
+            let types =
+              product
+              |> List.map (fun types ->
+
+                let mutable mapping = mapping
+
+                // Elements from each list in the cartesian product
+                // are used to update the mapping we use to instantiate
+                // the scheme below.
+                List.iter2
+                  (fun name t -> mapping <- Map.add name t mapping)
+                  unionNames
+                  types
+
+                let t = instantiateScheme scheme mapping
+                this.ExpandType unify t)
+
+            union types
       | _ -> failwith "TODO: expandScheme with type params/args"
 
     member this.ExpandType

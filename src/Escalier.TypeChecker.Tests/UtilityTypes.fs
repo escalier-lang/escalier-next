@@ -173,7 +173,7 @@ let InferExtract () =
 
   Assert.False(Result.isError res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let InferCartesianProdType () =
   let res =
     result {
@@ -197,10 +197,12 @@ let InferCartesianProdType () =
       let result =
         env.ExpandScheme (unify ctx) (Map.find "Cells" env.Schemes) None
 
-      Assert.Equal("""["A" | "B", 1] | ["A" | "B", 2]""", result.ToString())
+      Assert.Equal(
+        """[1, "A"] | [2, "A"] | [1, "B"] | [2, "B"]""",
+        result.ToString()
+      )
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact(Skip = "TODO")>]

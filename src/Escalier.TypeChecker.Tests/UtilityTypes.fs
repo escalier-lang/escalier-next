@@ -179,10 +179,10 @@ let InferCartesianProdType () =
     result {
       let src =
         """
-        type CartesianProduce<A, B> =
-          if (A : unknown) {
-            if (B : unknown) {
-              [A, B]
+        type CartesianProduce<X, Y> =
+          if (X : unknown) {
+            if (Y : unknown) {
+              [X, Y]
             } else {
               never
             }
@@ -198,7 +198,7 @@ let InferCartesianProdType () =
         env.ExpandScheme (unify ctx) (Map.find "Cells" env.Schemes) None
 
       Assert.Equal(
-        """[1, "A"] | [2, "A"] | [1, "B"] | [2, "B"]""",
+        """["A", 1] | ["A", 2] | ["B", 1] | ["B", 2]""",
         result.ToString()
       )
     }

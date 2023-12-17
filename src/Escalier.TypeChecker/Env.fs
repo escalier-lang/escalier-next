@@ -278,7 +278,7 @@ module rec Env =
                 List.iter2
                   (fun name t -> mapping <- Map.add name t mapping)
                   unionNames
-                  types
+                  (List.rev types)
 
                 let t = instantiateScheme scheme mapping
                 this.ExpandType unify t)

@@ -184,6 +184,24 @@ module Syntax =
       Optional: bool
       Readonly: bool }
 
+  type IndexParam = { Name: string; Constraint: TypeAnn }
+
+  type MappedModifier =
+    | Add
+    | Remove
+
+    override this.ToString() =
+      match this with
+      | Add -> "+?"
+      | Remove -> "-?"
+
+  type Mapped =
+    { TypeParam: IndexParam
+      Name: option<TypeAnn>
+      TypeAnn: TypeAnn
+      Optional: option<MappedModifier>
+      Readonly: option<MappedModifier> }
+
   // TODO: add location information
   type ObjTypeAnnElem =
     | Callable of Function
@@ -192,6 +210,7 @@ module Syntax =
     | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
     | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
     | Property of Property
+    | Mapped of Mapped
 
   type KeywordTypeAnn =
     | Boolean
@@ -395,27 +414,24 @@ module Type =
 
       $"fn {typeParams}({args}) -> {this.Return}"
 
-  type Mapped =
-    { SrcKey: string
-      SrcKeys: Type // e.g. `keyof T` or `"foo" | "bar"`
-      // maps to `as` clause in TypeScript
-      // can be used to filter as well as rename
-      DestKey: option<Type>
-      DestValue: Type
+  type IndexParam =
+    { Name: string
+      Constraint: Type }
 
+    override this.ToString() = $"{this.Name}: {this.Constraint}"
+
+  type Mapped =
+    { TypeParam: IndexParam
+      NameType: option<Type> // has to simplify to a valid key type
+      TypeAnn: Type
       Optional: option<MappedModifier>
       Readonly: option<MappedModifier> }
 
     override this.ToString() =
-      let srcKey = this.SrcKey
-
-      let destKey =
-        match this.DestKey with
-        | Some(destKey) -> $"[{destKey}]"
-        | None -> srcKey
-
-      let destValue = this.DestValue.ToString()
-      let object = this.SrcKeys.ToString()
+      let name =
+        match this.NameType with
+        | Some(t) -> t.ToString()
+        | None -> this.TypeParam.Name
 
       let optional =
         match this.Optional with
@@ -427,7 +443,7 @@ module Type =
         | Some(readonly) -> readonly.ToString()
         | None -> ""
 
-      $"{readonly}[{destKey}]{optional}: {destValue} for {srcKey} in {object}"
+      $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
 
   type MappedModifier =
     | Add

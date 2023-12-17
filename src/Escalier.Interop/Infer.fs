@@ -183,13 +183,14 @@ module rec Infer =
 
       let optional = None
 
-      let mapped: Mapped =
-        { SrcKey = tsIndexSignature.Param.Name.Name
-          SrcKeys = inferTsType ctx env tsIndexSignature.Param.Constraint
-          DestKey = None
-          DestValue = inferTsTypeAnn ctx env tsIndexSignature.TypeAnn
+      let param: IndexParam =
+        { Name = tsIndexSignature.Param.Name.Name
+          Constraint = inferTsType ctx env tsIndexSignature.Param.Constraint }
 
-          // modifiers
+      let mapped: Mapped =
+        { TypeParam = param
+          NameType = None // TODO
+          TypeAnn = inferTsTypeAnn ctx env tsIndexSignature.TypeAnn
           Optional = optional
           Readonly = readonly }
 
@@ -327,22 +328,18 @@ module rec Infer =
         TypeKind.Index(objType, indexType)
       | TsType.TsMappedType tsMappedType ->
 
-        let srcKey = tsMappedType.TypeParam.Name.Name
-
-        let object =
-          match tsMappedType.TypeParam.Constraint with
-          | Some(c) -> inferTsType ctx env c
-          | None -> failwith "TODO: inferTsType - TsMappedType"
-
-        let valueType = inferTsType ctx env tsMappedType.TypeAnn
+        let param: IndexParam =
+          { Name = tsMappedType.TypeParam.Name.Name
+            Constraint =
+              match tsMappedType.TypeParam.Constraint with
+              | Some(c) -> inferTsType ctx env c
+              | None ->
+                failwith "TODO: Mapped type's type param must have a constraint" }
 
         let mapped =
-          { SrcKey = srcKey
-            SrcKeys = object
-            DestKey = None // reuse SrcKey when DestKey is None
-            DestValue = valueType
-
-            // modifiers
+          { TypeParam = param
+            NameType = None // TODO
+            TypeAnn = inferTsType ctx env tsMappedType.TypeAnn
             Optional = None
             Readonly = None }
 

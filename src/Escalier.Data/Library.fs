@@ -404,12 +404,7 @@ module Type =
       DestValue: Type
 
       Optional: option<MappedModifier>
-      Readonly: option<MappedModifier>
-
-      // TODO: use for filtering
-      // First half of Conditional
-      Check: option<Type>
-      Extends: option<Type> }
+      Readonly: option<MappedModifier> }
 
     override this.ToString() =
       let srcKey = this.SrcKey

@@ -6,8 +6,9 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Type
 
-open Env
 open Error
+open Prune
+open Env
 open Poly
 
 module rec Unify =
@@ -231,8 +232,8 @@ module rec Unify =
         ->
         return ()
       | _, _ ->
-        let t1' = env.ExpandType t1
-        let t2' = env.ExpandType t2
+        let t1' = env.ExpandType (unify ctx) t1
+        let t2' = env.ExpandType (unify ctx) t2
 
         if t1' <> t1 || t2' <> t2 then
           return! unify ctx env t1' t2'

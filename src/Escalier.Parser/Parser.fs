@@ -533,7 +533,7 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private objTypeAnnKeyValue: Parser<ObjTypeAnnElem, unit> =
+  let private propertyTypeAnn =
     pipe5
       getPosition
       ident
@@ -550,7 +550,10 @@ module Parser =
           Optional = optional.IsSome
           Readonly = false }
 
-  let private objTypeAnnElem = choice [ objTypeAnnKeyValue ]
+  // let private mappedTypeAnn =
+
+
+  let private objTypeAnnElem = choice [ propertyTypeAnn ]
 
   let private objectTypeAnn =
     withSpan (
@@ -585,6 +588,32 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let condTypeAnn, condTypeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
+
+  // TODO: add support for chaining conditional types
+  condTypeAnnRef.Value <-
+    pipe5
+      getPosition
+      (strWs "if"
+       >>. (between
+         (strWs "(")
+         (strWs ")")
+         (pipe2 typeAnn (strWs ":" >>. typeAnn)
+          <| fun check extends -> (check, extends))))
+      (strWs "{" >>. typeAnn .>> strWs "}")
+      (strWs "else" >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
+      // strWs "{" >>. typeAnn .>> strWs "}")
+      getPosition
+    <| fun start (check, extends) trueType falseType stop ->
+      { TypeAnn.Kind =
+          TypeAnnKind.Condition
+            { Check = check
+              Extends = extends
+              TrueType = trueType
+              FalseType = falseType }
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
   let private typeRef =
     pipe4
       getPosition
@@ -607,6 +636,7 @@ module Parser =
         keyofTypeAnn
         restTypeAnn
         objectTypeAnn
+        condTypeAnn
         // TODO: thisTypeAnn
         // NOTE: should come last since any identifier can be a type reference
         typeRef ]

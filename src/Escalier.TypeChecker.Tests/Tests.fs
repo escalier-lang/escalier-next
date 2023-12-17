@@ -7,6 +7,7 @@ open Xunit
 open Escalier.Data.Type
 open Escalier.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Infer

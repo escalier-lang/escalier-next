@@ -1,8 +1,8 @@
 namespace Escalier.TypeChecker
 
-open Escalier.Data.Syntax
+module rec ExprVisitor =
+  open Escalier.Data.Syntax
 
-module rec Visitor =
   type SyntaxVisitor =
     { VisitExpr: Expr -> bool
       VisitStmt: Stmt -> bool
@@ -159,3 +159,59 @@ module rec Visitor =
           walk right
 
     walk typeAnn
+
+module rec TypeVisitor =
+  open Escalier.Data.Type
+
+  open Prune
+
+  // TODO: support early termination
+  let walkType (f: Type -> unit) (t: Type) : unit =
+    let rec walk (t: Type) : unit =
+      let t = prune t
+
+      match t.Kind with
+      | TypeKind.TypeVar _ -> ()
+      | TypeKind.Primitive _ -> ()
+      | TypeKind.Keyword _ -> ()
+      | TypeKind.Function f ->
+        List.iter (fun (param: FuncParam) -> walk param.Type) f.ParamList
+        walk f.Return
+      | TypeKind.Tuple(elems) -> List.iter walk elems
+      | TypeKind.TypeRef({ Name = name
+                           TypeArgs = typeArgs
+                           Scheme = scheme }) ->
+        Option.iter (List.iter walk) typeArgs
+
+        Option.iter (fun (scheme: Scheme) -> walk scheme.Type) scheme
+      | TypeKind.Literal _ -> ()
+      | TypeKind.Wildcard -> ()
+      | TypeKind.Object elems ->
+        List.iter
+          (fun elem ->
+            match elem with
+            | Property p -> walk p.Type
+            | _ -> failwith "TODO: foldType - ObjTypeElem")
+          elems
+
+      | TypeKind.Rest t -> walk t
+      | TypeKind.Union types -> List.iter walk types
+      | TypeKind.Intersection types -> List.iter walk types
+      | TypeKind.Array t -> walk t
+      | TypeKind.KeyOf t -> walk t
+      | TypeKind.Index(target, index) ->
+        walk target
+        walk index
+      | TypeKind.Condition(check, extends, trueType, falseType) ->
+        walk check
+        walk extends
+        walk trueType
+        walk falseType
+      | TypeKind.Infer _ -> ()
+      | TypeKind.Binary(left, op, right) ->
+        walk left
+        walk right
+
+      f t
+
+    walk t

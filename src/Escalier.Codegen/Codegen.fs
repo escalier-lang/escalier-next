@@ -7,6 +7,7 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
+open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
 
 module rec Codegen =

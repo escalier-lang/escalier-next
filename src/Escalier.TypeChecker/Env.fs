@@ -7,6 +7,9 @@ open Escalier.Data.Common
 open Escalier.Data.Type
 open Escalier.Data
 
+open Folder
+open Prune
+
 module rec Env =
   type Ctx
     (
@@ -77,6 +80,12 @@ module rec Env =
     | None -> false
     | Some _ -> true
 
+  let rec cartesian (lstlst: list<list<Type>>) =
+    match lstlst with
+    | [] -> [ [] ]
+    | lst :: lstlst ->
+      let rest = cartesian lstlst
+      List.collect (fun x -> List.map (fun y -> x :: y) rest) lst
 
   let rec flatten (types: list<Type>) : list<Type> =
     List.collect
@@ -105,9 +114,13 @@ module rec Env =
   let union (types: list<Type>) : Type =
     let types = flatten types
 
-    // Removes duplicates
     let types =
-      types |> List.map prune |> Seq.distinctBy (fun t -> t.Kind) |> Seq.toList
+      types
+      |> List.map prune
+      // Removes duplicates
+      |> List.distinctBy (fun t -> t.Kind)
+      // Removes 'never's
+      |> List.filter (fun t -> t.Kind <> TypeKind.Keyword Keyword.Never)
 
     let mutable hasNum = false
     let mutable hasStr = false
@@ -140,6 +153,23 @@ module rec Env =
     | types ->
       { Kind = TypeKind.Union(types)
         Provenance = None }
+
+  let instantiateScheme (scheme: Scheme) (mapping: Map<string, Type>) =
+    let fold =
+      fun t ->
+        let result =
+          match t.Kind with
+          | TypeKind.TypeRef { Name = name
+                               TypeArgs = typeArgs
+                               Scheme = scheme } ->
+            match Map.tryFind name mapping with
+            | Some typeArg -> typeArg
+            | None -> t
+          | _ -> t
+
+        Some(result)
+
+    foldType fold scheme.Type
 
 
   type Binding = Type * bool
@@ -183,22 +213,96 @@ module rec Env =
           Error(TypeError.SemanticError $"Undefined symbol {name}")
 
     member this.ExpandScheme
+      (unify: Env -> Type -> Type -> Result<unit, TypeError>)
       (scheme: Scheme)
       (typeArgs: option<list<Type>>)
       : Type =
 
       match scheme.TypeParams, typeArgs with
-      | None, None -> this.ExpandType scheme.Type
+      | None, None -> this.ExpandType unify scheme.Type
+      | Some(typeParams), Some(typeArgs) ->
+        let mapping = Map.ofList (List.zip typeParams typeArgs)
+
+        let mutable checkTypes: List<Type> = []
+
+        let findCond =
+          fun t ->
+            match t.Kind with
+            | TypeKind.Condition(check, _, _, _) ->
+              checkTypes <- check :: checkTypes
+            | _ -> ()
+
+        TypeVisitor.walkType findCond scheme.Type
+
+        let checkTypeNames =
+          checkTypes
+          |> List.choose (fun t ->
+            match t.Kind with
+            | TypeKind.TypeRef { Name = name } ->
+              match Map.containsKey name mapping with
+              | true -> Some(name)
+              | false -> None
+            | _ -> None)
+
+        if checkTypeNames.IsEmpty then
+          instantiateScheme scheme mapping
+        else
+          let mutable unionMapping = Map.empty
+          let mutable unionNames = []
+
+          for name in checkTypeNames do
+            let unionType = Map.find name mapping
+
+            match unionType.Kind with
+            | TypeKind.Union types ->
+              unionMapping <- Map.add name types unionMapping
+              unionNames <- name :: unionNames
+            | _ -> ()
+
+          // The elements of each list in the cartesian product
+          // appearin the same order as the names in unionNames.
+          let product = cartesian (Seq.toList unionMapping.Values)
+
+          match product.IsEmpty with
+          | true -> instantiateScheme scheme mapping
+          | false ->
+            let types =
+              product
+              |> List.map (fun types ->
+
+                let mutable mapping = mapping
+
+                // Elements from each list in the cartesian product
+                // are used to update the mapping we use to instantiate
+                // the scheme below.
+                List.iter2
+                  (fun name t -> mapping <- Map.add name t mapping)
+                  unionNames
+                  types
+
+                let t = instantiateScheme scheme mapping
+                this.ExpandType unify t)
+
+            union types
       | _ -> failwith "TODO: expandScheme with type params/args"
 
-    member this.ExpandType(t: Type) : Type =
+    member this.ExpandType
+      (unify: Env -> Type -> Type -> Result<unit, TypeError>)
+      (t: Type)
+      : Type =
       let rec expand t =
         let t = prune t
 
         match t.Kind with
         | TypeKind.KeyOf t -> failwith "TODO: expand keyof"
         | TypeKind.Index(target, index) -> failwith "TODO: expand index"
-        | TypeKind.Condition _ -> failwith "TODO: expand condition"
+        | TypeKind.Condition(check, extends, trueType, falseType) ->
+          match check.Kind with
+          | TypeKind.Union types -> failwith "TODO: distribute conditional"
+          | _ ->
+            match unify this check extends with
+            | Ok _ -> expand trueType
+            | Error _ -> expand falseType
         | TypeKind.Binary _ -> simplify t
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
@@ -209,10 +313,10 @@ module rec Env =
                              Scheme = scheme } ->
           let t =
             match scheme with
-            | Some scheme -> this.ExpandScheme scheme typeArgs
+            | Some scheme -> this.ExpandScheme unify scheme typeArgs
             | None ->
               match this.Schemes.TryFind name with
-              | Some scheme -> this.ExpandScheme scheme typeArgs
+              | Some scheme -> this.ExpandScheme unify scheme typeArgs
               | None -> failwith $"{name} is not in scope"
 
           expand t
@@ -221,6 +325,7 @@ module rec Env =
       expand t
 
     member this.GetPropType
+      (unify: Env -> Type -> Type -> Result<unit, TypeError>)
       (env: Env)
       (t: Type)
       (name: string)
@@ -255,13 +360,19 @@ module rec Env =
                            TypeArgs = typeArgs } ->
         match scheme with
         | Some scheme ->
-          this.GetPropType env (env.ExpandScheme scheme typeArgs) name optChain
+          this.GetPropType
+            unify
+            env
+            (env.ExpandScheme unify scheme typeArgs)
+            name
+            optChain
         | None ->
           match env.Schemes.TryFind typeRefName with
           | Some scheme ->
             this.GetPropType
+              unify
               env
-              (env.ExpandScheme scheme typeArgs)
+              (env.ExpandScheme unify scheme typeArgs)
               name
               optChain
           | None -> failwithf $"{name} not in scope"
@@ -278,7 +389,7 @@ module rec Env =
         else
           match definedTypes with
           | [ t ] ->
-            let t = this.GetPropType env t name optChain
+            let t = this.GetPropType unify env t name optChain
 
             let undefined =
               { Kind = TypeKind.Literal(Literal.Undefined)
@@ -290,62 +401,6 @@ module rec Env =
       // TODO: intersection types
       // TODO: union types
       | _ -> failwith $"TODO: lookup member on type - {t}"
-
-  let simplify (t: Type) : Type =
-    match t.Kind with
-    | TypeKind.Binary(left, op, right) ->
-      // printfn $"simplify binary: t = {t}"
-      let left = prune left
-      let right = prune right
-
-      match left.Kind, right.Kind with
-      | TypeKind.Literal(Literal.Number n1), TypeKind.Literal(Literal.Number n2) ->
-        let n1 = float n1
-        let n2 = float n2
-
-        let result =
-          match op with
-          | "+" -> n1 + n2
-          | "-" -> n1 - n2
-          | "*" -> n1 * n2
-          | "/" -> n1 / n2
-          | "%" -> n1 % n2
-          | "**" -> n1 ** n2
-          | _ -> failwith "TODO: simplify binary"
-
-        { Kind = TypeKind.Literal(Literal.Number result)
-          Provenance = None }
-      // TODO: Check `op` when collapsing binary expressions involving numbers
-      | _, TypeKind.Primitive Primitive.Number -> right
-      | TypeKind.Primitive Primitive.Number, _ -> left
-      | TypeKind.Literal(Literal.String s1), TypeKind.Literal(Literal.String s2) ->
-
-        let result =
-          match op with
-          | "++" -> s1 + s2
-          | _ -> failwith "TODO: simplify binary"
-
-        { Kind = TypeKind.Literal(Literal.String result)
-          Provenance = None }
-      // TODO: Check `op` when collapsing binary expressions involving strings
-      | _, TypeKind.Primitive Primitive.String -> right
-      | TypeKind.Primitive Primitive.String, _ -> left
-      | _ -> t
-    | _ -> t
-
-  /// Returns the currently defining instance of t.
-  /// As a side effect, collapses the list of type instances. The function Prune
-  /// is used whenever a type expression has to be inspected: it will always
-  /// return a type expression which is either an uninstantiated type variable or
-  /// a type operator; i.e. it will skip instantiated variables, and will
-  /// prune them from expressions to remove long chains of instantiated variables.
-  let rec prune (t: Type) : Type =
-    match t.Kind with
-    | TypeKind.TypeVar({ Instance = Some(instance) } as v) ->
-      let newInstance = prune instance
-      v.Instance <- Some(newInstance)
-      newInstance
-    | _ -> simplify t
 
   let rec bind
     (ctx: Ctx)

@@ -80,6 +80,12 @@ module rec Env =
     | None -> false
     | Some _ -> true
 
+  let rec cartesian (lstlst: list<list<Type>>) =
+    match lstlst with
+    | [] -> [ [] ]
+    | lst :: lstlst ->
+      let rest = cartesian lstlst
+      List.collect (fun x -> List.map (fun y -> x :: y) rest) lst
 
   let rec flatten (types: list<Type>) : list<Type> =
     List.collect
@@ -148,6 +154,23 @@ module rec Env =
       { Kind = TypeKind.Union(types)
         Provenance = None }
 
+  let instantiateScheme (scheme: Scheme) (mapping: Map<string, Type>) =
+    let fold =
+      fun t ->
+        let result =
+          match t.Kind with
+          | TypeKind.TypeRef { Name = name
+                               TypeArgs = typeArgs
+                               Scheme = scheme } ->
+            match Map.tryFind name mapping with
+            | Some typeArg -> typeArg
+            | None -> t
+          | _ -> t
+
+        Some(result)
+
+    foldType fold scheme.Type
+
 
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>
@@ -200,23 +223,48 @@ module rec Env =
       | Some(typeParams), Some(typeArgs) ->
         let mapping = Map.ofList (List.zip typeParams typeArgs)
 
-        // TODO: figure out why this isn't replace type refs
-        let fold =
+        let mutable checkTypes: List<Type> = []
+
+        let findCond =
           fun t ->
-            let result =
-              match t.Kind with
-              | TypeKind.TypeRef { Name = name
-                                   TypeArgs = typeArgs
-                                   Scheme = scheme } ->
-                match Map.tryFind name mapping with
-                | Some typeArg -> typeArg
-                | None -> t
-              | _ -> t
+            match t.Kind with
+            | TypeKind.Condition(check, _, _, _) ->
+              checkTypes <- check :: checkTypes
+            | _ -> ()
 
-            Some(result)
+        TypeVisitor.walkType findCond scheme.Type
 
-        foldType fold scheme.Type
+        printfn "checkTypes = %A" checkTypes
 
+        // TODO: filter checkTypes to only include union types
+        let checkTypeNames =
+          checkTypes
+          |> List.choose (fun t ->
+            match t.Kind with
+            | TypeKind.TypeRef { Name = name } ->
+              match Map.containsKey name mapping with
+              | true -> Some(name)
+              | false -> None
+            | _ -> None)
+
+        if checkTypeNames.IsEmpty then
+          instantiateScheme scheme mapping
+        else
+          // TODO: extract all of the check types that are union types
+          // TODO: create a cartesian product of all of the union types
+
+          let name = checkTypeNames[0]
+          let unionType = Map.find name mapping
+
+          match unionType.Kind with
+          | TypeKind.Union types ->
+            types
+            |> List.map (fun t ->
+              let mapping = Map.add name t mapping
+              let t = instantiateScheme scheme mapping
+              this.ExpandType unify t)
+            |> union
+          | _ -> instantiateScheme scheme mapping
       | _ -> failwith "TODO: expandScheme with type params/args"
 
     member this.ExpandType
@@ -230,9 +278,12 @@ module rec Env =
         | TypeKind.KeyOf t -> failwith "TODO: expand keyof"
         | TypeKind.Index(target, index) -> failwith "TODO: expand index"
         | TypeKind.Condition(check, extends, trueType, falseType) ->
-          match unify this check extends with
-          | Ok _ -> expand trueType
-          | Error _ -> expand falseType
+          match check.Kind with
+          | TypeKind.Union types -> failwith "TODO: distribute conditional"
+          | _ ->
+            match unify this check extends with
+            | Ok _ -> expand trueType
+            | Error _ -> expand falseType
         | TypeKind.Binary _ -> simplify t
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it

@@ -132,9 +132,76 @@ let InferNestedConditionalTypes () =
   printfn "res = %A" res
   Assert.False(Result.isError res)
 
-// TODO: start with utility type that don't require mapped types, e.g.
-// - type Exclude<T, U> = T extends U ? never : T;
-// - type Extract<T, U> = T extends U ? T : never;
+[<Fact>]
+let InferExclude () =
+  let res =
+    result {
+      let src =
+        """
+        type Exclude<T, U> = if (T: U) { never } else { T }
+        type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Result" env.Schemes) None
+
+      Assert.Equal("\"b\" | \"c\" | \"d\"", result.ToString())
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferExtract () =
+  let res =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        type Extract<T, U> = if (T: Point) { T } else { never }
+        type Result = Extract<{x: 5, y: 10} | number | string, Point>
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Result" env.Schemes) None
+
+      Assert.Equal("{x: 5, y: 10}", result.ToString())
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact(Skip = "TODO")>]
+let InferCartesianProdType () =
+  let res =
+    result {
+      let src =
+        """
+        type CartesianProduce<A, B> =
+          if (A : unknown) {
+            if (B : unknown) {
+              [A, B]
+            } else {
+              never
+            }
+          } else {
+            never
+          }
+        type Cells = CartesianProduce<"A" | "B", 1 | 2>
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Cells" env.Schemes) None
+
+      Assert.Equal("""["A" | "B", 1] | ["A" | "B", 2]""", result.ToString())
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
 
 [<Fact(Skip = "TODO")>]
 let InfersPick () =

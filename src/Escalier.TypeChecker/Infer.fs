@@ -10,7 +10,7 @@ open Escalier.Data.Type
 
 open Error
 open Prune
-open Visitor
+open ExprVisitor
 open Env
 open Poly
 open Unify
@@ -889,12 +889,12 @@ module rec Infer =
     let mutable returns: list<Expr> = []
 
     let visitor =
-      { Visitor.VisitExpr =
+      { ExprVisitor.VisitExpr =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
             | _ -> true
-        Visitor.VisitStmt =
+        ExprVisitor.VisitStmt =
           fun stmt ->
             match stmt.Kind with
             | StmtKind.Return expr ->
@@ -904,8 +904,8 @@ module rec Infer =
             | _ -> ()
 
             true
-        Visitor.VisitPattern = fun _ -> false
-        Visitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
 
     match f.Body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -919,20 +919,20 @@ module rec Infer =
     let mutable names: list<string> = []
 
     let visitor =
-      { Visitor.VisitExpr =
+      { ExprVisitor.VisitExpr =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
             | _ -> true
-        Visitor.VisitStmt = fun _ -> false
-        Visitor.VisitPattern =
+        ExprVisitor.VisitStmt = fun _ -> false
+        ExprVisitor.VisitPattern =
           fun pat ->
             match pat.Kind with
             | PatternKind.Identifier({ Name = name }) ->
               names <- name :: names
               false
             | _ -> true
-        Visitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
 
     walkPattern visitor p
 

@@ -9,7 +9,7 @@ open Escalier.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
-open Escalier.TypeChecker.Visitor
+open Escalier.TypeChecker.ExprVisitor
 
 module Compiler =
   type CompileError =
@@ -121,20 +121,20 @@ module Compiler =
     let mutable names: list<string> = []
 
     let visitor =
-      { Visitor.VisitExpr =
+      { ExprVisitor.VisitExpr =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
             | _ -> true
-        Visitor.VisitStmt = fun _ -> false
-        Visitor.VisitPattern =
+        ExprVisitor.VisitStmt = fun _ -> false
+        ExprVisitor.VisitPattern =
           fun pat ->
             match pat.Kind with
             | PatternKind.Identifier({ Name = name }) ->
               names <- name :: names
               false
             | _ -> true
-        Visitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
 
     walkPattern visitor p
 

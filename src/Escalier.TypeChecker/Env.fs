@@ -296,9 +296,26 @@ module rec Env =
         match t.Kind with
         | TypeKind.KeyOf t -> failwith "TODO: expand keyof"
         | TypeKind.Index(target, index) ->
-          printfn "target = %A" target
-          printfn "index = %A" index
-          failwith "TODO: expand index"
+          let target = this.ExpandType unify target
+          let index = this.ExpandType unify index
+
+          match target.Kind, index.Kind with
+          | TypeKind.Object elems, TypeKind.Literal(Literal.String name) ->
+            let mutable t = None
+
+            for elem in elems do
+              match elem with
+              | Property p when p.Name = name -> t <- Some(p.Type)
+              | _ -> ()
+
+            match t with
+            | Some t -> t
+            | None -> failwithf $"Property {name} not found"
+          | _ ->
+            // TODO: Handle the case where the type is a primitive and use a
+            // special function to expand the type
+            // TODO: Handle different kinds of index types, e.g. number, symbol
+            failwith "TODO: expand index"
         | TypeKind.Condition(check, extends, trueType, falseType) ->
           match check.Kind with
           | TypeKind.Union types -> failwith "TODO: distribute conditional"
@@ -337,7 +354,7 @@ module rec Env =
 
                         Property
                           { Name = name
-                            Type = typeAnn // TODO: this.ExpandType unify typeAnn
+                            Type = this.ExpandType unify typeAnn
                             Optional = false // TODO
                             Readonly = false // TODO
                           }

@@ -56,6 +56,14 @@ module rec Folder =
               (fun elem ->
                 match elem with
                 | Property p -> Property { p with Type = fold p.Type }
+                | Mapped m ->
+                  Mapped
+                    { m with
+                        TypeParam =
+                          { m.TypeParam with
+                              Constraint = fold m.TypeParam.Constraint }
+                        NameType = Option.map fold m.NameType
+                        TypeAnn = fold m.TypeAnn }
                 | _ -> failwith "TODO: foldType - ObjTypeElem")
               elems
 

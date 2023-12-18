@@ -19,6 +19,10 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
+  type MappedModifier =
+    | Add
+    | Remove
+
 
 module Syntax =
   type Span = { Start: Position; Stop: Position }
@@ -186,21 +190,12 @@ module Syntax =
 
   type IndexParam = { Name: string; Constraint: TypeAnn }
 
-  type MappedModifier =
-    | Add
-    | Remove
-
-    override this.ToString() =
-      match this with
-      | Add -> "+?"
-      | Remove -> "-?"
-
   type Mapped =
     { TypeParam: IndexParam
       Name: option<TypeAnn>
       TypeAnn: TypeAnn
-      Optional: option<MappedModifier>
-      Readonly: option<MappedModifier> }
+      Optional: option<Common.MappedModifier>
+      Readonly: option<Common.MappedModifier> }
 
   // TODO: add location information
   type ObjTypeAnnElem =
@@ -424,8 +419,8 @@ module Type =
     { TypeParam: IndexParam
       NameType: option<Type> // has to simplify to a valid key type
       TypeAnn: Type
-      Optional: option<MappedModifier>
-      Readonly: option<MappedModifier> }
+      Optional: option<Common.MappedModifier>
+      Readonly: option<Common.MappedModifier> }
 
     override this.ToString() =
       let name =
@@ -435,24 +430,21 @@ module Type =
 
       let optional =
         match this.Optional with
-        | Some(optional) -> optional.ToString()
+        | Some(optional) ->
+          match optional with
+          | Common.MappedModifier.Add -> "+?"
+          | Common.MappedModifier.Remove -> "-?"
         | None -> ""
 
       let readonly =
         match this.Readonly with
-        | Some(readonly) -> readonly.ToString()
+        | Some(readonly) ->
+          match readonly with
+          | Common.MappedModifier.Add -> "+readonly"
+          | Common.MappedModifier.Remove -> "-readonly"
         | None -> ""
 
       $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
-
-  type MappedModifier =
-    | Add
-    | Remove
-
-    override this.ToString() =
-      match this with
-      | Add -> "+?"
-      | Remove -> "-?"
 
   type ObjKey = string // TODO
 

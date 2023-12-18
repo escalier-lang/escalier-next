@@ -681,11 +681,17 @@ module Parser =
     .>> ws
 
   let arrayTypeSuffix: Parser<TypeAnn -> TypeAnn, unit> =
-    pipe2 (strWs "[" >>. strWs "]") getPosition
-    <| fun _ p2 target ->
-      { TypeAnn.Kind = Array(target)
-        Span = { Start = target.Span.Start; Stop = p2 }
-        InferredType = None }
+    pipe2 (strWs "[" >>. (opt typeAnn) .>> strWs "]") getPosition
+    <| fun index p2 target ->
+      match index with
+      | Some(index) ->
+        { TypeAnn.Kind = TypeAnnKind.Index(target, index)
+          Span = { Start = target.Span.Start; Stop = p2 }
+          InferredType = None }
+      | None ->
+        { TypeAnn.Kind = Array(target)
+          Span = { Start = target.Span.Start; Stop = p2 }
+          InferredType = None }
 
   let primaryTypeWithSuffix: Parser<TypeAnn, unit> =
     pipe2 primaryType (many (arrayTypeSuffix))

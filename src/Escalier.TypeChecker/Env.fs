@@ -295,7 +295,10 @@ module rec Env =
 
         match t.Kind with
         | TypeKind.KeyOf t -> failwith "TODO: expand keyof"
-        | TypeKind.Index(target, index) -> failwith "TODO: expand index"
+        | TypeKind.Index(target, index) ->
+          printfn "target = %A" target
+          printfn "index = %A" index
+          failwith "TODO: expand index"
         | TypeKind.Condition(check, extends, trueType, falseType) ->
           match check.Kind with
           | TypeKind.Union types -> failwith "TODO: distribute conditional"
@@ -307,7 +310,47 @@ module rec Env =
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
         // since expansion can be quite expensive
-        | TypeKind.Object _ -> t
+        | TypeKind.Object elems ->
+          let elems =
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | Mapped m ->
+                match m.TypeParam.Constraint.Kind with
+                | TypeKind.Union types ->
+                  let elems =
+                    types
+                    |> List.map (fun keyType ->
+                      match keyType.Kind with
+                      | TypeKind.Literal(Literal.String name) ->
+                        let typeAnn = m.TypeAnn
+
+                        let folder t =
+                          match t.Kind with
+                          | TypeKind.TypeRef({ Name = name }) when
+                            name = m.TypeParam.Name
+                            ->
+                            Some(keyType)
+                          | _ -> None
+
+                        let typeAnn = foldType folder typeAnn
+
+                        Property
+                          { Name = name
+                            Type = typeAnn // TODO: this.ExpandType unify typeAnn
+                            Optional = false // TODO
+                            Readonly = false // TODO
+                          }
+                      // TODO: handle other valid key types, e.g. number, symbol
+                      | _ -> failwith "TODO: expand mapped type - key type")
+
+                  elems
+                | _ -> failwith "TODO: expand mapped type - constraint type"
+              | _ -> [ elem ])
+
+          { Kind = TypeKind.Object(elems)
+            Provenance = None // TODO: set provenance
+          }
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->

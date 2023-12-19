@@ -36,10 +36,8 @@ module rec Folder =
                              Scheme = scheme }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
 
-          let scheme =
-            Option.map
-              (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
-              scheme
+          // NOTE: We explicitly do not fold the scheme here, because
+          //       we want to preserve the original type alias definition.
 
           { Kind =
               TypeKind.TypeRef(
@@ -56,6 +54,14 @@ module rec Folder =
               (fun elem ->
                 match elem with
                 | Property p -> Property { p with Type = fold p.Type }
+                | Mapped m ->
+                  Mapped
+                    { m with
+                        TypeParam =
+                          { m.TypeParam with
+                              Constraint = fold m.TypeParam.Constraint }
+                        NameType = Option.map fold m.NameType
+                        TypeAnn = fold m.TypeAnn }
                 | _ -> failwith "TODO: foldType - ObjTypeElem")
               elems
 

@@ -550,10 +550,48 @@ module Parser =
           Optional = optional.IsSome
           Readonly = false }
 
-  // let private mappedTypeAnn =
+  let private readonlyModifier =
+    pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "readonly")
+    <| fun pm _ ->
+      match pm with
+      | Some("+") -> MappedModifier.Add
+      | Some("-") -> MappedModifier.Remove
+      | _ -> MappedModifier.Add
 
+  let private optionalModifier =
+    pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "?")
+    <| fun pm _ ->
+      match pm with
+      | Some("+") -> MappedModifier.Add
+      | Some("-") -> MappedModifier.Remove
+      | _ -> MappedModifier.Add
 
-  let private objTypeAnnElem = choice [ propertyTypeAnn ]
+  let private mappedTypeParam =
+    pipe2 (strWs "for" >>. ident) (strWs "in" >>. typeAnn)
+    <| fun name c -> { Name = name; Constraint = c }
+
+  let private mappedTypeAnn =
+    pipe5
+      (opt readonlyModifier)
+      (between (strWs "[") (strWs "]") typeAnn)
+      (opt optionalModifier)
+      (strWs ":" >>. typeAnn)
+      mappedTypeParam
+    <| fun readonly name optional typeAnn typeParam ->
+
+      let name =
+        match name.Kind with
+        | TypeAnnKind.TypeRef(name, _) when name = typeParam.Name -> None
+        | _ -> Some(name)
+
+      ObjTypeAnnElem.Mapped
+        { TypeParam = typeParam
+          Name = name
+          TypeAnn = typeAnn
+          Readonly = readonly
+          Optional = optional }
+
+  let private objTypeAnnElem = choice [ propertyTypeAnn; mappedTypeAnn ]
 
   let private objectTypeAnn =
     withSpan (
@@ -643,11 +681,17 @@ module Parser =
     .>> ws
 
   let arrayTypeSuffix: Parser<TypeAnn -> TypeAnn, unit> =
-    pipe2 (strWs "[" >>. strWs "]") getPosition
-    <| fun _ p2 target ->
-      { TypeAnn.Kind = Array(target)
-        Span = { Start = target.Span.Start; Stop = p2 }
-        InferredType = None }
+    pipe2 (strWs "[" >>. (opt typeAnn) .>> strWs "]") getPosition
+    <| fun index p2 target ->
+      match index with
+      | Some(index) ->
+        { TypeAnn.Kind = TypeAnnKind.Index(target, index)
+          Span = { Start = target.Span.Start; Stop = p2 }
+          InferredType = None }
+      | None ->
+        { TypeAnn.Kind = Array(target)
+          Span = { Start = target.Span.Start; Stop = p2 }
+          InferredType = None }
 
   let primaryTypeWithSuffix: Parser<TypeAnn, unit> =
     pipe2 primaryType (many (arrayTypeSuffix))

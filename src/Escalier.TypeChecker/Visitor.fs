@@ -191,6 +191,10 @@ module rec TypeVisitor =
           (fun elem ->
             match elem with
             | Property p -> walk p.Type
+            | Mapped m ->
+              walk m.TypeParam.Constraint
+              Option.iter walk m.NameType
+              walk m.TypeAnn
             | _ -> failwith "TODO: foldType - ObjTypeElem")
           elems
 

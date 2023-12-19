@@ -311,9 +311,17 @@ let ParseChainedConditionalTypeAnn () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ParseMappedTypes () =
   let src = """type Point = {[P]: number for P in "x" | "y"}"""
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseIndexAccessTypes () =
+  let src = "type Foo = Bar[\"baz\"]"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 

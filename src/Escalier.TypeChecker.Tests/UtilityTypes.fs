@@ -205,20 +205,53 @@ let InferCartesianProdType () =
 
   Assert.False(Result.isError res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let InfersPick () =
   let res =
     result {
       let src =
         """
-          type Pick<T, K: keyof T> = {
-            [P in K]: T[P]
-          }
+        type Pick<T, K: keyof T> = {
+          [P]: T[P] for P in K
+        }
+
+        type Foo = {a: number, b: string, c: boolean}
+        type Bar = Pick<Foo, "a" | "c">
         """
 
       let! ctx, env = inferScript src
 
-      Assert.Value(env, "num", "int")
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Bar" env.Schemes) None
+
+      Assert.Equal("{a: number, c: boolean}", result.ToString())
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersOmit () =
+  let res =
+    result {
+      let src =
+        """
+        type Pick<T, K: keyof T> = {
+          [P]: T[P] for P in K
+        }
+        type Exclude<T, U> = if (T : U) { never } else { T }
+        type AnyKey = string | number | symbol
+        type Omit<T, K: AnyKey> = Pick<T, Exclude<keyof T, K>>
+        
+        type Foo = {a: number, b: string, c: boolean}
+        type Bar = Omit<Foo, "b">
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Bar" env.Schemes) None
+
+      Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
 
   Assert.False(Result.isError res)

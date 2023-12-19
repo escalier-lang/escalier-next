@@ -1,4 +1,4 @@
-namespace Escalier.TypeChecker
+﻿namespace Escalier.TypeChecker
 
 open FsToolkit.ErrorHandling
 open System.IO
@@ -424,6 +424,35 @@ module rec Infer =
                     return! Error(TypeError.NotImplemented "todo")
                   | ObjTypeAnnElem.Setter(name, param, throws) ->
                     return! Error(TypeError.NotImplemented "todo")
+                  | ObjTypeAnnElem.Mapped mapped ->
+                    let! c = inferTypeAnn env mapped.TypeParam.Constraint
+
+                    let param =
+                      { Name = mapped.TypeParam.Name
+                        Constraint = c }
+
+                    let newEnv =
+                      env.AddScheme
+                        param.Name
+                        { TypeParams = None
+                          Type = c
+                          IsTypeParam = true }
+
+                    let! typeAnn = inferTypeAnn newEnv mapped.TypeAnn
+
+                    let! nameType =
+                      match mapped.Name with
+                      | Some(name) ->
+                        inferTypeAnn newEnv name |> Result.map Some
+                      | None -> Ok None
+
+                    return
+                      Mapped
+                        { TypeParam = param
+                          NameType = nameType
+                          TypeAnn = typeAnn
+                          Optional = mapped.Optional
+                          Readonly = mapped.Readonly }
                 })
               elems
 

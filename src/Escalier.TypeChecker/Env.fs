@@ -218,11 +218,18 @@ module rec Env =
       (typeArgs: option<list<Type>>)
       : Type =
 
+      // We eagerly expand type args so that any union types can
+      // be distributed properly across conditionals so that types
+      // like `Exclude<T, U> = T extends U ? never : T` work properly.
+      let typeArgs =
+        typeArgs
+        |> Option.map (fun typeArgs ->
+          typeArgs |> List.map (fun t -> this.ExpandType unify t))
+
       match scheme.TypeParams, typeArgs with
       | None, None -> this.ExpandType unify scheme.Type
       | Some(typeParams), Some(typeArgs) ->
         let mapping = Map.ofList (List.zip typeParams typeArgs)
-
         let mutable checkTypes: List<Type> = []
 
         let findCond =
@@ -290,12 +297,53 @@ module rec Env =
       (unify: Env -> Type -> Type -> Result<unit, TypeError>)
       (t: Type)
       : Type =
+
       let rec expand t =
         let t = prune t
 
         match t.Kind with
-        | TypeKind.KeyOf t -> failwith "TODO: expand keyof"
-        | TypeKind.Index(target, index) -> failwith "TODO: expand index"
+        | TypeKind.KeyOf t ->
+          let t = this.ExpandType unify t
+
+          match t.Kind with
+          | TypeKind.Object elems ->
+            let keys =
+              elems
+              |> List.choose (fun elem ->
+                // TODO: handle mapped types
+                match elem with
+                | Property p -> Some(p.Name)
+                | _ -> None)
+
+            let keys =
+              keys
+              |> List.map (fun key ->
+                { Kind = TypeKind.Literal(Literal.String key)
+                  Provenance = None }) // TODO: set provenance
+
+            union keys
+          | _ -> failwith "TODO: expand keyof"
+        | TypeKind.Index(target, index) ->
+          let target = this.ExpandType unify target
+          let index = this.ExpandType unify index
+
+          match target.Kind, index.Kind with
+          | TypeKind.Object elems, TypeKind.Literal(Literal.String name) ->
+            let mutable t = None
+
+            for elem in elems do
+              match elem with
+              | Property p when p.Name = name -> t <- Some(p.Type)
+              | _ -> ()
+
+            match t with
+            | Some t -> t
+            | None -> failwithf $"Property {name} not found"
+          | _ ->
+            // TODO: Handle the case where the type is a primitive and use a
+            // special function to expand the type
+            // TODO: Handle different kinds of index types, e.g. number, symbol
+            failwith "TODO: expand index"
         | TypeKind.Condition(check, extends, trueType, falseType) ->
           match check.Kind with
           | TypeKind.Union types -> failwith "TODO: distribute conditional"
@@ -307,10 +355,72 @@ module rec Env =
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
         // since expansion can be quite expensive
-        | TypeKind.Object _ -> t
+        | TypeKind.Object elems ->
+          let elems =
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | Mapped m ->
+                let c = this.ExpandType unify m.TypeParam.Constraint
+
+                match c.Kind with
+                | TypeKind.Union types ->
+                  let elems =
+                    types
+                    |> List.map (fun keyType ->
+                      match keyType.Kind with
+                      | TypeKind.Literal(Literal.String name) ->
+                        let typeAnn = m.TypeAnn
+
+                        let folder t =
+                          match t.Kind with
+                          | TypeKind.TypeRef({ Name = name }) when
+                            name = m.TypeParam.Name
+                            ->
+                            Some(keyType)
+                          | _ -> None
+
+                        let typeAnn = foldType folder typeAnn
+
+                        Property
+                          { Name = name
+                            Type = this.ExpandType unify typeAnn
+                            Optional = false // TODO
+                            Readonly = false // TODO
+                          }
+                      // TODO: handle other valid key types, e.g. number, symbol
+                      | _ -> failwith "TODO: expand mapped type - key type")
+
+                  elems
+                | TypeKind.Literal(Literal.String key) ->
+                  let typeAnn = m.TypeAnn
+
+                  let folder t =
+                    match t.Kind with
+                    | TypeKind.TypeRef({ Name = name }) when
+                      name = m.TypeParam.Name
+                      ->
+                      Some(m.TypeParam.Constraint)
+                    | _ -> None
+
+                  let typeAnn = foldType folder typeAnn
+
+                  [ Property
+                      { Name = key
+                        Type = this.ExpandType unify typeAnn
+                        Optional = false // TODO
+                        Readonly = false // TODO
+                      } ]
+                | _ -> failwith "TODO: expand mapped type - constraint type"
+              | _ -> [ elem ])
+
+          { Kind = TypeKind.Object(elems)
+            Provenance = None // TODO: set provenance
+          }
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
+
           let t =
             match scheme with
             | Some scheme -> this.ExpandScheme unify scheme typeArgs

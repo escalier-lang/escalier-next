@@ -36,10 +36,10 @@ module rec Folder =
                              Scheme = scheme }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
 
-          let scheme =
-            Option.map
-              (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
-              scheme
+          // let scheme =
+          //   Option.map
+          //     (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
+          //     scheme
 
           { Kind =
               TypeKind.TypeRef(

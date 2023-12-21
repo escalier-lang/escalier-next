@@ -95,7 +95,8 @@ let func paramList stmts =
             { ParamList = paramList
               TypeParams = None
               ReturnType = None
-              Throws = None }
+              Throws = None
+              IsAsync = false }
           Body = BlockOrExpr.Block { Stmts = stmts; Span = dummySpan } }
       )
     Span = dummySpan
@@ -129,7 +130,8 @@ let fatArrow paramList expr =
             { ParamList = paramList
               TypeParams = None
               ReturnType = None
-              Throws = None }
+              Throws = None
+              IsAsync = false }
           Body = BlockOrExpr.Expr expr }
       )
     Span = dummySpan

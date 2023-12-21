@@ -62,16 +62,18 @@ module Parser =
   let funcSig<'A>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
     : Parser<FuncSig<'A>, unit> =
-    pipe4
+    pipe5
+      (opt (strWs "async"))
       (strWs "fn" >>. (opt typeParams))
       (paramList opt_or_id)
       (opt_or_id (strWs "->" >>. typeAnn))
       (opt (ws .>> strWs "throws" >>. typeAnn))
-    <| fun type_params param_list return_type throws ->
+    <| fun async type_params param_list return_type throws ->
       { TypeParams = type_params
         ParamList = param_list
         ReturnType = return_type
-        Throws = throws }
+        Throws = throws
+        IsAsync = async.IsSome }
 
   let number: Parser<Literal, unit> = pfloat |>> Literal.Number
 
@@ -332,6 +334,19 @@ module Parser =
       true,
       (fun x ->
         { Expr.Kind = ExprKind.Unary("-", x)
+          Span = x.Span
+          InferredType = None })
+    )
+  )
+
+  opp.AddOperator(
+    PrefixOperator(
+      "await",
+      ws,
+      14,
+      true,
+      (fun x ->
+        { Expr.Kind = ExprKind.Await(x)
           Span = x.Span
           InferredType = None })
     )

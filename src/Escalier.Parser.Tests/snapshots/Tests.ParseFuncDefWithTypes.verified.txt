@@ -23,7 +23,8 @@ output: Success: { Kind =
           Throws = Some { Kind = Literal (String "RangeError")
                           Span = { Start = (Ln: 1, Col: 33)
                                    Stop = (Ln: 1, Col: 45) }
-                          InferredType = None } }
+                          InferredType = None }
+          IsAsync = false }
        Body =
         Block { Span = { Start = (Ln: 1, Col: 46)
                          Stop = (Ln: 1, Col: 51) }

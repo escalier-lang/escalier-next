@@ -43,7 +43,8 @@ output: Ok
                                  TypeAnn = None
                                  Optional = false }]
                              ReturnType = None
-                             Throws = None }
+                             Throws = None
+                             IsAsync = false }
                           Body = Expr { Kind = Identifier "x"
                                         Span = { Start = (Ln: 1, Col: 24)
                                                  Stop = (Ln: 1, Col: 25) }

@@ -147,7 +147,8 @@ output: Ok
                                          InferredType = None }
                                  Optional = false }]
                              ReturnType = None
-                             Throws = None }
+                             Throws = None
+                             IsAsync = false }
                           Body =
                            Expr
                              { Kind =

@@ -33,7 +33,8 @@ output: Success: { Kind =
        Throws = Some { Kind = Literal (String "RangeError")
                        Span = { Start = (Ln: 1, Col: 37)
                                 Stop = (Ln: 1, Col: 49) }
-                       InferredType = None } }
+                       InferredType = None }
+       IsAsync = false }
   Span = { Start = (Ln: 1, Col: 1)
            Stop = (Ln: 1, Col: 49) }
   InferredType = None }

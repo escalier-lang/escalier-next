@@ -53,7 +53,8 @@ output: Ok
                                          InferredType = None }
                                  Optional = true }]
                              ReturnType = None
-                             Throws = None }
+                             Throws = None
+                             IsAsync = false }
                           Body = Expr { Kind = Identifier "a"
                                         Span = { Start = (Ln: 2, Col: 45)
                                                  Stop = (Ln: 3, Col: 3) }

@@ -172,7 +172,21 @@ module rec Infer =
               | None -> return retType
             }
 
-          return makeFunctionType typeParams paramList retType
+          match env.Schemes.TryFind "Promise" with
+          | None -> return! Error(TypeError.SemanticError "Promise not found")
+          | Some(promise) ->
+            let retType =
+              match f.Sig.IsAsync with
+              | true ->
+                { Kind =
+                    TypeKind.TypeRef
+                      { Name = "Promise"
+                        TypeArgs = Some([ retType ])
+                        Scheme = Some(promise) }
+                  Provenance = None }
+              | false -> retType
+
+            return makeFunctionType typeParams paramList retType
         | ExprKind.Tuple elems ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -251,6 +265,13 @@ module rec Infer =
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
           return getPropType ctx env objType prop optChain
+        | ExprKind.Await(value) ->
+          let! t = inferExpr ctx env value
+
+          match t.Kind with
+          | TypeKind.TypeRef { Name = "Promise"
+                               TypeArgs = Some([ t ]) } -> return t
+          | _ -> return t
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 

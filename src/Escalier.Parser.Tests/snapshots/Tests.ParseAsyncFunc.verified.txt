@@ -1,0 +1,102 @@
+﻿input: 
+    let bar = async fn () {
+      let x = await foo()
+      return x + 10
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 9)
+                                                  Stop = (Ln: 2, Col: 13) }
+                                         Name = "bar"
+                                         IsMut = false }
+                     Span = { Start = (Ln: 2, Col: 9)
+                              Stop = (Ln: 2, Col: 13) }
+                     InferredType = None },
+                   { Kind =
+                      Function
+                        { Sig = { TypeParams = None
+                                  ParamList = []
+                                  ReturnType = None
+                                  Throws = None
+                                  IsAsync = true }
+                          Body =
+                           Block
+                             { Span = { Start = (Ln: 2, Col: 27)
+                                        Stop = (Ln: 6, Col: 5) }
+                               Stmts =
+                                [{ Kind =
+                                    Decl
+                                      { Kind =
+                                         VarDecl
+                                           ({ Kind =
+                                               Identifier
+                                                 { Span =
+                                                    { Start = (Ln: 3, Col: 11)
+                                                      Stop = (Ln: 3, Col: 13) }
+                                                   Name = "x"
+                                                   IsMut = false }
+                                              Span = { Start = (Ln: 3, Col: 11)
+                                                       Stop = (Ln: 3, Col: 13) }
+                                              InferredType = None },
+                                            { Kind =
+                                               Await
+                                                 { Kind =
+                                                    Call
+                                                      { Callee =
+                                                         { Kind =
+                                                            Identifier "foo"
+                                                           Span =
+                                                            { Start =
+                                                               (Ln: 3, Col: 21)
+                                                              Stop =
+                                                               (Ln: 3, Col: 24) }
+                                                           InferredType = None }
+                                                        TypeArgs = None
+                                                        Args = []
+                                                        OptChain = false
+                                                        Throws = None }
+                                                   Span =
+                                                    { Start = (Ln: 3, Col: 21)
+                                                      Stop = (Ln: 4, Col: 7) }
+                                                   InferredType = None }
+                                              Span = { Start = (Ln: 3, Col: 21)
+                                                       Stop = (Ln: 4, Col: 7) }
+                                              InferredType = None }, None)
+                                        Span = { Start = (Ln: 3, Col: 7)
+                                                 Stop = (Ln: 4, Col: 7) } }
+                                   Span = { Start = (Ln: 3, Col: 7)
+                                            Stop = (Ln: 4, Col: 7) } };
+                                 { Kind =
+                                    Return
+                                      (Some
+                                         { Kind =
+                                            Binary
+                                              ("+",
+                                               { Kind = Identifier "x"
+                                                 Span =
+                                                  { Start = (Ln: 4, Col: 14)
+                                                    Stop = (Ln: 4, Col: 16) }
+                                                 InferredType = None },
+                                               { Kind = Literal (Number 10.0)
+                                                 Span =
+                                                  { Start = (Ln: 4, Col: 18)
+                                                    Stop = (Ln: 4, Col: 20) }
+                                                 InferredType = None })
+                                           Span = { Start = (Ln: 4, Col: 14)
+                                                    Stop = (Ln: 4, Col: 20) }
+                                           InferredType = None })
+                                   Span = { Start = (Ln: 4, Col: 7)
+                                            Stop = (Ln: 5, Col: 5) } }] } }
+                     Span = { Start = (Ln: 2, Col: 15)
+                              Stop = (Ln: 6, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 6, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 6, Col: 5) } }] }

@@ -120,6 +120,15 @@ module Prelude =
           Provenance = None },
        false)
 
+    let Promise =
+      { Kind = makeTypeRefKind "Promise"
+        Provenance = None }
+
+    let promiseScheme: Scheme =
+      { Type = Promise
+        TypeParams = None
+        IsTypeParam = false }
+
     { Env.Values =
         Map.ofList
           [ ("+", arithemtic "+")
@@ -137,5 +146,5 @@ module Prelude =
             ("!=", equality)
             ("||", logical)
             ("&&", logical) ]
-      Env.Schemes = Map([])
+      Env.Schemes = Map([ ("Promise", promiseScheme) ])
       Env.IsAsync = false }

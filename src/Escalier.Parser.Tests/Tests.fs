@@ -326,3 +326,18 @@ let ParseIndexAccessTypes () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseAsyncFunc () =
+  let src =
+    """
+    let bar = async fn () {
+      let x = await foo()
+      return x + 10
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

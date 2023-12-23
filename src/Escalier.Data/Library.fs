@@ -50,7 +50,8 @@ module Syntax =
     { TypeParams: option<list<TypeParam>>
       ParamList: list<FuncParam<'T>>
       ReturnType: 'T
-      Throws: option<TypeAnn> }
+      Throws: option<TypeAnn>
+      IsAsync: bool }
 
   type Function =
     { Sig: FuncSig<option<TypeAnn>>

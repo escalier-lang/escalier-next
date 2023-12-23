@@ -23,7 +23,8 @@ output: Success: { Kind =
               TypeAnn = None
               Optional = false }]
           ReturnType = None
-          Throws = None }
+          Throws = None
+          IsAsync = false }
        Body =
         Block { Span = { Start = (Ln: 1, Col: 11)
                          Stop = (Ln: 1, Col: 16) }

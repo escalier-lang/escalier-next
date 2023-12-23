@@ -104,10 +104,10 @@ module Poly =
     fold t
 
   let generalizeFunc (f: Function) : Function =
-    // printfn "f = %A" f
     let mutable mapping: Map<int, string * option<Type>> = Map.empty
     let mutable nextId = 0
 
+    // TODO: give this a better name
     let folder t =
       match (prune t).Kind with
       | TypeKind.TypeVar { Id = id; Bound = bound } ->
@@ -143,7 +143,6 @@ module Poly =
 
     let ret = foldType folder f.Return
 
-    // TODO: find throws in the body
     let throws = foldType folder f.Throws
 
     let values = mapping.Values |> List.ofSeq

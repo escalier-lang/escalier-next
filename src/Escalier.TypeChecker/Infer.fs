@@ -135,6 +135,7 @@ module rec Infer =
           inferBlockOrExpr ctx newEnv f.Body |> ignore
 
           let retExprs = findReturns f
+          let throwExprs = findThrows f
 
           let undefined =
             { Kind = TypeKind.Literal(Literal.Undefined)
@@ -186,7 +187,24 @@ module rec Infer =
                   Provenance = None }
               | false -> retType
 
-            return makeFunctionType typeParams paramList retType
+            let bodyThrows =
+              throwExprs
+              |> List.map (fun expr ->
+                match expr.InferredType with
+                | Some t -> t
+                | None ->
+                  failwith "TODO: throwsType computation - no InferredType")
+              |> union
+
+            let! sigThrows =
+              match f.Sig.Throws with
+              | Some typeAnn -> inferTypeAnn newEnv typeAnn
+              | None -> Result.Ok(ctx.FreshTypeVar None)
+
+            do! unify ctx newEnv bodyThrows sigThrows
+            let throwsType = sigThrows
+
+            return makeFunctionType typeParams paramList retType throwsType
         | ExprKind.Tuple elems ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -272,6 +290,17 @@ module rec Infer =
           | TypeKind.TypeRef { Name = "Promise"
                                TypeArgs = Some([ t ]) } -> return t
           | _ -> return t
+        | ExprKind.Throw expr ->
+          // We throw the type away here because we don't need it, but
+          // `expr` will still have its `InferredType` field set.
+          let _ = inferExpr ctx env expr
+
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          return never
+        // return! Error(TypeError.NotImplemented "TODO: ExprKind.Throw")
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -964,6 +993,28 @@ module rec Infer =
       returns <- expr :: returns // We treat the expression as a return in this case
 
     returns
+
+  let findThrows (f: Syntax.Function) : list<Expr> =
+    let mutable throws: list<Expr> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | ExprKind.Throw expr ->
+              throws <- expr :: throws
+              true // there might be other `throw` expressions inside
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    match f.Body with
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Expr expr -> walkExpr visitor expr
+
+    throws
 
   let findBindingNames (p: Syntax.Pattern) : list<string> =
     let mutable names: list<string> = []

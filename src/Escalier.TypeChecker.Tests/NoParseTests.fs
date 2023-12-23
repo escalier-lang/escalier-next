@@ -11,6 +11,7 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.Prelude
 
 let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
   { Pattern = Type.Pattern.Identifier name
@@ -22,14 +23,16 @@ let getEnv () =
     Map.ofList
       [ ("true", (boolType, false))
         ("zero",
-         (makeFunctionType None [ makeParam "arg" numType ] boolType, false))
+         (makeFunctionType None [ makeParam "arg" numType ] boolType never,
+          false))
         ("pred",
-         (makeFunctionType None [ makeParam "arg" numType ] numType, false))
+         (makeFunctionType None [ makeParam "arg" numType ] numType never, false))
         ("times",
          (makeFunctionType
            None
            [ makeParam "left" numType; makeParam "right" numType ]
-           numType,
+           numType
+           never,
           false)) ]
 
   { Values = values

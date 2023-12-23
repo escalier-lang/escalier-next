@@ -341,3 +341,24 @@ let ParseAsyncFunc () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseThrowAndTryCatch () =
+  let src =
+    """
+    let foo = fn (x) {
+      if (x < 0) {
+        throw "x must be positive"
+      }
+      return x
+    }
+    let bar = fn (x) {
+      let result = try { foo(x) } catch (e) { 0 }
+      return result
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

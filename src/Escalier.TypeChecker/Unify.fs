@@ -55,6 +55,7 @@ module rec Unify =
           do! unify ctx env param2 param1 // params are contravariant
 
         do! unify ctx env f1.Return f2.Return // returns are covariant
+        do! unify ctx env f1.Throws f2.Throws // throws are covariant
       | TypeKind.TypeRef({ Name = name1; TypeArgs = types1 }),
         TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) when name1 = name2 ->
 

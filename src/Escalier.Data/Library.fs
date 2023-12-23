@@ -83,7 +83,7 @@ module Syntax =
 
   [<RequireQualifiedAccess>]
   type ExprKind =
-    | Identifier of name: string
+    | Identifier of name: string // TODO: Make an Ident struct
     | Literal of Common.Literal
     | Function of Function
     | Call of Call
@@ -99,7 +99,10 @@ module Syntax =
     | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
     | Unary of op: string * value: Expr
     | Object of elems: list<ObjElem>
-    | Try of body: Block * catch: option<Expr * Block> * finally_: option<Block>
+    | Try of
+      body: Block *
+      catch: option<string * Block> *
+      finally_: option<Block>
     | Do of body: Block
     | Await of value: Expr // TODO: convert rejects to throws
     | Throw of value: Expr
@@ -408,7 +411,12 @@ module Type =
           $"<{String.concat sep typeParams}>"
         | None -> ""
 
-      $"fn {typeParams}({args}) -> {this.Return}"
+      // printfn "this.Throws = %A" this.Throws
+
+      match (prune this.Throws).Kind with
+      | TypeKind.Keyword Keyword.Never ->
+        $"fn {typeParams}({args}) -> {this.Return}"
+      | _ -> $"fn {typeParams}({args}) -> {this.Return} throws {this.Throws}"
 
   type IndexParam =
     { Name: string
@@ -633,3 +641,12 @@ module Type =
         let typeParams = String.concat ", " typeParams
         $"<{typeParams}>({this.Type})"
       | None -> this.Type.ToString()
+
+  // TODO: Figure out how to share this code with TypeChecker.Prune
+  let rec prune (t: Type) : Type =
+    match t.Kind with
+    | TypeKind.TypeVar({ Instance = Some(instance) } as v) ->
+      let newInstance = prune instance
+      v.Instance <- Some(newInstance)
+      newInstance
+    | _ -> t

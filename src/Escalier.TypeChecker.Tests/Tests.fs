@@ -682,9 +682,8 @@ let InferFactorial () =
 
       let! _, env = inferScript src
 
-      // TODO: remove <A> which is coming from the `throw` type variable
       // TODO: figure out how to get the param name back
-      Assert.Value(env, "factorial", "fn <A>(arg0: number) -> number")
+      Assert.Value(env, "factorial", "fn (arg0: number) -> number")
     }
 
   printf "result = %A" result

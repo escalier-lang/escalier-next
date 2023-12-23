@@ -45,17 +45,13 @@ module rec Env =
       Scheme = None }
     |> TypeKind.TypeRef
 
-  let makeFunctionType typeParams paramList ret =
-    let never =
-      { Kind = TypeKind.Keyword Keyword.Never
-        Provenance = None }
-
+  let makeFunctionType typeParams paramList ret throws =
     { Kind =
         TypeKind.Function
           { TypeParams = typeParams
             ParamList = paramList
             Return = ret
-            Throws = never }
+            Throws = throws }
       Provenance = None }
 
   let numType =
@@ -104,7 +100,7 @@ module rec Env =
 
     match types with
     | [] ->
-      { Kind = makeTypeRefKind "never"
+      { Kind = TypeKind.Keyword Keyword.Never
         Provenance = None }
     | [ t ] -> t
     | types ->
@@ -147,7 +143,7 @@ module rec Env =
 
     match types with
     | [] ->
-      { Kind = makeTypeRefKind "never"
+      { Kind = TypeKind.Keyword Keyword.Never
         Provenance = None }
     | [ t ] -> t
     | types ->

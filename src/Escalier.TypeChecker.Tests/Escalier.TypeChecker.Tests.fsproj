@@ -13,6 +13,7 @@
         <Compile Include="NoParseTests.fs"/>
         <Compile Include="UtilityTypes.fs"/>
         <Compile Include="AsyncAwait.fs"/>
+        <Compile Include="Exceptions.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
 

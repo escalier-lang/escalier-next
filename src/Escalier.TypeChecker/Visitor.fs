@@ -65,7 +65,7 @@ module rec ExprVisitor =
 
           Option.iter
             (fun (e, body) ->
-              walk e
+              // walk e
               List.iter (walkStmt visitor) body.Stmts)
             catch
 

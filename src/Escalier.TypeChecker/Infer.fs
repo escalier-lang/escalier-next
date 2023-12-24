@@ -291,27 +291,25 @@ module rec Infer =
               Provenance = None }
 
           return never
-        | ExprKind.Try(block, tupleOption, blockOption) ->
-          // TODO:
-          let tryType = inferBlock ctx env block
+        | ExprKind.Try(block, catchClause, finallyBlock) ->
+          let! tryType = inferBlock ctx env block
+          let throwType = findThrowsInBlock block |> union
 
-          let throwTypes = findThrowsInBlock block
+          let! maybeCatchType =
+            match catchClause with
+            | Some(e, block) ->
+              let newEnv = env.AddValue e (throwType, false)
+              inferBlock ctx newEnv block |> ResultOption.ofResult
+            | None -> ResultOption.ofOption None
 
-          let maybeCatchType =
-            tupleOption
-            |> Option.map (fun (e, block) ->
-              let tvar = ctx.FreshTypeVar None
-              let newEnv = env.AddValue e (tvar, false)
-              inferBlock ctx newEnv block)
+          let! _ =
+            match finallyBlock with
+            | Some(block) -> inferBlock ctx env block |> ResultOption.ofResult
+            | None -> ResultOption.ofOption None
 
-          // - infer the type of the `try` block
-          // - infer the type of the `catch` block if it exists
-          // - infer the type of the `finally` block if it exists
-          // - unify the types of the `try` and `catch` blocks
-          // - update `findThrows` to exclude things can throw inside a `try` block
-
-          printfn "TODO: ExprKind.Try"
-          return! Error(TypeError.NotImplemented "TODO: ExprKind.Try")
+          match maybeCatchType with
+          | Some catchType -> return union [ tryType; catchType ]
+          | None -> return tryType
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -996,6 +994,7 @@ module rec Infer =
 
     returns
 
+  // TODO: dedupe with findThrowsInBlock
   let findThrows (f: Syntax.Function) : list<Type> =
     let mutable throws: list<Type> = []
 
@@ -1004,6 +1003,11 @@ module rec Infer =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
+            | ExprKind.Try(_, catch, _) ->
+              // If there is a catch clause, don't visit the children
+              // TODO: we still need to visit the catch clause in that
+              // cacse because there may be re-throws inside of it
+              catch.IsNone
             | ExprKind.Throw expr ->
               match expr.InferredType with
               | Some t -> throws <- t :: throws
@@ -1027,16 +1031,31 @@ module rec Infer =
 
     throws
 
-  let findThrowsInBlock (block: Block) : list<Expr> =
-    let mutable throws: list<Expr> = []
+  // TODO: dedupe with findThrows
+  let findThrowsInBlock (block: Block) : list<Type> =
+    let mutable throws: list<Type> = []
 
     let visitor =
       { ExprVisitor.VisitExpr =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
+            | ExprKind.Try(_, catch, _) ->
+              // If there is a catch clause, don't visit the children
+              // TODO: we still need to visit the catch clause in that
+              // cacse because there may be re-throws inside of it
+              catch.IsNone
             | ExprKind.Throw expr ->
-              throws <- expr :: throws
+              match expr.InferredType with
+              | Some t -> throws <- t :: throws
+              | None -> failwith "Expected `expr` to have an `InferredType`"
+
+              true // there might be other `throw` expressions inside
+            | ExprKind.Call call ->
+              match call.Throws with
+              | Some t -> throws <- t :: throws
+              | None -> ()
+
               true // there might be other `throw` expressions inside
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true

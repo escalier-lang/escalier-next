@@ -224,7 +224,9 @@ let InferFactorial () =
 
     let! t = env.GetType "factorial"
 
-    Assert.Equal("fn (arg0: number) -> number", t.ToString())
+    // It's fine that `throws` is `t5` since we don't call `generalizeFunc` in
+    // this test.
+    Assert.Equal("fn (arg0: number) -> number throws t5", t.ToString())
   }
 
 [<Fact>]

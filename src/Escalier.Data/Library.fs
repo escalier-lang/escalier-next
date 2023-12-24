@@ -81,6 +81,10 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
+  type Await =
+    { Value: Expr
+      mutable Throws: option<Type.Type> }
+
   [<RequireQualifiedAccess>]
   type ExprKind =
     | Identifier of name: string // TODO: Make an Ident struct
@@ -104,7 +108,7 @@ module Syntax =
       catch: option<string * Block> *
       finally_: option<Block>
     | Do of body: Block
-    | Await of value: Expr // TODO: convert rejects to throws
+    | Await of Await
     | Throw of value: Expr
     | TemplateLiteral of TemplateLiteral
     | TaggedTemplateLiteral of
@@ -631,6 +635,7 @@ module Type =
         failwith "TODO: finish implementing Type.ToString"
 
   type Scheme =
+    // TODO: allow type params to have constraints and defaults
     { TypeParams: option<list<string>>
       Type: Type
       IsTypeParam: bool }

@@ -334,6 +334,11 @@ module rec Unify =
             })
           args
 
+      if args.Length <> callee.ParamList.Length then
+        // TODO: raise an error if there aren't enough args
+        // TODO: discard extra args when unifying below
+        printfn $"args.Length <> callee.ParamList.Length"
+
       for ((arg, argType), param) in List.zip args callee.ParamList do
         if
           param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)

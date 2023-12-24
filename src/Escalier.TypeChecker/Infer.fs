@@ -137,14 +137,25 @@ module rec Infer =
           let retExprs = findReturns f
           let throwTypes = findThrows f
 
-          let undefined =
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Provenance = None }
+          let bodyThrows = throwTypes |> union
+
+          let! sigThrows =
+            match f.Sig.Throws with
+            | Some typeAnn -> inferTypeAnn newEnv typeAnn
+            | None -> Result.Ok(ctx.FreshTypeVar None)
+
+          do! unify ctx newEnv bodyThrows sigThrows
+          let mutable throwsType = sigThrows
 
           let! retType =
             result {
               match retExprs with
-              | [] -> return undefined
+              | [] ->
+                let undefined =
+                  { Kind = TypeKind.Literal(Literal.Undefined)
+                    Provenance = None }
+
+                return undefined
               | [ expr ] ->
                 match expr.InferredType with
                 | Some(t) -> return t
@@ -154,12 +165,26 @@ module rec Infer =
                   List.traverseResultM
                     (fun (expr: Expr) ->
                       match expr.InferredType with
-                      | Some(t) -> Ok t
+                      | Some(t) -> Ok(t)
                       | None -> Error(TypeError.SemanticError ""))
                     exprs
 
                 return union types
             }
+
+          let retType =
+            if f.Sig.IsAsync then
+              let retType = maybeWrapInPromise retType throwsType
+
+              let never =
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
+
+              throwsType <- never
+
+              retType
+            else
+              retType
 
           let! retType =
             result {
@@ -171,31 +196,7 @@ module rec Infer =
               | None -> return retType
             }
 
-          match env.Schemes.TryFind "Promise" with
-          | None -> return! Error(TypeError.SemanticError "Promise not found")
-          | Some(promise) ->
-            let retType =
-              match f.Sig.IsAsync with
-              | true ->
-                { Kind =
-                    TypeKind.TypeRef
-                      { Name = "Promise"
-                        TypeArgs = Some([ retType ])
-                        Scheme = Some(promise) }
-                  Provenance = None }
-              | false -> retType
-
-            let bodyThrows = throwTypes |> union
-
-            let! sigThrows =
-              match f.Sig.Throws with
-              | Some typeAnn -> inferTypeAnn newEnv typeAnn
-              | None -> Result.Ok(ctx.FreshTypeVar None)
-
-            do! unify ctx newEnv bodyThrows sigThrows
-            let throwsType = sigThrows
-
-            return makeFunctionType typeParams paramList retType throwsType
+          return makeFunctionType typeParams paramList retType throwsType
         | ExprKind.Tuple elems ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -274,12 +275,14 @@ module rec Infer =
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
           return getPropType ctx env objType prop optChain
-        | ExprKind.Await(value) ->
-          let! t = inferExpr ctx env value
+        | ExprKind.Await(await) ->
+          let! t = inferExpr ctx env await.Value
 
           match t.Kind with
           | TypeKind.TypeRef { Name = "Promise"
-                               TypeArgs = Some([ t ]) } -> return t
+                               TypeArgs = Some([ t; e ]) } ->
+            await.Throws <- Some e
+            return t
           | _ -> return t
         | ExprKind.Throw expr ->
           // We throw the type away here because we don't need it, but
@@ -994,6 +997,21 @@ module rec Infer =
 
     returns
 
+  let maybeWrapInPromise (t: Type) (e: Type) : Type =
+    match t.Kind with
+    | TypeKind.TypeRef { Name = "Promise" } -> t
+    | _ ->
+      let never =
+        { Kind = TypeKind.Keyword Keyword.Never
+          Provenance = None }
+
+      { Kind =
+          TypeKind.TypeRef
+            { Name = "Promise"
+              TypeArgs = Some([ t; e ])
+              Scheme = None }
+        Provenance = None }
+
   // TODO: dedupe with findThrowsInBlock
   let findThrows (f: Syntax.Function) : list<Type> =
     let mutable throws: list<Type> = []
@@ -1016,6 +1034,12 @@ module rec Infer =
               true // there might be other `throw` expressions inside
             | ExprKind.Call call ->
               match call.Throws with
+              | Some t -> throws <- t :: throws
+              | None -> ()
+
+              true // there might be other `throw` expressions inside
+            | ExprKind.Await await ->
+              match await.Throws with
               | Some t -> throws <- t :: throws
               | None -> ()
 
@@ -1053,6 +1077,12 @@ module rec Infer =
               true // there might be other `throw` expressions inside
             | ExprKind.Call call ->
               match call.Throws with
+              | Some t -> throws <- t :: throws
+              | None -> ()
+
+              true // there might be other `throw` expressions inside
+            | ExprKind.Await await ->
+              match await.Throws with
               | Some t -> throws <- t :: throws
               | None -> ()
 

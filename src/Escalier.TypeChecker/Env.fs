@@ -152,6 +152,15 @@ module rec Env =
         Provenance = None }
 
   let instantiateScheme (scheme: Scheme) (mapping: Map<string, Type>) =
+    match scheme.TypeParams with
+    | Some typeParams ->
+      if typeParams.Length <> mapping.Count then
+        failwithf
+          $"Expected {typeParams.Length} type arguments, but got {mapping.Count}"
+    | None ->
+      if mapping.Count <> 0 then
+        failwithf $"Expected 0 type arguments, but got {mapping.Count}"
+
     let fold =
       fun t ->
         let result =
@@ -288,7 +297,10 @@ module rec Env =
                 this.ExpandType unify t)
 
             union types
-      | _ -> failwith "TODO: expandScheme with type params/args"
+      | typeParams, typeArgs ->
+        printfn "typeParams = %A" typeParams
+        printfn "typeArgs = %A" typeArgs
+        failwith "TODO: expandScheme with type params/args"
 
     member this.ExpandType
       (unify: Env -> Type -> Type -> Result<unit, TypeError>)
@@ -296,6 +308,10 @@ module rec Env =
       : Type =
 
       let rec expand t =
+        match t.Kind with
+        | TypeKind.TypeRef { Name = "Promise" } -> printfn $"t = {t}"
+        | _ -> ()
+
         let t = prune t
 
         match t.Kind with

@@ -8,6 +8,10 @@ open Env
 // can be set to something
 module Prelude =
 
+  let never =
+    { Kind = TypeKind.Keyword Keyword.Never
+      Provenance = None }
+
   let makeParam (name: string) (ty: Type) : FuncParam =
     { Pattern = Pattern.Identifier name
       Type = ty
@@ -45,21 +49,24 @@ module Prelude =
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
-          Provenance = None },
+          Provenance = None }
+        never,
        false)
 
     let comparison =
       (makeFunctionType
         None
         [ makeParam "left" numType; makeParam "right" numType ]
-        boolType,
+        boolType
+        never,
        false)
 
     let logical =
       (makeFunctionType
         None
         [ makeParam "left" boolType; makeParam "right" boolType ]
-        boolType,
+        boolType
+        never,
        false)
 
     let typeRefA =
@@ -83,7 +90,8 @@ module Prelude =
       (makeFunctionType
         (Some(typeParams))
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        boolType,
+        boolType
+        never,
        false)
 
     let tpA =
@@ -117,7 +125,8 @@ module Prelude =
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
-          Provenance = None },
+          Provenance = None }
+        never,
        false)
 
     let Promise =

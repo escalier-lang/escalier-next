@@ -8,6 +8,7 @@ open Escalier.Data.Common
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Unify
+open Escalier.TypeChecker.Prelude
 open Escalier.Interop.TypeScript
 
 // NOTES:
@@ -244,7 +245,7 @@ module rec Infer =
 
           let retType = inferTsTypeAnn ctx env f.TypeAnn
 
-          let t = makeFunctionType typeParams paramList retType
+          let t = makeFunctionType typeParams paramList retType never
           t.Kind // TODO: find a better way to do this
         | TsFnOrConstructorType.TsConstructorType f ->
           let typeParams =
@@ -262,7 +263,7 @@ module rec Infer =
 
           let retType = inferTsTypeAnn ctx env f.TypeAnn
 
-          let t = makeFunctionType typeParams paramList retType
+          let t = makeFunctionType typeParams paramList retType never
           t.Kind // TODO: find a better way to do this
       | TsType.TsTypeRef tsTypeRef ->
         let typeArgs =
@@ -459,7 +460,7 @@ module rec Infer =
       | Some(retType) -> inferTsTypeAnn ctx env retType
       | None -> failwith "Function decl has no return type"
 
-    makeFunctionType typeParams paramList ret
+    makeFunctionType typeParams paramList ret never
 
   // TODO: generalize inferred types
   // NOTE: some types with free variables will not be function types which

@@ -245,12 +245,37 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let catchClause: Parser<string * Block, unit> =
+    pipe4 getPosition (strWs "(" >>. ident .>> strWs ")") block getPosition
+    <| fun start param body stop -> (param, body)
+
+  let throwExpr: Parser<Expr, unit> =
+    withSpan (strWs "throw" >>. expr)
+    |>> fun (expr, span) ->
+      { Kind = ExprKind.Throw(expr)
+        Span = span
+        InferredType = None }
+
+  let tryExpr: Parser<Expr, unit> =
+    pipe5
+      getPosition
+      (strWs "try" >>. block)
+      (opt (strWs "catch" >>. catchClause))
+      (opt (strWs "finally" >>. block))
+      getPosition
+    <| fun start try_ catch_ finally_ stop ->
+      { Kind = ExprKind.Try(try_, catch_, finally_)
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
   let atom =
     choice
       [ literalExpr
         attempt funcExpr // conflicts with identExpr
-        attempt doExpr // conflicts with identExpr
+        attempt doExpr // conflicts with identExpr, e.g. 'double' starts with 'do'
         attempt ifElse // conflicts with identExpr
+        attempt throwExpr // conflicts with identExpr
+        attempt tryExpr // conflicts with identExpr
         tupleExpr
         objectExpr
         templateStringLiteral

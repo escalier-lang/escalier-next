@@ -104,47 +104,91 @@ module Poly =
     fold t
 
   let generalizeFunc (f: Function) : Function =
-    // printfn "f = %A" f
-    let mutable mapping: Map<int, string * option<Type>> = Map.empty
-    let mutable nextId = 0
-
-    let folder t =
-      match (prune t).Kind with
-      | TypeKind.TypeVar { Id = id; Bound = bound } ->
-        match Map.tryFind id mapping with
-        | Some(name, _) ->
+    // We replace all type variables that appear in a throws clause with
+    // never. The only time `throws` should be generic is if it's been
+    // explicitly specified.
+    let replaceTypeVarsInThrows (t: Type) : Type =
+      let folder t =
+        match (prune t).Kind with
+        // NOTE: If we get a type var after pruning it should, by definition,
+        // not have an instance.
+        | TypeKind.TypeVar _ ->
           Some(
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = name
-                    TypeArgs = None
-                    Scheme = None }
+            { Kind = TypeKind.Keyword Keyword.Never
               Provenance = None }
           )
-        | None ->
-          let tpName = 65 + nextId |> char |> string
-          nextId <- nextId + 1
-          mapping <- mapping |> Map.add id (tpName, bound)
+        | _ -> None
+
+      foldType folder f.Throws
+
+    let updateAllFunctionTypes (t: Type) : Type =
+      let folder t =
+        match (prune t).Kind with
+        | TypeKind.Function f ->
+          let f =
+            { f with
+                Throws = replaceTypeVarsInThrows f.Throws }
 
           Some(
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = tpName
-                    TypeArgs = None
-                    Scheme = None }
+            { Kind = TypeKind.Function f
               Provenance = None }
           )
-      | _ -> None
+        | _ -> None
+
+      foldType folder t
 
     let paramList =
       List.map
-        (fun (p: FuncParam) -> { p with Type = foldType folder p.Type })
+        (fun (p: FuncParam) ->
+          { p with
+              Type = updateAllFunctionTypes p.Type })
         f.ParamList
 
-    let ret = foldType folder f.Return
+    let retType = updateAllFunctionTypes f.Return
+    let throws = replaceTypeVarsInThrows f.Throws
 
-    // TODO: find throws in the body
-    let throws = foldType folder f.Throws
+    let mutable mapping: Map<int, string * option<Type>> = Map.empty
+    let mutable nextId = 0
+
+    let replaceTypeVarsWithTypeRefs (t: Type) : Type =
+      let folder t =
+        match (prune t).Kind with
+        | TypeKind.TypeVar { Id = id; Bound = bound } ->
+          match Map.tryFind id mapping with
+          | Some(name, _) ->
+            Some(
+              { Kind =
+                  TypeKind.TypeRef
+                    { Name = name
+                      TypeArgs = None
+                      Scheme = None }
+                Provenance = None }
+            )
+          | None ->
+            let tpName = 65 + nextId |> char |> string
+            nextId <- nextId + 1
+            mapping <- mapping |> Map.add id (tpName, bound)
+
+            Some(
+              { Kind =
+                  TypeKind.TypeRef
+                    { Name = tpName
+                      TypeArgs = None
+                      Scheme = None }
+                Provenance = None }
+            )
+        | _ -> None
+
+      foldType folder t
+
+    let paramList =
+      List.map
+        (fun (p: FuncParam) ->
+          { p with
+              Type = replaceTypeVarsWithTypeRefs p.Type })
+        paramList
+
+    let ret = replaceTypeVarsWithTypeRefs retType
 
     let values = mapping.Values |> List.ofSeq
 

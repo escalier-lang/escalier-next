@@ -62,7 +62,7 @@ module rec Infer =
           let! result, throws =
             unifyCall ctx env inferExpr call.Args None callee
 
-          // TODO: handle throws
+          call.Throws <- Some(throws)
 
           return result
         | ExprKind.Binary(op, left, right) ->
@@ -135,13 +135,12 @@ module rec Infer =
           inferBlockOrExpr ctx newEnv f.Body |> ignore
 
           let retExprs = findReturns f
+          let throwTypes = findThrows f
 
           let undefined =
             { Kind = TypeKind.Literal(Literal.Undefined)
               Provenance = None }
 
-          // TODO: unify body return type with return type annotation
-          // if it exists
           let! retType =
             result {
               match retExprs with
@@ -186,7 +185,17 @@ module rec Infer =
                   Provenance = None }
               | false -> retType
 
-            return makeFunctionType typeParams paramList retType
+            let bodyThrows = throwTypes |> union
+
+            let! sigThrows =
+              match f.Sig.Throws with
+              | Some typeAnn -> inferTypeAnn newEnv typeAnn
+              | None -> Result.Ok(ctx.FreshTypeVar None)
+
+            do! unify ctx newEnv bodyThrows sigThrows
+            let throwsType = sigThrows
+
+            return makeFunctionType typeParams paramList retType throwsType
         | ExprKind.Tuple elems ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -272,6 +281,35 @@ module rec Infer =
           | TypeKind.TypeRef { Name = "Promise"
                                TypeArgs = Some([ t ]) } -> return t
           | _ -> return t
+        | ExprKind.Throw expr ->
+          // We throw the type away here because we don't need it, but
+          // `expr` will still have its `InferredType` field set.
+          let _ = inferExpr ctx env expr
+
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          return never
+        | ExprKind.Try(block, catchClause, finallyBlock) ->
+          let! tryType = inferBlock ctx env block
+          let throwType = findThrowsInBlock block |> union
+
+          let! maybeCatchType =
+            match catchClause with
+            | Some(e, block) ->
+              let newEnv = env.AddValue e (throwType, false)
+              inferBlock ctx newEnv block |> ResultOption.ofResult
+            | None -> ResultOption.ofOption None
+
+          let! _ =
+            match finallyBlock with
+            | Some(block) -> inferBlock ctx env block |> ResultOption.ofResult
+            | None -> ResultOption.ofOption None
+
+          match maybeCatchType with
+          | Some catchType -> return union [ tryType; catchType ]
+          | None -> return tryType
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -371,29 +409,35 @@ module rec Infer =
     (env: Env)
     (blockOrExpr: BlockOrExpr)
     : Result<Type, TypeError> =
+    match blockOrExpr with
+    | BlockOrExpr.Block block -> inferBlock ctx env block
+    | BlockOrExpr.Expr expr -> inferExpr ctx env expr
+
+  let inferBlock
+    (ctx: Ctx)
+    (env: Env)
+    (block: Block)
+    : Result<Type, TypeError> =
     result {
       let mutable newEnv = env
 
-      match blockOrExpr with
-      | BlockOrExpr.Block({ Stmts = stmts }) ->
-        for stmt in stmts do
-          let! stmtEnv = inferStmt ctx newEnv stmt false
-          newEnv <- stmtEnv
+      for stmt in block.Stmts do
+        let! stmtEnv = inferStmt ctx newEnv stmt false
+        newEnv <- stmtEnv
 
-        let undefined =
-          { Kind = TypeKind.Literal(Literal.Undefined)
-            Provenance = None }
+      let undefined =
+        { Kind = TypeKind.Literal(Literal.Undefined)
+          Provenance = None }
 
-        match List.tryLast stmts with
-        | Some(stmt) ->
-          match stmt.Kind with
-          | StmtKind.Expr expr ->
-            match expr.InferredType with
-            | Some(t) -> return t
-            | None -> return undefined
-          | _ -> return undefined
+      match List.tryLast block.Stmts with
+      | Some(stmt) ->
+        match stmt.Kind with
+        | StmtKind.Expr expr ->
+          match expr.InferredType with
+          | Some(t) -> return t
+          | None -> return undefined
         | _ -> return undefined
-      | BlockOrExpr.Expr expr -> return! inferExpr ctx newEnv expr
+      | _ -> return undefined
     }
 
   let inferTypeAnn (env: Env) (typeAnn: TypeAnn) : Result<Type, TypeError> =
@@ -514,21 +558,6 @@ module rec Infer =
           | None ->
             return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
-          // let typeParams =
-          //   functionType.TypeParams
-          //   |> Option.map (fun typeParams ->
-          //
-          //     let result: list<TypeParam> =
-          //       typeParams
-          //       |> List.map (fun param ->
-          //
-          //         let c = param.Constraint |> Option.map (inferTypeAnn env)
-          //         let d = param.Default |> Option.map (inferTypeAnn env)
-          //         { Name = param.Name
-          //           Constraint = c
-          //           Default = d })
-          //
-          //     result)
           let mutable newEnv = env
 
           let! typeParams =
@@ -964,6 +993,78 @@ module rec Infer =
       returns <- expr :: returns // We treat the expression as a return in this case
 
     returns
+
+  // TODO: dedupe with findThrowsInBlock
+  let findThrows (f: Syntax.Function) : list<Type> =
+    let mutable throws: list<Type> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | ExprKind.Try(_, catch, _) ->
+              // If there is a catch clause, don't visit the children
+              // TODO: we still need to visit the catch clause in that
+              // cacse because there may be re-throws inside of it
+              catch.IsNone
+            | ExprKind.Throw expr ->
+              match expr.InferredType with
+              | Some t -> throws <- t :: throws
+              | None -> failwith "Expected `expr` to have an `InferredType`"
+
+              true // there might be other `throw` expressions inside
+            | ExprKind.Call call ->
+              match call.Throws with
+              | Some t -> throws <- t :: throws
+              | None -> ()
+
+              true // there might be other `throw` expressions inside
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    match f.Body with
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Expr expr -> walkExpr visitor expr
+
+    throws
+
+  // TODO: dedupe with findThrows
+  let findThrowsInBlock (block: Block) : list<Type> =
+    let mutable throws: list<Type> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function _ -> false
+            | ExprKind.Try(_, catch, _) ->
+              // If there is a catch clause, don't visit the children
+              // TODO: we still need to visit the catch clause in that
+              // cacse because there may be re-throws inside of it
+              catch.IsNone
+            | ExprKind.Throw expr ->
+              match expr.InferredType with
+              | Some t -> throws <- t :: throws
+              | None -> failwith "Expected `expr` to have an `InferredType`"
+
+              true // there might be other `throw` expressions inside
+            | ExprKind.Call call ->
+              match call.Throws with
+              | Some t -> throws <- t :: throws
+              | None -> ()
+
+              true // there might be other `throw` expressions inside
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    List.iter (walkStmt visitor) block.Stmts
+
+    throws
 
   let findBindingNames (p: Syntax.Pattern) : list<string> =
     let mutable names: list<string> = []

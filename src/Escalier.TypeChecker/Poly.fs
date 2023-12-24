@@ -107,6 +107,54 @@ module Poly =
     let mutable mapping: Map<int, string * option<Type>> = Map.empty
     let mutable nextId = 0
 
+    // We really need two folders:
+    // - one for updating function types with a new .Throws field
+    // - one for replacing all type vars in the .Throws field with Never
+
+    let replaceTypeVarsInThrows (t: Type) : Type =
+      let folder t =
+        match (prune t).Kind with
+        // NOTE: If we get a type var after pruning it should, by definition,
+        // not have an instance.
+        | TypeKind.TypeVar tvar ->
+          printfn $"replacing tvar {tvar} with never"
+
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          Some(never)
+        | _ -> None
+
+      foldType folder f.Throws
+
+    let updateAllFunctionTypes (t: Type) : Type =
+      let folder t =
+        match (prune t).Kind with
+        | TypeKind.Function f ->
+          printfn $"replacing type vars in a {f}"
+
+          let f =
+            { f with
+                Throws = replaceTypeVarsInThrows f.Throws }
+
+          Some(
+            { Kind = TypeKind.Function f
+              Provenance = None }
+          )
+        | _ -> None
+
+      foldType folder t
+
+    let paramList =
+      List.map
+        (fun (p: FuncParam) ->
+          { p with
+              Type = updateAllFunctionTypes p.Type })
+        f.ParamList
+
+    let retType = updateAllFunctionTypes f.Return
+
     // TODO: give this a better name
     let folder t =
       match (prune t).Kind with
@@ -139,11 +187,13 @@ module Poly =
     let paramList =
       List.map
         (fun (p: FuncParam) -> { p with Type = foldType folder p.Type })
-        f.ParamList
+        paramList
 
-    let ret = foldType folder f.Return
+    let ret = foldType folder retType
+    let throws = replaceTypeVarsInThrows f.Throws
 
-    let throws = foldType folder f.Throws
+    // let throws = foldType folder2 f.Throws
+    // printfn $"f.Throws = {f.Throws}, throws = {throws}"
 
     let values = mapping.Values |> List.ofSeq
 

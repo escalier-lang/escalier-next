@@ -86,7 +86,7 @@ module rec Env =
   let rec flatten (types: list<Type>) : list<Type> =
     List.collect
       (fun t ->
-        match t.Kind with
+        match (prune t).Kind with
         | TypeKind.Union ts -> flatten ts
         | _ -> [ t ])
       types
@@ -134,10 +134,11 @@ module rec Env =
     let types =
       List.filter
         (fun t ->
-          match t.Kind with
+          match (prune t).Kind with
           | TypeKind.Literal(Literal.Number _) -> not hasNum
           | TypeKind.Literal(Literal.String _) -> not hasStr
           | TypeKind.Literal(Literal.Boolean _) -> not hasBool
+          | TypeKind.Keyword Keyword.Never -> false
           | _ -> true)
         types
 

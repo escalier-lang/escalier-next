@@ -319,13 +319,17 @@ module rec Infer =
           // get stuck unifying with the first `patType`.
           let! exprType = inferExpr ctx env expr
 
+          let mutable caseTypes = []
+
           let! cases =
             List.traverseResultM
               (fun (case: MatchCase) ->
                 result {
                   let! assump, patType = inferPattern ctx env case.Pattern
 
-                  do! unify ctx env patType exprType
+                  let caseType = ctx.FreshTypeVar None
+                  caseTypes <- caseType :: caseTypes
+                  do! unify ctx env patType caseType
 
                   let mutable newEnv = env
 
@@ -341,6 +345,8 @@ module rec Infer =
                   return! inferBlockOrExpr ctx newEnv case.Body
                 })
               cases
+
+          do! unify ctx env exprType (union caseTypes)
 
           let t = union cases
 

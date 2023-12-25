@@ -877,5 +877,30 @@ let BasicPatternMatching () =
       )
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let BasicPatternMatchingInferExpr () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (x) =>
+          match x {
+            | 0 => "none"
+            | 1 => "one"
+            | n if n < 0 => "negative"
+            | _ => "other"
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn <A>(x: A | number) -> \"none\" | \"one\" | \"negative\" | \"other\""
+      )
+    }
+
   Assert.False(Result.isError result)

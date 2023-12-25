@@ -121,14 +121,13 @@ let InfersTryCatchAsync () =
       let src =
         """
         let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
-        let bar = async fn (x) {
+        let bar = async fn (x) =>
           try {
             let y = await foo(x)
-            return y + await 10
+            y + await 10
           } catch e {
-            return 0
+            | "RangeError" => 0
           }
-        }
         """
 
       let! _, env = inferScript src
@@ -142,4 +141,5 @@ let InfersTryCatchAsync () =
       Assert.Value(env, "bar", "fn (x: number) -> Promise<number, never>")
     }
 
+  printfn "res: %A" res
   Assert.False(Result.isError res)

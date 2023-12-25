@@ -105,7 +105,7 @@ module Syntax =
     | Object of elems: list<ObjElem>
     | Try of
       body: Block *
-      catch: option<string * Block> *
+      catch: option<string * list<MatchCase>> *
       finally_: option<Block>
     | Do of body: Block
     | Await of Await

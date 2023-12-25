@@ -300,9 +300,15 @@ module rec Infer =
 
           let! maybeCatchType =
             match catchClause with
-            | Some(e, block) ->
-              let newEnv = env.AddValue e (throwType, false)
-              inferBlock ctx newEnv block |> ResultOption.ofResult
+            | Some(e, cases) ->
+              result {
+                let! patternType, bodyType = inferMatchCases ctx env cases
+                do! unify ctx env throwType patternType
+                return bodyType
+              }
+              |> ResultOption.ofResult
+
+            // inferBlock ctx newEnv block |> ResultOption.ofResult
             | None -> ResultOption.ofOption None
 
           let! _ =
@@ -319,38 +325,37 @@ module rec Infer =
           // get stuck unifying with the first `patType`.
           let! exprType = inferExpr ctx env expr
 
-          let mutable caseTypes = []
+          let! patternType, bodyType = inferMatchCases ctx env cases
+          //
+          // let mutable patternTypes = []
+          //
+          // let! bodyTypes =
+          //   List.traverseResultM
+          //     (fun (case: MatchCase) ->
+          //       result {
+          //         let! assump, patType = inferPattern ctx env case.Pattern
+          //
+          //         let caseType = ctx.FreshTypeVar None
+          //         patternTypes <- caseType :: patternTypes
+          //         do! unify ctx env patType caseType
+          //
+          //         let mutable newEnv = env
+          //
+          //         for binding in assump do
+          //           newEnv <- newEnv.AddValue binding.Key binding.Value
+          //
+          //         match case.Guard with
+          //         | Some guard ->
+          //           let! _ = inferExpr ctx newEnv guard
+          //           ()
+          //         | None -> ()
+          //
+          //         return! inferBlockOrExpr ctx newEnv case.Body
+          //       })
+          //     cases
 
-          let! cases =
-            List.traverseResultM
-              (fun (case: MatchCase) ->
-                result {
-                  let! assump, patType = inferPattern ctx env case.Pattern
-
-                  let caseType = ctx.FreshTypeVar None
-                  caseTypes <- caseType :: caseTypes
-                  do! unify ctx env patType caseType
-
-                  let mutable newEnv = env
-
-                  for binding in assump do
-                    newEnv <- newEnv.AddValue binding.Key binding.Value
-
-                  match case.Guard with
-                  | Some guard ->
-                    let! _ = inferExpr ctx newEnv guard
-                    ()
-                  | None -> ()
-
-                  return! inferBlockOrExpr ctx newEnv case.Body
-                })
-              cases
-
-          do! unify ctx env exprType (union caseTypes)
-
-          let t = union cases
-
-          return t
+          do! unify ctx env exprType patternType
+          return bodyType
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -790,6 +795,42 @@ module rec Infer =
     t.Provenance <- Some(Provenance.Pattern pat)
 
     Result.Ok((assump, t))
+
+  let inferMatchCases
+    (ctx: Ctx)
+    (env: Env)
+    (cases: list<MatchCase>)
+    : Result<Type * Type, TypeError> =
+    result {
+      let mutable patternTypes = []
+
+      let! bodyTypes =
+        List.traverseResultM
+          (fun (case: MatchCase) ->
+            result {
+              let! assump, patType = inferPattern ctx env case.Pattern
+
+              let caseType = ctx.FreshTypeVar None
+              patternTypes <- caseType :: patternTypes
+              do! unify ctx env patType caseType
+
+              let mutable newEnv = env
+
+              for binding in assump do
+                newEnv <- newEnv.AddValue binding.Key binding.Value
+
+              match case.Guard with
+              | Some guard ->
+                let! _ = inferExpr ctx newEnv guard
+                ()
+              | None -> ()
+
+              return! inferBlockOrExpr ctx newEnv case.Body
+            })
+          cases
+
+      return (union patternTypes), (union bodyTypes)
+    }
 
   let inferTypeParam
     (env: Env)

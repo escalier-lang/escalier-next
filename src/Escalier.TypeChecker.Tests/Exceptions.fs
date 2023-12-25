@@ -130,7 +130,7 @@ let InferCatchesException () =
           try {
             foo(x)
           } catch e {
-            0
+            | "RangeError" => 0
           }
         """
 
@@ -180,7 +180,7 @@ let InferTryCatchFinally () =
           try {
             foo(x)
           } catch e {
-            0
+            | "RangeError" => 0
           } finally {
             cleanup()
           }

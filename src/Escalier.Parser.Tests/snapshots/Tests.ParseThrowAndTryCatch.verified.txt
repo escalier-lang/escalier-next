@@ -6,7 +6,11 @@
       return x
     }
     let bar = fn (x) {
-      let result = try { foo(x) } catch e { 0 }
+      let result = try {
+        foo(x)
+      } catch e {
+        | _ => 0
+      }
       return result
     }
     
@@ -150,7 +154,7 @@ output: Ok
                           Body =
                            Block
                              { Span = { Start = (Ln: 8, Col: 22)
-                                        Stop = (Ln: 12, Col: 5) }
+                                        Stop = (Ln: 16, Col: 5) }
                                Stmts =
                                 [{ Kind =
                                     Decl
@@ -170,7 +174,7 @@ output: Ok
                                                Try
                                                  ({ Span =
                                                      { Start = (Ln: 9, Col: 24)
-                                                       Stop = (Ln: 9, Col: 35) }
+                                                       Stop = (Ln: 11, Col: 9) }
                                                     Stmts =
                                                      [{ Kind =
                                                          Expr
@@ -182,9 +186,9 @@ output: Ok
                                                                         "foo"
                                                                      Span =
                                                                       { Start =
-                                                                         (Ln: 9, Col: 26)
+                                                                         (Ln: 10, Col: 9)
                                                                         Stop =
-                                                                         (Ln: 9, Col: 29) }
+                                                                         (Ln: 10, Col: 12) }
                                                                      InferredType =
                                                                       None }
                                                                   TypeArgs =
@@ -195,9 +199,9 @@ output: Ok
                                                                          "x"
                                                                       Span =
                                                                        { Start =
-                                                                          (Ln: 9, Col: 30)
+                                                                          (Ln: 10, Col: 13)
                                                                          Stop =
-                                                                          (Ln: 9, Col: 31) }
+                                                                          (Ln: 10, Col: 14) }
                                                                       InferredType =
                                                                        None }]
                                                                   OptChain =
@@ -205,60 +209,70 @@ output: Ok
                                                                   Throws = None }
                                                              Span =
                                                               { Start =
-                                                                 (Ln: 9, Col: 26)
+                                                                 (Ln: 10, Col: 9)
                                                                 Stop =
-                                                                 (Ln: 9, Col: 33) }
+                                                                 (Ln: 11, Col: 7) }
                                                              InferredType = None }
                                                         Span =
                                                          { Start =
-                                                            (Ln: 9, Col: 26)
+                                                            (Ln: 10, Col: 9)
                                                            Stop =
-                                                            (Ln: 9, Col: 33) } }] },
+                                                            (Ln: 11, Col: 7) } }] },
                                                   Some
                                                     ("e",
-                                                     { Span =
-                                                        { Start =
-                                                           (Ln: 9, Col: 43)
-                                                          Stop =
-                                                           (Ln: 10, Col: 7) }
-                                                       Stmts =
-                                                        [{ Kind =
-                                                            Expr
-                                                              { Kind =
-                                                                 Literal
-                                                                   (Number 0.0)
-                                                                Span =
+                                                     [{ Span =
+                                                         { Start =
+                                                            (Ln: 12, Col: 9)
+                                                           Stop =
+                                                            (Ln: 13, Col: 7) }
+                                                        Pattern =
+                                                         { Kind =
+                                                            Identifier
+                                                              { Span =
                                                                  { Start =
-                                                                    (Ln: 9, Col: 45)
+                                                                    (Ln: 12, Col: 11)
                                                                    Stop =
-                                                                    (Ln: 9, Col: 46) }
-                                                                InferredType =
-                                                                 None }
+                                                                    (Ln: 12, Col: 13) }
+                                                                Name = "_"
+                                                                IsMut = false }
                                                            Span =
                                                             { Start =
-                                                               (Ln: 9, Col: 45)
+                                                               (Ln: 12, Col: 11)
                                                               Stop =
-                                                               (Ln: 9, Col: 47) } }] }),
+                                                               (Ln: 12, Col: 13) }
+                                                           InferredType = None }
+                                                        Guard = None
+                                                        Body =
+                                                         Expr
+                                                           { Kind =
+                                                              Literal
+                                                                (Number 0.0)
+                                                             Span =
+                                                              { Start =
+                                                                 (Ln: 12, Col: 16)
+                                                                Stop =
+                                                                 (Ln: 12, Col: 17) }
+                                                             InferredType = None } }]),
                                                   None)
                                               Span = { Start = (Ln: 9, Col: 20)
-                                                       Stop = (Ln: 10, Col: 7) }
+                                                       Stop = (Ln: 14, Col: 7) }
                                               InferredType = None }, None)
                                         Span = { Start = (Ln: 9, Col: 7)
-                                                 Stop = (Ln: 10, Col: 7) } }
+                                                 Stop = (Ln: 14, Col: 7) } }
                                    Span = { Start = (Ln: 9, Col: 7)
-                                            Stop = (Ln: 10, Col: 7) } };
+                                            Stop = (Ln: 14, Col: 7) } };
                                  { Kind =
                                     Return
                                       (Some { Kind = Identifier "result"
-                                              Span = { Start = (Ln: 10, Col: 14)
-                                                       Stop = (Ln: 11, Col: 5) }
+                                              Span = { Start = (Ln: 14, Col: 14)
+                                                       Stop = (Ln: 15, Col: 5) }
                                               InferredType = None })
-                                   Span = { Start = (Ln: 10, Col: 7)
-                                            Stop = (Ln: 11, Col: 5) } }] } }
+                                   Span = { Start = (Ln: 14, Col: 7)
+                                            Stop = (Ln: 15, Col: 5) } }] } }
                      Span = { Start = (Ln: 8, Col: 15)
-                              Stop = (Ln: 12, Col: 5) }
+                              Stop = (Ln: 16, Col: 5) }
                      InferredType = None }, None)
                Span = { Start = (Ln: 8, Col: 5)
-                        Stop = (Ln: 12, Col: 5) } }
+                        Stop = (Ln: 16, Col: 5) } }
           Span = { Start = (Ln: 8, Col: 5)
-                   Stop = (Ln: 12, Col: 5) } }] }
+                   Stop = (Ln: 16, Col: 5) } }] }

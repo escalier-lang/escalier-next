@@ -67,9 +67,18 @@ module rec ExprVisitor =
           List.iter (walkStmt visitor) body.Stmts
 
           Option.iter
-            (fun (e, body) ->
-              // walk e
-              List.iter (walkStmt visitor) body.Stmts)
+            (fun (e, cases) ->
+              List.iter
+                (fun (case: MatchCase) ->
+                  walkPattern visitor case.Pattern
+
+                  match case.Body with
+                  | BlockOrExpr.Block block ->
+                    List.iter (walkStmt visitor) block.Stmts
+                  | BlockOrExpr.Expr expr -> walk expr
+
+                  Option.iter walk case.Guard)
+                cases)
             catch
 
           Option.iter (fun body -> List.iter (walkStmt visitor) body.Stmts) fin

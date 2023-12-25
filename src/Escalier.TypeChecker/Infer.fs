@@ -313,6 +313,35 @@ module rec Infer =
           match maybeCatchType with
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
+        | ExprKind.Match(expr, cases) ->
+          let! exprType = inferExpr ctx env expr
+
+          let! cases =
+            List.traverseResultM
+              (fun (case: MatchCase) ->
+                result {
+                  let! assump, patType = inferPattern ctx env case.Pattern
+
+                  do! unify ctx env exprType patType
+
+                  let mutable newEnv = env
+
+                  for binding in assump do
+                    newEnv <- newEnv.AddValue binding.Key binding.Value
+
+                  match case.Guard with
+                  | Some guard ->
+                    let! _ = inferExpr ctx newEnv guard
+                    ()
+                  | None -> ()
+
+                  return! inferBlockOrExpr ctx newEnv case.Body
+                })
+              cases
+
+          let t = union cases
+
+          return t
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 

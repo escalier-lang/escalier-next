@@ -852,3 +852,30 @@ let PassingTooFewArgsIsAnError () =
 
   printfn "result = %A" result
   Assert.True(Result.isError result)
+
+[<Fact>]
+let BasicPatternMatching () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (x) =>
+          match x {
+            | 0 => "none"
+            | 1 => "one"
+            | n if n < 0 => "negative"
+            | _ => "other"
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (x: number) -> \"none\" | \"one\" | \"negative\" | \"other\""
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.True(Result.isError result)

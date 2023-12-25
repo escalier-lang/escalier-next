@@ -62,10 +62,10 @@ output: Ok
                                          InferredType = None }
                                       Guard = None
                                       Body =
-                                       { Kind = Literal (String "none")
-                                         Span = { Start = (Ln: 4, Col: 16)
-                                                  Stop = (Ln: 4, Col: 22) }
-                                         InferredType = None } };
+                                       Expr { Kind = Literal (String "none")
+                                              Span = { Start = (Ln: 4, Col: 16)
+                                                       Stop = (Ln: 4, Col: 22) }
+                                              InferredType = None } };
                                     { Span = { Start = (Ln: 5, Col: 9)
                                                Stop = (Ln: 6, Col: 9) }
                                       Pattern =
@@ -79,10 +79,10 @@ output: Ok
                                          InferredType = None }
                                       Guard = None
                                       Body =
-                                       { Kind = Literal (String "one")
-                                         Span = { Start = (Ln: 5, Col: 16)
-                                                  Stop = (Ln: 5, Col: 21) }
-                                         InferredType = None } };
+                                       Expr { Kind = Literal (String "one")
+                                              Span = { Start = (Ln: 5, Col: 16)
+                                                       Stop = (Ln: 5, Col: 21) }
+                                              InferredType = None } };
                                     { Span = { Start = (Ln: 6, Col: 9)
                                                Stop = (Ln: 7, Col: 9) }
                                       Pattern =
@@ -95,12 +95,29 @@ output: Ok
                                          Span = { Start = (Ln: 6, Col: 11)
                                                   Stop = (Ln: 6, Col: 13) }
                                          InferredType = None }
-                                      Guard = None
+                                      Guard =
+                                       Some
+                                         { Kind =
+                                            Binary
+                                              ("<",
+                                               { Kind = Identifier "n"
+                                                 Span =
+                                                  { Start = (Ln: 6, Col: 16)
+                                                    Stop = (Ln: 6, Col: 18) }
+                                                 InferredType = None },
+                                               { Kind = Literal (Number 0.0)
+                                                 Span =
+                                                  { Start = (Ln: 6, Col: 20)
+                                                    Stop = (Ln: 6, Col: 21) }
+                                                 InferredType = None })
+                                           Span = { Start = (Ln: 6, Col: 16)
+                                                    Stop = (Ln: 6, Col: 21) }
+                                           InferredType = None }
                                       Body =
-                                       { Kind = Literal (String "negative")
-                                         Span = { Start = (Ln: 6, Col: 25)
-                                                  Stop = (Ln: 6, Col: 35) }
-                                         InferredType = None } };
+                                       Expr { Kind = Literal (String "negative")
+                                              Span = { Start = (Ln: 6, Col: 25)
+                                                       Stop = (Ln: 6, Col: 35) }
+                                              InferredType = None } };
                                     { Span = { Start = (Ln: 7, Col: 9)
                                                Stop = (Ln: 8, Col: 7) }
                                       Pattern =
@@ -115,10 +132,10 @@ output: Ok
                                          InferredType = None }
                                       Guard = None
                                       Body =
-                                       { Kind = Literal (String "other")
-                                         Span = { Start = (Ln: 7, Col: 16)
-                                                  Stop = (Ln: 7, Col: 23) }
-                                         InferredType = None } }])
+                                       Expr { Kind = Literal (String "other")
+                                              Span = { Start = (Ln: 7, Col: 16)
+                                                       Stop = (Ln: 7, Col: 23) }
+                                              InferredType = None } }])
                                Span = { Start = (Ln: 3, Col: 7)
                                         Stop = (Ln: 9, Col: 5) }
                                InferredType = None } }

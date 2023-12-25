@@ -46,11 +46,14 @@ module rec ExprVisitor =
           List.iter
             (fun (case: MatchCase) ->
               walkPattern visitor case.Pattern
-              walk case.Body
+
+              match case.Body with
+              | BlockOrExpr.Block block ->
+                List.iter (walkStmt visitor) block.Stmts
+              | BlockOrExpr.Expr expr -> walk expr
+
               Option.iter walk case.Guard)
             cases
-
-          failwith "todo"
         | ExprKind.Assign(_op, left, right)
         | ExprKind.Binary(_op, left, right) ->
           walk left

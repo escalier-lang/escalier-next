@@ -273,12 +273,13 @@ module Parser =
       getPosition
       (strWs "|" >>. pattern)
       (opt ((strWs "if") >>. expr))
-      (strWs "=>" >>. expr)
+      (strWs "=>"
+       >>. ((block |>> BlockOrExpr.Block) <|> (expr |>> BlockOrExpr.Expr)))
       getPosition
     <| fun start pattern guard body stop ->
 
       { Pattern = pattern
-        Guard = None
+        Guard = guard
         Body = body
         Span = { Start = start; Stop = stop } }
 

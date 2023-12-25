@@ -303,7 +303,14 @@ module rec Infer =
             | Some(e, cases) ->
               result {
                 let! patternType, bodyType = inferMatchCases ctx env cases
-                do! unify ctx env throwType patternType
+                // All of the patterns we're catching must be sub-types of the
+                // exception we're catching.
+                do! unify ctx env patternType throwType
+
+                // TODO: compute the type difference between `throwType` and
+                // `patternType`.  If the different is non-empty then set that
+                // as the `.Throws` field of the `Try` expression.
+
                 return bodyType
               }
               |> ResultOption.ofResult
@@ -320,41 +327,11 @@ module rec Infer =
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
-          // We need to unify `exprType` separately with each `patType` so that
-          // we can union the types together later otherwise `expr`'s type can
-          // get stuck unifying with the first `patType`.
           let! exprType = inferExpr ctx env expr
-
           let! patternType, bodyType = inferMatchCases ctx env cases
-          //
-          // let mutable patternTypes = []
-          //
-          // let! bodyTypes =
-          //   List.traverseResultM
-          //     (fun (case: MatchCase) ->
-          //       result {
-          //         let! assump, patType = inferPattern ctx env case.Pattern
-          //
-          //         let caseType = ctx.FreshTypeVar None
-          //         patternTypes <- caseType :: patternTypes
-          //         do! unify ctx env patType caseType
-          //
-          //         let mutable newEnv = env
-          //
-          //         for binding in assump do
-          //           newEnv <- newEnv.AddValue binding.Key binding.Value
-          //
-          //         match case.Guard with
-          //         | Some guard ->
-          //           let! _ = inferExpr ctx newEnv guard
-          //           ()
-          //         | None -> ()
-          //
-          //         return! inferBlockOrExpr ctx newEnv case.Body
-          //       })
-          //     cases
-
-          do! unify ctx env exprType patternType
+          // All of the patterns we're matching against `expr` must be sub-types
+          // of its type.
+          do! unify ctx env patternType exprType
           return bodyType
         | _ ->
           printfn "expr.Kind = %A" expr.Kind

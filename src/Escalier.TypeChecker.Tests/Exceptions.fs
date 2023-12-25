@@ -98,6 +98,27 @@ let InfersJustThrowExpression () =
   Assert.False(Result.isError res)
 
 [<Fact>]
+let InfersThrowingMultipleExpressions () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (x: number) =>
+          if x < 0 { throw "RangeError" } else { throw "BoundsError" }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (x: number) -> never throws \"BoundsError\" | \"RangeError\""
+      )
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
 let InfersThrowsFromCall () =
   let res =
     result {
@@ -134,11 +155,62 @@ let InferCatchesException () =
           }
         """
 
-      let! ctx, env = inferScript src
+      let! _, env = inferScript src
 
       Assert.Value(env, "bar", "fn (x: number) -> number")
     }
 
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferCatchesMultipleExceptions () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (x: number) =>
+          if x < 0 { throw "RangeError" } else { throw "BoundsError" }
+          
+        let bar = fn (x) =>
+          try {
+            foo(x)
+          } catch e {
+            | "RangeError" => 0
+            | "BoundsError" => 0
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "bar", "fn (x: number) -> 0")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferCatchesOneOfManyExceptions () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (x: number) =>
+          if x < 0 { throw "RangeError" } else { throw "BoundsError" }
+          
+        let bar = fn (x) =>
+          try {
+            foo(x)
+          } catch e {
+            | "RangeError" => 0
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "bar", "fn (x: number) -> 0")
+    }
+
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

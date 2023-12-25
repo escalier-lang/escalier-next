@@ -1,19 +1,29 @@
 ﻿input: add(x, y)
-output: Success: { Kind =
-   Call { Callee = { Kind = Identifier "add"
-                     Span = { Start = (Ln: 1, Col: 1)
-                              Stop = (Ln: 1, Col: 4) }
-                     InferredType = None }
-          TypeArgs = None
-          Args = [{ Kind = Identifier "x"
-                    Span = { Start = (Ln: 1, Col: 5)
-                             Stop = (Ln: 1, Col: 6) }
-                    InferredType = None }; { Kind = Identifier "y"
-                                             Span = { Start = (Ln: 1, Col: 8)
-                                                      Stop = (Ln: 1, Col: 9) }
-                                             InferredType = None }]
-          OptChain = false
-          Throws = None }
-  Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 10) }
-  InferredType = None }
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                Call
+                  { Callee = { Kind = Identifier "add"
+                               Span = { Start = (Ln: 1, Col: 1)
+                                        Stop = (Ln: 1, Col: 4) }
+                               InferredType = None }
+                    TypeArgs = None
+                    Args =
+                     [{ Kind = Identifier "x"
+                        Span = { Start = (Ln: 1, Col: 5)
+                                 Stop = (Ln: 1, Col: 6) }
+                        InferredType = None };
+                      { Kind = Identifier "y"
+                        Span = { Start = (Ln: 1, Col: 8)
+                                 Stop = (Ln: 1, Col: 9) }
+                        InferredType = None }]
+                    OptChain = false
+                    Throws = None }
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 10) }
+               InferredType = None }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 10) } }] }

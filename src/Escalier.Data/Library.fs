@@ -61,7 +61,7 @@ module Syntax =
     { Span: Span
       Pattern: Pattern
       Guard: option<Expr>
-      Body: Expr }
+      Body: BlockOrExpr }
 
   type TemplateLiteral =
     { Parts: list<string>

@@ -3,7 +3,7 @@
     let {x, y}: Point = {x: 5, y: 10}
     let p: Point = {x, y}
     let foo = fn ({x, y}: Point) => x + y
-  
+    
 output: Ok
   { Items =
      [Stmt
@@ -159,15 +159,15 @@ output: Ok
                                           InferredType = None },
                                    { Kind = Identifier "y"
                                      Span = { Start = (Ln: 5, Col: 41)
-                                              Stop = (Ln: 6, Col: 3) }
+                                              Stop = (Ln: 6, Col: 5) }
                                      InferredType = None })
                                Span = { Start = (Ln: 5, Col: 37)
-                                        Stop = (Ln: 6, Col: 3) }
+                                        Stop = (Ln: 6, Col: 5) }
                                InferredType = None } }
                      Span = { Start = (Ln: 5, Col: 15)
-                              Stop = (Ln: 6, Col: 3) }
+                              Stop = (Ln: 6, Col: 5) }
                      InferredType = None }, None)
                Span = { Start = (Ln: 5, Col: 5)
-                        Stop = (Ln: 6, Col: 3) } }
+                        Stop = (Ln: 6, Col: 5) } }
           Span = { Start = (Ln: 5, Col: 5)
-                   Stop = (Ln: 6, Col: 3) } }] }
+                   Stop = (Ln: 6, Col: 5) } }] }

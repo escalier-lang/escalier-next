@@ -313,6 +313,44 @@ module rec Infer =
           match maybeCatchType with
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
+        | ExprKind.Match(expr, cases) ->
+          // We need to unify `exprType` separately with each `patType` so that
+          // we can union the types together later otherwise `expr`'s type can
+          // get stuck unifying with the first `patType`.
+          let! exprType = inferExpr ctx env expr
+
+          let mutable caseTypes = []
+
+          let! cases =
+            List.traverseResultM
+              (fun (case: MatchCase) ->
+                result {
+                  let! assump, patType = inferPattern ctx env case.Pattern
+
+                  let caseType = ctx.FreshTypeVar None
+                  caseTypes <- caseType :: caseTypes
+                  do! unify ctx env patType caseType
+
+                  let mutable newEnv = env
+
+                  for binding in assump do
+                    newEnv <- newEnv.AddValue binding.Key binding.Value
+
+                  match case.Guard with
+                  | Some guard ->
+                    let! _ = inferExpr ctx newEnv guard
+                    ()
+                  | None -> ()
+
+                  return! inferBlockOrExpr ctx newEnv case.Body
+                })
+              cases
+
+          do! unify ctx env exprType (union caseTypes)
+
+          let t = union cases
+
+          return t
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 

@@ -1,27 +1,36 @@
-﻿input: msg = `foo ${`bar ${baz}`}`
-output: Success: { Kind =
-   Assign
-     ("=", { Kind = Identifier "msg"
-             Span = { Start = (Ln: 1, Col: 1)
-                      Stop = (Ln: 1, Col: 5) }
-             InferredType = None },
-      { Kind =
-         TemplateLiteral
-           { Parts = ["foo "; ""]
-             Exprs =
-              [{ Kind =
-                  TemplateLiteral
-                    { Parts = ["bar "; ""]
-                      Exprs = [{ Kind = Identifier "baz"
-                                 Span = { Start = (Ln: 1, Col: 21)
-                                          Stop = (Ln: 1, Col: 24) }
-                                 InferredType = None }] }
-                 Span = { Start = (Ln: 1, Col: 14)
-                          Stop = (Ln: 1, Col: 26) }
-                 InferredType = None }] }
-        Span = { Start = (Ln: 1, Col: 7)
-                 Stop = (Ln: 1, Col: 28) }
-        InferredType = None })
-  Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 28) }
-  InferredType = None }
+﻿input: let msg = `foo ${`bar ${baz}`}`
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
+                                                  Stop = (Ln: 1, Col: 9) }
+                                         Name = "msg"
+                                         IsMut = false }
+                     Span = { Start = (Ln: 1, Col: 5)
+                              Stop = (Ln: 1, Col: 9) }
+                     InferredType = None },
+                   { Kind =
+                      TemplateLiteral
+                        { Parts = ["foo "; ""]
+                          Exprs =
+                           [{ Kind =
+                               TemplateLiteral
+                                 { Parts = ["bar "; ""]
+                                   Exprs = [{ Kind = Identifier "baz"
+                                              Span = { Start = (Ln: 1, Col: 25)
+                                                       Stop = (Ln: 1, Col: 28) }
+                                              InferredType = None }] }
+                              Span = { Start = (Ln: 1, Col: 18)
+                                       Stop = (Ln: 1, Col: 30) }
+                              InferredType = None }] }
+                     Span = { Start = (Ln: 1, Col: 11)
+                              Stop = (Ln: 1, Col: 32) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 32) } }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 32) } }] }

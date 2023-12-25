@@ -49,7 +49,7 @@ let InfersExplicitThrow () =
       let src =
         """
         let foo = fn (x) {
-          if (x < 0) {
+          if x < 0 {
             throw "RangeError"
           }
           return x
@@ -71,7 +71,7 @@ let InfersThrowExpression () =
       let src =
         """
         let foo = fn (x) =>
-          if (x < 0) { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x }
         """
 
       let! _, env = inferScript src
@@ -104,7 +104,7 @@ let InfersThrowsFromCall () =
       let src =
         """
         let foo = fn (x) =>
-          if (x < 0) { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x }
           
         let bar = fn (x) => foo(x)
         """
@@ -124,12 +124,12 @@ let InferCatchesException () =
       let src =
         """
         let foo = fn (x) =>
-          if (x < 0) { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x }
           
         let bar = fn (x) =>
           try {
             foo(x)
-          } catch (e) {
+          } catch e {
             0
           }
         """
@@ -148,7 +148,7 @@ let InferTryFinally () =
       let src =
         """
         let foo = fn (x) =>
-          if (x < 0) { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x }
         let cleanup = fn () => {}
 
         let bar = fn (x) =>
@@ -173,13 +173,13 @@ let InferTryCatchFinally () =
       let src =
         """
         let foo = fn (x) =>
-          if (x < 0) { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x }
         let cleanup = fn () => {}
 
         let bar = fn (x) =>
           try {
             foo(x)
-          } catch (e) {
+          } catch e {
             0
           } finally {
             cleanup()

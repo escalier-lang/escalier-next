@@ -1,12 +1,12 @@
 ﻿input: 
     let foo = fn (x) {
-      if (x < 0) {
+      if x < 0 {
         throw "x must be positive"
       }
       return x
     }
     let bar = fn (x) {
-      let result = try { foo(x) } catch (e) { 0 }
+      let result = try { foo(x) } catch e { 0 }
       return result
     }
     
@@ -58,18 +58,18 @@ output: Ok
                                                  ("<",
                                                   { Kind = Identifier "x"
                                                     Span =
-                                                     { Start = (Ln: 3, Col: 11)
-                                                       Stop = (Ln: 3, Col: 13) }
+                                                     { Start = (Ln: 3, Col: 10)
+                                                       Stop = (Ln: 3, Col: 12) }
                                                     InferredType = None },
                                                   { Kind = Literal (Number 0.0)
                                                     Span =
-                                                     { Start = (Ln: 3, Col: 15)
-                                                       Stop = (Ln: 3, Col: 16) }
+                                                     { Start = (Ln: 3, Col: 14)
+                                                       Stop = (Ln: 3, Col: 15) }
                                                     InferredType = None })
-                                              Span = { Start = (Ln: 3, Col: 11)
-                                                       Stop = (Ln: 3, Col: 16) }
+                                              Span = { Start = (Ln: 3, Col: 10)
+                                                       Stop = (Ln: 3, Col: 15) }
                                               InferredType = None },
-                                            { Span = { Start = (Ln: 3, Col: 18)
+                                            { Span = { Start = (Ln: 3, Col: 16)
                                                        Stop = (Ln: 6, Col: 7) }
                                               Stmts =
                                                [{ Kind =
@@ -218,7 +218,7 @@ output: Ok
                                                     ("e",
                                                      { Span =
                                                         { Start =
-                                                           (Ln: 9, Col: 45)
+                                                           (Ln: 9, Col: 43)
                                                           Stop =
                                                            (Ln: 10, Col: 7) }
                                                        Stmts =
@@ -229,16 +229,16 @@ output: Ok
                                                                    (Number 0.0)
                                                                 Span =
                                                                  { Start =
-                                                                    (Ln: 9, Col: 47)
+                                                                    (Ln: 9, Col: 45)
                                                                    Stop =
-                                                                    (Ln: 9, Col: 48) }
+                                                                    (Ln: 9, Col: 46) }
                                                                 InferredType =
                                                                  None }
                                                            Span =
                                                             { Start =
-                                                               (Ln: 9, Col: 47)
+                                                               (Ln: 9, Col: 45)
                                                               Stop =
-                                                               (Ln: 9, Col: 49) } }] }),
+                                                               (Ln: 9, Col: 47) } }] }),
                                                   None)
                                               Span = { Start = (Ln: 9, Col: 20)
                                                        Stop = (Ln: 10, Col: 7) }

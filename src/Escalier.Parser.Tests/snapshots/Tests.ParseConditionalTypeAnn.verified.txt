@@ -1,5 +1,5 @@
 ﻿input: 
-    type Exclude<T, U> = if (T: U) { never } else { T }
+    type Exclude<T, U> = if T: U { never } else { T }
     
 output: Ok
   { Items =
@@ -12,20 +12,20 @@ output: Ok
                    { Kind =
                       Condition
                         { Check = { Kind = TypeRef ("T", None)
-                                    Span = { Start = (Ln: 2, Col: 30)
-                                             Stop = (Ln: 2, Col: 31) }
+                                    Span = { Start = (Ln: 2, Col: 29)
+                                             Stop = (Ln: 2, Col: 30) }
                                     InferredType = None }
                           Extends = { Kind = TypeRef ("U", None)
-                                      Span = { Start = (Ln: 2, Col: 33)
+                                      Span = { Start = (Ln: 2, Col: 32)
                                                Stop = (Ln: 2, Col: 34) }
                                       InferredType = None }
                           TrueType = { Kind = Keyword Never
-                                       Span = { Start = (Ln: 2, Col: 38)
-                                                Stop = (Ln: 2, Col: 44) }
+                                       Span = { Start = (Ln: 2, Col: 36)
+                                                Stop = (Ln: 2, Col: 42) }
                                        InferredType = None }
                           FalseType = { Kind = TypeRef ("T", None)
-                                        Span = { Start = (Ln: 2, Col: 53)
-                                                 Stop = (Ln: 2, Col: 55) }
+                                        Span = { Start = (Ln: 2, Col: 51)
+                                                 Stop = (Ln: 2, Col: 53) }
                                         InferredType = None } }
                      Span = { Start = (Ln: 2, Col: 26)
                               Stop = (Ln: 3, Col: 5) }

@@ -1,39 +1,50 @@
 ﻿input: fn (x: number) -> number throws "RangeError" { x }
-output: Success: { Kind =
-   Function
-     { Sig =
-        { TypeParams = None
-          ParamList =
-           [{ Pattern = { Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
-                                                       Stop = (Ln: 1, Col: 6) }
-                                              Name = "x"
-                                              IsMut = false }
-                          Span = { Start = (Ln: 1, Col: 5)
-                                   Stop = (Ln: 1, Col: 6) }
-                          InferredType = None }
-              TypeAnn = Some { Kind = Keyword Number
-                               Span = { Start = (Ln: 1, Col: 8)
-                                        Stop = (Ln: 1, Col: 14) }
-                               InferredType = None }
-              Optional = false }]
-          ReturnType = Some { Kind = Keyword Number
-                              Span = { Start = (Ln: 1, Col: 19)
-                                       Stop = (Ln: 1, Col: 26) }
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                Function
+                  { Sig =
+                     { TypeParams = None
+                       ParamList =
+                        [{ Pattern =
+                            { Kind =
+                               Identifier { Span = { Start = (Ln: 1, Col: 5)
+                                                     Stop = (Ln: 1, Col: 6) }
+                                            Name = "x"
+                                            IsMut = false }
+                              Span = { Start = (Ln: 1, Col: 5)
+                                       Stop = (Ln: 1, Col: 6) }
                               InferredType = None }
-          Throws = Some { Kind = Literal (String "RangeError")
-                          Span = { Start = (Ln: 1, Col: 33)
-                                   Stop = (Ln: 1, Col: 45) }
-                          InferredType = None }
-          IsAsync = false }
-       Body =
-        Block { Span = { Start = (Ln: 1, Col: 46)
-                         Stop = (Ln: 1, Col: 51) }
-                Stmts = [{ Kind = Expr { Kind = Identifier "x"
-                                         Span = { Start = (Ln: 1, Col: 48)
-                                                  Stop = (Ln: 1, Col: 50) }
-                                         InferredType = None }
-                           Span = { Start = (Ln: 1, Col: 48)
-                                    Stop = (Ln: 1, Col: 50) } }] } }
-  Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 51) }
-  InferredType = None }
+                           TypeAnn = Some { Kind = Keyword Number
+                                            Span = { Start = (Ln: 1, Col: 8)
+                                                     Stop = (Ln: 1, Col: 14) }
+                                            InferredType = None }
+                           Optional = false }]
+                       ReturnType = Some { Kind = Keyword Number
+                                           Span = { Start = (Ln: 1, Col: 19)
+                                                    Stop = (Ln: 1, Col: 26) }
+                                           InferredType = None }
+                       Throws = Some { Kind = Literal (String "RangeError")
+                                       Span = { Start = (Ln: 1, Col: 33)
+                                                Stop = (Ln: 1, Col: 45) }
+                                       InferredType = None }
+                       IsAsync = false }
+                    Body =
+                     Block
+                       { Span = { Start = (Ln: 1, Col: 46)
+                                  Stop = (Ln: 1, Col: 51) }
+                         Stmts =
+                          [{ Kind = Expr { Kind = Identifier "x"
+                                           Span = { Start = (Ln: 1, Col: 48)
+                                                    Stop = (Ln: 1, Col: 50) }
+                                           InferredType = None }
+                             Span = { Start = (Ln: 1, Col: 48)
+                                      Stop = (Ln: 1, Col: 50) } }] } }
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 51) }
+               InferredType = None }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 51) } }] }

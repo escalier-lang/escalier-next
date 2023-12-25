@@ -1,6 +1,6 @@
 ﻿input: 
     let foo = fn(a?: number, b?: string) => a
-  
+    
 output: Ok
   { Items =
      [Stmt
@@ -57,12 +57,12 @@ output: Ok
                              IsAsync = false }
                           Body = Expr { Kind = Identifier "a"
                                         Span = { Start = (Ln: 2, Col: 45)
-                                                 Stop = (Ln: 3, Col: 3) }
+                                                 Stop = (Ln: 3, Col: 5) }
                                         InferredType = None } }
                      Span = { Start = (Ln: 2, Col: 15)
-                              Stop = (Ln: 3, Col: 3) }
+                              Stop = (Ln: 3, Col: 5) }
                      InferredType = None }, None)
                Span = { Start = (Ln: 2, Col: 5)
-                        Stop = (Ln: 3, Col: 3) } }
+                        Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
-                   Stop = (Ln: 3, Col: 3) } }] }
+                   Stop = (Ln: 3, Col: 5) } }] }

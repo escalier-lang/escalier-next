@@ -1,6 +1,6 @@
 ﻿input: 
     type Obj = {a?: {b?: {c?: number}}}
-  
+    
 output: Ok
   { Items =
      [Stmt
@@ -43,9 +43,9 @@ output: Ok
                              Optional = true
                              Readonly = false }]
                      Span = { Start = (Ln: 2, Col: 16)
-                              Stop = (Ln: 3, Col: 3) }
+                              Stop = (Ln: 3, Col: 5) }
                      InferredType = None }, None)
                Span = { Start = (Ln: 2, Col: 5)
-                        Stop = (Ln: 3, Col: 3) } }
+                        Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
-                   Stop = (Ln: 3, Col: 3) } }] }
+                   Stop = (Ln: 3, Col: 5) } }] }

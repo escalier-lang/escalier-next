@@ -104,7 +104,7 @@ module Parser =
     (pstring "undefined" |>> fun _ -> Literal.Undefined)
     <|> (pstring "null" |>> fun _ -> Literal.Null)
 
-  litRef.Value <- number <|> string <|> boolean <|> otherLiterals
+  litRef.Value <- choice [ number; string; boolean; otherLiterals ]
 
   let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
 
@@ -268,6 +268,31 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
+  let matchCase: Parser<MatchCase, unit> =
+    pipe5
+      getPosition
+      (strWs "|" >>. pattern)
+      (opt ((strWs "if") >>. expr))
+      (strWs "=>" >>. expr)
+      getPosition
+    <| fun start pattern guard body stop ->
+
+      { Pattern = pattern
+        Guard = None
+        Body = body
+        Span = { Start = start; Stop = stop } }
+
+  let matchExpr: Parser<Expr, unit> =
+    pipe4
+      getPosition
+      (strWs "match" >>. expr)
+      (between (strWs "{") (strWs "}") (many matchCase))
+      getPosition
+    <| fun start expr cases stop ->
+      { Kind = ExprKind.Match(expr, cases)
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
   let atom =
     choice
       [ literalExpr
@@ -276,9 +301,13 @@ module Parser =
         attempt ifElse // conflicts with identExpr
         attempt throwExpr // conflicts with identExpr
         attempt tryExpr // conflicts with identExpr
+        attempt matchExpr // conflicts with identExpr
         tupleExpr
         objectExpr
         templateStringLiteral
+        // TODO: have a combinator that wraps `identExpr` and checks if the
+        // ident if `fn`, `do`, `if`, `throw`, `try`, match`, etc. and then
+        // continue parsing the appropriate expression
         identExpr ]
 
   let term = (atom .>> ws) <|> between (strWs "(") (strWs ")") expr
@@ -402,18 +431,18 @@ module Parser =
   opp.AddOperator(InfixOperator("&&", ws, 4, Assoc.Left, binary "&&"))
   opp.AddOperator(InfixOperator("||", ws, 3, Assoc.Left, binary "||"))
 
-  opp.AddOperator(
-    InfixOperator(
-      "=",
-      ws,
-      2,
-      Assoc.Right,
-      (fun x y ->
-        { Expr.Kind = ExprKind.Assign("=", x, y)
-          Span = mergeSpans x.Span y.Span
-          InferredType = None })
-    )
-  )
+  // opp.AddOperator(
+  //   InfixOperator(
+  //     "=",
+  //     ws,
+  //     2,
+  //     Assoc.Right,
+  //     (fun x y ->
+  //       { Expr.Kind = ExprKind.Assign("=", x, y)
+  //         Span = mergeSpans x.Span y.Span
+  //         InferredType = None })
+  //   )
+  // )
 
   exprRef.Value <- opp.ExpressionParser
 
@@ -477,8 +506,10 @@ module Parser =
         InferredType = None }
 
   let private literalPattern =
-    withSpan lit
+    withSpan (lit .>> ws)
     |>> fun (lit, span) ->
+      printfn "parsed literal: %A" lit
+
       { Pattern.Kind = PatternKind.Literal(span = span, value = lit)
         Span = span
         InferredType = None }

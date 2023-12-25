@@ -371,7 +371,7 @@ module Parser =
       14,
       true,
       (fun x ->
-        { Expr.Kind = ExprKind.Await(x)
+        { Expr.Kind = ExprKind.Await({ Value = x; Throws = None })
           Span = x.Span
           InferredType = None })
     )

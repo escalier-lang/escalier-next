@@ -58,8 +58,88 @@ let InfersAsyncFunc () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn () -> Promise<5>")
+      Assert.Value(env, "foo", "fn () -> Promise<5, never>")
+      Assert.Value(env, "bar", "fn () -> Promise<15, never>")
     }
 
-  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersAsyncError () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = async fn (x) => if (x < 0) { throw "RangeError" } else { x }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (x: number) -> Promise<number, \"RangeError\">"
+      )
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersPropagateAsyncError () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = async fn (x) => if (x < 0) { throw "RangeError" } else { x }
+        let bar = async fn (x) {
+          let y = await foo(x)
+          return y + await 10
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (x: number) -> Promise<number, \"RangeError\">"
+      )
+
+      Assert.Value(
+        env,
+        "bar",
+        "fn (x: number) -> Promise<number, \"RangeError\">"
+      )
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersTryCatchAsync () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = async fn (x) => if (x < 0) { throw "RangeError" } else { x }
+        let bar = async fn (x) {
+          try {
+            let y = await foo(x)
+            return y + await 10
+          } catch (e) {
+            return 0
+          }
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (x: number) -> Promise<number, \"RangeError\">"
+      )
+
+      Assert.Value(env, "bar", "fn (x: number) -> Promise<number, never>")
+    }
+
   Assert.False(Result.isError res)

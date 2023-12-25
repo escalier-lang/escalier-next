@@ -129,13 +129,13 @@ module Prelude =
         never,
        false)
 
-    let Promise =
-      { Kind = makeTypeRefKind "Promise"
-        Provenance = None }
-
-    let promiseScheme: Scheme =
-      { Type = Promise
-        TypeParams = None
+    // TODO: we need an opaque type for now, or some way not to expand
+    // Promise types.
+    let promise: Scheme =
+      { Type =
+          { Kind = makeTypeRefKind "FooBar"
+            Provenance = None }
+        TypeParams = Some([ "T"; "E" ])
         IsTypeParam = false }
 
     { Env.Values =
@@ -155,5 +155,5 @@ module Prelude =
             ("!=", equality)
             ("||", logical)
             ("&&", logical) ]
-      Env.Schemes = Map([ ("Promise", promiseScheme) ])
+      Env.Schemes = Map([ ("Promise", promise) ])
       Env.IsAsync = false }

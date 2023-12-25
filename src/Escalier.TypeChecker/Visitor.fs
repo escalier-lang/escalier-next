@@ -71,7 +71,7 @@ module rec ExprVisitor =
 
           Option.iter (fun body -> List.iter (walkStmt visitor) body.Stmts) fin
         | ExprKind.Do body -> List.iter (walkStmt visitor) body.Stmts
-        | ExprKind.Await value -> walk value
+        | ExprKind.Await await -> walk await.Value
         | ExprKind.Throw value -> walk value
         | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
         | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->

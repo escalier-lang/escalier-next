@@ -817,3 +817,38 @@ let InferFuncTypeAnnotation () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let PassingTooManyArgsIsOkay () =
+  let result =
+    result {
+      let src =
+        """
+        let add = fn (x, y) => x + y
+        let sum = add(5, 10, "hello")
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "sum", "15")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let PassingTooFewArgsIsAnError () =
+  let result =
+    result {
+      let src =
+        """
+        let add = fn (x, y) => x + y
+        let sum = add(5)
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "sum", "15")
+    }
+
+  printfn "result = %A" result
+  Assert.True(Result.isError result)

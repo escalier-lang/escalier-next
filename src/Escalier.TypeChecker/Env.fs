@@ -297,10 +297,7 @@ module rec Env =
                 this.ExpandType unify t)
 
             union types
-      | typeParams, typeArgs ->
-        printfn "typeParams = %A" typeParams
-        printfn "typeArgs = %A" typeArgs
-        failwith "TODO: expandScheme with type params/args"
+      | _ -> failwith "TODO: expandScheme with type params/args"
 
     member this.ExpandType
       (unify: Env -> Type -> Type -> Result<unit, TypeError>)

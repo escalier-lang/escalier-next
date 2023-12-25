@@ -314,6 +314,9 @@ module rec Infer =
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
+          // We need to unify `exprType` separately with each `patType` so that
+          // we can union the types together later otherwise `expr`'s type can
+          // get stuck unifying with the first `patType`.
           let! exprType = inferExpr ctx env expr
 
           let! cases =
@@ -322,7 +325,7 @@ module rec Infer =
                 result {
                   let! assump, patType = inferPattern ctx env case.Pattern
 
-                  do! unify ctx env exprType patType
+                  do! unify ctx env patType exprType
 
                   let mutable newEnv = env
 

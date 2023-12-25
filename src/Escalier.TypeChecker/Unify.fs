@@ -334,10 +334,15 @@ module rec Unify =
             })
           args
 
-      if args.Length <> callee.ParamList.Length then
-        // TODO: raise an error if there aren't enough args
-        // TODO: discard extra args when unifying below
-        printfn $"args.Length <> callee.ParamList.Length"
+      if args.Length < callee.ParamList.Length then
+        // TODO: make this into a diagnostic instead of an error
+        return!
+          Error(
+            TypeError.SemanticError "function called with too few arguments"
+          )
+
+      // List.zip requires that both lists have the same length
+      let args = List.take callee.ParamList.Length args
 
       for ((arg, argType), param) in List.zip args callee.ParamList do
         if

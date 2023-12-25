@@ -70,7 +70,7 @@ let InfersAsyncError () =
     result {
       let src =
         """
-        let foo = async fn (x) => if (x < 0) { throw "RangeError" } else { x }
+        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
         """
 
       let! _, env = inferScript src
@@ -90,7 +90,7 @@ let InfersPropagateAsyncError () =
     result {
       let src =
         """
-        let foo = async fn (x) => if (x < 0) { throw "RangeError" } else { x }
+        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
         let bar = async fn (x) {
           let y = await foo(x)
           return y + await 10
@@ -120,12 +120,12 @@ let InfersTryCatchAsync () =
     result {
       let src =
         """
-        let foo = async fn (x) => if (x < 0) { throw "RangeError" } else { x }
+        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
         let bar = async fn (x) {
           try {
             let y = await foo(x)
             return y + await 10
-          } catch (e) {
+          } catch e {
             return 0
           }
         }

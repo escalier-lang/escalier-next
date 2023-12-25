@@ -1,5 +1,5 @@
 ﻿input: 
-    type Foo<T> = if (T: number) { "number" } else if (T: string) { "string" } else { "other" }
+    type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" }
     
 output: Ok
   { Items =
@@ -12,39 +12,39 @@ output: Ok
                    { Kind =
                       Condition
                         { Check = { Kind = TypeRef ("T", None)
-                                    Span = { Start = (Ln: 2, Col: 23)
-                                             Stop = (Ln: 2, Col: 24) }
+                                    Span = { Start = (Ln: 2, Col: 22)
+                                             Stop = (Ln: 2, Col: 23) }
                                     InferredType = None }
                           Extends = { Kind = Keyword Number
-                                      Span = { Start = (Ln: 2, Col: 26)
+                                      Span = { Start = (Ln: 2, Col: 25)
                                                Stop = (Ln: 2, Col: 32) }
                                       InferredType = None }
                           TrueType = { Kind = Literal (String "number")
-                                       Span = { Start = (Ln: 2, Col: 36)
-                                                Stop = (Ln: 2, Col: 44) }
+                                       Span = { Start = (Ln: 2, Col: 34)
+                                                Stop = (Ln: 2, Col: 42) }
                                        InferredType = None }
                           FalseType =
                            { Kind =
                               Condition
                                 { Check = { Kind = TypeRef ("T", None)
-                                            Span = { Start = (Ln: 2, Col: 56)
-                                                     Stop = (Ln: 2, Col: 57) }
+                                            Span = { Start = (Ln: 2, Col: 53)
+                                                     Stop = (Ln: 2, Col: 54) }
                                             InferredType = None }
                                   Extends = { Kind = Keyword String
-                                              Span = { Start = (Ln: 2, Col: 59)
-                                                       Stop = (Ln: 2, Col: 65) }
+                                              Span = { Start = (Ln: 2, Col: 56)
+                                                       Stop = (Ln: 2, Col: 63) }
                                               InferredType = None }
                                   TrueType =
                                    { Kind = Literal (String "string")
-                                     Span = { Start = (Ln: 2, Col: 69)
-                                              Stop = (Ln: 2, Col: 77) }
+                                     Span = { Start = (Ln: 2, Col: 65)
+                                              Stop = (Ln: 2, Col: 73) }
                                      InferredType = None }
                                   FalseType =
                                    { Kind = Literal (String "other")
-                                     Span = { Start = (Ln: 2, Col: 87)
-                                              Stop = (Ln: 2, Col: 94) }
+                                     Span = { Start = (Ln: 2, Col: 83)
+                                              Stop = (Ln: 2, Col: 90) }
                                      InferredType = None } }
-                             Span = { Start = (Ln: 2, Col: 52)
+                             Span = { Start = (Ln: 2, Col: 50)
                                       Stop = (Ln: 3, Col: 5) }
                              InferredType = None } }
                      Span = { Start = (Ln: 2, Col: 19)

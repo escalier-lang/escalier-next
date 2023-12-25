@@ -246,7 +246,7 @@ module Parser =
         InferredType = None }
 
   let catchClause: Parser<string * Block, unit> =
-    pipe4 getPosition (strWs "(" >>. ident .>> strWs ")") block getPosition
+    pipe4 getPosition ident block getPosition
     <| fun start param body stop -> (param, body)
 
   let throwExpr: Parser<Expr, unit> =
@@ -705,11 +705,8 @@ module Parser =
     pipe5
       getPosition
       (strWs "if"
-       >>. (between
-         (strWs "(")
-         (strWs ")")
-         (pipe2 typeAnn (strWs ":" >>. typeAnn)
-          <| fun check extends -> (check, extends))))
+       >>. (pipe2 typeAnn (strWs ":" >>. typeAnn)
+            <| fun check extends -> (check, extends)))
       (strWs "{" >>. typeAnn .>> strWs "}")
       (strWs "else" >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
       // strWs "{" >>. typeAnn .>> strWs "}")

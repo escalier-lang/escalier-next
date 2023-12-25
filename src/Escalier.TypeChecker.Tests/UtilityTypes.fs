@@ -70,9 +70,9 @@ let InferSimpleConditionalType () =
     result {
       let src =
         """
-        type Foo<T> = if (T : string) {
+        type Foo<T> = if T : string {
           "string"
-        } else if (T : number) {
+        } else if T : number {
           "number"
         } else {
           "other"
@@ -103,8 +103,8 @@ let InferNestedConditionalTypes () =
     result {
       let src =
         """
-        type Foo<T> = if (T : string | number) {
-          if (T : string) {
+        type Foo<T> = if T : string | number {
+          if T : string {
             "string"
           } else {
             "number"
@@ -138,7 +138,7 @@ let InferExclude () =
     result {
       let src =
         """
-        type Exclude<T, U> = if (T: U) { never } else { T }
+        type Exclude<T, U> = if T: U { never } else { T }
         type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">
         """
 
@@ -159,7 +159,7 @@ let InferExtract () =
       let src =
         """
         type Point = {x: number, y: number}
-        type Extract<T, U> = if (T: Point) { T } else { never }
+        type Extract<T, U> = if T: Point { T } else { never }
         type Result = Extract<{x: 5, y: 10} | number | string, Point>
         """
 
@@ -180,8 +180,8 @@ let InferCartesianProdType () =
       let src =
         """
         type CartesianProduce<X, Y> =
-          if (X : unknown) {
-            if (Y : unknown) {
+          if X : unknown {
+            if Y : unknown {
               [X, Y]
             } else {
               never
@@ -238,7 +238,7 @@ let InfersOmit () =
         type Pick<T, K: keyof T> = {
           [P]: T[P] for P in K
         }
-        type Exclude<T, U> = if (T : U) { never } else { T }
+        type Exclude<T, U> = if T : U { never } else { T }
         type AnyKey = string | number | symbol
         type Omit<T, K: AnyKey> = Pick<T, Exclude<keyof T, K>>
         

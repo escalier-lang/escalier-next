@@ -290,7 +290,7 @@ let ParseImports () =
 let ParseConditionalTypeAnn () =
   let src =
     """
-    type Exclude<T, U> = if (T: U) { never } else { T }
+    type Exclude<T, U> = if T: U { never } else { T }
     """
 
   let ast = Parser.parseScript src
@@ -302,7 +302,7 @@ let ParseConditionalTypeAnn () =
 let ParseChainedConditionalTypeAnn () =
   let src =
     """
-    type Foo<T> = if (T: number) { "number" } else if (T: string) { "string" } else { "other" }
+    type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" }
     """
 
   let ast = Parser.parseScript src
@@ -346,7 +346,7 @@ let ParseThrowAndTryCatch () =
   let src =
     """
     let foo = fn (x) {
-      if (x < 0) {
+      if x < 0 {
         throw "x must be positive"
       }
       return x

@@ -294,19 +294,59 @@ module rec Infer =
               Provenance = None }
 
           return never
-        | ExprKind.Try(block, catchClause, finallyBlock) ->
-          let! tryType = inferBlock ctx env block
-          let throwType = findThrowsInBlock block |> union
+        | ExprKind.Try _try ->
+          let! tryType = inferBlock ctx env _try.Body
+          // NOTE: flatten expands any union types in the list
+          let throwTypes = findThrowsInBlock _try.Body |> flatten
 
           let! maybeCatchType =
-            match catchClause with
-            | Some(e, block) ->
-              let newEnv = env.AddValue e (throwType, false)
-              inferBlock ctx newEnv block |> ResultOption.ofResult
+            match _try.Catch with
+            | Some cases ->
+              result {
+                let! patternTypes, bodyTypes = inferMatchCases ctx env cases
+
+                let mutable caughtTypes = []
+
+                // All of the patterns we're catching must be a sub-type of at
+                // least one of the exceptions that's being thrown
+                for patternType in patternTypes do
+                  let mutable unified = false
+
+                  for throwType in throwTypes do
+                    if not unified then
+                      match unify ctx env patternType throwType with
+                      | Ok _ ->
+                        caughtTypes <- throwType :: caughtTypes
+                        unified <- true
+                      | Error _ -> ()
+
+                  if unified then
+                    ()
+                  else
+                    return!
+                      Error(
+                        TypeError.TypeMismatch(patternType, union throwTypes)
+                      )
+
+                // If there are any exceptions that haven't been caught, we
+                // rethrow them.
+                let uncaughtTypes =
+                  throwTypes
+                  |> List.filter (fun t -> not (List.contains t caughtTypes))
+
+                if not uncaughtTypes.IsEmpty then
+                  let rethrowType = union uncaughtTypes
+                  _try.Throws <- Some(rethrowType)
+
+                return bodyTypes |> union
+              }
+              |> ResultOption.ofResult
+
+            // inferBlock ctx newEnv block |> ResultOption.ofResult
             | None -> ResultOption.ofOption None
 
           let! _ =
-            match finallyBlock with
+            match _try.Finally with
             | Some(block) -> inferBlock ctx env block |> ResultOption.ofResult
             | None -> ResultOption.ofOption None
 
@@ -314,43 +354,12 @@ module rec Infer =
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
-          // We need to unify `exprType` separately with each `patType` so that
-          // we can union the types together later otherwise `expr`'s type can
-          // get stuck unifying with the first `patType`.
           let! exprType = inferExpr ctx env expr
-
-          let mutable caseTypes = []
-
-          let! cases =
-            List.traverseResultM
-              (fun (case: MatchCase) ->
-                result {
-                  let! assump, patType = inferPattern ctx env case.Pattern
-
-                  let caseType = ctx.FreshTypeVar None
-                  caseTypes <- caseType :: caseTypes
-                  do! unify ctx env patType caseType
-
-                  let mutable newEnv = env
-
-                  for binding in assump do
-                    newEnv <- newEnv.AddValue binding.Key binding.Value
-
-                  match case.Guard with
-                  | Some guard ->
-                    let! _ = inferExpr ctx newEnv guard
-                    ()
-                  | None -> ()
-
-                  return! inferBlockOrExpr ctx newEnv case.Body
-                })
-              cases
-
-          do! unify ctx env exprType (union caseTypes)
-
-          let t = union cases
-
-          return t
+          let! patternTypes, bodyTypes = inferMatchCases ctx env cases
+          // All of the patterns we're matching against `expr` must be sub-types
+          // of its type.
+          do! unify ctx env (union patternTypes) exprType
+          return (union bodyTypes)
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -791,6 +800,42 @@ module rec Infer =
 
     Result.Ok((assump, t))
 
+  let inferMatchCases
+    (ctx: Ctx)
+    (env: Env)
+    (cases: list<MatchCase>)
+    : Result<list<Type> * list<Type>, TypeError> =
+    result {
+      let mutable patternTypes = []
+
+      let! bodyTypes =
+        List.traverseResultM
+          (fun (case: MatchCase) ->
+            result {
+              let! assump, patType = inferPattern ctx env case.Pattern
+
+              let caseType = ctx.FreshTypeVar None
+              patternTypes <- caseType :: patternTypes
+              do! unify ctx env patType caseType
+
+              let mutable newEnv = env
+
+              for binding in assump do
+                newEnv <- newEnv.AddValue binding.Key binding.Value
+
+              match case.Guard with
+              | Some guard ->
+                let! _ = inferExpr ctx newEnv guard
+                ()
+              | None -> ()
+
+              return! inferBlockOrExpr ctx newEnv case.Body
+            })
+          cases
+
+      return patternTypes, bodyTypes
+    }
+
   let inferTypeParam
     (env: Env)
     (tp: Syntax.TypeParam)
@@ -1059,7 +1104,11 @@ module rec Infer =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
-            | ExprKind.Try(_, catch, _) ->
+            | ExprKind.Try { Catch = catch
+                             Throws = uncaughtThrows } ->
+              match uncaughtThrows with
+              | Some(uncaughtThrows) -> throws <- uncaughtThrows :: throws
+              | None -> ()
               // If there is a catch clause, don't visit the children
               // TODO: we still need to visit the catch clause in that
               // cacse because there may be re-throws inside of it
@@ -1102,7 +1151,11 @@ module rec Infer =
           fun expr ->
             match expr.Kind with
             | ExprKind.Function _ -> false
-            | ExprKind.Try(_, catch, _) ->
+            | ExprKind.Try { Catch = catch
+                             Throws = uncaughtThrows } ->
+              match uncaughtThrows with
+              | Some(uncaughtThrows) -> throws <- uncaughtThrows :: throws
+              | None -> ()
               // If there is a catch clause, don't visit the children
               // TODO: we still need to visit the catch clause in that
               // cacse because there may be re-throws inside of it

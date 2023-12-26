@@ -81,6 +81,12 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
+  type Try =
+    { Body: Block
+      Catch: option<list<MatchCase>>
+      Finally: option<Block>
+      mutable Throws: option<Type.Type> }
+
   type Await =
     { Value: Expr
       mutable Throws: option<Type.Type> }
@@ -103,10 +109,7 @@ module Syntax =
     | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
     | Unary of op: string * value: Expr
     | Object of elems: list<ObjElem>
-    | Try of
-      body: Block *
-      catch: option<string * Block> *
-      finally_: option<Block>
+    | Try of Try
     | Do of body: Block
     | Await of Await
     | Throw of value: Expr

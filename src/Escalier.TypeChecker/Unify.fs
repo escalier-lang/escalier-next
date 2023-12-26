@@ -215,6 +215,10 @@ module rec Unify =
           do! unify ctx env restType newRestType
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
+      | TypeKind.Union(types), _ ->
+        let! _ = types |> List.traverseResultM (fun t -> unify ctx env t t2)
+
+        return ()
       | _, TypeKind.Union(types) ->
 
         let unifier =

@@ -352,7 +352,11 @@ let ParseThrowAndTryCatch () =
       return x
     }
     let bar = fn (x) {
-      let result = try { foo(x) } catch e { 0 }
+      let result = try {
+        foo(x)
+      } catch {
+        | _ => 0
+      }
       return result
     }
     """

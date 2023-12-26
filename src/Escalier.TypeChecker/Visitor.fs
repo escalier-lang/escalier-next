@@ -63,7 +63,9 @@ module rec ExprVisitor =
           // TODO:
           // failwith "todo"
           ()
-        | ExprKind.Try(body, catch, fin) ->
+        | ExprKind.Try { Body = body
+                         Catch = catch
+                         Finally = fin } ->
           List.iter (walkStmt visitor) body.Stmts
 
           Option.iter

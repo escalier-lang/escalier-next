@@ -293,8 +293,13 @@ module Parser =
       (opt (strWs "catch" >>. catchClause))
       (opt (strWs "finally" >>. block))
       getPosition
-    <| fun start try_ catch_ finally_ stop ->
-      { Kind = ExprKind.Try(try_, catch_, finally_)
+    <| fun start body catch_ finally_ stop ->
+      { Kind =
+          ExprKind.Try
+            { Body = body
+              Catch = catch_
+              Finally = finally_
+              Throws = None }
         Span = { Start = start; Stop = stop }
         InferredType = None }
 

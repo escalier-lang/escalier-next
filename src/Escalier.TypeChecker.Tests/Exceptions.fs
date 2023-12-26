@@ -207,7 +207,7 @@ let InferCatchesOneOfManyExceptions () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "bar", "fn (x: number) -> 0")
+      Assert.Value(env, "bar", "fn (x: number) -> 0 throws \"BoundsError\"")
     }
 
   printfn "res = %A" res

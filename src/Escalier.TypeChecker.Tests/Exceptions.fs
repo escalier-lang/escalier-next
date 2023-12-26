@@ -150,7 +150,7 @@ let InferCatchesException () =
         let bar = fn (x) =>
           try {
             foo(x)
-          } catch e {
+          } catch {
             | "RangeError" => 0
           }
         """
@@ -174,7 +174,7 @@ let InferCatchesMultipleExceptions () =
         let bar = fn (x) =>
           try {
             foo(x)
-          } catch e {
+          } catch {
             | "RangeError" => 0
             | "BoundsError" => 0
           }
@@ -200,7 +200,7 @@ let InferCatchesOneOfManyExceptions () =
         let bar = fn (x) =>
           try {
             foo(x)
-          } catch e {
+          } catch {
             | "RangeError" => 0
           }
         """
@@ -251,7 +251,7 @@ let InferTryCatchFinally () =
         let bar = fn (x) =>
           try {
             foo(x)
-          } catch e {
+          } catch {
             | "RangeError" => 0
           } finally {
             cleanup()

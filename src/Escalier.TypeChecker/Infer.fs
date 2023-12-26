@@ -301,7 +301,7 @@ module rec Infer =
 
           let! maybeCatchType =
             match _try.Catch with
-            | Some(e, cases) ->
+            | Some cases ->
               result {
                 let! patternTypes, bodyTypes = inferMatchCases ctx env cases
 

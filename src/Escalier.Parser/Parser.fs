@@ -271,13 +271,12 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
-  let catchClause: Parser<string * list<MatchCase>, unit> =
-    pipe4
+  let catchClause: Parser<list<MatchCase>, unit> =
+    pipe3
       getPosition
-      ident
       (between (strWs "{") (strWs "}") (many matchCase))
       getPosition
-    <| fun start param body stop -> (param, body)
+    <| fun start cases stop -> cases
 
   let throwExpr: Parser<Expr, unit> =
     withSpan (strWs "throw" >>. expr)
@@ -293,11 +292,11 @@ module Parser =
       (opt (strWs "catch" >>. catchClause))
       (opt (strWs "finally" >>. block))
       getPosition
-    <| fun start body catch_ finally_ stop ->
+    <| fun start body cases finally_ stop ->
       { Kind =
           ExprKind.Try
             { Body = body
-              Catch = catch_
+              Catch = cases
               Finally = finally_
               Throws = None }
         Span = { Start = start; Stop = stop }

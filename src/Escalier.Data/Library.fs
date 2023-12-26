@@ -83,7 +83,7 @@ module Syntax =
 
   type Try =
     { Body: Block
-      Catch: option<string * list<MatchCase>>
+      Catch: option<list<MatchCase>>
       Finally: option<Block>
       mutable Throws: option<Type.Type> }
 

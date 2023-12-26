@@ -69,7 +69,7 @@ module rec ExprVisitor =
           List.iter (walkStmt visitor) body.Stmts
 
           Option.iter
-            (fun (e, cases) ->
+            (fun cases ->
               List.iter
                 (fun (case: MatchCase) ->
                   walkPattern visitor case.Pattern

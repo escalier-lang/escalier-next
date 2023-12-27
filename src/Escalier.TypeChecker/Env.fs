@@ -331,14 +331,22 @@ module rec Env =
               |> List.choose (fun elem ->
                 // TODO: handle mapped types
                 match elem with
-                | Property p -> Some(p.Name)
+                | Property p -> Some(p.Key)
                 | _ -> None)
 
             let keys =
               keys
               |> List.map (fun key ->
-                { Kind = TypeKind.Literal(Literal.String key)
-                  Provenance = None }) // TODO: set provenance
+                match key with
+                | PropKey.String s ->
+                  { Kind = TypeKind.Literal(Literal.String s)
+                    Provenance = None }
+                | PropKey.Number n ->
+                  { Kind = TypeKind.Literal(Literal.Number n)
+                    Provenance = None }
+                | PropKey.Symbol id ->
+                  { Kind = TypeKind.UniqueSymbol id
+                    Provenance = None })
 
             union keys
           | _ -> failwith "TODO: expand keyof"
@@ -346,18 +354,25 @@ module rec Env =
           let target = this.ExpandType unify target
           let index = this.ExpandType unify index
 
-          match target.Kind, index.Kind with
-          | TypeKind.Object elems, TypeKind.Literal(Literal.String name) ->
+          let key =
+            match index.Kind with
+            | TypeKind.Literal(Literal.String s) -> PropKey.String s
+            | TypeKind.Literal(Literal.Number n) -> PropKey.Number n
+            | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+            | _ -> failwith "TODO: expand index - key type"
+
+          match target.Kind with
+          | TypeKind.Object elems ->
             let mutable t = None
 
             for elem in elems do
               match elem with
-              | Property p when p.Name = name -> t <- Some(p.Type)
+              | Property p when p.Key = key -> t <- Some(p.Type)
               | _ -> ()
 
             match t with
             | Some t -> t
-            | None -> failwithf $"Property {name} not found"
+            | None -> failwithf $"Property {key} not found"
           | _ ->
             // TODO: Handle the case where the type is a primitive and use a
             // special function to expand the type
@@ -387,6 +402,15 @@ module rec Env =
                   let elems =
                     types
                     |> List.map (fun keyType ->
+                      // let key =
+                      //   match keyType.Kind with
+                      //   | TypeKind.Literal(Literal.String s) ->
+                      //     PropKey.String s
+                      //   | TypeKind.Literal(Literal.Number n) ->
+                      //     PropKey.Number n
+                      //   | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+                      //   | _ -> failwith "TODO: expand mapped type - key type"
+
                       match keyType.Kind with
                       | TypeKind.Literal(Literal.String name) ->
                         let typeAnn = m.TypeAnn
@@ -402,7 +426,7 @@ module rec Env =
                         let typeAnn = foldType folder typeAnn
 
                         Property
-                          { Name = name
+                          { Key = PropKey.String name
                             Type = this.ExpandType unify typeAnn
                             Optional = false // TODO
                             Readonly = false // TODO
@@ -425,7 +449,7 @@ module rec Env =
                   let typeAnn = foldType folder typeAnn
 
                   [ Property
-                      { Name = key
+                      { Key = PropKey.String key
                         Type = this.ExpandType unify typeAnn
                         Optional = false // TODO
                         Readonly = false // TODO
@@ -457,7 +481,7 @@ module rec Env =
       (unify: Env -> Type -> Type -> Result<unit, TypeError>)
       (env: Env)
       (t: Type)
-      (name: string)
+      (name: PropKey)
       (optChain: bool)
       : Type =
       let t = prune t
@@ -468,7 +492,7 @@ module rec Env =
           List.choose
             (fun (elem: ObjTypeElem) ->
               match elem with
-              | Property p -> Some(p.Name, p)
+              | Property p -> Some(p.Key, p)
               | _ -> None)
             elems
           |> Map.ofList

@@ -234,7 +234,7 @@ module rec Infer =
                     return
                       Some(
                         Property
-                          { Name = key
+                          { Key = key
                             Optional = false
                             Readonly = false
                             Type = t }
@@ -245,7 +245,7 @@ module rec Infer =
                     return
                       Some(
                         Property
-                          { Name = key
+                          { Key = PropKey.String key
                             Optional = false
                             Readonly = false
                             Type = value }
@@ -271,10 +271,11 @@ module rec Infer =
                 Provenance = None }
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj
+          let propKey = PropKey.String(prop)
 
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
-          return getPropType ctx env objType prop optChain
+          return getPropType ctx env objType propKey optChain
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env await.Value
 
@@ -376,11 +377,16 @@ module rec Infer =
         t)
       r
 
+  // There are four possible types of keys:
+  // - identifier
+  // - string literal
+  // - number literal
+  // - symbol literal
   let getPropType
     (ctx: Ctx)
     (env: Env)
     (t: Type)
-    (name: string)
+    (key: PropKey)
     (optChain: bool)
     : Type =
     let t = prune t
@@ -391,12 +397,12 @@ module rec Infer =
         List.choose
           (fun (elem: ObjTypeElem) ->
             match elem with
-            | Property p -> Some(p.Name, p)
+            | Property p -> Some(p.Key, p)
             | _ -> None)
           elems
         |> Map.ofList
 
-      match elems.TryFind name with
+      match elems.TryFind key with
       | Some(p) ->
         match p.Optional with
         | true ->
@@ -406,7 +412,7 @@ module rec Infer =
 
           union [ p.Type; undefined ]
         | false -> p.Type
-      | None -> failwithf $"Property {name} not found"
+      | None -> failwithf $"Property {key} not found"
     | TypeKind.TypeRef { Name = typeRefName
                          Scheme = scheme
                          TypeArgs = typeArgs } ->
@@ -416,7 +422,7 @@ module rec Infer =
           ctx
           env
           (env.ExpandScheme (unify ctx) scheme typeArgs)
-          name
+          key
           optChain
       | None ->
         match env.Schemes.TryFind typeRefName with
@@ -425,9 +431,9 @@ module rec Infer =
             ctx
             env
             (env.ExpandScheme (unify ctx) scheme typeArgs)
-            name
+            key
             optChain
-        | None -> failwithf $"{name} not in scope"
+        | None -> failwithf $"{key} not in scope"
     | TypeKind.Union types ->
       let undefinedTypes, definedTypes =
         List.partition
@@ -441,7 +447,7 @@ module rec Infer =
       else
         match definedTypes with
         | [ t ] ->
-          let t = getPropType ctx env t name optChain
+          let t = getPropType ctx env t key optChain
 
           let undefined =
             { Kind = TypeKind.Literal(Literal.Undefined)
@@ -449,9 +455,13 @@ module rec Infer =
 
           union [ t; undefined ]
         | _ -> failwith "TODO: lookup member on union type"
-
+    | TypeKind.Tuple elems ->
+      if key = PropKey.String "length" then
+        { Kind = TypeKind.Literal(Literal.Number(float elems.Length))
+          Provenance = None }
+      else
+        failwith "TODO: lookup member on tuple type"
     // TODO: intersection types
-    // TODO: union types
     | _ -> failwith $"TODO: lookup member on type - {t}"
 
   let inferBlockOrExpr
@@ -530,7 +540,7 @@ module rec Infer =
 
                     return
                       Property
-                        { Name = name
+                        { Key = PropKey.String name
                           Type = t
                           Optional = optional
                           Readonly = readonly }
@@ -757,7 +767,7 @@ module rec Infer =
 
                 Some(
                   ObjTypeElem.Property
-                    { Name = key
+                    { Key = PropKey.String key
                       Optional = false
                       Readonly = false
                       Type = t }
@@ -771,7 +781,7 @@ module rec Infer =
 
                 Some(
                   ObjTypeElem.Property
-                    { Name = name
+                    { Key = PropKey.String name
                       Optional = false
                       Readonly = false
                       Type = t }

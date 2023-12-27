@@ -57,14 +57,14 @@ output: Ok
                       Object
                         [Property
                            ({ Start = (Ln: 3, Col: 26)
-                              Stop = (Ln: 3, Col: 30) }, "x",
+                              Stop = (Ln: 3, Col: 30) }, String "x",
                             { Kind = Literal (Number 5.0)
                               Span = { Start = (Ln: 3, Col: 29)
                                        Stop = (Ln: 3, Col: 30) }
                               InferredType = None });
                          Property
                            ({ Start = (Ln: 3, Col: 32)
-                              Stop = (Ln: 3, Col: 37) }, "y",
+                              Stop = (Ln: 3, Col: 37) }, String "y",
                             { Kind = Literal (Number 10.0)
                               Span = { Start = (Ln: 3, Col: 35)
                                        Stop = (Ln: 3, Col: 37) }

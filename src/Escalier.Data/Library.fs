@@ -19,6 +19,19 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
+  type PropKey =
+    | String of string
+    | Number of float
+    | Symbol of int // symbol id
+
+    override this.ToString() =
+      match this with
+      // TODO: check if `value` is a valid identifier or not and output a
+      // computed property if it isn't.
+      | String value -> $"{value}"
+      | Number value -> $"[{value}]"
+      | Symbol id -> $"[Symbol({id})]"
+
   type MappedModifier =
     | Add
     | Remove
@@ -70,7 +83,10 @@ module Syntax =
   type ObjElem =
     // TODO: Add syntax for specifying callables
     // TODO: Add support for getters, setters, and methods
-    | Property of span: Span * key: string * value: Expr
+    | Property of span: Span * key: Common.PropKey * value: Expr
+    // NOTE: using PropKey here doesn't make sense because numbers aren't
+    // valid identifiers and symbols can only be reference by computed properties
+    // TODO: handle computed properties
     | Shorthand of span: Span * key: string
     | Spread of span: Span * value: Expr
 
@@ -463,10 +479,8 @@ module Type =
 
       $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
 
-  type ObjKey = string // TODO
-
   type Property =
-    { Name: ObjKey
+    { Key: Common.PropKey
       Optional: bool
       Readonly: bool
       Type: Type }
@@ -474,9 +488,9 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: ObjKey * is_mut: bool * fn: Function
-    | Getter of name: ObjKey * return_type: Type * throws: Type
-    | Setter of name: ObjKey * param: FuncParam * throws: Type
+    | Method of name: Common.PropKey * is_mut: bool * fn: Function
+    | Getter of name: Common.PropKey * return_type: Type * throws: Type
+    | Setter of name: Common.PropKey * param: FuncParam * throws: Type
     | Mapped of Mapped
     | Property of Property
 
@@ -506,34 +520,30 @@ module Type =
 
         sb.ToString()
       | Getter(name, return_type, throws) ->
-        sprintf
-          "get %s() -> %s%s"
-          name
-          (return_type.ToString())
-          (if throws.Kind = TypeKind.Keyword Keyword.Never then
-             ""
-           else
-             " throws " + throws.ToString())
+        let throws =
+          if throws.Kind = TypeKind.Keyword Keyword.Never then
+            ""
+          else
+            $" throws {throws}"
+
+        $"get {name}() -> {return_type}{throws}"
       | Setter(name, param, throws) ->
-        sprintf
-          "set %s(%s)%s"
-          name
-          (param.ToString())
-          (if throws.Kind = TypeKind.Keyword Keyword.Never then
-             ""
-           else
-             " throws " + throws.ToString())
+        let throws =
+          if throws.Kind = TypeKind.Keyword Keyword.Never then
+            ""
+          else
+            $" throws {throws}"
+
+        $"set {name}({param}){throws}"
       | Mapped(mapped) -> mapped.ToString()
-      | Property { Name = name
+      | Property { Key = name
                    Optional = optional
                    Readonly = readonly
                    Type = type_ } ->
-        sprintf
-          "%s%s%s: %s"
-          (if optional then "optional " else "")
-          (if readonly then "readonly " else "")
-          name
-          (type_.ToString())
+        let optional = if optional then "?" else ""
+        let readonly = if readonly then "readonly " else ""
+
+        $"{readonly}{name}{optional}: {type_}"
 
   [<RequireQualifiedAccess>]
   type TypeKind =
@@ -613,7 +623,7 @@ module Type =
           List.map
             (fun (elem: ObjTypeElem) ->
               match elem with
-              | Property { Name = name
+              | Property { Key = name
                            Optional = optional
                            Readonly = readonly
                            Type = type_ } ->

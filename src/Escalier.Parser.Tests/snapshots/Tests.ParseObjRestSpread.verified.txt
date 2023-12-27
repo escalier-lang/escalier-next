@@ -20,21 +20,21 @@ output: Ok
                       Object
                         [Property
                            ({ Start = (Ln: 2, Col: 16)
-                              Stop = (Ln: 2, Col: 20) }, "a",
+                              Stop = (Ln: 2, Col: 20) }, String "a",
                             { Kind = Literal (Number 5.0)
                               Span = { Start = (Ln: 2, Col: 19)
                                        Stop = (Ln: 2, Col: 20) }
                               InferredType = None });
                          Property
                            ({ Start = (Ln: 2, Col: 22)
-                              Stop = (Ln: 2, Col: 32) }, "b",
+                              Stop = (Ln: 2, Col: 32) }, String "b",
                             { Kind = Literal (String "hello")
                               Span = { Start = (Ln: 2, Col: 25)
                                        Stop = (Ln: 2, Col: 32) }
                               InferredType = None });
                          Property
                            ({ Start = (Ln: 2, Col: 34)
-                              Stop = (Ln: 2, Col: 41) }, "c",
+                              Stop = (Ln: 2, Col: 41) }, String "c",
                             { Kind = Literal (Boolean true)
                               Span = { Start = (Ln: 2, Col: 37)
                                        Stop = (Ln: 2, Col: 41) }

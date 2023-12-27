@@ -205,8 +205,10 @@ module Parser =
     <| fun start key value stop ->
       let span = { Start = start; Stop = stop }
 
+      // TODO: handle parsing computed properties
       match value with
-      | Some(value) -> ObjElem.Property(span = span, key = key, value = value)
+      | Some(value) ->
+        ObjElem.Property(span = span, key = PropKey.String key, value = value)
       | None -> ObjElem.Shorthand(span = span, key = key)
 
   let objElemSpread: Parser<ObjElem, unit> =

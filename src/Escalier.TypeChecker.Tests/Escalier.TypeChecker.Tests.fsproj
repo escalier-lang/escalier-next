@@ -15,6 +15,7 @@
         <Compile Include="AsyncAwait.fs"/>
         <Compile Include="Exceptions.fs"/>
         <Compile Include="Symbol.fs"/>
+        <Compile Include="ArrayTuple.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
 

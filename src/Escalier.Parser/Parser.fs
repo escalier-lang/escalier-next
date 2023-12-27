@@ -59,6 +59,8 @@ module Parser =
     : Parser<list<FuncParam<'A>>, unit> =
     between (strWs "(") (strWs ")") (sepBy (funcParam opt_or_id) (strWs ","))
 
+  // TODO: provide a way to control wehther default values for params are allowed
+  // opt_or_id controls whether the type annotation is optional or not
   let funcSig<'A>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
     : Parser<FuncSig<'A>, unit> =
@@ -580,6 +582,7 @@ module Parser =
         InferredType = None }
 
   let private keywordTypeAnn =
+    let mutable unique = false
 
     let keyword =
       choice
@@ -596,6 +599,20 @@ module Parser =
     withSpan keyword
     |>> fun (keyword, span) ->
       { TypeAnn.Kind = TypeAnnKind.Keyword(keyword)
+        Span = span
+        InferredType = None }
+
+  // unique symbols are similar to schemes.  The type annotation is like
+  // the scheme and when we infer the type annotation, we instantiate it
+  // and create an id for it at that time.
+  // in particular, when calling `new Symbol()` we need to create a new id
+  // at that point in time.  maybe all `unique symbol`s that appear in a
+  // function signature should get their own type variable (or whatever the
+  // symbol equivalent of that is)
+  let private uniqueSymbolTypeAnn =
+    withSpan (strWs "unique" >>. strWs "symbol")
+    |>> fun (_, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
         Span = span
         InferredType = None }
 
@@ -671,11 +688,19 @@ module Parser =
           Readonly = readonly
           Optional = optional }
 
-  let private objTypeAnnElem = choice [ propertyTypeAnn; mappedTypeAnn ]
+  let private callableSignature =
+    pipe4 getPosition (opt (strWs "new")) (funcSig id) getPosition
+    <| fun start newable funcSig stop ->
+      match newable with
+      | Some _ -> ObjTypeAnnElem.Constructor(funcSig)
+      | None -> ObjTypeAnnElem.Callable(funcSig)
+
+  let private objTypeAnnElem =
+    choice [ attempt callableSignature; attempt propertyTypeAnn; mappedTypeAnn ]
 
   let private objectTypeAnn =
     withSpan (
-      between (strWs "{") (strWs "}") (sepBy objTypeAnnElem (strWs ","))
+      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
     )
     |>> fun (objElems, span) ->
       { TypeAnn.Kind = TypeAnnKind.Object(objElems)
@@ -717,7 +742,6 @@ module Parser =
             <| fun check extends -> (check, extends)))
       (strWs "{" >>. typeAnn .>> strWs "}")
       (strWs "else" >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
-      // strWs "{" >>. typeAnn .>> strWs "}")
       getPosition
     <| fun start (check, extends) trueType falseType stop ->
       { TypeAnn.Kind =
@@ -745,6 +769,7 @@ module Parser =
       [ litTypeAnn
         parenthesizedTypeAnn
         keywordTypeAnn // aka PredefinedType
+        uniqueSymbolTypeAnn
         tupleTypeAnn
         funcTypeAnn
         typeofTypeAnn // aka TypeQuery
@@ -840,6 +865,11 @@ module Parser =
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =
     match run expr input with
+    | ParserResult.Success(result, _, _) -> Result.Ok(result)
+    | ParserResult.Failure(_, error, _) -> Result.Error(error)
+
+  let parseTypeAnn (input: string) : Result<TypeAnn, ParserError> =
+    match run typeAnn input with
     | ParserResult.Success(result, _, _) -> Result.Ok(result)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 

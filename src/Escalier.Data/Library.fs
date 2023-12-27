@@ -210,8 +210,8 @@ module Syntax =
 
   // TODO: add location information
   type ObjTypeAnnElem =
-    | Callable of Function
-    | Constructor of Function
+    | Callable of FunctionType
+    | Constructor of FunctionType
     | Method of name: string * is_mut: bool * type_: Function
     | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
     | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
@@ -223,6 +223,7 @@ module Syntax =
     | Number
     | String
     | Symbol
+    | UniqueSymbol
     | Null
     | Undefined
     | Unknown
@@ -544,6 +545,7 @@ module Type =
     | Object of list<ObjTypeElem>
     | Rest of Type
     | Literal of Common.Literal
+    | UniqueSymbol of int
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
     | Tuple of list<Type>

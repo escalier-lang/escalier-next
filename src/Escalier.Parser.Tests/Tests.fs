@@ -383,3 +383,16 @@ let ParsePatternMatching () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseCallableType () =
+  let src =
+    """{
+      new fn () -> symbol,
+      fn () -> symbol,
+    }"""
+
+  let ast = Parser.parseTypeAnn src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

@@ -18,19 +18,28 @@ module rec Env =
     ) =
     // let baseDir = baseDir
     // let filesystem = filesystem
-    let mutable nextVariableId = 0
+    let mutable nextTypeVarId = 0
+    let mutable nextSymboldId = 0
     let mutable diagnostics: list<Diagnostic> = []
 
     member this.FreshTypeVar(bound: option<Type>) =
       let newVar =
-        { Id = nextVariableId
+        { Id = nextTypeVarId
           Bound = bound
           Instance = None }
 
-      nextVariableId <- nextVariableId + 1
+      nextTypeVarId <- nextTypeVarId + 1
 
       { Kind = TypeKind.TypeVar newVar
         Provenance = None }
+
+    member this.FreshSymbol() =
+      let newSymbol =
+        { Kind = TypeKind.UniqueSymbol nextSymboldId
+          Provenance = None }
+
+      nextSymboldId <- nextSymboldId + 1
+      newSymbol
 
     member this.AddDiagnostic(diagnostic: Diagnostic) =
       diagnostics <- diagnostic :: diagnostics

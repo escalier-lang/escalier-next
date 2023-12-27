@@ -1,13 +1,12 @@
 module AsyncAwait
 
-open FParsec
 open FsToolkit.ErrorHandling
+open System.IO.Abstractions.TestingHelpers
 open Xunit
 
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
-open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Infer
 
 type Assert with
@@ -20,19 +19,15 @@ type Assert with
     let scheme = Map.find name env.Schemes
     Assert.Equal(expected, scheme.ToString())
 
-type CompileError =
-  | ParseError of ParserError
-  | TypeError of TypeError
+type CompileError = Prelude.CompileError
 
 
 let inferScript src =
   result {
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-    let env = Prelude.getEnv ()
-
-    let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    let mockFileSystem = MockFileSystem()
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! env =
       inferScript ctx env "input.esc" ast

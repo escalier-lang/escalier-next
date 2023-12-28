@@ -891,8 +891,18 @@ module Parser =
       { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
+  let declare: Parser<ModuleItem, unit> =
+    pipe4
+      getPosition
+      (strWs "declare" >>. strWs "let" >>. pattern)
+      (strWs ":" >>. ws >>. typeAnn)
+      getPosition
+    <| fun start pattern typeAnn stop -> ModuleItem.DeclareLet(pattern, typeAnn)
+
   let private moduleItem: Parser<ModuleItem, unit> =
-    ws >>. choice [ import |>> ModuleItem.Import; _stmt |>> ModuleItem.Stmt ]
+    ws
+    >>. choice
+      [ import |>> ModuleItem.Import; declare; _stmt |>> ModuleItem.Stmt ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =

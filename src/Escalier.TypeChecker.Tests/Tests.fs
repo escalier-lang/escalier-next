@@ -899,3 +899,14 @@ let BasicPatternMatchingInferExpr () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferDeclare () =
+  let result =
+    result {
+      let src = "declare let x: number"
+      let! _, env = inferScript src
+      Assert.Value(env, "x", "number")
+    }
+
+  Assert.False(Result.isError result)

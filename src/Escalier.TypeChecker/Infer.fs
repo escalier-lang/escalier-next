@@ -693,7 +693,10 @@ module rec Infer =
         | TypeAnnKind.Rest target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.Rest
         | TypeAnnKind.Typeof target ->
-          return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Typeof") // TODO: add Typeof to TypeKind
+          // TODO: limit what's allowed as a target of `typeof` so that we're
+          // compatible with TypeScript
+          let! t = inferExpr ctx env target
+          return t.Kind
         | TypeAnnKind.Index(target, index) ->
           let! target = inferTypeAnn ctx env target
           let! index = inferTypeAnn ctx env index

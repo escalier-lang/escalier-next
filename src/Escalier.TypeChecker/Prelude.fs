@@ -274,21 +274,20 @@ module Prelude =
           (fun ctx filename import -> resolvePath baseDir filename import.Path)
         )
 
-      let! symbolTypeAnn =
-        Parser.parseTypeAnn
-          """{
-            iterator: unique symbol
-          }"""
-        |> Result.mapError CompileError.ParseError
-
-      let! symbolType =
-        Infer.inferTypeAnn ctx env symbolTypeAnn
-        |> Result.mapError CompileError.TypeError
-
-      let env = env.AddValue "Symbol" (symbolType, false)
-
       let prelude =
         """
+        let Symbol = {
+          asyncIterator: unique symbol
+          iterator: unique symbol
+          match: unique symbol
+          matchAll: unique symbol
+          replace: unique symbol
+          search: unique symbol
+          species: unique symbol
+          split: unique symbol
+          toPrimitive: unique symbol
+          toStringTag: unique symbol
+        }
         type Iterator<T> = {
           next: fn () -> { done: boolean, value: T }
         }

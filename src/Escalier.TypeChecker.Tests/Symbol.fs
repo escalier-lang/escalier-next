@@ -37,23 +37,33 @@ let inferScript src =
   }
 
 [<Fact>]
-let InfersSymbolConstruction () =
+let InfersTypeofWellknownSymbol () =
   let res =
     result {
       let src =
         """
-        let foo = fn (x) {
-          if x < 0 {
-            throw "RangeError"
-          }
-          return x
-        }
+        let iterator: typeof Symbol.iterator = Symbol.iterator
         """
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn (x: number) -> number throws \"RangeError\"")
+      Assert.Value(env, "iterator", "symbol()")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersSymbolsAreUnique () =
+  let res =
+    result {
+      let src =
+        """
+        let iterator: Symbol.match = Symbol.iterator
+        """
+
+      let! _, _ = inferScript src
+
+      ()
+    }
+
+  Assert.True(Result.isError res)

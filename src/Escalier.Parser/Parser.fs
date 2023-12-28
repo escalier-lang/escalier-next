@@ -502,9 +502,29 @@ module Parser =
           )
         Span = span }
 
-  // TODO: Parse for-loops
-  stmtRef.Value <- ws >>. choice [ varDecl; typeDecl; returnStmt; exprStmt ]
+  let private forLoop =
+    pipe5
+      getPosition
+      (strWs "for" >>. pattern)
+      (strWs "in" >>. expr)
+      (ws >>. block)
+      getPosition
+    <| fun start pattern expr body stop ->
+      { Stmt.Kind = For(pattern, expr, body)
+        Span = { Start = start; Stop = stop } }
 
+  let _stmt =
+    choice
+      [ varDecl
+        typeDecl
+        returnStmt
+        forLoop
+
+        // exprStmt must come last because it can recognize any alphanumeric
+        // sequence as an identifier which is a valid expression
+        exprStmt ]
+
+  stmtRef.Value <- ws >>. _stmt
 
   let private identPattern =
     withSpan ident
@@ -856,13 +876,7 @@ module Parser =
         Specifiers = Option.defaultValue [] specifiers }
 
   let private moduleItem: Parser<ModuleItem, unit> =
-    ws
-    >>. choice
-      [ import |>> ModuleItem.Import
-        varDecl |>> ModuleItem.Stmt
-        typeDecl |>> ModuleItem.Stmt
-        returnStmt |>> ModuleItem.Stmt
-        exprStmt |>> ModuleItem.Stmt ]
+    ws >>. choice [ import |>> ModuleItem.Import; _stmt |>> ModuleItem.Stmt ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =

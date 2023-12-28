@@ -117,3 +117,26 @@ let InferArrayIndexing () =
 
   printfn "res = %A" res
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferForIn () =
+  let res =
+    result {
+      let src =
+        """
+        for x in [1, 2, 3] {
+          let y: number = x
+        }
+        let array: number[] = [1, 2, 3]
+        for x in array {
+          let y: number = x
+        }
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

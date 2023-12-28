@@ -937,7 +937,25 @@ module rec Infer =
         let! _ = inferExpr ctx env expr
         return env
       | StmtKind.For(pattern, right, block) ->
-        return! Error(TypeError.NotImplemented "TODO: infer for")
+        let! patBindings, patType = inferPattern ctx env pattern
+        let! rightType = inferExpr ctx env right
+
+        // TODO: lookup Symbol.iterator on rightType instead
+        let elemType =
+          match rightType.Kind with
+          | TypeKind.Array elemType -> elemType
+          | TypeKind.Tuple elemTypes -> union elemTypes
+          | _ -> failwith "TODO: for loop over non-iterable type"
+
+        do! unify ctx env elemType patType
+
+        let mutable newEnv = env
+
+        for KeyValue(name, binding) in patBindings do
+          newEnv <- newEnv.AddValue name binding
+
+        let! _ = inferBlock ctx newEnv block
+        return env
       | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
         let! patBindings, patType = inferPattern ctx env pattern
         let mutable newEnv = env

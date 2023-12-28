@@ -1156,6 +1156,18 @@ module rec Infer =
           { env with
               Values = FSharpPlus.Map.union env.Values imports.Values
               Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+      | DeclareLet(name, typeAnn) ->
+        let! typeAnnType = inferTypeAnn ctx env typeAnn
+        let! assump, patType = inferPattern ctx env name
+
+        do! unify ctx env typeAnnType patType
+
+        let mutable newEnv = env
+
+        for binding in assump do
+          newEnv <- newEnv.AddValue binding.Key binding.Value
+
+        return newEnv
       | Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 

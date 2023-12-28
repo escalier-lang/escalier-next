@@ -1,0 +1,26 @@
+﻿input: 
+    declare let foo: number
+    declare let bar: string
+    
+output: Ok
+  { Items =
+     [DeclareLet ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 17)
+                                                 Stop = (Ln: 2, Col: 20) }
+                                        Name = "foo"
+                                        IsMut = false }
+                    Span = { Start = (Ln: 2, Col: 17)
+                             Stop = (Ln: 2, Col: 20) }
+                    InferredType = None }, { Kind = Keyword Number
+                                             Span = { Start = (Ln: 2, Col: 22)
+                                                      Stop = (Ln: 3, Col: 5) }
+                                             InferredType = None });
+      DeclareLet ({ Kind = Identifier { Span = { Start = (Ln: 3, Col: 17)
+                                                 Stop = (Ln: 3, Col: 20) }
+                                        Name = "bar"
+                                        IsMut = false }
+                    Span = { Start = (Ln: 3, Col: 17)
+                             Stop = (Ln: 3, Col: 20) }
+                    InferredType = None }, { Kind = Keyword String
+                                             Span = { Start = (Ln: 3, Col: 22)
+                                                      Stop = (Ln: 4, Col: 5) }
+                                             InferredType = None })] }

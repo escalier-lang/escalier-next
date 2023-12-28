@@ -295,6 +295,7 @@ module Syntax =
 
   type ModuleItem =
     | Import of Import
+    | DeclareLet of name: Pattern * typeAnn: TypeAnn
     | Stmt of Stmt
 
   type Module = { Items: list<ModuleItem> }

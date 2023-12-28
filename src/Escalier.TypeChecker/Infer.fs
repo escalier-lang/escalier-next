@@ -361,6 +361,18 @@ module rec Infer =
           // of its type.
           do! unify ctx env (union patternTypes) exprType
           return (union bodyTypes)
+        | ExprKind.Index(target, index, optChain) ->
+          let! target = inferExpr ctx env target
+          let! index = inferExpr ctx env index
+
+          let key =
+            match index.Kind with
+            | TypeKind.Literal(Literal.Number i) -> PropKey.Number i
+            | TypeKind.Literal(Literal.String s) -> PropKey.String s
+            | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+            | _ -> failwith "TODO: index must be a number or string"
+
+          return getPropType ctx env target key optChain
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -377,11 +389,6 @@ module rec Infer =
         t)
       r
 
-  // There are four possible types of keys:
-  // - identifier
-  // - string literal
-  // - number literal
-  // - symbol literal
   let getPropType
     (ctx: Ctx)
     (env: Env)
@@ -456,11 +463,42 @@ module rec Infer =
           union [ t; undefined ]
         | _ -> failwith "TODO: lookup member on union type"
     | TypeKind.Tuple elems ->
-      if key = PropKey.String "length" then
+      match key with
+      | PropKey.String "length" ->
         { Kind = TypeKind.Literal(Literal.Number(float elems.Length))
           Provenance = None }
-      else
+      | PropKey.Number i ->
+        if i >= 0 && i < elems.Length then
+          elems.[int i]
+        else
+          // TODO: report a diagnost about the index being out of range
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Provenance = None }
+      | _ ->
+        let arrayScheme =
+          match env.Schemes.TryFind "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+        // TODO: lookup keys in array prototype
         failwith "TODO: lookup member on tuple type"
+    | TypeKind.Array elemType ->
+      match key with
+      | PropKey.String "length" ->
+        { Kind = TypeKind.Primitive Primitive.Number
+          Provenance = None }
+      | PropKey.Number _ ->
+        let unknown =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Provenance = None }
+
+        union [ elemType; unknown ]
+      | _ ->
+        let arrayScheme =
+          match env.Schemes.TryFind "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+        // TODO: lookup keys in array prototype
+        failwith "TODO: lookup member on array type"
     // TODO: intersection types
     | _ -> failwith $"TODO: lookup member on type - {t}"
 

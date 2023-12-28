@@ -53,3 +53,67 @@ let InferTupleLength () =
 
   printfn "res = %A" res
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferArrayLength () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple: number[] = [1, 2, 3]
+        let length = tuple.length
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "length", "number")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferTupleIndexing () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = [5, "hello", true]
+        let first = tuple[0]
+        let second = tuple[1]
+        let third = tuple[2]
+        let fourth = tuple[3]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "first", "5")
+      Assert.Value(env, "second", "\"hello\"")
+      Assert.Value(env, "third", "true")
+      Assert.Value(env, "fourth", "undefined")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferArrayIndexing () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple: number[] = [1, 2, 3]
+        let first = tuple[0]
+        let second = tuple[1]
+        let third = tuple[2]
+        let fourth = tuple[3]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "first", "number | undefined")
+      Assert.Value(env, "fourth", "number | undefined")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

@@ -658,6 +658,8 @@ module Type =
       | TypeKind.KeyOf t -> $"keyof {t}"
       // TODO: handle operator precedence
       | TypeKind.Binary(left, op, right) -> $"{left} {op} {right}"
+      // TODO: include a description in symbol types
+      | TypeKind.UniqueSymbol _ -> $"symbol()"
       | _ ->
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"

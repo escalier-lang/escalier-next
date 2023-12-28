@@ -440,7 +440,7 @@ module rec Infer =
 
           union [ p.Type; undefined ]
         | false -> p.Type
-      | None -> failwithf $"Property {key} not found"
+      | None -> failwith $"Property {key} not found"
     | TypeKind.TypeRef { Name = typeRefName
                          Scheme = scheme
                          TypeArgs = typeArgs } ->
@@ -962,7 +962,28 @@ module rec Infer =
         let! patBindings, patType = inferPattern ctx env pattern
         let! rightType = inferExpr ctx env right
 
-        // TODO: lookup Symbol.iterator on rightType instead
+        let symbol =
+          match env.Values.TryFind "Symbol" with
+          | Some scheme -> fst scheme
+          | None -> failwith "Symbol not in scope"
+
+        let symbolIterator =
+          getPropType ctx env symbol (PropName.String "iterator") false
+
+        // TODO: only lookup Symbol.iterator on Array for arrays and tuples
+        let arrayScheme =
+          match env.Schemes.TryFind "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+
+        let propName =
+          match symbolIterator.Kind with
+          | TypeKind.UniqueSymbol id -> PropName.Symbol id
+          | _ -> failwith "Symbol.iterator is not a unique symbol"
+
+        // TODO: Update `getPropType` to return a Result<Type, TypeError>
+        getPropType ctx env arrayScheme.Type propName false |> ignore
+
         let elemType =
           match rightType.Kind with
           | TypeKind.Array elemType -> elemType

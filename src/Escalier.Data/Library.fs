@@ -19,19 +19,6 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  type PropKey =
-    | String of string
-    | Number of float
-    | Symbol of int // symbol id
-
-    override this.ToString() =
-      match this with
-      // TODO: check if `value` is a valid identifier or not and output a
-      // computed property if it isn't.
-      | String value -> $"{value}"
-      | Number value -> $"[{value}]"
-      | Symbol id -> $"[Symbol({id})]"
-
   type MappedModifier =
     | Add
     | Remove
@@ -80,10 +67,23 @@ module Syntax =
     { Parts: list<string>
       Exprs: list<Expr> }
 
+  type PropKey =
+    | Ident of string
+    | String of string
+    | Number of float
+    | Computed of Expr
+
+    override this.ToString() =
+      match this with
+      | Ident value -> $"{value}"
+      | String value -> $"\"{value}\""
+      | Number value -> $"[{value}]"
+      | Computed expr -> $"[{expr}]"
+
   type ObjElem =
     // TODO: Add syntax for specifying callables
     // TODO: Add support for getters, setters, and methods
-    | Property of span: Span * key: Common.PropKey * value: Expr
+    | Property of span: Span * key: PropKey * value: Expr
     // NOTE: using PropKey here doesn't make sense because numbers aren't
     // valid identifiers and symbols can only be reference by computed properties
     // TODO: handle computed properties
@@ -210,7 +210,7 @@ module Syntax =
   type Stmt = { Kind: StmtKind; Span: Span }
 
   type Property =
-    { Name: string
+    { Name: PropKey
       TypeAnn: TypeAnn
       Optional: bool
       Readonly: bool }
@@ -300,6 +300,19 @@ module Syntax =
   type Module = { Items: list<ModuleItem> }
 
 module Type =
+  type PropKey =
+    | String of string
+    | Number of float
+    | Symbol of int // symbol id
+
+    override this.ToString() =
+      match this with
+      // TODO: check if `value` is a valid identifier or not and output a
+      // computed property if it isn't.
+      | String value -> $"{value}"
+      | Number value -> $"[{value}]"
+      | Symbol id -> $"[Symbol({id})]"
+
   [<RequireQualifiedAccess>]
   type Provenance =
     | Type of Type
@@ -480,7 +493,7 @@ module Type =
       $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
 
   type Property =
-    { Key: Common.PropKey
+    { Key: PropKey
       Optional: bool
       Readonly: bool
       Type: Type }
@@ -488,9 +501,9 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: Common.PropKey * is_mut: bool * fn: Function
-    | Getter of name: Common.PropKey * return_type: Type * throws: Type
-    | Setter of name: Common.PropKey * param: FuncParam * throws: Type
+    | Method of name: PropKey * is_mut: bool * fn: Function
+    | Getter of name: PropKey * return_type: Type * throws: Type
+    | Setter of name: PropKey * param: FuncParam * throws: Type
     | Mapped of Mapped
     | Property of Property
 

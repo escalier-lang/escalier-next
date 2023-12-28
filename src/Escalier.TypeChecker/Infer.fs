@@ -41,6 +41,26 @@ module rec Infer =
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 
+  let inferPropKey
+    (ctx: Ctx)
+    (env: Env)
+    (key: Syntax.PropKey)
+    : Result<PropKey, TypeError> =
+    result {
+      match key with
+      | Syntax.PropKey.Ident value -> return PropKey.String value
+      | Syntax.PropKey.String value -> return PropKey.String value
+      | Syntax.PropKey.Number value -> return PropKey.Number value
+      | Syntax.PropKey.Computed value ->
+        let! t = inferExpr ctx env value
+
+        match t.Kind with
+        | TypeKind.Literal(Literal.String value) -> return PropKey.String value
+        | TypeKind.Literal(Literal.Number value) -> return PropKey.Number value
+        | TypeKind.UniqueSymbol id -> return PropKey.Symbol id
+        | _ -> return! Error(TypeError.SemanticError "Invalid key type")
+    }
+
   ///Computes the type of the expression given by node.
   ///The type of the node is computed in the context of the
   ///supplied type environment env. Data types can be introduced into the
@@ -230,6 +250,7 @@ module rec Infer =
                   match elem with
                   | ObjElem.Property(_span, key, value) ->
                     let! t = inferExpr ctx env value
+                    let! key = inferPropKey ctx env key
 
                     return
                       Some(
@@ -575,10 +596,11 @@ module rec Infer =
                                               Optional = optional
                                               Readonly = readonly } ->
                     let! t = inferTypeAnn ctx env typeAnn
+                    let! key = inferPropKey ctx env name
 
                     return
                       Property
-                        { Key = PropKey.String name
+                        { Key = key
                           Type = t
                           Optional = optional
                           Readonly = readonly }

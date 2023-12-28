@@ -287,5 +287,22 @@ module Prelude =
 
       let env = env.AddValue "Symbol" (symbolType, false)
 
+      let prelude =
+        """
+        type Iterator<T> = {
+          next: fn () -> { done: boolean, value: T }
+        }
+        type Array<T> = {
+          [Symbol.iterator]: fn () -> Iterator<T>
+        }
+        """
+
+      let! ast =
+        Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env entry ast
+        |> Result.mapError CompileError.TypeError
+
       return ctx, env
     }

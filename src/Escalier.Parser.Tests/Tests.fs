@@ -387,12 +387,30 @@ let ParsePatternMatching () =
 [<Fact>]
 let ParseCallableType () =
   let src =
-    """{
+    """
+    type Callable = {
       new fn () -> symbol,
       fn () -> symbol,
-    }"""
+    }
+    """
 
-  let ast = Parser.parseTypeAnn src
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParsePropKeysInObjectType () =
+  let src =
+    """
+    type Array = {
+      5: string,
+      "hello": number,
+      [Symbol.iterator]: fn () -> Iterator<T>,
+    }
+    """
+
+  let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

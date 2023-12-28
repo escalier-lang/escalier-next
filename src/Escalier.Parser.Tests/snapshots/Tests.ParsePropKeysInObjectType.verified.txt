@@ -1,0 +1,77 @@
+﻿input: 
+    type Array = {
+      5: string,
+      "hello": number,
+      [Symbol.iterator]: fn () -> Iterator<T>,
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  ("Array",
+                   { Kind =
+                      Object
+                        [Property
+                           { Name = Number 5.0
+                             TypeAnn = { Kind = Keyword String
+                                         Span = { Start = (Ln: 3, Col: 10)
+                                                  Stop = (Ln: 3, Col: 16) }
+                                         InferredType = None }
+                             Optional = false
+                             Readonly = false };
+                         Property
+                           { Name = String "hello"
+                             TypeAnn = { Kind = Keyword Number
+                                         Span = { Start = (Ln: 4, Col: 16)
+                                                  Stop = (Ln: 4, Col: 22) }
+                                         InferredType = None }
+                             Optional = false
+                             Readonly = false };
+                         Property
+                           { Name =
+                              Computed
+                                { Kind =
+                                   Member
+                                     ({ Kind = Identifier "Symbol"
+                                        Span = { Start = (Ln: 5, Col: 8)
+                                                 Stop = (Ln: 5, Col: 14) }
+                                        InferredType = None }, "iterator", false)
+                                  Span = { Start = (Ln: 5, Col: 8)
+                                           Stop = (Ln: 5, Col: 23) }
+                                  InferredType = None }
+                             TypeAnn =
+                              { Kind =
+                                 Function
+                                   { TypeParams = None
+                                     ParamList = []
+                                     ReturnType =
+                                      { Kind =
+                                         TypeRef
+                                           ("Iterator",
+                                            Some
+                                              [{ Kind = TypeRef ("T", None)
+                                                 Span =
+                                                  { Start = (Ln: 5, Col: 44)
+                                                    Stop = (Ln: 5, Col: 45) }
+                                                 InferredType = None }])
+                                        Span = { Start = (Ln: 5, Col: 35)
+                                                 Stop = (Ln: 5, Col: 46) }
+                                        InferredType = None }
+                                     Throws = None
+                                     IsAsync = false }
+                                Span = { Start = (Ln: 5, Col: 26)
+                                         Stop = (Ln: 5, Col: 46) }
+                                InferredType = None }
+                             Optional = false
+                             Readonly = false }]
+                     Span = { Start = (Ln: 2, Col: 18)
+                              Stop = (Ln: 7, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 7, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 7, Col: 5) } }] }

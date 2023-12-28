@@ -652,10 +652,17 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private propKey =
+    choice
+      [ ident |>> PropKey.String
+        pfloat .>> ws |>> PropKey.Number
+        _string .>> ws |>> PropKey.String
+        between (strWs "[") (strWs "]") expr |>> PropKey.Computed ]
+
   let private propertyTypeAnn =
     pipe5
       getPosition
-      ident
+      propKey
       (opt (strWs "?"))
       (strWs ":" >>. typeAnn)
       getPosition
@@ -718,7 +725,12 @@ module Parser =
       | None -> ObjTypeAnnElem.Callable(funcSig)
 
   let private objTypeAnnElem =
-    choice [ attempt callableSignature; attempt propertyTypeAnn; mappedTypeAnn ]
+    choice
+      [ attempt callableSignature
+        // mappedTypeAnn must come before propertyTypeAnn because computed
+        // properties conflicts with mapped types
+        attempt mappedTypeAnn
+        attempt propertyTypeAnn ]
 
   let private objectTypeAnn =
     withSpan (

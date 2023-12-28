@@ -15,7 +15,7 @@ output: Ok
                    { Kind =
                       Object
                         [Property
-                           { Name = "x"
+                           { Name = String "x"
                              TypeAnn = { Kind = Keyword Number
                                          Span = { Start = (Ln: 2, Col: 22)
                                                   Stop = (Ln: 2, Col: 28) }
@@ -23,7 +23,7 @@ output: Ok
                              Optional = false
                              Readonly = false };
                          Property
-                           { Name = "y"
+                           { Name = String "y"
                              TypeAnn = { Kind = Keyword Number
                                          Span = { Start = (Ln: 2, Col: 33)
                                                   Stop = (Ln: 2, Col: 39) }

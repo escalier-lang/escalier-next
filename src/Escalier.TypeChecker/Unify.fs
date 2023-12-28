@@ -30,9 +30,13 @@ module rec Unify =
       | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
       | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
       | TypeKind.Tuple elems1, TypeKind.Tuple elems2 ->
-        if List.length elems1 <> List.length elems2 then
+        // elems1 can have more elements than elems2 since it's a subtype
+        if List.length elems1 < List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
+        // List.map2 only works if the lists have the same length so make
+        // elems1 the same length as elems2
+        let elems1 = List.take elems2.Length elems1
         ignore (List.map2 (unify ctx env) elems1 elems2)
       | TypeKind.Array elemType1, TypeKind.Array elemType2 ->
         do! unify ctx env elemType1 elemType2

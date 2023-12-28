@@ -59,6 +59,8 @@ module Parser =
     : Parser<list<FuncParam<'A>>, unit> =
     between (strWs "(") (strWs ")") (sepBy (funcParam opt_or_id) (strWs ","))
 
+  // TODO: provide a way to control wehther default values for params are allowed
+  // opt_or_id controls whether the type annotation is optional or not
   let funcSig<'A>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
     : Parser<FuncSig<'A>, unit> =
@@ -200,12 +202,18 @@ module Parser =
 
   let objElemProperty: Parser<ObjElem, unit> =
     pipe4 getPosition ident (opt (strWs ":" >>. expr)) getPosition
-    <| fun start key value stop ->
+    <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 
+      // TODO: handle parsing computed properties
       match value with
-      | Some(value) -> ObjElem.Property(span = span, key = key, value = value)
-      | None -> ObjElem.Shorthand(span = span, key = key)
+      | Some(value) ->
+        ObjElem.Property(
+          span = span,
+          name = PropName.String name,
+          value = value
+        )
+      | None -> ObjElem.Shorthand(span = span, name = name)
 
   let objElemSpread: Parser<ObjElem, unit> =
     withSpan (strWs "..." >>. expr)
@@ -498,9 +506,29 @@ module Parser =
           )
         Span = span }
 
-  // TODO: Parse for-loops
-  stmtRef.Value <- ws >>. choice [ varDecl; typeDecl; returnStmt; exprStmt ]
+  let private forLoop =
+    pipe5
+      getPosition
+      (strWs "for" >>. pattern)
+      (strWs "in" >>. expr)
+      (ws >>. block)
+      getPosition
+    <| fun start pattern expr body stop ->
+      { Stmt.Kind = For(pattern, expr, body)
+        Span = { Start = start; Stop = stop } }
 
+  let _stmt =
+    choice
+      [ varDecl
+        typeDecl
+        returnStmt
+        forLoop
+
+        // exprStmt must come last because it can recognize any alphanumeric
+        // sequence as an identifier which is a valid expression
+        exprStmt ]
+
+  stmtRef.Value <- ws >>. _stmt
 
   let private identPattern =
     withSpan ident
@@ -539,14 +567,14 @@ module Parser =
 
   let private objPatKeyValueOrShorthand =
     pipe4 getPosition ident (opt (strWs ":" >>. (ws >>. pattern))) getPosition
-    <| fun start key value stop ->
+    <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 
       match value with
       | Some(value) ->
-        KeyValuePat(span = span, key = key, value = value, init = None)
+        KeyValuePat(span = span, key = name, value = value, init = None)
       | None ->
-        ShorthandPat(span = span, name = key, init = None, isMut = false)
+        ShorthandPat(span = span, name = name, init = None, isMut = false)
 
   let private objPatRestElem =
     withSpan (strWs "..." >>. pattern)
@@ -580,6 +608,7 @@ module Parser =
         InferredType = None }
 
   let private keywordTypeAnn =
+    let mutable unique = false
 
     let keyword =
       choice
@@ -599,6 +628,20 @@ module Parser =
         Span = span
         InferredType = None }
 
+  // unique symbols are similar to schemes.  The type annotation is like
+  // the scheme and when we infer the type annotation, we instantiate it
+  // and create an id for it at that time.
+  // in particular, when calling `new Symbol()` we need to create a new id
+  // at that point in time.  maybe all `unique symbol`s that appear in a
+  // function signature should get their own type variable (or whatever the
+  // symbol equivalent of that is)
+  let private uniqueSymbolTypeAnn =
+    withSpan (strWs "unique" >>. strWs "symbol")
+    |>> fun (_, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
+        Span = span
+        InferredType = None }
+
   let private tupleTypeAnn =
     tuple typeAnn |> withSpan
     |>> fun (typeAnns, span) ->
@@ -613,10 +656,17 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private propName =
+    choice
+      [ ident |>> PropName.String
+        pfloat .>> ws |>> PropName.Number
+        _string .>> ws |>> PropName.String
+        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
+
   let private propertyTypeAnn =
     pipe5
       getPosition
-      ident
+      propName
       (opt (strWs "?"))
       (strWs ":" >>. typeAnn)
       getPosition
@@ -671,11 +721,24 @@ module Parser =
           Readonly = readonly
           Optional = optional }
 
-  let private objTypeAnnElem = choice [ propertyTypeAnn; mappedTypeAnn ]
+  let private callableSignature =
+    pipe4 getPosition (opt (strWs "new")) (funcSig id) getPosition
+    <| fun start newable funcSig stop ->
+      match newable with
+      | Some _ -> ObjTypeAnnElem.Constructor(funcSig)
+      | None -> ObjTypeAnnElem.Callable(funcSig)
+
+  let private objTypeAnnElem =
+    choice
+      [ attempt callableSignature
+        // mappedTypeAnn must come before propertyTypeAnn because computed
+        // properties conflicts with mapped types
+        attempt mappedTypeAnn
+        attempt propertyTypeAnn ]
 
   let private objectTypeAnn =
     withSpan (
-      between (strWs "{") (strWs "}") (sepBy objTypeAnnElem (strWs ","))
+      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
     )
     |>> fun (objElems, span) ->
       { TypeAnn.Kind = TypeAnnKind.Object(objElems)
@@ -717,7 +780,6 @@ module Parser =
             <| fun check extends -> (check, extends)))
       (strWs "{" >>. typeAnn .>> strWs "}")
       (strWs "else" >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
-      // strWs "{" >>. typeAnn .>> strWs "}")
       getPosition
     <| fun start (check, extends) trueType falseType stop ->
       { TypeAnn.Kind =
@@ -745,6 +807,7 @@ module Parser =
       [ litTypeAnn
         parenthesizedTypeAnn
         keywordTypeAnn // aka PredefinedType
+        uniqueSymbolTypeAnn
         tupleTypeAnn
         funcTypeAnn
         typeofTypeAnn // aka TypeQuery
@@ -829,17 +892,16 @@ module Parser =
         Specifiers = Option.defaultValue [] specifiers }
 
   let private moduleItem: Parser<ModuleItem, unit> =
-    ws
-    >>. choice
-      [ import |>> ModuleItem.Import
-        varDecl |>> ModuleItem.Stmt
-        typeDecl |>> ModuleItem.Stmt
-        returnStmt |>> ModuleItem.Stmt
-        exprStmt |>> ModuleItem.Stmt ]
+    ws >>. choice [ import |>> ModuleItem.Import; _stmt |>> ModuleItem.Stmt ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =
     match run expr input with
+    | ParserResult.Success(result, _, _) -> Result.Ok(result)
+    | ParserResult.Failure(_, error, _) -> Result.Error(error)
+
+  let parseTypeAnn (input: string) : Result<TypeAnn, ParserError> =
+    match run typeAnn input with
     | ParserResult.Success(result, _, _) -> Result.Ok(result)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 

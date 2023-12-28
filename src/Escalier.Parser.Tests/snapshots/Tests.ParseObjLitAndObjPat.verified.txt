@@ -15,7 +15,7 @@ output: Ok
                    { Kind =
                       Object
                         [Property
-                           { Name = "x"
+                           { Name = String "x"
                              TypeAnn = { Kind = Keyword Number
                                          Span = { Start = (Ln: 2, Col: 22)
                                                   Stop = (Ln: 2, Col: 28) }
@@ -23,7 +23,7 @@ output: Ok
                              Optional = false
                              Readonly = false };
                          Property
-                           { Name = "y"
+                           { Name = String "y"
                              TypeAnn = { Kind = Keyword Number
                                          Span = { Start = (Ln: 2, Col: 33)
                                                   Stop = (Ln: 2, Col: 39) }
@@ -57,14 +57,14 @@ output: Ok
                       Object
                         [Property
                            ({ Start = (Ln: 3, Col: 26)
-                              Stop = (Ln: 3, Col: 30) }, "x",
+                              Stop = (Ln: 3, Col: 30) }, String "x",
                             { Kind = Literal (Number 5.0)
                               Span = { Start = (Ln: 3, Col: 29)
                                        Stop = (Ln: 3, Col: 30) }
                               InferredType = None });
                          Property
                            ({ Start = (Ln: 3, Col: 32)
-                              Stop = (Ln: 3, Col: 37) }, "y",
+                              Stop = (Ln: 3, Col: 37) }, String "y",
                             { Kind = Literal (Number 10.0)
                               Span = { Start = (Ln: 3, Col: 35)
                                        Stop = (Ln: 3, Col: 37) }

@@ -2,6 +2,7 @@ module Tests
 
 open FParsec
 open FsToolkit.ErrorHandling
+open System.IO.Abstractions.TestingHelpers
 open Xunit
 
 open Escalier.Data.Type
@@ -22,9 +23,7 @@ type Assert with
     let scheme = Map.find name env.Schemes
     Assert.Equal(expected, scheme.ToString())
 
-type CompileError =
-  | ParseError of ParserError
-  | TypeError of TypeError
+type CompileError = Prelude.CompileError
 
 let infer src =
   result {
@@ -34,10 +33,8 @@ let infer src =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let env = Prelude.getEnv ()
-
-    let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    let mockFileSystem = MockFileSystem()
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 
@@ -48,10 +45,8 @@ let inferScript src =
   result {
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-    let env = Prelude.getEnv ()
-
-    let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    let mockFileSystem = MockFileSystem()
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! env =
       inferScript ctx env "input.esc" ast

@@ -12,17 +12,17 @@ output: Ok
                    { Kind =
                       Object
                         [Property
-                           { Name = "a"
+                           { Name = String "a"
                              TypeAnn =
                               { Kind =
                                  Object
                                    [Property
-                                      { Name = "b"
+                                      { Name = String "b"
                                         TypeAnn =
                                          { Kind =
                                             Object
                                               [Property
-                                                 { Name = "c"
+                                                 { Name = String "c"
                                                    TypeAnn =
                                                     { Kind = Keyword Number
                                                       Span =

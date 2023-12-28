@@ -8,7 +8,6 @@ open Escalier.Data.Common
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Unify
-open Escalier.TypeChecker.Prelude
 open Escalier.Interop.TypeScript
 
 // NOTES:
@@ -19,6 +18,10 @@ open Escalier.Interop.TypeScript
 //   a time
 
 module rec Infer =
+  let never =
+    { Kind = TypeKind.Keyword Keyword.Never
+      Provenance = None }
+
   let rec printTsEntityName (name: TsEntityName) : string =
     match name with
     | TsEntityName.Identifier id -> id.Name
@@ -96,17 +99,17 @@ module rec Infer =
       ObjTypeElem.Constructor f
     | TsPropertySignature tsPropertySignature ->
       // TODO: handle computed keys
-      let name =
+      let key =
         match tsPropertySignature.Key with
-        | Expr.Ident id -> id.Name
-        | Expr.Lit(Lit.Str str) -> str.Value
-        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let t = inferTsTypeAnn ctx env tsPropertySignature.TypeAnn
 
       let property =
-        { Name = name
+        { Name = key
           Optional = tsPropertySignature.Optional
           Readonly = tsPropertySignature.Readonly
           Type = t }
@@ -114,11 +117,11 @@ module rec Infer =
       ObjTypeElem.Property(property)
     | TsGetterSignature tsGetterSignature ->
       // TODO: handle computed keys
-      let name =
+      let key =
         match tsGetterSignature.Key with
-        | Expr.Ident id -> id.Name
-        | Expr.Lit(Lit.Str str) -> str.Value
-        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let returnType =
@@ -130,14 +133,14 @@ module rec Infer =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
-      ObjTypeElem.Getter(name, returnType, throws)
+      ObjTypeElem.Getter(key, returnType, throws)
     | TsSetterSignature tsSetterSignature ->
       // TODO: handle computed keys
-      let name =
+      let key =
         match tsSetterSignature.Key with
-        | Expr.Ident id -> id.Name
-        | Expr.Lit(Lit.Str str) -> str.Value
-        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let param = inferFnParam ctx env tsSetterSignature.Param
@@ -146,13 +149,13 @@ module rec Infer =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
-      ObjTypeElem.Setter(name, param, throws)
+      ObjTypeElem.Setter(key, param, throws)
     | TsMethodSignature tsMethodSignature ->
-      let name =
+      let key =
         match tsMethodSignature.Key with
-        | Expr.Ident id -> id.Name
-        | Expr.Lit(Lit.Str str) -> str.Value
-        | Expr.Lit(Lit.Num num) -> num.Value |> string
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let typeParams = None // TODO: handle type params
@@ -175,7 +178,7 @@ module rec Infer =
           Return = returnType
           Throws = throws }
 
-      ObjTypeElem.Method(name, false, f)
+      ObjTypeElem.Method(key, false, f)
     | TsIndexSignature tsIndexSignature ->
       let readonly =
         match tsIndexSignature.Readonly with

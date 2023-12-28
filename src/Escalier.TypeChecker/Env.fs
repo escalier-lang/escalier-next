@@ -18,19 +18,28 @@ module rec Env =
     ) =
     // let baseDir = baseDir
     // let filesystem = filesystem
-    let mutable nextVariableId = 0
+    let mutable nextTypeVarId = 0
+    let mutable nextSymboldId = 0
     let mutable diagnostics: list<Diagnostic> = []
 
     member this.FreshTypeVar(bound: option<Type>) =
       let newVar =
-        { Id = nextVariableId
+        { Id = nextTypeVarId
           Bound = bound
           Instance = None }
 
-      nextVariableId <- nextVariableId + 1
+      nextTypeVarId <- nextTypeVarId + 1
 
       { Kind = TypeKind.TypeVar newVar
         Provenance = None }
+
+    member this.FreshSymbol() =
+      let newSymbol =
+        { Kind = TypeKind.UniqueSymbol nextSymboldId
+          Provenance = None }
+
+      nextSymboldId <- nextSymboldId + 1
+      newSymbol
 
     member this.AddDiagnostic(diagnostic: Diagnostic) =
       diagnostics <- diagnostic :: diagnostics
@@ -328,8 +337,16 @@ module rec Env =
             let keys =
               keys
               |> List.map (fun key ->
-                { Kind = TypeKind.Literal(Literal.String key)
-                  Provenance = None }) // TODO: set provenance
+                match key with
+                | PropName.String s ->
+                  { Kind = TypeKind.Literal(Literal.String s)
+                    Provenance = None }
+                | PropName.Number n ->
+                  { Kind = TypeKind.Literal(Literal.Number n)
+                    Provenance = None }
+                | PropName.Symbol id ->
+                  { Kind = TypeKind.UniqueSymbol id
+                    Provenance = None })
 
             union keys
           | _ -> failwith "TODO: expand keyof"
@@ -337,18 +354,25 @@ module rec Env =
           let target = this.ExpandType unify target
           let index = this.ExpandType unify index
 
-          match target.Kind, index.Kind with
-          | TypeKind.Object elems, TypeKind.Literal(Literal.String name) ->
+          let key =
+            match index.Kind with
+            | TypeKind.Literal(Literal.String s) -> PropName.String s
+            | TypeKind.Literal(Literal.Number n) -> PropName.Number n
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+            | _ -> failwith "TODO: expand index - key type"
+
+          match target.Kind with
+          | TypeKind.Object elems ->
             let mutable t = None
 
             for elem in elems do
               match elem with
-              | Property p when p.Name = name -> t <- Some(p.Type)
+              | Property p when p.Name = key -> t <- Some(p.Type)
               | _ -> ()
 
             match t with
             | Some t -> t
-            | None -> failwithf $"Property {name} not found"
+            | None -> failwithf $"Property {key} not found"
           | _ ->
             // TODO: Handle the case where the type is a primitive and use a
             // special function to expand the type
@@ -378,6 +402,15 @@ module rec Env =
                   let elems =
                     types
                     |> List.map (fun keyType ->
+                      // let key =
+                      //   match keyType.Kind with
+                      //   | TypeKind.Literal(Literal.String s) ->
+                      //     PropKey.String s
+                      //   | TypeKind.Literal(Literal.Number n) ->
+                      //     PropKey.Number n
+                      //   | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+                      //   | _ -> failwith "TODO: expand mapped type - key type"
+
                       match keyType.Kind with
                       | TypeKind.Literal(Literal.String name) ->
                         let typeAnn = m.TypeAnn
@@ -393,7 +426,7 @@ module rec Env =
                         let typeAnn = foldType folder typeAnn
 
                         Property
-                          { Name = name
+                          { Name = PropName.String name
                             Type = this.ExpandType unify typeAnn
                             Optional = false // TODO
                             Readonly = false // TODO
@@ -416,7 +449,7 @@ module rec Env =
                   let typeAnn = foldType folder typeAnn
 
                   [ Property
-                      { Name = key
+                      { Name = PropName.String key
                         Type = this.ExpandType unify typeAnn
                         Optional = false // TODO
                         Readonly = false // TODO
@@ -443,84 +476,6 @@ module rec Env =
         | _ -> t
 
       expand t
-
-    member this.GetPropType
-      (unify: Env -> Type -> Type -> Result<unit, TypeError>)
-      (env: Env)
-      (t: Type)
-      (name: string)
-      (optChain: bool)
-      : Type =
-      let t = prune t
-
-      match t.Kind with
-      | TypeKind.Object elems ->
-        let elems =
-          List.choose
-            (fun (elem: ObjTypeElem) ->
-              match elem with
-              | Property p -> Some(p.Name, p)
-              | _ -> None)
-            elems
-          |> Map.ofList
-
-        match elems.TryFind name with
-        | Some(p) ->
-          match p.Optional with
-          | true ->
-            let undefined =
-              { Kind = TypeKind.Literal(Literal.Undefined)
-                Provenance = None }
-
-            union [ p.Type; undefined ]
-          | false -> p.Type
-        | None -> failwithf $"Property {name} not found"
-      | TypeKind.TypeRef { Name = typeRefName
-                           Scheme = scheme
-                           TypeArgs = typeArgs } ->
-        match scheme with
-        | Some scheme ->
-          this.GetPropType
-            unify
-            env
-            (env.ExpandScheme unify scheme typeArgs)
-            name
-            optChain
-        | None ->
-          match env.Schemes.TryFind typeRefName with
-          | Some scheme ->
-            this.GetPropType
-              unify
-              env
-              (env.ExpandScheme unify scheme typeArgs)
-              name
-              optChain
-          | None -> failwithf $"{name} not in scope"
-      | TypeKind.Union types ->
-        let undefinedTypes, definedTypes =
-          List.partition
-            (fun t -> t.Kind = TypeKind.Literal(Literal.Undefined))
-            types
-
-        if undefinedTypes.IsEmpty then
-          failwith "TODO: lookup member on union type"
-        else if not optChain then
-          failwith "Can't lookup property on undefined"
-        else
-          match definedTypes with
-          | [ t ] ->
-            let t = this.GetPropType unify env t name optChain
-
-            let undefined =
-              { Kind = TypeKind.Literal(Literal.Undefined)
-                Provenance = None }
-
-            union [ t; undefined ]
-          | _ -> failwith "TODO: lookup member on union type"
-
-      // TODO: intersection types
-      // TODO: union types
-      | _ -> failwith $"TODO: lookup member on type - {t}"
 
   let rec bind
     (ctx: Ctx)

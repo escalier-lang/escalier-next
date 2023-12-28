@@ -4,13 +4,12 @@ module Tests
 open Escalier.TypeChecker
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
-open FParsec.Error
+open System.IO.Abstractions.TestingHelpers
+open System.IO
 open VerifyTests
 open VerifyXunit
 open Xunit
-open System.IO
 
-open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Env
 open Escalier.Interop.Parser
 open Escalier.Interop.Infer
@@ -212,9 +211,7 @@ let ParseLineComments () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-type CompileError =
-  | ParseError of ParserError
-  | TypeError of TypeError
+type CompileError = Prelude.CompileError
 
 [<Fact>]
 let InferBasicVarDecls () =
@@ -235,10 +232,8 @@ let InferBasicVarDecls () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let env = Prelude.getEnv ()
-
-      let ctx =
-        Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -272,10 +267,8 @@ let InferTypeDecls () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let env = Prelude.getEnv ()
-
-      let ctx =
-        Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -312,10 +305,8 @@ let InferLibES5 () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let env = Prelude.getEnv ()
-
-      let ctx =
-        Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError

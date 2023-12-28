@@ -29,11 +29,15 @@ module rec Unify =
       | TypeKind.Primitive p1, TypeKind.Primitive p2 when p1 = p2 -> ()
       | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
       | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
-      | TypeKind.Tuple(elems1), TypeKind.Tuple(elems2) ->
+      | TypeKind.Tuple elems1, TypeKind.Tuple elems2 ->
         if List.length elems1 <> List.length elems2 then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
         ignore (List.map2 (unify ctx env) elems1 elems2)
+      | TypeKind.Array elemType1, TypeKind.Array elemType2 ->
+        do! unify ctx env elemType1 elemType2
+      | TypeKind.Tuple tupleElemTypes, TypeKind.Array arrayElemType ->
+        do! unify ctx env (union tupleElemTypes) arrayElemType
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
         let! f1 = instantiateFunc ctx f1 None
@@ -89,6 +93,8 @@ module rec Unify =
         | Literal.Null, Literal.Null -> ()
         | Literal.Undefined, Literal.Undefined -> ()
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
+        ()
       | TypeKind.Object elems1, TypeKind.Object elems2 ->
 
         let namedProps1 =

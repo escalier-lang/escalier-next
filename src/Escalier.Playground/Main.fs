@@ -4,6 +4,7 @@ open Elmish
 open FsToolkit.ErrorHandling
 open Bolero
 open Bolero.Html
+open System.IO.Abstractions.TestingHelpers
 
 open Escalier.TypeChecker
 open Escalier.Parser
@@ -21,11 +22,7 @@ let fst = fn (x, y) => x
 """ }
 
 type Message = Recompile of string
-
-type CompileError =
-  | ParseError of FParsec.Error.ParserError
-  | TypeError of Error.TypeError
-
+type CompileError = Prelude.CompileError
 type CompilerOutput = { Js: string; Dts: string }
 
 let compile (src: string) : Result<CompilerOutput, CompileError> =
@@ -38,8 +35,8 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
     let js =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
-    let env = Prelude.getEnv ()
-    let tcCtx = Env.Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    let mockFileSystem = MockFileSystem()
+    let! tcCtx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! env =
       Infer.inferScript tcCtx env "input.esc" ast

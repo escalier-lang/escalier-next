@@ -67,11 +67,27 @@ module Syntax =
     { Parts: list<string>
       Exprs: list<Expr> }
 
+  type PropName =
+    | Ident of string
+    | String of string
+    | Number of float
+    | Computed of Expr
+
+    override this.ToString() =
+      match this with
+      | Ident value -> $"{value}"
+      | String value -> $"\"{value}\""
+      | Number value -> $"[{value}]"
+      | Computed expr -> $"[{expr}]"
+
   type ObjElem =
     // TODO: Add syntax for specifying callables
     // TODO: Add support for getters, setters, and methods
-    | Property of span: Span * key: string * value: Expr
-    | Shorthand of span: Span * key: string
+    | Property of span: Span * name: PropName * value: Expr
+    // NOTE: using PropName here doesn't make sense because numbers aren't
+    // valid identifiers and symbols can only be reference by computed properties
+    // TODO: handle computed properties
+    | Shorthand of span: Span * name: string
     | Spread of span: Span * value: Expr
 
   type Call =
@@ -194,7 +210,7 @@ module Syntax =
   type Stmt = { Kind: StmtKind; Span: Span }
 
   type Property =
-    { Name: string
+    { Name: PropName
       TypeAnn: TypeAnn
       Optional: bool
       Readonly: bool }
@@ -210,8 +226,8 @@ module Syntax =
 
   // TODO: add location information
   type ObjTypeAnnElem =
-    | Callable of Function
-    | Constructor of Function
+    | Callable of FunctionType
+    | Constructor of FunctionType
     | Method of name: string * is_mut: bool * type_: Function
     | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
     | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
@@ -223,6 +239,7 @@ module Syntax =
     | Number
     | String
     | Symbol
+    | UniqueSymbol
     | Null
     | Undefined
     | Unknown
@@ -283,6 +300,19 @@ module Syntax =
   type Module = { Items: list<ModuleItem> }
 
 module Type =
+  type PropName =
+    | String of string
+    | Number of float
+    | Symbol of int // symbol id
+
+    override this.ToString() =
+      match this with
+      // TODO: check if `value` is a valid identifier or not and output a
+      // computed property if it isn't.
+      | String value -> $"{value}"
+      | Number value -> $"[{value}]"
+      | Symbol id -> $"[Symbol({id})]"
+
   [<RequireQualifiedAccess>]
   type Provenance =
     | Type of Type
@@ -462,10 +492,8 @@ module Type =
 
       $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
 
-  type ObjKey = string // TODO
-
   type Property =
-    { Name: ObjKey
+    { Name: PropName
       Optional: bool
       Readonly: bool
       Type: Type }
@@ -473,9 +501,9 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: ObjKey * is_mut: bool * fn: Function
-    | Getter of name: ObjKey * return_type: Type * throws: Type
-    | Setter of name: ObjKey * param: FuncParam * throws: Type
+    | Method of name: PropName * is_mut: bool * fn: Function
+    | Getter of name: PropName * return_type: Type * throws: Type
+    | Setter of name: PropName * param: FuncParam * throws: Type
     | Mapped of Mapped
     | Property of Property
 
@@ -505,34 +533,30 @@ module Type =
 
         sb.ToString()
       | Getter(name, return_type, throws) ->
-        sprintf
-          "get %s() -> %s%s"
-          name
-          (return_type.ToString())
-          (if throws.Kind = TypeKind.Keyword Keyword.Never then
-             ""
-           else
-             " throws " + throws.ToString())
+        let throws =
+          if throws.Kind = TypeKind.Keyword Keyword.Never then
+            ""
+          else
+            $" throws {throws}"
+
+        $"get {name}() -> {return_type}{throws}"
       | Setter(name, param, throws) ->
-        sprintf
-          "set %s(%s)%s"
-          name
-          (param.ToString())
-          (if throws.Kind = TypeKind.Keyword Keyword.Never then
-             ""
-           else
-             " throws " + throws.ToString())
+        let throws =
+          if throws.Kind = TypeKind.Keyword Keyword.Never then
+            ""
+          else
+            $" throws {throws}"
+
+        $"set {name}({param}){throws}"
       | Mapped(mapped) -> mapped.ToString()
       | Property { Name = name
                    Optional = optional
                    Readonly = readonly
                    Type = type_ } ->
-        sprintf
-          "%s%s%s: %s"
-          (if optional then "optional " else "")
-          (if readonly then "readonly " else "")
-          name
-          (type_.ToString())
+        let optional = if optional then "?" else ""
+        let readonly = if readonly then "readonly " else ""
+
+        $"{readonly}{name}{optional}: {type_}"
 
   [<RequireQualifiedAccess>]
   type TypeKind =
@@ -544,6 +568,7 @@ module Type =
     | Object of list<ObjTypeElem>
     | Rest of Type
     | Literal of Common.Literal
+    | UniqueSymbol of int
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
     | Tuple of list<Type>
@@ -633,6 +658,8 @@ module Type =
       | TypeKind.KeyOf t -> $"keyof {t}"
       // TODO: handle operator precedence
       | TypeKind.Binary(left, op, right) -> $"{left} {op} {right}"
+      // TODO: include a description in symbol types
+      | TypeKind.UniqueSymbol _ -> $"symbol()"
       | _ ->
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"

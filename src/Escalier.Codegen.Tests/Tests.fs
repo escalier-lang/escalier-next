@@ -5,6 +5,7 @@ open Xunit
 open VerifyXunit
 open VerifyTests
 open FsToolkit.ErrorHandling
+open System.IO.Abstractions.TestingHelpers
 
 open Escalier.Interop.TypeScript
 open Escalier.Codegen.Printer
@@ -232,9 +233,7 @@ let CodegenChainedIfElse () =
     printfn "error = %A" error
     failwith "ParseError"
 
-type CompileError =
-  | ParseError of FParsec.Error.ParserError
-  | TypeError of Error.TypeError
+type CompileError = Prelude.CompileError
 
 [<Fact>]
 let CodegenDtsBasics () =
@@ -249,13 +248,8 @@ let CodegenDtsBasics () =
       let! escAst =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-      let env = Prelude.getEnv ()
-
-      let ctx =
-        Env.Ctx(
-          (fun ctx filename import -> env),
-          (fun ctx filename import -> "")
-        )
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! env =
         Infer.inferScript ctx env "input.esc" escAst
@@ -286,13 +280,8 @@ let CodegenDtsGeneric () =
       let! ast =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-      let env = Prelude.getEnv ()
-
-      let ctx =
-        Env.Ctx(
-          (fun ctx filename import -> env),
-          (fun ctx filename import -> "")
-        )
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type

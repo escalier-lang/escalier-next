@@ -530,13 +530,16 @@ module rec Codegen =
     | Callable(callable) -> failwith "TODO: buildObjTypeElem - Callable"
     | Constructor(ctor) -> failwith "TODO: buildObjTypeElem - Constructor"
     | Property(prop) ->
-      TsTypeElement.TsPropertySignature
-        { Readonly = false
-          Key = Expr.Ident { Name = prop.Name; Loc = None }
-          Computed = false
-          Optional = false
-          TypeAnn = buildTypeAnn ctx prop.Type
-          Loc = None }
+      match prop.Name with
+      | PropName.String s ->
+        TsTypeElement.TsPropertySignature
+          { Readonly = false
+            Key = Expr.Ident { Name = s; Loc = None }
+            Computed = false
+            Optional = false
+            TypeAnn = buildTypeAnn ctx prop.Type
+            Loc = None }
+      | _ -> failwith "TODO: buildObjTypeElem - Property"
     | Method(name, isMut, fn) -> failwith "todo"
     | Getter(name, returnType, throws) -> failwith "todo"
     | Setter(name, param, throws) -> failwith "todo"

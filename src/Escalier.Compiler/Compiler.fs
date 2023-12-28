@@ -4,17 +4,13 @@ open FsToolkit.ErrorHandling
 open System.IO
 open System.IO.Abstractions
 
-open Escalier.Data.Syntax
 open Escalier.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
-open Escalier.TypeChecker.ExprVisitor
 
 module Compiler =
-  type CompileError =
-    | ParseError of FParsec.Error.ParserError
-    | TypeError of TypeError
+  type CompileError = Prelude.CompileError
 
   let printDiagnostic (writer: TextWriter) (d: Diagnostic) =
     let rec printReasons (rs: list<TypeError>) =
@@ -68,13 +64,7 @@ module Compiler =
       let! ast =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
-      let env = Prelude.getEnv ()
-
-      let ctx =
-        Env.Ctx(
-          (fun ctx filename import -> env),
-          (fun ctx filename import -> "")
-        ) // TODO: fix this
+      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir srcFile
 
       let! env =
         Infer.inferScript ctx env srcFile ast
@@ -103,57 +93,6 @@ module Compiler =
       return ()
     }
 
-  let resolvePath
-    (baseDir: string)
-    (currentPath: string)
-    (importPath: string)
-    : string =
-    if importPath.StartsWith "~" then
-      Path.GetFullPath(Path.Join(baseDir, importPath.Substring(1)))
-    else if importPath.StartsWith "." then
-      Path.GetFullPath(
-        Path.Join(Path.GetDirectoryName(currentPath), importPath)
-      )
-    else
-      importPath
-
-  let findBindingNames (p: Pattern) : list<string> =
-    let mutable names: list<string> = []
-
-    let visitor =
-      { ExprVisitor.VisitExpr =
-          fun expr ->
-            match expr.Kind with
-            | ExprKind.Function _ -> false
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> false
-        ExprVisitor.VisitPattern =
-          fun pat ->
-            match pat.Kind with
-            | PatternKind.Identifier({ Name = name }) ->
-              names <- name :: names
-              false
-            | _ -> true
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
-
-    walkPattern visitor p
-
-    List.rev names
-
-  let findModuleBindingNames (m: Module) : list<string> =
-    let mutable names: list<string> = []
-
-    for item in m.Items do
-      match item with
-      | Stmt stmt ->
-        match stmt.Kind with
-        | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, _, _) }) ->
-          names <- List.concat [ names; findBindingNames pattern ]
-        | _ -> ()
-      | _ -> ()
-
-    names
-
   let compileFiles
     (filesystem: IFileSystem)
     (textwriter: TextWriter)
@@ -161,54 +100,8 @@ module Compiler =
     (entry: string)
     =
     result {
-      let ctx =
-        Env.Ctx(
-          (fun ctx filename import ->
-            let env = Prelude.getEnv ()
+      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir entry
 
-            let resolvedImportPath =
-              Path.ChangeExtension(
-                resolvePath baseDir filename import.Path,
-                ".esc"
-              )
-
-            let contents = filesystem.File.ReadAllText(resolvedImportPath)
-
-            let m =
-              match Parser.parseScript contents with
-              | Ok value -> value
-              | Error _ -> failwith $"failed to parse {resolvedImportPath}"
-
-            let env =
-              match Infer.inferScript ctx env entry m with
-              | Ok value -> value
-              | Error _ -> failwith $"failed to infer {resolvedImportPath}"
-
-            let mutable newEnv = Env.Env.empty
-
-            let bindings = findModuleBindingNames m
-
-            for name in bindings do
-              match env.Values.TryFind(name) with
-              // NOTE: exports are immutable
-              | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
-              | None -> failwith $"binding {name} not found"
-
-            for item in m.Items do
-              match item with
-              | Stmt { Kind = StmtKind.Decl { Kind = DeclKind.TypeDecl(name,
-                                                                       _,
-                                                                       _) } } ->
-                match env.Schemes.TryFind(name) with
-                | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
-                | None -> failwith $"scheme {name} not found"
-              | _ -> ()
-
-            newEnv),
-          (fun ctx filename import -> resolvePath baseDir filename import.Path)
-        )
-
-      let env = Prelude.getEnv ()
       let contents = filesystem.File.ReadAllText(entry)
 
       let! m =

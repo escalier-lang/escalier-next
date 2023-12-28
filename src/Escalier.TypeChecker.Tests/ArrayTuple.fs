@@ -1,4 +1,4 @@
-module AsyncAwait
+module ArrayTuple
 
 open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
@@ -37,104 +37,106 @@ let inferScript src =
   }
 
 [<Fact>]
-let InfersAsyncFunc () =
+let InferTupleLength () =
   let res =
     result {
       let src =
         """
-        let foo = async fn () {
-          return 5
-        }
-        let bar = async fn () {
-          let x = await foo()
-          return x + await 10
-        }
+        let tuple = [5, "hello", true]
+        let length = tuple.length
         """
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn () -> Promise<5, never>")
-      Assert.Value(env, "bar", "fn () -> Promise<15, never>")
+      Assert.Value(env, "length", "3")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
-let InfersAsyncError () =
+let InferArrayLength () =
   let res =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
+        let tuple: number[] = [1, 2, 3]
+        let length = tuple.length
         """
 
       let! _, env = inferScript src
 
-      Assert.Value(
-        env,
-        "foo",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
-      )
+      Assert.Value(env, "length", "number")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
-let InfersPropagateAsyncError () =
+let InferTupleIndexing () =
   let res =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
-        let bar = async fn (x) {
-          let y = await foo(x)
-          return y + await 10
+        let tuple = [5, "hello", true]
+        let first = tuple[0]
+        let second = tuple[1]
+        let third = tuple[2]
+        let fourth = tuple[3]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "first", "5")
+      Assert.Value(env, "second", "\"hello\"")
+      Assert.Value(env, "third", "true")
+      Assert.Value(env, "fourth", "undefined")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferArrayIndexing () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple: number[] = [1, 2, 3]
+        let first = tuple[0]
+        let second = tuple[1]
+        let third = tuple[2]
+        let fourth = tuple[3]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "first", "number | undefined")
+      Assert.Value(env, "fourth", "number | undefined")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferForIn () =
+  let res =
+    result {
+      let src =
+        """
+        for x in [1, 2, 3] {
+          let y: number = x
+        }
+        let array: number[] = [1, 2, 3]
+        for x in array {
+          let y: number = x
         }
         """
 
-      let! _, env = inferScript src
+      let! _ = inferScript src
 
-      Assert.Value(
-        env,
-        "foo",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
-      )
-
-      Assert.Value(
-        env,
-        "bar",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
-      )
+      ()
     }
 
-  Assert.False(Result.isError res)
-
-[<Fact>]
-let InfersTryCatchAsync () =
-  let res =
-    result {
-      let src =
-        """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
-        let bar = async fn (x) =>
-          try {
-            let y = await foo(x)
-            y + await 10
-          } catch {
-            | "RangeError" => 0
-          }
-        """
-
-      let! _, env = inferScript src
-
-      Assert.Value(
-        env,
-        "foo",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
-      )
-
-      Assert.Value(env, "bar", "fn (x: number) -> Promise<number, never>")
-    }
-
-  printfn "res: %A" res
+  printfn "res = %A" res
   Assert.False(Result.isError res)

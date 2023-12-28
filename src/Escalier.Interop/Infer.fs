@@ -101,15 +101,15 @@ module rec Infer =
       // TODO: handle computed keys
       let key =
         match tsPropertySignature.Key with
-        | Expr.Ident id -> PropKey.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropKey.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropKey.Number num.Value
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let t = inferTsTypeAnn ctx env tsPropertySignature.TypeAnn
 
       let property =
-        { Key = key
+        { Name = key
           Optional = tsPropertySignature.Optional
           Readonly = tsPropertySignature.Readonly
           Type = t }
@@ -119,9 +119,9 @@ module rec Infer =
       // TODO: handle computed keys
       let key =
         match tsGetterSignature.Key with
-        | Expr.Ident id -> PropKey.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropKey.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropKey.Number num.Value
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let returnType =
@@ -138,9 +138,9 @@ module rec Infer =
       // TODO: handle computed keys
       let key =
         match tsSetterSignature.Key with
-        | Expr.Ident id -> PropKey.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropKey.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropKey.Number num.Value
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let param = inferFnParam ctx env tsSetterSignature.Param
@@ -153,9 +153,9 @@ module rec Infer =
     | TsMethodSignature tsMethodSignature ->
       let key =
         match tsMethodSignature.Key with
-        | Expr.Ident id -> PropKey.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropKey.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropKey.Number num.Value
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
       let typeParams = None // TODO: handle type params

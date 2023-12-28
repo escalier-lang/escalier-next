@@ -67,7 +67,7 @@ module Syntax =
     { Parts: list<string>
       Exprs: list<Expr> }
 
-  type PropKey =
+  type PropName =
     | Ident of string
     | String of string
     | Number of float
@@ -83,11 +83,11 @@ module Syntax =
   type ObjElem =
     // TODO: Add syntax for specifying callables
     // TODO: Add support for getters, setters, and methods
-    | Property of span: Span * key: PropKey * value: Expr
-    // NOTE: using PropKey here doesn't make sense because numbers aren't
+    | Property of span: Span * name: PropName * value: Expr
+    // NOTE: using PropName here doesn't make sense because numbers aren't
     // valid identifiers and symbols can only be reference by computed properties
     // TODO: handle computed properties
-    | Shorthand of span: Span * key: string
+    | Shorthand of span: Span * name: string
     | Spread of span: Span * value: Expr
 
   type Call =
@@ -210,7 +210,7 @@ module Syntax =
   type Stmt = { Kind: StmtKind; Span: Span }
 
   type Property =
-    { Name: PropKey
+    { Name: PropName
       TypeAnn: TypeAnn
       Optional: bool
       Readonly: bool }
@@ -300,7 +300,7 @@ module Syntax =
   type Module = { Items: list<ModuleItem> }
 
 module Type =
-  type PropKey =
+  type PropName =
     | String of string
     | Number of float
     | Symbol of int // symbol id
@@ -493,7 +493,7 @@ module Type =
       $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
 
   type Property =
-    { Key: PropKey
+    { Name: PropName
       Optional: bool
       Readonly: bool
       Type: Type }
@@ -501,9 +501,9 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: PropKey * is_mut: bool * fn: Function
-    | Getter of name: PropKey * return_type: Type * throws: Type
-    | Setter of name: PropKey * param: FuncParam * throws: Type
+    | Method of name: PropName * is_mut: bool * fn: Function
+    | Getter of name: PropName * return_type: Type * throws: Type
+    | Setter of name: PropName * param: FuncParam * throws: Type
     | Mapped of Mapped
     | Property of Property
 
@@ -549,7 +549,7 @@ module Type =
 
         $"set {name}({param}){throws}"
       | Mapped(mapped) -> mapped.ToString()
-      | Property { Key = name
+      | Property { Name = name
                    Optional = optional
                    Readonly = readonly
                    Type = type_ } ->
@@ -636,7 +636,7 @@ module Type =
           List.map
             (fun (elem: ObjTypeElem) ->
               match elem with
-              | Property { Key = name
+              | Property { Name = name
                            Optional = optional
                            Readonly = readonly
                            Type = type_ } ->

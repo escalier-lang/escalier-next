@@ -202,14 +202,18 @@ module Parser =
 
   let objElemProperty: Parser<ObjElem, unit> =
     pipe4 getPosition ident (opt (strWs ":" >>. expr)) getPosition
-    <| fun start key value stop ->
+    <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 
       // TODO: handle parsing computed properties
       match value with
       | Some(value) ->
-        ObjElem.Property(span = span, key = PropKey.String key, value = value)
-      | None -> ObjElem.Shorthand(span = span, key = key)
+        ObjElem.Property(
+          span = span,
+          name = PropName.String name,
+          value = value
+        )
+      | None -> ObjElem.Shorthand(span = span, name = name)
 
   let objElemSpread: Parser<ObjElem, unit> =
     withSpan (strWs "..." >>. expr)
@@ -563,14 +567,14 @@ module Parser =
 
   let private objPatKeyValueOrShorthand =
     pipe4 getPosition ident (opt (strWs ":" >>. (ws >>. pattern))) getPosition
-    <| fun start key value stop ->
+    <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 
       match value with
       | Some(value) ->
-        KeyValuePat(span = span, key = key, value = value, init = None)
+        KeyValuePat(span = span, key = name, value = value, init = None)
       | None ->
-        ShorthandPat(span = span, name = key, init = None, isMut = false)
+        ShorthandPat(span = span, name = name, init = None, isMut = false)
 
   let private objPatRestElem =
     withSpan (strWs "..." >>. pattern)
@@ -652,17 +656,17 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private propKey =
+  let private propName =
     choice
-      [ ident |>> PropKey.String
-        pfloat .>> ws |>> PropKey.Number
-        _string .>> ws |>> PropKey.String
-        between (strWs "[") (strWs "]") expr |>> PropKey.Computed ]
+      [ ident |>> PropName.String
+        pfloat .>> ws |>> PropName.Number
+        _string .>> ws |>> PropName.String
+        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
 
   let private propertyTypeAnn =
     pipe5
       getPosition
-      propKey
+      propName
       (opt (strWs "?"))
       (strWs ":" >>. typeAnn)
       getPosition

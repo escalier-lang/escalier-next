@@ -331,20 +331,20 @@ module rec Env =
               |> List.choose (fun elem ->
                 // TODO: handle mapped types
                 match elem with
-                | Property p -> Some(p.Key)
+                | Property p -> Some(p.Name)
                 | _ -> None)
 
             let keys =
               keys
               |> List.map (fun key ->
                 match key with
-                | PropKey.String s ->
+                | PropName.String s ->
                   { Kind = TypeKind.Literal(Literal.String s)
                     Provenance = None }
-                | PropKey.Number n ->
+                | PropName.Number n ->
                   { Kind = TypeKind.Literal(Literal.Number n)
                     Provenance = None }
-                | PropKey.Symbol id ->
+                | PropName.Symbol id ->
                   { Kind = TypeKind.UniqueSymbol id
                     Provenance = None })
 
@@ -356,9 +356,9 @@ module rec Env =
 
           let key =
             match index.Kind with
-            | TypeKind.Literal(Literal.String s) -> PropKey.String s
-            | TypeKind.Literal(Literal.Number n) -> PropKey.Number n
-            | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+            | TypeKind.Literal(Literal.String s) -> PropName.String s
+            | TypeKind.Literal(Literal.Number n) -> PropName.Number n
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
             | _ -> failwith "TODO: expand index - key type"
 
           match target.Kind with
@@ -367,7 +367,7 @@ module rec Env =
 
             for elem in elems do
               match elem with
-              | Property p when p.Key = key -> t <- Some(p.Type)
+              | Property p when p.Name = key -> t <- Some(p.Type)
               | _ -> ()
 
             match t with
@@ -426,7 +426,7 @@ module rec Env =
                         let typeAnn = foldType folder typeAnn
 
                         Property
-                          { Key = PropKey.String name
+                          { Name = PropName.String name
                             Type = this.ExpandType unify typeAnn
                             Optional = false // TODO
                             Readonly = false // TODO
@@ -449,7 +449,7 @@ module rec Env =
                   let typeAnn = foldType folder typeAnn
 
                   [ Property
-                      { Key = PropKey.String key
+                      { Name = PropName.String key
                         Type = this.ExpandType unify typeAnn
                         Optional = false // TODO
                         Readonly = false // TODO

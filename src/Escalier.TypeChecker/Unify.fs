@@ -100,7 +100,7 @@ module rec Unify =
             (fun (elem: ObjTypeElem) ->
               match elem with
               // TODO: handle methods, setters, and getters
-              | Property p -> Some(p.Key, p)
+              | Property p -> Some(p.Name, p)
               | _ -> None)
             elems1
           |> Map.ofList
@@ -110,7 +110,7 @@ module rec Unify =
             (fun (elem: ObjTypeElem) ->
               match elem with
               // TODO: handle methods, setters, and getters
-              | Property p -> Some(p.Key, p)
+              | Property p -> Some(p.Name, p)
               | _ -> None)
             elems2
           |> Map.ofList
@@ -160,7 +160,7 @@ module rec Unify =
                 List.exists
                   (fun ce ->
                     match ae, ce with
-                    | Property ap, Property cp -> ap.Key = cp.Key
+                    | Property ap, Property cp -> ap.Name = cp.Name
                     | _ -> false)
                   combinedElems)
               allElems
@@ -201,7 +201,7 @@ module rec Unify =
                 List.exists
                   (fun ce ->
                     match ae, ce with
-                    | Property ap, Property cp -> ap.Key = cp.Key
+                    | Property ap, Property cp -> ap.Name = cp.Name
                     | _ -> false)
                   combinedElems)
               allElems

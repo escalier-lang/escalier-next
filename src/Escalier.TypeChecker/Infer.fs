@@ -41,23 +41,23 @@ module rec Infer =
     | PatternKind.Wildcard -> Pattern.Wildcard
     | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
 
-  let inferPropKey
+  let inferPropName
     (ctx: Ctx)
     (env: Env)
-    (key: Syntax.PropKey)
-    : Result<PropKey, TypeError> =
+    (key: Syntax.PropName)
+    : Result<PropName, TypeError> =
     result {
       match key with
-      | Syntax.PropKey.Ident value -> return PropKey.String value
-      | Syntax.PropKey.String value -> return PropKey.String value
-      | Syntax.PropKey.Number value -> return PropKey.Number value
-      | Syntax.PropKey.Computed value ->
+      | Syntax.PropName.Ident value -> return PropName.String value
+      | Syntax.PropName.String value -> return PropName.String value
+      | Syntax.PropName.Number value -> return PropName.Number value
+      | Syntax.PropName.Computed value ->
         let! t = inferExpr ctx env value
 
         match t.Kind with
-        | TypeKind.Literal(Literal.String value) -> return PropKey.String value
-        | TypeKind.Literal(Literal.Number value) -> return PropKey.Number value
-        | TypeKind.UniqueSymbol id -> return PropKey.Symbol id
+        | TypeKind.Literal(Literal.String value) -> return PropName.String value
+        | TypeKind.Literal(Literal.Number value) -> return PropName.Number value
+        | TypeKind.UniqueSymbol id -> return PropName.Symbol id
         | _ -> return! Error(TypeError.SemanticError "Invalid key type")
     }
 
@@ -250,12 +250,12 @@ module rec Infer =
                   match elem with
                   | ObjElem.Property(_span, key, value) ->
                     let! t = inferExpr ctx env value
-                    let! key = inferPropKey ctx env key
+                    let! name = inferPropName ctx env key
 
                     return
                       Some(
                         Property
-                          { Key = key
+                          { Name = name
                             Optional = false
                             Readonly = false
                             Type = t }
@@ -266,7 +266,7 @@ module rec Infer =
                     return
                       Some(
                         Property
-                          { Key = PropKey.String key
+                          { Name = PropName.String key
                             Optional = false
                             Readonly = false
                             Type = value }
@@ -292,7 +292,7 @@ module rec Infer =
                 Provenance = None }
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj
-          let propKey = PropKey.String(prop)
+          let propKey = PropName.String(prop)
 
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
@@ -388,9 +388,9 @@ module rec Infer =
 
           let key =
             match index.Kind with
-            | TypeKind.Literal(Literal.Number i) -> PropKey.Number i
-            | TypeKind.Literal(Literal.String s) -> PropKey.String s
-            | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+            | TypeKind.Literal(Literal.Number i) -> PropName.Number i
+            | TypeKind.Literal(Literal.String s) -> PropName.String s
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
             | _ -> failwith "TODO: index must be a number or string"
 
           return getPropType ctx env target key optChain
@@ -414,7 +414,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (t: Type)
-    (key: PropKey)
+    (key: PropName)
     (optChain: bool)
     : Type =
     let t = prune t
@@ -425,7 +425,7 @@ module rec Infer =
         List.choose
           (fun (elem: ObjTypeElem) ->
             match elem with
-            | Property p -> Some(p.Key, p)
+            | Property p -> Some(p.Name, p)
             | _ -> None)
           elems
         |> Map.ofList
@@ -485,10 +485,10 @@ module rec Infer =
         | _ -> failwith "TODO: lookup member on union type"
     | TypeKind.Tuple elems ->
       match key with
-      | PropKey.String "length" ->
+      | PropName.String "length" ->
         { Kind = TypeKind.Literal(Literal.Number(float elems.Length))
           Provenance = None }
-      | PropKey.Number i ->
+      | PropName.Number i ->
         if i >= 0 && i < elems.Length then
           elems.[int i]
         else
@@ -504,10 +504,10 @@ module rec Infer =
         failwith "TODO: lookup member on tuple type"
     | TypeKind.Array elemType ->
       match key with
-      | PropKey.String "length" ->
+      | PropName.String "length" ->
         { Kind = TypeKind.Primitive Primitive.Number
           Provenance = None }
-      | PropKey.Number _ ->
+      | PropName.Number _ ->
         let unknown =
           { Kind = TypeKind.Literal(Literal.Undefined)
             Provenance = None }
@@ -596,11 +596,11 @@ module rec Infer =
                                               Optional = optional
                                               Readonly = readonly } ->
                     let! t = inferTypeAnn ctx env typeAnn
-                    let! key = inferPropKey ctx env name
+                    let! name = inferPropName ctx env name
 
                     return
                       Property
-                        { Key = key
+                        { Name = name
                           Type = t
                           Optional = optional
                           Readonly = readonly }
@@ -827,7 +827,7 @@ module rec Infer =
 
                 Some(
                   ObjTypeElem.Property
-                    { Key = PropKey.String key
+                    { Name = PropName.String key
                       Optional = false
                       Readonly = false
                       Type = t }
@@ -841,7 +841,7 @@ module rec Infer =
 
                 Some(
                   ObjTypeElem.Property
-                    { Key = PropKey.String name
+                    { Name = PropName.String name
                       Optional = false
                       Readonly = false
                       Type = t }

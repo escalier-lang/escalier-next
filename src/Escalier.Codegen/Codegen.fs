@@ -530,8 +530,8 @@ module rec Codegen =
     | Callable(callable) -> failwith "TODO: buildObjTypeElem - Callable"
     | Constructor(ctor) -> failwith "TODO: buildObjTypeElem - Constructor"
     | Property(prop) ->
-      match prop.Key with
-      | PropKey.String s ->
+      match prop.Name with
+      | PropName.String s ->
         TsTypeElement.TsPropertySignature
           { Readonly = false
             Key = Expr.Ident { Name = s; Loc = None }

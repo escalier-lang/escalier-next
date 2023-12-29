@@ -441,3 +441,16 @@ let ParseDeclare () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseRange () =
+  let src =
+    """
+    type DiceValue = 0 .. 6
+    let range = 0 .. 10
+  """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

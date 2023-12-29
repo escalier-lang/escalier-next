@@ -138,5 +138,22 @@ let InferForIn () =
       ()
     }
 
-  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferForInRange () =
+  let res =
+    result {
+      let src =
+        """
+        for x in 0..3 {
+          let y: number = x
+        }
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
   Assert.False(Result.isError res)

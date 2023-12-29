@@ -448,6 +448,19 @@ module Parser =
   opp.AddOperator(InfixOperator("&&", ws, 4, Assoc.Left, binary "&&"))
   opp.AddOperator(InfixOperator("||", ws, 3, Assoc.Left, binary "||"))
 
+  opp.AddOperator(
+    InfixOperator(
+      "..",
+      ws,
+      2,
+      Assoc.None,
+      fun min max ->
+        { Expr.Kind = ExprKind.Range { Min = min; Max = max }
+          Span = mergeSpans min.Span max.Span
+          InferredType = None }
+    )
+  )
+
   // opp.AddOperator(
   //   InfixOperator(
   //     "=",
@@ -820,6 +833,8 @@ module Parser =
         typeRef ]
     .>> ws
 
+
+
   let arrayTypeSuffix: Parser<TypeAnn -> TypeAnn, unit> =
     pipe2 (strWs "[" >>. (opt typeAnn) .>> strWs "]") getPosition
     <| fun index p2 target ->
@@ -838,10 +853,24 @@ module Parser =
     <| fun typeAnn suffixes ->
       List.fold (fun x suffix -> suffix x) typeAnn suffixes
 
+  let rangeOrPrimaryType: Parser<TypeAnn, unit> =
+    pipe4
+      getPosition
+      primaryTypeWithSuffix
+      (opt (strWs ".." >>. primaryTypeWithSuffix))
+      getPosition
+    <| fun start min max stop ->
+      match max with
+      | Some(max) ->
+        { TypeAnn.Kind = TypeAnnKind.Range { Min = min; Max = max }
+          Span = mergeSpans min.Span max.Span
+          InferredType = None }
+      | None -> min
+
   // NOTE: We don't use InfixOperator here because that only supports
   // binary operators and intersection types are n-ary.
-  let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 primaryTypeWithSuffix (strWs "&"))
+  let intersectionOrRangeOrPrimaryType: Parser<TypeAnn, unit> =
+    withSpan (sepBy1 rangeOrPrimaryType (strWs "&"))
     |>> fun (typeAnns, span) ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
@@ -852,8 +881,8 @@ module Parser =
 
   // NOTE: We don't use InfixOperator here because that only supports
   // binary operators and union types are n-ary.
-  let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 intersectionOrPrimaryType (strWs "|"))
+  let unionOrIntersectionOrRangeOrPrimaryType: Parser<TypeAnn, unit> =
+    withSpan (sepBy1 intersectionOrRangeOrPrimaryType (strWs "|"))
     |>> fun (typeAnns, span) ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
@@ -862,7 +891,7 @@ module Parser =
           Span = span
           InferredType = None }
 
-  typeAnnRef.Value <- unionOrIntersectionOrPrimaryType
+  typeAnnRef.Value <- unionOrIntersectionOrRangeOrPrimaryType
 
   let namedSpecifier: Parser<ImportSpecifier, unit> =
     pipe4 getPosition ident (opt (strWs "as" >>. ident)) getPosition

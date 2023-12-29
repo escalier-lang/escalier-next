@@ -19,6 +19,8 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
+  type Range<'T> = { Min: 'T; Max: 'T } // non-inclusive
+
   type MappedModifier =
     | Add
     | Remove
@@ -114,6 +116,7 @@ module Syntax =
     | Function of Function
     | Call of Call
     | Tuple of elements: list<Expr>
+    | Range of Common.Range<Expr>
     | Index of target: Expr * index: Expr * opt_chain: bool
     | Member of target: Expr * name: string * opt_chain: bool
     | IfElse of
@@ -266,6 +269,7 @@ module Syntax =
     | Object of elems: list<ObjTypeAnnElem>
     | Tuple of elems: list<TypeAnn>
     | Array of elem: TypeAnn
+    | Range of Common.Range<TypeAnn>
     | Union of types: list<TypeAnn>
     | Intersection of types: list<TypeAnn>
     | TypeRef of name: string * type_args: option<list<TypeAnn>>
@@ -569,6 +573,7 @@ module Type =
     | Object of list<ObjTypeElem>
     | Rest of Type
     | Literal of Common.Literal
+    | Range of Common.Range<Type>
     | UniqueSymbol of int
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`

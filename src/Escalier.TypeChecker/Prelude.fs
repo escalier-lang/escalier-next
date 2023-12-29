@@ -294,6 +294,9 @@ module Prelude =
         type Array<T> = {
           [Symbol.iterator]: fn () -> Iterator<T>
         }
+        type RangeIterator<Min: number, Max: number> = {
+          next: fn () -> { done: boolean, value: Min..Max }
+        }
         """
 
       let! ast =

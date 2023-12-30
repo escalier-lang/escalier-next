@@ -20,6 +20,7 @@ type Expr =
   | Unary of string * Expr
   | Postfix of Expr * string
   | Call of Expr * list<Expr>
+  | Index of Expr * Expr
 
 type PrefixParselet<'T> =
   { Parse: PrattParser<'T> * CharStream<unit> * string -> Reply<'T>
@@ -127,20 +128,20 @@ let naryInfixParselet (precedence: int) : InfixParselet<Expr> =
       fun (parser, stream, left, operator) ->
         let right = parser.Parse precedence stream
 
-        let rec led (left: Reply<Expr>) =
+        let rec led (acc: list<Expr>) (left: Reply<Expr>) =
           match parser.NextInfixOperator(stream) with
           | Some(nextOperator, parselet) ->
             if operator = nextOperator then
               stream.Skip(nextOperator.Length)
               ws stream |> ignore // always succeeds
-              left.Result :: led (parser.Parse precedence stream)
+              led (left.Result :: acc) (parser.Parse precedence stream)
             else
-              [ left.Result ]
-          | None -> [ left.Result ]
+              left.Result :: acc
+          | None -> left.Result :: acc
 
-        let operands = left :: led right
+        let operands = led [ left ] right
 
-        Reply(Nary(operands, operator))
+        Reply(Nary(List.rev operands, operator))
     Precedence = precedence }
 
 let callParselet (precedence: int) : InfixParselet<Expr> =
@@ -160,6 +161,14 @@ let callParselet (precedence: int) : InfixParselet<Expr> =
         Reply(Call(left, args))
     Precedence = precedence }
 
+let indexParselet (precedence: int) : InfixParselet<Expr> =
+  { Parse =
+      fun (parser, stream, left, operator) ->
+        let index = parser.Parse(0)
+        let reply = (index .>> (strWs "]")) stream
+        Reply(Index(left, reply.Result))
+    Precedence = precedence }
+
 let postfixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) -> Reply(Postfix(left, operator))
@@ -171,6 +180,9 @@ let exprParser = PrattParser<Expr>(identExpr)
 exprParser.RegisterPrefix("(", groupingParselet 18)
 
 exprParser.RegisterInfix("(", callParselet 17)
+exprParser.RegisterInfix("[", indexParselet 17)
+exprParser.RegisterInfix("?.", infixParselet 17)
+exprParser.RegisterInfix(".", infixParselet 17)
 
 exprParser.RegisterPrefix("+", prefixParselet 14)
 exprParser.RegisterPrefix("-", prefixParselet 14)
@@ -185,8 +197,10 @@ exprParser.RegisterInfix("==", infixParselet 9)
 exprParser.RegisterInfix("!=", infixParselet 9)
 exprParser.RegisterInfix("<", infixParselet 9)
 exprParser.RegisterInfix("<=", infixParselet 9)
+exprParser.RegisterInfix("≤", infixParselet 9)
 exprParser.RegisterInfix(">", infixParselet 9)
 exprParser.RegisterInfix(">=", infixParselet 9)
+exprParser.RegisterInfix("≥", infixParselet 9)
 
 exprParser.RegisterInfix("&&", infixParselet 4)
 exprParser.RegisterInfix("||", infixParselet 3)

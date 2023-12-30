@@ -46,6 +46,9 @@ let ParseArithmetic () =
   let result = run (parser.Parse(0)) "A & B | C & D | E & F"
   printfn "result %A" result
 
+  let result = run (parser.Parse(0)) "A || B && C"
+  printfn "result %A" result
+
   let result = run (parser.Parse(0)) "a!"
   printfn "result %A" result
 
@@ -57,21 +60,37 @@ let ParseArithmetic () =
   let result = run (parser.Parse(0)) "a <= b"
   printfn "result %A" result
 
+  let result = run (parser.Parse(0)) "a ≤ b"
+  printfn "result %A" result
+
   let result = run (parser.Parse(0)) "add(x, y)"
   printfn "result %A" result
 
   let result = run (parser.Parse(0)) "add(x)(y)"
   printfn "result %A" result
 
+  let result = run (parser.Parse(0)) "foo()"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "array[index]"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "matrix[i1][i2]"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "operators[index](x, y)"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "a.b.c"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "a?.b?.c"
+  printfn "result %A" result
+
 // Test Cases
-// - a < b
-// - a <= b
-// - a ≤ b
 // - 0..10
 // - 0.1
 // - .1
 // - 1.
-// - x || y && z
 // - ∧, ∨, ¬ (boolean operators)
 // - ∩, ∪, \ (set operations)
-// - a?.b?.c

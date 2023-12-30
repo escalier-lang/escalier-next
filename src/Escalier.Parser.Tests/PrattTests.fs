@@ -37,6 +37,9 @@ let ParseArithmetic () =
   let result = run (parser.ParseExpr(0)) "a + b * c"
   printfn "result %A" result
 
+  let result = run (parser.ParseExpr(0)) "a * (b + c)"
+  printfn "result %A" result
+
   let result = run (parser.ParseExpr(0)) "A | B | C"
   printfn "result %A" result
 
@@ -54,6 +57,12 @@ let ParseArithmetic () =
   let result = run (parser.ParseExpr(0)) "a <= b"
   printfn "result %A" result
 
+  let result = run (parser.ParseExpr(0)) "add(x, y)"
+  printfn "result %A" result
+
+  let result = run (parser.ParseExpr(0)) "add(x)(y)"
+  printfn "result %A" result
+
 // Test Cases
 // - a < b
 // - a <= b
@@ -62,7 +71,5 @@ let ParseArithmetic () =
 // - 0.1
 // - .1
 // - 1.
-// - add(x)(y)
-// - a*(b+c)
 // - x || y && z
 // - a?.b?.c

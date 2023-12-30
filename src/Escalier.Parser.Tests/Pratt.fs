@@ -3,6 +3,7 @@ module rec Pratt
 open FParsec
 
 let ws = spaces
+let strWs s = pstring s .>> ws
 
 let ident: Parser<string, unit> =
   let isIdentifierFirstChar c = isLetter c || c = '_'
@@ -18,6 +19,7 @@ type Expr =
   | Nary of Expr list * string
   | Unary of string * Expr
   | Postfix of Expr * string
+  | Call of Expr * list<Expr>
 
 type PrefixParselet<'T> =
   { Parse: PrattParser<'T> * CharStream<unit> * string -> Reply<Expr>
@@ -108,6 +110,13 @@ let prefixParselet (precedence: int) : PrefixParselet<'T> =
         Reply(Unary(operator, operand.Result))
     Precedence = precedence }
 
+let groupingParselet (precedence: int) : PrefixParselet<'T> =
+  { Parse =
+      fun (parser, stream, operator) ->
+        let operand = parser.ParseExpr 0 stream
+        stream.Skip(1) // skip ')'
+        Reply(operand.Result)
+    Precedence = precedence }
 
 let infixParselet (precedence: int) : InfixParselet<'T> =
   { Parse =
@@ -126,6 +135,7 @@ let naryInfixParselet (precedence: int) : InfixParselet<'T> =
         let operand = parser.ParseExpr precedence stream
         operands <- operand.Result :: operands
 
+        // TODO: handle multi-char operators
         while stream.PeekString(1) = operator do
           stream.Skip(1)
           ws stream |> ignore // always succeeds
@@ -135,6 +145,22 @@ let naryInfixParselet (precedence: int) : InfixParselet<'T> =
         Reply(Nary(List.rev operands, operator))
     Precedence = precedence }
 
+let callParselet (precedence: int) : InfixParselet<'T> =
+  { Parse =
+      fun (parser, stream, left, operator) ->
+
+        let args =
+          if stream.PeekString(1) = ")" then
+            stream.Skip(1)
+            []
+          else
+            let parseArgs = sepBy (parser.ParseExpr(0)) (strWs ",")
+            let reply = (parseArgs .>> (strWs ")")) stream
+            reply.Result
+
+        Reply(Call(left, args))
+    Precedence = precedence }
+
 let postfixParselet (precedence: int) : InfixParselet<'T> =
   { Parse =
       fun (parser, stream, left, operator) -> Reply(Postfix(left, operator))
@@ -142,6 +168,10 @@ let postfixParselet (precedence: int) : InfixParselet<'T> =
 
 
 let exprParser = PrattParser<Expr>(identExpr)
+
+exprParser.RegisterPrefix("(", groupingParselet 18)
+
+exprParser.RegisterInfix("(", callParselet 17)
 
 exprParser.RegisterPrefix("+", prefixParselet 14)
 exprParser.RegisterPrefix("-", prefixParselet 14)
@@ -159,6 +189,8 @@ exprParser.RegisterInfix("<=", infixParselet 9)
 exprParser.RegisterInfix(">", infixParselet 9)
 exprParser.RegisterInfix(">=", infixParselet 9)
 
+exprParser.RegisterInfix("&&", infixParselet 4)
+exprParser.RegisterInfix("||", infixParselet 3)
 exprParser.RegisterInfix("&", naryInfixParselet 4)
 exprParser.RegisterInfix("|", naryInfixParselet 3)
 

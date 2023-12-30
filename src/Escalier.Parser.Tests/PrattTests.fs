@@ -50,3 +50,19 @@ let ParseArithmetic () =
   // should start working correctly.
   let result = run (parser.ParseExpr(0)) "a!!"
   printfn "result %A" result
+
+  let result = run (parser.ParseExpr(0)) "a <= b"
+  printfn "result %A" result
+
+// Test Cases
+// - a < b
+// - a <= b
+// - a ≤ b
+// - 0..10
+// - 0.1
+// - .1
+// - 1.
+// - add(x)(y)
+// - a*(b+c)
+// - x || y && z
+// - a?.b?.c

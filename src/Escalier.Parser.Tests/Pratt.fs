@@ -19,26 +19,25 @@ type Expr =
   | Unary of string * Expr
   | Postfix of Expr * string
 
-type PrefixParselet =
-  { Parse: PrattParser * CharStream<unit> * string -> Reply<Expr>
+type PrefixParselet<'T> =
+  { Parse: PrattParser<'T> * CharStream<unit> * string -> Reply<Expr>
     Precedence: int }
 
-type InfixParselet =
-  { Parse: PrattParser * CharStream<unit> * Expr * string -> Reply<Expr>
+type InfixParselet<'T> =
+  { Parse: PrattParser<'T> * CharStream<unit> * Expr * string -> Reply<Expr>
     Precedence: int }
 
-type PrattParser() =
-  let mutable prefixParselets: Map<string, PrefixParselet> = Map.empty
-  let mutable infixParselets: Map<string, InfixParselet> = Map.empty
+type PrattParser<'T>(term: Parser<Expr, unit>) =
+  let mutable prefixParselets: Map<string, PrefixParselet<'T>> = Map.empty
+  let mutable infixParselets: Map<string, InfixParselet<'T>> = Map.empty
 
-  member this.RegisterPrefix(operator: string, parselet: PrefixParselet) =
+  member this.RegisterPrefix(operator: string, parselet: PrefixParselet<'T>) =
     prefixParselets <- Map.add operator parselet prefixParselets
-  // prefixPrecedence <- Map.add operator precedence prefixPrecedence
 
-  member this.RegisterInfix(operator: string, parselet: InfixParselet) =
+  member this.RegisterInfix(operator: string, parselet: InfixParselet<'T>) =
     infixParselets <- Map.add operator parselet infixParselets
 
-  member this.RegisterPostfix(operator: string, parselet: InfixParselet) =
+  member this.RegisterPostfix(operator: string, parselet: InfixParselet<'T>) =
     infixParselets <- Map.add operator parselet infixParselets
 
   member this.GetPrecedence(operator: string) =
@@ -46,39 +45,62 @@ type PrattParser() =
     | Some parselet -> parselet.Precedence
     | None -> 0
 
-  // TODO: use a `stream` directly to implement a pratt parser
-  // with a stream we can peek, skip, and rewind
-  // we can also pass the stream to other parsers combinators
-  // e.g. expr stream
+  member this.NextPrefixOperator
+    (stream: CharStream<unit>)
+    : Option<string * PrefixParselet<'T>> =
+    let nextTwoChars = stream.PeekString(2)
+    let nextOneChar = stream.PeekString(1)
+
+    match prefixParselets.TryFind nextTwoChars with
+    | Some parselet -> Some(nextTwoChars, parselet)
+    | None ->
+      match prefixParselets.TryFind nextOneChar with
+      | Some parselet -> Some(nextOneChar, parselet)
+      | None -> None
+
+  member this.NextInfixOperator
+    (stream: CharStream<unit>)
+    : Option<string * InfixParselet<'T>> =
+    let nextTwoChars = stream.PeekString(2)
+    let nextOneChar = stream.PeekString(1)
+
+    match infixParselets.TryFind nextTwoChars with
+    | Some parselet -> Some(nextTwoChars, parselet)
+    | None ->
+      match infixParselets.TryFind nextOneChar with
+      | Some parselet -> Some(nextOneChar, parselet)
+      | None -> None
+
   member this.ParseExpr(precedence: int) : Parser<Expr, unit> =
     fun stream ->
-      let operator = stream.PeekString(1)
 
-      let mutable left =
-        match prefixParselets.TryFind operator with
-        | Some parselet ->
-          stream.Skip(1)
+      let nud () =
+        match this.NextPrefixOperator(stream) with
+        | Some(operator, parselet) ->
+          stream.Skip(operator.Length)
           parselet.Parse(this, stream, operator)
-        | _ -> identExpr stream
+        | None -> term stream
 
-      while precedence < this.GetPrecedence(stream.PeekString(1)) do
-        left <-
-          let operator = stream.PeekString(1)
+      let left = nud ()
 
-          match infixParselets.TryFind operator with
-          | Some parselet ->
-            stream.Skip(1)
-            ws stream |> ignore // always succeeds
-            parselet.Parse(this, stream, left.Result, operator)
-          | _ ->
-            printfn "no infix parselet for %s" operator
-            left
+      let rec led (left: Reply<Expr>) =
+        match precedence < this.GetPrecedence(stream.PeekString(1)) with
+        | true ->
 
-      left
+          let left =
+            match this.NextInfixOperator(stream) with
+            | Some(operator, parselet) ->
+              stream.Skip(operator.Length)
+              ws stream |> ignore // always succeeds
+              parselet.Parse(this, stream, left.Result, operator)
+            | _ -> left
 
-let exprParser = PrattParser()
+          led left
+        | false -> left
 
-let prefixParselet (precedence: int) : PrefixParselet =
+      led left
+
+let prefixParselet (precedence: int) : PrefixParselet<'T> =
   { Parse =
       fun (parser, stream, operator) ->
         let precedence = parser.GetPrecedence(operator)
@@ -87,7 +109,7 @@ let prefixParselet (precedence: int) : PrefixParselet =
     Precedence = precedence }
 
 
-let infixParselet (precedence: int) : InfixParselet =
+let infixParselet (precedence: int) : InfixParselet<'T> =
   { Parse =
       fun (parser, stream, left, operator) ->
         let precedence = parser.GetPrecedence(operator)
@@ -95,7 +117,7 @@ let infixParselet (precedence: int) : InfixParselet =
         Reply(Binary(left, operator, right.Result))
     Precedence = precedence }
 
-let naryInfixParselet (precedence: int) : InfixParselet =
+let naryInfixParselet (precedence: int) : InfixParselet<'T> =
   { Parse =
       fun (parser, stream, left, operator) ->
         let mutable operands = [ left ]
@@ -113,11 +135,13 @@ let naryInfixParselet (precedence: int) : InfixParselet =
         Reply(Nary(List.rev operands, operator))
     Precedence = precedence }
 
-let postfixParselet (precedence: int) : InfixParselet =
+let postfixParselet (precedence: int) : InfixParselet<'T> =
   { Parse =
       fun (parser, stream, left, operator) -> Reply(Postfix(left, operator))
     Precedence = precedence }
 
+
+let exprParser = PrattParser<Expr>(identExpr)
 
 exprParser.RegisterPrefix("+", prefixParselet 14)
 exprParser.RegisterPrefix("-", prefixParselet 14)
@@ -125,7 +149,15 @@ exprParser.RegisterPrefix("-", prefixParselet 14)
 exprParser.RegisterInfix("*", infixParselet 12)
 exprParser.RegisterInfix("/", infixParselet 12)
 exprParser.RegisterInfix("+", infixParselet 11)
+exprParser.RegisterInfix("++", infixParselet 11)
 exprParser.RegisterInfix("-", infixParselet 11)
+
+exprParser.RegisterInfix("==", infixParselet 9)
+exprParser.RegisterInfix("!=", infixParselet 9)
+exprParser.RegisterInfix("<", infixParselet 9)
+exprParser.RegisterInfix("<=", infixParselet 9)
+exprParser.RegisterInfix(">", infixParselet 9)
+exprParser.RegisterInfix(">=", infixParselet 9)
 
 exprParser.RegisterInfix("&", naryInfixParselet 4)
 exprParser.RegisterInfix("|", naryInfixParselet 3)

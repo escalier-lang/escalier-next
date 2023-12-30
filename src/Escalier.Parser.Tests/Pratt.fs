@@ -22,14 +22,14 @@ type Expr =
   | Call of Expr * list<Expr>
 
 type PrefixParselet<'T> =
-  { Parse: PrattParser<'T> * CharStream<unit> * string -> Reply<Expr>
+  { Parse: PrattParser<'T> * CharStream<unit> * string -> Reply<'T>
     Precedence: int }
 
 type InfixParselet<'T> =
-  { Parse: PrattParser<'T> * CharStream<unit> * Expr * string -> Reply<Expr>
+  { Parse: PrattParser<'T> * CharStream<unit> * 'T * string -> Reply<'T>
     Precedence: int }
 
-type PrattParser<'T>(term: Parser<Expr, unit>) =
+type PrattParser<'T>(term: Parser<'T, unit>) =
   let mutable prefixParselets: Map<string, PrefixParselet<'T>> = Map.empty
   let mutable infixParselets: Map<string, InfixParselet<'T>> = Map.empty
 
@@ -73,7 +73,7 @@ type PrattParser<'T>(term: Parser<Expr, unit>) =
       | Some parselet -> Some(nextOneChar, parselet)
       | None -> None
 
-  member this.ParseExpr(precedence: int) : Parser<Expr, unit> =
+  member this.Parse(precedence: int) : Parser<'T, unit> =
     fun stream ->
 
       let nud () =
@@ -85,83 +85,82 @@ type PrattParser<'T>(term: Parser<Expr, unit>) =
 
       let left = nud ()
 
-      let rec led (left: Reply<Expr>) =
-        match precedence < this.GetPrecedence(stream.PeekString(1)) with
-        | true ->
-
-          let left =
-            match this.NextInfixOperator(stream) with
-            | Some(operator, parselet) ->
-              stream.Skip(operator.Length)
-              ws stream |> ignore // always succeeds
-              parselet.Parse(this, stream, left.Result, operator)
-            | _ -> left
-
-          led left
-        | false -> left
+      let rec led (left: Reply<'T>) =
+        match this.NextInfixOperator(stream) with
+        | Some(operator, parselet) ->
+          if precedence < this.GetPrecedence(operator) then
+            stream.Skip(operator.Length)
+            ws stream |> ignore // always succeeds
+            led (parselet.Parse(this, stream, left.Result, operator))
+          else
+            left
+        | None -> left
 
       led left
 
-let prefixParselet (precedence: int) : PrefixParselet<'T> =
+let prefixParselet (precedence: int) : PrefixParselet<Expr> =
   { Parse =
       fun (parser, stream, operator) ->
         let precedence = parser.GetPrecedence(operator)
-        let operand = parser.ParseExpr precedence stream
+        let operand = parser.Parse precedence stream
         Reply(Unary(operator, operand.Result))
     Precedence = precedence }
 
 let groupingParselet (precedence: int) : PrefixParselet<'T> =
   { Parse =
       fun (parser, stream, operator) ->
-        let operand = parser.ParseExpr 0 stream
+        let operand = parser.Parse 0 stream
         stream.Skip(1) // skip ')'
         Reply(operand.Result)
     Precedence = precedence }
 
-let infixParselet (precedence: int) : InfixParselet<'T> =
+let infixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) ->
         let precedence = parser.GetPrecedence(operator)
-        let right = parser.ParseExpr precedence stream
+        let right = parser.Parse precedence stream
         Reply(Binary(left, operator, right.Result))
     Precedence = precedence }
 
-let naryInfixParselet (precedence: int) : InfixParselet<'T> =
+let naryInfixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) ->
-        let mutable operands = [ left ]
-        let precedence = parser.GetPrecedence(operator)
+        let right = parser.Parse precedence stream
 
-        let operand = parser.ParseExpr precedence stream
-        operands <- operand.Result :: operands
+        let rec led (left: Reply<Expr>) =
+          match parser.NextInfixOperator(stream) with
+          | Some(nextOperator, parselet) ->
+            if operator = nextOperator then
+              stream.Skip(nextOperator.Length)
+              ws stream |> ignore // always succeeds
+              left.Result :: led (parser.Parse precedence stream)
+            else
+              [ left.Result ]
+          | None -> [ left.Result ]
 
-        // TODO: handle multi-char operators
-        while stream.PeekString(1) = operator do
-          stream.Skip(1)
-          ws stream |> ignore // always succeeds
-          let operand = parser.ParseExpr precedence stream
-          operands <- operand.Result :: operands
+        let operands = left :: led right
 
-        Reply(Nary(List.rev operands, operator))
+        Reply(Nary(operands, operator))
     Precedence = precedence }
 
-let callParselet (precedence: int) : InfixParselet<'T> =
+let callParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) ->
 
         let args =
           if stream.PeekString(1) = ")" then
             stream.Skip(1)
+            ws stream |> ignore // always succeeds
             []
           else
-            let parseArgs = sepBy (parser.ParseExpr(0)) (strWs ",")
+            let parseArgs = sepBy (parser.Parse(0)) (strWs ",")
             let reply = (parseArgs .>> (strWs ")")) stream
             reply.Result
 
         Reply(Call(left, args))
     Precedence = precedence }
 
-let postfixParselet (precedence: int) : InfixParselet<'T> =
+let postfixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) -> Reply(Postfix(left, operator))
     Precedence = precedence }

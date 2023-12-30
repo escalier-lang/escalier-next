@@ -16,51 +16,51 @@ settings.DisableDiff()
 let ParseArithmetic () =
   let parser = exprParser
 
-  let result = run (parser.ParseExpr(0)) "-a"
+  let result = run (parser.Parse(0)) "-a"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "+a"
+  let result = run (parser.Parse(0)) "+a"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "--a"
+  let result = run (parser.Parse(0)) "--a"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a + b"
+  let result = run (parser.Parse(0)) "a + b"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a + b + c"
+  let result = run (parser.Parse(0)) "a + b + c"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a * b + c"
+  let result = run (parser.Parse(0)) "a * b + c"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a + b * c"
+  let result = run (parser.Parse(0)) "a + b * c"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a * (b + c)"
+  let result = run (parser.Parse(0)) "a * (b + c)"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "A | B | C"
+  let result = run (parser.Parse(0)) "A | B | C"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "A & B | C & D | E & F"
+  let result = run (parser.Parse(0)) "A & B | C & D | E & F"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a!"
+  let result = run (parser.Parse(0)) "a!"
   printfn "result %A" result
 
   // once we handle precendence and add a while loop inside ParseExpr() this
   // should start working correctly.
-  let result = run (parser.ParseExpr(0)) "a!!"
+  let result = run (parser.Parse(0)) "a!!"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "a <= b"
+  let result = run (parser.Parse(0)) "a <= b"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "add(x, y)"
+  let result = run (parser.Parse(0)) "add(x, y)"
   printfn "result %A" result
 
-  let result = run (parser.ParseExpr(0)) "add(x)(y)"
+  let result = run (parser.Parse(0)) "add(x)(y)"
   printfn "result %A" result
 
 // Test Cases
@@ -72,4 +72,6 @@ let ParseArithmetic () =
 // - .1
 // - 1.
 // - x || y && z
+// - ∧, ∨, ¬ (boolean operators)
+// - ∩, ∪, \ (set operations)
 // - a?.b?.c

@@ -5,7 +5,6 @@ open Xunit
 open VerifyTests
 open FParsec
 
-
 open Pratt
 
 let settings = VerifySettings()
@@ -13,7 +12,7 @@ settings.UseDirectory("snapshots")
 settings.DisableDiff()
 
 [<Fact>]
-let ParseArithmetic () =
+let ParseSuccessCases () =
   let parser = exprParser
 
   let result = run (parser.Parse(0)) "-a"
@@ -87,10 +86,33 @@ let ParseArithmetic () =
   let result = run (parser.Parse(0)) "a?.b?.c"
   printfn "result %A" result
 
-// Test Cases
-// - 0..10
-// - 0.1
-// - .1
-// - 1.
-// - ∧, ∨, ¬ (boolean operators)
-// - ∩, ∪, \ (set operations)
+  let result = run (parser.Parse(0)) "1 + 2 * 3"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "123"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "1.23"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "0..10"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "0.1"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "1.foo()"
+  printfn "result %A" result
+
+[<Fact>]
+let ParseErrorCases () =
+  let parser = exprParser
+
+  let result = run (parser.Parse(0)) "a + "
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "1."
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) ".1"
+  printfn "result %A" result

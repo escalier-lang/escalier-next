@@ -2,6 +2,20 @@ module rec Pratt
 
 open FParsec
 
+type Number =
+  | Float of float
+  | Int of int
+
+type Expr =
+  | Ident of string
+  | Literal of Number
+  | Binary of Expr * string * Expr
+  | Nary of Expr list * string
+  | Unary of string * Expr
+  | Postfix of Expr * string
+  | Call of Expr * list<Expr>
+  | Index of Expr * Expr
+
 let ws = spaces
 let strWs s = pstring s .>> ws
 
@@ -10,17 +24,36 @@ let ident: Parser<string, unit> =
   let isIdentifierChar c = isLetter c || isDigit c || c = '_'
   many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
-let identExpr = ident |>> fun ident -> Expr.Ident ident
+let number: Parser<Number, unit> =
+  let parser =
+    fun stream ->
+      let intReply = many1Satisfy isDigit stream
 
-type Expr =
-  | Ident of string
-  | Literal of int
-  | Binary of Expr * string * Expr
-  | Nary of Expr list * string
-  | Unary of string * Expr
-  | Postfix of Expr * string
-  | Call of Expr * list<Expr>
-  | Index of Expr * Expr
+      match intReply.Status with
+      | Ok ->
+        if stream.PeekString(2) = ".." then
+          Reply(Number.Int(int intReply.Result))
+        else if stream.PeekString(1) = "." then
+          let index = stream.Index
+          stream.Skip(1)
+          let decReply = many1Satisfy isDigit stream
+
+          match decReply.Status with
+          | Ok ->
+            let number = intReply.Result + "." + decReply.Result
+            Reply(Number.Float(float number))
+          | Error ->
+            stream.Seek(index)
+            Reply(Number.Int(int intReply.Result))
+          | _ -> Reply(decReply.Status, decReply.Error)
+        else
+          Reply(Number.Int(int intReply.Result))
+      | _ -> Reply(intReply.Status, intReply.Error)
+
+  parser .>> ws
+
+let identExpr: Parser<Expr, unit> = ident |>> Expr.Ident
+let numberExpr: Parser<Expr, unit> = number |>> Expr.Literal
 
 type PrefixParselet<'T> =
   { Parse: PrattParser<'T> * CharStream<unit> * string -> Reply<'T>
@@ -97,14 +130,19 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
             left
         | None -> left
 
-      led left
+      match left.Status with
+      | Ok -> led left
+      | _ -> left
 
 let prefixParselet (precedence: int) : PrefixParselet<Expr> =
   { Parse =
       fun (parser, stream, operator) ->
         let precedence = parser.GetPrecedence(operator)
         let operand = parser.Parse precedence stream
-        Reply(Unary(operator, operand.Result))
+
+        match operand.Status with
+        | Ok -> Reply(Unary(operator, operand.Result))
+        | _ -> operand
     Precedence = precedence }
 
 let groupingParselet (precedence: int) : PrefixParselet<'T> =
@@ -112,7 +150,8 @@ let groupingParselet (precedence: int) : PrefixParselet<'T> =
       fun (parser, stream, operator) ->
         let operand = parser.Parse 0 stream
         stream.Skip(1) // skip ')'
-        Reply(operand.Result)
+
+        operand
     Precedence = precedence }
 
 let infixParselet (precedence: int) : InfixParselet<Expr> =
@@ -120,7 +159,10 @@ let infixParselet (precedence: int) : InfixParselet<Expr> =
       fun (parser, stream, left, operator) ->
         let precedence = parser.GetPrecedence(operator)
         let right = parser.Parse precedence stream
-        Reply(Binary(left, operator, right.Result))
+
+        match right.Status with
+        | Ok -> Reply(Binary(left, operator, right.Result))
+        | _ -> right
     Precedence = precedence }
 
 let naryInfixParselet (precedence: int) : InfixParselet<Expr> =
@@ -152,13 +194,15 @@ let callParselet (precedence: int) : InfixParselet<Expr> =
           if stream.PeekString(1) = ")" then
             stream.Skip(1)
             ws stream |> ignore // always succeeds
-            []
+            Reply([])
           else
             let parseArgs = sepBy (parser.Parse(0)) (strWs ",")
             let reply = (parseArgs .>> (strWs ")")) stream
-            reply.Result
+            reply
 
-        Reply(Call(left, args))
+        match args.Status with
+        | Ok -> Reply(Call(left, args.Result))
+        | _ -> Reply(args.Status, args.Error)
     Precedence = precedence }
 
 let indexParselet (precedence: int) : InfixParselet<Expr> =
@@ -166,7 +210,10 @@ let indexParselet (precedence: int) : InfixParselet<Expr> =
       fun (parser, stream, left, operator) ->
         let index = parser.Parse(0)
         let reply = (index .>> (strWs "]")) stream
-        Reply(Index(left, reply.Result))
+
+        match reply.Status with
+        | Ok -> Reply(Index(left, reply.Result))
+        | _ -> Reply(reply.Status, reply.Error)
     Precedence = precedence }
 
 let postfixParselet (precedence: int) : InfixParselet<Expr> =
@@ -174,8 +221,8 @@ let postfixParselet (precedence: int) : InfixParselet<Expr> =
       fun (parser, stream, left, operator) -> Reply(Postfix(left, operator))
     Precedence = precedence }
 
-
-let exprParser = PrattParser<Expr>(identExpr)
+let term = choice [ identExpr; numberExpr ]
+let exprParser = PrattParser<Expr>(term)
 
 exprParser.RegisterPrefix("(", groupingParselet 18)
 
@@ -206,5 +253,7 @@ exprParser.RegisterInfix("&&", infixParselet 4)
 exprParser.RegisterInfix("||", infixParselet 3)
 exprParser.RegisterInfix("&", naryInfixParselet 4)
 exprParser.RegisterInfix("|", naryInfixParselet 3)
+
+exprParser.RegisterInfix("..", infixParselet 2)
 
 exprParser.RegisterPostfix("!", postfixParselet 15)

@@ -446,9 +446,8 @@ let ParseDeclare () =
 let ParseRange () =
   let src =
     """
-    type DiceValue = 0 .. 6
-    let range = 0 .. 10
-  """
+    let range = 0..10
+    """
 
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"

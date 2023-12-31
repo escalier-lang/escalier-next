@@ -408,7 +408,7 @@ module Parser =
       Span = mergeSpans x.Span y.Span
       InferredType = None }
 
-  let prefixExprParlset
+  let prefixExprParslet
     (precedence: int)
     (callback: Expr -> Expr)
     : Pratt.PrefixParselet<Expr> =
@@ -426,26 +426,33 @@ module Parser =
     (precedence: int)
     (operator: string)
     : Pratt.PrefixParselet<Expr> =
-    prefixExprParlset precedence (fun operand ->
+    prefixExprParslet precedence (fun operand ->
       { Expr.Kind = ExprKind.Unary(operator, operand)
         Span = operand.Span
         InferredType = None })
 
-  let binaryExprParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+  let infixExprParslet
+    (precedence: int)
+    (callback: Expr * Expr -> Expr)
+    : Pratt.InfixParselet<Expr> =
     { Parse =
         fun (parser, stream, left, operator) ->
           let precedence = parser.GetPrecedence(operator)
           let right = parser.Parse precedence stream
 
           match right.Status with
-          | Ok ->
-            Reply(
-              { Expr.Kind = ExprKind.Binary(operator, left, right.Result)
-                Span = mergeSpans left.Span right.Result.Span
-                InferredType = None }
-            )
+          | Ok -> Reply(callback (left, right.Result))
           | _ -> right
       Precedence = precedence }
+
+  let binaryExprParselet
+    (precedence: int)
+    (operator: string)
+    : Pratt.InfixParselet<Expr> =
+    infixExprParslet precedence (fun (left, right) ->
+      { Expr.Kind = ExprKind.Binary(operator, left, right)
+        Span = mergeSpans left.Span right.Span
+        InferredType = None })
 
   // logical not (14)
   // bitwise not (14)
@@ -455,7 +462,7 @@ module Parser =
 
   exprParser.RegisterPrefix(
     "await",
-    prefixExprParlset 14 (fun x ->
+    prefixExprParslet 14 (fun x ->
       { Expr.Kind = ExprKind.Await({ Value = x; Throws = None })
         Span = x.Span
         InferredType = None })
@@ -466,39 +473,47 @@ module Parser =
   // await (14)
 
   // TODO: add support for right associativity
-  exprParser.RegisterInfix("**", binaryExprParselet 13)
-  exprParser.RegisterInfix("*", binaryExprParselet 12)
-  exprParser.RegisterInfix("/", binaryExprParselet 12)
-  exprParser.RegisterInfix("%", binaryExprParselet 12)
-  exprParser.RegisterInfix("+", binaryExprParselet 11)
-  exprParser.RegisterInfix("++", binaryExprParselet 11)
-  exprParser.RegisterInfix("-", binaryExprParselet 11)
-  exprParser.RegisterInfix("<", binaryExprParselet 9)
-  exprParser.RegisterInfix("<=", binaryExprParselet 9)
-  exprParser.RegisterInfix(">", binaryExprParselet 9)
-  exprParser.RegisterInfix(">=", binaryExprParselet 9)
-  exprParser.RegisterInfix("==", binaryExprParselet 8)
-  exprParser.RegisterInfix("!=", binaryExprParselet 8)
+  exprParser.RegisterInfix("**", binaryExprParselet 13 "**")
+  exprParser.RegisterInfix("*", binaryExprParselet 12 "*")
+  exprParser.RegisterInfix("/", binaryExprParselet 12 "/")
+  exprParser.RegisterInfix("%", binaryExprParselet 12 "%")
+  exprParser.RegisterInfix("+", binaryExprParselet 11 "+")
+  exprParser.RegisterInfix("++", binaryExprParselet 11 "++")
+  exprParser.RegisterInfix("-", binaryExprParselet 11 "-")
+  exprParser.RegisterInfix("<", binaryExprParselet 9 "<")
+  exprParser.RegisterInfix("<=", binaryExprParselet 9 "<=")
+  exprParser.RegisterInfix(">", binaryExprParselet 9 ">")
+  exprParser.RegisterInfix(">=", binaryExprParselet 9 ">=")
+  exprParser.RegisterInfix("==", binaryExprParselet 8 "==")
+  exprParser.RegisterInfix("!=", binaryExprParselet 8 "!=")
 
   // bitwise and (7)
   // bitwise xor (6)
   // bitwise or (5)
 
-  exprParser.RegisterInfix("&&", binaryExprParselet 4)
-  exprParser.RegisterInfix("||", binaryExprParselet 3)
+  exprParser.RegisterInfix("&&", binaryExprParselet 4 "&&")
+  exprParser.RegisterInfix("||", binaryExprParselet 3 "||")
 
-  opp.AddOperator(
-    InfixOperator(
-      "..",
-      ws,
-      2,
-      Assoc.None,
-      fun min max ->
-        { Expr.Kind = ExprKind.Range { Min = min; Max = max }
-          Span = mergeSpans min.Span max.Span
-          InferredType = None }
-    )
+  exprParser.RegisterInfix(
+    "..",
+    infixExprParslet 2 (fun (min, max) ->
+      { Expr.Kind = ExprKind.Range { Min = min; Max = max }
+        Span = mergeSpans min.Span max.Span
+        InferredType = None })
   )
+
+  // opp.AddOperator(
+  //   InfixOperator(
+  //     "..",
+  //     ws,
+  //     2,
+  //     Assoc.None,
+  //     fun min max ->
+  //       { Expr.Kind = ExprKind.Range { Min = min; Max = max }
+  //         Span = mergeSpans min.Span max.Span
+  //         InferredType = None }
+  //   )
+  // )
 
   // opp.AddOperator(
   //   InfixOperator(

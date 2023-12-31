@@ -12,13 +12,13 @@ output: Ok
                            Span = { Start = (Ln: 1, Col: 1)
                                     Stop = (Ln: 1, Col: 6) }
                            InferredType = None },
-                         { Kind = Literal (Number 0.0)
+                         { Kind = Literal (Number (Int 0))
                            Span = { Start = (Ln: 1, Col: 7)
                                     Stop = (Ln: 1, Col: 8) }
                            InferredType = None }, false)
                      Span = { Start = (Ln: 1, Col: 1)
                               Stop = (Ln: 1, Col: 9) }
-                     InferredType = None }, { Kind = Literal (Number 1.0)
+                     InferredType = None }, { Kind = Literal (Number (Int 1))
                                               Span = { Start = (Ln: 1, Col: 10)
                                                        Stop = (Ln: 1, Col: 11) }
                                               InferredType = None }, false)

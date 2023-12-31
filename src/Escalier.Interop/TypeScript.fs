@@ -1,5 +1,7 @@
 namespace Escalier.Interop
 
+open Escalier.Data
+
 module rec TypeScript =
 
   type Position(line: int, column: int) =
@@ -68,7 +70,7 @@ module rec TypeScript =
   type Null = { Loc: option<SourceLocation> }
 
   type Number =
-    { Value: float
+    { Value: Common.Number
       Raw: option<string>
       Loc: option<SourceLocation> }
 

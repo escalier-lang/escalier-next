@@ -7,6 +7,7 @@ open VerifyTests
 open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 
+open Escalier.Data
 open Escalier.Interop.TypeScript
 open Escalier.Codegen.Printer
 open Escalier.Codegen.Codegen
@@ -28,7 +29,11 @@ let CodegenIdent () =
 
 [<Fact>]
 let CodegenLiteral () =
-  let lit: Lit = Lit.Num { Value = 1.23; Raw = None; Loc = None }
+  let lit: Lit =
+    Lit.Num
+      { Value = Common.Float 1.23
+        Raw = None
+        Loc = None }
 
   let code = printExpr printCtx (Expr.Lit lit)
 
@@ -55,8 +60,17 @@ let CodegenExpressRequiresParens () =
   let a: Ident = { Name = "a"; Loc = None }
   let b: Ident = { Name = "b"; Loc = None }
 
-  let one: Lit = Lit.Num { Value = 1.0; Raw = None; Loc = None }
-  let two: Lit = Lit.Num { Value = 2.0; Raw = None; Loc = None }
+  let one: Lit =
+    Lit.Num
+      { Value = Common.Float 1.0
+        Raw = None
+        Loc = None }
+
+  let two: Lit =
+    Lit.Num
+      { Value = Common.Float 2.0
+        Raw = None
+        Loc = None }
 
   let sum =
     Expr.Bin
@@ -88,8 +102,17 @@ let CodegenNoParensExpression () =
   let a: Ident = { Name = "a"; Loc = None }
   let b: Ident = { Name = "b"; Loc = None }
 
-  let one: Lit = Lit.Num { Value = 1.0; Raw = None; Loc = None }
-  let two: Lit = Lit.Num { Value = 2.0; Raw = None; Loc = None }
+  let one: Lit =
+    Lit.Num
+      { Value = Common.Float 1.0
+        Raw = None
+        Loc = None }
+
+  let two: Lit =
+    Lit.Num
+      { Value = Common.Float 2.0
+        Raw = None
+        Loc = None }
 
   let prod =
     Expr.Bin

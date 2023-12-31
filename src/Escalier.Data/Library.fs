@@ -1,11 +1,23 @@
 ﻿namespace rec Escalier.Data
 
 open FParsec
+open System.Globalization
 open System.Text
 
 module Common =
+  let ci = CultureInfo("en-US", true)
+
+  type Number =
+    | Float of float
+    | Int of int
+
+    override this.ToString() =
+      match this with
+      | Float value -> value.ToString(ci)
+      | Int value -> value.ToString(ci)
+
   type Literal =
-    | Number of float
+    | Number of Number
     | String of string
     | Boolean of bool
     | Null
@@ -70,7 +82,7 @@ module Syntax =
   type PropName =
     | Ident of string
     | String of string
-    | Number of float
+    | Number of Common.Number
     | Computed of Expr
 
     override this.ToString() =
@@ -303,7 +315,7 @@ module Syntax =
 module Type =
   type PropName =
     | String of string
-    | Number of float
+    | Number of Common.Number
     | Symbol of int // symbol id
 
     override this.ToString() =

@@ -77,7 +77,35 @@ module Parser =
         Throws = throws
         IsAsync = async.IsSome }
 
-  let number: Parser<Literal, unit> = pfloat |>> Literal.Number
+  let number: Parser<Number, unit> =
+    let parser =
+      fun stream ->
+        let intReply = many1Satisfy isDigit stream
+
+        match intReply.Status with
+        | Ok ->
+          if stream.PeekString(2) = ".." then
+            Reply(Number.Int(int intReply.Result))
+          else if stream.PeekString(1) = "." then
+            let index = stream.Index
+            stream.Skip(1)
+            let decReply = many1Satisfy isDigit stream
+
+            match decReply.Status with
+            | Ok ->
+              let number = intReply.Result + "." + decReply.Result
+              Reply(Number.Float(float number))
+            | Error ->
+              stream.Seek(index)
+              Reply(Number.Int(int intReply.Result))
+            | _ -> Reply(decReply.Status, decReply.Error)
+          else
+            Reply(Number.Int(int intReply.Result))
+        | _ -> Reply(intReply.Status, intReply.Error)
+
+    parser .>> ws
+
+  // let number: Parser<Literal, unit> = pfloat |>> Literal.Number
 
   let _string: Parser<string, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
@@ -106,7 +134,8 @@ module Parser =
     (pstring "undefined" |>> fun _ -> Literal.Undefined)
     <|> (pstring "null" |>> fun _ -> Literal.Null)
 
-  litRef.Value <- choice [ number; string; boolean; otherLiterals ]
+  litRef.Value <-
+    choice [ number |>> Literal.Number; string; boolean; otherLiterals ]
 
   let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
 
@@ -659,7 +688,7 @@ module Parser =
   let private propName =
     choice
       [ ident |>> PropName.String
-        pfloat .>> ws |>> PropName.Number
+        number .>> ws |>> PropName.Number
         _string .>> ws |>> PropName.String
         between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
 

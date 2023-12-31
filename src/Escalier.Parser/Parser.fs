@@ -408,17 +408,12 @@ module Parser =
         Span = mergeSpans left.Span right.Span
         InferredType = None })
 
-  let groupingParselet (precedence: int) : Pratt.PrefixParselet<'T> =
+  let groupingExprParselet (precedence: int) : Pratt.PrefixParselet<'T> =
     { Parse =
-        fun (parser, stream, operator) ->
-          let operand = parser.Parse 0 stream
-          stream.Skip(1) // skip ')'
-          ws stream |> ignore // always succeeds
-
-          operand
+        fun (parser, stream, operator) -> (parser.Parse 0 .>> strWs ")") stream
       Precedence = precedence }
 
-  exprParser.RegisterPrefix("(", groupingParselet 18)
+  exprParser.RegisterPrefix("(", groupingExprParselet 18)
 
   let indexParselet (precedence: int) : Pratt.InfixParselet<Expr> =
     { Parse =
@@ -671,8 +666,6 @@ module Parser =
         objectPattern
         tuplePattern ]
 
-  let private parenthesizedTypeAnn = (between (strWs "(") (strWs ")") typeAnn)
-
   let private litTypeAnn =
     withSpan lit
     |>> fun (lit, span) ->
@@ -878,7 +871,6 @@ module Parser =
   let primaryType =
     choice
       [ litTypeAnn
-        parenthesizedTypeAnn
         keywordTypeAnn // aka PredefinedType
         uniqueSymbolTypeAnn
         tupleTypeAnn
@@ -893,49 +885,104 @@ module Parser =
         typeRef ]
     .>> ws
 
-  let arrayTypeSuffix: Parser<TypeAnn -> TypeAnn, unit> =
-    pipe2 (strWs "[" >>. (opt typeAnn) .>> strWs "]") getPosition
-    <| fun index p2 target ->
-      match index with
-      | Some(index) ->
-        { TypeAnn.Kind = TypeAnnKind.Index(target, index)
-          Span = { Start = target.Span.Start; Stop = p2 }
-          InferredType = None }
-      | None ->
-        { TypeAnn.Kind = Array(target)
-          Span = { Start = target.Span.Start; Stop = p2 }
-          InferredType = None }
+  let typeAnnParser = Pratt.PrattParser<TypeAnn>(primaryType)
 
-  let primaryTypeWithSuffix: Parser<TypeAnn, unit> =
-    pipe2 primaryType (many (arrayTypeSuffix))
-    <| fun typeAnn suffixes ->
-      List.fold (fun x suffix -> suffix x) typeAnn suffixes
+  let groupingTypeAnnParselet
+    (precedence: int)
+    : Pratt.PrefixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, operator) ->
+          (typeAnnParser.Parse 0 .>> strWs ")") stream
+      Precedence = precedence }
 
-  // NOTE: We don't use InfixOperator here because that only supports
-  // binary operators and intersection types are n-ary.
-  let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 primaryTypeWithSuffix (strWs "&"))
-    |>> fun (typeAnns, span) ->
-      match typeAnns with
-      | [ typeAnn ] -> typeAnn
-      | _ ->
-        { TypeAnn.Kind = TypeAnnKind.Intersection(typeAnns)
-          Span = span
-          InferredType = None }
+  typeAnnParser.RegisterPrefix("(", groupingTypeAnnParselet 18)
 
-  // NOTE: We don't use InfixOperator here because that only supports
-  // binary operators and union types are n-ary.
-  let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 intersectionOrPrimaryType (strWs "|"))
-    |>> fun (typeAnns, span) ->
-      match typeAnns with
-      | [ typeAnn ] -> typeAnn
-      | _ ->
-        { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
-          Span = span
-          InferredType = None }
+  let indexTypeAnnParselet (precedence: int) : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let index = parser.Parse 0
+          let reply = (index .>> (strWs "]")) stream
 
-  typeAnnRef.Value <- unionOrIntersectionOrPrimaryType
+          match reply.Status with
+          | Ok ->
+            Reply(
+              { TypeAnn.Kind = TypeAnnKind.Index(left, reply.Result)
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+            )
+          | _ -> Reply(reply.Status, reply.Error)
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix("[", indexTypeAnnParselet 17)
+
+  let postfixTypeAnnParselet
+    (precedence: int)
+    (callback: TypeAnn * Position -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          Reply(callback (left, stream.Position))
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "[]",
+    postfixTypeAnnParselet 17 (fun (target, position) ->
+      { TypeAnn.Kind = Array(target)
+        Span =
+          { Start = target.Span.Start
+            Stop = position }
+        InferredType = None })
+  )
+
+  let naryTypeAnnParselet
+    (precedence: int)
+    (callback: list<TypeAnn> -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = parser.Parse precedence stream
+
+          let rec led (acc: list<TypeAnn>) (left: Reply<TypeAnn>) =
+            match parser.NextInfixOperator(stream) with
+            | Some(nextOperator, parselet) ->
+              if operator = nextOperator then
+                stream.Skip(nextOperator.Length)
+                ws stream |> ignore // always succeeds
+                led (left.Result :: acc) (parser.Parse precedence stream)
+              else
+                left.Result :: acc
+            | None -> left.Result :: acc
+
+          let operands = led [ left ] right
+
+          Reply(callback (List.rev operands))
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "&",
+    naryTypeAnnParselet 4 (fun typeAnns ->
+      let first = typeAnns[0]
+      let last = typeAnns[typeAnns.Length - 1]
+
+      { TypeAnn.Kind = TypeAnnKind.Intersection(typeAnns)
+        Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  typeAnnParser.RegisterInfix(
+    "|",
+    naryTypeAnnParselet 3 (fun typeAnns ->
+      let first = typeAnns[0]
+      let last = typeAnns[typeAnns.Length - 1]
+
+      { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
+        Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  typeAnnRef.Value <- typeAnnParser.Parse(0)
 
   let namedSpecifier: Parser<ImportSpecifier, unit> =
     pipe4 getPosition ident (opt (strWs "as" >>. ident)) getPosition

@@ -98,6 +98,9 @@ module rec Folder =
         | TypeKind.Binary(left, op, right) ->
           { Kind = TypeKind.Binary(fold left, op, fold right)
             Provenance = None }
+        | TypeKind.Range { Min = min; Max = max } ->
+          { Kind = TypeKind.Range { Min = fold min; Max = fold max }
+            Provenance = None }
 
       match f t with
       | Some(t) -> t

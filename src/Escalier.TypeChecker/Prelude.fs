@@ -298,6 +298,7 @@ module Prelude =
           next: fn () -> { done: boolean, value: Min..Max }
         }
         """
+      // TODO: add an `Iterator` type and define `RangeIterator` using it
 
       let! ast =
         Parser.parseScript prelude |> Result.mapError CompileError.ParseError

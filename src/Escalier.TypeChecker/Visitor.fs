@@ -229,6 +229,9 @@ module rec TypeVisitor =
       | TypeKind.Binary(left, op, right) ->
         walk left
         walk right
+      | TypeKind.Range { Min = min; Max = max } ->
+        walk min
+        walk max
 
       f t
 

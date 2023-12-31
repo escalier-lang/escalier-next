@@ -31,7 +31,11 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  type Range<'T> = { Min: 'T; Max: 'T } // non-inclusive
+  type Range<'T> =
+    { Min: 'T
+      Max: 'T } // non-inclusive
+
+    override this.ToString() = $"[{this.Min}..{this.Max}]"
 
   type MappedModifier =
     | Add
@@ -678,6 +682,7 @@ module Type =
       | TypeKind.Binary(left, op, right) -> $"{left} {op} {right}"
       // TODO: include a description in symbol types
       | TypeKind.UniqueSymbol _ -> $"symbol()"
+      | TypeKind.Range range -> range.ToString()
       | _ ->
         printfn "this.Kind = %A" this.Kind
         failwith "TODO: finish implementing Type.ToString"

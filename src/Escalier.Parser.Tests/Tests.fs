@@ -446,7 +446,22 @@ let ParseDeclare () =
 let ParseRange () =
   let src =
     """
+    type DieRoll = 1..6
     let range = 0..10
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseRangeIteratorType () =
+  let src =
+    """
+      type RangeIterator<Min: number, Max: number> = {
+        next: fn () -> { done: boolean, value: Min..Max }
+      }
     """
 
   let ast = Parser.parseScript src

@@ -354,54 +354,8 @@ module Parser =
         // continue parsing the appropriate expression
         identExpr ]
 
-  let term = (atom .>> ws) <|> between (strWs "(") (strWs ")") expr
-
-  let arrayIndexSuffix: Parser<Expr -> Expr, unit> =
-    pipe2 (strWs "[" >>. expr .>> strWs "]") getPosition
-    <| fun index p2 target ->
-      { Expr.Kind = ExprKind.Index(target, index, false)
-        Span = { Start = target.Span.Start; Stop = p2 }
-        InferredType = None }
-
-  let callSuffix: Parser<Expr -> Expr, unit> =
-    pipe2 (strWs "(" >>. sepBy expr (strWs ",") .>> strWs ")") getPosition
-    <| fun args p2 callee ->
-      { Expr.Kind =
-          ExprKind.Call(
-            { Callee = callee
-              TypeArgs = None
-              Args = args
-              OptChain = false
-              Throws = None }
-          )
-        Span = { Start = callee.Span.Start; Stop = p2 }
-        InferredType = None }
-
-  let memberOp =
-    fun (optChain: bool) (obj: Expr) (prop: Expr) ->
-      match prop.Kind with
-      | ExprKind.Identifier ident ->
-        { Expr.Kind = ExprKind.Member(obj, ident, optChain)
-          Span = mergeSpans obj.Span prop.Span
-          InferredType = None }
-      | _ -> failwith "Expected identifier"
-
-  let memberSuffix: Parser<Expr -> Expr, unit> =
-    pipe3 (choice [ strWs "?."; strWs "." ]) identExpr getPosition
-    <| fun op prop p2 obj ->
-      match op with
-      | "?." -> memberOp true obj prop
-      | "." -> memberOp false obj prop
-
-  let suffix = choice [ arrayIndexSuffix; callSuffix; memberSuffix ]
-
-  let termWithSuffix: Parser<Expr, unit> =
-    pipe2 term (many (suffix))
-    <| fun expr suffixes -> List.fold (fun x suffix -> suffix x) expr suffixes
-
-  let exprParser = Pratt.PrattParser<Expr>(termWithSuffix)
-
-  type Assoc = Associativity
+  let term = atom .>> ws
+  let exprParser = Pratt.PrattParser<Expr>(term)
 
   let binary op x y =
     { Expr.Kind = ExprKind.Binary(op, x, y)
@@ -431,21 +385,109 @@ module Parser =
         Span = operand.Span
         InferredType = None })
 
-  let binaryExprParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+  let infixExprParselet
+    (precedence: int)
+    (callback: Expr -> Expr -> Expr)
+    : Pratt.InfixParselet<Expr> =
     { Parse =
         fun (parser, stream, left, operator) ->
           let precedence = parser.GetPrecedence(operator)
           let right = parser.Parse precedence stream
 
           match right.Status with
-          | Ok ->
-            Reply(
-              { Expr.Kind = ExprKind.Binary(operator, left, right.Result)
-                Span = mergeSpans left.Span right.Result.Span
-                InferredType = None }
-            )
+          | Ok -> Reply(callback left right.Result)
           | _ -> right
       Precedence = precedence }
+
+  let binaryExprParselet
+    (precedence: int)
+    (operator: string)
+    : Pratt.InfixParselet<Expr> =
+    infixExprParselet precedence (fun left right ->
+      { Expr.Kind = ExprKind.Binary(operator, left, right)
+        Span = mergeSpans left.Span right.Span
+        InferredType = None })
+
+  let groupingExprParselet (precedence: int) : Pratt.PrefixParselet<'T> =
+    { Parse =
+        fun (parser, stream, operator) -> (parser.Parse 0 .>> strWs ")") stream
+      Precedence = precedence }
+
+  exprParser.RegisterPrefix("(", groupingExprParselet 18)
+
+  let indexParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let index = parser.Parse(0)
+          let reply = (index .>> (strWs "]")) stream
+
+          match reply.Status with
+          | Ok ->
+            Reply(
+              { Expr.Kind = ExprKind.Index(left, reply.Result, false)
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+            )
+          | _ -> Reply(reply.Status, reply.Error)
+      Precedence = precedence }
+
+  let memberOp =
+    fun (optChain: bool) (obj: Expr) (prop: Expr) ->
+      match prop.Kind with
+      | ExprKind.Identifier ident ->
+        { Expr.Kind = ExprKind.Member(obj, ident, optChain)
+          Span = mergeSpans obj.Span prop.Span
+          InferredType = None }
+      | _ -> failwith "Expected identifier"
+
+  exprParser.RegisterInfix(
+    "?.",
+    infixExprParselet 17 (fun left right -> memberOp true left right)
+  )
+
+  exprParser.RegisterInfix(
+    ".",
+    infixExprParselet 17 (fun left right -> memberOp false left right)
+  )
+
+  exprParser.RegisterInfix("[", indexParselet 17)
+
+  let callParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+
+          let args =
+            if stream.PeekString(1) = ")" then
+              stream.Skip(1)
+              ws stream |> ignore // always succeeds
+              Reply([])
+            else
+              let parseArgs = sepBy (parser.Parse(0)) (strWs ",")
+              let reply = (parseArgs .>> (strWs ")")) stream
+              reply
+
+          match args.Status with
+          | Ok ->
+            Reply(
+              { Expr.Kind =
+                  ExprKind.Call
+                    { Callee = left
+                      TypeArgs = None
+                      Args = args.Result
+                      OptChain = false
+                      Throws = None }
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+            )
+
+          | _ -> Reply(args.Status, args.Error)
+      Precedence = precedence }
+
+  exprParser.RegisterInfix("(", callParselet 17)
 
   // logical not (14)
   // bitwise not (14)
@@ -466,39 +508,26 @@ module Parser =
   // await (14)
 
   // TODO: add support for right associativity
-  exprParser.RegisterInfix("**", binaryExprParselet 13)
-  exprParser.RegisterInfix("*", binaryExprParselet 12)
-  exprParser.RegisterInfix("/", binaryExprParselet 12)
-  exprParser.RegisterInfix("%", binaryExprParselet 12)
-  exprParser.RegisterInfix("+", binaryExprParselet 11)
-  exprParser.RegisterInfix("++", binaryExprParselet 11)
-  exprParser.RegisterInfix("-", binaryExprParselet 11)
-  exprParser.RegisterInfix("<", binaryExprParselet 9)
-  exprParser.RegisterInfix("<=", binaryExprParselet 9)
-  exprParser.RegisterInfix(">", binaryExprParselet 9)
-  exprParser.RegisterInfix(">=", binaryExprParselet 9)
-  exprParser.RegisterInfix("==", binaryExprParselet 8)
-  exprParser.RegisterInfix("!=", binaryExprParselet 8)
+  exprParser.RegisterInfix("**", binaryExprParselet 13 "**")
+  exprParser.RegisterInfix("*", binaryExprParselet 12 "*")
+  exprParser.RegisterInfix("/", binaryExprParselet 12 "/")
+  exprParser.RegisterInfix("%", binaryExprParselet 12 "%")
+  exprParser.RegisterInfix("+", binaryExprParselet 11 "+")
+  exprParser.RegisterInfix("++", binaryExprParselet 11 "++")
+  exprParser.RegisterInfix("-", binaryExprParselet 11 "-")
+  exprParser.RegisterInfix("<", binaryExprParselet 9 "<")
+  exprParser.RegisterInfix("<=", binaryExprParselet 9 "<=")
+  exprParser.RegisterInfix(">", binaryExprParselet 9 ">")
+  exprParser.RegisterInfix(">=", binaryExprParselet 9 ">=")
+  exprParser.RegisterInfix("==", binaryExprParselet 8 "==")
+  exprParser.RegisterInfix("!=", binaryExprParselet 8 "!=")
 
   // bitwise and (7)
   // bitwise xor (6)
   // bitwise or (5)
 
-  exprParser.RegisterInfix("&&", binaryExprParselet 4)
-  exprParser.RegisterInfix("||", binaryExprParselet 3)
-
-  // opp.AddOperator(
-  //   InfixOperator(
-  //     "=",
-  //     ws,
-  //     2,
-  //     Assoc.Right,
-  //     (fun x y ->
-  //       { Expr.Kind = ExprKind.Assign("=", x, y)
-  //         Span = mergeSpans x.Span y.Span
-  //         InferredType = None })
-  //   )
-  // )
+  exprParser.RegisterInfix("&&", binaryExprParselet 4 "&&")
+  exprParser.RegisterInfix("||", binaryExprParselet 3 "||")
 
   exprRef.Value <- exprParser.Parse(0)
 
@@ -636,8 +665,6 @@ module Parser =
         wildcardPattern
         objectPattern
         tuplePattern ]
-
-  let private parenthesizedTypeAnn = (between (strWs "(") (strWs ")") typeAnn)
 
   let private litTypeAnn =
     withSpan lit
@@ -844,7 +871,6 @@ module Parser =
   let primaryType =
     choice
       [ litTypeAnn
-        parenthesizedTypeAnn
         keywordTypeAnn // aka PredefinedType
         uniqueSymbolTypeAnn
         tupleTypeAnn
@@ -859,49 +885,104 @@ module Parser =
         typeRef ]
     .>> ws
 
-  let arrayTypeSuffix: Parser<TypeAnn -> TypeAnn, unit> =
-    pipe2 (strWs "[" >>. (opt typeAnn) .>> strWs "]") getPosition
-    <| fun index p2 target ->
-      match index with
-      | Some(index) ->
-        { TypeAnn.Kind = TypeAnnKind.Index(target, index)
-          Span = { Start = target.Span.Start; Stop = p2 }
-          InferredType = None }
-      | None ->
-        { TypeAnn.Kind = Array(target)
-          Span = { Start = target.Span.Start; Stop = p2 }
-          InferredType = None }
+  let typeAnnParser = Pratt.PrattParser<TypeAnn>(primaryType)
 
-  let primaryTypeWithSuffix: Parser<TypeAnn, unit> =
-    pipe2 primaryType (many (arrayTypeSuffix))
-    <| fun typeAnn suffixes ->
-      List.fold (fun x suffix -> suffix x) typeAnn suffixes
+  let groupingTypeAnnParselet
+    (precedence: int)
+    : Pratt.PrefixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, operator) ->
+          (typeAnnParser.Parse 0 .>> strWs ")") stream
+      Precedence = precedence }
 
-  // NOTE: We don't use InfixOperator here because that only supports
-  // binary operators and intersection types are n-ary.
-  let intersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 primaryTypeWithSuffix (strWs "&"))
-    |>> fun (typeAnns, span) ->
-      match typeAnns with
-      | [ typeAnn ] -> typeAnn
-      | _ ->
-        { TypeAnn.Kind = TypeAnnKind.Intersection(typeAnns)
-          Span = span
-          InferredType = None }
+  typeAnnParser.RegisterPrefix("(", groupingTypeAnnParselet 18)
 
-  // NOTE: We don't use InfixOperator here because that only supports
-  // binary operators and union types are n-ary.
-  let unionOrIntersectionOrPrimaryType: Parser<TypeAnn, unit> =
-    withSpan (sepBy1 intersectionOrPrimaryType (strWs "|"))
-    |>> fun (typeAnns, span) ->
-      match typeAnns with
-      | [ typeAnn ] -> typeAnn
-      | _ ->
-        { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
-          Span = span
-          InferredType = None }
+  let indexTypeAnnParselet (precedence: int) : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let index = parser.Parse 0
+          let reply = (index .>> (strWs "]")) stream
 
-  typeAnnRef.Value <- unionOrIntersectionOrPrimaryType
+          match reply.Status with
+          | Ok ->
+            Reply(
+              { TypeAnn.Kind = TypeAnnKind.Index(left, reply.Result)
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+            )
+          | _ -> Reply(reply.Status, reply.Error)
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix("[", indexTypeAnnParselet 17)
+
+  let postfixTypeAnnParselet
+    (precedence: int)
+    (callback: TypeAnn * Position -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          Reply(callback (left, stream.Position))
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "[]",
+    postfixTypeAnnParselet 17 (fun (target, position) ->
+      { TypeAnn.Kind = Array(target)
+        Span =
+          { Start = target.Span.Start
+            Stop = position }
+        InferredType = None })
+  )
+
+  let naryTypeAnnParselet
+    (precedence: int)
+    (callback: list<TypeAnn> -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = parser.Parse precedence stream
+
+          let rec led (acc: list<TypeAnn>) (left: Reply<TypeAnn>) =
+            match parser.NextInfixOperator(stream) with
+            | Some(nextOperator, parselet) ->
+              if operator = nextOperator then
+                stream.Skip(nextOperator.Length)
+                ws stream |> ignore // always succeeds
+                led (left.Result :: acc) (parser.Parse precedence stream)
+              else
+                left.Result :: acc
+            | None -> left.Result :: acc
+
+          let operands = led [ left ] right
+
+          Reply(callback (List.rev operands))
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "&",
+    naryTypeAnnParselet 4 (fun typeAnns ->
+      let first = typeAnns[0]
+      let last = typeAnns[typeAnns.Length - 1]
+
+      { TypeAnn.Kind = TypeAnnKind.Intersection(typeAnns)
+        Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  typeAnnParser.RegisterInfix(
+    "|",
+    naryTypeAnnParselet 3 (fun typeAnns ->
+      let first = typeAnns[0]
+      let last = typeAnns[typeAnns.Length - 1]
+
+      { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
+        Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  typeAnnRef.Value <- typeAnnParser.Parse(0)
 
   let namedSpecifier: Parser<ImportSpecifier, unit> =
     pipe4 getPosition ident (opt (strWs "as" >>. ident)) getPosition

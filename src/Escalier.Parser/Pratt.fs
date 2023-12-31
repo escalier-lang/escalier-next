@@ -86,7 +86,8 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
     (stream: CharStream<unit>)
     : Option<string * PrefixParselet<'T>> =
 
-    // group keys based on length
+    // TODO: optimize this by only doing this grouping once after we've defined
+    // all of the operators we care about.
     let groups =
       prefixParselets
       |> Map.toSeq
@@ -114,6 +115,8 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
     (stream: CharStream<unit>)
     : Option<string * InfixParselet<'T>> =
 
+    // TODO: optimize this by only doing this grouping once after we've defined
+    // all of the operators we care about.
     let groups =
       infixParselets
       |> Map.toSeq

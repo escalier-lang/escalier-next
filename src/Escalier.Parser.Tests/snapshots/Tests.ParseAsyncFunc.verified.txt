@@ -87,13 +87,14 @@ output: Ok
                                                   { Start = (Ln: 4, Col: 14)
                                                     Stop = (Ln: 4, Col: 16) }
                                                  InferredType = None },
-                                               { Kind = Literal (Number 10.0)
+                                               { Kind =
+                                                  Literal (Number (Int 10))
                                                  Span =
                                                   { Start = (Ln: 4, Col: 18)
-                                                    Stop = (Ln: 4, Col: 20) }
+                                                    Stop = (Ln: 5, Col: 5) }
                                                  InferredType = None })
                                            Span = { Start = (Ln: 4, Col: 14)
-                                                    Stop = (Ln: 4, Col: 20) }
+                                                    Stop = (Ln: 5, Col: 5) }
                                            InferredType = None })
                                    Span = { Start = (Ln: 4, Col: 7)
                                             Stop = (Ln: 5, Col: 5) } }] } }

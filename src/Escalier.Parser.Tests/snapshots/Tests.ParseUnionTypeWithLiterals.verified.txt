@@ -1,7 +1,7 @@
 ﻿input: 5 | "hello"
-output: Success: { Kind = Union [{ Kind = Literal (Number 5.0)
+output: Success: { Kind = Union [{ Kind = Literal (Number (Int 5))
                   Span = { Start = (Ln: 1, Col: 1)
-                           Stop = (Ln: 1, Col: 2) }
+                           Stop = (Ln: 1, Col: 3) }
                   InferredType = None }; { Kind = Literal (String "hello")
                                            Span = { Start = (Ln: 1, Col: 5)
                                                     Stop = (Ln: 1, Col: 12) }

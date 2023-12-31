@@ -65,13 +65,14 @@ output: Ok
                                                      { Start = (Ln: 3, Col: 10)
                                                        Stop = (Ln: 3, Col: 12) }
                                                     InferredType = None },
-                                                  { Kind = Literal (Number 0.0)
+                                                  { Kind =
+                                                     Literal (Number (Int 0))
                                                     Span =
                                                      { Start = (Ln: 3, Col: 14)
-                                                       Stop = (Ln: 3, Col: 15) }
+                                                       Stop = (Ln: 3, Col: 16) }
                                                     InferredType = None })
                                               Span = { Start = (Ln: 3, Col: 10)
-                                                       Stop = (Ln: 3, Col: 15) }
+                                                       Stop = (Ln: 3, Col: 16) }
                                               InferredType = None },
                                             { Span = { Start = (Ln: 3, Col: 16)
                                                        Stop = (Ln: 6, Col: 7) }
@@ -250,12 +251,12 @@ output: Ok
                                                           Expr
                                                             { Kind =
                                                                Literal
-                                                                 (Number 0.0)
+                                                                 (Number (Int 0))
                                                               Span =
                                                                { Start =
                                                                   (Ln: 12, Col: 16)
                                                                  Stop =
-                                                                  (Ln: 12, Col: 17) }
+                                                                  (Ln: 13, Col: 7) }
                                                               InferredType =
                                                                None } }]
                                                    Finally = None

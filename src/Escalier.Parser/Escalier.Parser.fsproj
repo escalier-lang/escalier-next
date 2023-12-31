@@ -4,6 +4,7 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="Pratt.fs"/>
         <Compile Include="Parser.fs"/>
     </ItemGroup>
     <ItemGroup>

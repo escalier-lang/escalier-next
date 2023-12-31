@@ -103,7 +103,7 @@ module rec Infer =
         match tsPropertySignature.Key with
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
         | _ -> failwith "TODO: computed property name"
 
       let t = inferTsTypeAnn ctx env tsPropertySignature.TypeAnn
@@ -353,7 +353,7 @@ module rec Infer =
       | TsType.TsLitType tsLitType ->
         let lit =
           match tsLitType.Lit with
-          | Number num -> Literal.Number(num.Value)
+          | Number num -> Literal.Number num.Value
           | Str str -> Literal.String str.Value
           | Bool bool -> Literal.Boolean bool.Value
           | Tpl tsTplLitType -> failwith "TODO: inferTsType - TsTplLitType"

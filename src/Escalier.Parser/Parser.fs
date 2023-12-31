@@ -77,7 +77,35 @@ module Parser =
         Throws = throws
         IsAsync = async.IsSome }
 
-  let number: Parser<Literal, unit> = pfloat |>> Literal.Number
+  let number: Parser<Number, unit> =
+    let parser =
+      fun stream ->
+        let intReply = many1Satisfy isDigit stream
+
+        match intReply.Status with
+        | Ok ->
+          if stream.PeekString(2) = ".." then
+            Reply(Number.Int(int intReply.Result))
+          else if stream.PeekString(1) = "." then
+            let index = stream.Index
+            stream.Skip(1)
+            let decReply = many1Satisfy isDigit stream
+
+            match decReply.Status with
+            | Ok ->
+              let number = intReply.Result + "." + decReply.Result
+              Reply(Number.Float(float number))
+            | Error ->
+              stream.Seek(index)
+              Reply(Number.Int(int intReply.Result))
+            | _ -> Reply(decReply.Status, decReply.Error)
+          else
+            Reply(Number.Int(int intReply.Result))
+        | _ -> Reply(intReply.Status, intReply.Error)
+
+    parser .>> ws
+
+  // let number: Parser<Literal, unit> = pfloat |>> Literal.Number
 
   let _string: Parser<string, unit> =
     let normalCharSnippet = manySatisfy (fun c -> c <> '\\' && c <> '"')
@@ -106,11 +134,10 @@ module Parser =
     (pstring "undefined" |>> fun _ -> Literal.Undefined)
     <|> (pstring "null" |>> fun _ -> Literal.Null)
 
-  litRef.Value <- choice [ number; string; boolean; otherLiterals ]
+  litRef.Value <-
+    choice [ number |>> Literal.Number; string; boolean; otherLiterals ]
 
   let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
-
-  let opp = OperatorPrecedenceParser<Expr, unit, unit>()
 
   let identExpr: Parser<Expr, unit> =
     withSpan ident
@@ -372,7 +399,7 @@ module Parser =
     pipe2 term (many (suffix))
     <| fun expr suffixes -> List.fold (fun x suffix -> suffix x) expr suffixes
 
-  opp.TermParser <- termWithSuffix
+  let exprParser = Pratt.PrattParser<Expr>(termWithSuffix)
 
   type Assoc = Associativity
 
@@ -381,72 +408,84 @@ module Parser =
       Span = mergeSpans x.Span y.Span
       InferredType = None }
 
+  let prefixExprParlset
+    (precedence: int)
+    (callback: Expr -> Expr)
+    : Pratt.PrefixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, operator) ->
+          let precedence = parser.GetPrecedence(operator)
+          let operand = parser.Parse precedence stream
+
+          match operand.Status with
+          | Ok -> Reply(callback operand.Result)
+          | _ -> operand
+      Precedence = precedence }
+
+  let unaryExprParslet
+    (precedence: int)
+    (operator: string)
+    : Pratt.PrefixParselet<Expr> =
+    prefixExprParlset precedence (fun operand ->
+      { Expr.Kind = ExprKind.Unary(operator, operand)
+        Span = operand.Span
+        InferredType = None })
+
+  let binaryExprParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let precedence = parser.GetPrecedence(operator)
+          let right = parser.Parse precedence stream
+
+          match right.Status with
+          | Ok ->
+            Reply(
+              { Expr.Kind = ExprKind.Binary(operator, left, right.Result)
+                Span = mergeSpans left.Span right.Result.Span
+                InferredType = None }
+            )
+          | _ -> right
+      Precedence = precedence }
+
   // logical not (14)
   // bitwise not (14)
 
-  opp.AddOperator(
-    PrefixOperator(
-      "+",
-      ws,
-      14,
-      true,
-      (fun x ->
-        { Expr.Kind = ExprKind.Unary("+", x)
-          Span = x.Span
-          InferredType = None })
-    )
-  )
+  exprParser.RegisterPrefix("+", unaryExprParslet 14 "+")
+  exprParser.RegisterPrefix("-", unaryExprParslet 14 "-")
 
-  opp.AddOperator(
-    PrefixOperator(
-      "-",
-      ws,
-      14,
-      true,
-      (fun x ->
-        { Expr.Kind = ExprKind.Unary("-", x)
-          Span = x.Span
-          InferredType = None })
-    )
-  )
-
-  opp.AddOperator(
-    PrefixOperator(
-      "await",
-      ws,
-      14,
-      true,
-      (fun x ->
-        { Expr.Kind = ExprKind.Await({ Value = x; Throws = None })
-          Span = x.Span
-          InferredType = None })
-    )
+  exprParser.RegisterPrefix(
+    "await",
+    prefixExprParlset 14 (fun x ->
+      { Expr.Kind = ExprKind.Await({ Value = x; Throws = None })
+        Span = x.Span
+        InferredType = None })
   )
 
   // typeof (14)
   // delete (14)
   // await (14)
 
-  opp.AddOperator(InfixOperator("**", ws, 13, Assoc.Right, binary "**"))
-  opp.AddOperator(InfixOperator("*", ws, 12, Assoc.Left, binary "*"))
-  opp.AddOperator(InfixOperator("/", ws, 12, Assoc.Left, binary "/"))
-  opp.AddOperator(InfixOperator("%", ws, 12, Assoc.Left, binary "%"))
-  opp.AddOperator(InfixOperator("+", ws, 11, Assoc.Left, binary "+"))
-  opp.AddOperator(InfixOperator("++", ws, 11, Assoc.Left, binary "++"))
-  opp.AddOperator(InfixOperator("-", ws, 11, Assoc.Left, binary "-"))
-  opp.AddOperator(InfixOperator("<", ws, 9, Assoc.Left, binary "<"))
-  opp.AddOperator(InfixOperator("<=", ws, 9, Assoc.Left, binary "<="))
-  opp.AddOperator(InfixOperator(">", ws, 9, Assoc.Left, binary ">"))
-  opp.AddOperator(InfixOperator(">=", ws, 9, Assoc.Left, binary ">="))
-  opp.AddOperator(InfixOperator("==", ws, 8, Assoc.Left, binary "=="))
-  opp.AddOperator(InfixOperator("!=", ws, 8, Assoc.Left, binary "!="))
+  // TODO: add support for right associativity
+  exprParser.RegisterInfix("**", binaryExprParselet 13)
+  exprParser.RegisterInfix("*", binaryExprParselet 12)
+  exprParser.RegisterInfix("/", binaryExprParselet 12)
+  exprParser.RegisterInfix("%", binaryExprParselet 12)
+  exprParser.RegisterInfix("+", binaryExprParselet 11)
+  exprParser.RegisterInfix("++", binaryExprParselet 11)
+  exprParser.RegisterInfix("-", binaryExprParselet 11)
+  exprParser.RegisterInfix("<", binaryExprParselet 9)
+  exprParser.RegisterInfix("<=", binaryExprParselet 9)
+  exprParser.RegisterInfix(">", binaryExprParselet 9)
+  exprParser.RegisterInfix(">=", binaryExprParselet 9)
+  exprParser.RegisterInfix("==", binaryExprParselet 8)
+  exprParser.RegisterInfix("!=", binaryExprParselet 8)
 
   // bitwise and (7)
   // bitwise xor (6)
   // bitwise or (5)
 
-  opp.AddOperator(InfixOperator("&&", ws, 4, Assoc.Left, binary "&&"))
-  opp.AddOperator(InfixOperator("||", ws, 3, Assoc.Left, binary "||"))
+  exprParser.RegisterInfix("&&", binaryExprParselet 4)
+  exprParser.RegisterInfix("||", binaryExprParselet 3)
 
   opp.AddOperator(
     InfixOperator(
@@ -474,7 +513,7 @@ module Parser =
   //   )
   // )
 
-  exprRef.Value <- opp.ExpressionParser
+  exprRef.Value <- exprParser.Parse(0)
 
   let private exprStmt: Parser<Stmt, unit> =
     withSpan expr |>> fun (e, span) -> { Stmt.Kind = Expr(e); Span = span }
@@ -672,7 +711,7 @@ module Parser =
   let private propName =
     choice
       [ ident |>> PropName.String
-        pfloat .>> ws |>> PropName.Number
+        number .>> ws |>> PropName.Number
         _string .>> ws |>> PropName.String
         between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
 

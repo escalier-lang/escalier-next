@@ -21,7 +21,7 @@ output: Ok
                         [Property
                            ({ Start = (Ln: 2, Col: 16)
                               Stop = (Ln: 2, Col: 20) }, String "a",
-                            { Kind = Literal (Number 5.0)
+                            { Kind = Literal (Number (Int 5))
                               Span = { Start = (Ln: 2, Col: 19)
                                        Stop = (Ln: 2, Col: 20) }
                               InferredType = None });

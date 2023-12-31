@@ -17,15 +17,15 @@ output: Ok
                 InferredType = None },
               { Kind =
                  Tuple
-                   [{ Kind = Literal (Number 1.0)
+                   [{ Kind = Literal (Number (Int 1))
                       Span = { Start = (Ln: 2, Col: 15)
                                Stop = (Ln: 2, Col: 16) }
                       InferredType = None };
-                    { Kind = Literal (Number 2.0)
+                    { Kind = Literal (Number (Int 2))
                       Span = { Start = (Ln: 2, Col: 18)
                                Stop = (Ln: 2, Col: 19) }
                       InferredType = None };
-                    { Kind = Literal (Number 3.0)
+                    { Kind = Literal (Number (Int 3))
                       Span = { Start = (Ln: 2, Col: 21)
                                Stop = (Ln: 2, Col: 22) }
                       InferredType = None }]

@@ -1,7 +1,9 @@
 namespace Escalier.Interop
 
-open Escalier.Interop.TypeScript
 open FParsec
+
+open Escalier.Data
+open Escalier.Interop.TypeScript
 
 module Parser =
   let blockComment: Parser<unit, unit> =
@@ -38,7 +40,7 @@ module Parser =
   let num: Parser<Number, unit> =
     pfloat .>> ws
     |>> fun value ->
-      { Number.Value = value
+      { Number.Value = Common.Float value
         Raw = None
         Loc = None }
 

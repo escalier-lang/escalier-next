@@ -362,7 +362,7 @@ module Parser =
       Span = mergeSpans x.Span y.Span
       InferredType = None }
 
-  let prefixExprParlset
+  let prefixExprParslet
     (precedence: int)
     (callback: Expr -> Expr)
     : Pratt.PrefixParselet<Expr> =
@@ -380,7 +380,7 @@ module Parser =
     (precedence: int)
     (operator: string)
     : Pratt.PrefixParselet<Expr> =
-    prefixExprParlset precedence (fun operand ->
+    prefixExprParslet precedence (fun operand ->
       { Expr.Kind = ExprKind.Unary(operator, operand)
         Span = operand.Span
         InferredType = None })
@@ -497,7 +497,7 @@ module Parser =
 
   exprParser.RegisterPrefix(
     "await",
-    prefixExprParlset 14 (fun x ->
+    prefixExprParslet 14 (fun x ->
       { Expr.Kind = ExprKind.Await({ Value = x; Throws = None })
         Span = x.Span
         InferredType = None })
@@ -528,6 +528,14 @@ module Parser =
 
   exprParser.RegisterInfix("&&", binaryExprParselet 4 "&&")
   exprParser.RegisterInfix("||", binaryExprParselet 3 "||")
+
+  exprParser.RegisterInfix(
+    "..",
+    infixExprParselet 2 (fun min max ->
+      { Expr.Kind = ExprKind.Range { Min = min; Max = max }
+        Span = mergeSpans min.Span max.Span
+        InferredType = None })
+  )
 
   exprRef.Value <- exprParser.Parse(0)
 
@@ -979,6 +987,28 @@ module Parser =
 
       { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
         Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  let infixTypeAnnParselet
+    (precedence: int)
+    (callback: TypeAnn -> TypeAnn -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let precedence = parser.GetPrecedence(operator)
+          let right = parser.Parse precedence stream
+
+          match right.Status with
+          | Ok -> Reply(callback left right.Result)
+          | _ -> right
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "..",
+    infixTypeAnnParselet 2 (fun min max ->
+      { TypeAnn.Kind = TypeAnnKind.Range { Min = min; Max = max }
+        Span = mergeSpans min.Span max.Span
         InferredType = None })
   )
 

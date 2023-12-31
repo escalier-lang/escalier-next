@@ -138,5 +138,75 @@ let InferForIn () =
       ()
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferForInRange () =
+  let res =
+    result {
+      let src =
+        """
+        for x in 0..3 {
+          let a: number = x
+          let b: 0..10 = x
+          let c: 0..3 = x
+        }
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferRangeTypeAssignment () =
+  let res =
+    result {
+      let src =
+        """
+        let a: 0..3 = 0
+        let b: 0..3 = 1
+        let c: 0..3 = 2
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferOutOfBoundsRangeLiteralAssignment () =
+  let res =
+    result {
+      let src =
+        """
+        let out_of_bounds: 0..3 = 3
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  Assert.True(Result.isError res)
+
+[<Fact>]
+let InferOutOfBoundsRangeRangeAssignment () =
+  let res =
+    result {
+      let src =
+        """
+        let range: 0..10 = 0
+        let bounds_mismatch: 0..3 = range
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  Assert.True(Result.isError res)

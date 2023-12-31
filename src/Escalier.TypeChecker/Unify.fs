@@ -78,6 +78,37 @@ module rec Unify =
 
           ignore (List.map2 (unify ctx env) types1 types2)
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | TypeKind.Range range1, TypeKind.Range range2 ->
+        match
+          range1.Min.Kind, range1.Max.Kind, range2.Min.Kind, range2.Max.Kind
+        with
+        | TypeKind.Literal(Literal.Number min1),
+          TypeKind.Literal(Literal.Number max1),
+          TypeKind.Literal(Literal.Number min2),
+          TypeKind.Literal(Literal.Number max2) ->
+
+          if min1 >= min2 && max1 <= max2 then
+            ()
+          else
+            return! Error(TypeError.TypeMismatch(t1, t2))
+        | _ ->
+          printfn "TODO: expand `min` and `max` before unifying with `n`"
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
+      | TypeKind.Range _, TypeKind.Primitive Primitive.Number -> ()
+      | TypeKind.Literal(Literal.Number n),
+        TypeKind.Range { Min = min; Max = max } ->
+
+        match min.Kind, max.Kind with
+        | TypeKind.Literal(Literal.Number min),
+          TypeKind.Literal(Literal.Number max) ->
+          if n >= min && n < max then
+            ()
+          else
+            return! Error(TypeError.TypeMismatch(t1, t2))
+        | _, _ ->
+          printfn "TODO: expand `min` and `max` before unifying with `n`"
+          return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Literal lit, TypeKind.Primitive prim ->
         // TODO: check that `typeArgs` is `None`
         match lit, prim with

@@ -394,6 +394,22 @@ module rec Infer =
             | _ -> failwith "TODO: index must be a number or string"
 
           return getPropType ctx env target key optChain
+        | ExprKind.Range { Min = min; Max = max } ->
+          // TODO: add a constraint that `min` and `max` must be numbers
+          // We can do this by creating type variables for them with the
+          // proper constraint and then unifying them with the inferred types
+          let! min = inferExpr ctx env min
+          let! max = inferExpr ctx env max
+
+          let scheme = env.Schemes.TryFind "RangeIterator"
+
+          return
+            { Kind =
+                TypeKind.TypeRef
+                  { Name = "RangeIterator"
+                    TypeArgs = Some([ min; max ])
+                    Scheme = scheme }
+              Provenance = None }
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -718,6 +734,10 @@ module rec Infer =
           let! left = inferTypeAnn ctx env left
           let! right = inferTypeAnn ctx env right
           return TypeKind.Binary(left, op, right)
+        | TypeAnnKind.Range range ->
+          let! min = inferTypeAnn ctx env range.Min
+          let! max = inferTypeAnn ctx env range.Max
+          return TypeKind.Range { Min = min; Max = max }
       }
 
     let t: Result<Type, TypeError> =
@@ -990,10 +1010,27 @@ module rec Infer =
         // TODO: Update `getPropType` to return a Result<Type, TypeError>
         getPropType ctx env arrayScheme.Type propName false |> ignore
 
+        // TODO: add a variant of `ExpandType` that allows us to specify a
+        // predicate that can stop the expansion early.
+        let expandedRightType = env.ExpandType (unify ctx) rightType
+
         let elemType =
-          match rightType.Kind with
+          match expandedRightType.Kind with
           | TypeKind.Array elemType -> elemType
           | TypeKind.Tuple elemTypes -> union elemTypes
+          | TypeKind.Range _ -> expandedRightType
+          | TypeKind.Object _ ->
+            // TODO: try using unify and/or an utility type to extract the
+            // value type from an iterator
+
+            // TODO: add a `tryGetPropType` function that returns an option
+            let next =
+              getPropType ctx env rightType (PropName.String "next") false
+
+            match next.Kind with
+            | TypeKind.Function f ->
+              getPropType ctx env f.Return (PropName.String "value") false
+            | _ -> failwith $"{rightType} is not an iterator"
           | _ -> failwith "TODO: for loop over non-iterable type"
 
         do! unify ctx env elemType patType

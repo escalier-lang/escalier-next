@@ -210,3 +210,42 @@ let InferOutOfBoundsRangeRangeAssignment () =
     }
 
   Assert.True(Result.isError res)
+
+[<Fact(Skip = "lower (neg (num x))")>]
+let InferRangeWithNegativeStart () =
+  let res =
+    result {
+      let src =
+        """
+        declare let range: -1..1
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "range", "-1..1")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferRangeMath () =
+  let res =
+    result {
+      let src =
+        """
+        declare let range: 0..3
+        let inc_range = range + 1
+        let dec_range = range - 1
+        let mul_range = 2 * range
+        let range_plus_range = range + range
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "inc_range", "1..4")
+      Assert.Value(env, "dec_range", "-1..2")
+      Assert.Value(env, "mul_range", "0..6")
+      Assert.Value(env, "range_plus_range", "0..6")
+    }
+
+  Assert.False(Result.isError res)

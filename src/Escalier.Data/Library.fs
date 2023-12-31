@@ -16,6 +16,49 @@ module Common =
       | Float value -> value.ToString(ci)
       | Int value -> value.ToString(ci)
 
+    member this.Add(other: Number) =
+      match this, other with
+      | Float a, Float b -> Float(a + b)
+      | Float a, Int b -> Float(a + float b)
+      | Int a, Float b -> Float(float a + b)
+      | Int a, Int b -> Int(a + b)
+
+    member this.Sub(other: Number) =
+      match this, other with
+      | Float a, Float b -> Float(a - b)
+      | Float a, Int b -> Float(a - float b)
+      | Int a, Float b -> Float(float a - b)
+      | Int a, Int b -> Int(a - b)
+
+    member this.Mul(other: Number) =
+      match this, other with
+      | Float a, Float b -> Float(a * b)
+      | Float a, Int b -> Float(a * float b)
+      | Int a, Float b -> Float(float a * b)
+      | Int a, Int b -> Int(a * b)
+
+    member this.Div(other: Number) =
+      match this, other with
+      | Float a, Float b -> Float(a / b)
+      | Float a, Int b -> Float(a / float b)
+      | Int a, Float b -> Float(float a / b)
+      // TODO: check if the division has a remainder and return a float if it does
+      | Int a, Int b -> Float(float a / float b)
+
+    member this.Mod(other: Number) =
+      match this, other with
+      | Float a, Float b -> Float(a % b)
+      | Float a, Int b -> Float(a % float b)
+      | Int a, Float b -> Float(float a % b)
+      | Int a, Int b -> Int(a % b)
+
+    member this.Exp(other: Number) =
+      match this, other with
+      | Float a, Float b -> Float(a ** b)
+      | Float a, Int b -> Float(a ** float b)
+      | Int a, Float b -> Float(float a ** b)
+      | Int a, Int b -> Int(int ((float a) ** (float b)))
+
   type Literal =
     | Number of Number
     | String of string
@@ -35,7 +78,7 @@ module Common =
     { Min: 'T
       Max: 'T } // non-inclusive
 
-    override this.ToString() = $"[{this.Min}..{this.Max}]"
+    override this.ToString() = $"{this.Min}..{this.Max}"
 
   type MappedModifier =
     | Add

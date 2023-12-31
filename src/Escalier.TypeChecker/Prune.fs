@@ -13,9 +13,17 @@ module rec Prune =
 
       match left.Kind, right.Kind with
       | TypeKind.Literal(Literal.Number n1), TypeKind.Literal(Literal.Number n2) ->
-        let n1 = float n1
-        let n2 = float n2
+        let n1 =
+          match n1 with
+          | Int n -> float n
+          | Float n -> n
 
+        let n2 =
+          match n2 with
+          | Int n -> float n
+          | Float n -> n
+
+        // TODO: if both are integers, return an integer except for division
         let result =
           match op with
           | "+" -> n1 + n2
@@ -26,7 +34,7 @@ module rec Prune =
           | "**" -> n1 ** n2
           | _ -> failwith "TODO: simplify binary"
 
-        { Kind = TypeKind.Literal(Literal.Number result)
+        { Kind = TypeKind.Literal(Literal.Number(Number.Float result))
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving numbers
       | _, TypeKind.Primitive Primitive.Number -> right

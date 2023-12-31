@@ -486,15 +486,18 @@ module rec Infer =
     | TypeKind.Tuple elems ->
       match key with
       | PropName.String "length" ->
-        { Kind = TypeKind.Literal(Literal.Number(float elems.Length))
+        { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
           Provenance = None }
-      | PropName.Number i ->
-        if i >= 0 && i < elems.Length then
-          elems.[int i]
-        else
-          // TODO: report a diagnost about the index being out of range
-          { Kind = TypeKind.Literal(Literal.Undefined)
-            Provenance = None }
+      | PropName.Number number ->
+        match number with
+        | Float f -> failwith "numeric indexes can't be floats"
+        | Int i ->
+          if i >= 0 && i < elems.Length then
+            elems.[int i]
+          else
+            // TODO: report a diagnost about the index being out of range
+            { Kind = TypeKind.Literal(Literal.Undefined)
+              Provenance = None }
       | _ ->
         let arrayScheme =
           match env.Schemes.TryFind "Array" with

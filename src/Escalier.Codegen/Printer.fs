@@ -1,13 +1,9 @@
 namespace Escalier.Codegen
 
-open System.Globalization
-
 open Escalier.Interop
 open Escalier.Interop.TypeScript
 
 module rec Printer =
-  let ci = CultureInfo("en-US", true)
-
   type PrintCtx = { Precedence: int; Indent: int }
 
   let getBinaryPrecedence (op: BinOp) : int =
@@ -41,7 +37,7 @@ module rec Printer =
   let printLit (lit: Lit) : string =
     match lit with
     | Lit.Str { Value = value } -> value
-    | Lit.Num { Value = value } -> value.ToString(ci)
+    | Lit.Num { Value = value } -> value.ToString()
     | Lit.Bool { Value = value } -> if value then "true" else "false"
     | Lit.Regex { Exp = exp; Flags = flags } -> $"/{exp}/{flags}"
     | Lit.Null _ -> "null"
@@ -746,7 +742,7 @@ module rec Printer =
     | TsType.TsLitType { Lit = lit } ->
       match lit with
       | Bool { Value = value } -> if value then "true" else "false"
-      | Number { Value = value } -> value.ToString(ci)
+      | Number { Value = value } -> value.ToString()
       | Str { Value = value } -> $"\"{value}\""
       | Tpl _ -> failwith "TODO: printType - TsLitType - Tpl"
     | TsType.TsTypePredicate _ -> failwith "TODO: printType - TsTypePredicate"

@@ -57,11 +57,7 @@ module rec Codegen =
         | Literal.String s ->
           Lit.Str { Value = s; Raw = None; Loc = None } |> Expr.Lit
         | Literal.Number n ->
-          Lit.Num
-            { Value = n |> float
-              Raw = None
-              Loc = None }
-          |> Expr.Lit
+          Lit.Num { Value = n; Raw = None; Loc = None } |> Expr.Lit
         | Literal.Null -> Lit.Null { Loc = None } |> Expr.Lit
         | Literal.Undefined ->
           { Ident.Name = "undefined"; Loc = None } |> Expr.Ident
@@ -445,7 +441,7 @@ module rec Codegen =
         TsType.TsLitType
           { Lit =
               TsLit.Number
-                { Value = float value
+                { Value = value
                   Raw = None
                   Loc = None }
             Loc = None }

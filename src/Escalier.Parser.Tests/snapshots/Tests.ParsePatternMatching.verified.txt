@@ -56,7 +56,7 @@ output: Ok
                                           Literal
                                             ({ Start = (Ln: 4, Col: 11)
                                                Stop = (Ln: 4, Col: 13) },
-                                             Number 0.0)
+                                             Number (Int 0))
                                          Span = { Start = (Ln: 4, Col: 11)
                                                   Stop = (Ln: 4, Col: 13) }
                                          InferredType = None }
@@ -73,7 +73,7 @@ output: Ok
                                           Literal
                                             ({ Start = (Ln: 5, Col: 11)
                                                Stop = (Ln: 5, Col: 13) },
-                                             Number 1.0)
+                                             Number (Int 1))
                                          Span = { Start = (Ln: 5, Col: 11)
                                                   Stop = (Ln: 5, Col: 13) }
                                          InferredType = None }
@@ -105,13 +105,13 @@ output: Ok
                                                   { Start = (Ln: 6, Col: 16)
                                                     Stop = (Ln: 6, Col: 18) }
                                                  InferredType = None },
-                                               { Kind = Literal (Number 0.0)
+                                               { Kind = Literal (Number (Int 0))
                                                  Span =
                                                   { Start = (Ln: 6, Col: 20)
-                                                    Stop = (Ln: 6, Col: 21) }
+                                                    Stop = (Ln: 6, Col: 22) }
                                                  InferredType = None })
                                            Span = { Start = (Ln: 6, Col: 16)
-                                                    Stop = (Ln: 6, Col: 21) }
+                                                    Stop = (Ln: 6, Col: 22) }
                                            InferredType = None }
                                       Body =
                                        Expr { Kind = Literal (String "negative")

@@ -16,7 +16,7 @@ output: Ok
                    { Kind =
                       Object
                         [Property
-                           { Name = Number 5.0
+                           { Name = Number (Int 5)
                              TypeAnn = { Kind = Keyword String
                                          Span = { Start = (Ln: 3, Col: 10)
                                                   Stop = (Ln: 3, Col: 16) }

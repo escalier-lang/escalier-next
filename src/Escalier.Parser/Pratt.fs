@@ -64,6 +64,7 @@ type InfixParselet<'T> =
     Precedence: int }
 
 type PrattParser<'T>(term: Parser<'T, unit>) =
+  // TODO: sort keys based on length
   let mutable prefixParselets: Map<string, PrefixParselet<'T>> = Map.empty
   let mutable infixParselets: Map<string, InfixParselet<'T>> = Map.empty
 
@@ -84,28 +85,57 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
   member this.NextPrefixOperator
     (stream: CharStream<unit>)
     : Option<string * PrefixParselet<'T>> =
-    let nextTwoChars = stream.PeekString(2)
-    let nextOneChar = stream.PeekString(1)
 
-    match prefixParselets.TryFind nextTwoChars with
-    | Some parselet -> Some(nextTwoChars, parselet)
-    | None ->
-      match prefixParselets.TryFind nextOneChar with
-      | Some parselet -> Some(nextOneChar, parselet)
-      | None -> None
+    // group keys based on length
+    let groups =
+      prefixParselets
+      |> Map.toSeq
+      // group keys based on length
+      |> Seq.groupBy (fun (k, v) -> k.Length)
+      // sort by the length
+      |> Seq.sortBy (fun (k, v) -> k)
+      // in descending order
+      |> Seq.rev
+      |> List.ofSeq
+
+    let rec find (groups: list<int * seq<string * PrefixParselet<'T>>>) =
+      match groups with
+      | [] -> None
+      | (length, group) :: rest ->
+        let nextChars = stream.PeekString(length)
+
+        match group |> Seq.tryFind (fun (k, v) -> k = nextChars) with
+        | Some(operator, parselet) -> Some(operator, parselet)
+        | None -> find rest
+
+    find groups
 
   member this.NextInfixOperator
     (stream: CharStream<unit>)
     : Option<string * InfixParselet<'T>> =
-    let nextTwoChars = stream.PeekString(2)
-    let nextOneChar = stream.PeekString(1)
 
-    match infixParselets.TryFind nextTwoChars with
-    | Some parselet -> Some(nextTwoChars, parselet)
-    | None ->
-      match infixParselets.TryFind nextOneChar with
-      | Some parselet -> Some(nextOneChar, parselet)
-      | None -> None
+    let groups =
+      infixParselets
+      |> Map.toSeq
+      // group keys based on length
+      |> Seq.groupBy (fun (k, v) -> k.Length)
+      // sort by the length
+      |> Seq.sortBy (fun (k, v) -> k)
+      // in descending order
+      |> Seq.rev
+      |> List.ofSeq
+
+    let rec find (groups: list<int * seq<string * InfixParselet<'T>>>) =
+      match groups with
+      | [] -> None
+      | (length, group) :: rest ->
+        let nextChars = stream.PeekString(length)
+
+        match group |> Seq.tryFind (fun (k, v) -> k = nextChars) with
+        | Some(operator, parselet) -> Some(operator, parselet)
+        | None -> find rest
+
+    find groups
 
   member this.Parse(precedence: int) : Parser<'T, unit> =
     fun stream ->
@@ -114,6 +144,12 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
         match this.NextPrefixOperator(stream) with
         | Some(operator, parselet) ->
           stream.Skip(operator.Length)
+
+          if operator |> Seq.forall System.Char.IsLetter then
+            ws stream |> ignore // skip over trailing whitespace after operator
+          else
+            ()
+
           parselet.Parse(this, stream, operator)
         | None -> term stream
 

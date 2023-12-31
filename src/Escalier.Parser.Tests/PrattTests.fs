@@ -24,6 +24,7 @@ exprParser.RegisterInfix(".", infixParselet 17)
 
 exprParser.RegisterPrefix("+", prefixParselet 14)
 exprParser.RegisterPrefix("-", prefixParselet 14)
+exprParser.RegisterPrefix("await", prefixParselet 14)
 
 exprParser.RegisterInfix("*", infixParselet 12)
 exprParser.RegisterInfix("/", infixParselet 12)
@@ -141,6 +142,9 @@ let ParseSuccessCases () =
   printfn "result %A" result
 
   let result = run (parser.Parse(0)) "1.foo()"
+  printfn "result %A" result
+
+  let result = run (parser.Parse(0)) "await foo()"
   printfn "result %A" result
 
 [<Fact>]

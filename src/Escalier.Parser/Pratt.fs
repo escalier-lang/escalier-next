@@ -64,6 +64,7 @@ type InfixParselet<'T> =
     Precedence: int }
 
 type PrattParser<'T>(term: Parser<'T, unit>) =
+  // TODO: sort keys based on length
   let mutable prefixParselets: Map<string, PrefixParselet<'T>> = Map.empty
   let mutable infixParselets: Map<string, InfixParselet<'T>> = Map.empty
 
@@ -84,28 +85,60 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
   member this.NextPrefixOperator
     (stream: CharStream<unit>)
     : Option<string * PrefixParselet<'T>> =
-    let nextTwoChars = stream.PeekString(2)
-    let nextOneChar = stream.PeekString(1)
 
-    match prefixParselets.TryFind nextTwoChars with
-    | Some parselet -> Some(nextTwoChars, parselet)
-    | None ->
-      match prefixParselets.TryFind nextOneChar with
-      | Some parselet -> Some(nextOneChar, parselet)
-      | None -> None
+    // TODO: optimize this by only doing this grouping once after we've defined
+    // all of the operators we care about.
+    let groups =
+      prefixParselets
+      |> Map.toSeq
+      // group keys based on length
+      |> Seq.groupBy (fun (k, v) -> k.Length)
+      // sort by the length
+      |> Seq.sortBy (fun (k, v) -> k)
+      // in descending order
+      |> Seq.rev
+      |> List.ofSeq
+
+    let rec find (groups: list<int * seq<string * PrefixParselet<'T>>>) =
+      match groups with
+      | [] -> None
+      | (length, group) :: rest ->
+        let nextChars = stream.PeekString(length)
+
+        match group |> Seq.tryFind (fun (k, v) -> k = nextChars) with
+        | Some(operator, parselet) -> Some(operator, parselet)
+        | None -> find rest
+
+    find groups
 
   member this.NextInfixOperator
     (stream: CharStream<unit>)
     : Option<string * InfixParselet<'T>> =
-    let nextTwoChars = stream.PeekString(2)
-    let nextOneChar = stream.PeekString(1)
 
-    match infixParselets.TryFind nextTwoChars with
-    | Some parselet -> Some(nextTwoChars, parselet)
-    | None ->
-      match infixParselets.TryFind nextOneChar with
-      | Some parselet -> Some(nextOneChar, parselet)
-      | None -> None
+    // TODO: optimize this by only doing this grouping once after we've defined
+    // all of the operators we care about.
+    let groups =
+      infixParselets
+      |> Map.toSeq
+      // group keys based on length
+      |> Seq.groupBy (fun (k, v) -> k.Length)
+      // sort by the length
+      |> Seq.sortBy (fun (k, v) -> k)
+      // in descending order
+      |> Seq.rev
+      |> List.ofSeq
+
+    let rec find (groups: list<int * seq<string * InfixParselet<'T>>>) =
+      match groups with
+      | [] -> None
+      | (length, group) :: rest ->
+        let nextChars = stream.PeekString(length)
+
+        match group |> Seq.tryFind (fun (k, v) -> k = nextChars) with
+        | Some(operator, parselet) -> Some(operator, parselet)
+        | None -> find rest
+
+    find groups
 
   member this.Parse(precedence: int) : Parser<'T, unit> =
     fun stream ->
@@ -114,6 +147,12 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
         match this.NextPrefixOperator(stream) with
         | Some(operator, parselet) ->
           stream.Skip(operator.Length)
+
+          if operator |> Seq.forall System.Char.IsLetter then
+            ws stream |> ignore // skip over trailing whitespace after operator
+          else
+            ()
+
           parselet.Parse(this, stream, operator)
         | None -> term stream
 
@@ -220,40 +259,3 @@ let postfixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) -> Reply(Postfix(left, operator))
     Precedence = precedence }
-
-let term = choice [ identExpr; numberExpr ]
-let exprParser = PrattParser<Expr>(term)
-
-exprParser.RegisterPrefix("(", groupingParselet 18)
-
-exprParser.RegisterInfix("(", callParselet 17)
-exprParser.RegisterInfix("[", indexParselet 17)
-exprParser.RegisterInfix("?.", infixParselet 17)
-exprParser.RegisterInfix(".", infixParselet 17)
-
-exprParser.RegisterPrefix("+", prefixParselet 14)
-exprParser.RegisterPrefix("-", prefixParselet 14)
-
-exprParser.RegisterInfix("*", infixParselet 12)
-exprParser.RegisterInfix("/", infixParselet 12)
-exprParser.RegisterInfix("+", infixParselet 11)
-exprParser.RegisterInfix("++", infixParselet 11)
-exprParser.RegisterInfix("-", infixParselet 11)
-
-exprParser.RegisterInfix("==", infixParselet 9)
-exprParser.RegisterInfix("!=", infixParselet 9)
-exprParser.RegisterInfix("<", infixParselet 9)
-exprParser.RegisterInfix("<=", infixParselet 9)
-exprParser.RegisterInfix("≤", infixParselet 9)
-exprParser.RegisterInfix(">", infixParselet 9)
-exprParser.RegisterInfix(">=", infixParselet 9)
-exprParser.RegisterInfix("≥", infixParselet 9)
-
-exprParser.RegisterInfix("&&", infixParselet 4)
-exprParser.RegisterInfix("||", infixParselet 3)
-exprParser.RegisterInfix("&", naryInfixParselet 4)
-exprParser.RegisterInfix("|", naryInfixParselet 3)
-
-exprParser.RegisterInfix("..", infixParselet 2)
-
-exprParser.RegisterPostfix("!", postfixParselet 15)

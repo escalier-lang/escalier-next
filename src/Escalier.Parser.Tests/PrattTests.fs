@@ -11,6 +11,45 @@ let settings = VerifySettings()
 settings.UseDirectory("snapshots")
 settings.DisableDiff()
 
+
+let term = choice [ identExpr; numberExpr ]
+let exprParser = PrattParser<Expr>(term)
+
+exprParser.RegisterPrefix("(", groupingParselet 18)
+
+exprParser.RegisterInfix("(", callParselet 17)
+exprParser.RegisterInfix("[", indexParselet 17)
+exprParser.RegisterInfix("?.", infixParselet 17)
+exprParser.RegisterInfix(".", infixParselet 17)
+
+exprParser.RegisterPrefix("+", prefixParselet 14)
+exprParser.RegisterPrefix("-", prefixParselet 14)
+
+exprParser.RegisterInfix("*", infixParselet 12)
+exprParser.RegisterInfix("/", infixParselet 12)
+exprParser.RegisterInfix("+", infixParselet 11)
+exprParser.RegisterInfix("++", infixParselet 11)
+exprParser.RegisterInfix("-", infixParselet 11)
+
+exprParser.RegisterInfix("==", infixParselet 9)
+exprParser.RegisterInfix("!=", infixParselet 9)
+exprParser.RegisterInfix("<", infixParselet 9)
+exprParser.RegisterInfix("<=", infixParselet 9)
+exprParser.RegisterInfix("≤", infixParselet 9)
+exprParser.RegisterInfix(">", infixParselet 9)
+exprParser.RegisterInfix(">=", infixParselet 9)
+exprParser.RegisterInfix("≥", infixParselet 9)
+
+exprParser.RegisterInfix("&&", infixParselet 4)
+exprParser.RegisterInfix("||", infixParselet 3)
+exprParser.RegisterInfix("&", naryInfixParselet 4)
+exprParser.RegisterInfix("|", naryInfixParselet 3)
+
+exprParser.RegisterInfix("..", infixParselet 2)
+
+exprParser.RegisterPostfix("!", postfixParselet 15)
+
+
 [<Fact>]
 let ParseSuccessCases () =
   let parser = exprParser

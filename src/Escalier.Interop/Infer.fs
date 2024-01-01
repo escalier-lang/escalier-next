@@ -287,7 +287,19 @@ module rec Infer =
         let elems = tsTypeLit.Members |> List.map (inferTypeElement ctx env)
         TypeKind.Object elems
       | TsType.TsArrayType tsArrayType ->
-        TypeKind.Array(inferTsType ctx env tsArrayType.ElemType)
+        let id = ctx.FreshUniqueId()
+
+        let length =
+          { Kind = TypeKind.UniqueNumber id
+            Provenance = None }
+
+        // NOTE: If this array type is the return value of a function, we need
+        // a way to ensure that it gets a new unique length each time.
+        // IDEA: What if we "upgrade" `Array<number>` to `Array<number, unique number>`
+        // whenever an array type is given a binding.
+        TypeKind.Array
+          { Elem = inferTsType ctx env tsArrayType.ElemType
+            Length = length }
       | TsType.TsTupleType tsTupleType ->
         TypeKind.Tuple(
           List.map

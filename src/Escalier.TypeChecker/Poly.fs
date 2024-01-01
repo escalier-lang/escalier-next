@@ -74,8 +74,11 @@ module Poly =
         | TypeKind.Intersection types ->
           { Kind = TypeKind.Intersection(List.map fold types)
             Provenance = None }
-        | TypeKind.Array t ->
-          { Kind = TypeKind.Array(fold t)
+        | TypeKind.Array { Elem = elem; Length = length } ->
+          { Kind =
+              TypeKind.Array
+                { Elem = fold elem
+                  Length = fold length }
             Provenance = None }
         | TypeKind.KeyOf t ->
           { Kind = TypeKind.KeyOf(fold t)

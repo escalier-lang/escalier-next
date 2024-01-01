@@ -330,6 +330,7 @@ module Syntax =
     | String
     | Symbol
     | UniqueSymbol
+    | UniqueNumber
     | Null
     | Undefined
     | Unknown
@@ -650,6 +651,10 @@ module Type =
 
         $"{readonly}{name}{optional}: {type_}"
 
+  type Array =
+    { Elem: Type
+      mutable Length: Type } // either `number` or `unique number`
+
   [<RequireQualifiedAccess>]
   type TypeKind =
     | TypeVar of TypeVar
@@ -661,11 +666,12 @@ module Type =
     | Rest of Type
     | Literal of Common.Literal
     | Range of Common.Range<Type>
-    | UniqueSymbol of int
+    | UniqueSymbol of id: int
+    | UniqueNumber of id: int
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
     | Tuple of list<Type>
-    | Array of Type
+    | Array of Array
     | KeyOf of Type
     | Index of target: Type * index: Type
     | Condition of
@@ -752,11 +758,10 @@ module Type =
       // TODO: handle operator precedence
       | TypeKind.Binary(left, op, right) -> $"{left} {op} {right}"
       // TODO: include a description in symbol types
-      | TypeKind.UniqueSymbol _ -> $"symbol()"
+      | TypeKind.UniqueSymbol _ -> "symbol()"
+      | TypeKind.UniqueNumber _ -> "unique number"
       | TypeKind.Range range -> range.ToString()
-      | _ ->
-        printfn "this.Kind = %A" this.Kind
-        failwith "TODO: finish implementing Type.ToString"
+      | TypeKind.Infer name -> $"infer {name}"
 
   type Scheme =
     // TODO: allow type params to have constraints and defaults

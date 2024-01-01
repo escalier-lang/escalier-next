@@ -480,9 +480,9 @@ module rec Codegen =
         |> List.map (fun t -> { Label = None; Type = t; Loc = None })
 
       TsType.TsTupleType { ElemTypes = elemTypes; Loc = None }
-    | TypeKind.Array t ->
+    | TypeKind.Array { Elem = elem; Length = length } ->
       TsType.TsArrayType
-        { ElemType = buildType ctx t
+        { ElemType = buildType ctx elem
           Loc = None }
     | TypeKind.KeyOf t ->
       TsType.TsTypeOperator

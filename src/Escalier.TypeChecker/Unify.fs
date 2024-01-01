@@ -39,9 +39,18 @@ module rec Unify =
         let elems1 = List.take elems2.Length elems1
         ignore (List.map2 (unify ctx env) elems1 elems2)
       | TypeKind.Array elemType1, TypeKind.Array elemType2 ->
-        do! unify ctx env elemType1 elemType2
+        // TODO: unify the lengths of the arrays
+        // An array whose length is `unique number` is a subtype of an array
+        // whose length is `number`.
+        do! unify ctx env elemType1.Elem elemType2.Elem
       | TypeKind.Tuple tupleElemTypes, TypeKind.Array arrayElemType ->
-        do! unify ctx env (union tupleElemTypes) arrayElemType
+        // TODO: check if arrayElemType.Elem is `unique number`
+        // If it is, then we can't unify these since the tuple could be
+        // longer or short than the array.
+        // An array with length `number` represents arrays of all possible
+        // length whereas a length of `unique number` represents a single array
+        // of unknown length.
+        do! unify ctx env (union tupleElemTypes) arrayElemType.Elem
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
         let! f1 = instantiateFunc ctx f1 None
@@ -129,6 +138,8 @@ module rec Unify =
         | Literal.Undefined, Literal.Undefined -> ()
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
+        ()
+      | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
       | TypeKind.Object elems1, TypeKind.Object elems2 ->
 

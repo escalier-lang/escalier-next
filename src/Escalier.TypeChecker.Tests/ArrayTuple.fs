@@ -60,13 +60,13 @@ let InferArrayLength () =
     result {
       let src =
         """
-        let tuple: number[] = [1, 2, 3]
-        let length = tuple.length
+        let array: number[] = [1, 2, 3]
+        let length = array.length
         """
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "length", "number")
+      Assert.Value(env, "length", "unique number")
     }
 
   printfn "res = %A" res
@@ -102,11 +102,11 @@ let InferArrayIndexing () =
     result {
       let src =
         """
-        let tuple: number[] = [1, 2, 3]
-        let first = tuple[0]
-        let second = tuple[1]
-        let third = tuple[2]
-        let fourth = tuple[3]
+        let array: number[] = [1, 2, 3]
+        let first = array[0]
+        let second = array[1]
+        let third = array[2]
+        let fourth = array[3]
         """
 
       let! _, env = inferScript src
@@ -249,3 +249,84 @@ let InferRangeMath () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferRangeWithArrayLength () =
+  let res =
+    result {
+      let src =
+        """
+        declare let array: number[]
+        
+        let length = array.length
+        for x in 0..length {
+          let item: number = array[x]
+        }
+        
+        declare let range: 0..(typeof length)
+        let elem = array[range]
+        
+        let first = array[0]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "length", "unique number")
+      Assert.Value(env, "first", "number | undefined")
+      Assert.Value(env, "elem", "number")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferRangeWithDifferentArrayLengths () =
+  let res =
+    result {
+      let src =
+        """
+        declare let array1: number[]
+        declare let array2: string[]
+        
+        let length1 = array1.length
+        let length2 = array2.length
+        
+        declare let range1: 0..(typeof length1)
+        declare let range2: 0..(typeof length2)
+        
+        let elem1 = array1[range1]
+        let elem2 = array2[range2]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "elem1", "number")
+      Assert.Value(env, "elem2", "string")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferRangeWithDifferentArrayLengthsAreIncompatible () =
+  let res =
+    result {
+      let src =
+        """
+        declare let array1: number[]
+        declare let array2: string[]
+        
+        let length1 = array1.length
+        let length2 = array2.length
+        
+        declare let range1: 0..(typeof length1)
+        declare let range2: 0..(typeof length2)
+        
+        let elem1 = array1[range2]
+        let elem2 = array2[range1]
+        """
+
+      let! _, env = inferScript src
+
+      ()
+    }
+
+  Assert.True(Result.isError res)

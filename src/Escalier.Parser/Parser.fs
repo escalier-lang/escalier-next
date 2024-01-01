@@ -682,8 +682,6 @@ module Parser =
         InferredType = None }
 
   let private keywordTypeAnn =
-    let mutable unique = false
-
     let keyword =
       choice
         [ (strWs "object" |>> fun _ -> KeywordTypeAnn.Object)
@@ -710,6 +708,13 @@ module Parser =
   // function signature should get their own type variable (or whatever the
   // symbol equivalent of that is)
   let private uniqueSymbolTypeAnn =
+    withSpan (strWs "unique" >>. strWs "symbol")
+    |>> fun (_, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
+        Span = span
+        InferredType = None }
+
+  let private uniqueNumberTypeAnn =
     withSpan (strWs "unique" >>. strWs "symbol")
     |>> fun (_, span) ->
       { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
@@ -881,6 +886,7 @@ module Parser =
       [ litTypeAnn
         keywordTypeAnn // aka PredefinedType
         uniqueSymbolTypeAnn
+        uniqueNumberTypeAnn
         tupleTypeAnn
         funcTypeAnn
         typeofTypeAnn // aka TypeQuery

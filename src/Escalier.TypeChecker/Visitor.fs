@@ -215,7 +215,9 @@ module rec TypeVisitor =
       | TypeKind.Rest t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types
-      | TypeKind.Array t -> walk t
+      | TypeKind.Array { Elem = elem; Length = length } ->
+        walk elem
+        walk length
       | TypeKind.KeyOf t -> walk t
       | TypeKind.Index(target, index) ->
         walk target

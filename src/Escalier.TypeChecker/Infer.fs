@@ -386,14 +386,31 @@ module rec Infer =
           let! target = inferExpr ctx env target
           let! index = inferExpr ctx env index
 
-          let key =
-            match index.Kind with
-            | TypeKind.Literal(Literal.Number i) -> PropName.Number i
-            | TypeKind.Literal(Literal.String s) -> PropName.String s
-            | TypeKind.UniqueSymbol id -> PropName.Symbol id
-            | _ -> failwith "TODO: index must be a number or string"
+          let target = prune target
+          let index = prune index
 
-          return getPropType ctx env target key optChain
+          match index.Kind with
+          | TypeKind.Range { Min = min; Max = max } ->
+            match target.Kind with
+            | TypeKind.Array { Elem = elem; Length = length } ->
+              do! unify ctx env max length
+              return elem
+            | _ ->
+              return!
+                Error(
+                  TypeError.NotImplemented "TODO: array indexing using a range"
+                )
+          | _ ->
+            let key =
+              match index.Kind with
+              | TypeKind.Literal(Literal.Number i) -> PropName.Number i
+              | TypeKind.Literal(Literal.String s) -> PropName.String s
+              | TypeKind.UniqueSymbol id -> PropName.Symbol id
+              | _ ->
+                printfn "index = %A" index
+                failwith $"TODO: index can't be a {index}"
+
+            return getPropType ctx env target key optChain
         | ExprKind.Range { Min = min; Max = max } ->
           // TODO: add a constraint that `min` and `max` must be numbers
           // We can do this by creating type variables for them with the
@@ -521,17 +538,20 @@ module rec Infer =
           | None -> failwith "Array not in scope"
         // TODO: lookup keys in array prototype
         failwith "TODO: lookup member on tuple type"
-    | TypeKind.Array elemType ->
+    | TypeKind.Array { Elem = elem; Length = length } ->
+      // TODO: update `TypeKind.Array` to also contain a `Length` type param
+      // TODO: use getPropertyType to look up the type of the `.length` property
+      // here (and when handling tuples) instead of fabricating it here.
+      // TODO: make type param mutable so that we can update it if it's a mutable
+      // array and the array size changes.
       match key with
-      | PropName.String "length" ->
-        { Kind = TypeKind.Primitive Primitive.Number
-          Provenance = None }
+      | PropName.String "length" -> length
       | PropName.Number _ ->
         let unknown =
           { Kind = TypeKind.Literal(Literal.Undefined)
             Provenance = None }
 
-        union [ elemType; unknown ]
+        union [ elem; unknown ]
       | _ ->
         let arrayScheme =
           match env.Schemes.TryFind "Array" with
@@ -588,7 +608,12 @@ module rec Infer =
         match typeAnn.Kind with
         | TypeAnnKind.Array elem ->
           let! elem = inferTypeAnn ctx env elem
-          return TypeKind.Array elem
+
+          let length =
+            { Kind = TypeKind.UniqueNumber(ctx.FreshUniqueId())
+              Provenance = None }
+
+          return TypeKind.Array { Elem = elem; Length = length }
         | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
         | TypeAnnKind.Keyword keyword ->
           match keyword with
@@ -1016,7 +1041,7 @@ module rec Infer =
 
         let elemType =
           match expandedRightType.Kind with
-          | TypeKind.Array elemType -> elemType
+          | TypeKind.Array { Elem = elem; Length = length } -> elem
           | TypeKind.Tuple elemTypes -> union elemTypes
           | TypeKind.Range _ -> expandedRightType
           | TypeKind.Object _ ->

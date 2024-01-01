@@ -43,15 +43,19 @@ module rec Prune =
       | TypeKind.Literal(Literal.Number n1), TypeKind.Literal(Literal.Number n2) ->
         let result =
           match op with
-          | "+" -> n1.Add(n2)
-          | "-" -> n1.Sub(n2)
-          | "*" -> n1.Mul(n2)
-          | "/" -> n1.Div(n2)
-          | "%" -> n1.Mod(n2)
-          | "**" -> n1.Exp(n2)
+          | "+" -> n1.Add(n2) |> Literal.Number
+          | "-" -> n1.Sub(n2) |> Literal.Number
+          | "*" -> n1.Mul(n2) |> Literal.Number
+          | "/" -> n1.Div(n2) |> Literal.Number
+          | "%" -> n1.Mod(n2) |> Literal.Number
+          | "**" -> n1.Exp(n2) |> Literal.Number
+          | ">" -> n1.GreaterThan(n2)
+          | ">=" -> n1.GreaterThanOrEqual(n2)
+          | "<" -> n1.LessThan(n2)
+          | "<=" -> n1.LessThanOrEqual(n2)
           | _ -> failwith "TODO: simplify binary"
 
-        { Kind = TypeKind.Literal(Literal.Number result)
+        { Kind = TypeKind.Literal result
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving numbers
       | _, TypeKind.Primitive Primitive.Number -> right

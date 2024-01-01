@@ -53,7 +53,11 @@ let InfersExplicitThrow () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn (x: number) -> number throws \"RangeError\"")
+      Assert.Value(
+        env,
+        "foo",
+        "fn <A: number>(x: A) -> A throws \"RangeError\""
+      )
     }
 
   printfn "res = %A" res
@@ -71,7 +75,11 @@ let InfersThrowExpression () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn (x: number) -> number throws \"RangeError\"")
+      Assert.Value(
+        env,
+        "foo",
+        "fn <A: number>(x: A) -> A throws \"RangeError\""
+      )
     }
 
   Assert.False(Result.isError res)
@@ -98,7 +106,7 @@ let InfersThrowingMultipleExpressions () =
     result {
       let src =
         """
-        let foo = fn (x: number) =>
+        let foo = fn (x) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" }
         """
 
@@ -107,7 +115,7 @@ let InfersThrowingMultipleExpressions () =
       Assert.Value(
         env,
         "foo",
-        "fn (x: number) -> never throws \"BoundsError\" | \"RangeError\""
+        "fn <A: number>(x: A) -> never throws \"BoundsError\" | \"RangeError\""
       )
     }
 
@@ -127,8 +135,17 @@ let InfersThrowsFromCall () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn (x: number) -> number throws \"RangeError\"")
-      Assert.Value(env, "bar", "fn (x: number) -> number throws \"RangeError\"")
+      Assert.Value(
+        env,
+        "foo",
+        "fn <A: number>(x: A) -> A throws \"RangeError\""
+      )
+
+      Assert.Value(
+        env,
+        "bar",
+        "fn <A: number>(x: A) -> A throws \"RangeError\""
+      )
     }
 
   Assert.False(Result.isError res)
@@ -152,7 +169,7 @@ let InferCatchesException () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "bar", "fn (x: number) -> number")
+      Assert.Value(env, "bar", "fn <A: number>(x: A) -> A | 0")
     }
 
   Assert.False(Result.isError res)
@@ -163,7 +180,7 @@ let InferCatchesMultipleExceptions () =
     result {
       let src =
         """
-        let foo = fn (x: number) =>
+        let foo = fn (x) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" }
           
         let bar = fn (x) =>
@@ -177,7 +194,7 @@ let InferCatchesMultipleExceptions () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "bar", "fn (x: number) -> 0")
+      Assert.Value(env, "bar", "fn <A: number>(x: A) -> 0")
     }
 
   printfn "res = %A" res
@@ -189,7 +206,7 @@ let InferCatchesOneOfManyExceptions () =
     result {
       let src =
         """
-        let foo = fn (x: number) =>
+        let foo = fn (x) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" }
           
         let bar = fn (x) =>
@@ -202,7 +219,11 @@ let InferCatchesOneOfManyExceptions () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "bar", "fn (x: number) -> 0 throws \"BoundsError\"")
+      Assert.Value(
+        env,
+        "bar",
+        "fn <A: number>(x: A) -> 0 throws \"BoundsError\""
+      )
     }
 
   printfn "res = %A" res
@@ -228,7 +249,11 @@ let InferTryFinally () =
 
       let! ctx, env = inferScript src
 
-      Assert.Value(env, "bar", "fn (x: number) -> number throws \"RangeError\"")
+      Assert.Value(
+        env,
+        "bar",
+        "fn <A: number>(x: A) -> A throws \"RangeError\""
+      )
     }
 
   Assert.False(Result.isError res)
@@ -255,7 +280,7 @@ let InferTryCatchFinally () =
 
       let! ctx, env = inferScript src
 
-      Assert.Value(env, "bar", "fn (x: number) -> number")
+      Assert.Value(env, "bar", "fn <A: number>(x: A) -> A | 0")
     }
 
   printfn "res = %A" res

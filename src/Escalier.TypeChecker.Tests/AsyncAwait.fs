@@ -73,7 +73,7 @@ let InfersAsyncError () =
       Assert.Value(
         env,
         "foo",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
+        "fn <A: number>(x: A) -> Promise<A, \"RangeError\">"
       )
     }
 
@@ -97,7 +97,7 @@ let InfersPropagateAsyncError () =
       Assert.Value(
         env,
         "foo",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
+        "fn <A: number>(x: A) -> Promise<A, \"RangeError\">"
       )
 
       Assert.Value(
@@ -130,7 +130,7 @@ let InfersTryCatchAsync () =
       Assert.Value(
         env,
         "foo",
-        "fn (x: number) -> Promise<number, \"RangeError\">"
+        "fn <A: number>(x: A) -> Promise<A, \"RangeError\">"
       )
 
       Assert.Value(env, "bar", "fn (x: number) -> Promise<number, never>")

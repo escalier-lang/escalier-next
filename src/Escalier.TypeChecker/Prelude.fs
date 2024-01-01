@@ -121,11 +121,12 @@ module Prelude =
         never,
        false)
 
-    let comparison =
+    let comparison (op: string) =
       (makeFunctionType
-        None
-        [ makeParam "left" numType; makeParam "right" numType ]
-        boolType
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+          Provenance = None }
         never,
        false)
 
@@ -217,10 +218,10 @@ module Prelude =
                 ("/", arithemtic "/")
                 ("%", arithemtic "%")
                 ("**", arithemtic "**")
-                ("<", comparison)
-                ("<=", comparison)
-                (">", comparison)
-                (">=", comparison)
+                ("<", comparison "<")
+                ("<=", comparison "<=")
+                (">", comparison ">")
+                (">=", comparison ">=")
                 ("==", equality)
                 ("!=", equality)
                 ("||", logical)

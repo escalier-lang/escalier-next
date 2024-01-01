@@ -273,6 +273,10 @@ module rec Unify =
         op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
         ->
         return ()
+      | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.Boolean when
+        op = "<" || op = "<=" || op = ">" || op = ">="
+        ->
+        return ()
       | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.String when
         op = "++"
         ->

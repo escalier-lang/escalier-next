@@ -59,6 +59,34 @@ module Common =
       | Int a, Float b -> Float(float a ** b)
       | Int a, Int b -> Int(int ((float a) ** (float b)))
 
+    member this.GreaterThan(other: Number) =
+      match this, other with
+      | Float a, Float b -> Boolean(a > b)
+      | Float a, Int b -> Boolean(a > float b)
+      | Int a, Float b -> Boolean(float a > b)
+      | Int a, Int b -> Boolean(a > b)
+
+    member this.GreaterThanOrEqual(other: Number) =
+      match this, other with
+      | Float a, Float b -> Boolean(a >= b)
+      | Float a, Int b -> Boolean(a >= float b)
+      | Int a, Float b -> Boolean(float a >= b)
+      | Int a, Int b -> Boolean(a >= b)
+
+    member this.LessThan(other: Number) =
+      match this, other with
+      | Float a, Float b -> Boolean(a < b)
+      | Float a, Int b -> Boolean(a < float b)
+      | Int a, Float b -> Boolean(float a < b)
+      | Int a, Int b -> Boolean(a < b)
+
+    member this.LessThanOrEqual(other: Number) =
+      match this, other with
+      | Float a, Float b -> Boolean(a <= b)
+      | Float a, Int b -> Boolean(a <= float b)
+      | Int a, Float b -> Boolean(float a <= b)
+      | Int a, Int b -> Boolean(a <= b)
+
   type Literal =
     | Number of Number
     | String of string

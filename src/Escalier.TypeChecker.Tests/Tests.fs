@@ -149,7 +149,7 @@ let InferBinaryOperators () =
       Assert.Equal("\"Hello, world!\"", str.ToString())
 
       let! lt = infer "5 < 10"
-      Assert.Equal("boolean", lt.ToString())
+      Assert.Equal("true", lt.ToString())
 
       let! eq = infer "5 == 10"
       Assert.Equal("boolean", eq.ToString())
@@ -336,7 +336,6 @@ let InferFuncParamsWithTypeAnns () =
     }
 
   printfn "result = %A" result
-
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -345,7 +344,7 @@ let InferFuncWithMultipleReturns () =
     result {
       let src =
         """
-          let foo = fn (x: number, y: string) {
+          let foo = fn <A: number>(x: A, y: string) {
             if (x > 0) {
               return x
             }
@@ -356,10 +355,11 @@ let InferFuncWithMultipleReturns () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "foo", "fn (x: number, y: string) -> string | number")
-      Assert.Value(env, "bar", "string | number")
+      Assert.Value(env, "foo", "fn <A: number>(x: A, y: string) -> string | A")
+      Assert.Value(env, "bar", "string | 5")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -894,7 +894,7 @@ let BasicPatternMatchingInferExpr () =
       Assert.Value(
         env,
         "foo",
-        "fn <A>(x: A | number) -> \"none\" | \"one\" | \"negative\" | \"other\""
+        "fn <B: number, A>(x: A | B | 1 | 0) -> \"none\" | \"one\" | \"negative\" | \"other\""
       )
     }
 

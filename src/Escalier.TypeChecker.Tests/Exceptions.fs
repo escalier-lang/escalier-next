@@ -106,7 +106,7 @@ let InfersThrowingMultipleExpressions () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn <A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" }
         """
 
@@ -180,7 +180,7 @@ let InferCatchesMultipleExceptions () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn <A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" }
           
         let bar = fn (x) =>
@@ -206,7 +206,7 @@ let InferCatchesOneOfManyExceptions () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn <A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" }
           
         let bar = fn (x) =>

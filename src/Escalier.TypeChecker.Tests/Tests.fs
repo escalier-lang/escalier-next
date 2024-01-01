@@ -344,7 +344,7 @@ let InferFuncWithMultipleReturns () =
     result {
       let src =
         """
-          let foo = fn (x, y: string) {
+          let foo = fn <A: number>(x: A, y: string) {
             if (x > 0) {
               return x
             }

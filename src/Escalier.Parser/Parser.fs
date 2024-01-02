@@ -228,7 +228,7 @@ module Parser =
         InferredType = None }
 
   let objElemProperty: Parser<ObjElem, unit> =
-    pipe4 getPosition ident (opt (strWs ":" >>. expr)) getPosition
+    pipe4 getPosition ident (opt (strWs "=" >>. expr)) getPosition
     <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 
@@ -642,7 +642,7 @@ module Parser =
         InferredType = None }
 
   let private objPatKeyValueOrShorthand =
-    pipe4 getPosition ident (opt (strWs ":" >>. (ws >>. pattern))) getPosition
+    pipe4 getPosition ident (opt (strWs "=" >>. (ws >>. pattern))) getPosition
     <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 

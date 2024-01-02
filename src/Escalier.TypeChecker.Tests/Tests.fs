@@ -556,7 +556,7 @@ let InferTypeAnn () =
         let a: number = 5
         let [b, c]: [string, boolean] = ["hello", true]
         type Point = {x: number, y: number}
-        let {x, y}: Point = {x: 5, y: 10}
+        let {x, y}: Point = {x = 5, y = 10}
         """
 
       let! _, env = inferScript src
@@ -577,11 +577,14 @@ let InferObjectDestructuring () =
       let src =
         """
         type Point = {x: number, y: number}
-        let {x, y}: Point = {x: 5, y: 10}
+        let {x, y}: Point = {x = 5, y = 10}
         let p: Point = {x, y}
         let foo = fn ({x, y}: Point) => x + y
-        let sum = foo({x: 5, y: 10})
+        let sum = foo({x = 5, y = 10})
         foo({x, y})
+        type Line = {p1: Point, p2: Point}
+        declare let line: Line
+        let {p1 = {x = x1, y = y1}, p2 = {x = x2, y = y2}} = line
         """
 
       let! _, env = inferScript src
@@ -595,12 +598,35 @@ let InferObjectDestructuring () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferObjectDestructuringWithRenaming () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        type Line = {p1: Point, p2: Point}
+        declare let line: Line
+        let {p1 = {x = x1, y = y1}, p2 = {x = x2, y = y2}} = line
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "x1", "number")
+      Assert.Value(env, "y1", "number")
+      Assert.Value(env, "x2", "number")
+      Assert.Value(env, "y2", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
 let InferObjectRestSpread () =
   let result =
     result {
       let src =
         """
-        let obj1 = {a: 5, b: "hello", c: true}
+        let obj1 = {a = 5, b = "hello", c = true}
         let {a, ...rest} = obj1
         let obj2 = {a, ...rest}
         let foo = fn({a, ...rest}: {a: number, b: string, c: boolean}) => a
@@ -622,7 +648,7 @@ let InferObjProps () =
     result {
       let src =
         """
-        let obj = {a: {b: 5, c: "hello"}}
+        let obj = {a = {b = 5, c = "hello"}}
         let b = obj.a.b
         let c = obj.a.c
         """
@@ -642,12 +668,12 @@ let InferOptionalChaining () =
       let src =
         """
         type Obj = {a?: {b?: {c: number}}}
-        let obj: Obj = {a: {b: undefined}}
+        let obj: Obj = {a = {b = undefined}}
         let a = obj.a
         let b = obj.a?.b
         let c = obj.a?.b?.c
         type Point = {x: number, y: number}
-        let p: Point = {x: 5, y: 10}
+        let p: Point = {x = 5, y = 10}
         let x = p?.x
         """
 
@@ -725,7 +751,7 @@ let InferCallFuncWithSingleWrongArg () =
     result {
       let src =
         """
-        let add = fn (x, y) => {value: x + y}
+        let add = fn (x, y) => {value = x + y}
         let sum = add("hello", "world")
         """
 
@@ -780,7 +806,7 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
     result {
       let src =
         """
-        let foo = fn <T: number>(x: T) => {value: x}
+        let foo = fn <T: number>(x: T) => {value = x}
         let bar = foo("hello")
         """
 

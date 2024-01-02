@@ -18,5 +18,8 @@
   "homepage": "https://github.com/escalier-lang/escalier-next#readme",
   "dependencies": {
     "typescript": "^5.3.2"
+  },
+  "devDependencies": {
+    "sloc": "^0.3.1"
   }
 }

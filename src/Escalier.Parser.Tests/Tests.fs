@@ -217,7 +217,7 @@ let ParseObjLitAndObjPat () =
   let src =
     """
     type Point = {x: number, y: number}
-    let {x, y}: Point = {x: 5, y: 10}
+    let {x, y}: Point = {x = 5, y = 10}
     let p: Point = {x, y}
     let foo = fn ({x, y}: Point) => x + y
     """
@@ -231,7 +231,7 @@ let ParseObjLitAndObjPat () =
 let ParseObjRestSpread () =
   let src =
     """
-    let obj = {a: 5, b: "hello", c: true}
+    let obj = {a = 5, b = "hello", c = true}
     let {a, ...rest} = obj
   """
 

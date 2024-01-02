@@ -1,6 +1,6 @@
 ﻿input: 
     type Point = {x: number, y: number}
-    let {x, y}: Point = {x: 5, y: 10}
+    let {x, y}: Point = {x = 5, y = 10}
     let p: Point = {x, y}
     let foo = fn ({x, y}: Point) => x + y
     
@@ -57,17 +57,17 @@ output: Ok
                       Object
                         [Property
                            ({ Start = (Ln: 3, Col: 26)
-                              Stop = (Ln: 3, Col: 30) }, String "x",
+                              Stop = (Ln: 3, Col: 31) }, String "x",
                             { Kind = Literal (Number (Int 5))
-                              Span = { Start = (Ln: 3, Col: 29)
-                                       Stop = (Ln: 3, Col: 30) }
+                              Span = { Start = (Ln: 3, Col: 30)
+                                       Stop = (Ln: 3, Col: 31) }
                               InferredType = None });
                          Property
-                           ({ Start = (Ln: 3, Col: 32)
-                              Stop = (Ln: 3, Col: 37) }, String "y",
+                           ({ Start = (Ln: 3, Col: 33)
+                              Stop = (Ln: 3, Col: 39) }, String "y",
                             { Kind = Literal (Number (Int 10))
-                              Span = { Start = (Ln: 3, Col: 35)
-                                       Stop = (Ln: 3, Col: 37) }
+                              Span = { Start = (Ln: 3, Col: 37)
+                                       Stop = (Ln: 3, Col: 39) }
                               InferredType = None })]
                      Span = { Start = (Ln: 3, Col: 25)
                               Stop = (Ln: 4, Col: 5) }

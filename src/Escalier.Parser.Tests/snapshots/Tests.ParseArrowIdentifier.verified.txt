@@ -6,10 +6,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
-                                                  Stop = (Ln: 1, Col: 9) }
-                                         Name = "fst"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "fst"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 1, Col: 5)
                               Stop = (Ln: 1, Col: 9) }
                      InferredType = None },
@@ -18,28 +17,20 @@ output: Ok
                         { Sig =
                            { TypeParams = None
                              ParamList =
-                              [{ Pattern =
-                                  { Kind =
-                                     Identifier
-                                       { Span = { Start = (Ln: 1, Col: 15)
-                                                  Stop = (Ln: 1, Col: 16) }
-                                         Name = "x"
-                                         IsMut = false }
-                                    Span = { Start = (Ln: 1, Col: 15)
-                                             Stop = (Ln: 1, Col: 16) }
-                                    InferredType = None }
+                              [{ Pattern = { Kind = Ident { Name = "x"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 1, Col: 15)
+                                                      Stop = (Ln: 1, Col: 16) }
+                                             InferredType = None }
                                  TypeAnn = None
                                  Optional = false };
-                               { Pattern =
-                                  { Kind =
-                                     Identifier
-                                       { Span = { Start = (Ln: 1, Col: 18)
-                                                  Stop = (Ln: 1, Col: 19) }
-                                         Name = "y"
-                                         IsMut = false }
-                                    Span = { Start = (Ln: 1, Col: 18)
-                                             Stop = (Ln: 1, Col: 19) }
-                                    InferredType = None }
+                               { Pattern = { Kind = Ident { Name = "y"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 1, Col: 18)
+                                                      Stop = (Ln: 1, Col: 19) }
+                                             InferredType = None }
                                  TypeAnn = None
                                  Optional = false }]
                              ReturnType = None

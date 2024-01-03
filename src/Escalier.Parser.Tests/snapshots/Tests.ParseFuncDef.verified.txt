@@ -9,26 +9,20 @@ output: Ok
                   { Sig =
                      { TypeParams = None
                        ParamList =
-                        [{ Pattern =
-                            { Kind =
-                               Identifier { Span = { Start = (Ln: 1, Col: 5)
-                                                     Stop = (Ln: 1, Col: 6) }
-                                            Name = "x"
-                                            IsMut = false }
-                              Span = { Start = (Ln: 1, Col: 5)
-                                       Stop = (Ln: 1, Col: 6) }
-                              InferredType = None }
+                        [{ Pattern = { Kind = Ident { Name = "x"
+                                                      IsMut = false
+                                                      Assertion = None }
+                                       Span = { Start = (Ln: 1, Col: 5)
+                                                Stop = (Ln: 1, Col: 6) }
+                                       InferredType = None }
                            TypeAnn = None
                            Optional = false };
-                         { Pattern =
-                            { Kind =
-                               Identifier { Span = { Start = (Ln: 1, Col: 8)
-                                                     Stop = (Ln: 1, Col: 9) }
-                                            Name = "y"
-                                            IsMut = false }
-                              Span = { Start = (Ln: 1, Col: 8)
-                                       Stop = (Ln: 1, Col: 9) }
-                              InferredType = None }
+                         { Pattern = { Kind = Ident { Name = "y"
+                                                      IsMut = false
+                                                      Assertion = None }
+                                       Span = { Start = (Ln: 1, Col: 8)
+                                                Stop = (Ln: 1, Col: 9) }
+                                       InferredType = None }
                            TypeAnn = None
                            Optional = false }]
                        ReturnType = None

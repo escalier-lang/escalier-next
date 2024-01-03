@@ -76,11 +76,10 @@ let func paramList stmts =
       (fun name ->
         let pattern =
           { Pattern.Kind =
-              PatternKind.Identifier(
-                { Span = dummySpan
-                  Name = name
-                  IsMut = false }
-              )
+              PatternKind.Ident
+                { Name = name
+                  IsMut = false
+                  Assertion = None }
             Span = dummySpan
             InferredType = None }
 
@@ -111,10 +110,10 @@ let fatArrow paramList expr =
       (fun name ->
         let pattern =
           { Pattern.Kind =
-              PatternKind.Identifier(
-                { Span = dummySpan
-                  Name = name
-                  IsMut = false }
+              PatternKind.Ident(
+                { Name = name
+                  IsMut = false
+                  Assertion = None }
               )
             Span = dummySpan
             InferredType = None }
@@ -165,11 +164,10 @@ let stmt stmtKind =
 let varDecl (name, expr) =
   let pattern =
     { Pattern.Kind =
-        PatternKind.Identifier(
-          { Span = dummySpan
-            Name = name
-            IsMut = false }
-        )
+        PatternKind.Ident
+          { Name = name
+            IsMut = false
+            Assertion = None }
       Span = dummySpan
       InferredType = None }
 

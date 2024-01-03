@@ -6,10 +6,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 1, Col: 5)
-                                                  Stop = (Ln: 1, Col: 9) }
-                                         Name = "msg"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "msg"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 1, Col: 5)
                               Stop = (Ln: 1, Col: 9) }
                      InferredType = None },

@@ -385,6 +385,31 @@ let ParsePatternMatching () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseComplexPatternMatching () =
+  let src =
+    """
+    match node {
+      | {x, y: b} => 1
+      | {x is number, y: b is number} => 2
+      | {x: _, y: _ is number} => 3
+      | {type: "circle", center: {x, y}, radius} => 4
+      | {x = 0, y: b = 0} => 5
+      | {x is number = 0, y: b is number = 0} => 6
+    }
+    """
+
+  // TODO: move the default value from the key-value pattern to the ident pattern
+  // so that we can do stuff like
+  // | {x: a = 0 is number, y: b = 0 is number} => 6
+  // when matching something like {x?: number, y?: number}
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+
+[<Fact>]
 let ParseCallableType () =
   let src =
     """

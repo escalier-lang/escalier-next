@@ -11,10 +11,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 9)
-                                                  Stop = (Ln: 2, Col: 13) }
-                                         Name = "bar"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "bar"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 2, Col: 9)
                               Stop = (Ln: 2, Col: 13) }
                      InferredType = None },
@@ -34,13 +33,9 @@ output: Ok
                                     Decl
                                       { Kind =
                                          VarDecl
-                                           ({ Kind =
-                                               Identifier
-                                                 { Span =
-                                                    { Start = (Ln: 3, Col: 11)
-                                                      Stop = (Ln: 3, Col: 13) }
-                                                   Name = "x"
-                                                   IsMut = false }
+                                           ({ Kind = Ident { Name = "x"
+                                                             IsMut = false
+                                                             Assertion = None }
                                               Span = { Start = (Ln: 3, Col: 11)
                                                        Stop = (Ln: 3, Col: 13) }
                                               InferredType = None },

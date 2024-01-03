@@ -13,19 +13,17 @@ output: Success: { Kind =
                                  Span = { Start = (Ln: 1, Col: 14)
                                           Stop = (Ln: 1, Col: 17) }
                                  InferredType = None } }]
-       ParamList =
-        [{ Pattern = { Kind = Identifier { Span = { Start = (Ln: 1, Col: 19)
-                                                    Stop = (Ln: 1, Col: 20) }
-                                           Name = "x"
-                                           IsMut = false }
-                       Span = { Start = (Ln: 1, Col: 19)
-                                Stop = (Ln: 1, Col: 20) }
-                       InferredType = None }
-           TypeAnn = { Kind = TypeRef ("T", None)
-                       Span = { Start = (Ln: 1, Col: 22)
-                                Stop = (Ln: 1, Col: 23) }
-                       InferredType = None }
-           Optional = false }]
+       ParamList = [{ Pattern = { Kind = Ident { Name = "x"
+                                                 IsMut = false
+                                                 Assertion = None }
+                                  Span = { Start = (Ln: 1, Col: 19)
+                                           Stop = (Ln: 1, Col: 20) }
+                                  InferredType = None }
+                      TypeAnn = { Kind = TypeRef ("T", None)
+                                  Span = { Start = (Ln: 1, Col: 22)
+                                           Stop = (Ln: 1, Col: 23) }
+                                  InferredType = None }
+                      Optional = false }]
        ReturnType = { Kind = TypeRef ("T", None)
                       Span = { Start = (Ln: 1, Col: 28)
                                Stop = (Ln: 1, Col: 30) }

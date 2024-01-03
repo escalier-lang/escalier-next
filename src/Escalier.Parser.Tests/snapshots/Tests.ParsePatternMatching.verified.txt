@@ -14,10 +14,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 9)
-                                                  Stop = (Ln: 2, Col: 13) }
-                                         Name = "foo"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "foo"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 2, Col: 9)
                               Stop = (Ln: 2, Col: 13) }
                      InferredType = None },
@@ -26,16 +25,12 @@ output: Ok
                         { Sig =
                            { TypeParams = None
                              ParamList =
-                              [{ Pattern =
-                                  { Kind =
-                                     Identifier
-                                       { Span = { Start = (Ln: 2, Col: 19)
-                                                  Stop = (Ln: 2, Col: 20) }
-                                         Name = "x"
-                                         IsMut = false }
-                                    Span = { Start = (Ln: 2, Col: 19)
-                                             Stop = (Ln: 2, Col: 20) }
-                                    InferredType = None }
+                              [{ Pattern = { Kind = Ident { Name = "x"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 2, Col: 19)
+                                                      Stop = (Ln: 2, Col: 20) }
+                                             InferredType = None }
                                  TypeAnn = None
                                  Optional = false }]
                              ReturnType = None
@@ -52,11 +47,7 @@ output: Ok
                                    [{ Span = { Start = (Ln: 4, Col: 9)
                                                Stop = (Ln: 5, Col: 9) }
                                       Pattern =
-                                       { Kind =
-                                          Literal
-                                            ({ Start = (Ln: 4, Col: 11)
-                                               Stop = (Ln: 4, Col: 13) },
-                                             Number (Int 0))
+                                       { Kind = Literal (Number (Int 0))
                                          Span = { Start = (Ln: 4, Col: 11)
                                                   Stop = (Ln: 4, Col: 13) }
                                          InferredType = None }
@@ -69,11 +60,7 @@ output: Ok
                                     { Span = { Start = (Ln: 5, Col: 9)
                                                Stop = (Ln: 6, Col: 9) }
                                       Pattern =
-                                       { Kind =
-                                          Literal
-                                            ({ Start = (Ln: 5, Col: 11)
-                                               Stop = (Ln: 5, Col: 13) },
-                                             Number (Int 1))
+                                       { Kind = Literal (Number (Int 1))
                                          Span = { Start = (Ln: 5, Col: 11)
                                                   Stop = (Ln: 5, Col: 13) }
                                          InferredType = None }
@@ -86,12 +73,9 @@ output: Ok
                                     { Span = { Start = (Ln: 6, Col: 9)
                                                Stop = (Ln: 7, Col: 9) }
                                       Pattern =
-                                       { Kind =
-                                          Identifier
-                                            { Span = { Start = (Ln: 6, Col: 11)
-                                                       Stop = (Ln: 6, Col: 13) }
-                                              Name = "n"
-                                              IsMut = false }
+                                       { Kind = Ident { Name = "n"
+                                                        IsMut = false
+                                                        Assertion = None }
                                          Span = { Start = (Ln: 6, Col: 11)
                                                   Stop = (Ln: 6, Col: 13) }
                                          InferredType = None }
@@ -121,12 +105,9 @@ output: Ok
                                     { Span = { Start = (Ln: 7, Col: 9)
                                                Stop = (Ln: 8, Col: 7) }
                                       Pattern =
-                                       { Kind =
-                                          Identifier
-                                            { Span = { Start = (Ln: 7, Col: 11)
-                                                       Stop = (Ln: 7, Col: 13) }
-                                              Name = "_"
-                                              IsMut = false }
+                                       { Kind = Ident { Name = "_"
+                                                        IsMut = false
+                                                        Assertion = None }
                                          Span = { Start = (Ln: 7, Col: 11)
                                                   Stop = (Ln: 7, Col: 13) }
                                          InferredType = None }

@@ -266,9 +266,9 @@ module rec Codegen =
 
   let buildPattern (ctx: Ctx) (pattern: Syntax.Pattern) : TS.Pat =
     match pattern.Kind with
-    | PatternKind.Identifier id ->
+    | PatternKind.Ident { Name = name } ->
       Pat.Ident
-        { Id = { Name = id.Name; Loc = None }
+        { Id = { Name = name; Loc = None }
           Optional = false
           Loc = None }
     | _ -> failwith "TODO"
@@ -549,7 +549,7 @@ module rec Codegen =
 
     let rec walk (pat: Syntax.Pattern) : unit =
       match pat.Kind with
-      | PatternKind.Identifier { Name = name; IsMut = isMut } ->
+      | PatternKind.Ident { Name = name; IsMut = isMut } ->
         match pat.InferredType with
         | Some(t) ->
           let t = prune t
@@ -560,15 +560,16 @@ module rec Codegen =
         List.iter
           (fun (elem: Syntax.ObjPatElem) ->
             match elem with
-            | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
-              walk value
-            | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) -> ()
-            | Syntax.ObjPatElem.RestPat(span, target, isMut) -> walk target)
+            | Syntax.ObjPatElem.KeyValuePat { Value = value } -> walk value
+            | Syntax.ObjPatElem.ShorthandPat { Name = name; IsMut = isMut } ->
+              // TODO: how do we get the type for this binding?
+              // Do we need to add an `InferredType` field to `ShorthandPat`?
+              ()
+            | Syntax.ObjPatElem.RestPat { Target = target } -> walk target)
           elems
       | PatternKind.Tuple elems -> List.iter walk elems
-      | PatternKind.Wildcard -> ()
-      | PatternKind.Literal(span, value) -> ()
-      | PatternKind.Is(span, ident, isName, isMut) -> ()
+      | PatternKind.Wildcard _ -> ()
+      | PatternKind.Literal _ -> ()
 
     walk pat
 

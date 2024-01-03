@@ -18,28 +18,34 @@ open Unify
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
     match pat.Kind with
-    | PatternKind.Identifier({ Name = name; IsMut = isMut }) ->
+    | PatternKind.Ident { Name = name; IsMut = isMut } ->
       Pattern.Identifier(name)
-    | PatternKind.Is(span, bindingIdent, isName, isMut) ->
-      Pattern.Is(bindingIdent, isName)
+    // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
+    //   Pattern.Is(bindingIdent, isName)
     | PatternKind.Object elems ->
       Pattern.Object(
         List.map
           (fun (elem: Syntax.ObjPatElem) ->
             match elem with
-            | Syntax.ObjPatElem.KeyValuePat(span, key, value, init) ->
+            | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                              Value = value
+                                              Default = init } ->
               ObjPatElem.KeyValuePat(key, patternToPattern value, init)
-            | Syntax.ObjPatElem.ShorthandPat(span, name, init, isMut) ->
+            | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                               Default = init
+                                               IsMut = isMut
+                                               Assertion = assertion } ->
               // TODO: isMut
               ObjPatElem.ShorthandPat(name, init)
-            | Syntax.ObjPatElem.RestPat(span, target, isMut) ->
+            | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
+              // TODO: isMut
               ObjPatElem.RestPat(patternToPattern target))
           elems
       )
     | PatternKind.Tuple elems ->
       Pattern.Tuple(List.map (patternToPattern >> Some) elems)
-    | PatternKind.Wildcard -> Pattern.Wildcard
-    | PatternKind.Literal(span, lit) -> Pattern.Literal(lit)
+    | PatternKind.Wildcard { Assertion = assertion } -> Pattern.Wildcard
+    | PatternKind.Literal lit -> Pattern.Literal lit
 
   let inferPropName
     (ctx: Ctx)
@@ -857,14 +863,18 @@ module rec Infer =
 
     let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
       match pat.Kind with
-      | PatternKind.Identifier({ Name = name; IsMut = isMut }) ->
+      | PatternKind.Ident({ Name = name
+                            IsMut = isMut
+                            Assertion = assertion }) ->
+        // TODO: lookup `assertion` in `env`
+
         let t = ctx.FreshTypeVar None
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
         t
-      | PatternKind.Literal(_, literal) ->
-        { Type.Kind = TypeKind.Literal(literal)
+      | PatternKind.Literal lit ->
+        { Type.Kind = TypeKind.Literal lit
           Provenance = None }
       | PatternKind.Object elems ->
         let mutable restType: option<Type> = None
@@ -873,7 +883,9 @@ module rec Infer =
           List.choose
             (fun (elem: Syntax.ObjPatElem) ->
               match elem with
-              | Syntax.ObjPatElem.KeyValuePat(_span, key, value, _init) ->
+              | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                                Value = value
+                                                Default = init } ->
                 let t = infer_pattern_rec value
 
                 Some(
@@ -883,11 +895,14 @@ module rec Infer =
                       Readonly = false
                       Type = t }
                 )
-              | Syntax.ObjPatElem.ShorthandPat(_span, name, _init, _is_mut) ->
+              | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                                 IsMut = isMut
+                                                 Assertion = assertion } ->
+                // TODO: lookup `assertion` in `env`
+
                 let t = ctx.FreshTypeVar None
 
                 // TODO: check if `name` already exists in `assump`
-                let isMut = false
                 assump <- assump.Add(name, (t, isMut))
 
                 Some(
@@ -898,10 +913,10 @@ module rec Infer =
                       Type = t }
                 )
 
-              | Syntax.ObjPatElem.RestPat(span, pattern, isMut) ->
+              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
                 restType <-
                   Some(
-                    { Type.Kind = infer_pattern_rec pattern |> TypeKind.Rest
+                    { Type.Kind = infer_pattern_rec target |> TypeKind.Rest
                       Provenance = None }
                   )
 
@@ -922,15 +937,16 @@ module rec Infer =
 
         { Type.Kind = TypeKind.Tuple(elems')
           Provenance = None }
-      | PatternKind.Wildcard ->
+      | PatternKind.Wildcard { Assertion = assertion } ->
+        // TODO: lookup `assertion` in `env`
         { Type.Kind = TypeKind.Wildcard
           Provenance = None }
-      | PatternKind.Is(span, binding, isName, isMut) ->
-        match Map.tryFind isName env.Schemes with
-        | Some(scheme) ->
-          assump <- assump.Add(binding.Name, (scheme.Type, binding.IsMut))
-          scheme.Type
-        | None -> failwith "todo"
+    // | PatternKind.Is(span, binding, isName, isMut) ->
+    //   match Map.tryFind isName env.Schemes with
+    //   | Some(scheme) ->
+    //     assump <- assump.Add(binding.Name, (scheme.Type, binding.IsMut))
+    //     scheme.Type
+    //   | None -> failwith "todo"
 
     let t = infer_pattern_rec pat
 
@@ -1408,7 +1424,7 @@ module rec Infer =
         ExprVisitor.VisitPattern =
           fun pat ->
             match pat.Kind with
-            | PatternKind.Identifier({ Name = name }) ->
+            | PatternKind.Ident { Name = name } ->
               names <- name :: names
               false
             | _ -> true

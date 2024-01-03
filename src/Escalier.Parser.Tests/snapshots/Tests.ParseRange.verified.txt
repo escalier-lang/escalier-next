@@ -30,10 +30,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 3, Col: 9)
-                                                  Stop = (Ln: 3, Col: 15) }
-                                         Name = "range"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "range"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 3, Col: 9)
                               Stop = (Ln: 3, Col: 15) }
                      InferredType = None },

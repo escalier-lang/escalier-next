@@ -44,12 +44,18 @@ output: Ok
                 VarDecl
                   ({ Kind =
                       Object
-                        [ShorthandPat
-                           ({ Start = (Ln: 3, Col: 10)
-                              Stop = (Ln: 3, Col: 11) }, "x", None, false);
-                         ShorthandPat
-                           ({ Start = (Ln: 3, Col: 13)
-                              Stop = (Ln: 3, Col: 14) }, "y", None, false)]
+                        [ShorthandPat { Span = { Start = (Ln: 3, Col: 10)
+                                                 Stop = (Ln: 3, Col: 11) }
+                                        Name = "x"
+                                        IsMut = false
+                                        Default = None
+                                        Assertion = None };
+                         ShorthandPat { Span = { Start = (Ln: 3, Col: 13)
+                                                 Stop = (Ln: 3, Col: 14) }
+                                        Name = "y"
+                                        IsMut = false
+                                        Default = None
+                                        Assertion = None }]
                      Span = { Start = (Ln: 3, Col: 9)
                               Stop = (Ln: 3, Col: 15) }
                      InferredType = None },
@@ -85,10 +91,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 4, Col: 9)
-                                                  Stop = (Ln: 4, Col: 10) }
-                                         Name = "p"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "p"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 4, Col: 9)
                               Stop = (Ln: 4, Col: 10) }
                      InferredType = None },
@@ -114,10 +119,9 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Identifier { Span = { Start = (Ln: 5, Col: 9)
-                                                  Stop = (Ln: 5, Col: 13) }
-                                         Name = "foo"
-                                         IsMut = false }
+                  ({ Kind = Ident { Name = "foo"
+                                    IsMut = false
+                                    Assertion = None }
                      Span = { Start = (Ln: 5, Col: 9)
                               Stop = (Ln: 5, Col: 13) }
                      InferredType = None },
@@ -130,13 +134,19 @@ output: Ok
                                   { Kind =
                                      Object
                                        [ShorthandPat
-                                          ({ Start = (Ln: 5, Col: 20)
-                                             Stop = (Ln: 5, Col: 21) }, "x",
-                                           None, false);
+                                          { Span = { Start = (Ln: 5, Col: 20)
+                                                     Stop = (Ln: 5, Col: 21) }
+                                            Name = "x"
+                                            IsMut = false
+                                            Default = None
+                                            Assertion = None };
                                         ShorthandPat
-                                          ({ Start = (Ln: 5, Col: 23)
-                                             Stop = (Ln: 5, Col: 24) }, "y",
-                                           None, false)]
+                                          { Span = { Start = (Ln: 5, Col: 23)
+                                                     Stop = (Ln: 5, Col: 24) }
+                                            Name = "y"
+                                            IsMut = false
+                                            Default = None
+                                            Assertion = None }]
                                     Span = { Start = (Ln: 5, Col: 19)
                                              Stop = (Ln: 5, Col: 25) }
                                     InferredType = None }

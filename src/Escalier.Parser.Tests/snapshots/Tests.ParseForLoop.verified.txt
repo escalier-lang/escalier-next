@@ -8,10 +8,9 @@ output: Ok
      [Stmt
         { Kind =
            For
-             ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 9)
-                                             Stop = (Ln: 2, Col: 11) }
-                                    Name = "x"
-                                    IsMut = false }
+             ({ Kind = Ident { Name = "x"
+                               IsMut = false
+                               Assertion = None }
                 Span = { Start = (Ln: 2, Col: 9)
                          Stop = (Ln: 2, Col: 11) }
                 InferredType = None },

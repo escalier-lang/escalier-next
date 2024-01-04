@@ -9,15 +9,12 @@ output: Ok
                   { Sig =
                      { TypeParams = None
                        ParamList =
-                        [{ Pattern =
-                            { Kind =
-                               Identifier { Span = { Start = (Ln: 1, Col: 5)
-                                                     Stop = (Ln: 1, Col: 6) }
-                                            Name = "x"
-                                            IsMut = false }
-                              Span = { Start = (Ln: 1, Col: 5)
-                                       Stop = (Ln: 1, Col: 6) }
-                              InferredType = None }
+                        [{ Pattern = { Kind = Ident { Name = "x"
+                                                      IsMut = false
+                                                      Assertion = None }
+                                       Span = { Start = (Ln: 1, Col: 5)
+                                                Stop = (Ln: 1, Col: 6) }
+                                       InferredType = None }
                            TypeAnn = Some { Kind = Keyword Number
                                             Span = { Start = (Ln: 1, Col: 8)
                                                      Stop = (Ln: 1, Col: 14) }

@@ -4,20 +4,18 @@
     
 output: Ok
   { Items =
-     [DeclareLet ({ Kind = Identifier { Span = { Start = (Ln: 2, Col: 17)
-                                                 Stop = (Ln: 2, Col: 20) }
-                                        Name = "foo"
-                                        IsMut = false }
+     [DeclareLet ({ Kind = Ident { Name = "foo"
+                                   IsMut = false
+                                   Assertion = None }
                     Span = { Start = (Ln: 2, Col: 17)
                              Stop = (Ln: 2, Col: 20) }
                     InferredType = None }, { Kind = Keyword Number
                                              Span = { Start = (Ln: 2, Col: 22)
                                                       Stop = (Ln: 3, Col: 5) }
                                              InferredType = None });
-      DeclareLet ({ Kind = Identifier { Span = { Start = (Ln: 3, Col: 17)
-                                                 Stop = (Ln: 3, Col: 20) }
-                                        Name = "bar"
-                                        IsMut = false }
+      DeclareLet ({ Kind = Ident { Name = "bar"
+                                   IsMut = false
+                                   Assertion = None }
                     Span = { Start = (Ln: 3, Col: 17)
                              Stop = (Ln: 3, Col: 20) }
                     InferredType = None }, { Kind = Keyword String

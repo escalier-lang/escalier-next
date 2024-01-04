@@ -117,20 +117,21 @@ module rec ExprVisitor =
     let rec walk (pat: Pattern) : unit =
       if visitor.VisitPattern pat then
         match pat.Kind with
-        | PatternKind.Identifier _ -> ()
+        | PatternKind.Ident _ -> ()
         | PatternKind.Object elems ->
           List.iter
             (fun (elem: ObjPatElem) ->
               match elem with
-              | ObjPatElem.KeyValuePat(span, key, value, init) -> walk value
-              | ObjPatElem.ShorthandPat(span, name, init, isMut) ->
+              | ObjPatElem.KeyValuePat { Value = value; Default = init } ->
+                walk value
                 Option.iter (walkExpr visitor) init
-              | ObjPatElem.RestPat(span, target, isMut) -> walk target)
+              | ObjPatElem.ShorthandPat { Default = init } ->
+                Option.iter (walkExpr visitor) init
+              | ObjPatElem.RestPat { Target = target } -> walk target)
             elems
         | PatternKind.Tuple elems -> List.iter walk elems
-        | PatternKind.Wildcard -> ()
-        | PatternKind.Literal(span, value) -> ()
-        | PatternKind.Is(span, ident, isName, isMut) -> ()
+        | PatternKind.Wildcard _ -> ()
+        | PatternKind.Literal _ -> ()
 
     walk pat
 

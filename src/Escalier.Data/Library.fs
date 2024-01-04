@@ -240,39 +240,53 @@ module Syntax =
 
     override this.GetHashCode() = this.Kind.GetHashCode()
 
-  type ObjPatElem =
-    // TODO: add isMut
-    | KeyValuePat of
-      span: Span *
-      key: string *
-      value: Pattern *
-      init: option<Expr>
-    | ShorthandPat of
-      span: Span *
-      name: string *
-      init: option<Expr> *
-      isMut: bool
-    // TODO: rename to RestSpreadPat
-    | RestPat of span: Span * target: Pattern * isMut: bool
+  type QualifiedIdent =
+    { Left: option<QualifiedIdent>
+      Right: string }
 
-  type BindingIdent =
+  type KeyValuePat =
+    { Span: Span
+      Key: string
+      Value: Pattern
+      Default: option<Expr> }
+
+  type ShorthandPat =
     { Span: Span
       Name: string
+      IsMut: bool
+      Default: option<Expr>
+      Assertion: option<QualifiedIdent> }
+
+  type RestPat =
+    { Span: Span
+      Target: Pattern
       IsMut: bool }
+
+  // | {mut msg is string, ...mut rest}
+
+  type ObjPatElem =
+    | KeyValuePat of KeyValuePat
+    | ShorthandPat of ShorthandPat
+    | RestPat of RestPat
+
+  type IdentPat =
+    { Name: string
+      IsMut: bool
+      Assertion: option<QualifiedIdent> }
+
+  type WildcardPattern = { Assertion: option<QualifiedIdent> }
 
   [<RequireQualifiedAccess>]
   type PatternKind =
-    | Identifier of BindingIdent
-    | Object of elems: list<ObjPatElem> // TODO: rest patterns
-    | Tuple of elems: list<Pattern> // TODO: rest patterns
-    | Wildcard
-    | Literal of span: Span * value: Common.Literal
-    // TODO: get rid of `is_mut` since it's covered by `ident: BindingIdent`
-    | Is of span: Span * ident: BindingIdent * is_name: string * is_mut: bool
+    | Ident of IdentPat
+    | Object of list<ObjPatElem> // TODO: rest patterns
+    | Tuple of list<Pattern> // TODO: rest patterns
+    | Wildcard of WildcardPattern
+    | Literal of Common.Literal
 
     override this.ToString() =
       match this with
-      | Identifier(bi) -> bi.Name // TODO: isMut
+      | Ident ident -> ident.Name // TODO: isMut
       | _ -> failwith "TODO"
 
   type Pattern =
@@ -463,7 +477,6 @@ module Type =
     | Tuple of elems: list<option<Pattern>>
     | Wildcard
     | Literal of Common.Literal
-    | Is of target: Syntax.BindingIdent * id: string
     | Rest of target: Pattern
 
     override this.ToString() =
@@ -494,7 +507,7 @@ module Type =
         $"[{elems}]"
       | Wildcard -> "_"
       | Literal lit -> lit.ToString()
-      | Is({ Name = name }, id) -> $"{name} is {id}"
+      // | Is({ Name = name }, id) -> $"{name} is {id}"
       | Rest(target) -> $"...{target}"
 
   type FuncParam =
@@ -651,9 +664,7 @@ module Type =
 
         $"{readonly}{name}{optional}: {type_}"
 
-  type Array =
-    { Elem: Type
-      mutable Length: Type } // either `number` or `unique number`
+  type Array = { Elem: Type; mutable Length: Type } // either `number` or `unique number`
 
   [<RequireQualifiedAccess>]
   type TypeKind =

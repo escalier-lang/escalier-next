@@ -48,7 +48,7 @@ module Prelude =
         ExprVisitor.VisitPattern =
           fun pat ->
             match pat.Kind with
-            | Syntax.PatternKind.Identifier({ Name = name }) ->
+            | Syntax.PatternKind.Ident { Name = name } ->
               names <- name :: names
               false
             | _ -> true

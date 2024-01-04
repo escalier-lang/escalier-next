@@ -606,16 +606,18 @@ module Parser =
 
   stmtRef.Value <- ws >>. _stmt
 
+  let private isAssertion =
+    (strWs "is" >>. ident) |>> fun name -> { Left = None; Right = name }
+
   let private identPattern =
-    withSpan ident
-    |>> fun (id, span) ->
+    pipe4 getPosition ident (opt isAssertion) getPosition
+    <| fun start name assertion stop ->
       { Pattern.Kind =
-          PatternKind.Identifier(
-            { Name = id
-              Span = span
-              IsMut = false }
-          )
-        Span = span
+          PatternKind.Ident
+            { Name = name
+              IsMut = false
+              Assertion = assertion }
+        Span = { Start = start; Stop = stop }
         InferredType = None }
 
   let private literalPattern =
@@ -623,7 +625,7 @@ module Parser =
     |>> fun (lit, span) ->
       printfn "parsed literal: %A" lit
 
-      { Pattern.Kind = PatternKind.Literal(span = span, value = lit)
+      { Pattern.Kind = PatternKind.Literal lit
         Span = span
         InferredType = None }
 
@@ -635,29 +637,55 @@ module Parser =
         InferredType = None }
 
   let private wildcardPattern =
-    withSpan (strWs "_")
-    |>> fun (_, span) ->
-      { Pattern.Kind = PatternKind.Wildcard
-        Span = span
+    pipe4 getPosition (strWs "_") (opt isAssertion) getPosition
+    <| fun start _ assertion stop ->
+      { Pattern.Kind = PatternKind.Wildcard { Assertion = assertion }
+        Span = { Start = start; Stop = stop }
         InferredType = None }
 
-  let private objPatKeyValueOrShorthand =
-    pipe4 getPosition ident (opt (strWs ":" >>. (ws >>. pattern))) getPosition
-    <| fun start name value stop ->
+  let private keyValuePat =
+    pipe5
+      getPosition
+      ident
+      (strWs ":" >>. pattern)
+      (opt (strWs "=" >>. expr))
+      getPosition
+    <| fun start name value def stop ->
       let span = { Start = start; Stop = stop }
 
-      match value with
-      | Some(value) ->
-        KeyValuePat(span = span, key = name, value = value, init = None)
-      | None ->
-        ShorthandPat(span = span, name = name, init = None, isMut = false)
+      KeyValuePat
+        { Span = span
+          Key = name
+          Value = value
+          Default = def }
+
+  let private shorthandPat =
+    pipe5
+      getPosition
+      ident
+      (opt isAssertion)
+      (opt (strWs "=" >>. expr))
+      getPosition
+    <| fun start name assertion def stop ->
+      let span = { Start = start; Stop = stop }
+
+      ShorthandPat
+        { Span = span
+          Name = name
+          Default = def
+          IsMut = false
+          Assertion = assertion }
 
   let private objPatRestElem =
     withSpan (strWs "..." >>. pattern)
     |>> fun (pattern, span) ->
-      RestPat(span = span, target = pattern, isMut = false)
+      RestPat
+        { Span = span
+          Target = pattern
+          IsMut = false }
 
-  let private objPatElem = choice [ objPatKeyValueOrShorthand; objPatRestElem ]
+  let private objPatElem =
+    choice [ attempt keyValuePat; shorthandPat; objPatRestElem ]
 
   let private objectPattern =
     withSpan (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))

@@ -1,0 +1,267 @@
+﻿input: 
+    match node {
+      | {x, y: b} => 1
+      | {x is number, y: b is number} => 2
+      | {x: _, y: _ is number} => 3
+      | {type: "circle", center: {x, y}, radius} => 4
+      | {x = 0, y: b = 0} => 5
+      | {x is number = 0, y: b is number = 0} => 6
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                Match
+                  ({ Kind = Identifier "node"
+                     Span = { Start = (Ln: 2, Col: 11)
+                              Stop = (Ln: 2, Col: 16) }
+                     InferredType = None },
+                   [{ Span = { Start = (Ln: 3, Col: 7)
+                               Stop = (Ln: 4, Col: 7) }
+                      Pattern =
+                       { Kind =
+                          Object
+                            [ShorthandPat { Span = { Start = (Ln: 3, Col: 10)
+                                                     Stop = (Ln: 3, Col: 11) }
+                                            Name = "x"
+                                            IsMut = false
+                                            Default = None
+                                            Assertion = None };
+                             KeyValuePat
+                               { Span = { Start = (Ln: 3, Col: 13)
+                                          Stop = (Ln: 3, Col: 17) }
+                                 Key = "y"
+                                 Value = { Kind = Ident { Name = "b"
+                                                          IsMut = false
+                                                          Assertion = None }
+                                           Span = { Start = (Ln: 3, Col: 16)
+                                                    Stop = (Ln: 3, Col: 17) }
+                                           InferredType = None }
+                                 Default = None }]
+                         Span = { Start = (Ln: 3, Col: 9)
+                                  Stop = (Ln: 3, Col: 19) }
+                         InferredType = None }
+                      Guard = None
+                      Body = Expr { Kind = Literal (Number (Int 1))
+                                    Span = { Start = (Ln: 3, Col: 22)
+                                             Stop = (Ln: 4, Col: 7) }
+                                    InferredType = None } };
+                    { Span = { Start = (Ln: 4, Col: 7)
+                               Stop = (Ln: 5, Col: 7) }
+                      Pattern =
+                       { Kind =
+                          Object
+                            [ShorthandPat
+                               { Span = { Start = (Ln: 4, Col: 10)
+                                          Stop = (Ln: 4, Col: 21) }
+                                 Name = "x"
+                                 IsMut = false
+                                 Default = None
+                                 Assertion = Some { Left = None
+                                                    Right = "number" } };
+                             KeyValuePat
+                               { Span = { Start = (Ln: 4, Col: 23)
+                                          Stop = (Ln: 4, Col: 37) }
+                                 Key = "y"
+                                 Value =
+                                  { Kind =
+                                     Ident
+                                       { Name = "b"
+                                         IsMut = false
+                                         Assertion = Some { Left = None
+                                                            Right = "number" } }
+                                    Span = { Start = (Ln: 4, Col: 26)
+                                             Stop = (Ln: 4, Col: 37) }
+                                    InferredType = None }
+                                 Default = None }]
+                         Span = { Start = (Ln: 4, Col: 9)
+                                  Stop = (Ln: 4, Col: 39) }
+                         InferredType = None }
+                      Guard = None
+                      Body = Expr { Kind = Literal (Number (Int 2))
+                                    Span = { Start = (Ln: 4, Col: 42)
+                                             Stop = (Ln: 5, Col: 7) }
+                                    InferredType = None } };
+                    { Span = { Start = (Ln: 5, Col: 7)
+                               Stop = (Ln: 6, Col: 7) }
+                      Pattern =
+                       { Kind =
+                          Object
+                            [KeyValuePat
+                               { Span = { Start = (Ln: 5, Col: 10)
+                                          Stop = (Ln: 5, Col: 14) }
+                                 Key = "x"
+                                 Value = { Kind = Ident { Name = "_"
+                                                          IsMut = false
+                                                          Assertion = None }
+                                           Span = { Start = (Ln: 5, Col: 13)
+                                                    Stop = (Ln: 5, Col: 14) }
+                                           InferredType = None }
+                                 Default = None };
+                             KeyValuePat
+                               { Span = { Start = (Ln: 5, Col: 16)
+                                          Stop = (Ln: 5, Col: 30) }
+                                 Key = "y"
+                                 Value =
+                                  { Kind =
+                                     Ident
+                                       { Name = "_"
+                                         IsMut = false
+                                         Assertion = Some { Left = None
+                                                            Right = "number" } }
+                                    Span = { Start = (Ln: 5, Col: 19)
+                                             Stop = (Ln: 5, Col: 30) }
+                                    InferredType = None }
+                                 Default = None }]
+                         Span = { Start = (Ln: 5, Col: 9)
+                                  Stop = (Ln: 5, Col: 32) }
+                         InferredType = None }
+                      Guard = None
+                      Body = Expr { Kind = Literal (Number (Int 3))
+                                    Span = { Start = (Ln: 5, Col: 35)
+                                             Stop = (Ln: 6, Col: 7) }
+                                    InferredType = None } };
+                    { Span = { Start = (Ln: 6, Col: 7)
+                               Stop = (Ln: 7, Col: 7) }
+                      Pattern =
+                       { Kind =
+                          Object
+                            [KeyValuePat
+                               { Span = { Start = (Ln: 6, Col: 10)
+                                          Stop = (Ln: 6, Col: 24) }
+                                 Key = "type"
+                                 Value = { Kind = Literal (String "circle")
+                                           Span = { Start = (Ln: 6, Col: 16)
+                                                    Stop = (Ln: 6, Col: 24) }
+                                           InferredType = None }
+                                 Default = None };
+                             KeyValuePat
+                               { Span = { Start = (Ln: 6, Col: 26)
+                                          Stop = (Ln: 6, Col: 40) }
+                                 Key = "center"
+                                 Value =
+                                  { Kind =
+                                     Object
+                                       [ShorthandPat
+                                          { Span = { Start = (Ln: 6, Col: 35)
+                                                     Stop = (Ln: 6, Col: 36) }
+                                            Name = "x"
+                                            IsMut = false
+                                            Default = None
+                                            Assertion = None };
+                                        ShorthandPat
+                                          { Span = { Start = (Ln: 6, Col: 38)
+                                                     Stop = (Ln: 6, Col: 39) }
+                                            Name = "y"
+                                            IsMut = false
+                                            Default = None
+                                            Assertion = None }]
+                                    Span = { Start = (Ln: 6, Col: 34)
+                                             Stop = (Ln: 6, Col: 40) }
+                                    InferredType = None }
+                                 Default = None };
+                             ShorthandPat { Span = { Start = (Ln: 6, Col: 42)
+                                                     Stop = (Ln: 6, Col: 48) }
+                                            Name = "radius"
+                                            IsMut = false
+                                            Default = None
+                                            Assertion = None }]
+                         Span = { Start = (Ln: 6, Col: 9)
+                                  Stop = (Ln: 6, Col: 50) }
+                         InferredType = None }
+                      Guard = None
+                      Body = Expr { Kind = Literal (Number (Int 4))
+                                    Span = { Start = (Ln: 6, Col: 53)
+                                             Stop = (Ln: 7, Col: 7) }
+                                    InferredType = None } };
+                    { Span = { Start = (Ln: 7, Col: 7)
+                               Stop = (Ln: 8, Col: 7) }
+                      Pattern =
+                       { Kind =
+                          Object
+                            [ShorthandPat
+                               { Span = { Start = (Ln: 7, Col: 10)
+                                          Stop = (Ln: 7, Col: 15) }
+                                 Name = "x"
+                                 IsMut = false
+                                 Default =
+                                  Some { Kind = Literal (Number (Int 0))
+                                         Span = { Start = (Ln: 7, Col: 14)
+                                                  Stop = (Ln: 7, Col: 15) }
+                                         InferredType = None }
+                                 Assertion = None };
+                             KeyValuePat
+                               { Span = { Start = (Ln: 7, Col: 17)
+                                          Stop = (Ln: 7, Col: 25) }
+                                 Key = "y"
+                                 Value = { Kind = Ident { Name = "b"
+                                                          IsMut = false
+                                                          Assertion = None }
+                                           Span = { Start = (Ln: 7, Col: 20)
+                                                    Stop = (Ln: 7, Col: 22) }
+                                           InferredType = None }
+                                 Default =
+                                  Some { Kind = Literal (Number (Int 0))
+                                         Span = { Start = (Ln: 7, Col: 24)
+                                                  Stop = (Ln: 7, Col: 25) }
+                                         InferredType = None } }]
+                         Span = { Start = (Ln: 7, Col: 9)
+                                  Stop = (Ln: 7, Col: 27) }
+                         InferredType = None }
+                      Guard = None
+                      Body = Expr { Kind = Literal (Number (Int 5))
+                                    Span = { Start = (Ln: 7, Col: 30)
+                                             Stop = (Ln: 8, Col: 7) }
+                                    InferredType = None } };
+                    { Span = { Start = (Ln: 8, Col: 7)
+                               Stop = (Ln: 9, Col: 5) }
+                      Pattern =
+                       { Kind =
+                          Object
+                            [ShorthandPat
+                               { Span = { Start = (Ln: 8, Col: 10)
+                                          Stop = (Ln: 8, Col: 25) }
+                                 Name = "x"
+                                 IsMut = false
+                                 Default =
+                                  Some { Kind = Literal (Number (Int 0))
+                                         Span = { Start = (Ln: 8, Col: 24)
+                                                  Stop = (Ln: 8, Col: 25) }
+                                         InferredType = None }
+                                 Assertion = Some { Left = None
+                                                    Right = "number" } };
+                             KeyValuePat
+                               { Span = { Start = (Ln: 8, Col: 27)
+                                          Stop = (Ln: 8, Col: 45) }
+                                 Key = "y"
+                                 Value =
+                                  { Kind =
+                                     Ident
+                                       { Name = "b"
+                                         IsMut = false
+                                         Assertion = Some { Left = None
+                                                            Right = "number" } }
+                                    Span = { Start = (Ln: 8, Col: 30)
+                                             Stop = (Ln: 8, Col: 42) }
+                                    InferredType = None }
+                                 Default =
+                                  Some { Kind = Literal (Number (Int 0))
+                                         Span = { Start = (Ln: 8, Col: 44)
+                                                  Stop = (Ln: 8, Col: 45) }
+                                         InferredType = None } }]
+                         Span = { Start = (Ln: 8, Col: 9)
+                                  Stop = (Ln: 8, Col: 47) }
+                         InferredType = None }
+                      Guard = None
+                      Body = Expr { Kind = Literal (Number (Int 6))
+                                    Span = { Start = (Ln: 8, Col: 50)
+                                             Stop = (Ln: 9, Col: 5) }
+                                    InferredType = None } }])
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 10, Col: 5) }
+               InferredType = None }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 10, Col: 5) } }] }

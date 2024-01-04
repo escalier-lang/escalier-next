@@ -331,7 +331,8 @@ module rec Infer =
             match _try.Catch with
             | Some cases ->
               result {
-                let! patternTypes, bodyTypes = inferMatchCases ctx env cases
+                let! patternTypes, bodyTypes =
+                  inferMatchCases ctx env (union throwTypes) cases
 
                 let mutable caughtTypes = []
 
@@ -383,10 +384,11 @@ module rec Infer =
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
           let! exprType = inferExpr ctx env expr
-          let! patternTypes, bodyTypes = inferMatchCases ctx env cases
+          // TODO: pass the `exprType` to match against
+          let! patternTypes, bodyTypes = inferMatchCases ctx env exprType cases
           // All of the patterns we're matching against `expr` must be sub-types
           // of its type.
-          do! unify ctx env (union patternTypes) exprType
+          // do! unify ctx env (union patternTypes) exprType
           return (union bodyTypes)
         | ExprKind.Index(target, index, optChain) ->
           let! target = inferExpr ctx env target
@@ -958,24 +960,39 @@ module rec Infer =
   let inferMatchCases
     (ctx: Ctx)
     (env: Env)
+    (exprType: Type)
     (cases: list<MatchCase>)
     : Result<list<Type> * list<Type>, TypeError> =
     result {
       let mutable patternTypes = []
 
-      let! bodyTypes =
+      // TODO: do two passes
+      // 1. unify all of the patterns with `exprType`
+      // 2. infer the types of all of the bodies
+
+      // Infer all pattern types
+      let! assumps =
         List.traverseResultM
           (fun (case: MatchCase) ->
             result {
               let! assump, patType = inferPattern ctx env case.Pattern
+              patternTypes <- patType :: patternTypes
+              return assump
+            })
+          cases
 
-              let caseType = ctx.FreshTypeVar None
-              patternTypes <- caseType :: patternTypes
-              do! unify ctx env patType caseType
+      // Unify all pattern types with `exprType`
+      do! unify ctx env (union patternTypes) exprType
 
+      // Infer body types
+      let! bodyTypes =
+        List.traverseResultM
+          (fun (case: MatchCase, assump: BindingAssump) ->
+            result {
               let mutable newEnv = env
 
               for binding in assump do
+                printfn "binding = %A" binding
                 newEnv <- newEnv.AddValue binding.Key binding.Value
 
               match case.Guard with
@@ -986,7 +1003,7 @@ module rec Infer =
 
               return! inferBlockOrExpr ctx newEnv case.Body
             })
-          cases
+          (List.zip cases assumps)
 
       return patternTypes, bodyTypes
     }

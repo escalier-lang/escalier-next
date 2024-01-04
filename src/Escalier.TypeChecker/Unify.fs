@@ -50,7 +50,29 @@ module rec Unify =
         // An array with length `number` represents arrays of all possible
         // length whereas a length of `unique number` represents a single array
         // of unknown length.
-        do! unify ctx env (union tupleElemTypes) arrayElemType.Elem
+
+        let (elemTypes, restTypes) =
+          List.partition
+            (fun (elem: Type) ->
+              match elem.Kind with
+              | TypeKind.Rest _ -> false
+              | _ -> true)
+            tupleElemTypes
+
+        // TODO: check for `Rest` types in tupleElemTypes, if we find one at the
+        // end of the tuple, we can unify the rest of the array with it.
+        do! unify ctx env (union elemTypes) arrayElemType.Elem
+
+        let restTypes =
+          List.map
+            (fun (t: Type) ->
+              match t.Kind with
+              | TypeKind.Rest t -> t
+              | _ -> t)
+            restTypes
+
+        for restType in restTypes do
+          do! unify ctx env restType t2
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
         let! f1 = instantiateFunc ctx f1 None

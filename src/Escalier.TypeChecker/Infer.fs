@@ -943,6 +943,10 @@ module rec Infer =
         // TODO: lookup `assertion` in `env`
         { Type.Kind = TypeKind.Wildcard
           Provenance = None }
+      | PatternKind.Rest pat ->
+        { Type.Kind = TypeKind.Rest(infer_pattern_rec pat)
+          Provenance = None }
+
     // | PatternKind.Is(span, binding, isName, isMut) ->
     //   match Map.tryFind isName env.Schemes with
     //   | Some(scheme) ->
@@ -992,7 +996,6 @@ module rec Infer =
               let mutable newEnv = env
 
               for binding in assump do
-                printfn "binding = %A" binding
                 newEnv <- newEnv.AddValue binding.Key binding.Value
 
               match case.Guard with

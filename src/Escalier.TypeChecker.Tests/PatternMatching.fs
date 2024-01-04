@@ -128,3 +128,29 @@ let PatternMatchingObjects () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let PatternMatchingArrays () =
+  let result =
+    result {
+      let src =
+        """
+        let sum = fn (array: number[]) =>
+          match array {
+            | [] => 0
+            | [x] => x
+            | [x, y] => x + y
+            | [x, y, z] => x + y + z
+            | [x, y, z, ...rest] => x + y + z + sum(rest)
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+// TODO: add assertion tests using `is string` and `is number` guards

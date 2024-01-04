@@ -283,6 +283,7 @@ module Syntax =
     | Tuple of list<Pattern> // TODO: rest patterns
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
+    | Rest of Pattern
 
     override this.ToString() =
       match this with
@@ -664,7 +665,11 @@ module Type =
 
         $"{readonly}{name}{optional}: {type_}"
 
-  type Array = { Elem: Type; mutable Length: Type } // either `number` or `unique number`
+  type Array =
+    { Elem: Type
+      mutable Length: Type } // either `number` or `unique number`
+
+    override this.ToString() = $"{this.Elem}[]"
 
   [<RequireQualifiedAccess>]
   type TypeKind =
@@ -739,7 +744,7 @@ module Type =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
         $"[{elems}]"
-      | TypeKind.Array t -> $"{t}[]"
+      | TypeKind.Array t -> t.ToString()
       | TypeKind.Wildcard -> "_"
       | TypeKind.Object elems ->
         let elems =

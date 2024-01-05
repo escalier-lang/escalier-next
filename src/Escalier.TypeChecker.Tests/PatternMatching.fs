@@ -129,6 +129,45 @@ let PatternMatchingObjects () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let PatternMatchingObjectsWithBlockBody () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        type Shape = {
+          type: "circle",
+          radius: number,
+          center: Point
+        } | {
+          type: "line",
+          start: Point,
+          end: Point
+        }
+        
+        declare let shape: Shape
+        
+        let centroid =
+          match shape {
+            | {type: "circle", ...rest} => rest.center
+            | {type: "line", start, end} => {
+              let x = (start.x + end.x) / 2
+              let y = (start.y + end.y) / 2
+              {x, y}
+            }
+          }
+        """
+
+      let! _, env = inferScript src
+
+      // The `number / 2` was simplified to `number` in this case because
+      // it's assigned to a variable before being used in the object
+      Assert.Value(env, "centroid", "Point | {x: number, y: number}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let PatternMatchingArrays () =
   let result =
     result {

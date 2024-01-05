@@ -109,7 +109,7 @@ let PatternMatchingObjects () =
         
         let centroid =
           match shape {
-            | {type: "circle", radius, center} => center
+            | {type: "circle", ...rest} => rest.center
             | {type: "line", start, end} => ({
               x: (start.x + end.x) / 2,
               y: (start.y + end.y) / 2
@@ -126,7 +126,6 @@ let PatternMatchingObjects () =
       Assert.Value(env, "centroid", "Point | {x: number / 2, y: number / 2}")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -150,11 +149,10 @@ let PatternMatchingArrays () =
       Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
-let PatternMatchingIsPrimitive () =
+let PatternMatchingPrimitiveAssertions () =
   let result =
     result {
       let src =

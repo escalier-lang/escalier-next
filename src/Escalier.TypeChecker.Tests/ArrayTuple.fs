@@ -330,3 +330,43 @@ let InferRangeWithDifferentArrayLengthsAreIncompatible () =
     }
 
   Assert.True(Result.isError res)
+
+[<Fact>]
+let InferDestructureArray () =
+  let res =
+    result {
+      let src =
+        """
+        declare let array: number[]
+        declare let tuple: [number, string, boolean]
+        
+        let [a, ...rest] = array
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "rest", "number[]")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferDestructureTuple () =
+  let res =
+    result {
+      let src =
+        """
+        declare let tuple: [number, string, boolean]
+        
+        let [a, ...rest] = tuple
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "rest", "[string, boolean]")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

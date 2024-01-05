@@ -109,7 +109,7 @@ let PatternMatchingObjects () =
         
         let centroid =
           match shape {
-            | {type: "circle", radius, center} => center
+            | {type: "circle", ...rest} => rest.center
             | {type: "line", start, end} => ({
               x: (start.x + end.x) / 2,
               y: (start.y + end.y) / 2
@@ -126,5 +126,50 @@ let PatternMatchingObjects () =
       Assert.Value(env, "centroid", "Point | {x: number / 2, y: number / 2}")
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let PatternMatchingArrays () =
+  let result =
+    result {
+      let src =
+        """
+        let sum = fn (array: number[]) =>
+          match array {
+            | [] => 0
+            | [x] => x
+            | [x, y] => x + y
+            | [x, y, z] => x + y + z
+            | [x, y, z, ...rest] => x + y + z + sum(rest)
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let PatternMatchingPrimitiveAssertions () =
+  let result =
+    result {
+      let src =
+        """
+        declare let value: number | string | boolean
+        
+        let result =
+          match value {
+            | n is number => n + 1
+            | s is string => s ++ "!"
+            | _ is boolean => true
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "result", "number | string | true")
+    }
+
   Assert.False(Result.isError result)

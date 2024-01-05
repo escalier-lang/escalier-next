@@ -30,27 +30,93 @@ module rec Unify =
       | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
       | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
       | TypeKind.Tuple elems1, TypeKind.Tuple elems2 ->
-        // elems1 can have more elements than elems2 since it's a subtype
-        if List.length elems1 < List.length elems2 then
-          return! Error(TypeError.TypeMismatch(t1, t2))
+        let elemTypes, restTypes =
+          List.partition
+            (fun (elem: Type) ->
+              match elem.Kind with
+              | TypeKind.Rest _ -> false
+              | _ -> true)
+            elems2
 
-        // List.map2 only works if the lists have the same length so make
-        // elems1 the same length as elems2
-        let elems1 = List.take elems2.Length elems1
-        ignore (List.map2 (unify ctx env) elems1 elems2)
+        match restTypes with
+        | [] ->
+          // elems1 can have more elements than elems2 since it's a subtype
+          if List.length elems1 < List.length elemTypes then
+            return! Error(TypeError.TypeMismatch(t1, t2))
+
+          // List.map2 only works if the lists have the same length so make
+          // elems1 the same length as elemTypes (elems2)
+          let elems1 = List.take elemTypes.Length elems1
+          List.map2 (unify ctx env) elems1 elemTypes |> ignore
+        | [ { Kind = TypeKind.Rest t } ] ->
+          // TODO: verify that the rest element comes last in the tuple
+
+          let elems1, restElems1 = List.splitAt elemTypes.Length elems1
+          List.map2 (unify ctx env) elems1 elemTypes |> ignore
+
+          let restTuple =
+            { Kind = TypeKind.Tuple restElems1
+              Provenance = None }
+
+          do! unify ctx env restTuple t
+        | _ ->
+          // Multiple rest elements in undeciable
+          // TODO: create an Undecable error type
+          return! Error(TypeError.SemanticError("Too many rest elements!"))
       | TypeKind.Array elemType1, TypeKind.Array elemType2 ->
         // TODO: unify the lengths of the arrays
         // An array whose length is `unique number` is a subtype of an array
         // whose length is `number`.
         do! unify ctx env elemType1.Elem elemType2.Elem
-      | TypeKind.Tuple tupleElemTypes, TypeKind.Array arrayElemType ->
-        // TODO: check if arrayElemType.Elem is `unique number`
+      | TypeKind.Tuple tupleElemTypes, TypeKind.Array array ->
+        // TODO: check if array.Elem is `unique number`
         // If it is, then we can't unify these since the tuple could be
         // longer or short than the array.
         // An array with length `number` represents arrays of all possible
         // length whereas a length of `unique number` represents a single array
         // of unknown length.
-        do! unify ctx env (union tupleElemTypes) arrayElemType.Elem
+
+        let elemTypes, restTypes =
+          List.partition
+            (fun (elem: Type) ->
+              match elem.Kind with
+              | TypeKind.Rest _ -> false
+              | _ -> true)
+            tupleElemTypes
+
+        // TODO: check for `Rest` types in tupleElemTypes, if we find one at the
+        // end of the tuple, we can unify the rest of the array with it.
+        do! unify ctx env (union elemTypes) array.Elem
+
+        let restTypes =
+          List.map
+            (fun (t: Type) ->
+              match t.Kind with
+              | TypeKind.Rest t -> t
+              | _ -> t)
+            restTypes
+
+        for restType in restTypes do
+          do! unify ctx env restType t2
+      | TypeKind.Array array, TypeKind.Tuple tupleElemTypes ->
+        let elemTypes, restTypes =
+          List.partition
+            (fun (elem: Type) ->
+              match elem.Kind with
+              | TypeKind.Rest _ -> false
+              | _ -> true)
+            tupleElemTypes
+
+        for elemType in elemTypes do
+          do! unify ctx env array.Elem elemType
+
+        match restTypes with
+        | [] -> return! Error(TypeError.TypeMismatch(t1, t2))
+        | [ { Kind = TypeKind.Rest t } ] -> do! unify ctx env t1 t
+        | _ ->
+          // Multiple rest elements in undeciable
+          // TODO: create an Undecable error type
+          return! Error(TypeError.SemanticError("Too many rest elements!"))
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
         let! f1 = instantiateFunc ctx f1 None
@@ -76,16 +142,13 @@ module rec Unify =
       | TypeKind.TypeRef({ Name = name1; TypeArgs = types1 }),
         TypeKind.TypeRef({ Name = name2; TypeArgs = types2 }) when name1 = name2 ->
 
-        // if (name1 <> name2) then
-        //   return! Error(TypeError.TypeMismatch(t1, t2))
-
         match (types1, types2) with
         | None, None -> ()
         | Some(types1), Some(types2) ->
           if List.length types1 <> List.length types2 then
             return! Error(TypeError.TypeMismatch(t1, t2))
 
-          ignore (List.map2 (unify ctx env) types1 types2)
+          List.map2 (unify ctx env) types1 types2 |> ignore
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Range range1, TypeKind.Range range2 ->
         match

@@ -623,8 +623,6 @@ module Parser =
   let private literalPattern =
     withSpan (lit .>> ws)
     |>> fun (lit, span) ->
-      printfn "parsed literal: %A" lit
-
       { Pattern.Kind = PatternKind.Literal lit
         Span = span
         InferredType = None }
@@ -694,13 +692,21 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private restPattern =
+    withSpan (strWs "..." >>. pattern)
+    |>> fun (pattern, span) ->
+      { Pattern.Kind = PatternKind.Rest(pattern)
+        Span = span
+        InferredType = None }
+
   patternRef.Value <-
     choice
       [ identPattern
         literalPattern
         wildcardPattern
         objectPattern
-        tuplePattern ]
+        tuplePattern
+        restPattern ]
 
   let private litTypeAnn =
     withSpan lit

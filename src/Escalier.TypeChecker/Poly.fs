@@ -99,6 +99,8 @@ module Poly =
         | TypeKind.Binary(left, op, right) ->
           { Kind = TypeKind.Binary(fold left, op, fold right)
             Provenance = None }
+        | TypeKind.UniqueNumber _ -> t
+        | _ -> failwith $"TODO: foldType - {t.Kind}"
 
       match f t with
       | Some(t) -> t

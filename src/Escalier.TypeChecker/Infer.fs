@@ -868,9 +868,18 @@ module rec Infer =
       | PatternKind.Ident({ Name = name
                             IsMut = isMut
                             Assertion = assertion }) ->
-        // TODO: lookup `assertion` in `env`
+        let t =
+          match assertion with
+          | Some qi ->
+            let assertType =
+              match qi with
+              | { Left = None; Right = "string" } -> strType
+              | { Left = None; Right = "number" } -> numType
+              | { Left = None; Right = "boolean" } -> boolType
+              | _ -> failwith $"TODO: lookup type of {qi}"
 
-        let t = ctx.FreshTypeVar None
+            assertType
+          | None -> ctx.FreshTypeVar None
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
@@ -940,9 +949,19 @@ module rec Infer =
         { Type.Kind = TypeKind.Tuple(elems')
           Provenance = None }
       | PatternKind.Wildcard { Assertion = assertion } ->
-        // TODO: lookup `assertion` in `env`
-        { Type.Kind = TypeKind.Wildcard
-          Provenance = None }
+        match assertion with
+        | Some qi ->
+          let assertType =
+            match qi with
+            | { Left = None; Right = "string" } -> strType
+            | { Left = None; Right = "number" } -> numType
+            | { Left = None; Right = "boolean" } -> boolType
+            | _ -> failwith $"TODO: lookup type of {qi}"
+
+          assertType
+        | None ->
+          { Type.Kind = TypeKind.Wildcard
+            Provenance = None }
       | PatternKind.Rest pat ->
         { Type.Kind = TypeKind.Rest(infer_pattern_rec pat)
           Provenance = None }

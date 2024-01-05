@@ -153,4 +153,25 @@ let PatternMatchingArrays () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-// TODO: add assertion tests using `is string` and `is number` guards
+[<Fact>]
+let PatternMatchingIsPrimitive () =
+  let result =
+    result {
+      let src =
+        """
+        declare let value: number | string | boolean
+        
+        let result =
+          match value {
+            | n is number => n + 1
+            | s is string => s ++ "!"
+            | _ is boolean => true
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "result", "number | string | true")
+    }
+
+  Assert.False(Result.isError result)

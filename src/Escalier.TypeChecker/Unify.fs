@@ -200,6 +200,11 @@ module rec Unify =
         | Literal.Null, Literal.Null -> ()
         | Literal.Undefined, Literal.Undefined -> ()
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | TypeKind.Literal(Literal.String s), TypeKind.TemplateLiteral tl ->
+        if TemplateLiteral.check s tl then
+          ()
+        else
+          return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
         ()
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->

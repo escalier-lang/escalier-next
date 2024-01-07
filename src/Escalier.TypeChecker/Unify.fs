@@ -362,8 +362,8 @@ module rec Unify =
         ->
         return ()
       | _, _ ->
-        let t1' = env.ExpandType (unify ctx) Map.empty t1
-        let t2' = env.ExpandType (unify ctx) Map.empty t2
+        let t1' = expandType env (unify ctx) Map.empty t1
+        let t2' = expandType env (unify ctx) Map.empty t2
 
         if t1' <> t1 || t2' <> t2 then
           return! unify ctx env t1' t2'

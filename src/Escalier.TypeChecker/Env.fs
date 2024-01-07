@@ -163,32 +163,6 @@ module rec Env =
       { Kind = TypeKind.Union(types)
         Provenance = None }
 
-  let instantiateScheme (scheme: Scheme) (mapping: Map<string, Type>) =
-    match scheme.TypeParams with
-    | Some typeParams ->
-      if typeParams.Length <> mapping.Count then
-        failwithf
-          $"Expected {typeParams.Length} type arguments, but got {mapping.Count}"
-    | None ->
-      if mapping.Count <> 0 then
-        failwithf $"Expected 0 type arguments, but got {mapping.Count}"
-
-    let fold =
-      fun t ->
-        let result =
-          match t.Kind with
-          | TypeKind.TypeRef { Name = name
-                               TypeArgs = typeArgs
-                               Scheme = scheme } ->
-            match Map.tryFind name mapping with
-            | Some typeArg -> typeArg
-            | None -> t
-          | _ -> t
-
-        Some(result)
-
-    foldType fold scheme.Type
-
 
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>

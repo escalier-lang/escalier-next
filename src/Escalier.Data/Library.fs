@@ -671,6 +671,12 @@ module Type =
 
     override this.ToString() = $"{this.Elem}[]"
 
+  type Condition =
+    { Check: Type
+      Extends: Type
+      TrueType: Type
+      FalseType: Type }
+
   [<RequireQualifiedAccess>]
   type TypeKind =
     | TypeVar of TypeVar
@@ -690,11 +696,7 @@ module Type =
     | Array of Array
     | KeyOf of Type
     | Index of target: Type * index: Type
-    | Condition of
-      check: Type *
-      extends: Type *
-      trueType: Type *
-      falseType: Type
+    | Condition of Condition
     | Infer of name: string
     | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
     | Wildcard
@@ -769,7 +771,10 @@ module Type =
         $"{{{elems}}}"
       | TypeKind.Rest t -> $"...{t}"
       | TypeKind.Index(target, index) -> $"{target}[{index}]"
-      | TypeKind.Condition(check, extends, trueType, falseType) ->
+      | TypeKind.Condition { Check = check
+                             Extends = extends
+                             TrueType = trueType
+                             FalseType = falseType } ->
         $"{check} extends {extends} ? {trueType} : {falseType}"
       | TypeKind.KeyOf t -> $"keyof {t}"
       // TODO: handle operator precedence

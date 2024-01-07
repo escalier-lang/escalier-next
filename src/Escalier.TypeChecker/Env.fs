@@ -233,6 +233,7 @@ module rec Env =
     member this.ExpandScheme
       (unify: Env -> Type -> Type -> Result<unit, TypeError>)
       (scheme: Scheme)
+      (mapping: Map<string, Type>)
       (typeArgs: option<list<Type>>)
       : Type =
 
@@ -242,81 +243,37 @@ module rec Env =
       let typeArgs =
         typeArgs
         |> Option.map (fun typeArgs ->
-          typeArgs |> List.map (fun t -> this.ExpandType unify t))
+          typeArgs |> List.map (fun t -> this.ExpandType unify mapping t))
 
       match scheme.TypeParams, typeArgs with
-      | None, None -> this.ExpandType unify scheme.Type
+      | None, None -> this.ExpandType unify mapping scheme.Type
       | Some(typeParams), Some(typeArgs) ->
         let mapping = Map.ofList (List.zip typeParams typeArgs)
-        let mutable checkTypes: List<Type> = []
-
-        let findCond =
-          fun t ->
-            match t.Kind with
-            | TypeKind.Condition(check, _, _, _) ->
-              checkTypes <- check :: checkTypes
-            | _ -> ()
-
-        TypeVisitor.walkType findCond scheme.Type
-
-        let checkTypeNames =
-          checkTypes
-          |> List.choose (fun t ->
-            match t.Kind with
-            | TypeKind.TypeRef { Name = name } ->
-              match Map.containsKey name mapping with
-              | true -> Some(name)
-              | false -> None
-            | _ -> None)
-
-        if checkTypeNames.IsEmpty then
-          instantiateScheme scheme mapping
-        else
-          let mutable unionMapping = Map.empty
-          let mutable unionNames = []
-
-          for name in checkTypeNames do
-            let unionType = Map.find name mapping
-
-            match unionType.Kind with
-            | TypeKind.Union types ->
-              unionMapping <- Map.add name types unionMapping
-              unionNames <- name :: unionNames
-            | _ -> ()
-
-          // The elements of each list in the cartesian product
-          // appearin the same order as the names in unionNames.
-          let product = cartesian (Seq.toList unionMapping.Values)
-
-          match product.IsEmpty with
-          | true -> instantiateScheme scheme mapping
-          | false ->
-            let types =
-              product
-              |> List.map (fun types ->
-
-                let mutable mapping = mapping
-
-                // Elements from each list in the cartesian product
-                // are used to update the mapping we use to instantiate
-                // the scheme below.
-                List.iter2
-                  (fun name t -> mapping <- Map.add name t mapping)
-                  unionNames
-                  (List.rev types)
-
-                let t = instantiateScheme scheme mapping
-                this.ExpandType unify t)
-
-            union types
+        this.ExpandType unify mapping scheme.Type
       | _ -> failwith "TODO: expandScheme with type params/args"
 
     member this.ExpandType
       (unify: Env -> Type -> Type -> Result<unit, TypeError>)
+      (mapping: Map<string, Type>)
       (t: Type)
       : Type =
 
-      let rec expand t =
+      let rec expand mapping t =
+        // TODO: only define `fold` when we actually need to use it
+        let fold =
+          fun t ->
+            let result =
+              match t.Kind with
+              | TypeKind.TypeRef { Name = name
+                                   TypeArgs = typeArgs
+                                   Scheme = scheme } ->
+                match Map.tryFind name mapping with
+                | Some typeArg -> typeArg
+                | None -> t
+              | _ -> t
+
+            Some(result)
+
         match t.Kind with
         | TypeKind.TypeRef { Name = "Promise" } -> printfn $"t = {t}"
         | _ -> ()
@@ -325,7 +282,7 @@ module rec Env =
 
         match t.Kind with
         | TypeKind.KeyOf t ->
-          let t = this.ExpandType unify t
+          let t = this.ExpandType unify mapping t
 
           match t.Kind with
           | TypeKind.Object elems ->
@@ -354,8 +311,8 @@ module rec Env =
             union keys
           | _ -> failwith "TODO: expand keyof"
         | TypeKind.Index(target, index) ->
-          let target = this.ExpandType unify target
-          let index = this.ExpandType unify index
+          let target = this.ExpandType unify mapping target
+          let index = this.ExpandType unify mapping index
 
           let key =
             match index.Kind with
@@ -381,13 +338,46 @@ module rec Env =
             // special function to expand the type
             // TODO: Handle different kinds of index types, e.g. number, symbol
             failwith "TODO: expand index"
-        | TypeKind.Condition(check, extends, trueType, falseType) ->
+        | TypeKind.Condition { Check = check
+                               Extends = extends
+                               TrueType = trueType
+                               FalseType = falseType } ->
           match check.Kind with
-          | TypeKind.Union types -> failwith "TODO: distribute conditional"
+          | TypeKind.TypeRef { Name = name } ->
+            match Map.tryFind name mapping with
+            | Some { Kind = TypeKind.Union types } ->
+              let extends = expand mapping extends
+
+              let types =
+                types
+                |> List.map (fun check ->
+                  let newMapping = Map.add name check mapping
+
+                  match unify this check extends with
+                  | Ok _ -> expand newMapping trueType
+                  | Error _ -> expand newMapping falseType)
+
+              union types
+            | Some check ->
+              let newMapping = Map.add name check mapping
+
+              match unify this check extends with
+              | Ok _ -> expand newMapping trueType
+              | Error _ -> expand newMapping falseType
+
+            // failwith "TODO: replace check type with the type argument"
+            | _ ->
+              failwith
+                "TODO: check if the TypeRef's scheme is defined and use it"
+
+              match unify this check extends with
+              | Ok _ -> expand mapping trueType
+              | Error _ -> expand mapping falseType
           | _ ->
             match unify this check extends with
-            | Ok _ -> expand trueType
-            | Error _ -> expand falseType
+            | Ok _ -> expand mapping trueType
+            | Error _ -> expand mapping falseType
+
         | TypeKind.Binary _ -> simplify t
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
@@ -398,7 +388,7 @@ module rec Env =
             |> List.collect (fun elem ->
               match elem with
               | Mapped m ->
-                let c = this.ExpandType unify m.TypeParam.Constraint
+                let c = this.ExpandType unify mapping m.TypeParam.Constraint
 
                 match c.Kind with
                 | TypeKind.Union types ->
@@ -430,7 +420,7 @@ module rec Env =
 
                         Property
                           { Name = PropName.String name
-                            Type = this.ExpandType unify typeAnn
+                            Type = this.ExpandType unify mapping typeAnn
                             Optional = false // TODO
                             Readonly = false // TODO
                           }
@@ -453,32 +443,47 @@ module rec Env =
 
                   [ Property
                       { Name = PropName.String key
-                        Type = this.ExpandType unify typeAnn
+                        Type = this.ExpandType unify mapping typeAnn
                         Optional = false // TODO
                         Readonly = false // TODO
                       } ]
                 | _ -> failwith "TODO: expand mapped type - constraint type"
               | _ -> [ elem ])
 
-          { Kind = TypeKind.Object(elems)
-            Provenance = None // TODO: set provenance
-          }
+          let t =
+            { Kind = TypeKind.Object(elems)
+              Provenance = None // TODO: set provenance
+            }
+
+          // Replaces type parameters with their corresponding type arguments
+          // TODO: do this more consistently
+          if mapping = Map.empty then t else foldType fold t
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
 
+
+          // TODO: Take this a setep further and update ExpandType and ExpandScheme
+          // to be functions that accept an `env: Env` param.  We can then augment
+          // the `env` instead of using the `mapping` param.
           let t =
-            match scheme with
-            | Some scheme -> this.ExpandScheme unify scheme typeArgs
+            match Map.tryFind name mapping with
+            | Some t -> t
             | None ->
-              match this.Schemes.TryFind name with
-              | Some scheme -> this.ExpandScheme unify scheme typeArgs
-              | None -> failwith $"{name} is not in scope"
+              match scheme with
+              | Some scheme -> this.ExpandScheme unify scheme mapping typeArgs
+              | None ->
+                match this.Schemes.TryFind name with
+                | Some scheme -> this.ExpandScheme unify scheme mapping typeArgs
+                | None -> failwith $"{name} is not in scope"
 
-          expand t
-        | _ -> t
+          expand mapping t
+        | _ ->
+          // Replaces type parameters with their corresponding type arguments
+          // TODO: do this more consistently
+          if mapping = Map.empty then t else foldType fold t
 
-      expand t
+      expand mapping t
 
   let rec bind
     (ctx: Ctx)

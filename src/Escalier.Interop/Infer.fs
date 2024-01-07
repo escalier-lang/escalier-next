@@ -323,7 +323,12 @@ module rec Infer =
         let extendsType = inferTsType ctx env tsConditionalType.ExtendsType
         let trueType = inferTsType ctx env tsConditionalType.TrueType
         let falseType = inferTsType ctx env tsConditionalType.FalseType
-        TypeKind.Condition(checkType, extendsType, trueType, falseType)
+
+        TypeKind.Condition
+          { Check = checkType
+            Extends = extendsType
+            TrueType = trueType
+            FalseType = falseType }
       | TsType.TsInferType tsInferType ->
         TypeKind.Infer tsInferType.TypeParam.Name.Name
       | TsType.TsParenthesizedType tsParenthesizedType ->

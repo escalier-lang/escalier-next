@@ -296,3 +296,24 @@ let InfersRecord () =
 
   printfn "res = %A" res
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersNestedConditionals () =
+  let res =
+    result {
+      let src =
+        """
+        type Extends<X, Y, Z> = if X : Y { X } else { if Y : Z { Y } else { never } }
+        type Foo = Extends<5 | 10, 2 | 3 | 5 | 7, 3 | 6 | 9>
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Foo" env.Schemes) Map.empty None
+
+      Assert.Equal("5 | 3", result.ToString())
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

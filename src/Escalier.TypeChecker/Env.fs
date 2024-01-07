@@ -462,8 +462,10 @@ module rec Env =
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
 
-          // TODO: lookup `name` in `mapping` first
 
+          // TODO: Take this a setep further and update ExpandType and ExpandScheme
+          // to be functions that accept an `env: Env` param.  We can then augment
+          // the `env` instead of using the `mapping` param.
           let t =
             match Map.tryFind name mapping with
             | Some t -> t

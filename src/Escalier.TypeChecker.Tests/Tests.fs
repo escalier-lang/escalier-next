@@ -957,3 +957,19 @@ let InferTemplateLiteralTypeError () =
     }
 
   Assert.True(Result.isError result)
+
+[<Fact>]
+let InferTemplateLiteralTypeErrorWithUnion () =
+  let result =
+    result {
+      let src =
+        """
+        type Dir = `${"top" | "bottom"}-${"left" | "right"}`
+        let x: Dir = "top-bottom"
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)

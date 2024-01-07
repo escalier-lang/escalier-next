@@ -490,7 +490,7 @@ module rec Infer =
         getPropType
           ctx
           env
-          (env.ExpandScheme (unify ctx) scheme Map.empty typeArgs)
+          (expandScheme env (unify ctx) scheme Map.empty typeArgs)
           key
           optChain
       | None ->
@@ -499,7 +499,7 @@ module rec Infer =
           getPropType
             ctx
             env
-            (env.ExpandScheme (unify ctx) scheme Map.empty typeArgs)
+            (expandScheme env (unify ctx) scheme Map.empty typeArgs)
             key
             optChain
         | None -> failwithf $"{key} not in scope"
@@ -1101,7 +1101,7 @@ module rec Infer =
 
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.
-        let expandedRightType = env.ExpandType (unify ctx) Map.empty rightType
+        let expandedRightType = expandType env (unify ctx) Map.empty rightType
 
         let elemType =
           match expandedRightType.Kind with

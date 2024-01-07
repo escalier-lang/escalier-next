@@ -248,8 +248,14 @@ module rec Env =
       | None, None -> this.ExpandType unify scheme.Type
       | Some(typeParams), Some(typeArgs) ->
         let mapping = Map.ofList (List.zip typeParams typeArgs)
+        // Nested conditional types means that we can have multiple `check`
+        // types that need to be expanded.
         let mutable checkTypes: List<Type> = []
 
+        // TODO: check the `extends` for `infer` types, but we need to be careful
+        // since conditional types can be nested in either the `trueType` or the
+        // `falseType` so the bindings intorudced by `extends` need to appear in
+        // the correct scopes.
         let findCond =
           fun t ->
             match t.Kind with
@@ -259,6 +265,9 @@ module rec Env =
 
         TypeVisitor.walkType findCond scheme.Type
 
+        // TODO: this misses a bunch of different cases.  For instance, the
+        // check type coudl be a more complicated type in which a type param
+        // appears, e.g. `fn (T) => T` or something like that
         let checkTypeNames =
           checkTypes
           |> List.choose (fun t ->
@@ -284,8 +293,17 @@ module rec Env =
               unionNames <- name :: unionNames
             | _ -> ()
 
+          // TODO: refactor this to be recursive so that we get the
+          // scoping right for type type variables introduced by
+          // `infer` types.
+
+          // Right now this optimized for the `CartesianProduct` test case.
+          // We could expand things properly but it would be slower... tbh
+          // doing things involving union types and nested conditionals is
+          // likely something that would better be written as a type plugin.
+
           // The elements of each list in the cartesian product
-          // appearin the same order as the names in unionNames.
+          // appear in the same order as the names in unionNames.
           let product = cartesian (Seq.toList unionMapping.Values)
 
           match product.IsEmpty with

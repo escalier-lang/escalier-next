@@ -756,8 +756,25 @@ module rec Infer =
         | TypeAnnKind.Condition conditionType ->
           let! check = inferTypeAnn ctx env conditionType.Check
           let! extends = inferTypeAnn ctx env conditionType.Extends
-          let! trueType = inferTypeAnn ctx env conditionType.TrueType
-          let! falseType = inferTypeAnn ctx env conditionType.FalseType
+
+          let infers = findInfers extends
+          let mutable newEnv = env
+
+          // Add placeholder schemes for each `infer` type, these will be
+          // replaced later when expanding the conditional in a type alias.
+          for infer in infers do
+            let scheme =
+              { TypeParams = None
+                Type = check
+                IsTypeParam = true }
+
+            newEnv <- newEnv.AddScheme infer scheme
+
+          let! trueType = inferTypeAnn ctx newEnv conditionType.TrueType
+          let! falseType = inferTypeAnn ctx newEnv conditionType.FalseType
+
+          printfn $"trueType = {trueType}, falseType = {falseType}"
+
           return TypeKind.Condition(check, extends, trueType, falseType)
         | TypeAnnKind.Match matchType ->
           return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
@@ -1489,3 +1506,17 @@ module rec Infer =
       | _ -> ()
 
     names
+
+  let findInfers (t: Type) : list<string> =
+    // TODO: disallow multiple `infer`s with the same identifier
+    let mutable infers: list<string> = []
+
+    let visitor =
+      fun (t: Type) ->
+        match t.Kind with
+        | TypeKind.Infer name -> infers <- name :: infers
+        | _ -> ()
+
+    TypeVisitor.walkType visitor t
+
+    infers

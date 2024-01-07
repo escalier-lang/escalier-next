@@ -174,7 +174,7 @@ let InferCartesianProdType () =
     result {
       let src =
         """
-        type CartesianProduce<X, Y> =
+        type CartesianProduct<X, Y> =
           if X : unknown {
             if Y : unknown {
               [X, Y]
@@ -184,7 +184,7 @@ let InferCartesianProdType () =
           } else {
             never
           }
-        type Cells = CartesianProduce<"A" | "B", 1 | 2>
+        type Cells = CartesianProduct<"A" | "B", 1 | 2>
         """
 
       let! ctx, env = inferScript src
@@ -268,6 +268,27 @@ let InfersRecord () =
       let! _, env = inferScript src
 
       Assert.Value(env, "p", "Point")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersInferType () =
+  let res =
+    result {
+      let src =
+        """
+        type ReturnType<T> = if T: fn () -> infer R { R } else { never }
+        type Foo = ReturnType<fn () -> number>
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        env.ExpandScheme (unify ctx) (Map.find "Foo" env.Schemes) None
+
+      Assert.Equal("number", result.ToString())
     }
 
   printfn "res = %A" res

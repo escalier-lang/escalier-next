@@ -966,6 +966,14 @@ module Parser =
       else
         Reply(Error, messageError "Expected '`'")
 
+  // TODO: add support for type constraints on the inferred type
+  let private inferType =
+    withSpan (strWs "infer" >>. ident)
+    |>> fun (name, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Infer(name)
+        Span = span
+        InferredType = None }
+
   let primaryType =
     choice
       [ litTypeAnn
@@ -976,6 +984,7 @@ module Parser =
         funcTypeAnn
         typeofTypeAnn // aka TypeQuery
         keyofTypeAnn
+        inferType
         restTypeAnn
         objectTypeAnn
         condTypeAnn

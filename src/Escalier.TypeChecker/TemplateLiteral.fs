@@ -31,6 +31,31 @@ module TemplateLiteral =
           Reply(Number.Int(int intReply.Result))
       | _ -> Reply(intReply.Status, intReply.Error)
 
+  let parserForType
+    (parser: Parser<unit, unit>)
+    (t: Type)
+    : Parser<unit, unit> =
+
+    let rec fold (t: Type) : Parser<unit, unit> =
+      match t.Kind with
+      | TypeKind.Literal lit ->
+        match lit with
+        | Literal.String s -> pstring s
+        | Literal.Boolean b -> pstring (string b)
+        | Literal.Number n -> pstring (string n)
+        | _ -> failwith $"TODO: parserForType - lit = ${lit}"
+        |>> ignore
+      | TypeKind.Primitive Primitive.Number -> number |>> ignore
+      | TypeKind.Primitive Primitive.Boolean ->
+        (pstring "true" <|> pstring "false") |>> ignore
+      | TypeKind.Primitive Primitive.String ->
+        // This produces the same behaviour as `*.?` would in a regex
+        many (notFollowedBy parser >>. anyChar) |>> ignore
+      | TypeKind.Union elems -> choice (List.map fold elems)
+      | _ -> failwith $"TODO: parserForType - t = {t}"
+
+    fold t .>> parser
+
   let check (s: string) (tl: TemplateLiteral<Type>) : bool =
     let { Parts = parts; Exprs = exprs } = tl
 
@@ -43,14 +68,18 @@ module TemplateLiteral =
       if part.Length > 0 then
         parser <- (pstring part |>> ignore) .>> parser
 
-      match expr.Kind with
-      | TypeKind.Primitive Primitive.Number ->
-        parser <- (number |>> ignore) .>> parser
-      | TypeKind.Primitive Primitive.Boolean ->
-        parser <- ((pstring "true" <|> pstring "false") |>> ignore) .>> parser
-      | TypeKind.Primitive Primitive.String ->
-        // This produces the same behaviour as `*.?` would in a regex
-        parser <- many (notFollowedBy parser >>. anyChar) |>> ignore
+      parser <- parserForType parser expr
+    // match expr.Kind with
+    // | TypeKind.Primitive Primitive.Number ->
+    //   parser <- (number |>> ignore) .>> parser
+    // | TypeKind.Primitive Primitive.Boolean ->
+    //   parser <- ((pstring "true" <|> pstring "false") |>> ignore) .>> parser
+    // | TypeKind.Primitive Primitive.String ->
+    //   // This produces the same behaviour as `*.?` would in a regex
+    //   parser <- many (notFollowedBy parser >>. anyChar) |>> ignore
+    // | TypeKind.Union elems ->
+    //   printfn $"union = ${expr}"
+    //   failwith "TODO: generate parser for union of types"
 
     if firstPart.Length > 0 then
       parser <- (pstring firstPart |>> ignore) .>> parser

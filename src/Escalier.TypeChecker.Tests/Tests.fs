@@ -890,6 +890,31 @@ let InferTemplateLiteralType () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferTemplateLiteralTypeWithUnions () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Dir = `${"top" | "bottom"}-${"left" | "right"}`
+        let a: Dir = "top-left"
+        let b: Dir = "top-right"
+        let c: Dir = "bottom-right"
+        let d: Dir = "bottom-left"
+        """
+
+      let! _, env = inferScript src
+      Assert.Value(env, "a", "Dir")
+      Assert.Value(env, "b", "Dir")
+      Assert.Value(env, "c", "Dir")
+      Assert.Value(env, "d", "Dir")
+    }
+
+  printfn "result = %A" result
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let ParseTemplateLiteralType () =
   let mutable parser: Parser<unit, unit> = eof
   parser <- (pstring "C" |>> ignore) .>> parser
@@ -904,6 +929,18 @@ let ParseTemplateLiteralType () =
   | Success(value, _, _) -> printfn "value = %A" value
   | Failure(s, _, _) -> printfn "s = %A" s
 
+[<Fact>]
+let ParseTemplateLiteralTypeWithUnions () =
+  let mutable parser: Parser<unit, unit> = eof
+  parser <- (pstring "right" <|> pstring "left" |>> ignore) .>> parser
+  parser <- (pstring "-" |>> ignore) .>> parser
+  parser <- (pstring "top" <|> pstring "bottom" |>> ignore) .>> parser
+
+  let result = run parser "top-left"
+
+  match result with
+  | Success(value, _, _) -> printfn "value = %A" value
+  | Failure(s, _, _) -> printfn "s = %A" s
 
 [<Fact>]
 let InferTemplateLiteralTypeError () =

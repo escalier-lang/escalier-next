@@ -253,7 +253,7 @@ module rec Env =
         let findCond =
           fun t ->
             match t.Kind with
-            | TypeKind.Condition(check, _, _, _) ->
+            | TypeKind.Condition { Check = check } ->
               checkTypes <- check :: checkTypes
             | _ -> ()
 
@@ -381,7 +381,10 @@ module rec Env =
             // special function to expand the type
             // TODO: Handle different kinds of index types, e.g. number, symbol
             failwith "TODO: expand index"
-        | TypeKind.Condition(check, extends, trueType, falseType) ->
+        | TypeKind.Condition { Check = check
+                               Extends = extends
+                               TrueType = trueType
+                               FalseType = falseType } ->
           match check.Kind with
           | TypeKind.Union types -> failwith "TODO: distribute conditional"
           | _ ->

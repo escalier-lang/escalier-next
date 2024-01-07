@@ -495,7 +495,10 @@ module rec Codegen =
           ObjType = buildType ctx target
           IndexType = buildType ctx index
           Loc = None }
-    | TypeKind.Condition(check, extends, trueType, falseType) ->
+    | TypeKind.Condition { Check = check
+                           Extends = extends
+                           TrueType = trueType
+                           FalseType = falseType } ->
       TsType.TsConditionalType
         { CheckType = buildType ctx check
           ExtendsType = buildType ctx extends

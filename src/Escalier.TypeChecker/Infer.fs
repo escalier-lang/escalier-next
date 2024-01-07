@@ -758,7 +758,13 @@ module rec Infer =
           let! extends = inferTypeAnn ctx env conditionType.Extends
           let! trueType = inferTypeAnn ctx env conditionType.TrueType
           let! falseType = inferTypeAnn ctx env conditionType.FalseType
-          return TypeKind.Condition(check, extends, trueType, falseType)
+
+          return
+            TypeKind.Condition
+              { Check = check
+                Extends = extends
+                TrueType = trueType
+                FalseType = falseType }
         | TypeAnnKind.Match matchType ->
           return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
         | TypeAnnKind.Infer name -> return TypeKind.Infer name

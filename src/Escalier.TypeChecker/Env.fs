@@ -228,10 +228,12 @@ module rec Env =
       expandType env unify mapping scheme.Type
     | _ -> failwith "TODO: expandScheme with type params/args"
 
+  // `mapping` must be distict from `env` because type params that are union
+  // types distribute across conditional types.
   let expandType
     (env: Env)
     (unify: Env -> Type -> Type -> Result<unit, TypeError>)
-    (mapping: Map<string, Type>)
+    (mapping: Map<string, Type>) // type param names -> type args
     (t: Type)
     : Type =
 
@@ -241,9 +243,7 @@ module rec Env =
         fun t ->
           let result =
             match t.Kind with
-            | TypeKind.TypeRef { Name = name
-                                 TypeArgs = typeArgs
-                                 Scheme = scheme } ->
+            | TypeKind.TypeRef { Name = name } ->
               match Map.tryFind name mapping with
               | Some typeArg -> typeArg
               | None -> t

@@ -1,0 +1,25 @@
+﻿input: 
+      type TemplateLiteral = `foo${number}`
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  ("TemplateLiteral",
+                   { Kind =
+                      TemplateLiteral
+                        { Parts = ["foo"; ""]
+                          Exprs = [{ Kind = Keyword Number
+                                     Span = { Start = (Ln: 2, Col: 36)
+                                              Stop = (Ln: 2, Col: 42) }
+                                     InferredType = None }] }
+                     Span = { Start = (Ln: 2, Col: 30)
+                              Stop = (Ln: 2, Col: 44) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 7)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 7)
+                   Stop = (Ln: 3, Col: 5) } }] }

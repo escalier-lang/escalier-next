@@ -146,6 +146,7 @@ module Parser =
         Span = span
         InferredType = None }
 
+  // TODO: dedupe with tmplLitType
   let templateStringLiteral: Parser<Expr, unit> =
     fun stream ->
       let sb = StringBuilder()
@@ -915,6 +916,56 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
+  // TODO: dedupe with templateStringLiteral
+  let tmplLitType: Parser<TypeAnn, unit> =
+    fun stream ->
+      let sb = StringBuilder()
+      let mutable parts: list<string> = []
+      let mutable exprs: list<TypeAnn> = []
+      let mutable reply: voption<Reply<TypeAnn>> = ValueNone
+
+      if stream.Peek() = '`' then
+        let start = stream.Position
+        stream.Skip() // '`'
+
+        while stream.Peek() <> '`' && reply = ValueNone do
+          if stream.PeekString(2) = "${" then
+            stream.Skip(2) // '${'
+            parts <- sb.ToString() :: parts
+            sb.Clear() |> ignore
+            let expr = typeAnn stream
+
+            if expr.Status = ReplyStatus.Ok then
+              if stream.Peek() = '}' then
+                stream.Skip()
+                exprs <- expr.Result :: exprs
+              else
+                reply <- ValueSome(Reply(Error, messageError "Expected '}'"))
+            else
+              reply <- ValueSome(expr)
+          else
+            sb.Append(stream.Read()) |> ignore
+
+        match reply with
+        | ValueNone ->
+          stream.Skip() // '`'
+          let stop = stream.Position
+          parts <- sb.ToString() :: parts
+
+          let result: TypeAnn =
+            { Kind =
+                TypeAnnKind.TemplateLiteral(
+                  { Parts = List.rev parts
+                    Exprs = List.rev exprs }
+                )
+              Span = { Start = start; Stop = stop }
+              InferredType = None }
+
+          Reply(result)
+        | ValueSome(value) -> value
+      else
+        Reply(Error, messageError "Expected '`'")
+
   let primaryType =
     choice
       [ litTypeAnn
@@ -928,6 +979,7 @@ module Parser =
         restTypeAnn
         objectTypeAnn
         condTypeAnn
+        tmplLitType
         // TODO: thisTypeAnn
         // NOTE: should come last since any identifier can be a type reference
         typeRef ]

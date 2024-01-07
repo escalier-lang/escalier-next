@@ -861,3 +861,115 @@ let InferDeclare () =
   printfn "result = %A" result
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTemplateLiteralType () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Foo = `foo${number}`
+        let x: Foo = "foo123"
+        type Bar = `A${string}B`
+        let y: Bar = "A1B"
+        type Baz = `A${string}B${string}C`
+        let z: Baz = "A1B2C"
+        let w: Baz = "ABCBC"
+        """
+
+      let! _, env = inferScript src
+      Assert.Value(env, "x", "Foo")
+      Assert.Value(env, "y", "Bar")
+      Assert.Value(env, "z", "Baz")
+      Assert.Value(env, "w", "Baz")
+    }
+
+  printfn "result = %A" result
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTemplateLiteralTypeWithUnions () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Dir = `${"top" | "bottom"}-${"left" | "right"}`
+        let a: Dir = "top-left"
+        let b: Dir = "top-right"
+        let c: Dir = "bottom-right"
+        let d: Dir = "bottom-left"
+        """
+
+      let! _, env = inferScript src
+      Assert.Value(env, "a", "Dir")
+      Assert.Value(env, "b", "Dir")
+      Assert.Value(env, "c", "Dir")
+      Assert.Value(env, "d", "Dir")
+    }
+
+  printfn "result = %A" result
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ParseTemplateLiteralType () =
+  let mutable parser: Parser<unit, unit> = eof
+  parser <- (pstring "C" |>> ignore) .>> parser
+  parser <- many (notFollowedBy parser >>. anyChar) |>> ignore
+  parser <- (pstring "B" |>> ignore) .>> parser
+  parser <- many (notFollowedBy parser >>. anyChar) |>> ignore
+  parser <- (pstring "A" |>> ignore) .>> parser
+
+  let result = run parser "ABCBC"
+
+  match result with
+  | Success(value, _, _) -> printfn "value = %A" value
+  | Failure(s, _, _) -> printfn "s = %A" s
+
+[<Fact>]
+let ParseTemplateLiteralTypeWithUnions () =
+  let mutable parser: Parser<unit, unit> = eof
+  parser <- (pstring "right" <|> pstring "left" |>> ignore) .>> parser
+  parser <- (pstring "-" |>> ignore) .>> parser
+  parser <- (pstring "top" <|> pstring "bottom" |>> ignore) .>> parser
+
+  let result = run parser "top-left"
+
+  match result with
+  | Success(value, _, _) -> printfn "value = %A" value
+  | Failure(s, _, _) -> printfn "s = %A" s
+
+[<Fact>]
+let InferTemplateLiteralTypeError () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = `foo${number}`
+        let x: Foo = "foo123abc"
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let InferTemplateLiteralTypeErrorWithUnion () =
+  let result =
+    result {
+      let src =
+        """
+        type Dir = `${"top" | "bottom"}-${"left" | "right"}`
+        let x: Dir = "top-bottom"
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)

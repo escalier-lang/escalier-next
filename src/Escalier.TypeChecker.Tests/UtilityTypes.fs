@@ -250,3 +250,25 @@ let InfersOmit () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersRecord () =
+  let res =
+    result {
+      let src =
+        """
+        type AnyKey = string | number | symbol
+        type Record<K: AnyKey, T> = {
+          [P]: T for P in K
+        }
+        type Point = Record<"x" | "y", number>
+        let p: Point = {x: 5, y: 10}
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "p", "Point")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

@@ -112,6 +112,9 @@ module Common =
     | Add
     | Remove
 
+  type TemplateLiteral<'T> =
+    { Parts: list<string>; Exprs: list<'T> }
+
 
 module Syntax =
   type Span = { Start: Position; Stop: Position }
@@ -151,10 +154,6 @@ module Syntax =
       Pattern: Pattern
       Guard: option<Expr>
       Body: BlockOrExpr }
-
-  type TemplateLiteral =
-    { Parts: list<string>
-      Exprs: list<Expr> }
 
   type PropName =
     | Ident of string
@@ -219,10 +218,10 @@ module Syntax =
     | Do of body: Block
     | Await of Await
     | Throw of value: Expr
-    | TemplateLiteral of TemplateLiteral
+    | TemplateLiteral of Common.TemplateLiteral<Expr>
     | TaggedTemplateLiteral of
       tag: Expr *
-      template: TemplateLiteral *
+      template: Common.TemplateLiteral<Expr> *
       throws: option<Type.Type>
 
   [<CustomEquality; NoComparison>]
@@ -386,6 +385,7 @@ module Syntax =
     | Infer of name: string
     | Wildcard
     | Binary of left: TypeAnn * op: string * right: TypeAnn // TODO: BinaryOp
+    | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
 
   type TypeAnn =
     { Kind: TypeAnnKind
@@ -698,6 +698,7 @@ module Type =
     | Infer of name: string
     | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
     | Wildcard
+    | TemplateLiteral of Common.TemplateLiteral<Type>
 
   [<CustomEquality; NoComparison>]
   type Type =

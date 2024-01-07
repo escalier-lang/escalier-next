@@ -771,6 +771,9 @@ module rec Infer =
           let! min = inferTypeAnn ctx env range.Min
           let! max = inferTypeAnn ctx env range.Max
           return TypeKind.Range { Min = min; Max = max }
+        | TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs } ->
+          let! exprs = List.traverseResultM (inferTypeAnn ctx env) exprs
+          return TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }
       }
 
     let t: Result<Type, TypeError> =

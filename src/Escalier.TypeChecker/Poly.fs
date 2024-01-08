@@ -86,14 +86,16 @@ module Poly =
         | TypeKind.Index(target, index) ->
           { Kind = TypeKind.Index(fold target, fold index)
             Provenance = None }
-        | TypeKind.Condition(check, extends, trueType, falseType) ->
+        | TypeKind.Condition { Check = check
+                               Extends = extends
+                               TrueType = trueType
+                               FalseType = falseType } ->
           { Kind =
-              TypeKind.Condition(
-                fold check,
-                fold extends,
-                fold trueType,
-                fold falseType
-              )
+              TypeKind.Condition
+                { Check = fold check
+                  Extends = fold extends
+                  TrueType = fold trueType
+                  FalseType = fold falseType }
             Provenance = None }
         | TypeKind.Infer _ -> t
         | TypeKind.Binary(left, op, right) ->

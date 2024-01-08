@@ -490,7 +490,7 @@ module rec Infer =
         getPropType
           ctx
           env
-          (env.ExpandScheme (unify ctx) scheme typeArgs)
+          (expandScheme env (unify ctx) scheme Map.empty typeArgs)
           key
           optChain
       | None ->
@@ -499,7 +499,7 @@ module rec Infer =
           getPropType
             ctx
             env
-            (env.ExpandScheme (unify ctx) scheme typeArgs)
+            (expandScheme env (unify ctx) scheme Map.empty typeArgs)
             key
             optChain
         | None -> failwithf $"{key} not in scope"
@@ -756,26 +756,15 @@ module rec Infer =
         | TypeAnnKind.Condition conditionType ->
           let! check = inferTypeAnn ctx env conditionType.Check
           let! extends = inferTypeAnn ctx env conditionType.Extends
+          let! trueType = inferTypeAnn ctx env conditionType.TrueType
+          let! falseType = inferTypeAnn ctx env conditionType.FalseType
 
-          let infers = findInfers extends
-          let mutable newEnv = env
-
-          // Add placeholder schemes for each `infer` type, these will be
-          // replaced later when expanding the conditional in a type alias.
-          for infer in infers do
-            let scheme =
-              { TypeParams = None
-                Type = check
-                IsTypeParam = true }
-
-            newEnv <- newEnv.AddScheme infer scheme
-
-          let! trueType = inferTypeAnn ctx newEnv conditionType.TrueType
-          let! falseType = inferTypeAnn ctx newEnv conditionType.FalseType
-
-          printfn $"trueType = {trueType}, falseType = {falseType}"
-
-          return TypeKind.Condition(check, extends, trueType, falseType)
+          return
+            TypeKind.Condition
+              { Check = check
+                Extends = extends
+                TrueType = trueType
+                FalseType = falseType }
         | TypeAnnKind.Match matchType ->
           return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
         | TypeAnnKind.Infer name -> return TypeKind.Infer name
@@ -1112,7 +1101,7 @@ module rec Infer =
 
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.
-        let expandedRightType = env.ExpandType (unify ctx) rightType
+        let expandedRightType = expandType env (unify ctx) Map.empty rightType
 
         let elemType =
           match expandedRightType.Kind with

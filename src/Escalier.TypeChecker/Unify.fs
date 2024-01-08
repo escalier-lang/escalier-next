@@ -164,6 +164,7 @@ module rec Unify =
           else
             return! Error(TypeError.TypeMismatch(t1, t2))
         | _ ->
+          printfn $"unify({t1}, {t2})"
           printfn "TODO: expand `min` and `max` before unifying with `n`"
           return! Error(TypeError.TypeMismatch(t1, t2))
 
@@ -361,8 +362,8 @@ module rec Unify =
         ->
         return ()
       | _, _ ->
-        let t1' = env.ExpandType (unify ctx) t1
-        let t2' = env.ExpandType (unify ctx) t2
+        let t1' = expandType env (unify ctx) Map.empty t1
+        let t2' = expandType env (unify ctx) Map.empty t2
 
         if t1' <> t1 || t2' <> t2 then
           return! unify ctx env t1' t2'

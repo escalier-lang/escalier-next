@@ -223,7 +223,10 @@ module rec TypeVisitor =
       | TypeKind.Index(target, index) ->
         walk target
         walk index
-      | TypeKind.Condition(check, extends, trueType, falseType) ->
+      | TypeKind.Condition { Check = check
+                             Extends = extends
+                             TrueType = trueType
+                             FalseType = falseType } ->
         walk check
         walk extends
         walk trueType

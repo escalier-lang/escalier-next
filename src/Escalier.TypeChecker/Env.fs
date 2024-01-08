@@ -206,6 +206,7 @@ module rec Env =
 
 
   let expandScheme
+    (ctx: Ctx)
     (env: Env)
     (unify: Env -> Type -> Type -> Result<unit, TypeError>)
     (scheme: Scheme)
@@ -219,18 +220,19 @@ module rec Env =
     let typeArgs =
       typeArgs
       |> Option.map (fun typeArgs ->
-        typeArgs |> List.map (fun t -> expandType env unify mapping t))
+        typeArgs |> List.map (fun t -> expandType ctx env unify mapping t))
 
     match scheme.TypeParams, typeArgs with
-    | None, None -> expandType env unify mapping scheme.Type
+    | None, None -> expandType ctx env unify mapping scheme.Type
     | Some(typeParams), Some(typeArgs) ->
       let mapping = Map.ofList (List.zip typeParams typeArgs)
-      expandType env unify mapping scheme.Type
+      expandType ctx env unify mapping scheme.Type
     | _ -> failwith "TODO: expandScheme with type params/args"
 
   // `mapping` must be distict from `env` because type params that are union
   // types distribute across conditional types.
   let expandType
+    (ctx: Ctx)
     (env: Env)
     (unify: Env -> Type -> Type -> Result<unit, TypeError>)
     (mapping: Map<string, Type>) // type param names -> type args
@@ -259,7 +261,7 @@ module rec Env =
 
       match t.Kind with
       | TypeKind.KeyOf t ->
-        let t = expandType env unify mapping t
+        let t = expandType ctx env unify mapping t
 
         match t.Kind with
         | TypeKind.Object elems ->
@@ -288,8 +290,8 @@ module rec Env =
           union keys
         | _ -> failwith "TODO: expand keyof"
       | TypeKind.Index(target, index) ->
-        let target = expandType env unify mapping target
-        let index = expandType env unify mapping index
+        let target = expandType ctx env unify mapping target
+        let index = expandType ctx env unify mapping index
 
         let key =
           match index.Kind with
@@ -319,16 +321,26 @@ module rec Env =
                              Extends = extends
                              TrueType = trueType
                              FalseType = falseType } ->
+
+        let infers = findInfers extends
+        let mutable newMapping = mapping
+
+        for name in infers do
+          let t = ctx.FreshTypeVar None
+          newMapping <- Map.add name t newMapping
+
+        let extends = replaceInfers extends newMapping
+
         match check.Kind with
         | TypeKind.TypeRef { Name = name } ->
-          match Map.tryFind name mapping with
+          match Map.tryFind name newMapping with
           | Some { Kind = TypeKind.Union types } ->
-            let extends = expand mapping extends
+            let extends = expand newMapping extends
 
             let types =
               types
               |> List.map (fun check ->
-                let newMapping = Map.add name check mapping
+                let newMapping = Map.add name check newMapping
 
                 match unify env check extends with
                 | Ok _ -> expand newMapping trueType
@@ -336,7 +348,7 @@ module rec Env =
 
             union types
           | Some check ->
-            let newMapping = Map.add name check mapping
+            let newMapping = Map.add name check newMapping
 
             match unify env check extends with
             | Ok _ -> expand newMapping trueType
@@ -347,12 +359,12 @@ module rec Env =
             failwith "TODO: check if the TypeRef's scheme is defined and use it"
 
             match unify env check extends with
-            | Ok _ -> expand mapping trueType
-            | Error _ -> expand mapping falseType
+            | Ok _ -> expand newMapping trueType
+            | Error _ -> expand newMapping falseType
         | _ ->
           match unify env check extends with
-          | Ok _ -> expand mapping trueType
-          | Error _ -> expand mapping falseType
+          | Ok _ -> expand newMapping trueType
+          | Error _ -> expand newMapping falseType
 
       | TypeKind.Binary _ -> simplify t
       // TODO: instead of expanding object types, we should try to
@@ -364,7 +376,7 @@ module rec Env =
           |> List.collect (fun elem ->
             match elem with
             | Mapped m ->
-              let c = expandType env unify mapping m.TypeParam.Constraint
+              let c = expandType ctx env unify mapping m.TypeParam.Constraint
 
               match c.Kind with
               | TypeKind.Union types ->
@@ -396,7 +408,7 @@ module rec Env =
 
                       Property
                         { Name = PropName.String name
-                          Type = expandType env unify mapping typeAnn
+                          Type = expandType ctx env unify mapping typeAnn
                           Optional = false // TODO
                           Readonly = false // TODO
                         }
@@ -419,7 +431,7 @@ module rec Env =
 
                 [ Property
                     { Name = PropName.String key
-                      Type = expandType env unify mapping typeAnn
+                      Type = expandType ctx env unify mapping typeAnn
                       Optional = false // TODO
                       Readonly = false // TODO
                     } ]
@@ -447,10 +459,11 @@ module rec Env =
           | Some t -> t
           | None ->
             match scheme with
-            | Some scheme -> expandScheme env unify scheme mapping typeArgs
+            | Some scheme -> expandScheme ctx env unify scheme mapping typeArgs
             | None ->
               match env.Schemes.TryFind name with
-              | Some scheme -> expandScheme env unify scheme mapping typeArgs
+              | Some scheme ->
+                expandScheme ctx env unify scheme mapping typeArgs
               | None -> failwith $"{name} is not in scope"
 
         expand mapping t
@@ -460,6 +473,36 @@ module rec Env =
         if mapping = Map.empty then t else foldType fold t
 
     expand mapping t
+
+  // TODO: dedupe with findInfers in Infer.fs
+  let findInfers (t: Type) : list<string> =
+    // TODO: disallow multiple `infer`s with the same identifier
+    let mutable infers: list<string> = []
+
+    let visitor =
+      fun (t: Type) ->
+        match t.Kind with
+        | TypeKind.Infer name -> infers <- name :: infers
+        | _ -> ()
+
+    TypeVisitor.walkType visitor t
+
+    infers
+
+  let replaceInfers (t: Type) (mapping: Map<string, Type>) : Type =
+    let fold =
+      fun t ->
+        let result =
+          match t.Kind with
+          | TypeKind.Infer name ->
+            match Map.tryFind name mapping with
+            | Some t -> t
+            | None -> t
+          | _ -> t
+
+        Some(result)
+
+    foldType fold t
 
   let rec bind
     (ctx: Ctx)

@@ -80,17 +80,35 @@ let InferSimpleConditionalType () =
       let! ctx, env = inferScript src
 
       let a =
-        expandScheme env (unify ctx) (Map.find "A" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "A" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("\"string\"", a.ToString())
 
       let b =
-        expandScheme env (unify ctx) (Map.find "B" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "B" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("\"number\"", b.ToString())
 
       let c =
-        expandScheme env (unify ctx) (Map.find "C" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "C" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("\"other\"", c.ToString())
     }
@@ -121,17 +139,35 @@ let InferNestedConditionalTypes () =
       let! ctx, env = inferScript src
 
       let a =
-        expandScheme env (unify ctx) (Map.find "A" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "A" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("\"string\"", a.ToString())
 
       let b =
-        expandScheme env (unify ctx) (Map.find "B" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "B" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("\"number\"", b.ToString())
 
       let c =
-        expandScheme env (unify ctx) (Map.find "C" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "C" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("\"other\"", c.ToString())
     }
@@ -153,6 +189,7 @@ let InferExclude () =
 
       let result =
         expandScheme
+          ctx
           env
           (unify ctx)
           (Map.find "Result" env.Schemes)
@@ -179,6 +216,7 @@ let InferExtract () =
 
       let result =
         expandScheme
+          ctx
           env
           (unify ctx)
           (Map.find "Result" env.Schemes)
@@ -213,6 +251,7 @@ let InferCartesianProdType () =
 
       let result =
         expandScheme
+          ctx
           env
           (unify ctx)
           (Map.find "Cells" env.Schemes)
@@ -244,7 +283,13 @@ let InfersPick () =
       let! ctx, env = inferScript src
 
       let result =
-        expandScheme env (unify ctx) (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Bar" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
@@ -271,7 +316,13 @@ let InfersOmit () =
       let! ctx, env = inferScript src
 
       let result =
-        expandScheme env (unify ctx) (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Bar" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
@@ -313,7 +364,13 @@ let InfersNestedConditionals () =
       let! ctx, env = inferScript src
 
       let result =
-        expandScheme env (unify ctx) (Map.find "Foo" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Foo" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("5 | 3", result.ToString())
     }
@@ -321,7 +378,7 @@ let InfersNestedConditionals () =
   printfn "res = %A" res
   Assert.False(Result.isError res)
 
-[<Fact(Skip = "Add inferred types to scope in `expandType`")>]
+[<Fact>]
 let InfersReturnType () =
   let res =
     result {
@@ -334,7 +391,13 @@ let InfersReturnType () =
       let! ctx, env = inferScript src
 
       let result =
-        expandScheme env (unify ctx) (Map.find "Foo" env.Schemes) Map.empty None
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Foo" env.Schemes)
+          Map.empty
+          None
 
       Assert.Equal("number", result.ToString())
     }

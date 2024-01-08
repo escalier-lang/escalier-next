@@ -490,7 +490,7 @@ module rec Infer =
         getPropType
           ctx
           env
-          (expandScheme env (unify ctx) scheme Map.empty typeArgs)
+          (expandScheme ctx env (unify ctx) scheme Map.empty typeArgs)
           key
           optChain
       | None ->
@@ -499,7 +499,7 @@ module rec Infer =
           getPropType
             ctx
             env
-            (expandScheme env (unify ctx) scheme Map.empty typeArgs)
+            (expandScheme ctx env (unify ctx) scheme Map.empty typeArgs)
             key
             optChain
         | None -> failwithf $"{key} not in scope"
@@ -756,8 +756,27 @@ module rec Infer =
         | TypeAnnKind.Condition conditionType ->
           let! check = inferTypeAnn ctx env conditionType.Check
           let! extends = inferTypeAnn ctx env conditionType.Extends
-          let! trueType = inferTypeAnn ctx env conditionType.TrueType
-          let! falseType = inferTypeAnn ctx env conditionType.FalseType
+          let infers = findInfers extends
+
+          // Adds placeholder types ot the environment so that we'll be able to
+          // reference them in `trueType` and `falseType`.  They will be replaced
+          // by `expandType` later.
+          let mutable newEnv = env
+
+          for infer in infers do
+            let unknown =
+              { Kind = TypeKind.Keyword Keyword.Unknown
+                Provenance = None }
+
+            let scheme =
+              { TypeParams = None
+                Type = unknown
+                IsTypeParam = true }
+
+            newEnv <- newEnv.AddScheme infer scheme
+
+          let! trueType = inferTypeAnn ctx newEnv conditionType.TrueType
+          let! falseType = inferTypeAnn ctx newEnv conditionType.FalseType
 
           return
             TypeKind.Condition
@@ -1101,7 +1120,8 @@ module rec Infer =
 
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.
-        let expandedRightType = expandType env (unify ctx) Map.empty rightType
+        let expandedRightType =
+          expandType ctx env (unify ctx) Map.empty rightType
 
         let elemType =
           match expandedRightType.Kind with
@@ -1496,6 +1516,7 @@ module rec Infer =
 
     names
 
+  // TODO: dedupe with findInfers in Env.fs
   let findInfers (t: Type) : list<string> =
     // TODO: disallow multiple `infer`s with the same identifier
     let mutable infers: list<string> = []

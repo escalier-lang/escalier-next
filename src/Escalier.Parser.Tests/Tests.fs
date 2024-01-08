@@ -505,3 +505,12 @@ let ParseTemplateLiteralType () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseInferType () =
+  let src = "type ReturnType<T> = if T: fn () -> infer R { R } else { never }"
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

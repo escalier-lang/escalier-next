@@ -27,6 +27,8 @@ module rec Unify =
       | TypeKind.TypeVar _, _ -> do! bind ctx env unify t1 t2
       | _, TypeKind.TypeVar _ -> do! unify ctx env t2 t1
       | TypeKind.Primitive p1, TypeKind.Primitive p2 when p1 = p2 -> ()
+      | TypeKind.Wildcard, _ -> ()
+      | _, TypeKind.Wildcard -> ()
       | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
       | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
       | TypeKind.Tuple elems1, TypeKind.Tuple elems2 ->
@@ -119,23 +121,46 @@ module rec Unify =
           return! Error(TypeError.SemanticError("Too many rest elements!"))
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
+        // TODO: check if the type params have the same variance
         let! f1 = instantiateFunc ctx f1 None
         let! f2 = instantiateFunc ctx f2 None
 
-        let paramList1 =
-          List.map (fun (param: FuncParam) -> param.Type) f1.ParamList
+        let nonRestParams2, restParams2 =
+          List.partition
+            (fun param ->
+              match param.Pattern with
+              | Pattern.Rest _ -> false
+              | _ -> true)
+            f2.ParamList
 
-        let paramList2 =
-          List.map (fun (param: FuncParam) -> param.Type) f2.ParamList
+        match restParams2 with
+        | [] ->
+          if f1.ParamList.Length > f2.ParamList.Length then
+            // t1 needs to have at least as many params as t2
+            return! Error(TypeError.TypeMismatch(t1, t2))
 
-        if paramList1.Length > paramList2.Length then
-          // t1 needs to have at least as many params as t2
-          return! Error(TypeError.TypeMismatch(t1, t2))
+          for i in 0 .. f1.ParamList.Length - 1 do
+            let param1 = f1.ParamList[i]
+            let param2 = f2.ParamList[i]
 
-        for i in 0 .. paramList1.Length - 1 do
-          let param1 = paramList1[i]
-          let param2 = paramList2[i]
-          do! unify ctx env param2 param1 // params are contravariant
+            do! unify ctx env param2.Type param1.Type // params are contravariant
+        | [ restParam2 ] ->
+          for i in 0 .. nonRestParams2.Length - 1 do
+            let param1 = f1.ParamList[i]
+            let param2 = f2.ParamList[i]
+            do! unify ctx env param2.Type param1.Type // params are contravariant
+
+          let restParam1 =
+            { Kind =
+                TypeKind.Tuple(
+                  List.map
+                    (fun (param: FuncParam) -> param.Type)
+                    (List.skip nonRestParams2.Length f1.ParamList)
+                )
+              Provenance = None }
+
+          do! unify ctx env restParam2.Type restParam1
+        | _ -> return! Error(TypeError.SemanticError("Too many rest params!"))
 
         do! unify ctx env f1.Return f2.Return // returns are covariant
         do! unify ctx env f1.Throws f2.Throws // throws are covariant
@@ -362,8 +387,8 @@ module rec Unify =
         ->
         return ()
       | _, _ ->
-        let t1' = expandType env (unify ctx) Map.empty t1
-        let t2' = expandType env (unify ctx) Map.empty t2
+        let t1' = expandType ctx env (unify ctx) Map.empty t1
+        let t2' = expandType ctx env (unify ctx) Map.empty t2
 
         if t1' <> t1 || t2' <> t2 then
           return! unify ctx env t1' t2'

@@ -1,4 +1,4 @@
-﻿input: type ReturnType<T> = if T: fn () -> infer R { R } else { never }
+﻿input: type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never }
 output: Ok
   { Items =
      [Stmt
@@ -17,27 +17,45 @@ output: Ok
                            { Kind =
                               Function
                                 { TypeParams = None
-                                  ParamList = []
+                                  ParamList =
+                                   [{ Pattern =
+                                       { Kind =
+                                          Rest
+                                            { Kind = Ident { Name = "args"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 1, Col: 35)
+                                                       Stop = (Ln: 1, Col: 39) }
+                                              InferredType = None }
+                                         Span = { Start = (Ln: 1, Col: 32)
+                                                  Stop = (Ln: 1, Col: 39) }
+                                         InferredType = None }
+                                      TypeAnn =
+                                       { Kind = TypeRef ("_", None)
+                                         Span = { Start = (Ln: 1, Col: 41)
+                                                  Stop = (Ln: 1, Col: 42) }
+                                         InferredType = None }
+                                      Optional = false }]
                                   ReturnType =
                                    { Kind = Infer "R"
-                                     Span = { Start = (Ln: 1, Col: 37)
-                                              Stop = (Ln: 1, Col: 45) }
+                                     Span = { Start = (Ln: 1, Col: 47)
+                                              Stop = (Ln: 1, Col: 55) }
                                      InferredType = None }
                                   Throws = None
                                   IsAsync = false }
                              Span = { Start = (Ln: 1, Col: 28)
-                                      Stop = (Ln: 1, Col: 45) }
+                                      Stop = (Ln: 1, Col: 55) }
                              InferredType = None }
                           TrueType = { Kind = TypeRef ("R", None)
-                                       Span = { Start = (Ln: 1, Col: 47)
-                                                Stop = (Ln: 1, Col: 49) }
+                                       Span = { Start = (Ln: 1, Col: 57)
+                                                Stop = (Ln: 1, Col: 59) }
                                        InferredType = None }
                           FalseType = { Kind = Keyword Never
-                                        Span = { Start = (Ln: 1, Col: 58)
-                                                 Stop = (Ln: 1, Col: 64) }
+                                        Span = { Start = (Ln: 1, Col: 68)
+                                                 Stop = (Ln: 1, Col: 74) }
                                         InferredType = None } }
                      Span = { Start = (Ln: 1, Col: 22)
-                              Stop = (Ln: 1, Col: 65) }
+                              Stop = (Ln: 1, Col: 75) }
                      InferredType = None },
                    Some [{ Span = { Start = (Ln: 1, Col: 17)
                                     Stop = (Ln: 1, Col: 18) }
@@ -45,6 +63,6 @@ output: Ok
                            Constraint = None
                            Default = None }])
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 65) } }
+                        Stop = (Ln: 1, Col: 75) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 65) } }] }
+                   Stop = (Ln: 1, Col: 75) } }] }

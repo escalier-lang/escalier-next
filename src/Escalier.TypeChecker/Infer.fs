@@ -46,6 +46,7 @@ module rec Infer =
       Pattern.Tuple(List.map (patternToPattern >> Some) elems)
     | PatternKind.Wildcard { Assertion = assertion } -> Pattern.Wildcard
     | PatternKind.Literal lit -> Pattern.Literal lit
+    | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
 
   let inferPropName
     (ctx: Ctx)
@@ -736,7 +737,10 @@ module rec Infer =
                   Scheme = scheme }
                 |> TypeKind.TypeRef
           | None ->
-            return! Error(TypeError.SemanticError $"{name} is not in scope")
+            if name = "_" then
+              return TypeKind.Wildcard
+            else
+              return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
           let! f = inferFunctionType ctx env functionType
           return TypeKind.Function(f)

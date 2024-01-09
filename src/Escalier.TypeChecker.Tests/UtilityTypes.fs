@@ -384,8 +384,9 @@ let InfersReturnType () =
     result {
       let src =
         """
-        type ReturnType<T> = if T: fn () -> infer R { R } else { never }
+        type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never }
         type Foo = ReturnType<fn () -> number>
+        type Bar = ReturnType<fn (a: string, b: boolean) -> number>
         """
 
       let! ctx, env = inferScript src
@@ -400,7 +401,55 @@ let InfersReturnType () =
           None
 
       Assert.Equal("number", result.ToString())
+
+      let result =
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Bar" env.Schemes)
+          Map.empty
+          None
+
+      Assert.Equal("number", result.ToString())
     }
 
-  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersParameters () =
+  let res =
+    result {
+      let src =
+        """
+        type Parameters<T> = if T: fn (...args: infer P) -> _ { P } else { never }
+        type Foo = Parameters<fn () -> number>
+        type Bar = Parameters<fn (a: string, b: boolean) -> number>
+        """
+
+      let! ctx, env = inferScript src
+
+      let result =
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Foo" env.Schemes)
+          Map.empty
+          None
+
+      Assert.Equal("[]", result.ToString())
+
+      let result =
+        expandScheme
+          ctx
+          env
+          (unify ctx)
+          (Map.find "Bar" env.Schemes)
+          Map.empty
+          None
+
+      Assert.Equal("[string, boolean]", result.ToString())
+    }
+
   Assert.False(Result.isError res)

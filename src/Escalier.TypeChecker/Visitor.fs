@@ -23,7 +23,7 @@ module rec ExprVisitor =
         | ExprKind.Call call ->
           walk call.Callee
           List.iter walk call.Args
-        | ExprKind.Tuple elements -> List.iter walk elements
+        | ExprKind.Tuple { Elems = elems } -> List.iter walk elems
         | ExprKind.Index(target, index, _optChain) ->
           walk target
           walk index
@@ -118,7 +118,7 @@ module rec ExprVisitor =
       if visitor.VisitPattern pat then
         match pat.Kind with
         | PatternKind.Ident _ -> ()
-        | PatternKind.Object elems ->
+        | PatternKind.Object { Elems = elems } ->
           List.iter
             (fun (elem: ObjPatElem) ->
               match elem with
@@ -129,7 +129,7 @@ module rec ExprVisitor =
                 Option.iter (walkExpr visitor) init
               | ObjPatElem.RestPat { Target = target } -> walk target)
             elems
-        | PatternKind.Tuple elems -> List.iter walk elems
+        | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
         | PatternKind.Wildcard _ -> ()
         | PatternKind.Literal _ -> ()
 
@@ -143,7 +143,7 @@ module rec ExprVisitor =
         | TypeAnnKind.Literal _ -> ()
         | TypeAnnKind.Keyword _ -> ()
         | TypeAnnKind.Object elems -> failwith "todo"
-        | TypeAnnKind.Tuple elems -> List.iter walk elems
+        | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
         | TypeAnnKind.Union types -> List.iter walk types
         | TypeAnnKind.Intersection types -> List.iter walk types
         | TypeAnnKind.TypeRef(_name, typeArgs) ->
@@ -192,7 +192,7 @@ module rec TypeVisitor =
       | TypeKind.Function f ->
         List.iter (fun (param: FuncParam) -> walk param.Type) f.ParamList
         walk f.Return
-      | TypeKind.Tuple(elems) -> List.iter walk elems
+      | TypeKind.Tuple { Elems = elems } -> List.iter walk elems
       | TypeKind.TypeRef({ Name = name
                            TypeArgs = typeArgs
                            Scheme = scheme }) ->
@@ -201,7 +201,7 @@ module rec TypeVisitor =
         Option.iter (fun (scheme: Scheme) -> walk scheme.Type) scheme
       | TypeKind.Literal _ -> ()
       | TypeKind.Wildcard -> ()
-      | TypeKind.Object elems ->
+      | TypeKind.Object { Elems = elems } ->
         List.iter
           (fun elem ->
             match elem with

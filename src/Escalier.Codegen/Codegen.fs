@@ -424,8 +424,8 @@ module rec Codegen =
           TypeAnn = buildTypeAnn ctx f.Return
           Loc = None }
       |> TsType.TsFnOrConstructorType
-    | TypeKind.Object objTypeElems ->
-      let members = objTypeElems |> List.map (buildObjTypeElem ctx)
+    | TypeKind.Object { Elems = elems } ->
+      let members = elems |> List.map (buildObjTypeElem ctx)
       TsType.TsTypeLit { Members = members; Loc = None }
     | TypeKind.Rest rest ->
       TsType.TsRestType
@@ -473,9 +473,9 @@ module rec Codegen =
       TsType.TsUnionOrIntersectionType(
         TS.TsIntersectionType { Types = types; Loc = None }
       )
-    | TypeKind.Tuple types ->
+    | TypeKind.Tuple { Elems = elems } ->
       let elemTypes: list<TsTupleElement> =
-        types
+        elems
         |> List.map (buildType ctx)
         |> List.map (fun t -> { Label = None; Type = t; Loc = None })
 
@@ -559,7 +559,7 @@ module rec Codegen =
           let binding = (t, isMut)
           assump <- Map.add name binding assump
         | None -> ()
-      | PatternKind.Object elems ->
+      | PatternKind.Object { Elems = elems } ->
         List.iter
           (fun (elem: Syntax.ObjPatElem) ->
             match elem with
@@ -570,7 +570,7 @@ module rec Codegen =
               ()
             | Syntax.ObjPatElem.RestPat { Target = target } -> walk target)
           elems
-      | PatternKind.Tuple elems -> List.iter walk elems
+      | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
 

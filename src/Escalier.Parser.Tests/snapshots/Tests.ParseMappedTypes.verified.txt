@@ -9,30 +9,32 @@ output: Ok
                   ("Point",
                    { Kind =
                       Object
-                        [Mapped
-                           { TypeParam =
-                              { Name = "P"
-                                Constraint =
-                                 { Kind =
-                                    Union
-                                      [{ Kind = Literal (String "x")
-                                         Span = { Start = (Ln: 1, Col: 36)
-                                                  Stop = (Ln: 1, Col: 39) }
-                                         InferredType = None };
-                                       { Kind = Literal (String "y")
-                                         Span = { Start = (Ln: 1, Col: 42)
-                                                  Stop = (Ln: 1, Col: 45) }
-                                         InferredType = None }]
-                                   Span = { Start = (Ln: 1, Col: 36)
-                                            Stop = (Ln: 1, Col: 45) }
-                                   InferredType = None } }
-                             Name = None
-                             TypeAnn = { Kind = Keyword Number
-                                         Span = { Start = (Ln: 1, Col: 20)
-                                                  Stop = (Ln: 1, Col: 27) }
-                                         InferredType = None }
-                             Optional = None
-                             Readonly = None }]
+                        { Elems =
+                           [Mapped
+                              { TypeParam =
+                                 { Name = "P"
+                                   Constraint =
+                                    { Kind =
+                                       Union
+                                         [{ Kind = Literal (String "x")
+                                            Span = { Start = (Ln: 1, Col: 36)
+                                                     Stop = (Ln: 1, Col: 39) }
+                                            InferredType = None };
+                                          { Kind = Literal (String "y")
+                                            Span = { Start = (Ln: 1, Col: 42)
+                                                     Stop = (Ln: 1, Col: 45) }
+                                            InferredType = None }]
+                                      Span = { Start = (Ln: 1, Col: 36)
+                                               Stop = (Ln: 1, Col: 45) }
+                                      InferredType = None } }
+                                Name = None
+                                TypeAnn = { Kind = Keyword Number
+                                            Span = { Start = (Ln: 1, Col: 20)
+                                                     Stop = (Ln: 1, Col: 27) }
+                                            InferredType = None }
+                                Optional = None
+                                Readonly = None }]
+                          Immutable = false }
                      Span = { Start = (Ln: 1, Col: 14)
                               Stop = (Ln: 1, Col: 46) }
                      InferredType = None }, None)

@@ -149,8 +149,8 @@ let binary (op, left, right) =
     Span = dummySpan
     InferredType = None }
 
-let tuple exprs =
-  { Expr.Kind = ExprKind.Tuple(exprs)
+let tuple elems =
+  { Expr.Kind = ExprKind.Tuple { Elems = elems; Immutable = false }
     Span = dummySpan
     InferredType = None }
 

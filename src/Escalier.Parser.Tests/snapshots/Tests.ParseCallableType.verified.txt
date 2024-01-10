@@ -14,24 +14,28 @@ output: Ok
                   ("Callable",
                    { Kind =
                       Object
-                        [Constructor
-                           { TypeParams = None
-                             ParamList = []
-                             ReturnType = { Kind = Keyword Symbol
-                                            Span = { Start = (Ln: 3, Col: 20)
-                                                     Stop = (Ln: 3, Col: 26) }
-                                            InferredType = None }
-                             Throws = None
-                             IsAsync = false };
-                         Callable
-                           { TypeParams = None
-                             ParamList = []
-                             ReturnType = { Kind = Keyword Symbol
-                                            Span = { Start = (Ln: 4, Col: 16)
-                                                     Stop = (Ln: 4, Col: 22) }
-                                            InferredType = None }
-                             Throws = None
-                             IsAsync = false }]
+                        { Elems =
+                           [Constructor
+                              { TypeParams = None
+                                ParamList = []
+                                ReturnType =
+                                 { Kind = Keyword Symbol
+                                   Span = { Start = (Ln: 3, Col: 20)
+                                            Stop = (Ln: 3, Col: 26) }
+                                   InferredType = None }
+                                Throws = None
+                                IsAsync = false };
+                            Callable
+                              { TypeParams = None
+                                ParamList = []
+                                ReturnType =
+                                 { Kind = Keyword Symbol
+                                   Span = { Start = (Ln: 4, Col: 16)
+                                            Stop = (Ln: 4, Col: 22) }
+                                   InferredType = None }
+                                Throws = None
+                                IsAsync = false }]
+                          Immutable = false }
                      Span = { Start = (Ln: 2, Col: 21)
                               Stop = (Ln: 6, Col: 5) }
                      InferredType = None }, None)

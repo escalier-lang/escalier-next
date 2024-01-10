@@ -257,7 +257,7 @@ let InferRangeWithArrayLength () =
       let src =
         """
         declare let array: number[]
-        
+
         let length = array.length
         for x in 0..length {
           let item: number = array[x]

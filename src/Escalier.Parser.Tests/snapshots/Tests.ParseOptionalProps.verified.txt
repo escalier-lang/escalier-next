@@ -11,37 +11,47 @@ output: Ok
                   ("Obj",
                    { Kind =
                       Object
-                        [Property
-                           { Name = String "a"
-                             TypeAnn =
-                              { Kind =
-                                 Object
-                                   [Property
-                                      { Name = String "b"
-                                        TypeAnn =
-                                         { Kind =
-                                            Object
-                                              [Property
-                                                 { Name = String "c"
-                                                   TypeAnn =
-                                                    { Kind = Keyword Number
-                                                      Span =
-                                                       { Start =
-                                                          (Ln: 2, Col: 31)
-                                                         Stop = (Ln: 2, Col: 37) }
-                                                      InferredType = None }
-                                                   Optional = true
-                                                   Readonly = false }]
-                                           Span = { Start = (Ln: 2, Col: 26)
+                        { Elems =
+                           [Property
+                              { Name = String "a"
+                                TypeAnn =
+                                 { Kind =
+                                    Object
+                                      { Elems =
+                                         [Property
+                                            { Name = String "b"
+                                              TypeAnn =
+                                               { Kind =
+                                                  Object
+                                                    { Elems =
+                                                       [Property
+                                                          { Name = String "c"
+                                                            TypeAnn =
+                                                             { Kind =
+                                                                Keyword Number
+                                                               Span =
+                                                                { Start =
+                                                                   (Ln: 2, Col: 31)
+                                                                  Stop =
+                                                                   (Ln: 2, Col: 37) }
+                                                               InferredType =
+                                                                None }
+                                                            Optional = true
+                                                            Readonly = false }]
+                                                      Immutable = false }
+                                                 Span =
+                                                  { Start = (Ln: 2, Col: 26)
                                                     Stop = (Ln: 2, Col: 38) }
-                                           InferredType = None }
-                                        Optional = true
-                                        Readonly = false }]
-                                Span = { Start = (Ln: 2, Col: 21)
-                                         Stop = (Ln: 2, Col: 39) }
-                                InferredType = None }
-                             Optional = true
-                             Readonly = false }]
+                                                 InferredType = None }
+                                              Optional = true
+                                              Readonly = false }]
+                                        Immutable = false }
+                                   Span = { Start = (Ln: 2, Col: 21)
+                                            Stop = (Ln: 2, Col: 39) }
+                                   InferredType = None }
+                                Optional = true
+                                Readonly = false }]
+                          Immutable = false }
                      Span = { Start = (Ln: 2, Col: 16)
                               Stop = (Ln: 3, Col: 5) }
                      InferredType = None }, None)

@@ -221,10 +221,11 @@ module Parser =
         Span = span
         InferredType = None }
 
+  // TODO: spread/rest elements
   let tupleExpr: Parser<Expr, unit> =
     tuple expr |> withSpan
     |>> fun (exprs, span) ->
-      { Kind = ExprKind.Tuple(exprs)
+      { Kind = ExprKind.Tuple { Elems = exprs; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -252,7 +253,7 @@ module Parser =
   let objectExpr: Parser<Expr, unit> =
     withSpan (between (strWs "{") (strWs "}") (sepBy objElem (strWs ",")))
     |>> fun (objElems, span) ->
-      { Kind = ExprKind.Object(objElems)
+      { Kind = ExprKind.Object { Elems = objElems; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -338,6 +339,21 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
+  // TODO: spread/rest elements
+  let imTupleExpr: Parser<Expr, unit> =
+    withSpan (between (strWs "#[") (strWs "]") (sepBy expr (strWs ",")))
+    |>> fun (exprs, span) ->
+      { Kind = ExprKind.Tuple { Elems = exprs; Immutable = true }
+        Span = span
+        InferredType = None }
+
+  let imRecordExpr: Parser<Expr, unit> =
+    withSpan (between (strWs "#{") (strWs "}") (sepBy objElem (strWs ",")))
+    |>> fun (objElems, span) ->
+      { Kind = ExprKind.Object { Elems = objElems; Immutable = true }
+        Span = span
+        InferredType = None }
+
   let atom =
     choice
       [ literalExpr
@@ -349,6 +365,8 @@ module Parser =
         attempt matchExpr // conflicts with identExpr
         tupleExpr
         objectExpr
+        imTupleExpr
+        imRecordExpr
         templateStringLiteral
         // TODO: have a combinator that wraps `identExpr` and checks if the
         // ident if `fn`, `do`, `if`, `throw`, `try`, match`, etc. and then
@@ -631,7 +649,8 @@ module Parser =
   let private tuplePattern =
     tuple pattern |> withSpan
     |>> fun (patterns, span) ->
-      { Pattern.Kind = PatternKind.Tuple(patterns)
+      // TODO: handle immutable tuple patterns
+      { Pattern.Kind = PatternKind.Tuple { Elems = patterns; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -688,8 +707,9 @@ module Parser =
 
   let private objectPattern =
     withSpan (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))
-    |>> fun (objElems, span) ->
-      { Pattern.Kind = PatternKind.Object(objElems)
+    |>> fun (elems, span) ->
+      // TODO: handle immutable object patterns
+      { Pattern.Kind = PatternKind.Object { Elems = elems; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -759,7 +779,7 @@ module Parser =
   let private tupleTypeAnn =
     tuple typeAnn |> withSpan
     |>> fun (typeAnns, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Tuple(typeAnns)
+      { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -855,7 +875,8 @@ module Parser =
       between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
     )
     |>> fun (objElems, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Object(objElems)
+      { TypeAnn.Kind =
+          TypeAnnKind.Object { Elems = objElems; Immutable = false }
         Span = span
         InferredType = None }
 

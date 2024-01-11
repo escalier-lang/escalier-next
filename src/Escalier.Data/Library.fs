@@ -227,8 +227,6 @@ module Syntax =
       tag: Expr *
       template: Common.TemplateLiteral<Expr> *
       throws: option<Type.Type>
-  // | ImTuple of list<Expr> // literal | identifier | ImTuple | ImRecord
-  // | ImRecord of list<string * Expr> // literal | identifier | ImTuple | ImRecord
 
   [<CustomEquality; NoComparison>]
   type Expr =

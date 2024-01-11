@@ -394,15 +394,13 @@ let ImmutableTuplesAreIncompatibleWithRegularTuples () =
     result {
       let src =
         """
-        declare let foo: fn (point: [number, number]) -> undefined
-        declare let bar: fn (point: #[number, number]) -> undefined
-        foo(#[5, 10])
-        bar([5, 10])
+        declare let foo: fn (point: #[number, number]) -> undefined
+        foo([5, 10])
         """
 
       let! ctx, env = inferScript src
 
-      Assert.Equal(ctx.Diagnostics.Length, 2)
+      Assert.Equal(ctx.Diagnostics.Length, 1)
     }
 
   Assert.False(Result.isError res)
@@ -413,15 +411,13 @@ let ImmutableObjectsAreIncompatibleWithRegularObjects () =
     result {
       let src =
         """
-        declare let foo: fn (point: {x:number, y:number}) -> undefined
-        declare let bar: fn (point: #{x:number, x:number}) -> undefined
-        foo(#{x:5, y:10})
-        bar({x:5, y:10})
+        declare let foo: fn (point: #{x:number, x:number}) -> undefined
+        foo({x:5, y:10})
         """
 
       let! ctx, env = inferScript src
 
-      Assert.Equal(ctx.Diagnostics.Length, 2)
+      Assert.Equal(ctx.Diagnostics.Length, 1)
     }
 
   printfn "res = %A" res

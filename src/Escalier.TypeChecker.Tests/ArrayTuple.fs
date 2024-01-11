@@ -388,6 +388,34 @@ let InferBasicImmutableTypes () =
 
   Assert.False(Result.isError res)
 
+
+[<Fact>]
+let DestructuringImmutableTypes () =
+  let res =
+    result {
+      let src =
+        """
+        let [a, b] = #[5, "hello"]
+        let #[c, d] = #[5, "hello"]
+        let {e, f} = #{e: 5, f: "hello"}
+        let #{g, h} = #{g: 5, h: "hello"}
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "a", "5")
+      Assert.Value(env, "b", "\"hello\"")
+      Assert.Value(env, "c", "5")
+      Assert.Value(env, "d", "\"hello\"")
+      Assert.Value(env, "e", "5")
+      Assert.Value(env, "f", "\"hello\"")
+      Assert.Value(env, "g", "5")
+      Assert.Value(env, "h", "\"hello\"")
+    }
+
+  Assert.False(Result.isError res)
+
+
 [<Fact>]
 let ImmutableTuplesAreIncompatibleWithRegularTuples () =
   let res =

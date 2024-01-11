@@ -368,5 +368,61 @@ let InferDestructureTuple () =
       Assert.Value(env, "rest", "[string, boolean]")
     }
 
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferBasicImmutableTypes () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = #[5, "hello", true]
+        let record = #{ a: 5, b: "hello", c: true }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "tuple", "#[5, \"hello\", true]")
+      Assert.Value(env, "record", "#{a: 5, b: \"hello\", c: true}")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let ImmutableTuplesAreIncompatibleWithRegularTuples () =
+  let res =
+    result {
+      let src =
+        """
+        declare let foo: fn (point: [number, number]) -> undefined
+        declare let bar: fn (point: #[number, number]) -> undefined
+        foo(#[5, 10])
+        bar([5, 10])
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 2)
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let ImmutableObjectsAreIncompatibleWithRegularObjects () =
+  let res =
+    result {
+      let src =
+        """
+        declare let foo: fn (point: {x:number, y:number}) -> undefined
+        declare let bar: fn (point: #{x:number, x:number}) -> undefined
+        foo(#{x:5, y:10})
+        bar({x:5, y:10})
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 2)
+    }
+
   printfn "res = %A" res
   Assert.False(Result.isError res)

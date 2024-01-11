@@ -32,6 +32,9 @@ module rec Unify =
       | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
       | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
       | TypeKind.Tuple tuple1, TypeKind.Tuple tuple2 ->
+        if tuple1.Immutable <> tuple2.Immutable then
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
         let elemTypes, restTypes =
           List.partition
             (fun (elem: Type) ->
@@ -71,6 +74,9 @@ module rec Unify =
         // whose length is `number`.
         do! unify ctx env elemType1.Elem elemType2.Elem
       | TypeKind.Tuple tuple, TypeKind.Array array ->
+        if tuple.Immutable then
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
         // TODO: check if array.Elem is `unique number`
         // If it is, then we can't unify these since the tuple could be
         // longer or short than the array.
@@ -237,6 +243,8 @@ module rec Unify =
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
+        if obj1.Immutable <> obj2.Immutable then
+          return! Error(TypeError.TypeMismatch(t1, t2))
 
         let namedProps1 =
           List.choose

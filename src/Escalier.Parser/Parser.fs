@@ -223,9 +223,17 @@ module Parser =
 
   // TODO: spread/rest elements
   let tupleExpr: Parser<Expr, unit> =
-    tuple expr |> withSpan
+    withSpan (between (strWs "[") (strWs "]") (sepBy expr (strWs ",")))
     |>> fun (exprs, span) ->
       { Kind = ExprKind.Tuple { Elems = exprs; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  // TODO: spread/rest elements
+  let imTupleExpr: Parser<Expr, unit> =
+    withSpan (between (strWs "#[") (strWs "]") (sepBy expr (strWs ",")))
+    |>> fun (exprs, span) ->
+      { Kind = ExprKind.Tuple { Elems = exprs; Immutable = true }
         Span = span
         InferredType = None }
 
@@ -337,14 +345,6 @@ module Parser =
               Finally = finally_
               Throws = None }
         Span = { Start = start; Stop = stop }
-        InferredType = None }
-
-  // TODO: spread/rest elements
-  let imTupleExpr: Parser<Expr, unit> =
-    withSpan (between (strWs "#[") (strWs "]") (sepBy expr (strWs ",")))
-    |>> fun (exprs, span) ->
-      { Kind = ExprKind.Tuple { Elems = exprs; Immutable = true }
-        Span = span
         InferredType = None }
 
   let imRecordExpr: Parser<Expr, unit> =
@@ -647,10 +647,18 @@ module Parser =
         InferredType = None }
 
   let private tuplePattern =
-    tuple pattern |> withSpan
+    between (strWs "[") (strWs "]") (sepBy pattern (strWs ",")) |> withSpan
     |>> fun (patterns, span) ->
       // TODO: handle immutable tuple patterns
       { Pattern.Kind = PatternKind.Tuple { Elems = patterns; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  let private imTuplePattern =
+    between (strWs "#[") (strWs "]") (sepBy pattern (strWs ",")) |> withSpan
+    |>> fun (patterns, span) ->
+      // TODO: handle immutable tuple patterns
+      { Pattern.Kind = PatternKind.Tuple { Elems = patterns; Immutable = true }
         Span = span
         InferredType = None }
 
@@ -713,6 +721,14 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private imObjectPattern =
+    withSpan (between (strWs "#{") (strWs "}") (sepBy objPatElem (strWs ",")))
+    |>> fun (elems, span) ->
+      // TODO: handle immutable object patterns
+      { Pattern.Kind = PatternKind.Object { Elems = elems; Immutable = true }
+        Span = span
+        InferredType = None }
+
   let private restPattern =
     withSpan (strWs "..." >>. pattern)
     |>> fun (pattern, span) ->
@@ -726,7 +742,9 @@ module Parser =
         literalPattern
         wildcardPattern
         objectPattern
+        imObjectPattern
         tuplePattern
+        imTuplePattern
         restPattern ]
 
   let private litTypeAnn =
@@ -777,9 +795,16 @@ module Parser =
         InferredType = None }
 
   let private tupleTypeAnn =
-    tuple typeAnn |> withSpan
+    between (strWs "[") (strWs "]") (sepBy typeAnn (strWs ",")) |> withSpan
     |>> fun (typeAnns, span) ->
       { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  let private imTupleTypeAnn =
+    between (strWs "#[") (strWs "]") (sepBy typeAnn (strWs ",")) |> withSpan
+    |>> fun (typeAnns, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = true }
         Span = span
         InferredType = None }
 
@@ -877,6 +902,15 @@ module Parser =
     |>> fun (objElems, span) ->
       { TypeAnn.Kind =
           TypeAnnKind.Object { Elems = objElems; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  let private imObjectTypeAnn =
+    withSpan (
+      between (strWs "#{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
+    )
+    |>> fun (objElems, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Object { Elems = objElems; Immutable = true }
         Span = span
         InferredType = None }
 
@@ -1002,12 +1036,14 @@ module Parser =
         uniqueSymbolTypeAnn
         uniqueNumberTypeAnn
         tupleTypeAnn
+        imTupleTypeAnn
         funcTypeAnn
         typeofTypeAnn // aka TypeQuery
         keyofTypeAnn
         inferType
         restTypeAnn
         objectTypeAnn
+        imObjectTypeAnn
         condTypeAnn
         tmplLitType
         // TODO: thisTypeAnn

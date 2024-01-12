@@ -1040,6 +1040,11 @@ module rec Infer =
             })
           cases
 
+      // TODO: We have to unify one pattern at a time, but in order to do
+      // that we need to replace the type params in `exprType` with fresh types
+      // and then union the results together afterwards.  We'll need to have
+      // some sort of mapping to keep track of all of these type variables.
+
       // Unify all pattern types with `exprType`
       do! unify ctx env (union patternTypes) exprType
 

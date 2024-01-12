@@ -11,6 +11,16 @@ module Error =
     | RecursiveUnification of Type * Type
     | WrongNumberOfTypeArgs
 
+    override this.ToString() =
+      match this with
+      | NotImplemented s -> $"NotImplemented: {s}"
+      | SemanticError s -> $"SemanticError: {s}"
+      | NotInferred -> "NotInferred"
+      | TypeMismatch(``type``, type1) -> $"TypeMismatch: {``type``} != {type1}"
+      | RecursiveUnification(``type``, type1) ->
+        $"RecursiveUnification: {``type``} != {type1}"
+      | WrongNumberOfTypeArgs -> "WrongNumberOfTypeArgs"
+
   type Diagnostic =
     { Description: string
       Reasons: list<TypeError> }

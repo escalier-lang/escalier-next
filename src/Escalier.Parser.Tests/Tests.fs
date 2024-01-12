@@ -515,3 +515,17 @@ let ParseInferType () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseRecordTuple () =
+  let src =
+    """
+    let p0 = #[5, 10]
+    let p1 = #{x: 5, y: 10}
+    let line = #{p0, p1}
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

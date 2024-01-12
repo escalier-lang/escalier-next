@@ -102,6 +102,10 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
+  type Object<'T> = { Elems: list<'T>; Immutable: bool }
+
+  type Tuple<'T> = { Elems: list<'T>; Immutable: bool }
+
   type Range<'T> =
     { Min: 'T
       Max: 'T } // non-inclusive
@@ -201,7 +205,8 @@ module Syntax =
     | Literal of Common.Literal
     | Function of Function
     | Call of Call
-    | Tuple of elements: list<Expr>
+    | Object of Common.Object<ObjElem>
+    | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
     | Index of target: Expr * index: Expr * opt_chain: bool
     | Member of target: Expr * name: string * opt_chain: bool
@@ -213,7 +218,6 @@ module Syntax =
     | Assign of op: string * left: Expr * right: Expr
     | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
     | Unary of op: string * value: Expr
-    | Object of elems: list<ObjElem>
     | Try of Try
     | Do of body: Block
     | Await of Await
@@ -278,8 +282,8 @@ module Syntax =
   [<RequireQualifiedAccess>]
   type PatternKind =
     | Ident of IdentPat
-    | Object of list<ObjPatElem> // TODO: rest patterns
-    | Tuple of list<Pattern> // TODO: rest patterns
+    | Object of Common.Object<ObjPatElem> // TODO: rest patterns
+    | Tuple of Common.Object<Pattern> // TODO: rest patterns
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
     | Rest of Pattern
@@ -368,8 +372,8 @@ module Syntax =
   type TypeAnnKind =
     | Literal of Common.Literal
     | Keyword of keyword: KeywordTypeAnn
-    | Object of elems: list<ObjTypeAnnElem>
-    | Tuple of elems: list<TypeAnn>
+    | Object of Common.Object<ObjTypeAnnElem>
+    | Tuple of Common.Tuple<TypeAnn>
     | Array of elem: TypeAnn
     | Range of Common.Range<TypeAnn>
     | Union of types: list<TypeAnn>
@@ -472,10 +476,8 @@ module Type =
 
   type Pattern =
     | Identifier of name: string
-    | Object of elems: list<ObjPatElem>
-    // TODO: support sparse tuples
-    // TODO: support rest patterns
-    | Tuple of elems: list<option<Pattern>>
+    | Object of Common.Object<ObjPatElem>
+    | Tuple of Common.Tuple<option<Pattern>>
     | Wildcard
     | Literal of Common.Literal
     | Rest of target: Pattern
@@ -483,7 +485,7 @@ module Type =
     override this.ToString() =
       match this with
       | Identifier name -> name
-      | Object elems ->
+      | Object { Elems = elems; Immutable = immutable } ->
         let elems =
           List.map
             (fun elem ->
@@ -500,12 +502,17 @@ module Type =
             elems
 
         let elems = String.concat ", " elems
-        $"{{{elems}}}"
-      | Tuple elems ->
+
+        match immutable with
+        | true -> $"#{{{elems}}}"
+        | false -> $"{{{elems}}}"
+      | Tuple { Elems = elems; Immutable = immutable } ->
         let elems =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
-        $"[{elems}]"
+        match immutable with
+        | true -> $"#[{elems}]"
+        | false -> $"[{elems}]"
       | Wildcard -> "_"
       | Literal lit -> lit.ToString()
       // | Is({ Name = name }, id) -> $"{name} is {id}"
@@ -684,7 +691,9 @@ module Type =
     | Primitive of Primitive
     | Keyword of Keyword
     | Function of Function
-    | Object of list<ObjTypeElem>
+    | Object of Common.Object<ObjTypeElem>
+    | Tuple of Common.Tuple<Type>
+    | Array of Array
     | Rest of Type
     | Literal of Common.Literal
     | Range of Common.Range<Type>
@@ -692,8 +701,6 @@ module Type =
     | UniqueNumber of id: int
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
-    | Tuple of list<Type>
-    | Array of Array
     | KeyOf of Type
     | Index of target: Type * index: Type
     | Condition of Condition
@@ -742,14 +749,16 @@ module Type =
         List.map (fun item -> item.ToString()) types |> String.concat " | "
       | TypeKind.Intersection types ->
         List.map (fun item -> item.ToString()) types |> String.concat " & "
-      | TypeKind.Tuple elems ->
+      | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
         let elems =
           List.map (fun item -> item.ToString()) elems |> String.concat ", "
 
-        $"[{elems}]"
+        match immutable with
+        | true -> $"#[{elems}]"
+        | false -> $"[{elems}]"
       | TypeKind.Array t -> t.ToString()
       | TypeKind.Wildcard -> "_"
-      | TypeKind.Object elems ->
+      | TypeKind.Object { Elems = elems; Immutable = immutable } ->
         let elems =
           List.map
             (fun (elem: ObjTypeElem) ->
@@ -768,7 +777,10 @@ module Type =
             elems
 
         let elems = String.concat ", " elems
-        $"{{{elems}}}"
+
+        match immutable with
+        | true -> $"#{{{elems}}}"
+        | false -> $"{{{elems}}}"
       | TypeKind.Rest t -> $"...{t}"
       | TypeKind.Index(target, index) -> $"{target}[{index}]"
       | TypeKind.Condition { Check = check

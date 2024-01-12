@@ -22,28 +22,31 @@ module rec Infer =
       Pattern.Identifier(name)
     // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
     //   Pattern.Is(bindingIdent, isName)
-    | PatternKind.Object elems ->
-      Pattern.Object(
-        List.map
-          (fun (elem: Syntax.ObjPatElem) ->
-            match elem with
-            | Syntax.ObjPatElem.KeyValuePat { Key = key
-                                              Value = value
-                                              Default = init } ->
-              ObjPatElem.KeyValuePat(key, patternToPattern value, init)
-            | Syntax.ObjPatElem.ShorthandPat { Name = name
-                                               Default = init
-                                               IsMut = isMut
-                                               Assertion = assertion } ->
-              // TODO: isMut
-              ObjPatElem.ShorthandPat(name, init)
-            | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
-              // TODO: isMut
-              ObjPatElem.RestPat(patternToPattern target))
-          elems
-      )
-    | PatternKind.Tuple elems ->
-      Pattern.Tuple(List.map (patternToPattern >> Some) elems)
+    | PatternKind.Object { Elems = elems; Immutable = immutable } ->
+      Pattern.Object
+        { Elems =
+            List.map
+              (fun (elem: Syntax.ObjPatElem) ->
+                match elem with
+                | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                                  Value = value
+                                                  Default = init } ->
+                  ObjPatElem.KeyValuePat(key, patternToPattern value, init)
+                | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                                   Default = init
+                                                   IsMut = isMut
+                                                   Assertion = assertion } ->
+                  // TODO: isMut
+                  ObjPatElem.ShorthandPat(name, init)
+                | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
+                  // TODO: isMut
+                  ObjPatElem.RestPat(patternToPattern target))
+              elems
+          Immutable = immutable }
+    | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
+      Pattern.Tuple
+        { Elems = List.map (patternToPattern >> Some) elems
+          Immutable = immutable }
     | PatternKind.Wildcard { Assertion = assertion } -> Pattern.Wildcard
     | PatternKind.Literal lit -> Pattern.Literal lit
     | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
@@ -224,11 +227,12 @@ module rec Infer =
             }
 
           return makeFunctionType typeParams paramList retType throwsType
-        | ExprKind.Tuple elems ->
+        | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
           return
-            { Type.Kind = TypeKind.Tuple(elems)
+            { Type.Kind =
+                TypeKind.Tuple { Elems = elems; Immutable = immutable }
               Provenance = None }
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           let! conditionTy = inferExpr ctx env condition
@@ -247,7 +251,7 @@ module rec Infer =
             | None ->
               { Kind = TypeKind.Literal(Literal.Undefined)
                 Provenance = None }
-        | ExprKind.Object elems ->
+        | ExprKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable spreadTypes = []
 
           let! elems =
@@ -288,7 +292,7 @@ module rec Infer =
           let elems = elems |> List.choose id
 
           let objType =
-            { Kind = TypeKind.Object(elems)
+            { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
               Provenance = None }
 
           match spreadTypes with
@@ -462,7 +466,7 @@ module rec Infer =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.Object elems ->
+    | TypeKind.Object { Elems = elems } ->
       let elems =
         List.choose
           (fun (elem: ObjTypeElem) ->
@@ -525,7 +529,7 @@ module rec Infer =
 
           union [ t; undefined ]
         | _ -> failwith "TODO: lookup member on union type"
-    | TypeKind.Tuple elems ->
+    | TypeKind.Tuple { Elems = elems } ->
       match key with
       | PropName.String "length" ->
         { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
@@ -638,7 +642,7 @@ module rec Infer =
           | KeywordTypeAnn.Unknown -> return TypeKind.Keyword Keyword.Unknown
           | KeywordTypeAnn.Never -> return TypeKind.Keyword Keyword.Never
           | KeywordTypeAnn.Object -> return TypeKind.Keyword Keyword.Object
-        | TypeAnnKind.Object elems ->
+        | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
           let! elems =
             List.traverseResultM
               (fun (elem: ObjTypeAnnElem) ->
@@ -701,10 +705,10 @@ module rec Infer =
                 })
               elems
 
-          return TypeKind.Object(elems)
-        | TypeAnnKind.Tuple elems ->
+          return TypeKind.Object { Elems = elems; Immutable = immutable }
+        | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferTypeAnn ctx env) elems
-          return TypeKind.Tuple(elems)
+          return TypeKind.Tuple { Elems = elems; Immutable = immutable }
         | TypeAnnKind.Union types ->
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return (union types).Kind
@@ -919,7 +923,7 @@ module rec Infer =
       | PatternKind.Literal lit ->
         { Type.Kind = TypeKind.Literal lit
           Provenance = None }
-      | PatternKind.Object elems ->
+      | PatternKind.Object { Elems = elems; Immutable = immutable } ->
         let mutable restType: option<Type> = None
 
         let elems: list<ObjTypeElem> =
@@ -967,7 +971,7 @@ module rec Infer =
             elems
 
         let objType =
-          { Type.Kind = TypeKind.Object(elems)
+          { Type.Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
             Provenance = None }
 
         match restType with
@@ -975,10 +979,10 @@ module rec Infer =
           { Type.Kind = TypeKind.Intersection([ objType; restType ])
             Provenance = None }
         | None -> objType
-      | PatternKind.Tuple elems ->
-        let elems' = List.map infer_pattern_rec elems
+      | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
+        let elems = List.map infer_pattern_rec elems
 
-        { Type.Kind = TypeKind.Tuple(elems')
+        { Type.Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
           Provenance = None }
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
@@ -1035,6 +1039,11 @@ module rec Infer =
               return assump
             })
           cases
+
+      // TODO: We have to unify one pattern at a time, but in order to do
+      // that we need to replace the type params in `exprType` with fresh types
+      // and then union the results together afterwards.  We'll need to have
+      // some sort of mapping to keep track of all of these type variables.
 
       // Unify all pattern types with `exprType`
       do! unify ctx env (union patternTypes) exprType
@@ -1130,7 +1139,7 @@ module rec Infer =
         let elemType =
           match expandedRightType.Kind with
           | TypeKind.Array { Elem = elem; Length = length } -> elem
-          | TypeKind.Tuple elemTypes -> union elemTypes
+          | TypeKind.Tuple { Elems = elems } -> union elems
           | TypeKind.Range _ -> expandedRightType
           | TypeKind.Object _ ->
             // TODO: try using unify and/or an utility type to extract the

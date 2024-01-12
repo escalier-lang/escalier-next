@@ -13,67 +13,77 @@ output: Ok
                   ("RangeIterator",
                    { Kind =
                       Object
-                        [Property
-                           { Name = String "next"
-                             TypeAnn =
-                              { Kind =
-                                 Function
-                                   { TypeParams = None
-                                     ParamList = []
-                                     ReturnType =
-                                      { Kind =
-                                         Object
-                                           [Property
-                                              { Name = String "done"
-                                                TypeAnn =
-                                                 { Kind = Keyword Boolean
-                                                   Span =
-                                                    { Start = (Ln: 3, Col: 32)
-                                                      Stop = (Ln: 3, Col: 39) }
-                                                   InferredType = None }
-                                                Optional = false
-                                                Readonly = false };
-                                            Property
-                                              { Name = String "value"
-                                                TypeAnn =
-                                                 { Kind =
-                                                    Range
-                                                      { Min =
-                                                         { Kind =
-                                                            TypeRef
-                                                              ("Min", None)
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 3, Col: 48)
-                                                              Stop =
-                                                               (Ln: 3, Col: 51) }
-                                                           InferredType = None }
-                                                        Max =
-                                                         { Kind =
-                                                            TypeRef
-                                                              ("Max", None)
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 3, Col: 53)
-                                                              Stop =
-                                                               (Ln: 3, Col: 57) }
-                                                           InferredType = None } }
-                                                   Span =
-                                                    { Start = (Ln: 3, Col: 48)
-                                                      Stop = (Ln: 3, Col: 57) }
-                                                   InferredType = None }
-                                                Optional = false
-                                                Readonly = false }]
-                                        Span = { Start = (Ln: 3, Col: 24)
-                                                 Stop = (Ln: 4, Col: 7) }
-                                        InferredType = None }
-                                     Throws = None
-                                     IsAsync = false }
-                                Span = { Start = (Ln: 3, Col: 15)
-                                         Stop = (Ln: 4, Col: 7) }
-                                InferredType = None }
-                             Optional = false
-                             Readonly = false }]
+                        { Elems =
+                           [Property
+                              { Name = String "next"
+                                TypeAnn =
+                                 { Kind =
+                                    Function
+                                      { TypeParams = None
+                                        ParamList = []
+                                        ReturnType =
+                                         { Kind =
+                                            Object
+                                              { Elems =
+                                                 [Property
+                                                    { Name = String "done"
+                                                      TypeAnn =
+                                                       { Kind = Keyword Boolean
+                                                         Span =
+                                                          { Start =
+                                                             (Ln: 3, Col: 32)
+                                                            Stop =
+                                                             (Ln: 3, Col: 39) }
+                                                         InferredType = None }
+                                                      Optional = false
+                                                      Readonly = false };
+                                                  Property
+                                                    { Name = String "value"
+                                                      TypeAnn =
+                                                       { Kind =
+                                                          Range
+                                                            { Min =
+                                                               { Kind =
+                                                                  TypeRef
+                                                                    ("Min", None)
+                                                                 Span =
+                                                                  { Start =
+                                                                     (Ln: 3, Col: 48)
+                                                                    Stop =
+                                                                     (Ln: 3, Col: 51) }
+                                                                 InferredType =
+                                                                  None }
+                                                              Max =
+                                                               { Kind =
+                                                                  TypeRef
+                                                                    ("Max", None)
+                                                                 Span =
+                                                                  { Start =
+                                                                     (Ln: 3, Col: 53)
+                                                                    Stop =
+                                                                     (Ln: 3, Col: 57) }
+                                                                 InferredType =
+                                                                  None } }
+                                                         Span =
+                                                          { Start =
+                                                             (Ln: 3, Col: 48)
+                                                            Stop =
+                                                             (Ln: 3, Col: 57) }
+                                                         InferredType = None }
+                                                      Optional = false
+                                                      Readonly = false }]
+                                                Immutable = false }
+                                           Span = { Start = (Ln: 3, Col: 24)
+                                                    Stop = (Ln: 4, Col: 7) }
+                                           InferredType = None }
+                                        Throws = None
+                                        IsAsync = false }
+                                   Span = { Start = (Ln: 3, Col: 15)
+                                            Stop = (Ln: 4, Col: 7) }
+                                   InferredType = None }
+                                Optional = false
+                                Readonly = false }]
+                          Immutable = false }
                      Span = { Start = (Ln: 2, Col: 54)
                               Stop = (Ln: 5, Col: 5) }
                      InferredType = None },

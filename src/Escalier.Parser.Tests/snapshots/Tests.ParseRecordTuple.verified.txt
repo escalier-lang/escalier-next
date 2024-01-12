@@ -1,0 +1,99 @@
+﻿input: 
+    let p0 = #[5, 10]
+    let p1 = #{x: 5, y: 10}
+    let line = #{p0, p1}
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Ident { Name = "p0"
+                                    IsMut = false
+                                    Assertion = None }
+                     Span = { Start = (Ln: 2, Col: 9)
+                              Stop = (Ln: 2, Col: 12) }
+                     InferredType = None },
+                   { Kind =
+                      Tuple
+                        { Elems =
+                           [{ Kind = Literal (Number (Int 5))
+                              Span = { Start = (Ln: 2, Col: 16)
+                                       Stop = (Ln: 2, Col: 17) }
+                              InferredType = None };
+                            { Kind = Literal (Number (Int 10))
+                              Span = { Start = (Ln: 2, Col: 19)
+                                       Stop = (Ln: 2, Col: 21) }
+                              InferredType = None }]
+                          Immutable = true }
+                     Span = { Start = (Ln: 2, Col: 14)
+                              Stop = (Ln: 3, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Ident { Name = "p1"
+                                    IsMut = false
+                                    Assertion = None }
+                     Span = { Start = (Ln: 3, Col: 9)
+                              Stop = (Ln: 3, Col: 12) }
+                     InferredType = None },
+                   { Kind =
+                      Object
+                        { Elems =
+                           [Property
+                              ({ Start = (Ln: 3, Col: 16)
+                                 Stop = (Ln: 3, Col: 20) }, String "x",
+                               { Kind = Literal (Number (Int 5))
+                                 Span = { Start = (Ln: 3, Col: 19)
+                                          Stop = (Ln: 3, Col: 20) }
+                                 InferredType = None });
+                            Property
+                              ({ Start = (Ln: 3, Col: 22)
+                                 Stop = (Ln: 3, Col: 27) }, String "y",
+                               { Kind = Literal (Number (Int 10))
+                                 Span = { Start = (Ln: 3, Col: 25)
+                                          Stop = (Ln: 3, Col: 27) }
+                                 InferredType = None })]
+                          Immutable = true }
+                     Span = { Start = (Ln: 3, Col: 14)
+                              Stop = (Ln: 4, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 3, Col: 5)
+                        Stop = (Ln: 4, Col: 5) } }
+          Span = { Start = (Ln: 3, Col: 5)
+                   Stop = (Ln: 4, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Ident { Name = "line"
+                                    IsMut = false
+                                    Assertion = None }
+                     Span = { Start = (Ln: 4, Col: 9)
+                              Stop = (Ln: 4, Col: 14) }
+                     InferredType = None },
+                   { Kind =
+                      Object
+                        { Elems =
+                           [Shorthand ({ Start = (Ln: 4, Col: 18)
+                                         Stop = (Ln: 4, Col: 20) }, "p0");
+                            Shorthand ({ Start = (Ln: 4, Col: 22)
+                                         Stop = (Ln: 4, Col: 24) }, "p1")]
+                          Immutable = true }
+                     Span = { Start = (Ln: 4, Col: 16)
+                              Stop = (Ln: 5, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 4, Col: 5)
+                        Stop = (Ln: 5, Col: 5) } }
+          Span = { Start = (Ln: 4, Col: 5)
+                   Stop = (Ln: 5, Col: 5) } }] }

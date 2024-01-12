@@ -21,6 +21,11 @@ module Prelude =
     | ParseError of ParserError
     | TypeError of TypeError
 
+    override x.ToString() =
+      match x with
+      | ParseError err -> $"ParseError: {err}"
+      | TypeError err -> $"TypeError: {err}"
+
   let private resolvePath
     (baseDir: string)
     (currentPath: string)

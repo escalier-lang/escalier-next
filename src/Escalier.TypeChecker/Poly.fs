@@ -30,10 +30,10 @@ module Poly =
                     // TODO: fold TypeParams
                     Return = fold f.Return }
             Provenance = None }
-        | TypeKind.Tuple(elems) ->
+        | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
           let elems = List.map fold elems
 
-          { Kind = TypeKind.Tuple(elems)
+          { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
             Provenance = None }
         | TypeKind.TypeRef({ Name = name
                              TypeArgs = typeArgs
@@ -54,7 +54,7 @@ module Poly =
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
-        | TypeKind.Object elems ->
+        | TypeKind.Object { Elems = elems; Immutable = immutable } ->
           let elems =
             List.map
               (fun elem ->
@@ -63,7 +63,7 @@ module Poly =
                 | _ -> failwith "TODO: foldType - ObjTypeElem")
               elems
 
-          { Kind = TypeKind.Object(elems)
+          { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
             Provenance = None }
         | TypeKind.Rest t ->
           { Kind = TypeKind.Rest(fold t)

@@ -257,7 +257,7 @@ let InferRangeWithArrayLength () =
       let src =
         """
         declare let array: number[]
-        
+
         let length = array.length
         for x in 0..length {
           let item: number = array[x]
@@ -366,6 +366,125 @@ let InferDestructureTuple () =
       let! _, env = inferScript src
 
       Assert.Value(env, "rest", "[string, boolean]")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferBasicImmutableTypes () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = #[5, "hello", true]
+        let record = #{ a: 5, b: "hello", c: true }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "tuple", "#[5, \"hello\", true]")
+      Assert.Value(env, "record", "#{a: 5, b: \"hello\", c: true}")
+    }
+
+  Assert.False(Result.isError res)
+
+
+[<Fact>]
+let DestructuringImmutableTypes () =
+  let res =
+    result {
+      let src =
+        """
+        let [a, b] = #[5, "hello"]
+        let #[c, d] = #[5, "hello"]
+        let {e, f} = #{e: 5, f: "hello"}
+        let #{g, h} = #{g: 5, h: "hello"}
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "a", "5")
+      Assert.Value(env, "b", "\"hello\"")
+      Assert.Value(env, "c", "5")
+      Assert.Value(env, "d", "\"hello\"")
+      Assert.Value(env, "e", "5")
+      Assert.Value(env, "f", "\"hello\"")
+      Assert.Value(env, "g", "5")
+      Assert.Value(env, "h", "\"hello\"")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let PartialDestructuring () =
+  let res =
+    result {
+      let src =
+        """
+        let [a] = [5, "hello"]
+        let {b} = {a: 5, b: "hello"}
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "a", "5")
+      Assert.Value(env, "b", "\"hello\"")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let PatternMatchingImmutableTypes () =
+  let res =
+    result {
+      let src =
+        """
+        declare let value: #[number, string] | #{a: number, b: string}
+        let result = match value {
+          | #[a, b] => a
+          | #{a, b} => a
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "result", "number")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+
+[<Fact>]
+let ImmutableTuplesAreIncompatibleWithRegularTuples () =
+  let res =
+    result {
+      let src =
+        """
+        declare let foo: fn (point: #[number, number]) -> undefined
+        foo([5, 10])
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let ImmutableObjectsAreIncompatibleWithRegularObjects () =
+  let res =
+    result {
+      let src =
+        """
+        declare let foo: fn (point: #{x:number, x:number}) -> undefined
+        foo({x:5, y:10})
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
     }
 
   printfn "res = %A" res

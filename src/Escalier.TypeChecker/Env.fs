@@ -264,7 +264,7 @@ module rec Env =
         let t = expandType ctx env unify mapping t
 
         match t.Kind with
-        | TypeKind.Object elems ->
+        | TypeKind.Object { Elems = elems } ->
           let keys =
             elems
             |> List.choose (fun elem ->
@@ -301,7 +301,7 @@ module rec Env =
           | _ -> failwith "TODO: expand index - key type"
 
         match target.Kind with
-        | TypeKind.Object elems ->
+        | TypeKind.Object { Elems = elems } ->
           let mutable t = None
 
           for elem in elems do
@@ -370,7 +370,7 @@ module rec Env =
       // TODO: instead of expanding object types, we should try to
       // look up properties on the object type without expanding it
       // since expansion can be quite expensive
-      | TypeKind.Object elems ->
+      | TypeKind.Object { Elems = elems; Immutable = immutable } ->
         let elems =
           elems
           |> List.collect (fun elem ->
@@ -439,7 +439,7 @@ module rec Env =
             | _ -> [ elem ])
 
         let t =
-          { Kind = TypeKind.Object(elems)
+          { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
             Provenance = None // TODO: set provenance
           }
 

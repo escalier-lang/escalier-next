@@ -31,33 +31,36 @@ module rec Unify =
       | _, TypeKind.Wildcard -> ()
       | _, TypeKind.Keyword Keyword.Unknown -> () // All types are assignable to `unknown`
       | TypeKind.Keyword Keyword.Never, _ -> () // `never` is assignable to all types
-      | TypeKind.Tuple elems1, TypeKind.Tuple elems2 ->
+      | TypeKind.Tuple tuple1, TypeKind.Tuple tuple2 ->
+        if not tuple1.Immutable && tuple2.Immutable then
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
         let elemTypes, restTypes =
           List.partition
             (fun (elem: Type) ->
               match elem.Kind with
               | TypeKind.Rest _ -> false
               | _ -> true)
-            elems2
+            tuple2.Elems
 
         match restTypes with
         | [] ->
           // elems1 can have more elements than elems2 since it's a subtype
-          if List.length elems1 < List.length elemTypes then
+          if List.length tuple1.Elems < List.length elemTypes then
             return! Error(TypeError.TypeMismatch(t1, t2))
 
           // List.map2 only works if the lists have the same length so make
           // elems1 the same length as elemTypes (elems2)
-          let elems1 = List.take elemTypes.Length elems1
+          let elems1 = List.take elemTypes.Length tuple1.Elems
           List.map2 (unify ctx env) elems1 elemTypes |> ignore
         | [ { Kind = TypeKind.Rest t } ] ->
           // TODO: verify that the rest element comes last in the tuple
 
-          let elems1, restElems1 = List.splitAt elemTypes.Length elems1
+          let elems1, restElems1 = List.splitAt elemTypes.Length tuple1.Elems
           List.map2 (unify ctx env) elems1 elemTypes |> ignore
 
           let restTuple =
-            { Kind = TypeKind.Tuple restElems1
+            { Kind = TypeKind.Tuple { tuple1 with Elems = restElems1 }
               Provenance = None }
 
           do! unify ctx env restTuple t
@@ -70,7 +73,7 @@ module rec Unify =
         // An array whose length is `unique number` is a subtype of an array
         // whose length is `number`.
         do! unify ctx env elemType1.Elem elemType2.Elem
-      | TypeKind.Tuple tupleElemTypes, TypeKind.Array array ->
+      | TypeKind.Tuple tuple, TypeKind.Array array ->
         // TODO: check if array.Elem is `unique number`
         // If it is, then we can't unify these since the tuple could be
         // longer or short than the array.
@@ -84,7 +87,7 @@ module rec Unify =
               match elem.Kind with
               | TypeKind.Rest _ -> false
               | _ -> true)
-            tupleElemTypes
+            tuple.Elems
 
         // TODO: check for `Rest` types in tupleElemTypes, if we find one at the
         // end of the tuple, we can unify the rest of the array with it.
@@ -100,14 +103,14 @@ module rec Unify =
 
         for restType in restTypes do
           do! unify ctx env restType t2
-      | TypeKind.Array array, TypeKind.Tuple tupleElemTypes ->
+      | TypeKind.Array array, TypeKind.Tuple tuple ->
         let elemTypes, restTypes =
           List.partition
             (fun (elem: Type) ->
               match elem.Kind with
               | TypeKind.Rest _ -> false
               | _ -> true)
-            tupleElemTypes
+            tuple.Elems
 
         for elemType in elemTypes do
           do! unify ctx env array.Elem elemType
@@ -152,11 +155,12 @@ module rec Unify =
 
           let restParam1 =
             { Kind =
-                TypeKind.Tuple(
-                  List.map
-                    (fun (param: FuncParam) -> param.Type)
-                    (List.skip nonRestParams2.Length f1.ParamList)
-                )
+                TypeKind.Tuple
+                  { Elems =
+                      List.map
+                        (fun (param: FuncParam) -> param.Type)
+                        (List.skip nonRestParams2.Length f1.ParamList)
+                    Immutable = false }
               Provenance = None }
 
           do! unify ctx env restParam2.Type restParam1
@@ -235,7 +239,9 @@ module rec Unify =
         ()
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
-      | TypeKind.Object elems1, TypeKind.Object elems2 ->
+      | TypeKind.Object obj1, TypeKind.Object obj2 ->
+        if not obj1.Immutable && obj2.Immutable then
+          return! Error(TypeError.TypeMismatch(t1, t2))
 
         let namedProps1 =
           List.choose
@@ -244,7 +250,7 @@ module rec Unify =
               // TODO: handle methods, setters, and getters
               | Property p -> Some(p.Name, p)
               | _ -> None)
-            elems1
+            obj1.Elems
           |> Map.ofList
 
         let namedProps2 =
@@ -254,7 +260,7 @@ module rec Unify =
               // TODO: handle methods, setters, and getters
               | Property p -> Some(p.Name, p)
               | _ -> None)
-            elems2
+            obj2.Elems
           |> Map.ofList
 
         let undefined =
@@ -279,18 +285,23 @@ module rec Unify =
             if not prop2.Optional then
               return! Error(TypeError.TypeMismatch(t1, t2))
 
-      | TypeKind.Object allElems, TypeKind.Intersection types ->
+      | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
         let mutable restTypes = []
 
         for t in types do
           match t.Kind with
-          | TypeKind.Object elems -> combinedElems <- combinedElems @ elems
+          | TypeKind.Object { Elems = elems } ->
+            combinedElems <- combinedElems @ elems
           | TypeKind.Rest t -> restTypes <- t :: restTypes
           | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
         let objType =
-          { Kind = TypeKind.Object(combinedElems)
+          { Kind =
+              TypeKind.Object
+                { Elems = combinedElems
+                  // TODO: figure out what do do with `Immutable`
+                  Immutable = false }
             Provenance = None }
 
         match restTypes with
@@ -305,33 +316,40 @@ module rec Unify =
                     | Property ap, Property cp -> ap.Name = cp.Name
                     | _ -> false)
                   combinedElems)
-              allElems
+              obj.Elems
 
           let newObjType =
-            { Kind = TypeKind.Object(objElems)
+            // TODO: figure out what do do with `Immutable`
+            { Kind = TypeKind.Object { Elems = objElems; Immutable = false }
               Provenance = None }
 
           do! unify ctx env newObjType objType
 
           let newRestType =
-            { Kind = TypeKind.Object(restElems)
+            // TODO: figure out what do do with `Immutable`
+            { Kind = TypeKind.Object { Elems = restElems; Immutable = false }
               Provenance = None }
 
           do! unify ctx env newRestType restType
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
-      | TypeKind.Intersection types, TypeKind.Object allElems ->
+      | TypeKind.Intersection types, TypeKind.Object obj ->
         let mutable combinedElems = []
         let mutable restTypes = []
 
         for t in types do
           match t.Kind with
-          | TypeKind.Object elems -> combinedElems <- combinedElems @ elems
+          | TypeKind.Object { Elems = elems } ->
+            combinedElems <- combinedElems @ elems
           | TypeKind.Rest t -> restTypes <- t :: restTypes
           | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
         let objType =
-          { Kind = TypeKind.Object(combinedElems)
+          { Kind =
+              TypeKind.Object
+                { Elems = combinedElems
+                  // TODO: figure out what do do with `Immutable`
+                  Immutable = false }
             Provenance = None }
 
         match restTypes with
@@ -346,16 +364,18 @@ module rec Unify =
                     | Property ap, Property cp -> ap.Name = cp.Name
                     | _ -> false)
                   combinedElems)
-              allElems
+              obj.Elems
 
           let newObjType =
-            { Kind = TypeKind.Object(objElems)
+            // TODO: figure out what do do with `Immutable`
+            { Kind = TypeKind.Object { Elems = objElems; Immutable = false }
               Provenance = None }
 
           do! unify ctx env objType newObjType
 
           let newRestType =
-            { Kind = TypeKind.Object(restElems)
+            // TODO: figure out what do do with `Immutable`
+            { Kind = TypeKind.Object { Elems = restElems; Immutable = false }
               Provenance = None }
 
           do! unify ctx env restType newRestType

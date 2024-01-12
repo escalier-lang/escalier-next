@@ -285,7 +285,7 @@ module rec Infer =
         failwith "TODO: inferTsType - TsTypeQuery"
       | TsType.TsTypeLit tsTypeLit ->
         let elems = tsTypeLit.Members |> List.map (inferTypeElement ctx env)
-        TypeKind.Object elems
+        TypeKind.Object { Elems = elems; Immutable = false }
       | TsType.TsArrayType tsArrayType ->
         let id = ctx.FreshUniqueId()
 
@@ -301,11 +301,12 @@ module rec Infer =
           { Elem = inferTsType ctx env tsArrayType.ElemType
             Length = length }
       | TsType.TsTupleType tsTupleType ->
-        TypeKind.Tuple(
-          List.map
-            (fun elem -> inferTsType ctx env elem.Type)
-            tsTupleType.ElemTypes
-        )
+        TypeKind.Tuple
+          { Elems =
+              List.map
+                (fun elem -> inferTsType ctx env elem.Type)
+                tsTupleType.ElemTypes
+            Immutable = false }
       | TsType.TsOptionalType tsOptionalType ->
         failwith "TODO: inferTsType - TsOptionalType"
       | TsType.TsRestType tsRestType ->
@@ -366,7 +367,7 @@ module rec Infer =
 
         let elem = ObjTypeElem.Mapped mapped
 
-        TypeKind.Object [ elem ]
+        TypeKind.Object { Elems = [ elem ]; Immutable = false }
       | TsType.TsLitType tsLitType ->
         let lit =
           match tsLitType.Lit with
@@ -422,7 +423,7 @@ module rec Infer =
     | Pat.Ident ident -> Pattern.Identifier ident.Id.Name
     | Pat.Array arrayPat ->
       let elems = arrayPat.Elems |> List.map (Option.map <| (patToPattern env))
-      Pattern.Tuple elems
+      Pattern.Tuple { Elems = elems; Immutable = false }
     | Pat.Rest rest -> patToPattern env rest.Arg |> Pattern.Rest
     | Pat.Object objectPat ->
       let elems: list<ObjPatElem> =
@@ -444,7 +445,7 @@ module rec Infer =
           | ObjectPatProp.Rest { Arg = arg } ->
             patToPattern env arg |> ObjPatElem.RestPat)
 
-      Pattern.Object elems
+      Pattern.Object { Elems = elems; Immutable = false }
     // TODO: add assign patterns to Escalier's AST
     | Pat.Assign assignPat -> failwith "TODO: patToPattern - Assign"
     | Pat.Invalid invalid -> failwith "TODO: patToPattern - Invalid"
@@ -519,7 +520,7 @@ module rec Infer =
           tsInterfaceDecl.Body.Body |> List.map (inferTypeElement ctx env)
 
         let t =
-          { Kind = TypeKind.Object elems
+          { Kind = TypeKind.Object { Elems = elems; Immutable = false }
             Provenance = None }
 
         let scheme =

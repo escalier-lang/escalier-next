@@ -126,6 +126,10 @@ let PatternMatchingObjects () =
       Assert.Value(env, "centroid", "Point | {x: number / 2, y: number / 2}")
     }
 
+  match result with
+  | Ok resultValue -> printfn $"result = {resultValue}"
+  | Error errorValue -> printfn $"error = {errorValue}"
+
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -212,3 +216,28 @@ let PatternMatchingPrimitiveAssertions () =
     }
 
   Assert.False(Result.isError result)
+
+
+[<Fact(Skip = "TODO: allow partial matches")>]
+let PartialPatternMatching () =
+  let res =
+    result {
+      let src =
+        """
+        declare let value: [number, string] | {a: number, b: string}
+        let result = match value {
+          | [a] => a
+          | {a} => a
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "result", "number")
+    }
+
+  match res with
+  | Ok resultValue -> printfn $"res = Ok({resultValue})"
+  | Error errorValue -> printfn $"res = Error({errorValue})"
+
+  Assert.False(Result.isError res)

@@ -21,6 +21,7 @@ module rec Unify =
     (t2: Type)
     : Result<unit, TypeError> =
     // printfn $"unify({t1}, {t2})"
+    // printfn $"IsPatternMatching = {env.IsPatternMatching}"
 
     result {
       match (prune t1).Kind, (prune t2).Kind with
@@ -112,12 +113,25 @@ module rec Unify =
               | _ -> true)
             tuple.Elems
 
-        for elemType in elemTypes do
-          do! unify ctx env array.Elem elemType
-
         match restTypes with
-        | [] -> return! Error(TypeError.TypeMismatch(t1, t2))
-        | [ { Kind = TypeKind.Rest t } ] -> do! unify ctx env t1 t
+        | [] ->
+          // if env.IsPatternMatching then
+          //   for elemType in elemTypes do
+          //     do! unify ctx env array.Elem elemType
+          // else
+          let undefined =
+            { Kind = TypeKind.Literal(Literal.Undefined)
+              Provenance = None }
+
+          let arrayElem = union [ array.Elem; undefined ]
+
+          for elemType in elemTypes do
+            do! unify ctx env arrayElem elemType
+        | [ { Kind = TypeKind.Rest t } ] ->
+          for elemType in elemTypes do
+            do! unify ctx env array.Elem elemType
+
+          do! unify ctx env t1 t
         | _ ->
           // Multiple rest elements in undeciable
           // TODO: create an Undecable error type
@@ -267,23 +281,44 @@ module rec Unify =
           { Kind = TypeKind.Literal(Literal.Undefined)
             Provenance = None }
 
-        for KeyValue(name, prop2) in namedProps2 do
-          match namedProps1.TryFind name with
-          | Some(prop1) ->
-            let p1Type =
-              match prop1.Optional with
-              | true -> union [ prop1.Type; undefined ]
-              | false -> prop1.Type
+        if env.IsPatternMatching then
+          // Allow partial unification of object types when pattern matching
+          for KeyValue(name, prop1) in namedProps1 do
+            match namedProps2.TryFind name with
+            | Some(prop2) ->
+              let p1Type =
+                match prop1.Optional with
+                | true -> union [ prop1.Type; undefined ]
+                | false -> prop1.Type
 
-            let p2Type =
-              match prop2.Optional with
-              | true -> union [ prop2.Type; undefined ]
-              | false -> prop2.Type
+              let p2Type =
+                match prop2.Optional with
+                | true -> union [ prop2.Type; undefined ]
+                | false -> prop2.Type
 
-            do! unify ctx env p1Type p2Type
-          | None ->
-            if not prop2.Optional then
-              return! Error(TypeError.TypeMismatch(t1, t2))
+              do! unify ctx env p1Type p2Type
+            | None ->
+              // TODO: double check that this is correct
+              if not prop1.Optional then
+                return! Error(TypeError.TypeMismatch(t1, t2))
+        else
+          for KeyValue(name, prop2) in namedProps2 do
+            match namedProps1.TryFind name with
+            | Some(prop1) ->
+              let p1Type =
+                match prop1.Optional with
+                | true -> union [ prop1.Type; undefined ]
+                | false -> prop1.Type
+
+              let p2Type =
+                match prop2.Optional with
+                | true -> union [ prop2.Type; undefined ]
+                | false -> prop2.Type
+
+              do! unify ctx env p1Type p2Type
+            | None ->
+              if not prop2.Optional then
+                return! Error(TypeError.TypeMismatch(t1, t2))
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
@@ -413,6 +448,7 @@ module rec Unify =
         if t1' <> t1 || t2' <> t2 then
           return! unify ctx env t1' t2'
         else
+          printfn $"failed to unify {t1} and {t2}"
           return! Error(TypeError.TypeMismatch(t1, t2))
     }
 

@@ -947,7 +947,19 @@ module rec Infer =
                                                  Assertion = assertion } ->
                 // TODO: lookup `assertion` in `env`
 
-                let t = ctx.FreshTypeVar None
+                // let t = ctx.FreshTypeVar None
+                let t =
+                  match assertion with
+                  | Some qi ->
+                    let assertType =
+                      match qi with
+                      | { Left = None; Right = "string" } -> strType
+                      | { Left = None; Right = "number" } -> numType
+                      | { Left = None; Right = "boolean" } -> boolType
+                      | _ -> failwith $"TODO: lookup type of {qi}"
+
+                    assertType
+                  | None -> ctx.FreshTypeVar None
 
                 // TODO: check if `name` already exists in `assump`
                 assump <- assump.Add(name, (t, isMut))
@@ -1045,8 +1057,20 @@ module rec Infer =
       // and then union the results together afterwards.  We'll need to have
       // some sort of mapping to keep track of all of these type variables.
 
+      // TODO: write a function that checks if something has type variables in it
+
+      let mutable newExprTypes: list<Type> = []
+
       // Unify all pattern types with `exprType`
-      do! unify ctx env (union patternTypes) exprType
+      if hasTypeVars exprType then
+        for patternType in patternTypes do
+          let newExprType = fresh ctx exprType
+          do! unify ctx env patternType newExprType
+          newExprTypes <- newExprType :: newExprTypes
+      else
+        for patternType in patternTypes do
+          do!
+            unify ctx { env with IsPatternMatching = true } patternType exprType
 
       // Infer body types
       let! bodyTypes =
@@ -1068,7 +1092,15 @@ module rec Infer =
             })
           (List.zip cases assumps)
 
-      return patternTypes, bodyTypes
+
+      if newExprTypes.IsEmpty then
+        return patternTypes, bodyTypes
+      else
+        // TODO: simplify the union before unifying with `exprType`
+        let t = union newExprTypes
+        let t = simplifyUnion t
+        do! unify ctx env t exprType
+        return newExprTypes, bodyTypes
     }
 
   let inferTypeParam
@@ -1543,3 +1575,88 @@ module rec Infer =
     TypeVisitor.walkType visitor t
 
     infers
+
+  let hasTypeVars (t: Type) : bool =
+    let mutable hasTypeVars = false
+
+    let visitor =
+      fun (t: Type) ->
+        match t.Kind with
+        | TypeKind.TypeVar _ -> hasTypeVars <- true
+        | _ -> ()
+
+    TypeVisitor.walkType visitor (prune t)
+
+    hasTypeVars
+
+  let fresh (ctx: Ctx) (t: Type) : Type =
+
+    let folder: Type -> option<Type> =
+      fun t ->
+        match t.Kind with
+        | TypeKind.TypeVar _ -> Some(ctx.FreshTypeVar None)
+        | _ -> None
+
+    Folder.foldType folder t
+
+  let simplifyUnion (t: Type) : Type =
+    match (prune t).Kind with
+    | TypeKind.Union types ->
+      let objTypes, otherTypes =
+        List.partition
+          (fun t ->
+            match t.Kind with
+            | TypeKind.Object _ -> true
+            | _ -> false)
+          types
+
+      if objTypes.IsEmpty then
+        t
+      else
+        // Collect the types of each named property into a map of lists
+        let mutable namedTypes: Map<string, list<Type>> = Map.empty
+
+        // TODO: handle other object element types
+        for objType in objTypes do
+          match objType.Kind with
+          | TypeKind.Object { Elems = elems; Immutable = immutable } ->
+            for elem in elems do
+              match elem with
+              | ObjTypeElem.Property { Name = PropName.String name
+                                       Optional = optional
+                                       Readonly = readonly
+                                       Type = t } ->
+
+                let types =
+                  match Map.tryFind name namedTypes with
+                  | Some(types) -> types
+                  | None -> []
+
+                namedTypes <- Map.add name (t :: types) namedTypes
+              | _ -> ()
+          | _ -> ()
+
+        // Simplify each list of types
+        let namedTypes = namedTypes |> Map.map (fun name types -> union types)
+
+        // Create a new object type from the simplified named properties
+        let objTypeElems =
+          namedTypes
+          |> Map.map (fun name t ->
+            ObjTypeElem.Property
+              { Name = PropName.String name
+                Optional = false
+                Readonly = false
+                Type = t })
+          |> Map.values
+          |> Seq.toList
+
+        let objType =
+          { Kind =
+              TypeKind.Object
+                { Elems = objTypeElems
+                  Immutable = false }
+            Provenance = None }
+
+        union (objType :: otherTypes)
+    | _ -> t

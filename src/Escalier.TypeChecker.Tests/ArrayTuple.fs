@@ -434,28 +434,6 @@ let PartialDestructuring () =
   Assert.False(Result.isError res)
 
 [<Fact>]
-let PatternMatchingImmutableTypes () =
-  let res =
-    result {
-      let src =
-        """
-        declare let value: #[number, string] | #{a: number, b: string}
-        let result = match value {
-          | #[a, b] => a
-          | #{a, b} => a
-        }
-        """
-
-      let! _, env = inferScript src
-
-      Assert.Value(env, "result", "number")
-    }
-
-  printfn "res = %A" res
-  Assert.False(Result.isError res)
-
-
-[<Fact>]
 let ImmutableTuplesAreIncompatibleWithRegularTuples () =
   let res =
     result {
@@ -485,6 +463,24 @@ let ImmutableObjectsAreIncompatibleWithRegularObjects () =
       let! ctx, env = inferScript src
 
       Assert.Equal(ctx.Diagnostics.Length, 1)
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let DescructuringArray () =
+  let res =
+    result {
+      let src =
+        """
+        declare let array: number[]
+        let [a, b] = array
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "a", "number | undefined")
     }
 
   printfn "res = %A" res

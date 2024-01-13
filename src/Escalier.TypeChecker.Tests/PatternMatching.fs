@@ -59,6 +59,7 @@ let BasicPatternMatching () =
       )
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -81,11 +82,51 @@ let BasicPatternMatchingInferExpr () =
       Assert.Value(
         env,
         "foo",
-        "fn <A, B: number>(x: A | B | 1 | 0) -> \"none\" | \"one\" | \"negative\" | \"other\""
+        "fn <B, A: number>(x: 0 | 1 | A | B) -> \"none\" | \"one\" | \"negative\" | \"other\""
       )
     }
 
   printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (x, y) =>
+          match {x, y} {
+            | {x: 0, y: 0} => "origin"
+            | {x is number, y: 0} => "x-axis"
+            | {x: 0, y is number} => "y-axis"
+            | _ => "other"
+          }
+          
+        let bar = fn (x, y) =>
+          match {x, y} {
+            | {x: 0, y: 0} => "origin"
+            | {x is number, y: 0} => "x-axis"
+            | {x: 0, y is number} => "y-axis"
+            | {x is number, y is number} => "other"
+          }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn <A, B>(x: A | number, y: B | number) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
+      )
+
+      Assert.Value(
+        env,
+        "bar",
+        "fn (x: number, y: number) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
+      )
+    }
+
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -192,6 +233,7 @@ let PatternMatchingArrays () =
       Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -217,17 +259,40 @@ let PatternMatchingPrimitiveAssertions () =
 
   Assert.False(Result.isError result)
 
-
-[<Fact(Skip = "TODO: allow partial matches")>]
-let PartialPatternMatching () =
+[<Fact>]
+let PartialPatternMatchingObject () =
   let res =
     result {
       let src =
         """
-        declare let value: [number, string] | {a: number, b: string}
+        declare let value: {a: number, b: string} | [number, string]
         let result = match value {
-          | [a] => a
-          | {a} => a
+          | [a, _] => a
+          | {b} => b
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "result", "number | string")
+    }
+
+  match res with
+  | Ok resultValue -> printfn $"res = Ok({resultValue})"
+  | Error errorValue -> printfn $"res = Error({errorValue})"
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let PatternMatchingImmutableTypes () =
+  let res =
+    result {
+      let src =
+        """
+        declare let value: #[number, string] | #{a: number, b: string}
+        let result = match value {
+          | #[a, b] => a
+          | #{a, b} => a
         }
         """
 
@@ -236,8 +301,52 @@ let PartialPatternMatching () =
       Assert.Value(env, "result", "number")
     }
 
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+
+[<Fact>]
+let PatternMatchingDisallowsExtraProperties () =
+  let res =
+    result {
+      let src =
+        """
+        declare let value: {a: number, b: string}
+        let result = match value {
+          | {a, b: _, c: _} => a
+        }
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
   match res with
   | Ok resultValue -> printfn $"res = Ok({resultValue})"
   | Error errorValue -> printfn $"res = Error({errorValue})"
 
-  Assert.False(Result.isError res)
+  Assert.True(Result.isError res)
+
+[<Fact>]
+let PatternMatchingDisallowsPartialMappingOfTuples () =
+  let res =
+    result {
+      let src =
+        """
+        declare let value: [number, string]
+        let result = match value {
+          | [a] => a
+        }
+        """
+
+      let! _ = inferScript src
+
+      ()
+    }
+
+  match res with
+  | Ok resultValue -> printfn $"res = Ok({resultValue})"
+  | Error errorValue -> printfn $"res = Error({errorValue})"
+
+  Assert.True(Result.isError res)

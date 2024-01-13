@@ -233,7 +233,8 @@ module Prelude =
                 ("&&", logical) ]
 
           Env.Schemes = Map([ ("Promise", promise) ])
-          Env.IsAsync = false }
+          Env.IsAsync = false
+          Env.IsPatternMatching = false }
 
       let ctx =
         Ctx(

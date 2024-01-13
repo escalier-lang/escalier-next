@@ -947,7 +947,19 @@ module rec Infer =
                                                  Assertion = assertion } ->
                 // TODO: lookup `assertion` in `env`
 
-                let t = ctx.FreshTypeVar None
+                // let t = ctx.FreshTypeVar None
+                let t =
+                  match assertion with
+                  | Some qi ->
+                    let assertType =
+                      match qi with
+                      | { Left = None; Right = "string" } -> strType
+                      | { Left = None; Right = "number" } -> numType
+                      | { Left = None; Right = "boolean" } -> boolType
+                      | _ -> failwith $"TODO: lookup type of {qi}"
+
+                    assertType
+                  | None -> ctx.FreshTypeVar None
 
                 // TODO: check if `name` already exists in `assump`
                 assump <- assump.Add(name, (t, isMut))
@@ -1045,8 +1057,21 @@ module rec Infer =
       // and then union the results together afterwards.  We'll need to have
       // some sort of mapping to keep track of all of these type variables.
 
+      // TODO: write a function that checks if something has type variables in it
+
+      let mutable newExprTypes: list<Type> = []
+
       // Unify all pattern types with `exprType`
-      do! unify ctx env (union patternTypes) exprType
+      if hasTypeVars exprType then
+        for patternType in patternTypes do
+          printfn $"patternType = {patternType}"
+          let newExprType = fresh ctx exprType
+          do! unify ctx env patternType newExprType
+          newExprTypes <- newExprType :: newExprTypes
+      else
+        for patternType in patternTypes do
+          do!
+            unify ctx { env with IsPatternMatching = true } patternType exprType
 
       // Infer body types
       let! bodyTypes =
@@ -1068,7 +1093,14 @@ module rec Infer =
             })
           (List.zip cases assumps)
 
-      return patternTypes, bodyTypes
+
+      if newExprTypes.IsEmpty then
+        return patternTypes, bodyTypes
+      else
+        // TODO: simplify the union before unifying with `exprType`
+        let t = union newExprTypes
+        do! unify ctx env t exprType
+        return newExprTypes, bodyTypes
     }
 
   let inferTypeParam
@@ -1543,3 +1575,26 @@ module rec Infer =
     TypeVisitor.walkType visitor t
 
     infers
+
+  let hasTypeVars (t: Type) : bool =
+    let mutable hasTypeVars = false
+
+    let visitor =
+      fun (t: Type) ->
+        match t.Kind with
+        | TypeKind.TypeVar _ -> hasTypeVars <- true
+        | _ -> ()
+
+    TypeVisitor.walkType visitor (prune t)
+
+    hasTypeVars
+
+  let fresh (ctx: Ctx) (t: Type) : Type =
+
+    let folder: Type -> option<Type> =
+      fun t ->
+        match t.Kind with
+        | TypeKind.TypeVar _ -> Some(ctx.FreshTypeVar None)
+        | _ -> None
+
+    Folder.foldType folder t

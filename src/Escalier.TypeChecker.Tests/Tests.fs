@@ -201,7 +201,8 @@ let InferIdentifier () =
   let env =
     { Env.Values = Map([ ("foo", (t, false)) ])
       Env.Schemes = Map([])
-      Env.IsAsync = false }
+      Env.IsAsync = false
+      Env.IsPatternMatching = false }
 
   let result =
     result {

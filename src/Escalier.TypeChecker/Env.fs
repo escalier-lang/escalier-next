@@ -172,12 +172,14 @@ module rec Env =
   type Env =
     { Values: Map<string, Binding>
       Schemes: Map<string, Scheme>
-      IsAsync: bool }
+      IsAsync: bool
+      IsPatternMatching: bool }
 
     static member empty =
       { Values = Map.empty
         Schemes = Map.empty
-        IsAsync = false }
+        IsAsync = false
+        IsPatternMatching = false }
 
     // TODO: Rename to AddBinding
     // TODO: don't curry this function

@@ -238,6 +238,8 @@ module rec TypeVisitor =
       | TypeKind.Range { Min = min; Max = max } ->
         walk min
         walk max
+      | TypeKind.UniqueNumber _ -> ()
+      | TypeKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
 
       f t
 

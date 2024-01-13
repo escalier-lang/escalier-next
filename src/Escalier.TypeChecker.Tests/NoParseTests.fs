@@ -37,7 +37,8 @@ let getEnv () =
 
   { Values = values
     Schemes = Map.empty
-    IsAsync = false }
+    IsAsync = false
+    IsPatternMatching = false }
 
 let dummySpan =
   { Start = Position("", 0, 0, 0)

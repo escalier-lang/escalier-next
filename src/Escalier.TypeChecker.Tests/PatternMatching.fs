@@ -89,7 +89,7 @@ let BasicPatternMatchingInferExpr () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: simplify union newExprTypes before unifying with exprType")>]
+[<Fact>]
 let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
   let result =
     result {
@@ -102,6 +102,14 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
             | {x: 0, y is number} => "y-axis"
             | _ => "other"
           }
+          
+        let bar = fn (x, y) =>
+          match {x, y} {
+            | {x: 0, y: 0} => "origin"
+            | {x is number, y: 0} => "x-axis"
+            | {x: 0, y is number} => "y-axis"
+            | {x is number, y is number} => "other"
+          }
         """
 
       let! _, env = inferScript src
@@ -109,11 +117,16 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
       Assert.Value(
         env,
         "foo",
-        "fn (x: 0, y: 0) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
+        "fn <A, B>(x: A | number, y: B | number) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
+      )
+
+      Assert.Value(
+        env,
+        "bar",
+        "fn (x: number, y: number) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
       )
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

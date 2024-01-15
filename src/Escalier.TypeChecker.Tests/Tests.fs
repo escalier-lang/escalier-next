@@ -911,8 +911,6 @@ let InferTemplateLiteralTypeWithUnions () =
       Assert.Value(env, "d", "Dir")
     }
 
-  printfn "result = %A" result
-
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -967,6 +965,73 @@ let InferTemplateLiteralTypeErrorWithUnion () =
         """
         type Dir = `${"top" | "bottom"}-${"left" | "right"}`
         let x: Dir = "top-bottom"
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let InferBasicMutability () =
+  let result =
+    result {
+      let src =
+        """
+        let mut x: number = 5
+        x = 10
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferBasicObjectMutability () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        let mut p: Point = {x: 0, y: 0}
+        p.x = 5
+        p.y = 10
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferBasicArrayMutability () =
+  let result =
+    result {
+      let src =
+        """
+        let mut array: number[] = [1, 2, 3]
+        array[3] = 4
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let DisallowAssigningToImmutableBindings () =
+  let result =
+    result {
+      let src =
+        """
+        let x: number = 5
+        x = 10
         """
 
       let! _, _ = inferScript src

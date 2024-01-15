@@ -556,7 +556,14 @@ module Parser =
         InferredType = None })
   )
 
-  exprParser.RegisterInfix("=", binaryExprParselet 1 "=")
+  // TODO: handle update expressions
+  exprParser.RegisterInfix(
+    "=",
+    infixExprParselet 1 (fun left right ->
+      { Expr.Kind = ExprKind.Assign("=", left, right)
+        Span = mergeSpans left.Span right.Span
+        InferredType = None })
+  )
 
   exprRef.Value <- exprParser.Parse(0)
 

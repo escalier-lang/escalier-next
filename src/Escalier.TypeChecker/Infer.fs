@@ -440,6 +440,18 @@ module rec Infer =
                     TypeArgs = Some([ min; max ])
                     Scheme = scheme }
               Provenance = None }
+        | ExprKind.Assign(operation, left, right) ->
+          let! rightType = inferExpr ctx env right
+
+          let! t, isMut = getLvalue ctx env left
+
+          if isMut then
+            do! unify ctx env rightType t
+          else
+            return!
+              Error(TypeError.SemanticError "Can't assign to immutable binding")
+
+          return rightType
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -1668,3 +1680,36 @@ module rec Infer =
         let! left = getQualifiedIdentType ctx env left
         return getPropType ctx env left (PropName.String right) false
       }
+
+  let rec getLvalue
+    (ctx: Ctx)
+    (env: Env)
+    (expr: Expr)
+    : Result<Type * bool, TypeError> =
+    result {
+      match expr.Kind with
+      | ExprKind.Identifier name -> return! env.GetBinding name
+      | ExprKind.Index(target, index, optChain) ->
+        // TODO: disallow optChain in lvalues
+        let! target, isMut = getLvalue ctx env target
+        let! index = inferExpr ctx env index
+
+        let key =
+          match index.Kind with
+          | TypeKind.Literal(Literal.Number i) -> PropName.Number i
+          | TypeKind.Literal(Literal.String s) -> PropName.String s
+          | TypeKind.UniqueSymbol id -> PropName.Symbol id
+          | _ ->
+            printfn "index = %A" index
+            failwith $"TODO: index can't be a {index}"
+
+        let t = getPropType ctx env target key false
+        return t, isMut
+      | ExprKind.Member(target, name, optChain) ->
+        // TODO: disallow optChain in lvalues
+        let! target, isMut = getLvalue ctx env target
+        let t = getPropType ctx env target (PropName.String name) false
+        return t, isMut
+      | _ ->
+        return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
+    }

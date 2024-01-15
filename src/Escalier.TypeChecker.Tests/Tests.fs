@@ -1021,7 +1021,6 @@ let InferBasicArrayMutability () =
       ()
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1039,3 +1038,26 @@ let DisallowAssigningToImmutableBindings () =
     }
 
   Assert.True(Result.isError result)
+
+[<Fact>]
+let MutableParamsAreInvariant () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (mut array: (number | string)[]) {
+          array[0] = 5
+          array[1] = "hello"
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (mut array: (number | string)[]) -> undefined"
+      )
+    }
+
+  Assert.False(Result.isError result)

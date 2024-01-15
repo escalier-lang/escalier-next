@@ -492,7 +492,10 @@ module rec Unify =
         let paramList =
           List.mapi
             (fun i t ->
-              let p: Pattern = Pattern.Identifier $"arg{i}"
+              let name = $"arg{i}"
+
+              let p: Pattern =
+                Pattern.Identifier { Name = name; IsMut = false }
 
               { Pattern = p
                 Type = t

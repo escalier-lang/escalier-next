@@ -115,7 +115,7 @@ let InfersThrowingMultipleExpressions () =
       Assert.Value(
         env,
         "foo",
-        "fn <A: number>(x: A) -> never throws \"BoundsError\" | \"RangeError\""
+        "fn <A: number>(x: A) -> never throws (\"BoundsError\" | \"RangeError\")"
       )
     }
 

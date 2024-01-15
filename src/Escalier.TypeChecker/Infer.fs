@@ -18,8 +18,8 @@ open Unify
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
     match pat.Kind with
-    | PatternKind.Ident { Name = name; IsMut = isMut } ->
-      Pattern.Identifier(name)
+    | PatternKind.Ident { Name = name; IsMut = mut } ->
+      Pattern.Identifier { Name = name; IsMut = mut }
     // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
     //   Pattern.Is(bindingIdent, isName)
     | PatternKind.Object { Elems = elems; Immutable = immutable } ->
@@ -31,13 +31,18 @@ module rec Infer =
                 | Syntax.ObjPatElem.KeyValuePat { Key = key
                                                   Value = value
                                                   Default = init } ->
-                  ObjPatElem.KeyValuePat(key, patternToPattern value, init)
+                  ObjPatElem.KeyValuePat
+                    { Key = key
+                      Value = patternToPattern value
+                      Init = init }
                 | Syntax.ObjPatElem.ShorthandPat { Name = name
                                                    Default = init
-                                                   IsMut = isMut
+                                                   IsMut = mut
                                                    Assertion = assertion } ->
-                  // TODO: isMut
-                  ObjPatElem.ShorthandPat(name, init)
+                  ObjPatElem.ShorthandPat
+                    { Name = name
+                      Init = init
+                      IsMut = mut }
                 | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
                   // TODO: isMut
                   ObjPatElem.RestPat(patternToPattern target))

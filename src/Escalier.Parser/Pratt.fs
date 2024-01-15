@@ -134,9 +134,12 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       | (length, group) :: rest ->
         let nextChars = stream.PeekString(length)
 
-        match group |> Seq.tryFind (fun (k, v) -> k = nextChars) with
-        | Some(operator, parselet) -> Some(operator, parselet)
-        | None -> find rest
+        if nextChars = "=>" then
+          None
+        else
+          match group |> Seq.tryFind (fun (k, v) -> k = nextChars) with
+          | Some(operator, parselet) -> Some(operator, parselet)
+          | None -> find rest
 
     find groups
 

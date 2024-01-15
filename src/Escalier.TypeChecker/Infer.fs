@@ -753,9 +753,7 @@ module rec Infer =
         | TypeAnnKind.Rest target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.Rest
         | TypeAnnKind.Typeof target ->
-          // TODO: limit what's allowed as a target of `typeof` so that we're
-          // compatible with TypeScript
-          let! t = inferExpr ctx env target
+          let! t = getQualifiedIdentType ctx env target
           return t.Kind
         | TypeAnnKind.Index(target, index) ->
           let! target = inferTypeAnn ctx env target
@@ -909,9 +907,9 @@ module rec Infer =
           | Some qi ->
             let assertType =
               match qi with
-              | { Left = None; Right = "string" } -> strType
-              | { Left = None; Right = "number" } -> numType
-              | { Left = None; Right = "boolean" } -> boolType
+              | QualifiedIdent.Ident "string" -> strType
+              | QualifiedIdent.Ident "number" -> numType
+              | QualifiedIdent.Ident "boolean" -> boolType
               | _ -> failwith $"TODO: lookup type of {qi}"
 
             assertType
@@ -953,9 +951,9 @@ module rec Infer =
                   | Some qi ->
                     let assertType =
                       match qi with
-                      | { Left = None; Right = "string" } -> strType
-                      | { Left = None; Right = "number" } -> numType
-                      | { Left = None; Right = "boolean" } -> boolType
+                      | QualifiedIdent.Ident "string" -> strType
+                      | QualifiedIdent.Ident "number" -> numType
+                      | QualifiedIdent.Ident "boolean" -> boolType
                       | _ -> failwith $"TODO: lookup type of {qi}"
 
                     assertType
@@ -1001,9 +999,9 @@ module rec Infer =
         | Some qi ->
           let assertType =
             match qi with
-            | { Left = None; Right = "string" } -> strType
-            | { Left = None; Right = "number" } -> numType
-            | { Left = None; Right = "boolean" } -> boolType
+            | QualifiedIdent.Ident "string" -> strType
+            | QualifiedIdent.Ident "number" -> numType
+            | QualifiedIdent.Ident "boolean" -> boolType
             | _ -> failwith $"TODO: lookup type of {qi}"
 
           assertType
@@ -1660,3 +1658,13 @@ module rec Infer =
 
         union (objType :: otherTypes)
     | _ -> t
+
+
+  let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =
+    match ident with
+    | QualifiedIdent.Ident name -> env.GetType name
+    | QualifiedIdent.Member(left, right) ->
+      result {
+        let! left = getQualifiedIdentType ctx env left
+        return getPropType ctx env left (PropName.String right) false
+      }

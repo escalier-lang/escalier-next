@@ -529,3 +529,48 @@ let ParseRecordTuple () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseMutableBindings () =
+  let src =
+    """
+    type Point = {x: number, y: number}
+    type Line = {p0: Point, p1: Point}
+    declare let line: Line
+    
+    let {mut p0, p1: mut q} = line
+    let mut r = q
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseMutableParams () =
+  let src =
+    """
+    let update = fn (mut array: number[]) {
+      for i in 0..array.length {
+        array[i] = array[i] + 1
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTypeof () =
+  let src =
+    """
+    let iterator: typeof Symbol.iterator = Symbol.iterator
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

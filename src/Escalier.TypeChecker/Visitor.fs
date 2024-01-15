@@ -157,7 +157,7 @@ module rec ExprVisitor =
             f.ParamList
         | TypeAnnKind.Keyof target -> walk target
         | TypeAnnKind.Rest target -> walk target
-        | TypeAnnKind.Typeof target -> walkExpr visitor target
+        | TypeAnnKind.Typeof _ -> () // TODO: walk QualifiedIdents
         | TypeAnnKind.Index(target, index) ->
           walk target
           walk index

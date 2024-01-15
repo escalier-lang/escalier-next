@@ -64,8 +64,7 @@ output: Ok
                                     Name = "x"
                                     IsMut = false
                                     Default = None
-                                    Assertion = Some { Left = None
-                                                       Right = "number" } };
+                                    Assertion = Some (Ident "number") };
                                 KeyValuePat
                                   { Span = { Start = (Ln: 4, Col: 23)
                                              Stop = (Ln: 4, Col: 37) }
@@ -75,9 +74,7 @@ output: Ok
                                         Ident
                                           { Name = "b"
                                             IsMut = false
-                                            Assertion =
-                                             Some { Left = None
-                                                    Right = "number" } }
+                                            Assertion = Some (Ident "number") }
                                        Span = { Start = (Ln: 4, Col: 26)
                                                 Stop = (Ln: 4, Col: 37) }
                                        InferredType = None }
@@ -117,9 +114,7 @@ output: Ok
                                         Ident
                                           { Name = "_"
                                             IsMut = false
-                                            Assertion =
-                                             Some { Left = None
-                                                    Right = "number" } }
+                                            Assertion = Some (Ident "number") }
                                        Span = { Start = (Ln: 5, Col: 19)
                                                 Stop = (Ln: 5, Col: 30) }
                                        InferredType = None }
@@ -250,8 +245,7 @@ output: Ok
                                             Span = { Start = (Ln: 8, Col: 24)
                                                      Stop = (Ln: 8, Col: 25) }
                                             InferredType = None }
-                                    Assertion = Some { Left = None
-                                                       Right = "number" } };
+                                    Assertion = Some (Ident "number") };
                                 KeyValuePat
                                   { Span = { Start = (Ln: 8, Col: 27)
                                              Stop = (Ln: 8, Col: 45) }
@@ -261,9 +255,7 @@ output: Ok
                                         Ident
                                           { Name = "b"
                                             IsMut = false
-                                            Assertion =
-                                             Some { Left = None
-                                                    Right = "number" } }
+                                            Assertion = Some (Ident "number") }
                                        Span = { Start = (Ln: 8, Col: 30)
                                                 Stop = (Ln: 8, Col: 42) }
                                        InferredType = None }

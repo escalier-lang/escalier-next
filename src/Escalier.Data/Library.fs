@@ -244,8 +244,8 @@ module Syntax =
     override this.GetHashCode() = this.Kind.GetHashCode()
 
   type QualifiedIdent =
-    { Left: option<QualifiedIdent>
-      Right: string }
+    | Ident of string
+    | Member of left: QualifiedIdent * right: string
 
   type KeyValuePat =
     { Span: Span
@@ -382,7 +382,7 @@ module Syntax =
     | Function of FunctionType
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
-    | Typeof of target: Expr
+    | Typeof of target: QualifiedIdent
     | Index of target: TypeAnn * index: TypeAnn
     | Condition of ConditionType
     | Match of MatchType

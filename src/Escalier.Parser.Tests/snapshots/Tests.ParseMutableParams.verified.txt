@@ -89,7 +89,7 @@ output: Ok
                                           [{ Kind =
                                               Expr
                                                 { Kind =
-                                                   Binary
+                                                   Assign
                                                      ("=",
                                                       { Kind =
                                                          Index

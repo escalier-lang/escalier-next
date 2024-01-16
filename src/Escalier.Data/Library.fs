@@ -486,7 +486,6 @@ module Type =
 
   type IdentPat = { Name: string; IsMut: bool }
 
-  // TODO: update Type.Pattern to track mutability of identifiers in patterns
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
@@ -540,7 +539,6 @@ module Type =
         | false -> $"[{elems}]"
       | Wildcard -> "_"
       | Literal lit -> lit.ToString()
-      // | Is({ Name = name }, id) -> $"{name} is {id}"
       | Rest(target) -> $"...{target}"
 
   type FuncParam =

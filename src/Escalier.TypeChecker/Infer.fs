@@ -1225,6 +1225,23 @@ module rec Infer =
           let! typeAnnType = inferTypeAnn ctx env typeAnn
           do! unify ctx env initType typeAnnType
           do! unify ctx env typeAnnType patType
+
+          match init.Kind with
+          | ExprKind.Identifier name ->
+            let! _, isMut = env.GetBinding name
+
+            match pattern.Kind with
+            | PatternKind.Ident { Name = name; IsMut = true } when isMut ->
+              do! unifyInvariant ctx env initType patType
+            | PatternKind.Ident { Name = name; IsMut = true } when not isMut ->
+              return!
+                Error(
+                  TypeError.SemanticError
+                    $"immutable binding '{name}' cannot be assigned to mutable pattern {pattern}"
+                )
+            | _ -> ()
+          | _ -> ()
+
         | None -> do! unify ctx env initType patType
 
         for KeyValue(name, binding) in patBindings do

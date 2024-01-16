@@ -793,6 +793,7 @@ module Type =
 
   let rec printType (ctx: PrintCtx) (t: Type) : string =
     let outerPrec = ctx.Precedence
+    let t = prune t
     let innerPrec = getPrecedence t
 
     let ctx = { Precedence = innerPrec }
@@ -844,7 +845,11 @@ module Type =
       | TypeKind.KeyOf t -> $"keyof {printType ctx t}"
       | TypeKind.Index(target, index) ->
         $"{printType ctx target}[{printType { Precedence = 0 } index}]"
-      | TypeKind.Condition condition -> failwith "todo"
+      | TypeKind.Condition { Check = check
+                             Extends = extends
+                             TrueType = trueType
+                             FalseType = falseType } ->
+        $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
       | TypeKind.Infer name -> $"infer {name}"
       | TypeKind.Binary(left, op, right) ->
         $"{printType ctx left} {op} {printType ctx right}"

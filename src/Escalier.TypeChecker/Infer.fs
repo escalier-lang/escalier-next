@@ -1226,6 +1226,9 @@ module rec Infer =
           do! unify ctx env initType typeAnnType
           do! unify ctx env typeAnnType patType
 
+          // TODO: handle mutable bindings that aren't at the top-level
+          // We need to handle cases where `init` isn't just a simple identifier
+          // See https://github.com/escalier-lang/escalier-next/issues/124
           match init.Kind with
           | ExprKind.Identifier name ->
             let! _, isMut = env.GetBinding name

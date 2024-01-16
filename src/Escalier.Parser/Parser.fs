@@ -556,6 +556,15 @@ module Parser =
         InferredType = None })
   )
 
+  // TODO: handle update expressions
+  exprParser.RegisterInfix(
+    "=",
+    infixExprParselet 1 (fun left right ->
+      { Expr.Kind = ExprKind.Assign("=", left, right)
+        Span = mergeSpans left.Span right.Span
+        InferredType = None })
+  )
+
   exprRef.Value <- exprParser.Parse(0)
 
   let private exprStmt: Parser<Stmt, unit> =
@@ -567,15 +576,13 @@ module Parser =
 
   // `let <expr> = <expr>`
   let private varDecl =
-    pipe5
-      getPosition
-      (strWs "let" >>. pattern)
-      (opt (strWs ":" >>. ws >>. typeAnn))
-      (strWs "=" >>. expr)
-      getPosition
-    <| fun start pat typeAnn init stop ->
-      let span = { Start = start; Stop = stop }
-
+    withSpan (
+      tuple3
+        (strWs "let" >>. pattern)
+        (opt (strWs ":" >>. ws >>. typeAnn))
+        (strWs "=" >>. expr)
+    )
+    |>> fun ((pat, typeAnn, init), span) ->
       { Stmt.Kind =
           Decl(
             { Kind = DeclKind.VarDecl(pat, init, typeAnn)
@@ -625,18 +632,36 @@ module Parser =
 
   stmtRef.Value <- ws >>. _stmt
 
-  let private isAssertion =
-    (strWs "is" >>. ident) |>> fun name -> { Left = None; Right = name }
+  let qualifiedIdent =
+    Pratt.PrattParser<QualifiedIdent>(
+      ident |>> fun ident -> QualifiedIdent.Ident ident
+    )
+
+  let infixQualifiedNameParselet
+    (precedence: int)
+    : Pratt.InfixParselet<QualifiedIdent> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = ident stream
+
+          match right.Status with
+          | Ok -> Reply(QualifiedIdent.Member(left, right.Result))
+          | _ -> Reply(left)
+      Precedence = precedence }
+
+  qualifiedIdent.RegisterInfix(".", infixQualifiedNameParselet 17)
+
+  let private isAssertion = (strWs "is" >>. qualifiedIdent.Parse 0)
 
   let private identPattern =
-    pipe4 getPosition ident (opt isAssertion) getPosition
-    <| fun start name assertion stop ->
+    withSpan (tuple3 (opt (strWs "mut")) ident (opt isAssertion))
+    |>> fun ((mut, name, assertion), span) ->
       { Pattern.Kind =
           PatternKind.Ident
             { Name = name
-              IsMut = false
+              IsMut = mut.IsSome
               Assertion = assertion }
-        Span = { Start = start; Stop = stop }
+        Span = span
         InferredType = None }
 
   let private literalPattern =
@@ -686,20 +711,19 @@ module Parser =
           Default = def }
 
   let private shorthandPat =
-    pipe5
-      getPosition
-      ident
-      (opt isAssertion)
-      (opt (strWs "=" >>. expr))
-      getPosition
-    <| fun start name assertion def stop ->
-      let span = { Start = start; Stop = stop }
-
+    withSpan (
+      tuple4
+        (opt (strWs "mut"))
+        ident
+        (opt isAssertion)
+        (opt (strWs "=" >>. expr))
+    )
+    |>> fun ((mut, name, assertion, def), span) ->
       ShorthandPat
         { Span = span
           Name = name
           Default = def
-          IsMut = false
+          IsMut = mut.IsSome
           Assertion = assertion }
 
   let private objPatRestElem =
@@ -932,9 +956,9 @@ module Parser =
 
   // TODO: don't include strWs in the span
   let private typeofTypeAnn =
-    withSpan (strWs "typeof" >>. expr)
+    withSpan (strWs "typeof" >>. qualifiedIdent.Parse 0)
     |>> fun (e, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Typeof(e)
+      { TypeAnn.Kind = TypeAnnKind.Typeof e
         Span = span
         InferredType = None }
 

@@ -244,8 +244,8 @@ module Syntax =
     override this.GetHashCode() = this.Kind.GetHashCode()
 
   type QualifiedIdent =
-    { Left: option<QualifiedIdent>
-      Right: string }
+    | Ident of string
+    | Member of left: QualifiedIdent * right: string
 
   type KeyValuePat =
     { Span: Span
@@ -382,7 +382,7 @@ module Syntax =
     | Function of FunctionType
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
-    | Typeof of target: Expr
+    | Typeof of target: QualifiedIdent
     | Index of target: TypeAnn * index: TypeAnn
     | Condition of ConditionType
     | Match of MatchType
@@ -469,32 +469,56 @@ module Type =
       | Unknown -> "unknown"
       | Never -> "never"
 
+  type KeyValuePat =
+    { Key: string
+      Value: Pattern
+      Init: option<Syntax.Expr> }
+
+  type ShorthandPat =
+    { Name: string
+      Init: option<Syntax.Expr>
+      IsMut: bool }
+
   type ObjPatElem =
-    | KeyValuePat of key: string * value: Pattern * init: option<Syntax.Expr>
-    | ShorthandPat of name: string * init: option<Syntax.Expr>
-    | RestPat of target: Pattern
+    | KeyValuePat of KeyValuePat
+    | ShorthandPat of ShorthandPat
+    | RestPat of Pattern
+
+  type IdentPat = { Name: string; IsMut: bool }
 
   type Pattern =
-    | Identifier of name: string
+    | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
     | Tuple of Common.Tuple<option<Pattern>>
-    | Wildcard
     | Literal of Common.Literal
-    | Rest of target: Pattern
+    | Rest of Pattern
+    | Wildcard
 
     override this.ToString() =
       match this with
-      | Identifier name -> name
+      | Identifier { Name = name; IsMut = mut } ->
+        match mut with
+        | true -> $"mut {name}"
+        | false -> name
       | Object { Elems = elems; Immutable = immutable } ->
         let elems =
           List.map
             (fun elem ->
               match elem with
-              | KeyValuePat(key, value, init) ->
+              | KeyValuePat { Key = key
+                              Value = value
+                              Init = init } ->
                 match init with
                 | Some(init) -> $"{key}: {value} = {init}"
                 | None -> $"{key}: {value}"
-              | ShorthandPat(name, init) ->
+              | ShorthandPat { Name = name
+                               Init = init
+                               IsMut = mut } ->
+                let name =
+                  match mut with
+                  | true -> $"mut {name}"
+                  | false -> name
+
                 match init with
                 | Some(value) -> $"{name} = {value}"
                 | None -> name
@@ -515,7 +539,6 @@ module Type =
         | false -> $"[{elems}]"
       | Wildcard -> "_"
       | Literal lit -> lit.ToString()
-      // | Is({ Name = name }, id) -> $"{name} is {id}"
       | Rest(target) -> $"...{target}"
 
   type FuncParam =
@@ -549,25 +572,25 @@ module Type =
       Return: Type
       Throws: Type }
 
-    override this.ToString() =
-      let args =
-        List.map (fun item -> item.ToString()) this.ParamList
-        |> String.concat ", "
-
-      let typeParams =
-        match this.TypeParams with
-        | Some(typeParams) ->
-          let sep = ", "
-          let typeParams = List.map (fun t -> t.ToString()) typeParams
-          $"<{String.concat sep typeParams}>"
-        | None -> ""
-
-      // printfn "this.Throws = %A" this.Throws
-
-      match (prune this.Throws).Kind with
-      | TypeKind.Keyword Keyword.Never ->
-        $"fn {typeParams}({args}) -> {this.Return}"
-      | _ -> $"fn {typeParams}({args}) -> {this.Return} throws {this.Throws}"
+    override this.ToString() = printFunction { Precedence = 0 } this
+  // let args =
+  //   List.map (fun item -> item.ToString()) this.ParamList
+  //   |> String.concat ", "
+  //
+  // let typeParams =
+  //   match this.TypeParams with
+  //   | Some(typeParams) ->
+  //     let sep = ", "
+  //     let typeParams = List.map (fun t -> t.ToString()) typeParams
+  //     $"<{String.concat sep typeParams}>"
+  //   | None -> ""
+  //
+  // // printfn "this.Throws = %A" this.Throws
+  //
+  // match (prune this.Throws).Kind with
+  // | TypeKind.Keyword Keyword.Never ->
+  //   $"fn {typeParams}({args}) -> {this.Return}"
+  // | _ -> $"fn {typeParams}({args}) -> {this.Return} throws {this.Throws}"
 
   type IndexParam =
     { Name: string
@@ -582,29 +605,7 @@ module Type =
       Optional: option<Common.MappedModifier>
       Readonly: option<Common.MappedModifier> }
 
-    override this.ToString() =
-      let name =
-        match this.NameType with
-        | Some(t) -> t.ToString()
-        | None -> this.TypeParam.Name
-
-      let optional =
-        match this.Optional with
-        | Some(optional) ->
-          match optional with
-          | Common.MappedModifier.Add -> "+?"
-          | Common.MappedModifier.Remove -> "-?"
-        | None -> ""
-
-      let readonly =
-        match this.Readonly with
-        | Some(readonly) ->
-          match readonly with
-          | Common.MappedModifier.Add -> "+readonly"
-          | Common.MappedModifier.Remove -> "-readonly"
-        | None -> ""
-
-      $"{readonly}[{name}]{optional}: {this.TypeAnn} for {this.TypeParam.Name} in {this.TypeParam.Constraint}"
+    override this.ToString() = printMapped { Precedence = 0 } this
 
   type Property =
     { Name: PropName
@@ -721,81 +722,7 @@ module Type =
 
     override this.GetHashCode() = this.Kind.GetHashCode()
 
-    // TODO: handle operator precedence when converting types to strings
-    override this.ToString() =
-      match this.Kind with
-      | TypeKind.TypeVar({ Instance = Some(instance) }) -> instance.ToString()
-      | TypeKind.TypeVar({ Instance = None; Bound = bound } as v) ->
-        let bound =
-          match bound with
-          | Some(bound) -> $":{bound}"
-          | None -> ""
-
-        $"t{v.Id}{bound}"
-      | TypeKind.TypeRef({ Name = name; TypeArgs = typeArgs }) ->
-        let typeArgs =
-          match typeArgs with
-          | Some(typeArgs) ->
-            let sep = ", "
-            $"<{typeArgs |> List.map (fun t -> t.ToString()) |> String.concat sep}>"
-          | None -> ""
-
-        $"{name}{typeArgs}"
-      | TypeKind.Primitive prim -> prim.ToString()
-      | TypeKind.Keyword keyword -> keyword.ToString()
-      | TypeKind.Function f -> f.ToString()
-      | TypeKind.Literal lit -> lit.ToString()
-      | TypeKind.Union types ->
-        List.map (fun item -> item.ToString()) types |> String.concat " | "
-      | TypeKind.Intersection types ->
-        List.map (fun item -> item.ToString()) types |> String.concat " & "
-      | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
-        let elems =
-          List.map (fun item -> item.ToString()) elems |> String.concat ", "
-
-        match immutable with
-        | true -> $"#[{elems}]"
-        | false -> $"[{elems}]"
-      | TypeKind.Array t -> t.ToString()
-      | TypeKind.Wildcard -> "_"
-      | TypeKind.Object { Elems = elems; Immutable = immutable } ->
-        let elems =
-          List.map
-            (fun (elem: ObjTypeElem) ->
-              match elem with
-              | Property { Name = name
-                           Optional = optional
-                           Readonly = readonly
-                           Type = type_ } ->
-                let optional = if optional then "?" else ""
-                let readonly = if readonly then "readonly " else ""
-                $"{readonly}{name}{optional}: {type_}"
-              | Mapped mapped -> mapped.ToString()
-              | _ -> failwith "TODO: Type.ToString - Object - Elem"
-
-            )
-            elems
-
-        let elems = String.concat ", " elems
-
-        match immutable with
-        | true -> $"#{{{elems}}}"
-        | false -> $"{{{elems}}}"
-      | TypeKind.Rest t -> $"...{t}"
-      | TypeKind.Index(target, index) -> $"{target}[{index}]"
-      | TypeKind.Condition { Check = check
-                             Extends = extends
-                             TrueType = trueType
-                             FalseType = falseType } ->
-        $"{check} extends {extends} ? {trueType} : {falseType}"
-      | TypeKind.KeyOf t -> $"keyof {t}"
-      // TODO: handle operator precedence
-      | TypeKind.Binary(left, op, right) -> $"{left} {op} {right}"
-      // TODO: include a description in symbol types
-      | TypeKind.UniqueSymbol _ -> "symbol()"
-      | TypeKind.UniqueNumber _ -> "unique number"
-      | TypeKind.Range range -> range.ToString()
-      | TypeKind.Infer name -> $"infer {name}"
+    override this.ToString() = printType { Precedence = 0 } this
 
   type Scheme =
     // TODO: allow type params to have constraints and defaults
@@ -818,3 +745,204 @@ module Type =
       v.Instance <- Some(newInstance)
       newInstance
     | _ -> t
+
+  type PrintCtx = { Precedence: int }
+
+  let getPrecedence (t: Type) : int =
+    match t.Kind with
+    | TypeKind.TypeVar typeVar -> 100
+    | TypeKind.TypeRef typeRef -> 100
+    | TypeKind.Primitive primitive -> 100
+    | TypeKind.Keyword keyword -> 100
+    | TypeKind.Function f -> 100
+    | TypeKind.Object o -> 100
+    | TypeKind.Tuple tuple -> 100
+    | TypeKind.Array array -> 17
+    | TypeKind.Rest t -> 100
+    | TypeKind.Literal literal -> 100
+    | TypeKind.Range range -> 2
+    | TypeKind.UniqueSymbol id -> 15 // because `unique` is a keyword operator
+    | TypeKind.UniqueNumber id -> 15 // because `unique` is a keyword operator
+    | TypeKind.Union types -> 3
+    | TypeKind.Intersection types -> 4
+    | TypeKind.KeyOf t -> 15 // because `keyof` is a keyword operator
+    | TypeKind.Index(target, index) -> 18
+    | TypeKind.Condition condition -> 100
+    | TypeKind.Infer name -> 15 // because `keyof` is a keyword operator
+    | TypeKind.Binary(left, op, right) ->
+      match op with
+      | "**" -> 13
+      | "*"
+      | "/"
+      | "%" -> 12
+      | "+"
+      | "-"
+      | "++" -> 11
+      | "<"
+      | "<="
+      | ">"
+      | ">=" -> 10
+      | "=="
+      | "!="
+      | "==="
+      | "!==" -> 9
+      | "||" -> 6
+      | "&&" -> 5
+    | TypeKind.Wildcard -> 100
+    | TypeKind.TemplateLiteral templateLiteral -> 100
+
+  let rec printType (ctx: PrintCtx) (t: Type) : string =
+    let outerPrec = ctx.Precedence
+    let t = prune t
+    let innerPrec = getPrecedence t
+
+    let ctx = { Precedence = innerPrec }
+
+    let result =
+      match t.Kind with
+      | TypeKind.TypeVar({ Instance = Some(instance) }) ->
+        printType ctx instance
+      | TypeKind.TypeVar({ Instance = None; Bound = bound } as v) ->
+        let bound =
+          match bound with
+          | Some(bound) -> $":{printType ctx bound}"
+          | None -> ""
+
+        $"t{v.Id}{bound}"
+      | TypeKind.TypeRef({ Name = name; TypeArgs = typeArgs }) ->
+        let typeArgs =
+          match typeArgs with
+          | Some(typeArgs) ->
+            let sep = ", "
+            let ctx = { Precedence = 0 }
+            $"<{typeArgs |> List.map (printType ctx) |> String.concat sep}>"
+          | None -> ""
+
+        $"{name}{typeArgs}"
+      | TypeKind.Primitive primitive -> primitive.ToString()
+      | TypeKind.Keyword keyword -> keyword.ToString()
+      | TypeKind.Function f -> printFunction ctx f
+      | TypeKind.Object obj -> printObject ctx obj
+      | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
+        let ctx = { Precedence = 0 }
+        let elems = List.map (printType ctx) elems |> String.concat ", "
+
+        match immutable with
+        | true -> $"#[{elems}]"
+        | false -> $"[{elems}]"
+      | TypeKind.Array { Elem = elem; Length = length } ->
+        $"{printType ctx elem}[]"
+      | TypeKind.Rest t -> $"...{printType ctx t}"
+      | TypeKind.Literal literal -> literal.ToString()
+      | TypeKind.Range { Min = min; Max = max } ->
+        $"{printType ctx min}..{printType ctx max}"
+      | TypeKind.UniqueSymbol id -> "symbol()"
+      | TypeKind.UniqueNumber id -> "unique number"
+      | TypeKind.Union types ->
+        List.map (printType ctx) types |> String.concat " | "
+      | TypeKind.Intersection types ->
+        List.map (printType ctx) types |> String.concat " & "
+      | TypeKind.KeyOf t -> $"keyof {printType ctx t}"
+      | TypeKind.Index(target, index) ->
+        $"{printType ctx target}[{printType { Precedence = 0 } index}]"
+      | TypeKind.Condition { Check = check
+                             Extends = extends
+                             TrueType = trueType
+                             FalseType = falseType } ->
+        $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
+      | TypeKind.Infer name -> $"infer {name}"
+      | TypeKind.Binary(left, op, right) ->
+        $"{printType ctx left} {op} {printType ctx right}"
+      | TypeKind.Wildcard -> "_"
+      | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
+        failwith "TODO: printType - TypeKind.TemplateLiteral"
+
+    if innerPrec < outerPrec then $"({result})" else result
+
+  let printTypeParam (ctx: PrintCtx) (typeParam: TypeParam) : string =
+    let c =
+      match typeParam.Constraint with
+      | Some(c) -> $": {printType ctx c}"
+      | None -> ""
+
+    let d =
+      match typeParam.Default with
+      | Some(d) -> $" = {printType ctx d}"
+      | None -> ""
+
+    $"{typeParam.Name}{c}{d}"
+
+  let printObject (ctx: PrintCtx) (obj: Common.Object<ObjTypeElem>) : string =
+    let elems =
+      List.map
+        (fun (elem: ObjTypeElem) ->
+          match elem with
+          | Property { Name = name
+                       Optional = optional
+                       Readonly = readonly
+                       Type = t } ->
+            let ctx = { Precedence = 0 }
+            let optional = if optional then "?" else ""
+            let readonly = if readonly then "readonly " else ""
+            $"{readonly}{name}{optional}: {printType ctx t}"
+          | Mapped mapped -> printMapped ctx mapped
+          | _ -> failwith "TODO: Type.ToString - Object - Elem"
+
+        )
+        obj.Elems
+
+    let elems = String.concat ", " elems
+
+    match obj.Immutable with
+    | true -> $"#{{{elems}}}"
+    | false -> $"{{{elems}}}"
+
+  let printFunction (ctx: PrintCtx) (f: Function) : string =
+    let ps =
+      List.map
+        (fun p ->
+          let ctx = { Precedence = 0 }
+          $"{p.Pattern}: {printType ctx p.Type}")
+        f.ParamList
+      |> String.concat ", "
+
+    let typeParams =
+      match f.TypeParams with
+      | Some(typeParams) ->
+        let sep = ", "
+        let typeParams = List.map (printTypeParam ctx) typeParams
+        $"<{String.concat sep typeParams}>"
+      | None -> ""
+
+    let ret = printType { Precedence = 0 } f.Return
+
+    match (prune f.Throws).Kind with
+    | TypeKind.Keyword Keyword.Never -> $"fn {typeParams}({ps}) -> {ret}"
+    | _ -> $"fn {typeParams}({ps}) -> {ret} throws {printType ctx f.Throws}"
+
+  let printMapped (ctx: PrintCtx) (mapped: Mapped) : string =
+    let name =
+      match mapped.NameType with
+      | Some(t) -> t.ToString()
+      | None -> mapped.TypeParam.Name
+
+    let optional =
+      match mapped.Optional with
+      | Some(optional) ->
+        match optional with
+        | Common.MappedModifier.Add -> "+?"
+        | Common.MappedModifier.Remove -> "-?"
+      | None -> ""
+
+    let readonly =
+      match mapped.Readonly with
+      | Some(readonly) ->
+        match readonly with
+        | Common.MappedModifier.Add -> "+readonly"
+        | Common.MappedModifier.Remove -> "-readonly"
+      | None -> ""
+
+    let typeAnn = printType { Precedence = 0 } mapped.TypeAnn
+    let c = printType { Precedence = 0 } mapped.TypeParam.Constraint
+
+    $"{readonly}[{name}]{optional}: {typeAnn} for {mapped.TypeParam.Name} in {c}"

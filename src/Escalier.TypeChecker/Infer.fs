@@ -18,8 +18,8 @@ open Unify
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
     match pat.Kind with
-    | PatternKind.Ident { Name = name; IsMut = isMut } ->
-      Pattern.Identifier(name)
+    | PatternKind.Ident { Name = name; IsMut = mut } ->
+      Pattern.Identifier { Name = name; IsMut = mut }
     // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
     //   Pattern.Is(bindingIdent, isName)
     | PatternKind.Object { Elems = elems; Immutable = immutable } ->
@@ -31,13 +31,18 @@ module rec Infer =
                 | Syntax.ObjPatElem.KeyValuePat { Key = key
                                                   Value = value
                                                   Default = init } ->
-                  ObjPatElem.KeyValuePat(key, patternToPattern value, init)
+                  ObjPatElem.KeyValuePat
+                    { Key = key
+                      Value = patternToPattern value
+                      Init = init }
                 | Syntax.ObjPatElem.ShorthandPat { Name = name
                                                    Default = init
-                                                   IsMut = isMut
+                                                   IsMut = mut
                                                    Assertion = assertion } ->
-                  // TODO: isMut
-                  ObjPatElem.ShorthandPat(name, init)
+                  ObjPatElem.ShorthandPat
+                    { Name = name
+                      Init = init
+                      IsMut = mut }
                 | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
                   // TODO: isMut
                   ObjPatElem.RestPat(patternToPattern target))
@@ -440,6 +445,18 @@ module rec Infer =
                     TypeArgs = Some([ min; max ])
                     Scheme = scheme }
               Provenance = None }
+        | ExprKind.Assign(operation, left, right) ->
+          let! rightType = inferExpr ctx env right
+
+          let! t, isMut = getLvalue ctx env left
+
+          if isMut then
+            do! unify ctx env rightType t
+          else
+            return!
+              Error(TypeError.SemanticError "Can't assign to immutable binding")
+
+          return rightType
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 
@@ -753,9 +770,7 @@ module rec Infer =
         | TypeAnnKind.Rest target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.Rest
         | TypeAnnKind.Typeof target ->
-          // TODO: limit what's allowed as a target of `typeof` so that we're
-          // compatible with TypeScript
-          let! t = inferExpr ctx env target
+          let! t = getQualifiedIdentType ctx env target
           return t.Kind
         | TypeAnnKind.Index(target, index) ->
           let! target = inferTypeAnn ctx env target
@@ -909,9 +924,9 @@ module rec Infer =
           | Some qi ->
             let assertType =
               match qi with
-              | { Left = None; Right = "string" } -> strType
-              | { Left = None; Right = "number" } -> numType
-              | { Left = None; Right = "boolean" } -> boolType
+              | QualifiedIdent.Ident "string" -> strType
+              | QualifiedIdent.Ident "number" -> numType
+              | QualifiedIdent.Ident "boolean" -> boolType
               | _ -> failwith $"TODO: lookup type of {qi}"
 
             assertType
@@ -953,9 +968,9 @@ module rec Infer =
                   | Some qi ->
                     let assertType =
                       match qi with
-                      | { Left = None; Right = "string" } -> strType
-                      | { Left = None; Right = "number" } -> numType
-                      | { Left = None; Right = "boolean" } -> boolType
+                      | QualifiedIdent.Ident "string" -> strType
+                      | QualifiedIdent.Ident "number" -> numType
+                      | QualifiedIdent.Ident "boolean" -> boolType
                       | _ -> failwith $"TODO: lookup type of {qi}"
 
                     assertType
@@ -1001,9 +1016,9 @@ module rec Infer =
         | Some qi ->
           let assertType =
             match qi with
-            | { Left = None; Right = "string" } -> strType
-            | { Left = None; Right = "number" } -> numType
-            | { Left = None; Right = "boolean" } -> boolType
+            | QualifiedIdent.Ident "string" -> strType
+            | QualifiedIdent.Ident "number" -> numType
+            | QualifiedIdent.Ident "boolean" -> boolType
             | _ -> failwith $"TODO: lookup type of {qi}"
 
           assertType
@@ -1210,6 +1225,26 @@ module rec Infer =
           let! typeAnnType = inferTypeAnn ctx env typeAnn
           do! unify ctx env initType typeAnnType
           do! unify ctx env typeAnnType patType
+
+          // TODO: handle mutable bindings that aren't at the top-level
+          // We need to handle cases where `init` isn't just a simple identifier
+          // See https://github.com/escalier-lang/escalier-next/issues/124
+          match init.Kind with
+          | ExprKind.Identifier name ->
+            let! _, isMut = env.GetBinding name
+
+            match pattern.Kind with
+            | PatternKind.Ident { Name = name; IsMut = true } when isMut ->
+              do! unifyInvariant ctx env initType patType
+            | PatternKind.Ident { Name = name; IsMut = true } when not isMut ->
+              return!
+                Error(
+                  TypeError.SemanticError
+                    $"immutable binding '{name}' cannot be assigned to mutable pattern {pattern}"
+                )
+            | _ -> ()
+          | _ -> ()
+
         | None -> do! unify ctx env initType patType
 
         for KeyValue(name, binding) in patBindings do
@@ -1660,3 +1695,46 @@ module rec Infer =
 
         union (objType :: otherTypes)
     | _ -> t
+
+
+  let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =
+    match ident with
+    | QualifiedIdent.Ident name -> env.GetType name
+    | QualifiedIdent.Member(left, right) ->
+      result {
+        let! left = getQualifiedIdentType ctx env left
+        return getPropType ctx env left (PropName.String right) false
+      }
+
+  let rec getLvalue
+    (ctx: Ctx)
+    (env: Env)
+    (expr: Expr)
+    : Result<Type * bool, TypeError> =
+    result {
+      match expr.Kind with
+      | ExprKind.Identifier name -> return! env.GetBinding name
+      | ExprKind.Index(target, index, optChain) ->
+        // TODO: disallow optChain in lvalues
+        let! target, isMut = getLvalue ctx env target
+        let! index = inferExpr ctx env index
+
+        let key =
+          match index.Kind with
+          | TypeKind.Literal(Literal.Number i) -> PropName.Number i
+          | TypeKind.Literal(Literal.String s) -> PropName.String s
+          | TypeKind.UniqueSymbol id -> PropName.Symbol id
+          | _ ->
+            printfn "index = %A" index
+            failwith $"TODO: index can't be a {index}"
+
+        let t = getPropType ctx env target key false
+        return t, isMut
+      | ExprKind.Member(target, name, optChain) ->
+        // TODO: disallow optChain in lvalues
+        let! target, isMut = getLvalue ctx env target
+        let t = getPropType ctx env target (PropName.String name) false
+        return t, isMut
+      | _ ->
+        return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
+    }

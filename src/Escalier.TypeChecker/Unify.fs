@@ -452,11 +452,11 @@ module rec Unify =
           return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
-  let unifyCall<'a>
+  let unifyCall
     (ctx: Ctx)
     (env: Env)
-    (inferExpr: Ctx -> Env -> 'a -> Result<Type, TypeError>)
-    (args: list<'a>)
+    (inferExpr: Ctx -> Env -> Syntax.Expr -> Result<Type, TypeError>)
+    (args: list<Syntax.Expr>)
     (typeArgs: option<list<Type>>)
     (callee: Type)
     : Result<(Type * Type), TypeError> =
@@ -492,7 +492,10 @@ module rec Unify =
         let paramList =
           List.mapi
             (fun i t ->
-              let p: Pattern = Pattern.Identifier $"arg{i}"
+              let name = $"arg{i}"
+
+              let p: Pattern =
+                Pattern.Identifier { Name = name; IsMut = false }
 
               { Pattern = p
                 Type = t
@@ -517,11 +520,11 @@ module rec Unify =
       | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")
     }
 
-  let unifyFuncCall<'a>
+  let unifyFuncCall
     (ctx: Ctx)
     (env: Env)
-    (inferExpr: Ctx -> Env -> 'a -> Result<Type, TypeError>)
-    (args: list<'a>)
+    (inferExpr: Ctx -> Env -> Syntax.Expr -> Result<Type, TypeError>)
+    (args: list<Syntax.Expr>)
     (typeArgs: option<list<Type>>)
     (callee: Function)
     : Result<Type * Type, TypeError> =
@@ -554,34 +557,101 @@ module rec Unify =
       // List.zip requires that both lists have the same length
       let args = List.take callee.ParamList.Length args
 
-      for ((arg, argType), param) in List.zip args callee.ParamList do
+      for (arg, argType), param in List.zip args callee.ParamList do
         if
           param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
         then
           ()
         else
-          // TODO: collect errors and turn them into diagnostics
-          // TODO: check_mutability of `arg`
-          // contravariant
-          match unify ctx env argType param.Type with
-          | Ok _ -> ()
-          | Error(reason) ->
-            let never =
-              { Kind = TypeKind.Keyword Keyword.Never
-                Provenance = None }
+          // TODO: split this into a two step process:
+          // - do a first pass unification with subtyping
+          // - do a second pass which finds bindings in the arg and matches
+          //   those up with bindings in the param.  if any of those pairs
+          //   have a mutable param binding then check if the arg is also
+          //   mutable.  If it is then use `unifyInvariant` to check if those
+          //   two types are invariant.
+          // See https://github.com/escalier-lang/escalier-next/issues/124
+          let! isArgMut =
+            match arg.Kind with
+            | Syntax.ExprKind.Identifier name ->
+              Result.map (fun (_, isMut) -> isMut) (env.GetBinding name)
+            | _ -> Ok(false)
 
-            do! unify ctx env never param.Type
+          match param.Pattern with
+          | Identifier { Name = name; IsMut = true } when isArgMut ->
+            match unifyInvariant ctx env argType param.Type with
+            | Ok _ -> ()
+            | Error reason ->
+              let never =
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
+
+              do! unify ctx env never param.Type
+
+              ctx.AddDiagnostic(
+                { Description =
+                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                  Reasons = [ reason ] }
+              )
+          | Identifier { Name = name; IsMut = true } when not isArgMut ->
+            let reason =
+              TypeError.SemanticError "param is mutable but arg is not"
 
             ctx.AddDiagnostic(
               { Description =
                   $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
                 Reasons = [ reason ] }
             )
+          | _ ->
+            // TODO: check_mutability of `arg`
+            // contravariant
+            match unify ctx env argType param.Type with
+            | Ok _ -> ()
+            | Error(reason) ->
+              let never =
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
 
-            ()
+              do! unify ctx env never param.Type
 
-      // do! unify ctx env retType callee.Return // covariant
-      // do! unify ctx env throwsType callee.Throws // covariant
+              ctx.AddDiagnostic(
+                { Description =
+                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                  Reasons = [ reason ] }
+              )
 
       return (callee.Return, callee.Throws)
+    }
+
+  // TODO: don't allow `mut` on variables whose type is a literal or primitive
+  let unifyInvariant
+    (ctx: Ctx)
+    (env: Env)
+    (t1: Type)
+    (t2: Type)
+    : Result<unit, TypeError> =
+
+    result {
+      let t1 = prune t1
+      let t2 = prune t2
+
+      match t1.Kind, t2.Kind with
+      // We special case array because lengths are usually `unique number` which
+      // don't unify.
+      // TODO: generalize `.Length` in params that are arrays
+      | TypeKind.Array { Elem = elem1; Length = len1 },
+        TypeKind.Array { Elem = elem2; Length = len2 } ->
+        do! unifyInvariant ctx env elem1 elem2
+      // TODO: allow array and tuples to unify when the tuple has a rest element
+      | _ ->
+        if t1 = t2 then
+          return ()
+        else
+          let t1' = expandType ctx env (unify ctx) Map.empty t1
+          let t2' = expandType ctx env (unify ctx) Map.empty t2
+
+          if t1' <> t1 || t2' <> t2 then
+            return! unifyInvariant ctx env t1' t2'
+          else
+            return! Error(TypeError.TypeMismatch(t1, t2))
     }

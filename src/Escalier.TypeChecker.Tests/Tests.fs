@@ -911,8 +911,6 @@ let InferTemplateLiteralTypeWithUnions () =
       Assert.Value(env, "d", "Dir")
     }
 
-  printfn "result = %A" result
-
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -974,3 +972,232 @@ let InferTemplateLiteralTypeErrorWithUnion () =
     }
 
   Assert.True(Result.isError result)
+
+[<Fact>]
+let InferBasicMutability () =
+  let result =
+    result {
+      let src =
+        """
+        let mut x: number = 5
+        x = 10
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferBasicObjectMutability () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number}
+        let mut p: Point = {x: 0, y: 0}
+        p.x = 5
+        p.y = 10
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferBasicArrayMutability () =
+  let result =
+    result {
+      let src =
+        """
+        let mut array: number[] = [1, 2, 3]
+        array[3] = 4
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let DisallowAssigningToImmutableBindings () =
+  let result =
+    result {
+      let src =
+        """
+        let x: number = 5
+        x = 10
+        """
+
+      let! _, _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let InferFnWithMutableParam () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (mut array: (number | string)[]) {
+          array[0] = 5
+          array[1] = "hello"
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (mut array: (number | string)[]) -> undefined"
+      )
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MutableParamsAreInvariant () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (mut array: (number | string)[]) {
+          array[0] = 5
+          array[1] = "hello"
+        }
+        let numbers: (number | string)[] = [1, 2, 3]
+        foo(numbers)
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (mut array: (number | string)[]) -> undefined"
+      )
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MutableParamsCantBeCovariant () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (mut array: (number | string)[]) {
+          array[0] = 5
+          array[1] = "hello"
+        }
+        let mut numbers: number[] = [1, 2, 3]
+        foo(numbers)
+        """
+
+      let! ctx, _ = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ImmutableAssignmentIsBeCovariant () =
+  let result =
+    result {
+      let src =
+        """
+        let foo: number[] = [1, 2, 3]
+        let bar: (number | string)[] = foo
+        """
+
+      let! ctx, _ = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 0)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MutableAssignmentIsInvariant () =
+  let result =
+    result {
+      let src =
+        """
+        let mut foo: number[] = [1, 2, 3]
+        let mut bar: number[] = foo
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MutableAssignmentCantBeCovariant () =
+  let result =
+    result {
+      let src =
+        """
+        let mut foo: number[] = [1, 2, 3]
+        let mut bar: (number | string)[] = foo
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let CantPassImmutableArgsToMutableParams () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (mut array: number[]) {
+          array[0] = 5
+          array[1] = "hello"
+        }
+        let numbers: number[] = [1, 2, 3]
+        foo(numbers)
+        """
+
+      let! ctx, _ = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ImmutableParamsAreCovariant () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (array: (number | string)[]) {
+          return array.length
+        }
+        let numbers: number[] = [1, 2, 3]
+        foo(numbers)
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn (array: (number | string)[]) -> unique number"
+      )
+    }
+
+  Assert.False(Result.isError result)

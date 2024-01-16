@@ -279,6 +279,7 @@ let InferTypeDecls () =
       Assert.Type(newEnv, "Point", "{x: number, y: number}")
     }
 
+  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 [<Fact>]

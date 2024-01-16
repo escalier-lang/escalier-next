@@ -14,7 +14,7 @@ open Escalier.TypeChecker.Infer
 open Escalier.TypeChecker.Prelude
 
 let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
-  { Pattern = Type.Pattern.Identifier name
+  { Pattern = Type.Pattern.Identifier { Name = name; IsMut = false }
     Type = ty
     Optional = false }
 

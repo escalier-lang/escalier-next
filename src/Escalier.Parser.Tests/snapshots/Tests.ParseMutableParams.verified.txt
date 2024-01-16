@@ -1,0 +1,184 @@
+﻿input: 
+    let update = fn (mut array: number[]) {
+      for i in 0..array.length {
+        array[i] = array[i] + 1
+      }
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Ident { Name = "update"
+                                    IsMut = false
+                                    Assertion = None }
+                     Span = { Start = (Ln: 2, Col: 9)
+                              Stop = (Ln: 2, Col: 16) }
+                     InferredType = None },
+                   { Kind =
+                      Function
+                        { Sig =
+                           { TypeParams = None
+                             ParamList =
+                              [{ Pattern = { Kind = Ident { Name = "array"
+                                                            IsMut = true
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 2, Col: 22)
+                                                      Stop = (Ln: 2, Col: 31) }
+                                             InferredType = None }
+                                 TypeAnn =
+                                  Some
+                                    { Kind =
+                                       Array
+                                         { Kind = Keyword Number
+                                           Span = { Start = (Ln: 2, Col: 33)
+                                                    Stop = (Ln: 2, Col: 39) }
+                                           InferredType = None }
+                                      Span = { Start = (Ln: 2, Col: 33)
+                                               Stop = (Ln: 2, Col: 41) }
+                                      InferredType = None }
+                                 Optional = false }]
+                             ReturnType = None
+                             Throws = None
+                             IsAsync = false }
+                          Body =
+                           Block
+                             { Span = { Start = (Ln: 2, Col: 43)
+                                        Stop = (Ln: 7, Col: 5) }
+                               Stmts =
+                                [{ Kind =
+                                    For
+                                      ({ Kind = Ident { Name = "i"
+                                                        IsMut = false
+                                                        Assertion = None }
+                                         Span = { Start = (Ln: 3, Col: 11)
+                                                  Stop = (Ln: 3, Col: 13) }
+                                         InferredType = None },
+                                       { Kind =
+                                          Range
+                                            { Min =
+                                               { Kind = Literal (Number (Int 0))
+                                                 Span =
+                                                  { Start = (Ln: 3, Col: 16)
+                                                    Stop = (Ln: 3, Col: 17) }
+                                                 InferredType = None }
+                                              Max =
+                                               { Kind =
+                                                  Member
+                                                    ({ Kind = Identifier "array"
+                                                       Span =
+                                                        { Start =
+                                                           (Ln: 3, Col: 19)
+                                                          Stop =
+                                                           (Ln: 3, Col: 24) }
+                                                       InferredType = None },
+                                                     "length", false)
+                                                 Span =
+                                                  { Start = (Ln: 3, Col: 19)
+                                                    Stop = (Ln: 3, Col: 32) }
+                                                 InferredType = None } }
+                                         Span = { Start = (Ln: 3, Col: 16)
+                                                  Stop = (Ln: 3, Col: 32) }
+                                         InferredType = None },
+                                       { Span = { Start = (Ln: 3, Col: 32)
+                                                  Stop = (Ln: 6, Col: 5) }
+                                         Stmts =
+                                          [{ Kind =
+                                              Expr
+                                                { Kind =
+                                                   Assign
+                                                     ("=",
+                                                      { Kind =
+                                                         Index
+                                                           ({ Kind =
+                                                               Identifier
+                                                                 "array"
+                                                              Span =
+                                                               { Start =
+                                                                  (Ln: 4, Col: 9)
+                                                                 Stop =
+                                                                  (Ln: 4, Col: 14) }
+                                                              InferredType =
+                                                               None },
+                                                            { Kind =
+                                                               Identifier "i"
+                                                              Span =
+                                                               { Start =
+                                                                  (Ln: 4, Col: 15)
+                                                                 Stop =
+                                                                  (Ln: 4, Col: 16) }
+                                                              InferredType =
+                                                               None }, false)
+                                                        Span =
+                                                         { Start =
+                                                            (Ln: 4, Col: 9)
+                                                           Stop =
+                                                            (Ln: 4, Col: 18) }
+                                                        InferredType = None },
+                                                      { Kind =
+                                                         Binary
+                                                           ("+",
+                                                            { Kind =
+                                                               Index
+                                                                 ({ Kind =
+                                                                     Identifier
+                                                                       "array"
+                                                                    Span =
+                                                                     { Start =
+                                                                        (Ln: 4, Col: 20)
+                                                                       Stop =
+                                                                        (Ln: 4, Col: 25) }
+                                                                    InferredType =
+                                                                     None },
+                                                                  { Kind =
+                                                                     Identifier
+                                                                       "i"
+                                                                    Span =
+                                                                     { Start =
+                                                                        (Ln: 4, Col: 26)
+                                                                       Stop =
+                                                                        (Ln: 4, Col: 27) }
+                                                                    InferredType =
+                                                                     None },
+                                                                  false)
+                                                              Span =
+                                                               { Start =
+                                                                  (Ln: 4, Col: 20)
+                                                                 Stop =
+                                                                  (Ln: 4, Col: 29) }
+                                                              InferredType =
+                                                               None },
+                                                            { Kind =
+                                                               Literal
+                                                                 (Number (Int 1))
+                                                              Span =
+                                                               { Start =
+                                                                  (Ln: 4, Col: 31)
+                                                                 Stop =
+                                                                  (Ln: 5, Col: 7) }
+                                                              InferredType =
+                                                               None })
+                                                        Span =
+                                                         { Start =
+                                                            (Ln: 4, Col: 20)
+                                                           Stop =
+                                                            (Ln: 5, Col: 7) }
+                                                        InferredType = None })
+                                                  Span =
+                                                   { Start = (Ln: 4, Col: 9)
+                                                     Stop = (Ln: 5, Col: 7) }
+                                                  InferredType = None }
+                                             Span = { Start = (Ln: 4, Col: 9)
+                                                      Stop = (Ln: 5, Col: 7) } }] })
+                                   Span = { Start = (Ln: 3, Col: 7)
+                                            Stop = (Ln: 6, Col: 5) } }] } }
+                     Span = { Start = (Ln: 2, Col: 18)
+                              Stop = (Ln: 7, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 7, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 7, Col: 5) } }] }

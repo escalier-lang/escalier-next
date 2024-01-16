@@ -420,7 +420,8 @@ module rec Infer =
 
   let patToPattern (env: Env) (p: Pat) : Pattern =
     match p with
-    | Pat.Ident ident -> Pattern.Identifier ident.Id.Name
+    | Pat.Ident ident ->
+      Pattern.Identifier { Name = ident.Id.Name; IsMut = false }
     | Pat.Array arrayPat ->
       let elems = arrayPat.Elems |> List.map (Option.map <| (patToPattern env))
       Pattern.Tuple { Elems = elems; Immutable = false }
@@ -439,9 +440,15 @@ module rec Infer =
               | PropName.Computed computedPropName ->
                 failwith "TODO: computed property name"
 
-            ObjPatElem.KeyValuePat(key, patToPattern env value, None)
+            ObjPatElem.KeyValuePat
+              { Key = key
+                Value = patToPattern env value
+                Init = None }
           | ObjectPatProp.Assign { Key = key; Value = _ } ->
-            ObjPatElem.ShorthandPat(key.Name, None)
+            ObjPatElem.ShorthandPat
+              { Name = key.Name
+                Init = None
+                IsMut = false }
           | ObjectPatProp.Rest { Arg = arg } ->
             patToPattern env arg |> ObjPatElem.RestPat)
 

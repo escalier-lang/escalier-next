@@ -384,7 +384,7 @@ module rec Codegen =
           let t = buildTypeAnn ctx p.Type
 
           match p.Pattern with
-          | Pattern.Identifier name ->
+          | Pattern.Identifier { Name = name } ->
             let pat =
               TsFnParamPat.Ident
                 { Id = { Name = name; Loc = None }

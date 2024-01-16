@@ -82,7 +82,7 @@ module Prelude =
       Provenance = None }
 
   let makeParam (name: string) (ty: Type) : FuncParam =
-    { Pattern = Pattern.Identifier name
+    { Pattern = Pattern.Identifier { Name = name; IsMut = false }
       Type = ty
       Optional = false }
 

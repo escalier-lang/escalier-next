@@ -201,10 +201,16 @@ module rec Env =
         let (t, isMut) = var
         Ok(t)
       | None ->
+        // TODO: why do we need to check if it's an integer literal?
         if isIntegerLiteral name then
           Ok(numType)
         else
           Error(TypeError.SemanticError $"Undefined symbol {name}")
+
+    member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
+      match this.Values |> Map.tryFind name with
+      | Some(var) -> Ok var
+      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
 
 
   let expandScheme

@@ -27,9 +27,11 @@ module rec Prune =
 
       { Min =
           { Kind = TypeKind.Literal(Literal.Number min)
+            Mutable = false
             Provenance = None }
         Max =
           { Kind = TypeKind.Literal(Literal.Number max)
+            Mutable = false
             Provenance = None } }
     | _ -> r
 
@@ -56,6 +58,7 @@ module rec Prune =
           | _ -> failwith "TODO: simplify binary"
 
         { Kind = TypeKind.Literal result
+          Mutable = false
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving numbers
       | _, TypeKind.Primitive Primitive.Number -> right
@@ -68,15 +71,18 @@ module rec Prune =
           | _ -> failwith "TODO: simplify binary"
 
         { Kind = TypeKind.Literal(Literal.String result)
+          Mutable = false
           Provenance = None }
       // TODO: Check `op` when collapsing binary expressions involving strings
       | _, TypeKind.Primitive Primitive.String -> right
       | TypeKind.Primitive Primitive.String, _ -> left
       | TypeKind.Literal(Literal.Number n), TypeKind.Range range ->
         { Kind = TypeKind.Range(simplifyRangeMath op n range)
+          Mutable = false
           Provenance = None }
       | TypeKind.Range range, TypeKind.Literal(Literal.Number n) ->
         { Kind = TypeKind.Range(simplifyRangeMath op n range)
+          Mutable = false
           Provenance = None }
       | TypeKind.Range { Min = min1; Max = max1 },
         TypeKind.Range { Min = min2; Max = max2 } ->
@@ -100,12 +106,15 @@ module rec Prune =
           let range =
             { Min =
                 { Kind = TypeKind.Literal(Literal.Number min)
+                  Mutable = false
                   Provenance = None }
               Max =
                 { Kind = TypeKind.Literal(Literal.Number max)
+                  Mutable = false
                   Provenance = None } }
 
           { Kind = TypeKind.Range range
+            Mutable = false
             Provenance = None }
         | _ -> t
       | _ -> t

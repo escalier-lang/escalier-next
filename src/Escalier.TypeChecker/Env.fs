@@ -31,6 +31,7 @@ module rec Env =
       nextTypeVarId <- nextTypeVarId + 1
 
       { Kind = TypeKind.TypeVar newVar
+        Mutable = false
         Provenance = None }
 
     member this.FreshUniqueId() =
@@ -42,6 +43,7 @@ module rec Env =
       let id = this.FreshUniqueId()
 
       { Kind = TypeKind.UniqueSymbol id
+        Mutable = false
         Provenance = None }
 
     member this.AddDiagnostic(diagnostic: Diagnostic) =
@@ -64,18 +66,22 @@ module rec Env =
             ParamList = paramList
             Return = ret
             Throws = throws }
+      Mutable = false
       Provenance = None }
 
   let numType =
     { Kind = TypeKind.Primitive Primitive.Number
+      Mutable = false
       Provenance = None }
 
   let boolType =
     { Kind = TypeKind.Primitive Primitive.Boolean
+      Mutable = false
       Provenance = None }
 
   let strType =
     { Kind = TypeKind.Primitive Primitive.String
+      Mutable = false
       Provenance = None }
 
   let isIntegerLiteral (name: string) =
@@ -113,10 +119,12 @@ module rec Env =
     match types with
     | [] ->
       { Kind = TypeKind.Keyword Keyword.Never
+        Mutable = false
         Provenance = None }
     | [ t ] -> t
     | types ->
       { Kind = TypeKind.Intersection(types)
+        Mutable = false
         Provenance = None }
 
   let union (types: list<Type>) : Type =
@@ -157,10 +165,12 @@ module rec Env =
     match types with
     | [] ->
       { Kind = TypeKind.Keyword Keyword.Never
+        Mutable = false
         Provenance = None }
     | [ t ] -> t
     | types ->
       { Kind = TypeKind.Union(types)
+        Mutable = false
         Provenance = None }
 
 
@@ -287,12 +297,15 @@ module rec Env =
               match key with
               | PropName.String s ->
                 { Kind = TypeKind.Literal(Literal.String s)
+                  Mutable = false
                   Provenance = None }
               | PropName.Number n ->
                 { Kind = TypeKind.Literal(Literal.Number n)
+                  Mutable = false
                   Provenance = None }
               | PropName.Symbol id ->
                 { Kind = TypeKind.UniqueSymbol id
+                  Mutable = false
                   Provenance = None })
 
           union keys
@@ -448,6 +461,7 @@ module rec Env =
 
         let t =
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+            Mutable = false
             Provenance = None // TODO: set provenance
           }
 

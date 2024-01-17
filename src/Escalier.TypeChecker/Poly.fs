@@ -29,11 +29,13 @@ module Poly =
                         f.ParamList
                     // TODO: fold TypeParams
                     Return = fold f.Return }
+            Mutable = false
             Provenance = None }
         | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
           let elems = List.map fold elems
 
           { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+            Mutable = false
             Provenance = None }
         | TypeKind.TypeRef({ Name = name
                              TypeArgs = typeArgs
@@ -51,6 +53,7 @@ module Poly =
                   TypeArgs = typeArgs
                   Scheme = scheme }
               )
+            Mutable = false
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
@@ -64,27 +67,34 @@ module Poly =
               elems
 
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+            Mutable = false
             Provenance = None }
         | TypeKind.Rest t ->
           { Kind = TypeKind.Rest(fold t)
+            Mutable = false
             Provenance = None }
         | TypeKind.Union types ->
           { Kind = TypeKind.Union(List.map fold types)
+            Mutable = false
             Provenance = None }
         | TypeKind.Intersection types ->
           { Kind = TypeKind.Intersection(List.map fold types)
+            Mutable = false
             Provenance = None }
         | TypeKind.Array { Elem = elem; Length = length } ->
           { Kind =
               TypeKind.Array
                 { Elem = fold elem
                   Length = fold length }
+            Mutable = false
             Provenance = None }
         | TypeKind.KeyOf t ->
           { Kind = TypeKind.KeyOf(fold t)
+            Mutable = false
             Provenance = None }
         | TypeKind.Index(target, index) ->
           { Kind = TypeKind.Index(fold target, fold index)
+            Mutable = false
             Provenance = None }
         | TypeKind.Condition { Check = check
                                Extends = extends
@@ -96,10 +106,12 @@ module Poly =
                   Extends = fold extends
                   TrueType = fold trueType
                   FalseType = fold falseType }
+            Mutable = false
             Provenance = None }
         | TypeKind.Infer _ -> t
         | TypeKind.Binary(left, op, right) ->
           { Kind = TypeKind.Binary(fold left, op, fold right)
+            Mutable = false
             Provenance = None }
         | TypeKind.UniqueNumber _ -> t
         | _ -> failwith $"TODO: foldType - {t.Kind}"
@@ -122,6 +134,7 @@ module Poly =
         | TypeKind.TypeVar _ ->
           Some(
             { Kind = TypeKind.Keyword Keyword.Never
+              Mutable = false
               Provenance = None }
           )
         | _ -> None
@@ -138,6 +151,7 @@ module Poly =
 
           Some(
             { Kind = TypeKind.Function f
+              Mutable = false
               Provenance = None }
           )
         | _ -> None
@@ -169,6 +183,7 @@ module Poly =
                     { Name = name
                       TypeArgs = None
                       Scheme = None }
+                Mutable = false
                 Provenance = None }
             )
           | None ->
@@ -182,6 +197,7 @@ module Poly =
                     { Name = tpName
                       TypeArgs = None
                       Scheme = None }
+                Mutable = false
                 Provenance = None }
             )
         | _ -> None

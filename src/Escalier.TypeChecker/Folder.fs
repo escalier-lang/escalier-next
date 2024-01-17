@@ -25,11 +25,13 @@ module rec Folder =
                         f.ParamList
                     // TODO: fold TypeParams
                     Return = fold f.Return }
+            Mutable = false
             Provenance = None }
         | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
           let elems = List.map fold elems
 
           { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+            Mutable = false
             Provenance = None }
         | TypeKind.TypeRef({ Name = name
                              TypeArgs = typeArgs
@@ -45,6 +47,7 @@ module rec Folder =
                   TypeArgs = typeArgs
                   Scheme = scheme }
               )
+            Mutable = false
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
@@ -66,27 +69,34 @@ module rec Folder =
               elems
 
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+            Mutable = false
             Provenance = None }
         | TypeKind.Rest t ->
           { Kind = TypeKind.Rest(fold t)
+            Mutable = false
             Provenance = None }
         | TypeKind.Union types ->
           { Kind = TypeKind.Union(List.map fold types)
+            Mutable = false
             Provenance = None }
         | TypeKind.Intersection types ->
           { Kind = TypeKind.Intersection(List.map fold types)
+            Mutable = false
             Provenance = None }
         | TypeKind.Array { Elem = elem; Length = length } ->
           { Kind =
               TypeKind.Array
                 { Elem = fold elem
                   Length = fold length }
+            Mutable = false
             Provenance = None }
         | TypeKind.KeyOf t ->
           { Kind = TypeKind.KeyOf(fold t)
+            Mutable = false
             Provenance = None }
         | TypeKind.Index(target, index) ->
           { Kind = TypeKind.Index(fold target, fold index)
+            Mutable = false
             Provenance = None }
         | TypeKind.Condition { Check = check
                                Extends = extends
@@ -98,13 +108,16 @@ module rec Folder =
                   Extends = fold extends
                   TrueType = fold trueType
                   FalseType = fold falseType }
+            Mutable = false
             Provenance = None }
         | TypeKind.Infer _ -> t
         | TypeKind.Binary(left, op, right) ->
           { Kind = TypeKind.Binary(fold left, op, fold right)
+            Mutable = false
             Provenance = None }
         | TypeKind.Range { Min = min; Max = max } ->
           { Kind = TypeKind.Range { Min = fold min; Max = fold max }
+            Mutable = false
             Provenance = None }
 
       match f t with

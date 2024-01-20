@@ -114,6 +114,10 @@ module Poly =
             Mutable = false
             Provenance = None }
         | TypeKind.UniqueNumber _ -> t
+        | TypeKind.Range { Min = min; Max = max } ->
+          { Kind = TypeKind.Range { Min = fold min; Max = fold max }
+            Mutable = false
+            Provenance = None }
         | _ -> failwith $"TODO: foldType - {t.Kind}"
 
       match f t with

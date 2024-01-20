@@ -83,7 +83,7 @@ let InferSimpleConditionalType () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "A" env.Schemes)
           Map.empty
           None
@@ -94,7 +94,7 @@ let InferSimpleConditionalType () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "B" env.Schemes)
           Map.empty
           None
@@ -105,7 +105,7 @@ let InferSimpleConditionalType () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "C" env.Schemes)
           Map.empty
           None
@@ -142,7 +142,7 @@ let InferNestedConditionalTypes () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "A" env.Schemes)
           Map.empty
           None
@@ -153,7 +153,7 @@ let InferNestedConditionalTypes () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "B" env.Schemes)
           Map.empty
           None
@@ -164,7 +164,7 @@ let InferNestedConditionalTypes () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "C" env.Schemes)
           Map.empty
           None
@@ -191,7 +191,7 @@ let InferExclude () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Result" env.Schemes)
           Map.empty
           None
@@ -218,7 +218,7 @@ let InferExtract () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Result" env.Schemes)
           Map.empty
           None
@@ -253,7 +253,7 @@ let InferCartesianProdType () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Cells" env.Schemes)
           Map.empty
           None
@@ -286,7 +286,7 @@ let InfersPick () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Bar" env.Schemes)
           Map.empty
           None
@@ -319,7 +319,7 @@ let InfersOmit () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Bar" env.Schemes)
           Map.empty
           None
@@ -367,7 +367,7 @@ let InfersNestedConditionals () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Foo" env.Schemes)
           Map.empty
           None
@@ -395,7 +395,7 @@ let InfersReturnType () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Foo" env.Schemes)
           Map.empty
           None
@@ -406,7 +406,7 @@ let InfersReturnType () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Bar" env.Schemes)
           Map.empty
           None
@@ -433,7 +433,7 @@ let InfersParameters () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Foo" env.Schemes)
           Map.empty
           None
@@ -444,7 +444,7 @@ let InfersParameters () =
         expandScheme
           ctx
           env
-          (unify ctx)
+          None
           (Map.find "Bar" env.Schemes)
           Map.empty
           None

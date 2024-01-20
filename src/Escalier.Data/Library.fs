@@ -283,7 +283,7 @@ module Syntax =
   type PatternKind =
     | Ident of IdentPat
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
-    | Tuple of Common.Object<Pattern> // TODO: rest patterns
+    | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
     | Rest of Pattern

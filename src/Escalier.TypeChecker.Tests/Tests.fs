@@ -1202,3 +1202,69 @@ let ImmutableParamsAreCovariant () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let MutablePartialInitialization () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x:number, y:number}
+        type Line = {p0: Point, p1: Point}
+        
+        let mut p0 = {x: 0, y: 0}
+        let mut p1 = {x: 5, y: 5}
+        
+        let line: Line = {p0, p1}
+        let {p0: mut start, p1: mut end}: Line = {p0, p1}
+        let {p0: start, p1: mut end}: Line = {p0, p1}
+        let {p0: mut start, p1: end}: Line = {p0, p1}
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MutableInitializationError () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x:number, y:number}
+        type Line = {p0: Point, p1: Point}
+        
+        let mut p0 = {x: 0, y: 0}
+        let p1 = {x: 5, y: 5}
+        
+        let mut line: Line = {p0, p1}
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let MutablePartialInitializationError () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x:number, y:number}
+        type Line = {p0: Point, p1: Point}
+        
+        let mut p0 = {x: 0, y: 0}
+        let p1 = {x: 5, y: 5}
+        
+        let {p0: start, p1: mut end}: Line = {p0, p1}
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)

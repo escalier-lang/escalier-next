@@ -21,7 +21,6 @@ module rec Unify =
     (t2: Type)
     : Result<unit, TypeError> =
     // printfn $"unify({t1}, {t2})"
-    // printfn $"IsPatternMatching = {env.IsPatternMatching}"
 
     result {
       match (prune t1).Kind, (prune t2).Kind with

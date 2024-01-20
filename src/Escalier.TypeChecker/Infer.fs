@@ -1243,8 +1243,6 @@ module rec Infer =
         let! _ = inferBlock ctx newEnv block
         return env
       | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
-        // TODO: pass `invariantPaths` to `unify` so that it knows if and when
-        // to use invariant unification instead of the usual sub-typing rules.
         let! invariantPaths = checkMutability env pattern init
         let! patBindings, patType = inferPattern ctx env pattern
         let mutable newEnv = env
@@ -1259,26 +1257,6 @@ module rec Infer =
           let! typeAnnType = inferTypeAnn ctx env typeAnn
           do! unify ctx env invariantPaths initType typeAnnType
           do! unify ctx env None typeAnnType patType
-
-          // TODO: handle mutable bindings that aren't at the top-level
-          // We need to handle cases where `init` isn't just a simple identifier
-          // See https://github.com/escalier-lang/escalier-next/issues/124
-          match init.Kind with
-          | ExprKind.Identifier name ->
-            let! _, isMut = env.GetBinding name
-
-            match pattern.Kind with
-            | PatternKind.Ident { Name = name; IsMut = true } when isMut ->
-              do! unifyInvariant ctx env None initType patType
-            | PatternKind.Ident { Name = name; IsMut = true } when not isMut ->
-              return!
-                Error(
-                  TypeError.SemanticError
-                    $"immutable binding '{name}' cannot be assigned to mutable pattern {pattern}"
-                )
-            | _ -> ()
-          | _ -> ()
-
         | None -> do! unify ctx env invariantPaths initType patType
 
         for KeyValue(name, binding) in patBindings do

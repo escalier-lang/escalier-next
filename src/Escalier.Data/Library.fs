@@ -421,8 +421,8 @@ module Type =
       match this with
       // TODO: check if `value` is a valid identifier or not and output a
       // computed property if it isn't.
-      | String value -> $"{value}"
-      | Number value -> $"[{value}]"
+      | String value -> value.ToString()
+      | Number value -> value.ToString()
       | Symbol id -> $"[Symbol({id})]"
 
   [<RequireQualifiedAccess>]

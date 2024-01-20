@@ -13,7 +13,6 @@ open Poly
 
 module rec Unify =
 
-  // Checks that t1 is assignable to t2
   let unify
     (ctx: Ctx)
     (env: Env)
@@ -22,6 +21,19 @@ module rec Unify =
     (t2: Type)
     : Result<unit, TypeError> =
     // printfn $"unify({t1}, {t2})"
+
+    match ips with
+    | Some [ [] ] -> unifyInvariant ctx env ips t1 t2
+    | _ -> unifySubtyping ctx env ips t1 t2
+
+  // Checks that t1 is assignable to t2
+  let unifySubtyping
+    (ctx: Ctx)
+    (env: Env)
+    (ips: option<list<list<string>>>)
+    (t1: Type)
+    (t2: Type)
+    : Result<unit, TypeError> =
 
     result {
       match (prune t1).Kind, (prune t2).Kind with
@@ -319,7 +331,23 @@ module rec Unify =
                 | true -> union [ prop2.Type; undefined ]
                 | false -> prop2.Type
 
-              do! unify ctx env ips p1Type p2Type
+              match ips with
+              | Some ips ->
+                // TODO: what if there are multiple paths with the same prefix
+                // we need to convert `[["a", "b"], ["a", "c"]]` to
+                // `[["a", ["b", "c"]]]`
+                // TODO: use PropName instead of string
+                match
+                  List.tryFind
+                    (fun (path: list<string>) ->
+                      (List.head path) = name.ToString())
+                    ips
+                with
+                | Some [] -> failwith "TODO: call unifyInvariant above"
+                | Some(head :: tail) ->
+                  do! unify ctx env (Some [ tail ]) p1Type p2Type
+                | None -> do! unify ctx env None p1Type p2Type
+              | None -> do! unify ctx env None p1Type p2Type
             | None ->
               if not prop2.Optional then
                 return! Error(TypeError.TypeMismatch(t1, t2))

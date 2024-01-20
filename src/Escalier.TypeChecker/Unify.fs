@@ -9,6 +9,7 @@ open Escalier.Data.Type
 open Error
 open Prune
 open Env
+open Mutability
 open Poly
 
 module rec Unify =
@@ -333,20 +334,13 @@ module rec Unify =
 
               match ips with
               | Some ips ->
-                // TODO: what if there are multiple paths with the same prefix
-                // we need to convert `[["a", "b"], ["a", "c"]]` to
-                // `[["a", ["b", "c"]]]`
-                // TODO: use PropName instead of string
-                match
-                  List.tryFind
-                    (fun (path: list<string>) ->
-                      (List.head path) = name.ToString())
-                    ips
-                with
-                | Some [] -> failwith "TODO: call unifyInvariant above"
-                | Some(head :: tail) ->
-                  do! unify ctx env (Some [ tail ]) p1Type p2Type
-                | None -> do! unify ctx env None p1Type p2Type
+                let matchingPathTails =
+                  ips
+                  |> List.filter (fun path -> List.head path = name.ToString())
+                  |> List.map List.tail
+                  |> List.distinct
+
+                do! unify ctx env (Some matchingPathTails) p1Type p2Type
               | None -> do! unify ctx env None p1Type p2Type
             | None ->
               if not prop2.Optional then
@@ -604,64 +598,27 @@ module rec Unify =
         then
           ()
         else
-          // TODO: split this into a two step process:
-          // - do a first pass unification with subtyping
-          // - do a second pass which finds bindings in the arg and matches
-          //   those up with bindings in the param.  if any of those pairs
-          //   have a mutable param binding then check if the arg is also
-          //   mutable.  If it is then use `unifyInvariant` to check if those
-          //   two types are invariant.
-          // See https://github.com/escalier-lang/escalier-next/issues/124
-          let! isArgMut =
-            match arg.Kind with
-            | Syntax.ExprKind.Identifier name ->
-              Result.map (fun (_, isMut) -> isMut) (env.GetBinding name)
-            | _ -> Ok(false)
+          let! invariantPaths =
+            checkMutability
+              env
+              (getTypePatBindingPaths param.Pattern)
+              (getExprBindingPaths env arg)
 
-          match param.Pattern with
-          | Identifier { Name = name; IsMut = true } when isArgMut ->
-            match unifyInvariant ctx env ips argType param.Type with
-            | Ok _ -> ()
-            | Error reason ->
-              let never =
-                { Kind = TypeKind.Keyword Keyword.Never
-                  Mutable = false
-                  Provenance = None }
+          match unify ctx env invariantPaths argType param.Type with
+          | Ok _ -> ()
+          | Error(reason) ->
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Mutable = false
+                Provenance = None }
 
-              do! unify ctx env ips never param.Type
-
-              ctx.AddDiagnostic(
-                { Description =
-                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
-                  Reasons = [ reason ] }
-              )
-          | Identifier { Name = name; IsMut = true } when not isArgMut ->
-            let reason =
-              TypeError.SemanticError "param is mutable but arg is not"
+            do! unify ctx env ips never param.Type
 
             ctx.AddDiagnostic(
               { Description =
                   $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
                 Reasons = [ reason ] }
             )
-          | _ ->
-            // TODO: check_mutability of `arg`
-            // contravariant
-            match unify ctx env ips argType param.Type with
-            | Ok _ -> ()
-            | Error(reason) ->
-              let never =
-                { Kind = TypeKind.Keyword Keyword.Never
-                  Mutable = false
-                  Provenance = None }
-
-              do! unify ctx env ips never param.Type
-
-              ctx.AddDiagnostic(
-                { Description =
-                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
-                  Reasons = [ reason ] }
-              )
 
       return (callee.Return, callee.Throws)
     }

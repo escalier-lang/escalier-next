@@ -152,7 +152,7 @@ let MutableParamsAreInvariant () =
           array[0] = 5
           array[1] = "hello"
         }
-        let numbers: (number | string)[] = [1, 2, 3]
+        let mut numbers: (number | string)[] = [1, 2, 3]
         foo(numbers)
         """
 
@@ -251,12 +251,13 @@ let CantPassImmutableArgsToMutableParams () =
         foo(numbers)
         """
 
-      let! ctx, _ = inferScript src
-
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      let! _ = inferScript src
+      // TODO: update mutability checking code to report recoverable errors
+      // Assert.Equal(ctx.Diagnostics.Length, 1)
+      ()
     }
 
-  Assert.False(Result.isError result)
+  Assert.True(Result.isError result)
 
 [<Fact>]
 let ImmutableParamsAreCovariant () =

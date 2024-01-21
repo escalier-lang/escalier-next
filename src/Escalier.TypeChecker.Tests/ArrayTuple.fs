@@ -345,7 +345,7 @@ let InferDestructureArray () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "a", "number")
+      Assert.Value(env, "a", "number | undefined")
       Assert.Value(env, "rest", "number[]")
     }
 

@@ -12,6 +12,7 @@ open Error
 open Prune
 open ExprVisitor
 open Env
+open Mutability
 open Poly
 open Unify
 
@@ -96,7 +97,7 @@ module rec Infer =
           let! callee = inferExpr ctx env call.Callee
 
           let! result, throws =
-            unifyCall ctx env inferExpr call.Args None callee
+            unifyCall ctx env None inferExpr call.Args None callee
 
           call.Throws <- Some(throws)
 
@@ -105,7 +106,7 @@ module rec Infer =
           let! funTy = env.GetType op
 
           let! result, throws =
-            unifyCall ctx env inferExpr [ left; right ] None funTy
+            unifyCall ctx env None inferExpr [ left; right ] None funTy
 
           // TODO: handle throws
 
@@ -156,7 +157,7 @@ module rec Infer =
                   let! assumps, patternType =
                     inferPattern ctx newEnv param.Pattern
 
-                  do! unify ctx newEnv patternType paramType
+                  do! unify ctx newEnv None patternType paramType
 
                   for KeyValue(name, binding) in assumps do
                     // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
@@ -181,7 +182,7 @@ module rec Infer =
             | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
             | None -> Result.Ok(ctx.FreshTypeVar None)
 
-          do! unify ctx newEnv bodyThrows sigThrows
+          do! unify ctx newEnv None bodyThrows sigThrows
           let mutable throwsType = sigThrows
 
           let! retType =
@@ -230,7 +231,7 @@ module rec Infer =
               match f.Sig.ReturnType with
               | Some(sigRetType) ->
                 let! sigRetType = inferTypeAnn ctx newEnv sigRetType
-                do! unify ctx newEnv retType sigRetType
+                do! unify ctx newEnv None retType sigRetType
                 return sigRetType
               | None -> return retType
             }
@@ -252,7 +253,7 @@ module rec Infer =
           let! elseBranchTy =
             Option.traverseResult (inferBlockOrExpr ctx env) elseBranch
 
-          do! unify ctx env conditionTy boolType
+          do! unify ctx env None conditionTy boolType
 
           return
             match elseBranchTy with
@@ -361,7 +362,7 @@ module rec Infer =
 
                   for throwType in throwTypes do
                     if not unified then
-                      match unify ctx env patternType throwType with
+                      match unify ctx env None patternType throwType with
                       | Ok _ ->
                         caughtTypes <- throwType :: caughtTypes
                         unified <- true
@@ -419,7 +420,7 @@ module rec Infer =
           | TypeKind.Range { Min = min; Max = max } ->
             match target.Kind with
             | TypeKind.Array { Elem = elem; Length = length } ->
-              do! unify ctx env max length
+              do! unify ctx env None max length
               return elem
             | _ ->
               return!
@@ -460,7 +461,7 @@ module rec Infer =
           let! t, isMut = getLvalue ctx env left
 
           if isMut then
-            do! unify ctx env rightType t
+            do! unify ctx env None rightType t
           else
             return!
               Error(TypeError.SemanticError "Can't assign to immutable binding")
@@ -522,7 +523,7 @@ module rec Infer =
         getPropType
           ctx
           env
-          (expandScheme ctx env (unify ctx) scheme Map.empty typeArgs)
+          (expandScheme ctx env None scheme Map.empty typeArgs)
           key
           optChain
       | None ->
@@ -531,7 +532,7 @@ module rec Infer =
           getPropType
             ctx
             env
-            (expandScheme ctx env (unify ctx) scheme Map.empty typeArgs)
+            (expandScheme ctx env None scheme Map.empty typeArgs)
             key
             optChain
         | None -> failwithf $"{key} not in scope"
@@ -954,7 +955,7 @@ module rec Infer =
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
-        t
+        { t with Mutable = isMut }
       | PatternKind.Literal lit ->
         { Kind = TypeKind.Literal lit
           Mutable = false
@@ -1005,7 +1006,7 @@ module rec Infer =
                     { Name = PropName.String name
                       Optional = false
                       Readonly = false
-                      Type = t }
+                      Type = { t with Mutable = isMut } }
                 )
 
               | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
@@ -1107,12 +1108,17 @@ module rec Infer =
       if hasTypeVars exprType then
         for patternType in patternTypes do
           let newExprType = fresh ctx exprType
-          do! unify ctx env patternType newExprType
+          do! unify ctx env None patternType newExprType
           newExprTypes <- newExprType :: newExprTypes
       else
         for patternType in patternTypes do
           do!
-            unify ctx { env with IsPatternMatching = true } patternType exprType
+            unify
+              ctx
+              { env with IsPatternMatching = true }
+              None
+              patternType
+              exprType
 
       // Infer body types
       let! bodyTypes =
@@ -1141,7 +1147,7 @@ module rec Infer =
         // TODO: simplify the union before unifying with `exprType`
         let t = union newExprTypes
         let t = simplifyUnion t
-        do! unify ctx env t exprType
+        do! unify ctx env None t exprType
         return newExprTypes, bodyTypes
     }
 
@@ -1207,8 +1213,7 @@ module rec Infer =
 
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.
-        let expandedRightType =
-          expandType ctx env (unify ctx) Map.empty rightType
+        let expandedRightType = expandType ctx env None Map.empty rightType
 
         let elemType =
           match expandedRightType.Kind with
@@ -1229,7 +1234,7 @@ module rec Infer =
             | _ -> failwith $"{rightType} is not an iterator"
           | _ -> failwith "TODO: for loop over non-iterable type"
 
-        do! unify ctx env elemType patType
+        do! unify ctx env None elemType patType
 
         let mutable newEnv = env
 
@@ -1239,6 +1244,11 @@ module rec Infer =
         let! _ = inferBlock ctx newEnv block
         return env
       | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
+        let! invariantPaths =
+          checkMutability
+            (getPatBindingPaths pattern)
+            (getExprBindingPaths env init)
+
         let! patBindings, patType = inferPattern ctx env pattern
         let mutable newEnv = env
 
@@ -1250,29 +1260,9 @@ module rec Infer =
         match typeAnn with
         | Some(typeAnn) ->
           let! typeAnnType = inferTypeAnn ctx env typeAnn
-          do! unify ctx env initType typeAnnType
-          do! unify ctx env typeAnnType patType
-
-          // TODO: handle mutable bindings that aren't at the top-level
-          // We need to handle cases where `init` isn't just a simple identifier
-          // See https://github.com/escalier-lang/escalier-next/issues/124
-          match init.Kind with
-          | ExprKind.Identifier name ->
-            let! _, isMut = env.GetBinding name
-
-            match pattern.Kind with
-            | PatternKind.Ident { Name = name; IsMut = true } when isMut ->
-              do! unifyInvariant ctx env initType patType
-            | PatternKind.Ident { Name = name; IsMut = true } when not isMut ->
-              return!
-                Error(
-                  TypeError.SemanticError
-                    $"immutable binding '{name}' cannot be assigned to mutable pattern {pattern}"
-                )
-            | _ -> ()
-          | _ -> ()
-
-        | None -> do! unify ctx env initType patType
+          do! unify ctx env invariantPaths initType typeAnnType
+          do! unify ctx env None typeAnnType patType
+        | None -> do! unify ctx env invariantPaths initType patType
 
         for KeyValue(name, binding) in patBindings do
           let binding =
@@ -1281,6 +1271,8 @@ module rec Infer =
               let t, isMut = binding
               let t = prune t
 
+              // TODO: make the type immutable since we only care about
+              // mutability of type during assignment/initialization
               let t =
                 match t.Kind with
                 | TypeKind.Function f ->
@@ -1417,7 +1409,7 @@ module rec Infer =
         let! typeAnnType = inferTypeAnn ctx env typeAnn
         let! assump, patType = inferPattern ctx env name
 
-        do! unify ctx env typeAnnType patType
+        do! unify ctx env None typeAnnType patType
 
         let mutable newEnv = env
 

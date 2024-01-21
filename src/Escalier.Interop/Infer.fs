@@ -525,7 +525,7 @@ module rec Infer =
           match decl.TypeAnn with
           | Some(typeAnn) ->
             let typeAnnType = inferTsTypeAnn ctx env typeAnn
-            do! unify ctx env typeAnnType patType
+            do! unify ctx env None typeAnnType patType
           | None -> ()
 
       | Decl.Using usingDecl -> failwith "TODO: usingDecl"

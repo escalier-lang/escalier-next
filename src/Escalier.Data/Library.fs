@@ -283,7 +283,7 @@ module Syntax =
   type PatternKind =
     | Ident of IdentPat
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
-    | Tuple of Common.Object<Pattern> // TODO: rest patterns
+    | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
     | Rest of Pattern
@@ -421,8 +421,8 @@ module Type =
       match this with
       // TODO: check if `value` is a valid identifier or not and output a
       // computed property if it isn't.
-      | String value -> $"{value}"
-      | Number value -> $"[{value}]"
+      | String value -> value.ToString()
+      | Number value -> value.ToString()
       | Symbol id -> $"[Symbol({id})]"
 
   [<RequireQualifiedAccess>]

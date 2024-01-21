@@ -14,10 +14,11 @@ open Poly
 
 module rec Unify =
 
+  // Checks that t1 is assignable to t2
   let unify
     (ctx: Ctx)
     (env: Env)
-    (ips: option<list<list<string>>>)
+    (ips: option<list<list<string>>>) // invariant paths
     (t1: Type)
     (t2: Type)
     : Result<unit, TypeError> =
@@ -27,11 +28,11 @@ module rec Unify =
     | Some [ [] ] -> unifyInvariant ctx env ips t1 t2
     | _ -> unifySubtyping ctx env ips t1 t2
 
-  // Checks that t1 is assignable to t2
+  // Checks that t1 is assignable to t2, t1 must be a subtype of t2
   let unifySubtyping
     (ctx: Ctx)
     (env: Env)
-    (ips: option<list<list<string>>>)
+    (ips: option<list<list<string>>>) // invariant paths
     (t1: Type)
     (t2: Type)
     : Result<unit, TypeError> =
@@ -63,15 +64,23 @@ module rec Unify =
           if List.length tuple1.Elems < List.length elemTypes then
             return! Error(TypeError.TypeMismatch(t1, t2))
 
-          // List.map2 only works if the lists have the same length so make
-          // elems1 the same length as elemTypes (elems2)
-          let elems1 = List.take elemTypes.Length tuple1.Elems
-          List.map2 (unify ctx env ips) elems1 elemTypes |> ignore
+          for i in 0 .. elemTypes.Length - 1 do
+            let elem1 = tuple1.Elems.[i]
+            let elem2 = elemTypes.[i]
+
+            let newIps = tryFindPathTails (i.ToString()) ips
+            do! unify ctx env newIps elem1 elem2
         | [ { Kind = TypeKind.Rest t } ] ->
           // TODO: verify that the rest element comes last in the tuple
 
           let elems1, restElems1 = List.splitAt elemTypes.Length tuple1.Elems
-          List.map2 (unify ctx env ips) elems1 elemTypes |> ignore
+
+          for i in 0 .. elems1.Length - 1 do
+            let elem1 = elems1.[i]
+            let elem2 = elemTypes.[i]
+
+            let newIps = tryFindPathTails (i.ToString()) ips
+            do! unify ctx env newIps elem1 elem2
 
           let restTuple =
             { Kind = TypeKind.Tuple { tuple1 with Elems = restElems1 }
@@ -96,7 +105,7 @@ module rec Unify =
         // length whereas a length of `unique number` represents a single array
         // of unknown length.
 
-        let elemTypes, restTypes =
+        let elemTypes, spreadTypes =
           List.partition
             (fun (elem: Type) ->
               match elem.Kind with
@@ -108,16 +117,16 @@ module rec Unify =
         // end of the tuple, we can unify the rest of the array with it.
         do! unify ctx env ips (union elemTypes) array.Elem
 
-        let restTypes =
+        let spreadTypes =
           List.map
             (fun (t: Type) ->
               match t.Kind with
               | TypeKind.Rest t -> t
               | _ -> t)
-            restTypes
+            spreadTypes
 
-        for restType in restTypes do
-          do! unify ctx env ips restType t2
+        for spreadType in spreadTypes do
+          do! unify ctx env ips spreadType t2
       | TypeKind.Array array, TypeKind.Tuple tuple ->
         let elemTypes, restTypes =
           List.partition
@@ -127,24 +136,24 @@ module rec Unify =
               | _ -> true)
             tuple.Elems
 
+        let undefined =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Mutable = false
+            Provenance = None }
+
         match restTypes with
         | [] ->
-          // if env.IsPatternMatching then
-          //   for elemType in elemTypes do
-          //     do! unify ctx env ips array.Elem elemType
-          // else
-          let undefined =
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Mutable = false
-              Provenance = None }
-
           let arrayElem = union [ array.Elem; undefined ]
 
-          for elemType in elemTypes do
-            do! unify ctx env ips arrayElem elemType
+          for i in 0 .. elemTypes.Length - 1 do
+            let newIps = tryFindPathTails (i.ToString()) ips
+            do! unify ctx env newIps arrayElem elemTypes[i]
         | [ { Kind = TypeKind.Rest t } ] ->
-          for elemType in elemTypes do
-            do! unify ctx env ips array.Elem elemType
+          let arrayElem = union [ array.Elem; undefined ]
+
+          for i in 0 .. elemTypes.Length - 1 do
+            let newIps = tryFindPathTails (i.ToString()) ips
+            do! unify ctx env newIps arrayElem elemTypes[i]
 
           do! unify ctx env ips t1 t
         | _ ->
@@ -332,16 +341,8 @@ module rec Unify =
                 | true -> union [ prop2.Type; undefined ]
                 | false -> prop2.Type
 
-              match ips with
-              | Some ips ->
-                let matchingPathTails =
-                  ips
-                  |> List.filter (fun path -> List.head path = name.ToString())
-                  |> List.map List.tail
-                  |> List.distinct
-
-                do! unify ctx env (Some matchingPathTails) p1Type p2Type
-              | None -> do! unify ctx env None p1Type p2Type
+              let newIps = tryFindPathTails (name.ToString()) ips
+              do! unify ctx env newIps p1Type p2Type
             | None ->
               if not prop2.Optional then
                 return! Error(TypeError.TypeMismatch(t1, t2))

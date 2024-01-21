@@ -173,3 +173,13 @@ module Mutability =
 
       return if invariantPaths.IsEmpty then None else Some invariantPaths
     }
+
+  let findPathTails (name: string) (ips: list<list<string>>) =
+    ips
+    |> List.filter (fun path -> List.head path = name)
+    |> List.map List.tail
+    |> List.distinct
+
+  /// Searches for paths that start with `name` and returns the tails of those.
+  let tryFindPathTails (name: string) (ips: option<list<list<string>>>) =
+    Option.map (findPathTails name) ips

@@ -238,6 +238,23 @@ let MutableAssignmentCantBeCovariant () =
   Assert.True(Result.isError result)
 
 [<Fact>]
+let MutableTupleAssignmentCantBeCovariant () =
+  let result =
+    result {
+      let src =
+        """
+        let mut foo: number[] = [5, 10]
+        let mut bar: string[] = ["hello", "world"]
+        let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar]
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
 let CantPassImmutableArgsToMutableParams () =
   let result =
     result {
@@ -284,7 +301,7 @@ let ImmutableParamsAreCovariant () =
   Assert.False(Result.isError result)
 
 [<Fact>]
-let MutablePartialInitialization () =
+let MutableObjectPartialInitialization () =
   let result =
     result {
       let src =
@@ -293,7 +310,7 @@ let MutablePartialInitialization () =
         type Line = {p0: Point, p1: Point}
         
         let mut p0: Point = {x: 0, y: 0}
-        let mut p1: Point = {x: 5, y: 5}
+        let mut p1: Point = {x: 5, y: 10}
         
         let line: Line = {p0, p1}
         let {p0: mut start, p1: mut end}: Line = {p0, p1}
@@ -309,7 +326,32 @@ let MutablePartialInitialization () =
   Assert.False(Result.isError result)
 
 [<Fact>]
-let MutableInitializationError () =
+let MutableArrayPartialInitialization () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = [number, number]
+        type Line = [Point, Point]
+        
+        let mut p0: Point = [0, 0]
+        let mut p1: Point = [5, 10]
+        
+        let line: Line = [p0, p1]
+        let [mut start, mut end]: Line = [p0, p1]
+        let [start, mut end]: Line = [p0, p1]
+        let [mut start, end]: Line = [p0, p1]
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MutableObjectInitializationError () =
   let result =
     result {
       let src =
@@ -330,7 +372,28 @@ let MutableInitializationError () =
   Assert.True(Result.isError result)
 
 [<Fact>]
-let MutablePartialInitializationError () =
+let MutableArrayInitializationError () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = [number, number]
+        type Line = [Point, Point]
+        
+        let mut p0 = [0, 0]
+        let p1 = [5, 10]
+        
+        let mut line: Line = [p0, p1]
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let MutableObjectPartialInitializationError () =
   let result =
     result {
       let src =
@@ -348,4 +411,26 @@ let MutablePartialInitializationError () =
       ()
     }
 
+  Assert.True(Result.isError result)
+
+[<Fact>]
+let MutableArrayPartialInitializationError () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = [number, number]
+        type Line = [Point, Point]
+        
+        let mut p0 = [0, 0]
+        let p1 = [5, 10]
+        
+        let [start, mut end]: Line = [p0, p1]
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  printfn "result = %A" result
   Assert.True(Result.isError result)

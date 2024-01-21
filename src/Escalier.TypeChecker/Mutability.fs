@@ -125,7 +125,6 @@ module Mutability =
     result
 
   let checkMutability
-    (env: Env)
     (patBindingPaths: BindingPaths)
     (exprBindingPaths: BindingPaths)
     : Result<option<list<list<string>>>, TypeError> =

@@ -1246,7 +1246,6 @@ module rec Infer =
       | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
         let! invariantPaths =
           checkMutability
-            env
             (getPatBindingPaths pattern)
             (getExprBindingPaths env init)
 

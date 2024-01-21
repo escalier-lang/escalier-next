@@ -601,7 +601,6 @@ module rec Unify =
         else
           let! invariantPaths =
             checkMutability
-              env
               (getTypePatBindingPaths param.Pattern)
               (getExprBindingPaths env arg)
 

@@ -701,11 +701,15 @@ module rec Infer =
                   | ObjTypeAnnElem.Constructor functionType ->
                     let! f = inferFunctionType ctx env functionType
                     return Constructor f
-                  | ObjTypeAnnElem.Method(name, isMut, ``type``) ->
+                  | ObjTypeAnnElem.Method { Name = name; Type = t } ->
                     return! Error(TypeError.NotImplemented "todo")
-                  | ObjTypeAnnElem.Getter(name, returnType, throws) ->
+                  | ObjTypeAnnElem.Getter { Name = name
+                                            ReturnType = returnType
+                                            Throws = throws } ->
                     return! Error(TypeError.NotImplemented "todo")
-                  | ObjTypeAnnElem.Setter(name, param, throws) ->
+                  | ObjTypeAnnElem.Setter { Name = name
+                                            Param = param
+                                            Throws = throws } ->
                     return! Error(TypeError.NotImplemented "todo")
                   | ObjTypeAnnElem.Mapped mapped ->
                     let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint

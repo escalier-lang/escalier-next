@@ -574,3 +574,34 @@ let ParseTypeof () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseStruct () =
+  let src =
+    """
+    struct Point {
+      x: number,
+      y: number,
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseImpl () =
+  let src =
+    """
+    impl Point {
+      fn length(self) {
+        return Math.sqrt(self.x * self.x + self.y * self.y)
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

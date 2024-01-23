@@ -149,9 +149,25 @@ module Syntax =
       Throws: option<TypeAnn>
       IsAsync: bool }
 
+  // TODO: include optional name
   type Function =
     { Sig: FuncSig<option<TypeAnn>>
       Body: BlockOrExpr }
+
+  type Method =
+    { Name: string
+      Sig: FuncSig<option<TypeAnn>>
+      Body: BlockOrExpr }
+
+  type Getter =
+    { Name: string
+      ReturnType: TypeAnn
+      Throws: TypeAnn }
+
+  type Setter =
+    { Name: string
+      Param: FuncParam<TypeAnn>
+      Throws: TypeAnn }
 
   type MatchCase =
     { Span: Span
@@ -300,12 +316,20 @@ module Syntax =
 
     override this.ToString() = this.Kind.ToString()
 
+  type Struct =
+    { Name: string
+      TypeParams: option<list<TypeParam>>
+      Members: list<Property> }
+
+  type Impl = { Name: string; Members: list<Method> }
+
   type DeclKind =
     | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
     | TypeDecl of
       name: string *
       typeAnn: TypeAnn *
       typeParams: option<list<TypeParam>>
+    | StructDecl of Struct
 
   type Decl = { Kind: DeclKind; Span: Span }
 
@@ -314,6 +338,7 @@ module Syntax =
     | For of left: Pattern * right: Expr * body: Block
     | Return of option<Expr>
     | Decl of Decl
+    | Impl of Impl
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
@@ -336,9 +361,9 @@ module Syntax =
   type ObjTypeAnnElem =
     | Callable of FunctionType
     | Constructor of FunctionType
-    | Method of name: string * is_mut: bool * type_: Function
-    | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
-    | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
+    | Method of MethodType
+    | Getter of Getter
+    | Setter of Setter
     | Property of Property
     | Mapped of Mapped
 
@@ -356,6 +381,8 @@ module Syntax =
     | Object
 
   type FunctionType = FuncSig<TypeAnn>
+
+  type MethodType = { Name: PropName; Type: FunctionType }
 
   type ConditionType =
     { Check: TypeAnn

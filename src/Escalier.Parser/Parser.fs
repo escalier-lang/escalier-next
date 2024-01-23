@@ -373,8 +373,7 @@ module Parser =
         // continue parsing the appropriate expression
         identExpr ]
 
-  let term = atom .>> ws
-  let exprParser = Pratt.PrattParser<Expr>(term)
+  let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)
 
   let binary op x y =
     { Expr.Kind = ExprKind.Binary(op, x, y)
@@ -619,10 +618,88 @@ module Parser =
       { Stmt.Kind = For(pattern, expr, body)
         Span = { Start = start; Stop = stop } }
 
+  let private propName =
+    choice
+      [ ident |>> PropName.String
+        number .>> ws |>> PropName.Number
+        _string .>> ws |>> PropName.String
+        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
+
+  let private propertyTypeAnn: Parser<Property, unit> =
+    pipe5
+      getPosition
+      propName
+      (opt (strWs "?"))
+      (strWs ":" >>. typeAnn)
+      getPosition
+    <| fun p1 name optional typeAnn p2 ->
+      // TODO: add location information
+      let span = { Start = p1; Stop = p2 }
+
+      { Name = name
+        TypeAnn = typeAnn
+        Optional = optional.IsSome
+        Readonly = false }
+
+  let private structDecl =
+    pipe5
+      getPosition
+      (strWs "struct" >>. ident)
+      (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
+      (between (strWs "{") (strWs "}") (sepEndBy propertyTypeAnn (strWs ",")))
+      getPosition
+    <| fun start name typeParams members stop ->
+      let span = { Start = start; Stop = stop }
+
+      { Stmt.Kind =
+          Decl
+            { Kind =
+                StructDecl
+                  { Name = name
+                    TypeParams = typeParams
+                    Members = members }
+              Span = span }
+        Span = span }
+
+  let method: Parser<Method, unit> =
+    pipe5
+      (opt (strWs "async"))
+      (strWs "fn" >>. ident)
+      ((opt typeParams) .>>. (paramList opt))
+      ((opt (strWs "->" >>. typeAnn))
+       .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
+      block
+    <| fun async name (type_params, param_list) (return_type, throws) body ->
+      let funcSig: FuncSig<option<TypeAnn>> =
+        { TypeParams = type_params
+          ParamList = param_list
+          ReturnType = return_type
+          Throws = throws
+          IsAsync = async.IsSome }
+
+      { Name = name
+        Sig = funcSig
+        Body = BlockOrExpr.Block body }
+
+  let private implStmt =
+    pipe4
+      getPosition
+      (strWs "impl" >>. ident)
+      (between (strWs "{") (strWs "}") (many method))
+      getPosition
+    <| fun start name members stop ->
+      { Stmt.Kind = Impl { Name = name; Members = members }
+        Span = { Start = start; Stop = stop } }
+
   let _stmt =
     choice
-      [ varDecl
+      [
+        // TODO: these should all use `attempt` since you could have an
+        // identifier like `lettuce` that conflicts with `let <ident> = <expr>`
+        varDecl
         typeDecl
+        structDecl
+        implStmt
         returnStmt
         forLoop
 
@@ -839,30 +916,6 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private propName =
-    choice
-      [ ident |>> PropName.String
-        number .>> ws |>> PropName.Number
-        _string .>> ws |>> PropName.String
-        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
-
-  let private propertyTypeAnn =
-    pipe5
-      getPosition
-      propName
-      (opt (strWs "?"))
-      (strWs ":" >>. typeAnn)
-      getPosition
-    <| fun p1 name optional typeAnn p2 ->
-      // TODO: add location information
-      let span = { Start = p1; Stop = p2 }
-
-      ObjTypeAnnElem.Property
-        { Name = name
-          TypeAnn = typeAnn
-          Optional = optional.IsSome
-          Readonly = false }
-
   let private readonlyModifier =
     pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "readonly")
     <| fun pm _ ->
@@ -917,7 +970,7 @@ module Parser =
         // mappedTypeAnn must come before propertyTypeAnn because computed
         // properties conflicts with mapped types
         attempt mappedTypeAnn
-        attempt propertyTypeAnn ]
+        attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property) ]
 
   let private objectTypeAnn =
     withSpan (

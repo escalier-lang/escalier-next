@@ -100,7 +100,7 @@ module Mutability =
       | ExprKind.Object { Elems = elems } ->
         for elem in elems do
           match elem with
-          | Syntax.Property(span, name, value) ->
+          | ObjElem.Property(span, name, value) ->
             let name =
               match name with
               | Syntax.Ident s -> s

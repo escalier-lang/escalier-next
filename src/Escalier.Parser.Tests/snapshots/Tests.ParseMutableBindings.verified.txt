@@ -52,7 +52,8 @@ output: Ok
                         { Elems =
                            [Property
                               { Name = String "p0"
-                                TypeAnn = { Kind = TypeRef ("Point", None)
+                                TypeAnn = { Kind = TypeRef { Ident = "Point"
+                                                             TypeArgs = None }
                                             Span = { Start = (Ln: 3, Col: 22)
                                                      Stop = (Ln: 3, Col: 27) }
                                             InferredType = None }
@@ -60,7 +61,8 @@ output: Ok
                                 Readonly = false };
                             Property
                               { Name = String "p1"
-                                TypeAnn = { Kind = TypeRef ("Point", None)
+                                TypeAnn = { Kind = TypeRef { Ident = "Point"
+                                                             TypeArgs = None }
                                             Span = { Start = (Ln: 3, Col: 33)
                                                      Stop = (Ln: 3, Col: 38) }
                                             InferredType = None }
@@ -79,7 +81,8 @@ output: Ok
                                    Assertion = None }
                     Span = { Start = (Ln: 4, Col: 17)
                              Stop = (Ln: 4, Col: 21) }
-                    InferredType = None }, { Kind = TypeRef ("Line", None)
+                    InferredType = None }, { Kind = TypeRef { Ident = "Line"
+                                                              TypeArgs = None }
                                              Span = { Start = (Ln: 4, Col: 23)
                                                       Stop = (Ln: 6, Col: 5) }
                                              InferredType = None });

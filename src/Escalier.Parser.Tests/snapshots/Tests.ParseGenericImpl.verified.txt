@@ -1,5 +1,5 @@
 ﻿input: 
-    impl Point {
+    impl<T> Point<T> {
       fn length(self) {
         return Math.sqrt(self.x * self.x + self.y * self.y)
       }
@@ -10,9 +10,18 @@ output: Ok
      [Stmt
         { Kind =
            Impl
-             { TypeParams = None
-               SelfType = { Ident = "Point"
-                            TypeArgs = None }
+             { TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 10)
+                                             Stop = (Ln: 2, Col: 11) }
+                                    Name = "T"
+                                    Constraint = None
+                                    Default = None }]
+               SelfType =
+                { Ident = "Point"
+                  TypeArgs = Some [{ Kind = TypeRef { Ident = "T"
+                                                      TypeArgs = None }
+                                     Span = { Start = (Ln: 2, Col: 19)
+                                              Stop = (Ln: 2, Col: 20) }
+                                     InferredType = None }] }
                Elems =
                 [{ Name = "length"
                    Sig =

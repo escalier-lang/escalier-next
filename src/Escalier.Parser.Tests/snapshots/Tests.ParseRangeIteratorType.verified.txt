@@ -45,7 +45,10 @@ output: Ok
                                                             { Min =
                                                                { Kind =
                                                                   TypeRef
-                                                                    ("Min", None)
+                                                                    { Ident =
+                                                                       "Min"
+                                                                      TypeArgs =
+                                                                       None }
                                                                  Span =
                                                                   { Start =
                                                                      (Ln: 3, Col: 48)
@@ -56,7 +59,10 @@ output: Ok
                                                               Max =
                                                                { Kind =
                                                                   TypeRef
-                                                                    ("Max", None)
+                                                                    { Ident =
+                                                                       "Max"
+                                                                      TypeArgs =
+                                                                       None }
                                                                  Span =
                                                                   { Start =
                                                                      (Ln: 3, Col: 53)

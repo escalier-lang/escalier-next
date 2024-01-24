@@ -53,13 +53,18 @@ output: Ok
                                         ReturnType =
                                          { Kind =
                                             TypeRef
-                                              ("Iterator",
-                                               Some
-                                                 [{ Kind = TypeRef ("T", None)
-                                                    Span =
-                                                     { Start = (Ln: 5, Col: 44)
-                                                       Stop = (Ln: 5, Col: 45) }
-                                                    InferredType = None }])
+                                              { Ident = "Iterator"
+                                                TypeArgs =
+                                                 Some
+                                                   [{ Kind =
+                                                       TypeRef
+                                                         { Ident = "T"
+                                                           TypeArgs = None }
+                                                      Span =
+                                                       { Start =
+                                                          (Ln: 5, Col: 44)
+                                                         Stop = (Ln: 5, Col: 45) }
+                                                      InferredType = None }] }
                                            Span = { Start = (Ln: 5, Col: 35)
                                                     Stop = (Ln: 5, Col: 46) }
                                            InferredType = None }

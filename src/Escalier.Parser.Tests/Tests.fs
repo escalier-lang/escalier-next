@@ -591,10 +591,41 @@ let ParseStruct () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseGenericStruct () =
+  let src =
+    """
+    struct Point<T> {
+      x: T,
+      y: T,
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseImpl () =
   let src =
     """
     impl Point {
+      fn length(self) {
+        return Math.sqrt(self.x * self.x + self.y * self.y)
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGenericImpl () =
+  let src =
+    """
+    impl<T> Point<T> {
       fn length(self) {
         return Math.sqrt(self.x * self.x + self.y * self.y)
       }

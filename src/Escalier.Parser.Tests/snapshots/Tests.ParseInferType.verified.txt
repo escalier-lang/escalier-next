@@ -9,7 +9,8 @@ output: Ok
                   ("ReturnType",
                    { Kind =
                       Condition
-                        { Check = { Kind = TypeRef ("T", None)
+                        { Check = { Kind = TypeRef { Ident = "T"
+                                                     TypeArgs = None }
                                     Span = { Start = (Ln: 1, Col: 25)
                                              Stop = (Ln: 1, Col: 26) }
                                     InferredType = None }
@@ -31,7 +32,8 @@ output: Ok
                                                   Stop = (Ln: 1, Col: 39) }
                                          InferredType = None }
                                       TypeAnn =
-                                       { Kind = TypeRef ("_", None)
+                                       { Kind = TypeRef { Ident = "_"
+                                                          TypeArgs = None }
                                          Span = { Start = (Ln: 1, Col: 41)
                                                   Stop = (Ln: 1, Col: 42) }
                                          InferredType = None }
@@ -46,7 +48,8 @@ output: Ok
                              Span = { Start = (Ln: 1, Col: 28)
                                       Stop = (Ln: 1, Col: 55) }
                              InferredType = None }
-                          TrueType = { Kind = TypeRef ("R", None)
+                          TrueType = { Kind = TypeRef { Ident = "R"
+                                                        TypeArgs = None }
                                        Span = { Start = (Ln: 1, Col: 57)
                                                 Stop = (Ln: 1, Col: 59) }
                                        InferredType = None }

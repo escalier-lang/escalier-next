@@ -9,7 +9,8 @@ output: Ok
                   ("Foo",
                    { Kind =
                       Index
-                        ({ Kind = TypeRef ("Bar", None)
+                        ({ Kind = TypeRef { Ident = "Bar"
+                                            TypeArgs = None }
                            Span = { Start = (Ln: 1, Col: 12)
                                     Stop = (Ln: 1, Col: 15) }
                            InferredType = None },

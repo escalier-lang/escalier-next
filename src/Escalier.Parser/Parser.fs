@@ -681,14 +681,25 @@ module Parser =
         Sig = funcSig
         Body = BlockOrExpr.Block body }
 
+  // TODO: reuse below in the definition of the `typeRef` parser
+  let private _typeRef =
+    (ident
+     .>>. (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ",")))))
+    |>> fun (ident, typeArgs) -> { Ident = ident; TypeArgs = typeArgs }
+
   let private implStmt =
-    pipe4
+    pipe5
       getPosition
-      (strWs "impl" >>. ident)
+      (strWs "impl" >>. (opt typeParams))
+      _typeRef
       (between (strWs "{") (strWs "}") (many method))
       getPosition
-    <| fun start name members stop ->
-      { Stmt.Kind = Impl { Name = name; Members = members }
+    <| fun start typeParams typeRef elems stop ->
+      { Stmt.Kind =
+          Impl
+            { TypeParams = typeParams
+              SelfType = typeRef
+              Elems = elems }
         Span = { Start = start; Stop = stop } }
 
   let _stmt =
@@ -947,7 +958,8 @@ module Parser =
 
       let name =
         match name.Kind with
-        | TypeAnnKind.TypeRef(name, _) when name = typeParam.Name -> None
+        | TypeAnnKind.TypeRef { Ident = name } when name = typeParam.Name ->
+          None
         | _ -> Some(name)
 
       ObjTypeAnnElem.Mapped
@@ -1044,7 +1056,7 @@ module Parser =
       (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
       getPosition
     <| fun start name typeArgs stop ->
-      { TypeAnn.Kind = TypeAnnKind.TypeRef(name, typeArgs)
+      { TypeAnn.Kind = TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs }
         Span = { Start = start; Stop = stop }
         InferredType = None }
 

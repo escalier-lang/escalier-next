@@ -263,6 +263,10 @@ module Syntax =
     | Ident of string
     | Member of left: QualifiedIdent * right: string
 
+  type TypeRef =
+    { Ident: string // TOOD: use QualifiedIdent
+      TypeArgs: option<list<TypeAnn>> }
+
   type KeyValuePat =
     { Span: Span
       Key: string
@@ -321,7 +325,10 @@ module Syntax =
       TypeParams: option<list<TypeParam>>
       Members: list<Property> }
 
-  type Impl = { Name: string; Members: list<Method> }
+  type Impl =
+    { TypeParams: option<list<TypeParam>>
+      SelfType: TypeRef
+      Elems: list<Method> }
 
   type DeclKind =
     | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
@@ -405,7 +412,7 @@ module Syntax =
     | Range of Common.Range<TypeAnn>
     | Union of types: list<TypeAnn>
     | Intersection of types: list<TypeAnn>
-    | TypeRef of name: string * type_args: option<list<TypeAnn>>
+    | TypeRef of TypeRef
     | Function of FunctionType
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn

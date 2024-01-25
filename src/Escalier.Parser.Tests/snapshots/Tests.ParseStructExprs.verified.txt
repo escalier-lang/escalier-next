@@ -1,0 +1,83 @@
+﻿input: 
+    let foo = Foo { a: 5, b: "hello" }
+    let bar = Bar<number> { a: 5, b: "hello" }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Ident { Name = "foo"
+                                    IsMut = false
+                                    Assertion = None }
+                     Span = { Start = (Ln: 2, Col: 9)
+                              Stop = (Ln: 2, Col: 13) }
+                     InferredType = None },
+                   { Kind =
+                      Struct
+                        { Name = "Foo"
+                          TypeArgs = None
+                          Elems =
+                           [Property
+                              ({ Start = (Ln: 2, Col: 21)
+                                 Stop = (Ln: 2, Col: 25) }, String "a",
+                               { Kind = Literal (Number (Int 5))
+                                 Span = { Start = (Ln: 2, Col: 24)
+                                          Stop = (Ln: 2, Col: 25) }
+                                 InferredType = None });
+                            Property
+                              ({ Start = (Ln: 2, Col: 27)
+                                 Stop = (Ln: 2, Col: 38) }, String "b",
+                               { Kind = Literal (String "hello")
+                                 Span = { Start = (Ln: 2, Col: 30)
+                                          Stop = (Ln: 2, Col: 37) }
+                                 InferredType = None })] }
+                     Span = { Start = (Ln: 2, Col: 15)
+                              Stop = (Ln: 3, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind = Ident { Name = "bar"
+                                    IsMut = false
+                                    Assertion = None }
+                     Span = { Start = (Ln: 3, Col: 9)
+                              Stop = (Ln: 3, Col: 13) }
+                     InferredType = None },
+                   { Kind =
+                      Struct
+                        { Name = "Bar"
+                          TypeArgs = Some [{ Kind = Keyword Number
+                                             Span = { Start = (Ln: 3, Col: 19)
+                                                      Stop = (Ln: 3, Col: 25) }
+                                             InferredType = None }]
+                          Elems =
+                           [Property
+                              ({ Start = (Ln: 3, Col: 29)
+                                 Stop = (Ln: 3, Col: 33) }, String "a",
+                               { Kind = Literal (Number (Int 5))
+                                 Span = { Start = (Ln: 3, Col: 32)
+                                          Stop = (Ln: 3, Col: 33) }
+                                 InferredType = None });
+                            Property
+                              ({ Start = (Ln: 3, Col: 35)
+                                 Stop = (Ln: 3, Col: 46) }, String "b",
+                               { Kind = Literal (String "hello")
+                                 Span = { Start = (Ln: 3, Col: 38)
+                                          Stop = (Ln: 3, Col: 45) }
+                                 InferredType = None })] }
+                     Span = { Start = (Ln: 3, Col: 15)
+                              Stop = (Ln: 4, Col: 5) }
+                     InferredType = None }, None)
+               Span = { Start = (Ln: 3, Col: 5)
+                        Stop = (Ln: 4, Col: 5) } }
+          Span = { Start = (Ln: 3, Col: 5)
+                   Stop = (Ln: 4, Col: 5) } }] }

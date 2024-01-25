@@ -636,3 +636,16 @@ let ParseGenericImpl () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseStructExprs () =
+  let src =
+    """
+    let foo = Foo { a: 5, b: "hello" }
+    let bar = Bar<number> { a: 5, b: "hello" }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

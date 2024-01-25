@@ -205,6 +205,11 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
+  type Struct =
+    { Name: string
+      TypeArgs: option<list<TypeAnn>>
+      Elems: list<ObjElem> }
+
   type Try =
     { Body: Block
       Catch: option<list<MatchCase>>
@@ -222,6 +227,7 @@ module Syntax =
     | Function of Function
     | Call of Call
     | Object of Common.Object<ObjElem>
+    | Struct of Struct
     | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
     | Index of target: Expr * index: Expr * opt_chain: bool
@@ -320,7 +326,7 @@ module Syntax =
 
     override this.ToString() = this.Kind.ToString()
 
-  type Struct =
+  type StructDecl =
     { Name: string
       TypeParams: option<list<TypeParam>>
       Members: list<Property> }
@@ -336,7 +342,7 @@ module Syntax =
       name: string *
       typeAnn: TypeAnn *
       typeParams: option<list<TypeParam>>
-    | StructDecl of Struct
+    | StructDecl of StructDecl
 
   type Decl = { Kind: DeclKind; Span: Span }
 

@@ -316,6 +316,24 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
+  let structExpr: Parser<Expr, unit> =
+    pipe5
+      getPosition
+      ident
+      (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
+      (between (strWs "{") (strWs "}") (sepBy objElem (strWs ",")))
+      getPosition
+    <| fun start name typeArgs elems stop ->
+      let kind =
+        ExprKind.Struct
+          { Name = name
+            TypeArgs = typeArgs
+            Elems = elems }
+
+      { Kind = kind
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
   let catchClause: Parser<list<MatchCase>, unit> =
     pipe3
       getPosition
@@ -363,6 +381,7 @@ module Parser =
         attempt throwExpr // conflicts with identExpr
         attempt tryExpr // conflicts with identExpr
         attempt matchExpr // conflicts with identExpr
+        attempt structExpr // conflicts with identExpr
         tupleExpr
         objectExpr
         imTupleExpr

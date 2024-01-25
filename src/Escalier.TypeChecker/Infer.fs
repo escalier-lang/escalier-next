@@ -753,7 +753,7 @@ module rec Infer =
         | TypeAnnKind.Intersection types ->
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return TypeKind.Intersection types
-        | TypeAnnKind.TypeRef(name, typeArgs) ->
+        | TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs } ->
           match env.Schemes.TryFind(name) with
           | Some(scheme) ->
 

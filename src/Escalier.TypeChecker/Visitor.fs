@@ -146,7 +146,7 @@ module rec ExprVisitor =
         | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
         | TypeAnnKind.Union types -> List.iter walk types
         | TypeAnnKind.Intersection types -> List.iter walk types
-        | TypeAnnKind.TypeRef(_name, typeArgs) ->
+        | TypeAnnKind.TypeRef { TypeArgs = typeArgs } ->
           Option.iter (List.iter walk) typeArgs
         | TypeAnnKind.Function f ->
           walk f.ReturnType

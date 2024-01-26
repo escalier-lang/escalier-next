@@ -48,7 +48,7 @@ let InferBasicStruct () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "point", "Point {x: number, y: number}")
+      Assert.Value(env, "point", "Point")
     }
 
   Assert.False(Result.isError res)
@@ -59,13 +59,12 @@ let InferBasicStructIncorrectTypes () =
     result {
       let src =
         """
-        struct Point { x: number, y: number }
-        let point = Point { x: "hello", y: true }
+        struct Point {x: number, y: number}
+        let point = Point {x: "hello", y: true}
         """
 
-      let! _, env = inferScript src
-
-      Assert.Value(env, "point", "Point {x: \"hello\", y: true}")
+      let! _ = inferScript src
+      ()
     }
 
   Assert.True(Result.isError res)
@@ -76,13 +75,13 @@ let InferGenericStruct () =
     result {
       let src =
         """
-        struct Point<T> { x: T, y: T }
-        let point = Point<number> { x: 5, y: 10 }
+        struct Point<T> {x: T, y: T}
+        let point = Point<number> {x: 5, y: 10}
         """
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "point", "Point<number> {x: number, y: number}")
+      Assert.Value(env, "point", "Point<number>")
     }
 
   Assert.False(Result.isError res)
@@ -94,12 +93,48 @@ let StructsAreSubtypesOfObjects () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point: {x: number, y: number} = Point { x: 5, y: 10 }
+        let point: {x: number, y: number} = Point {x: 5, y: 10}
         """
 
       let! _, env = inferScript src
 
       Assert.Value(env, "point", "{x: number, y: number}")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let PropertyAccessOnStructs () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let point = Point {x: 5, y: 10}
+        let x = point.x
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "x", "number")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let ObjectDestructuringOfStructs () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let point = Point {x: 5, y: 10}
+        let {x, y} = point
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "x", "number")
     }
 
   Assert.False(Result.isError res)

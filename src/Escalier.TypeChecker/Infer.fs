@@ -576,28 +576,8 @@ module rec Infer =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.Object { Elems = elems } ->
-      let elems =
-        List.choose
-          (fun (elem: ObjTypeElem) ->
-            match elem with
-            | Property p -> Some(p.Name, p)
-            | _ -> None)
-          elems
-        |> Map.ofList
-
-      match elems.TryFind key with
-      | Some(p) ->
-        match p.Optional with
-        | true ->
-          let undefined =
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Mutable = false
-              Provenance = None }
-
-          union [ p.Type; undefined ]
-        | false -> p.Type
-      | None -> failwith $"Property {key} not found"
+    | TypeKind.Object { Elems = elems } -> inferMemberAccess key elems
+    | TypeKind.Struct { Elems = elems } -> inferMemberAccess key elems
     | TypeKind.TypeRef { Name = typeRefName
                          Scheme = scheme
                          TypeArgs = typeArgs } ->
@@ -689,6 +669,29 @@ module rec Infer =
         failwith "TODO: lookup member on array type"
     // TODO: intersection types
     | _ -> failwith $"TODO: lookup member on type - {t}"
+
+  let inferMemberAccess (key: PropName) (elems: list<ObjTypeElem>) =
+    let elems =
+      List.choose
+        (fun (elem: ObjTypeElem) ->
+          match elem with
+          | Property p -> Some(p.Name, p)
+          | _ -> None)
+        elems
+      |> Map.ofList
+
+    match elems.TryFind key with
+    | Some(p) ->
+      match p.Optional with
+      | true ->
+        let undefined =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Mutable = false
+            Provenance = None }
+
+        union [ p.Type; undefined ]
+      | false -> p.Type
+    | None -> failwith $"Property {key} not found"
 
   let inferBlockOrExpr
     (ctx: Ctx)

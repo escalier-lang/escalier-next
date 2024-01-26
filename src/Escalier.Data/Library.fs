@@ -931,31 +931,11 @@ module Type =
     | false -> $"{{{elems}}}"
 
   let printStruct (ctx: PrintCtx) (s: Struct) : string =
-    let elems =
-      List.map
-        (fun (elem: ObjTypeElem) ->
-          match elem with
-          | Property { Name = name
-                       Optional = optional
-                       Readonly = readonly
-                       Type = t } ->
-            let ctx = { Precedence = 0 }
-            let optional = if optional then "?" else ""
-            let readonly = if readonly then "readonly " else ""
-            $"{readonly}{name}{optional}: {printType ctx t}"
-          | Mapped mapped -> printMapped ctx mapped
-          | _ -> failwith "TODO: Type.ToString - Object - Elem"
-
-        )
-        s.Elems
-
-    let elems = String.concat ", " elems
-
     match s.TypeArgs with
     | Some typeArgs ->
       let typeArgs = List.map (printType ctx) typeArgs |> String.concat ", "
-      $"{s.Name}<{typeArgs}> {{{elems}}}"
-    | None -> $"{s.Name} {{{elems}}}"
+      $"{s.Name}<{typeArgs}>"
+    | None -> $"{s.Name}"
 
   let printFunction (ctx: PrintCtx) (f: Function) : string =
     let ps =

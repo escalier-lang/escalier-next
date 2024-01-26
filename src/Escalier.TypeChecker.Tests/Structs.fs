@@ -42,13 +42,13 @@ let InferBasicStruct () =
     result {
       let src =
         """
-        struct Point { x: number, y: number }
-        let point = Point { x: 5, y: 10 }
+        struct Point {x: number, y: number}
+        let point = Point {x: 5, y: 10}
         """
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "point", "Point {x: 5, y: 10}")
+      Assert.Value(env, "point", "Point {x: number, y: number}")
     }
 
   Assert.False(Result.isError res)
@@ -82,7 +82,24 @@ let InferGenericStruct () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "point", "Point<number> {x: 5, y: 10}")
+      Assert.Value(env, "point", "Point<number> {x: number, y: number}")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let StructsAreSubtypesOfObjects () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let point: {x: number, y: number} = Point { x: 5, y: 10 }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "point", "{x: number, y: number}")
     }
 
   Assert.False(Result.isError res)

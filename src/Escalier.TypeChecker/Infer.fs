@@ -373,26 +373,29 @@ module rec Infer =
 
           let t = expandScheme ctx env None scheme Map.empty typeArgs
 
-          let structObjType =
-            match t.Kind with
-            | TypeKind.Struct { Elems = elems } ->
+          // let structObjType =
+          match t.Kind with
+          | TypeKind.Struct { Elems = elems } ->
+            let structObjType =
               { Kind = TypeKind.Object { Elems = elems; Immutable = false }
                 Mutable = false
                 Provenance = None }
-            | _ -> failwith "TODO: handle non-struct types"
 
-          do! unify ctx env None initObjType structObjType
+            do! unify ctx env None initObjType structObjType
 
-          let kind: TypeKind =
-            TypeKind.Struct
-              { Name = name
-                TypeArgs = typeArgs
-                Elems = elems }
+            let kind: TypeKind =
+              TypeKind.Struct
+                { Name = name
+                  TypeArgs = typeArgs
+                  Elems = elems }
 
-          return
-            { Type.Kind = kind
-              Mutable = false
-              Provenance = None }
+            return
+              { Type.Kind = kind
+                Mutable = false
+                Provenance = None }
+          | _ ->
+            return!
+              Error(TypeError.SemanticError $"Expected Struct type, got {t}")
 
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj

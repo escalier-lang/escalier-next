@@ -282,70 +282,16 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        let namedProps1 =
-          List.choose
-            (fun (elem: ObjTypeElem) ->
-              match elem with
-              // TODO: handle methods, setters, and getters
-              | Property p -> Some(p.Name, p)
-              | _ -> None)
-            obj1.Elems
-          |> Map.ofList
+        let namedProps1 = getNamedProps obj1.Elems
+        let namedProps2 = getNamedProps obj2.Elems
+        do! unifyObjProps ctx env ips namedProps1 namedProps2
 
-        let namedProps2 =
-          List.choose
-            (fun (elem: ObjTypeElem) ->
-              match elem with
-              // TODO: handle methods, setters, and getters
-              | Property p -> Some(p.Name, p)
-              | _ -> None)
-            obj2.Elems
-          |> Map.ofList
+      | TypeKind.Struct strct, TypeKind.Object obj ->
+        // TODO: handle immutable objects/structs
 
-        let undefined =
-          { Kind = TypeKind.Literal(Literal.Undefined)
-            Mutable = false
-            Provenance = None }
-
-        if env.IsPatternMatching then
-          // Allow partial unification of object types when pattern matching
-          for KeyValue(name, prop1) in namedProps1 do
-            match namedProps2.TryFind name with
-            | Some(prop2) ->
-              let p1Type =
-                match prop1.Optional with
-                | true -> union [ prop1.Type; undefined ]
-                | false -> prop1.Type
-
-              let p2Type =
-                match prop2.Optional with
-                | true -> union [ prop2.Type; undefined ]
-                | false -> prop2.Type
-
-              do! unify ctx env ips p1Type p2Type
-            | None ->
-              // TODO: double check that this is correct
-              if not prop1.Optional then
-                return! Error(TypeError.TypeMismatch(t1, t2))
-        else
-          for KeyValue(name, prop2) in namedProps2 do
-            match namedProps1.TryFind name with
-            | Some(prop1) ->
-              let p1Type =
-                match prop1.Optional with
-                | true -> union [ prop1.Type; undefined ]
-                | false -> prop1.Type
-
-              let p2Type =
-                match prop2.Optional with
-                | true -> union [ prop2.Type; undefined ]
-                | false -> prop2.Type
-
-              let newIps = tryFindPathTails (name.ToString()) ips
-              do! unify ctx env newIps p1Type p2Type
-            | None ->
-              if not prop2.Optional then
-                return! Error(TypeError.TypeMismatch(t1, t2))
+        let namedProps1 = getNamedProps strct.Elems
+        let namedProps2 = getNamedProps obj.Elems
+        do! unifyObjProps ctx env ips namedProps1 namedProps2
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
@@ -553,6 +499,69 @@ module rec Unify =
         | Ok _ -> return (prune retType, prune throwsType)
         | Error e -> return! Error e
       | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")
+    }
+
+  let getNamedProps (elems: list<ObjTypeElem>) : Map<PropName, Property> =
+    elems
+    |> List.choose (fun (elem: ObjTypeElem) ->
+      match elem with
+      | Property p -> Some(p.Name, p)
+      | _ -> None)
+    |> Map.ofList
+
+  let unifyObjProps
+    (ctx: Ctx)
+    (env: Env)
+    (ips: option<list<list<string>>>)
+    (namedProps1: Map<PropName, Property>)
+    (namedProps2: Map<PropName, Property>)
+    : Result<unit, TypeError> =
+    result {
+      let undefined =
+        { Kind = TypeKind.Literal(Literal.Undefined)
+          Mutable = false
+          Provenance = None }
+
+      if env.IsPatternMatching then
+        // Allow partial unification of object types when pattern matching
+        for KeyValue(name, prop1) in namedProps1 do
+          match namedProps2.TryFind name with
+          | Some(prop2) ->
+            let p1Type =
+              match prop1.Optional with
+              | true -> union [ prop1.Type; undefined ]
+              | false -> prop1.Type
+
+            let p2Type =
+              match prop2.Optional with
+              | true -> union [ prop2.Type; undefined ]
+              | false -> prop2.Type
+
+            let newIps = tryFindPathTails (name.ToString()) ips
+            do! unify ctx env newIps p1Type p2Type
+          | None ->
+            // TODO: double check that this is correct
+            if not prop1.Optional then
+              return! Error(TypeError.PropertyMissing(name))
+      else
+        for KeyValue(name, prop2) in namedProps2 do
+          match namedProps1.TryFind name with
+          | Some(prop1) ->
+            let p1Type =
+              match prop1.Optional with
+              | true -> union [ prop1.Type; undefined ]
+              | false -> prop1.Type
+
+            let p2Type =
+              match prop2.Optional with
+              | true -> union [ prop2.Type; undefined ]
+              | false -> prop2.Type
+
+            let newIps = tryFindPathTails (name.ToString()) ips
+            do! unify ctx env newIps p1Type p2Type
+          | None ->
+            if not prop2.Optional then
+              return! Error(TypeError.PropertyMissing(name))
     }
 
   let unifyFuncCall

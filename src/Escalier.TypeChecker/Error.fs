@@ -8,6 +8,7 @@ module Error =
     | SemanticError of string
     | NotInferred
     | TypeMismatch of Type * Type
+    | PropertyMissing of PropName
     | RecursiveUnification of Type * Type
     | WrongNumberOfTypeArgs
 
@@ -17,6 +18,7 @@ module Error =
       | SemanticError s -> $"SemanticError: {s}"
       | NotInferred -> "NotInferred"
       | TypeMismatch(``type``, type1) -> $"TypeMismatch: {``type``} != {type1}"
+      | PropertyMissing propName -> $"Object is missing property {propName}"
       | RecursiveUnification(``type``, type1) ->
         $"RecursiveUnification: {``type``} != {type1}"
       | WrongNumberOfTypeArgs -> "WrongNumberOfTypeArgs"

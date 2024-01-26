@@ -329,7 +329,7 @@ module Syntax =
   type StructDecl =
     { Name: string
       TypeParams: option<list<TypeParam>>
-      Members: list<Property> }
+      Elems: list<Property> }
 
   type Impl =
     { TypeParams: option<list<TypeParam>>
@@ -613,24 +613,11 @@ module Type =
       Throws: Type }
 
     override this.ToString() = printFunction { Precedence = 0 } this
-  // let args =
-  //   List.map (fun item -> item.ToString()) this.ParamList
-  //   |> String.concat ", "
-  //
-  // let typeParams =
-  //   match this.TypeParams with
-  //   | Some(typeParams) ->
-  //     let sep = ", "
-  //     let typeParams = List.map (fun t -> t.ToString()) typeParams
-  //     $"<{String.concat sep typeParams}>"
-  //   | None -> ""
-  //
-  // // printfn "this.Throws = %A" this.Throws
-  //
-  // match (prune this.Throws).Kind with
-  // | TypeKind.Keyword Keyword.Never ->
-  //   $"fn {typeParams}({args}) -> {this.Return}"
-  // | _ -> $"fn {typeParams}({args}) -> {this.Return} throws {this.Throws}"
+
+  type Struct =
+    { Name: string
+      TypeArgs: option<list<Type>>
+      Elems: list<ObjTypeElem> }
 
   type IndexParam =
     { Name: string
@@ -733,6 +720,7 @@ module Type =
     | Keyword of Keyword
     | Function of Function
     | Object of Common.Object<ObjTypeElem>
+    | Struct of Struct
     | Tuple of Common.Tuple<Type>
     | Array of Array
     | Rest of Type
@@ -799,6 +787,7 @@ module Type =
     | TypeKind.Keyword keyword -> 100
     | TypeKind.Function f -> 100
     | TypeKind.Object o -> 100
+    | TypeKind.Struct s -> 100
     | TypeKind.Tuple tuple -> 100
     | TypeKind.Array array -> 17
     | TypeKind.Rest t -> 100
@@ -866,6 +855,7 @@ module Type =
       | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> printFunction ctx f
       | TypeKind.Object obj -> printObject ctx obj
+      | TypeKind.Struct s -> printStruct ctx s
       | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
         let ctx = { Precedence = 0 }
         let elems = List.map (printType ctx) elems |> String.concat ", "
@@ -939,6 +929,33 @@ module Type =
     match obj.Immutable with
     | true -> $"#{{{elems}}}"
     | false -> $"{{{elems}}}"
+
+  let printStruct (ctx: PrintCtx) (s: Struct) : string =
+    let elems =
+      List.map
+        (fun (elem: ObjTypeElem) ->
+          match elem with
+          | Property { Name = name
+                       Optional = optional
+                       Readonly = readonly
+                       Type = t } ->
+            let ctx = { Precedence = 0 }
+            let optional = if optional then "?" else ""
+            let readonly = if readonly then "readonly " else ""
+            $"{readonly}{name}{optional}: {printType ctx t}"
+          | Mapped mapped -> printMapped ctx mapped
+          | _ -> failwith "TODO: Type.ToString - Object - Elem"
+
+        )
+        s.Elems
+
+    let elems = String.concat ", " elems
+
+    match s.TypeArgs with
+    | Some typeArgs ->
+      let typeArgs = List.map (printType ctx) typeArgs |> String.concat ", "
+      $"{s.Name}<{typeArgs}> {{{elems}}}"
+    | None -> $"{s.Name} {{{elems}}}"
 
   let printFunction (ctx: PrintCtx) (f: Function) : string =
     let ps =

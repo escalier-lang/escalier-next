@@ -314,6 +314,86 @@ module rec Infer =
               { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
                 Mutable = false
                 Provenance = None }
+        | ExprKind.Struct { Name = name
+                            TypeArgs = typeArgs
+                            Elems = elems } ->
+
+          let mutable spreadTypes = []
+
+          let! elems =
+            List.traverseResultM
+              (fun (elem: ObjElem) ->
+                result {
+                  match elem with
+                  | ObjElem.Property(_span, key, value) ->
+                    let! t = inferExpr ctx env value
+                    let! name = inferPropName ctx env key
+
+                    return
+                      Some(
+                        Property
+                          { Name = name
+                            Optional = false
+                            Readonly = false
+                            Type = t }
+                      )
+                  | ObjElem.Shorthand(_span, key) ->
+                    let! value = env.GetType key
+
+                    return
+                      Some(
+                        Property
+                          { Name = PropName.String key
+                            Optional = false
+                            Readonly = false
+                            Type = value }
+                      )
+                  | ObjElem.Spread(span, value) ->
+                    let! t = inferExpr ctx env value
+                    spreadTypes <- t :: spreadTypes
+                    return None
+                })
+              elems
+
+          let elems = elems |> List.choose id
+
+          let initObjType =
+            { Kind = TypeKind.Object { Elems = elems; Immutable = false }
+              Mutable = false
+              Provenance = None }
+
+          let! scheme = env.GetScheme name
+
+          let! typeArgs =
+            match typeArgs with
+            | Some(typeArgs) ->
+              List.traverseResultM (inferTypeAnn ctx env) typeArgs
+              |> Result.map Some
+            | None -> Ok None
+
+          let t = expandScheme ctx env None scheme Map.empty typeArgs
+
+          let structObjType =
+            match t.Kind with
+            | TypeKind.Struct { Elems = elems } ->
+              { Kind = TypeKind.Object { Elems = elems; Immutable = false }
+                Mutable = false
+                Provenance = None }
+            | _ -> failwith "TODO: handle non-struct types"
+
+          do! unify ctx env None initObjType structObjType
+
+          let kind: TypeKind =
+            TypeKind.Struct
+              { Name = name
+                TypeArgs = typeArgs
+                Elems = elems }
+
+          return
+            { Type.Kind = kind
+              Mutable = false
+              Provenance = None }
+
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj
           let propKey = PropName.String(prop)
@@ -1321,6 +1401,78 @@ module rec Infer =
             IsTypeParam = false }
 
         return env.AddScheme name scheme
+      | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
+                                                     TypeParams = typeParams
+                                                     Elems = elems } }) ->
+        let mutable newEnv = env
+
+        let typeParams =
+          typeParams
+          |> Option.map (fun typeParams ->
+            typeParams
+            |> List.map (fun typeParam ->
+              let unknown =
+                { Kind = TypeKind.Keyword Keyword.Unknown
+                  Mutable = false
+                  Provenance = None }
+
+              let scheme =
+                { TypeParams = None
+                  Type = unknown
+                  IsTypeParam = false }
+
+              newEnv <- newEnv.AddScheme typeParam.Name scheme
+              typeParam.Name))
+
+        let! elems =
+          elems
+          |> List.traverseResultM
+            (fun
+                 { Name = name
+                   Optional = optional
+                   Readonly = readonly
+                   TypeAnn = typeAnn } ->
+              result {
+
+                let name =
+                  match name with
+                  | Syntax.Ident s -> PropName.String s
+                  | Syntax.String s -> PropName.String s
+                  | Syntax.Number n -> PropName.Number n
+                  | Computed expr ->
+                    let t = inferExpr ctx newEnv expr
+                    // TODO: check if `t` is a valid type for a PropName
+                    failwith "TODO: inferStmt - Computed prop name"
+
+                let! t = inferTypeAnn ctx newEnv typeAnn
+
+                return
+                  ObjTypeElem.Property
+                    { Name = name
+                      Optional = optional
+                      Readonly = readonly
+                      Type = t }
+              })
+
+        let t =
+          { Kind =
+              TypeKind.Struct
+                { Name = name
+                  TypeArgs = None
+                  Elems = elems }
+            Mutable = false
+            Provenance = None }
+
+        let scheme =
+          { TypeParams = typeParams
+            Type = t
+            IsTypeParam = false }
+
+        // TODO: add something to env.Values for the constructor so that
+        // we can construct structs in JS/TS
+        return env.AddScheme name scheme
+      | StmtKind.Impl _ ->
+        return! Error(TypeError.NotImplemented "TODO: inferStmt - Impl")
       | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->

@@ -667,7 +667,7 @@ module Parser =
       (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
       (between (strWs "{") (strWs "}") (sepEndBy propertyTypeAnn (strWs ",")))
       getPosition
-    <| fun start name typeParams members stop ->
+    <| fun start name typeParams elems stop ->
       let span = { Start = start; Stop = stop }
 
       { Stmt.Kind =
@@ -676,7 +676,7 @@ module Parser =
                 StructDecl
                   { Name = name
                     TypeParams = typeParams
-                    Members = members }
+                    Elems = elems }
               Span = span }
         Span = span }
 

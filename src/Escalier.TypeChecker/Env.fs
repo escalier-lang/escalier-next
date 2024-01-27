@@ -215,6 +215,11 @@ module rec Env =
         else
           Error(TypeError.SemanticError $"Undefined symbol {name}")
 
+    member this.GetScheme(name: string) : Result<Scheme, TypeError> =
+      match this.Schemes |> Map.tryFind name with
+      | Some(s) -> Ok(s)
+      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
       match this.Values |> Map.tryFind name with
       | Some(var) -> Ok var

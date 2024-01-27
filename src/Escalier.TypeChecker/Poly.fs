@@ -118,6 +118,23 @@ module Poly =
           { Kind = TypeKind.Range { Min = fold min; Max = fold max }
             Mutable = false
             Provenance = None }
+        | TypeKind.Struct { TypeRef = typeRef; Elems = elems } ->
+          let typeArgs = Option.map (List.map fold) typeRef.TypeArgs
+
+          let elems =
+            List.map
+              (fun elem ->
+                match elem with
+                | Property p -> Property { p with Type = fold p.Type }
+                | _ -> failwith "TODO: foldType - ObjTypeElem")
+              elems
+
+          { Kind =
+              TypeKind.Struct
+                { TypeRef = { typeRef with TypeArgs = typeArgs }
+                  Elems = elems }
+            Mutable = false
+            Provenance = None }
         | _ -> failwith $"TODO: foldType - {t.Kind}"
 
       match f t with

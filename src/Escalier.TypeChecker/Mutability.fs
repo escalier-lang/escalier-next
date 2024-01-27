@@ -19,8 +19,21 @@ module Mutability =
       match pat.Kind with
       | PatternKind.Ident { Name = name; IsMut = mut } ->
         result <- Map.add name (path, mut) result
-      | PatternKind.Object object ->
-        for elem in object.Elems do
+      | PatternKind.Object { Elems = elems } ->
+        for elem in elems do
+          match elem with
+          | KeyValuePat { Key = key; Value = value } ->
+            walkPattern value (key :: path)
+          | ShorthandPat { Name = name; IsMut = mut } ->
+            result <- Map.add name ((name :: path), mut) result
+          | RestPat { Target = target; IsMut = mut } ->
+            // TODO: What should be the path for the rest pattern?
+            // It should be multiple paths, one for each property in the pattern
+            // We could use a "wildcard" path element to model this as long as
+            // we only check paths with wildcards after checking those without
+            printfn "TODO: getBindingPaths - ObjPatElem.RestPat"
+      | PatternKind.Struct { Elems = elems } ->
+        for elem in elems do
           match elem with
           | KeyValuePat { Key = key; Value = value } ->
             walkPattern value (key :: path)
@@ -100,7 +113,7 @@ module Mutability =
       | ExprKind.Object { Elems = elems } ->
         for elem in elems do
           match elem with
-          | Syntax.Property(span, name, value) ->
+          | ObjElem.Property(span, name, value) ->
             let name =
               match name with
               | Syntax.Ident s -> s

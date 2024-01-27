@@ -314,6 +314,89 @@ module rec Infer =
               { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
                 Mutable = false
                 Provenance = None }
+        | ExprKind.Struct { TypeRef = { Ident = name; TypeArgs = typeArgs }
+                            Elems = elems } ->
+
+          let mutable spreadTypes = []
+
+          let! elems =
+            List.traverseResultM
+              (fun (elem: ObjElem) ->
+                result {
+                  match elem with
+                  | ObjElem.Property(_span, key, value) ->
+                    let! t = inferExpr ctx env value
+                    let! name = inferPropName ctx env key
+
+                    return
+                      Some(
+                        Property
+                          { Name = name
+                            Optional = false
+                            Readonly = false
+                            Type = t }
+                      )
+                  | ObjElem.Shorthand(_span, key) ->
+                    let! value = env.GetType key
+
+                    return
+                      Some(
+                        Property
+                          { Name = PropName.String key
+                            Optional = false
+                            Readonly = false
+                            Type = value }
+                      )
+                  | ObjElem.Spread(span, value) ->
+                    let! t = inferExpr ctx env value
+                    spreadTypes <- t :: spreadTypes
+                    return None
+                })
+              elems
+
+          let elems = elems |> List.choose id
+
+          let initObjType =
+            { Kind = TypeKind.Object { Elems = elems; Immutable = false }
+              Mutable = false
+              Provenance = None }
+
+          let! scheme = env.GetScheme name
+
+          let! typeArgs =
+            match typeArgs with
+            | Some(typeArgs) ->
+              List.traverseResultM (inferTypeAnn ctx env) typeArgs
+              |> Result.map Some
+            | None -> Ok None
+
+          let t = expandScheme ctx env None scheme Map.empty typeArgs
+
+          match t.Kind with
+          | TypeKind.Struct { Elems = elems } ->
+            let structObjType =
+              { Kind = TypeKind.Object { Elems = elems; Immutable = false }
+                Mutable = false
+                Provenance = None }
+
+            do! unify ctx env None initObjType structObjType
+
+            let typeRef: TypeRef =
+              { Name = name
+                TypeArgs = typeArgs
+                Scheme = None } // TODO: lookup Scheme
+
+            let kind: TypeKind =
+              TypeKind.Struct { TypeRef = typeRef; Elems = elems }
+
+            return
+              { Type.Kind = kind
+                Mutable = false
+                Provenance = None }
+          | _ ->
+            return!
+              Error(TypeError.SemanticError $"Expected Struct type, got {t}")
+
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj
           let propKey = PropName.String(prop)
@@ -493,28 +576,8 @@ module rec Infer =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.Object { Elems = elems } ->
-      let elems =
-        List.choose
-          (fun (elem: ObjTypeElem) ->
-            match elem with
-            | Property p -> Some(p.Name, p)
-            | _ -> None)
-          elems
-        |> Map.ofList
-
-      match elems.TryFind key with
-      | Some(p) ->
-        match p.Optional with
-        | true ->
-          let undefined =
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Mutable = false
-              Provenance = None }
-
-          union [ p.Type; undefined ]
-        | false -> p.Type
-      | None -> failwith $"Property {key} not found"
+    | TypeKind.Object { Elems = elems } -> inferMemberAccess key elems
+    | TypeKind.Struct { Elems = elems } -> inferMemberAccess key elems
     | TypeKind.TypeRef { Name = typeRefName
                          Scheme = scheme
                          TypeArgs = typeArgs } ->
@@ -535,7 +598,7 @@ module rec Infer =
             (expandScheme ctx env None scheme Map.empty typeArgs)
             key
             optChain
-        | None -> failwithf $"{key} not in scope"
+        | None -> failwith $"{key} not in scope"
     | TypeKind.Union types ->
       let undefinedTypes, definedTypes =
         List.partition
@@ -606,6 +669,29 @@ module rec Infer =
         failwith "TODO: lookup member on array type"
     // TODO: intersection types
     | _ -> failwith $"TODO: lookup member on type - {t}"
+
+  let inferMemberAccess (key: PropName) (elems: list<ObjTypeElem>) =
+    let elems =
+      List.choose
+        (fun (elem: ObjTypeElem) ->
+          match elem with
+          | Property p -> Some(p.Name, p)
+          | _ -> None)
+        elems
+      |> Map.ofList
+
+    match elems.TryFind key with
+    | Some(p) ->
+      match p.Optional with
+      | true ->
+        let undefined =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Mutable = false
+            Provenance = None }
+
+        union [ p.Type; undefined ]
+      | false -> p.Type
+    | None -> failwith $"Property {key} not found"
 
   let inferBlockOrExpr
     (ctx: Ctx)
@@ -701,11 +787,15 @@ module rec Infer =
                   | ObjTypeAnnElem.Constructor functionType ->
                     let! f = inferFunctionType ctx env functionType
                     return Constructor f
-                  | ObjTypeAnnElem.Method(name, isMut, ``type``) ->
+                  | ObjTypeAnnElem.Method { Name = name; Type = t } ->
                     return! Error(TypeError.NotImplemented "todo")
-                  | ObjTypeAnnElem.Getter(name, returnType, throws) ->
+                  | ObjTypeAnnElem.Getter { Name = name
+                                            ReturnType = returnType
+                                            Throws = throws } ->
                     return! Error(TypeError.NotImplemented "todo")
-                  | ObjTypeAnnElem.Setter(name, param, throws) ->
+                  | ObjTypeAnnElem.Setter { Name = name
+                                            Param = param
+                                            Throws = throws } ->
                     return! Error(TypeError.NotImplemented "todo")
                   | ObjTypeAnnElem.Mapped mapped ->
                     let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint
@@ -749,7 +839,7 @@ module rec Infer =
         | TypeAnnKind.Intersection types ->
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return TypeKind.Intersection types
-        | TypeAnnKind.TypeRef(name, typeArgs) ->
+        | TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs } ->
           match env.Schemes.TryFind(name) with
           | Some(scheme) ->
 
@@ -1031,6 +1121,107 @@ module rec Infer =
             Mutable = false
             Provenance = None }
         | None -> objType
+      | PatternKind.Struct { TypeRef = { Ident = name; TypeArgs = typeArgs }
+                             Elems = elems } ->
+        let mutable restType: option<Type> = None
+
+        let elems: list<ObjTypeElem> =
+          List.choose
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                                Value = value
+                                                Default = init } ->
+                let t = infer_pattern_rec value
+
+                Some(
+                  ObjTypeElem.Property
+                    { Name = PropName.String key
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+                )
+              | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                                 IsMut = isMut
+                                                 Assertion = assertion } ->
+                // TODO: lookup `assertion` in `env`
+
+                // let t = ctx.FreshTypeVar None
+                let t =
+                  match assertion with
+                  | Some qi ->
+                    let assertType =
+                      match qi with
+                      | QualifiedIdent.Ident "string" -> strType
+                      | QualifiedIdent.Ident "number" -> numType
+                      | QualifiedIdent.Ident "boolean" -> boolType
+                      | _ -> failwith $"TODO: lookup type of {qi}"
+
+                    assertType
+                  | None -> ctx.FreshTypeVar None
+
+                // TODO: check if `name` already exists in `assump`
+                assump <- assump.Add(name, (t, isMut))
+
+                Some(
+                  ObjTypeElem.Property
+                    { Name = PropName.String name
+                      Optional = false
+                      Readonly = false
+                      Type = { t with Mutable = isMut } }
+                )
+
+              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
+                restType <-
+                  Some(
+                    { Kind = infer_pattern_rec target |> TypeKind.Rest
+                      Mutable = false
+                      Provenance = None }
+                  )
+
+                None)
+            elems
+
+        let typeArgs =
+          match typeArgs with
+          | Some typeArgs ->
+            List.traverseResultM
+              (fun typeArg ->
+                result {
+                  let! typeArg = inferTypeAnn ctx env typeArg
+                  return typeArg
+                })
+              typeArgs
+            |> Result.map Some
+          | _ -> Ok None
+
+        let typeArgs =
+          match typeArgs with
+          | Ok typeArgs -> typeArgs
+          | Error e -> failwith "inferPattern - Struct typeArgs"
+
+        let scheme =
+          match env.GetScheme name with
+          | Ok scheme -> scheme
+          | Error e -> failwith $"inferPattnern - Can't find scheme {name}"
+
+        let typeRef: TypeRef =
+          { Name = name
+            TypeArgs = typeArgs
+            Scheme = Some scheme }
+
+        let objType =
+          { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
+            Mutable = false
+            Provenance = None }
+
+        match restType with
+        | Some(restType) ->
+          { Kind = TypeKind.Intersection([ objType; restType ])
+            Mutable = false
+            Provenance = None }
+        | None -> objType
+
       | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
         let elems = List.map infer_pattern_rec elems
 
@@ -1317,6 +1508,79 @@ module rec Infer =
             IsTypeParam = false }
 
         return env.AddScheme name scheme
+      | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
+                                                     TypeParams = typeParams
+                                                     Elems = elems } }) ->
+        let mutable newEnv = env
+
+        let typeParams =
+          typeParams
+          |> Option.map (fun typeParams ->
+            typeParams
+            |> List.map (fun typeParam ->
+              let unknown =
+                { Kind = TypeKind.Keyword Keyword.Unknown
+                  Mutable = false
+                  Provenance = None }
+
+              let scheme =
+                { TypeParams = None
+                  Type = unknown
+                  IsTypeParam = false }
+
+              newEnv <- newEnv.AddScheme typeParam.Name scheme
+              typeParam.Name))
+
+        let! elems =
+          elems
+          |> List.traverseResultM
+            (fun
+                 { Name = name
+                   Optional = optional
+                   Readonly = readonly
+                   TypeAnn = typeAnn } ->
+              result {
+
+                let name =
+                  match name with
+                  | Syntax.Ident s -> PropName.String s
+                  | Syntax.String s -> PropName.String s
+                  | Syntax.Number n -> PropName.Number n
+                  | Computed expr ->
+                    let t = inferExpr ctx newEnv expr
+                    // TODO: check if `t` is a valid type for a PropName
+                    failwith "TODO: inferStmt - Computed prop name"
+
+                let! t = inferTypeAnn ctx newEnv typeAnn
+
+                return
+                  ObjTypeElem.Property
+                    { Name = name
+                      Optional = optional
+                      Readonly = readonly
+                      Type = t }
+              })
+
+        let typeRef: TypeRef =
+          { Name = name
+            TypeArgs = None // Should we be setting this to `Some(typeParams)`?
+            Scheme = None }
+
+        let t =
+          { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
+            Mutable = false
+            Provenance = None }
+
+        let scheme =
+          { TypeParams = typeParams
+            Type = t
+            IsTypeParam = false }
+
+        // TODO: add something to env.Values for the constructor so that
+        // we can construct structs in JS/TS
+        return env.AddScheme name scheme
+      | StmtKind.Impl _ ->
+        return! Error(TypeError.NotImplemented "TODO: inferStmt - Impl")
       | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->

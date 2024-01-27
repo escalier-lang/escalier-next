@@ -102,7 +102,7 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  type Object<'T> = { Elems: list<'T>; Immutable: bool }
+  type Object<'E> = { Elems: list<'E>; Immutable: bool }
 
   type Tuple<'T> = { Elems: list<'T>; Immutable: bool }
 
@@ -149,9 +149,25 @@ module Syntax =
       Throws: option<TypeAnn>
       IsAsync: bool }
 
+  // TODO: include optional name
   type Function =
     { Sig: FuncSig<option<TypeAnn>>
       Body: BlockOrExpr }
+
+  type Method =
+    { Name: string
+      Sig: FuncSig<option<TypeAnn>>
+      Body: BlockOrExpr }
+
+  type Getter =
+    { Name: string
+      ReturnType: TypeAnn
+      Throws: TypeAnn }
+
+  type Setter =
+    { Name: string
+      Param: FuncParam<TypeAnn>
+      Throws: TypeAnn }
 
   type MatchCase =
     { Span: Span
@@ -199,6 +215,8 @@ module Syntax =
     { Value: Expr
       mutable Throws: option<Type.Type> }
 
+  type Struct<'T> = { TypeRef: TypeRef; Elems: list<'T> }
+
   [<RequireQualifiedAccess>]
   type ExprKind =
     | Identifier of name: string // TODO: Make an Ident struct
@@ -206,6 +224,7 @@ module Syntax =
     | Function of Function
     | Call of Call
     | Object of Common.Object<ObjElem>
+    | Struct of Struct<ObjElem>
     | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
     | Index of target: Expr * index: Expr * opt_chain: bool
@@ -247,6 +266,10 @@ module Syntax =
     | Ident of string
     | Member of left: QualifiedIdent * right: string
 
+  type TypeRef =
+    { Ident: string // TOOD: use QualifiedIdent
+      TypeArgs: option<list<TypeAnn>> }
+
   type KeyValuePat =
     { Span: Span
       Key: string
@@ -283,6 +306,7 @@ module Syntax =
   type PatternKind =
     | Ident of IdentPat
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
+    | Struct of Struct<ObjPatElem> // TODO: rest patterns
     | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
@@ -300,12 +324,23 @@ module Syntax =
 
     override this.ToString() = this.Kind.ToString()
 
+  type StructDecl =
+    { Name: string
+      TypeParams: option<list<TypeParam>>
+      Elems: list<Property> }
+
+  type Impl =
+    { TypeParams: option<list<TypeParam>>
+      SelfType: TypeRef
+      Elems: list<Method> }
+
   type DeclKind =
     | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
     | TypeDecl of
       name: string *
       typeAnn: TypeAnn *
       typeParams: option<list<TypeParam>>
+    | StructDecl of StructDecl
 
   type Decl = { Kind: DeclKind; Span: Span }
 
@@ -314,6 +349,7 @@ module Syntax =
     | For of left: Pattern * right: Expr * body: Block
     | Return of option<Expr>
     | Decl of Decl
+    | Impl of Impl
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
@@ -336,9 +372,9 @@ module Syntax =
   type ObjTypeAnnElem =
     | Callable of FunctionType
     | Constructor of FunctionType
-    | Method of name: string * is_mut: bool * type_: Function
-    | Getter of name: string * return_type: TypeAnn * throws: TypeAnn
-    | Setter of name: string * param: FuncParam<TypeAnn> * throws: TypeAnn
+    | Method of MethodType
+    | Getter of Getter
+    | Setter of Setter
     | Property of Property
     | Mapped of Mapped
 
@@ -356,6 +392,8 @@ module Syntax =
     | Object
 
   type FunctionType = FuncSig<TypeAnn>
+
+  type MethodType = { Name: PropName; Type: FunctionType }
 
   type ConditionType =
     { Check: TypeAnn
@@ -378,7 +416,7 @@ module Syntax =
     | Range of Common.Range<TypeAnn>
     | Union of types: list<TypeAnn>
     | Intersection of types: list<TypeAnn>
-    | TypeRef of name: string * type_args: option<list<TypeAnn>>
+    | TypeRef of TypeRef
     | Function of FunctionType
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
@@ -469,6 +507,8 @@ module Type =
       | Unknown -> "unknown"
       | Never -> "never"
 
+  type Struct<'E, 'T> = { TypeRef: TypeRef; Elems: list<'E> }
+
   type KeyValuePat =
     { Key: string
       Value: Pattern
@@ -489,6 +529,7 @@ module Type =
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
+    | Struct of Struct<ObjPatElem, Type>
     | Tuple of Common.Tuple<option<Pattern>>
     | Literal of Common.Literal
     | Rest of Pattern
@@ -573,24 +614,6 @@ module Type =
       Throws: Type }
 
     override this.ToString() = printFunction { Precedence = 0 } this
-  // let args =
-  //   List.map (fun item -> item.ToString()) this.ParamList
-  //   |> String.concat ", "
-  //
-  // let typeParams =
-  //   match this.TypeParams with
-  //   | Some(typeParams) ->
-  //     let sep = ", "
-  //     let typeParams = List.map (fun t -> t.ToString()) typeParams
-  //     $"<{String.concat sep typeParams}>"
-  //   | None -> ""
-  //
-  // // printfn "this.Throws = %A" this.Throws
-  //
-  // match (prune this.Throws).Kind with
-  // | TypeKind.Keyword Keyword.Never ->
-  //   $"fn {typeParams}({args}) -> {this.Return}"
-  // | _ -> $"fn {typeParams}({args}) -> {this.Return} throws {this.Throws}"
 
   type IndexParam =
     { Name: string
@@ -693,6 +716,7 @@ module Type =
     | Keyword of Keyword
     | Function of Function
     | Object of Common.Object<ObjTypeElem>
+    | Struct of Struct<ObjTypeElem, Type>
     | Tuple of Common.Tuple<Type>
     | Array of Array
     | Rest of Type
@@ -759,6 +783,7 @@ module Type =
     | TypeKind.Keyword keyword -> 100
     | TypeKind.Function f -> 100
     | TypeKind.Object o -> 100
+    | TypeKind.Struct s -> 100
     | TypeKind.Tuple tuple -> 100
     | TypeKind.Array array -> 17
     | TypeKind.Rest t -> 100
@@ -826,6 +851,7 @@ module Type =
       | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> printFunction ctx f
       | TypeKind.Object obj -> printObject ctx obj
+      | TypeKind.Struct s -> printStruct ctx s
       | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
         let ctx = { Precedence = 0 }
         let elems = List.map (printType ctx) elems |> String.concat ", "
@@ -899,6 +925,13 @@ module Type =
     match obj.Immutable with
     | true -> $"#{{{elems}}}"
     | false -> $"{{{elems}}}"
+
+  let printStruct (ctx: PrintCtx) (s: Struct<ObjTypeElem, Type>) : string =
+    match s.TypeRef.TypeArgs with
+    | Some typeArgs ->
+      let typeArgs = List.map (printType ctx) typeArgs |> String.concat ", "
+      $"{s.TypeRef.Name}<{typeArgs}>"
+    | None -> $"{s.TypeRef.Name}"
 
   let printFunction (ctx: PrintCtx) (f: Function) : string =
     let ps =

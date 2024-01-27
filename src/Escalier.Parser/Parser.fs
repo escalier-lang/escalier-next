@@ -316,6 +316,23 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
+  let structExpr: Parser<Expr, unit> =
+    pipe5
+      getPosition
+      ident
+      (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
+      (between (strWs "{") (strWs "}") (sepBy objElem (strWs ",")))
+      getPosition
+    <| fun start name typeArgs elems stop ->
+      let kind =
+        ExprKind.Struct
+          { TypeRef = { Ident = name; TypeArgs = typeArgs }
+            Elems = elems }
+
+      { Kind = kind
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
   let catchClause: Parser<list<MatchCase>, unit> =
     pipe3
       getPosition
@@ -363,6 +380,7 @@ module Parser =
         attempt throwExpr // conflicts with identExpr
         attempt tryExpr // conflicts with identExpr
         attempt matchExpr // conflicts with identExpr
+        attempt structExpr // conflicts with identExpr
         tupleExpr
         objectExpr
         imTupleExpr
@@ -373,8 +391,7 @@ module Parser =
         // continue parsing the appropriate expression
         identExpr ]
 
-  let term = atom .>> ws
-  let exprParser = Pratt.PrattParser<Expr>(term)
+  let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)
 
   let binary op x y =
     { Expr.Kind = ExprKind.Binary(op, x, y)
@@ -619,10 +636,99 @@ module Parser =
       { Stmt.Kind = For(pattern, expr, body)
         Span = { Start = start; Stop = stop } }
 
+  let private propName =
+    choice
+      [ ident |>> PropName.String
+        number .>> ws |>> PropName.Number
+        _string .>> ws |>> PropName.String
+        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
+
+  let private propertyTypeAnn: Parser<Property, unit> =
+    pipe5
+      getPosition
+      propName
+      (opt (strWs "?"))
+      (strWs ":" >>. typeAnn)
+      getPosition
+    <| fun p1 name optional typeAnn p2 ->
+      // TODO: add location information
+      let span = { Start = p1; Stop = p2 }
+
+      { Name = name
+        TypeAnn = typeAnn
+        Optional = optional.IsSome
+        Readonly = false }
+
+  let private structDecl =
+    pipe5
+      getPosition
+      (strWs "struct" >>. ident)
+      (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
+      (between (strWs "{") (strWs "}") (sepEndBy propertyTypeAnn (strWs ",")))
+      getPosition
+    <| fun start name typeParams elems stop ->
+      let span = { Start = start; Stop = stop }
+
+      { Stmt.Kind =
+          Decl
+            { Kind =
+                StructDecl
+                  { Name = name
+                    TypeParams = typeParams
+                    Elems = elems }
+              Span = span }
+        Span = span }
+
+  let method: Parser<Method, unit> =
+    pipe5
+      (opt (strWs "async"))
+      (strWs "fn" >>. ident)
+      ((opt typeParams) .>>. (paramList opt))
+      ((opt (strWs "->" >>. typeAnn))
+       .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
+      block
+    <| fun async name (type_params, param_list) (return_type, throws) body ->
+      let funcSig: FuncSig<option<TypeAnn>> =
+        { TypeParams = type_params
+          ParamList = param_list
+          ReturnType = return_type
+          Throws = throws
+          IsAsync = async.IsSome }
+
+      { Name = name
+        Sig = funcSig
+        Body = BlockOrExpr.Block body }
+
+  // TODO: reuse below in the definition of the `typeRef` parser
+  let private _typeRef =
+    (ident
+     .>>. (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ",")))))
+    |>> fun (ident, typeArgs) -> { Ident = ident; TypeArgs = typeArgs }
+
+  let private implStmt =
+    pipe5
+      getPosition
+      (strWs "impl" >>. (opt typeParams))
+      _typeRef
+      (between (strWs "{") (strWs "}") (many method))
+      getPosition
+    <| fun start typeParams typeRef elems stop ->
+      { Stmt.Kind =
+          Impl
+            { TypeParams = typeParams
+              SelfType = typeRef
+              Elems = elems }
+        Span = { Start = start; Stop = stop } }
+
   let _stmt =
     choice
-      [ varDecl
+      [
+        // TODO: these should all use `attempt` since you could have an
+        // identifier like `lettuce` that conflicts with `let <ident> = <expr>`
+        varDecl
         typeDecl
+        structDecl
+        implStmt
         returnStmt
         forLoop
 
@@ -745,6 +851,23 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private structPattern =
+    withSpan (
+      tuple3
+        ident
+        (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
+        (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))
+    )
+    |>> fun ((name, typeArgs, elems), span) ->
+      let kind =
+        PatternKind.Struct
+          { TypeRef = { Ident = name; TypeArgs = typeArgs }
+            Elems = elems }
+
+      { Pattern.Kind = kind
+        Span = span
+        InferredType = None }
+
   let private imObjectPattern =
     withSpan (between (strWs "#{") (strWs "}") (sepBy objPatElem (strWs ",")))
     |>> fun (elems, span) ->
@@ -762,7 +885,8 @@ module Parser =
 
   patternRef.Value <-
     choice
-      [ identPattern
+      [ attempt structPattern
+        identPattern
         literalPattern
         wildcardPattern
         objectPattern
@@ -839,30 +963,6 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private propName =
-    choice
-      [ ident |>> PropName.String
-        number .>> ws |>> PropName.Number
-        _string .>> ws |>> PropName.String
-        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
-
-  let private propertyTypeAnn =
-    pipe5
-      getPosition
-      propName
-      (opt (strWs "?"))
-      (strWs ":" >>. typeAnn)
-      getPosition
-    <| fun p1 name optional typeAnn p2 ->
-      // TODO: add location information
-      let span = { Start = p1; Stop = p2 }
-
-      ObjTypeAnnElem.Property
-        { Name = name
-          TypeAnn = typeAnn
-          Optional = optional.IsSome
-          Readonly = false }
-
   let private readonlyModifier =
     pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "readonly")
     <| fun pm _ ->
@@ -894,7 +994,8 @@ module Parser =
 
       let name =
         match name.Kind with
-        | TypeAnnKind.TypeRef(name, _) when name = typeParam.Name -> None
+        | TypeAnnKind.TypeRef { Ident = name } when name = typeParam.Name ->
+          None
         | _ -> Some(name)
 
       ObjTypeAnnElem.Mapped
@@ -917,7 +1018,7 @@ module Parser =
         // mappedTypeAnn must come before propertyTypeAnn because computed
         // properties conflicts with mapped types
         attempt mappedTypeAnn
-        attempt propertyTypeAnn ]
+        attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property) ]
 
   let private objectTypeAnn =
     withSpan (
@@ -991,7 +1092,7 @@ module Parser =
       (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
       getPosition
     <| fun start name typeArgs stop ->
-      { TypeAnn.Kind = TypeAnnKind.TypeRef(name, typeArgs)
+      { TypeAnn.Kind = TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs }
         Span = { Start = start; Stop = stop }
         InferredType = None }
 

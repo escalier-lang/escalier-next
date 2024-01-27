@@ -11,7 +11,8 @@ output: Ok
                   ("Foo",
                    { Kind =
                       Condition
-                        { Check = { Kind = TypeRef ("T", None)
+                        { Check = { Kind = TypeRef { Ident = "T"
+                                                     TypeArgs = None }
                                     Span = { Start = (Ln: 2, Col: 22)
                                              Stop = (Ln: 2, Col: 23) }
                                     InferredType = None }
@@ -26,7 +27,8 @@ output: Ok
                           FalseType =
                            { Kind =
                               Condition
-                                { Check = { Kind = TypeRef ("T", None)
+                                { Check = { Kind = TypeRef { Ident = "T"
+                                                             TypeArgs = None }
                                             Span = { Start = (Ln: 2, Col: 53)
                                                      Stop = (Ln: 2, Col: 54) }
                                             InferredType = None }

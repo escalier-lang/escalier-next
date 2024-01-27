@@ -1,0 +1,34 @@
+﻿input: 
+    struct Point {
+      x: number,
+      y: number,
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                StructDecl
+                  { Name = "Point"
+                    TypeParams = None
+                    Elems =
+                     [{ Name = String "x"
+                        TypeAnn = { Kind = Keyword Number
+                                    Span = { Start = (Ln: 3, Col: 10)
+                                             Stop = (Ln: 3, Col: 16) }
+                                    InferredType = None }
+                        Optional = false
+                        Readonly = false };
+                      { Name = String "y"
+                        TypeAnn = { Kind = Keyword Number
+                                    Span = { Start = (Ln: 4, Col: 10)
+                                             Stop = (Ln: 4, Col: 16) }
+                                    InferredType = None }
+                        Optional = false
+                        Readonly = false }] }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 6, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 6, Col: 5) } }] }

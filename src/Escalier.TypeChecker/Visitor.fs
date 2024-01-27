@@ -61,7 +61,9 @@ module rec ExprVisitor =
         | ExprKind.Unary(_op, value) -> walk value
         | ExprKind.Object elems ->
           // TODO:
-          // failwith "todo"
+          ()
+        | ExprKind.Struct { Elems = elems; TypeRef = typeRef } ->
+          // TODO:
           ()
         | ExprKind.Try { Body = body
                          Catch = catch
@@ -108,6 +110,22 @@ module rec ExprVisitor =
         | StmtKind.Decl({ Kind = DeclKind.TypeDecl(name, typeAnn, typeParams) }) ->
           // TODO: walk type params
           walkTypeAnn visitor typeAnn
+        | StmtKind.Decl({ Kind = DeclKind.StructDecl { Elems = elems
+                                                       TypeParams = typeParams } }) ->
+          match typeParams with
+          | Some typeParams ->
+            for param in typeParams do
+              match param.Constraint with
+              | Some c -> walkTypeAnn visitor c
+              | None -> ()
+
+              match param.Default with
+              | Some d -> walkTypeAnn visitor d
+              | None -> ()
+          | None -> ()
+
+          for prop in elems do
+            walkTypeAnn visitor prop.TypeAnn
         | StmtKind.Return exprOption ->
           Option.iter (walkExpr visitor) exprOption
 
@@ -129,9 +147,22 @@ module rec ExprVisitor =
                 Option.iter (walkExpr visitor) init
               | ObjPatElem.RestPat { Target = target } -> walk target)
             elems
+        | PatternKind.Struct { Elems = elems } ->
+          // TODO: walk typeArgs
+          List.iter
+            (fun (elem: ObjPatElem) ->
+              match elem with
+              | ObjPatElem.KeyValuePat { Value = value; Default = init } ->
+                walk value
+                Option.iter (walkExpr visitor) init
+              | ObjPatElem.ShorthandPat { Default = init } ->
+                Option.iter (walkExpr visitor) init
+              | ObjPatElem.RestPat { Target = target } -> walk target)
+            elems
         | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
         | PatternKind.Wildcard _ -> ()
         | PatternKind.Literal _ -> ()
+        | PatternKind.Rest arg -> walk arg
 
     walk pat
 
@@ -146,7 +177,7 @@ module rec ExprVisitor =
         | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
         | TypeAnnKind.Union types -> List.iter walk types
         | TypeAnnKind.Intersection types -> List.iter walk types
-        | TypeAnnKind.TypeRef(_name, typeArgs) ->
+        | TypeAnnKind.TypeRef { TypeArgs = typeArgs } ->
           Option.iter (List.iter walk) typeArgs
         | TypeAnnKind.Function f ->
           walk f.ReturnType

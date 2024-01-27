@@ -574,3 +574,102 @@ let ParseTypeof () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseStruct () =
+  let src =
+    """
+    struct Point {
+      x: number,
+      y: number,
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGenericStruct () =
+  let src =
+    """
+    struct Point<T> {
+      x: T,
+      y: T,
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseImpl () =
+  let src =
+    """
+    impl Point {
+      fn length(self) {
+        return Math.sqrt(self.x * self.x + self.y * self.y)
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGenericImpl () =
+  let src =
+    """
+    impl<T> Point<T> {
+      fn length(self) {
+        return Math.sqrt(self.x * self.x + self.y * self.y)
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseStructExprs () =
+  let src =
+    """
+    let foo = Foo { a: 5, b: "hello" }
+    let bar = Bar<number> { a: 5, b: "hello" }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBasicStructPattern () =
+  let src =
+    """
+    let Point {x, y} = point
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGenericStructPattern () =
+  let src =
+    """
+    let Point<number> {x, y} = point
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

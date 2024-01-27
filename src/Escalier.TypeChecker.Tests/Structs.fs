@@ -138,3 +138,39 @@ let ObjectDestructuringOfStructs () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let StructDestructuring () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let point = Point {x: 5, y: 10}
+        let Point {x, y} = point
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "x", "number")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let StructPartialDestructuring () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let point = Point {x: 5, y: 10}
+        let Point {x} = point
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "x", "number")
+    }
+
+  Assert.False(Result.isError res)

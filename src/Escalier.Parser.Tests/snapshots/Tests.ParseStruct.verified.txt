@@ -13,7 +13,7 @@ output: Ok
                 StructDecl
                   { Name = "Point"
                     TypeParams = None
-                    Members =
+                    Elems =
                      [{ Name = String "x"
                         TypeAnn = { Kind = Keyword Number
                                     Span = { Start = (Ln: 3, Col: 10)

@@ -1,0 +1,37 @@
+﻿input: 
+    let Point {x, y} = point
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  ({ Kind =
+                      Struct
+                        { Name = "Point"
+                          TypeArgs = None
+                          Elems =
+                           [ShorthandPat { Span = { Start = (Ln: 2, Col: 16)
+                                                    Stop = (Ln: 2, Col: 17) }
+                                           Name = "x"
+                                           IsMut = false
+                                           Default = None
+                                           Assertion = None };
+                            ShorthandPat { Span = { Start = (Ln: 2, Col: 19)
+                                                    Stop = (Ln: 2, Col: 20) }
+                                           Name = "y"
+                                           IsMut = false
+                                           Default = None
+                                           Assertion = None }] }
+                     Span = { Start = (Ln: 2, Col: 9)
+                              Stop = (Ln: 2, Col: 22) }
+                     InferredType = None }, { Kind = Identifier "point"
+                                              Span = { Start = (Ln: 2, Col: 24)
+                                                       Stop = (Ln: 3, Col: 5) }
+                                              InferredType = None }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } }] }

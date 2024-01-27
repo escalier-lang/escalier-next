@@ -852,6 +852,24 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private structPattern =
+    withSpan (
+      tuple3
+        ident
+        (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
+        (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))
+    )
+    |>> fun ((name, typeArgs, elems), span) ->
+      let kind =
+        PatternKind.Struct
+          { Name = name
+            Elems = elems
+            TypeArgs = typeArgs }
+
+      { Pattern.Kind = kind
+        Span = span
+        InferredType = None }
+
   let private imObjectPattern =
     withSpan (between (strWs "#{") (strWs "}") (sepBy objPatElem (strWs ",")))
     |>> fun (elems, span) ->
@@ -869,7 +887,8 @@ module Parser =
 
   patternRef.Value <-
     choice
-      [ identPattern
+      [ attempt structPattern
+        identPattern
         literalPattern
         wildcardPattern
         objectPattern

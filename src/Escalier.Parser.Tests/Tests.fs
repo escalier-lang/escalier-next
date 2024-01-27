@@ -649,3 +649,27 @@ let ParseStructExprs () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBasicStructPattern () =
+  let src =
+    """
+    let Point {x, y} = point
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGenericStructPattern () =
+  let src =
+    """
+    let Point<number> {x, y} = point
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

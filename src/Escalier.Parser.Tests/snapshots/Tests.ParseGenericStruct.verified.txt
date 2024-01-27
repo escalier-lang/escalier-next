@@ -17,7 +17,7 @@ output: Ok
                                          Name = "T"
                                          Constraint = None
                                          Default = None }]
-                    Members =
+                    Elems =
                      [{ Name = String "x"
                         TypeAnn = { Kind = TypeRef { Ident = "T"
                                                      TypeArgs = None }

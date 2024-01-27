@@ -1121,6 +1121,86 @@ module rec Infer =
             Mutable = false
             Provenance = None }
         | None -> objType
+      | PatternKind.Struct { Name = name
+                             Elems = elems
+                             TypeArgs = typeArgs } ->
+        let mutable restType: option<Type> = None
+
+        let elems: list<ObjTypeElem> =
+          List.choose
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                                Value = value
+                                                Default = init } ->
+                let t = infer_pattern_rec value
+
+                Some(
+                  ObjTypeElem.Property
+                    { Name = PropName.String key
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+                )
+              | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                                 IsMut = isMut
+                                                 Assertion = assertion } ->
+                // TODO: lookup `assertion` in `env`
+
+                // let t = ctx.FreshTypeVar None
+                let t =
+                  match assertion with
+                  | Some qi ->
+                    let assertType =
+                      match qi with
+                      | QualifiedIdent.Ident "string" -> strType
+                      | QualifiedIdent.Ident "number" -> numType
+                      | QualifiedIdent.Ident "boolean" -> boolType
+                      | _ -> failwith $"TODO: lookup type of {qi}"
+
+                    assertType
+                  | None -> ctx.FreshTypeVar None
+
+                // TODO: check if `name` already exists in `assump`
+                assump <- assump.Add(name, (t, isMut))
+
+                Some(
+                  ObjTypeElem.Property
+                    { Name = PropName.String name
+                      Optional = false
+                      Readonly = false
+                      Type = { t with Mutable = isMut } }
+                )
+
+              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
+                restType <-
+                  Some(
+                    { Kind = infer_pattern_rec target |> TypeKind.Rest
+                      Mutable = false
+                      Provenance = None }
+                  )
+
+                None)
+            elems
+
+        let typeArgs = None
+
+        let objType =
+          { Kind =
+              TypeKind.Struct
+                { Name = name
+                  Elems = elems
+                  TypeArgs = typeArgs }
+            Mutable = false
+            Provenance = None }
+
+        match restType with
+        | Some(restType) ->
+          { Kind = TypeKind.Intersection([ objType; restType ])
+            Mutable = false
+            Provenance = None }
+        | None -> objType
+
       | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
         let elems = List.map infer_pattern_rec elems
 

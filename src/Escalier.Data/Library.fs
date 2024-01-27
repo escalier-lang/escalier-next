@@ -102,7 +102,16 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  type Object<'T> = { Elems: list<'T>; Immutable: bool }
+  type Object<'E> = { Elems: list<'E>; Immutable: bool }
+
+  // TODO: don't use `string` for name in Struct types because it could
+  // be bound to something different.  Instead this'll need to be a
+  // TypeRef instead since TypeRef's have an optional reference to a
+  // Scheme.
+  type Struct<'E, 'T> =
+    { Name: string
+      TypeArgs: option<list<'T>>
+      Elems: list<'E> }
 
   type Tuple<'T> = { Elems: list<'T>; Immutable: bool }
 
@@ -205,11 +214,6 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
-  type Struct =
-    { Name: string
-      TypeArgs: option<list<TypeAnn>>
-      Elems: list<ObjElem> }
-
   type Try =
     { Body: Block
       Catch: option<list<MatchCase>>
@@ -227,7 +231,7 @@ module Syntax =
     | Function of Function
     | Call of Call
     | Object of Common.Object<ObjElem>
-    | Struct of Struct
+    | Struct of Common.Struct<ObjElem, TypeAnn>
     | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
     | Index of target: Expr * index: Expr * opt_chain: bool
@@ -309,6 +313,7 @@ module Syntax =
   type PatternKind =
     | Ident of IdentPat
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
+    | Struct of Common.Struct<ObjPatElem, TypeAnn> // TODO: rest patterns
     | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
@@ -529,6 +534,7 @@ module Type =
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
+    | Struct of Common.Struct<ObjPatElem, Type>
     | Tuple of Common.Tuple<option<Pattern>>
     | Literal of Common.Literal
     | Rest of Pattern
@@ -613,11 +619,6 @@ module Type =
       Throws: Type }
 
     override this.ToString() = printFunction { Precedence = 0 } this
-
-  type Struct =
-    { Name: string
-      TypeArgs: option<list<Type>>
-      Elems: list<ObjTypeElem> }
 
   type IndexParam =
     { Name: string
@@ -720,7 +721,7 @@ module Type =
     | Keyword of Keyword
     | Function of Function
     | Object of Common.Object<ObjTypeElem>
-    | Struct of Struct
+    | Struct of Common.Struct<ObjTypeElem, Type>
     | Tuple of Common.Tuple<Type>
     | Array of Array
     | Rest of Type
@@ -930,7 +931,10 @@ module Type =
     | true -> $"#{{{elems}}}"
     | false -> $"{{{elems}}}"
 
-  let printStruct (ctx: PrintCtx) (s: Struct) : string =
+  let printStruct
+    (ctx: PrintCtx)
+    (s: Common.Struct<ObjTypeElem, Type>)
+    : string =
     match s.TypeArgs with
     | Some typeArgs ->
       let typeArgs = List.map (printType ctx) typeArgs |> String.concat ", "

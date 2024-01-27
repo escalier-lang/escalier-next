@@ -293,6 +293,16 @@ module rec Unify =
         let namedProps2 = getNamedProps obj.Elems
         do! unifyObjProps ctx env ips namedProps1 namedProps2
 
+      | TypeKind.Struct { Name = name1; Elems = elems1 },
+        TypeKind.Struct { Name = name2; Elems = elems2 } ->
+        // TODO: handle immutable objects/structs
+
+        if name1 <> name2 then
+          return! Error(TypeError.TypeMismatch(t1, t2))
+
+        let namedProps1 = getNamedProps elems1
+        let namedProps2 = getNamedProps elems2
+        do! unifyObjProps ctx env ips namedProps1 namedProps2
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
         let mutable restTypes = []

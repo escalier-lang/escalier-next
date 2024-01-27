@@ -20,7 +20,6 @@ open Escalier.Interop.TypeScript
 module rec Infer =
   let never =
     { Kind = TypeKind.Keyword Keyword.Never
-      Mutable = false
       Provenance = None }
 
   let rec printTsEntityName (name: TsEntityName) : string =
@@ -67,7 +66,6 @@ module rec Infer =
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
-          Mutable = false
           Provenance = None }
 
       let f: Type.Function =
@@ -90,7 +88,6 @@ module rec Infer =
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
-          Mutable = false
           Provenance = None }
 
       let f: Type.Function =
@@ -134,7 +131,6 @@ module rec Infer =
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
-          Mutable = false
           Provenance = None }
 
       ObjTypeElem.Getter(key, returnType, throws)
@@ -151,7 +147,6 @@ module rec Infer =
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
-          Mutable = false
           Provenance = None }
 
       ObjTypeElem.Setter(key, param, throws)
@@ -175,7 +170,6 @@ module rec Infer =
 
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
-          Mutable = false
           Provenance = None }
 
       let f: Type.Function =
@@ -297,7 +291,6 @@ module rec Infer =
 
         let length =
           { Kind = TypeKind.UniqueNumber id
-            Mutable = false
             Provenance = None }
 
         // NOTE: If this array type is the return value of a function, we need
@@ -390,9 +383,7 @@ module rec Infer =
       | TsType.TsImportType tsImportType ->
         failwith "TODO: inferTsType - TsImportType"
 
-    { Kind = kind
-      Mutable = false
-      Provenance = None }
+    { Kind = kind; Provenance = None }
 
 
   let inferTsTypeAnn (ctx: Ctx) (env: Env) (ta: TsTypeAnn) : Type =
@@ -537,7 +528,6 @@ module rec Infer =
 
         let t =
           { Kind = TypeKind.Object { Elems = elems; Immutable = false }
-            Mutable = false
             Provenance = None }
 
         let scheme =

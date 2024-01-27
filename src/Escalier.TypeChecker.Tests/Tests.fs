@@ -196,7 +196,6 @@ let InferIfElseChaining () =
 let InferIdentifier () =
   let t: Type =
     { Kind = makeTypeRefKind "number"
-      Mutable = false
       Provenance = None }
 
   let env =

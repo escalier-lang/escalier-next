@@ -84,7 +84,6 @@ module rec Unify =
 
           let restTuple =
             { Kind = TypeKind.Tuple { tuple1 with Elems = restElems1 }
-              Mutable = false
               Provenance = None }
 
           do! unify ctx env ips restTuple t
@@ -138,7 +137,6 @@ module rec Unify =
 
         let undefined =
           { Kind = TypeKind.Literal(Literal.Undefined)
-            Mutable = false
             Provenance = None }
 
         match restTypes with
@@ -199,7 +197,6 @@ module rec Unify =
                         (fun (param: FuncParam) -> param.Type)
                         (List.skip nonRestParams2.Length f1.ParamList)
                     Immutable = false }
-              Mutable = false
               Provenance = None }
 
           do! unify ctx env ips restParam2.Type restParam1
@@ -322,7 +319,6 @@ module rec Unify =
                 { Elems = combinedElems
                   // TODO: figure out what do do with `Immutable`
                   Immutable = false }
-            Mutable = false
             Provenance = None }
 
         match restTypes with
@@ -342,7 +338,6 @@ module rec Unify =
           let newObjType =
             // TODO: figure out what do do with `Immutable`
             { Kind = TypeKind.Object { Elems = objElems; Immutable = false }
-              Mutable = false
               Provenance = None }
 
           do! unify ctx env ips newObjType objType
@@ -350,7 +345,6 @@ module rec Unify =
           let newRestType =
             // TODO: figure out what do do with `Immutable`
             { Kind = TypeKind.Object { Elems = restElems; Immutable = false }
-              Mutable = false
               Provenance = None }
 
           do! unify ctx env ips newRestType restType
@@ -373,7 +367,6 @@ module rec Unify =
                 { Elems = combinedElems
                   // TODO: figure out what do do with `Immutable`
                   Immutable = false }
-            Mutable = false
             Provenance = None }
 
         match restTypes with
@@ -393,7 +386,6 @@ module rec Unify =
           let newObjType =
             // TODO: figure out what do do with `Immutable`
             { Kind = TypeKind.Object { Elems = objElems; Immutable = false }
-              Mutable = false
               Provenance = None }
 
           do! unify ctx env ips objType newObjType
@@ -401,7 +393,6 @@ module rec Unify =
           let newRestType =
             // TODO: figure out what do do with `Immutable`
             { Kind = TypeKind.Object { Elems = restElems; Immutable = false }
-              Mutable = false
               Provenance = None }
 
           do! unify ctx env ips restType newRestType
@@ -504,7 +495,6 @@ module rec Unify =
                   Return = retType
                   Throws = throwsType
                   TypeParams = None } // TODO
-            Mutable = false
             Provenance = None }
 
         match bind ctx env ips callee callType with
@@ -531,7 +521,6 @@ module rec Unify =
     result {
       let undefined =
         { Kind = TypeKind.Literal(Literal.Undefined)
-          Mutable = false
           Provenance = None }
 
       if env.IsPatternMatching then
@@ -630,7 +619,6 @@ module rec Unify =
           | Error(reason) ->
             let never =
               { Kind = TypeKind.Keyword Keyword.Never
-                Mutable = false
                 Provenance = None }
 
             do! unify ctx env ips never param.Type
@@ -800,15 +788,12 @@ module rec Unify =
               match key with
               | PropName.String s ->
                 { Kind = TypeKind.Literal(Literal.String s)
-                  Mutable = false
                   Provenance = None }
               | PropName.Number n ->
                 { Kind = TypeKind.Literal(Literal.Number n)
-                  Mutable = false
                   Provenance = None }
               | PropName.Symbol id ->
                 { Kind = TypeKind.UniqueSymbol id
-                  Mutable = false
                   Provenance = None })
 
           union keys
@@ -964,7 +949,6 @@ module rec Unify =
 
         let t =
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
-            Mutable = false
             Provenance = None // TODO: set provenance
           }
 

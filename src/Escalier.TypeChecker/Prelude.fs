@@ -79,7 +79,6 @@ module Prelude =
 
   let never =
     { Kind = TypeKind.Keyword Keyword.Never
-      Mutable = false
       Provenance = None }
 
   let makeParam (name: string) (ty: Type) : FuncParam =
@@ -108,7 +107,6 @@ module Prelude =
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
-        Mutable = false
         Provenance = None }
 
     let typeRefB =
@@ -117,7 +115,6 @@ module Prelude =
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
-        Mutable = false
         Provenance = None }
 
     let arithemtic (op: string) =
@@ -125,7 +122,6 @@ module Prelude =
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
-          Mutable = false
           Provenance = None }
         never,
        false)
@@ -135,7 +131,6 @@ module Prelude =
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
-          Mutable = false
           Provenance = None }
         never,
        false)
@@ -150,12 +145,10 @@ module Prelude =
 
     let typeRefA =
       { Kind = makeTypeRefKind "A"
-        Mutable = false
         Provenance = None }
 
     let typeRefB =
       { Kind = makeTypeRefKind "B"
-        Mutable = false
         Provenance = None }
 
     let typeParams: list<TypeParam> =
@@ -191,7 +184,6 @@ module Prelude =
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
-        Mutable = false
         Provenance = None }
 
     let typeRefB =
@@ -200,7 +192,6 @@ module Prelude =
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
-        Mutable = false
         Provenance = None }
 
     let stringConcat =
@@ -208,7 +199,6 @@ module Prelude =
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
-          Mutable = false
           Provenance = None }
         never,
        false)
@@ -218,7 +208,6 @@ module Prelude =
     let promise: Scheme =
       { Type =
           { Kind = makeTypeRefKind "FooBar"
-            Mutable = false
             Provenance = None }
         TypeParams = Some([ "T"; "E" ])
         IsTypeParam = false }

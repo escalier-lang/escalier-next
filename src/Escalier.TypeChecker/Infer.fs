@@ -91,7 +91,6 @@ module rec Infer =
         | ExprKind.Literal(literal) ->
           return
             { Kind = TypeKind.Literal(literal)
-              Mutable = false
               Provenance = Some(Provenance.Expr expr) }
         | ExprKind.Call call ->
           let! callee = inferExpr ctx env call.Callee
@@ -126,7 +125,6 @@ module rec Infer =
 
                     let unknown =
                       { Kind = TypeKind.Keyword Keyword.Unknown
-                        Mutable = false
                         Provenance = None }
 
                     let scheme =
@@ -191,7 +189,6 @@ module rec Infer =
               | [] ->
                 let undefined =
                   { Kind = TypeKind.Literal(Literal.Undefined)
-                    Mutable = false
                     Provenance = None }
 
                 return undefined
@@ -217,7 +214,6 @@ module rec Infer =
 
               let never =
                 { Kind = TypeKind.Keyword Keyword.Never
-                  Mutable = false
                   Provenance = None }
 
               throwsType <- never
@@ -242,7 +238,6 @@ module rec Infer =
 
           return
             { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
-              Mutable = false
               Provenance = None }
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           let! conditionTy = inferExpr ctx env condition
@@ -260,7 +255,6 @@ module rec Infer =
             | Some(elseBranchTy) -> union [ thenBranchTy; elseBranchTy ]
             | None ->
               { Kind = TypeKind.Literal(Literal.Undefined)
-                Mutable = false
                 Provenance = None }
         | ExprKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable spreadTypes = []
@@ -304,7 +298,6 @@ module rec Infer =
 
           let objType =
             { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
-              Mutable = false
               Provenance = None }
 
           match spreadTypes with
@@ -312,7 +305,6 @@ module rec Infer =
           | _ ->
             return
               { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
-                Mutable = false
                 Provenance = None }
         | ExprKind.Struct { TypeRef = { Ident = name; TypeArgs = typeArgs }
                             Elems = elems } ->
@@ -358,7 +350,6 @@ module rec Infer =
 
           let initObjType =
             { Kind = TypeKind.Object { Elems = elems; Immutable = false }
-              Mutable = false
               Provenance = None }
 
           let! scheme = env.GetScheme name
@@ -376,7 +367,6 @@ module rec Infer =
           | TypeKind.Struct { Elems = elems } ->
             let structObjType =
               { Kind = TypeKind.Object { Elems = elems; Immutable = false }
-                Mutable = false
                 Provenance = None }
 
             do! unify ctx env None initObjType structObjType
@@ -389,10 +379,7 @@ module rec Infer =
             let kind: TypeKind =
               TypeKind.Struct { TypeRef = typeRef; Elems = elems }
 
-            return
-              { Type.Kind = kind
-                Mutable = false
-                Provenance = None }
+            return { Type.Kind = kind; Provenance = None }
           | _ ->
             return!
               Error(TypeError.SemanticError $"Expected Struct type, got {t}")
@@ -420,7 +407,6 @@ module rec Infer =
 
           let never =
             { Kind = TypeKind.Keyword Keyword.Never
-              Mutable = false
               Provenance = None }
 
           return never
@@ -536,7 +522,6 @@ module rec Infer =
                   { Name = "RangeIterator"
                     TypeArgs = Some([ min; max ])
                     Scheme = scheme }
-              Mutable = false
               Provenance = None }
         | ExprKind.Assign(operation, left, right) ->
           let! rightType = inferExpr ctx env right
@@ -616,7 +601,6 @@ module rec Infer =
 
           let undefined =
             { Kind = TypeKind.Literal(Literal.Undefined)
-              Mutable = false
               Provenance = None }
 
           union [ t; undefined ]
@@ -625,7 +609,6 @@ module rec Infer =
       match key with
       | PropName.String "length" ->
         { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
-          Mutable = false
           Provenance = None }
       | PropName.Number number ->
         match number with
@@ -636,7 +619,6 @@ module rec Infer =
           else
             // TODO: report a diagnost about the index being out of range
             { Kind = TypeKind.Literal(Literal.Undefined)
-              Mutable = false
               Provenance = None }
       | _ ->
         let arrayScheme =
@@ -656,7 +638,6 @@ module rec Infer =
       | PropName.Number _ ->
         let unknown =
           { Kind = TypeKind.Literal(Literal.Undefined)
-            Mutable = false
             Provenance = None }
 
         union [ elem; unknown ]
@@ -686,7 +667,6 @@ module rec Infer =
       | true ->
         let undefined =
           { Kind = TypeKind.Literal(Literal.Undefined)
-            Mutable = false
             Provenance = None }
 
         union [ p.Type; undefined ]
@@ -716,7 +696,6 @@ module rec Infer =
 
       let undefined =
         { Kind = TypeKind.Literal(Literal.Undefined)
-          Mutable = false
           Provenance = None }
 
       match List.tryLast block.Stmts with
@@ -743,7 +722,6 @@ module rec Infer =
 
           let length =
             { Kind = TypeKind.UniqueNumber(ctx.FreshUniqueId())
-              Mutable = false
               Provenance = None }
 
           return TypeKind.Array { Elem = elem; Length = length }
@@ -896,7 +874,6 @@ module rec Infer =
           for infer in infers do
             let unknown =
               { Kind = TypeKind.Keyword Keyword.Unknown
-                Mutable = false
                 Provenance = None }
 
             let scheme =
@@ -937,7 +914,6 @@ module rec Infer =
         (fun kind ->
           let t =
             { Kind = kind
-              Mutable = false
               Provenance = Some(Provenance.TypeAnn typeAnn) }
 
           typeAnn.InferredType <- Some(t)
@@ -964,7 +940,6 @@ module rec Infer =
 
                 let unknown =
                   { Kind = TypeKind.Keyword Keyword.Unknown
-                    Mutable = false
                     Provenance = None }
 
                 let scheme =
@@ -991,7 +966,6 @@ module rec Infer =
         | None ->
           Result.Ok(
             { Kind = TypeKind.Keyword Keyword.Never
-              Mutable = false
               Provenance = None }
           )
 
@@ -1045,10 +1019,9 @@ module rec Infer =
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
-        { t with Mutable = isMut }
+        t
       | PatternKind.Literal lit ->
         { Kind = TypeKind.Literal lit
-          Mutable = false
           Provenance = None }
       | PatternKind.Object { Elems = elems; Immutable = immutable } ->
         let mutable restType: option<Type> = None
@@ -1096,14 +1069,13 @@ module rec Infer =
                     { Name = PropName.String name
                       Optional = false
                       Readonly = false
-                      Type = { t with Mutable = isMut } }
+                      Type = t }
                 )
 
               | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
                 restType <-
                   Some(
                     { Kind = infer_pattern_rec target |> TypeKind.Rest
-                      Mutable = false
                       Provenance = None }
                   )
 
@@ -1112,13 +1084,11 @@ module rec Infer =
 
         let objType =
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
-            Mutable = false
             Provenance = None }
 
         match restType with
         | Some(restType) ->
           { Kind = TypeKind.Intersection([ objType; restType ])
-            Mutable = false
             Provenance = None }
         | None -> objType
       | PatternKind.Struct { TypeRef = { Ident = name; TypeArgs = typeArgs }
@@ -1168,14 +1138,13 @@ module rec Infer =
                     { Name = PropName.String name
                       Optional = false
                       Readonly = false
-                      Type = { t with Mutable = isMut } }
+                      Type = t }
                 )
 
               | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
                 restType <-
                   Some(
                     { Kind = infer_pattern_rec target |> TypeKind.Rest
-                      Mutable = false
                       Provenance = None }
                   )
 
@@ -1212,13 +1181,11 @@ module rec Infer =
 
         let objType =
           { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
-            Mutable = false
             Provenance = None }
 
         match restType with
         | Some(restType) ->
           { Kind = TypeKind.Intersection([ objType; restType ])
-            Mutable = false
             Provenance = None }
         | None -> objType
 
@@ -1226,7 +1193,6 @@ module rec Infer =
         let elems = List.map infer_pattern_rec elems
 
         { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
-          Mutable = false
           Provenance = None }
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
@@ -1241,11 +1207,9 @@ module rec Infer =
           assertType
         | None ->
           { Kind = TypeKind.Wildcard
-            Mutable = false
             Provenance = None }
       | PatternKind.Rest pat ->
         { Kind = TypeKind.Rest(infer_pattern_rec pat)
-          Mutable = false
           Provenance = None }
 
     // | PatternKind.Is(span, binding, isName, isMut) ->
@@ -1489,7 +1453,6 @@ module rec Infer =
             |> List.map (fun typeParam ->
               let unknown =
                 { Kind = TypeKind.Keyword Keyword.Unknown
-                  Mutable = false
                   Provenance = None }
 
               let scheme =
@@ -1520,7 +1483,6 @@ module rec Infer =
             |> List.map (fun typeParam ->
               let unknown =
                 { Kind = TypeKind.Keyword Keyword.Unknown
-                  Mutable = false
                   Provenance = None }
 
               let scheme =
@@ -1568,7 +1530,6 @@ module rec Infer =
 
         let t =
           { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
-            Mutable = false
             Provenance = None }
 
         let scheme =
@@ -1742,7 +1703,6 @@ module rec Infer =
     | _ ->
       let never =
         { Kind = TypeKind.Keyword Keyword.Never
-          Mutable = false
           Provenance = None }
 
       { Kind =
@@ -1750,7 +1710,6 @@ module rec Infer =
             { Name = "Promise"
               TypeArgs = Some([ t; e ])
               Scheme = None }
-        Mutable = false
         Provenance = None }
 
   // TODO: dedupe with findThrowsInBlock
@@ -1977,7 +1936,6 @@ module rec Infer =
               TypeKind.Object
                 { Elems = objTypeElems
                   Immutable = false }
-            Mutable = false
             Provenance = None }
 
         union (objType :: otherTypes)

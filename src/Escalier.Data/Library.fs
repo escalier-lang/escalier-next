@@ -737,9 +737,6 @@ module Type =
   [<CustomEquality; NoComparison>]
   type Type =
     { Kind: TypeKind
-      // Used when performing mutability checks in variable declaration and
-      // assignments as well arguments to to functions in function calls.
-      Mutable: bool
       mutable Provenance: option<Provenance> }
 
     override this.Equals other =

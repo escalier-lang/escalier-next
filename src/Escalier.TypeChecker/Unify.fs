@@ -293,12 +293,14 @@ module rec Unify =
         let namedProps2 = getNamedProps obj.Elems
         do! unifyObjProps ctx env ips namedProps1 namedProps2
 
-      | TypeKind.Struct { Name = name1; Elems = elems1 },
-        TypeKind.Struct { Name = name2; Elems = elems2 } ->
+      | TypeKind.Struct { TypeRef = typeRef1; Elems = elems1 },
+        TypeKind.Struct { TypeRef = typeRef2; Elems = elems2 } ->
         // TODO: handle immutable objects/structs
 
-        if name1 <> name2 then
+        if typeRef1.Name <> typeRef2.Name then
           return! Error(TypeError.TypeMismatch(t1, t2))
+
+        // TODO: unify the type args (we need to know their variance)
 
         let namedProps1 = getNamedProps elems1
         let namedProps2 = getNamedProps elems2
@@ -833,7 +835,7 @@ module rec Unify =
 
           match t with
           | Some t -> t
-          | None -> failwithf $"Property {key} not found"
+          | None -> failwith $"Property {key} not found"
         | _ ->
           // TODO: Handle the case where the type is a primitive and use a
           // special function to expand the type

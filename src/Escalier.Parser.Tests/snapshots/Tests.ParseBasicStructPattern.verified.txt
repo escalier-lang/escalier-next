@@ -10,8 +10,8 @@ output: Ok
                 VarDecl
                   ({ Kind =
                       Struct
-                        { Name = "Point"
-                          TypeArgs = None
+                        { TypeRef = { Ident = "Point"
+                                      TypeArgs = None }
                           Elems =
                            [ShorthandPat { Span = { Start = (Ln: 2, Col: 16)
                                                     Stop = (Ln: 2, Col: 17) }

@@ -326,8 +326,7 @@ module Parser =
     <| fun start name typeArgs elems stop ->
       let kind =
         ExprKind.Struct
-          { Name = name
-            TypeArgs = typeArgs
+          { TypeRef = { Ident = name; TypeArgs = typeArgs }
             Elems = elems }
 
       { Kind = kind
@@ -862,9 +861,8 @@ module Parser =
     |>> fun ((name, typeArgs, elems), span) ->
       let kind =
         PatternKind.Struct
-          { Name = name
-            Elems = elems
-            TypeArgs = typeArgs }
+          { TypeRef = { Ident = name; TypeArgs = typeArgs }
+            Elems = elems }
 
       { Pattern.Kind = kind
         Span = span

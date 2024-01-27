@@ -118,10 +118,8 @@ module Poly =
           { Kind = TypeKind.Range { Min = fold min; Max = fold max }
             Mutable = false
             Provenance = None }
-        | TypeKind.Struct { Name = name
-                            TypeArgs = typeArgs
-                            Elems = elems } ->
-          let typeArgs = Option.map (List.map fold) typeArgs
+        | TypeKind.Struct { TypeRef = typeRef; Elems = elems } ->
+          let typeArgs = Option.map (List.map fold) typeRef.TypeArgs
 
           let elems =
             List.map
@@ -133,8 +131,7 @@ module Poly =
 
           { Kind =
               TypeKind.Struct
-                { Name = name
-                  TypeArgs = typeArgs
+                { TypeRef = { typeRef with TypeArgs = typeArgs }
                   Elems = elems }
             Mutable = false
             Provenance = None }

@@ -122,6 +122,48 @@ let PropertyAccessOnStructs () =
   Assert.False(Result.isError res)
 
 [<Fact>]
+let PropertyAccessOnPrivateStructs () =
+  let res =
+    result {
+      let src =
+        """
+        let makePoint = fn (x, y) {
+          struct Point {x: number, y: number}
+          return Point {x, y}
+        }
+        let point = makePoint(5, 10)
+        let x = point.x
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "x", "number")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact(Skip = "update getPropType to return an Result")>]
+let PropertyAccessOnPrivateStructsWrongKey () =
+  let res =
+    result {
+      let src =
+        """
+        let makePoint = fn (x, y) {
+          struct Point {x: number, y: number}
+          return Point {x, y}
+        }
+        let point = makePoint(5, 10)
+        let z = point.z
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError res)
+
+[<Fact>]
 let ObjectDestructuringOfStructs () =
   let res =
     result {

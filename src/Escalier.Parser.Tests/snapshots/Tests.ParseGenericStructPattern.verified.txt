@@ -10,11 +10,13 @@ output: Ok
                 VarDecl
                   ({ Kind =
                       Struct
-                        { Name = "Point"
-                          TypeArgs = Some [{ Kind = Keyword Number
-                                             Span = { Start = (Ln: 2, Col: 15)
-                                                      Stop = (Ln: 2, Col: 21) }
-                                             InferredType = None }]
+                        { TypeRef =
+                           { Ident = "Point"
+                             TypeArgs =
+                              Some [{ Kind = Keyword Number
+                                      Span = { Start = (Ln: 2, Col: 15)
+                                               Stop = (Ln: 2, Col: 21) }
+                                      InferredType = None }] }
                           Elems =
                            [ShorthandPat { Span = { Start = (Ln: 2, Col: 24)
                                                     Stop = (Ln: 2, Col: 25) }

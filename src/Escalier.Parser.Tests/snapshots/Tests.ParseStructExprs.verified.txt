@@ -17,8 +17,8 @@ output: Ok
                      InferredType = None },
                    { Kind =
                       Struct
-                        { Name = "Foo"
-                          TypeArgs = None
+                        { TypeRef = { Ident = "Foo"
+                                      TypeArgs = None }
                           Elems =
                            [Property
                               ({ Start = (Ln: 2, Col: 21)
@@ -54,11 +54,13 @@ output: Ok
                      InferredType = None },
                    { Kind =
                       Struct
-                        { Name = "Bar"
-                          TypeArgs = Some [{ Kind = Keyword Number
-                                             Span = { Start = (Ln: 3, Col: 19)
-                                                      Stop = (Ln: 3, Col: 25) }
-                                             InferredType = None }]
+                        { TypeRef =
+                           { Ident = "Bar"
+                             TypeArgs =
+                              Some [{ Kind = Keyword Number
+                                      Span = { Start = (Ln: 3, Col: 19)
+                                               Stop = (Ln: 3, Col: 25) }
+                                      InferredType = None }] }
                           Elems =
                            [Property
                               ({ Start = (Ln: 3, Col: 29)

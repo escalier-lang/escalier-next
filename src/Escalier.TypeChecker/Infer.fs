@@ -314,8 +314,7 @@ module rec Infer =
               { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
                 Mutable = false
                 Provenance = None }
-        | ExprKind.Struct { Name = name
-                            TypeArgs = typeArgs
+        | ExprKind.Struct { TypeRef = { Ident = name; TypeArgs = typeArgs }
                             Elems = elems } ->
 
           let mutable spreadTypes = []
@@ -373,7 +372,6 @@ module rec Infer =
 
           let t = expandScheme ctx env None scheme Map.empty typeArgs
 
-          // let structObjType =
           match t.Kind with
           | TypeKind.Struct { Elems = elems } ->
             let structObjType =
@@ -383,11 +381,13 @@ module rec Infer =
 
             do! unify ctx env None initObjType structObjType
 
+            let typeRef: TypeRef =
+              { Name = name
+                TypeArgs = typeArgs
+                Scheme = None } // TODO: lookup Scheme
+
             let kind: TypeKind =
-              TypeKind.Struct
-                { Name = name
-                  TypeArgs = typeArgs
-                  Elems = elems }
+              TypeKind.Struct { TypeRef = typeRef; Elems = elems }
 
             return
               { Type.Kind = kind
@@ -598,7 +598,7 @@ module rec Infer =
             (expandScheme ctx env None scheme Map.empty typeArgs)
             key
             optChain
-        | None -> failwithf $"{key} not in scope"
+        | None -> failwith $"{key} not in scope"
     | TypeKind.Union types ->
       let undefinedTypes, definedTypes =
         List.partition
@@ -1121,9 +1121,8 @@ module rec Infer =
             Mutable = false
             Provenance = None }
         | None -> objType
-      | PatternKind.Struct { Name = name
-                             Elems = elems
-                             TypeArgs = typeArgs } ->
+      | PatternKind.Struct { TypeRef = { Ident = name; TypeArgs = typeArgs }
+                             Elems = elems } ->
         let mutable restType: option<Type> = None
 
         let elems: list<ObjTypeElem> =
@@ -1183,14 +1182,36 @@ module rec Infer =
                 None)
             elems
 
-        let typeArgs = None
+        let typeArgs =
+          match typeArgs with
+          | Some typeArgs ->
+            List.traverseResultM
+              (fun typeArg ->
+                result {
+                  let! typeArg = inferTypeAnn ctx env typeArg
+                  return typeArg
+                })
+              typeArgs
+            |> Result.map Some
+          | _ -> Ok None
+
+        let typeArgs =
+          match typeArgs with
+          | Ok typeArgs -> typeArgs
+          | Error e -> failwith "inferPattern - Struct typeArgs"
+
+        let scheme =
+          match env.GetScheme name with
+          | Ok scheme -> scheme
+          | Error e -> failwith $"inferPattnern - Can't find scheme {name}"
+
+        let typeRef: TypeRef =
+          { Name = name
+            TypeArgs = typeArgs
+            Scheme = Some scheme }
 
         let objType =
-          { Kind =
-              TypeKind.Struct
-                { Name = name
-                  Elems = elems
-                  TypeArgs = typeArgs }
+          { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
             Mutable = false
             Provenance = None }
 
@@ -1540,12 +1561,13 @@ module rec Infer =
                       Type = t }
               })
 
+        let typeRef: TypeRef =
+          { Name = name
+            TypeArgs = None // Should we be setting this to `Some(typeParams)`?
+            Scheme = None }
+
         let t =
-          { Kind =
-              TypeKind.Struct
-                { Name = name
-                  TypeArgs = None
-                  Elems = elems }
+          { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
             Mutable = false
             Provenance = None }
 

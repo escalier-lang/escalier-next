@@ -161,13 +161,15 @@ module Syntax =
 
   type Getter =
     { Name: string
-      ReturnType: TypeAnn
-      Throws: TypeAnn }
+      Self: FuncParam<option<TypeAnn>>
+      ReturnType: option<TypeAnn>
+      Throws: option<TypeAnn> }
 
   type Setter =
     { Name: string
-      Param: FuncParam<TypeAnn>
-      Throws: TypeAnn }
+      Self: FuncParam<option<TypeAnn>>
+      Param: FuncParam<option<TypeAnn>>
+      Throws: option<TypeAnn> }
 
   type MatchCase =
     { Span: Span
@@ -329,10 +331,15 @@ module Syntax =
       TypeParams: option<list<TypeParam>>
       Elems: list<Property> }
 
+  type ImplElem =
+    | Method of Method
+    | Getter of Getter
+    | Setter of Setter
+
   type Impl =
     { TypeParams: option<list<TypeParam>>
       SelfType: TypeRef
-      Elems: list<Method> }
+      Elems: list<ImplElem> }
 
   type DeclKind =
     | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
@@ -373,8 +380,8 @@ module Syntax =
     | Callable of FunctionType
     | Constructor of FunctionType
     | Method of MethodType
-    | Getter of Getter
-    | Setter of Setter
+    | Getter of GetterType
+    | Setter of SetterType
     | Property of Property
     | Mapped of Mapped
 
@@ -394,6 +401,16 @@ module Syntax =
   type FunctionType = FuncSig<TypeAnn>
 
   type MethodType = { Name: PropName; Type: FunctionType }
+
+  type GetterType =
+    { Name: PropName
+      ReturnType: TypeAnn
+      Throws: option<TypeAnn> }
+
+  type SetterType =
+    { Name: PropName
+      Param: FuncParam<TypeAnn>
+      Throws: option<TypeAnn> }
 
   type ConditionType =
     { Check: TypeAnn

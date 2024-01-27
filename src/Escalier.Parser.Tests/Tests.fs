@@ -606,12 +606,15 @@ let ParseGenericStruct () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseImpl () =
+let ParseBasicImpl () =
   let src =
     """
-    impl Point {
-      fn length(self) {
-        return Math.sqrt(self.x * self.x + self.y * self.y)
+    impl Foo {
+      fn bar(self) {
+        return self.x
+      }
+      fn baz(mut self, x: number) {
+        self.x = x
       }
     }
     """
@@ -625,9 +628,12 @@ let ParseImpl () =
 let ParseGenericImpl () =
   let src =
     """
-    impl<T> Point<T> {
-      fn length(self) {
-        return Math.sqrt(self.x * self.x + self.y * self.y)
+    impl<T> Foo<T> {
+      fn bar(self) {
+        return self.x
+      }
+      fn baz(mut self, x: T) {
+        self.x = x
       }
     }
     """
@@ -636,6 +642,26 @@ let ParseGenericImpl () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGetterSetterImpl () =
+  let src =
+    """
+    impl Foo {
+      get bar(self) {
+        return self.x
+      }
+      set bar(mut self, x: number) {
+        self.x = x
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
 
 [<Fact>]
 let ParseStructExprs () =

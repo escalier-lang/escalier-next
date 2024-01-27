@@ -679,7 +679,7 @@ module Parser =
               Span = span }
         Span = span }
 
-  let method: Parser<Method, unit> =
+  let private method: Parser<ImplElem, unit> =
     pipe5
       (opt (strWs "async"))
       (strWs "fn" >>. ident)
@@ -698,6 +698,40 @@ module Parser =
       { Name = name
         Sig = funcSig
         Body = BlockOrExpr.Block body }
+      |> ImplElem.Method
+
+  let private getter: Parser<ImplElem, unit> =
+    pipe5
+      (opt (strWs "async"))
+      (strWs "get" >>. ident)
+      (between (strWs "(") (strWs ")") (funcParam opt))
+      ((opt (strWs "->" >>. typeAnn))
+       .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
+      block
+    <| fun async name self (retType, throws) body ->
+      { Name = name
+        Self = self
+        ReturnType = retType
+        Throws = throws }
+      |> ImplElem.Getter
+
+  // TODO: generic setters
+  let private setter: Parser<ImplElem, unit> =
+    pipe5
+      (opt (strWs "async"))
+      (strWs "set" >>. ident)
+      (between
+        (strWs "(")
+        (strWs ")")
+        ((funcParam opt) .>>. (strWs "," >>. (funcParam opt))))
+      (opt (ws .>> strWs "throws" >>. typeAnn))
+      block
+    <| fun async name (self, param) throws body ->
+      { Name = name
+        Self = self
+        Param = param
+        Throws = throws }
+      |> ImplElem.Setter
 
   // TODO: reuse below in the definition of the `typeRef` parser
   let private _typeRef =
@@ -705,12 +739,14 @@ module Parser =
      .>>. (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ",")))))
     |>> fun (ident, typeArgs) -> { Ident = ident; TypeArgs = typeArgs }
 
+  let private implElem = choice [ method; getter; setter ]
+
   let private implStmt =
     pipe5
       getPosition
       (strWs "impl" >>. (opt typeParams))
       _typeRef
-      (between (strWs "{") (strWs "}") (many method))
+      (between (strWs "{") (strWs "}") (many implElem))
       getPosition
     <| fun start typeParams typeRef elems stop ->
       { Stmt.Kind =

@@ -14,8 +14,8 @@ output: Ok
         { Kind =
            Impl
              { TypeParams = None
-               SelfType = { Ident = "Foo"
-                            TypeArgs = None }
+               Self = { Ident = "Foo"
+                        TypeArgs = None }
                Elems =
                 [Getter
                    { Name = "bar"

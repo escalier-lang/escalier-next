@@ -49,6 +49,7 @@ output: Ok
                                  { Kind =
                                     Function
                                       { TypeParams = None
+                                        Self = None
                                         ParamList = []
                                         ReturnType =
                                          { Kind =

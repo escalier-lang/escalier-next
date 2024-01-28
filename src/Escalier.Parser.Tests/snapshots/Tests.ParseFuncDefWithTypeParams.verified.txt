@@ -23,6 +23,7 @@ output: Ok
                                               Span = { Start = (Ln: 1, Col: 14)
                                                        Stop = (Ln: 1, Col: 17) }
                                               InferredType = None } }]
+                       Self = None
                        ParamList =
                         [{ Pattern = { Kind = Ident { Name = "x"
                                                       IsMut = false

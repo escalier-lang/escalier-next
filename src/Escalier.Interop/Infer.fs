@@ -70,6 +70,7 @@ module rec Infer =
 
       let f: Type.Function =
         { TypeParams = typeParams
+          Self = None
           ParamList = paramList
           Return = returnType
           Throws = throws }
@@ -92,6 +93,7 @@ module rec Infer =
 
       let f: Type.Function =
         { TypeParams = typeParams
+          Self = None
           ParamList = paramList
           Return = returnType
           Throws = throws }
@@ -172,8 +174,22 @@ module rec Infer =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
+      let Self: Type =
+        { Kind =
+            TypeKind.TypeRef
+              { Name = "Self"
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
+
+      let self: FuncParam =
+        { Pattern = Pattern.Identifier { Name = "self"; IsMut = false }
+          Type = Self
+          Optional = false }
+
       let f: Type.Function =
         { TypeParams = typeParams
+          Self = Some(self)
           ParamList = paramList
           Return = returnType
           Throws = throws }

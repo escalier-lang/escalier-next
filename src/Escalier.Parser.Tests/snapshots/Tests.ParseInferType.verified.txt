@@ -18,6 +18,7 @@ output: Ok
                            { Kind =
                               Function
                                 { TypeParams = None
+                                  Self = None
                                   ParamList =
                                    [{ Pattern =
                                        { Kind =

@@ -31,6 +31,7 @@ output: Ok
                       Function
                         { Sig =
                            { TypeParams = None
+                             Self = None
                              ParamList =
                               [{ Pattern = { Kind = Ident { Name = "x"
                                                             IsMut = false
@@ -130,6 +131,7 @@ output: Ok
                       Function
                         { Sig =
                            { TypeParams = None
+                             Self = None
                              ParamList =
                               [{ Pattern = { Kind = Ident { Name = "x"
                                                             IsMut = false

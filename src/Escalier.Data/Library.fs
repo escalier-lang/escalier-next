@@ -144,6 +144,7 @@ module Syntax =
 
   type FuncSig<'T> =
     { TypeParams: option<list<TypeParam>>
+      Self: option<FuncParam<'T>>
       ParamList: list<FuncParam<'T>>
       ReturnType: 'T
       Throws: option<TypeAnn>
@@ -338,7 +339,7 @@ module Syntax =
 
   type Impl =
     { TypeParams: option<list<TypeParam>>
-      SelfType: TypeRef
+      Self: TypeRef
       Elems: list<ImplElem> }
 
   type DeclKind =
@@ -404,11 +405,13 @@ module Syntax =
 
   type GetterType =
     { Name: PropName
+      Self: FuncParam<TypeAnn>
       ReturnType: TypeAnn
       Throws: option<TypeAnn> }
 
   type SetterType =
     { Name: PropName
+      Self: FuncParam<TypeAnn>
       Param: FuncParam<TypeAnn>
       Throws: option<TypeAnn> }
 
@@ -524,7 +527,13 @@ module Type =
       | Unknown -> "unknown"
       | Never -> "never"
 
-  type Struct<'E, 'T> = { TypeRef: TypeRef; Elems: list<'E> }
+  // TODO: include `Provenance` on Impl
+  type Impl = Common.Object<ObjTypeElem>
+
+  type Struct<'E, 'T> =
+    { TypeRef: TypeRef
+      Elems: list<'E>
+      Impls: List<Impl> }
 
   type KeyValuePat =
     { Key: string
@@ -626,6 +635,7 @@ module Type =
 
   type Function =
     { TypeParams: option<list<TypeParam>>
+      Self: option<FuncParam>
       ParamList: list<FuncParam>
       Return: Type
       Throws: Type }
@@ -929,6 +939,7 @@ module Type =
             let readonly = if readonly then "readonly " else ""
             $"{readonly}{name}{optional}: {printType ctx t}"
           | Mapped mapped -> printMapped ctx mapped
+          | Method(propName, isMut, fn) -> $"{propName} {fn}"
           | _ -> failwith "TODO: Type.ToString - Object - Elem"
 
         )
@@ -948,12 +959,17 @@ module Type =
     | None -> $"{s.TypeRef.Name}"
 
   let printFunction (ctx: PrintCtx) (f: Function) : string =
-    let ps =
+    let paramList =
+      match f.Self with
+      | Some(self) -> self :: f.ParamList
+      | None -> f.ParamList
+
+    let paramList =
       List.map
         (fun p ->
           let ctx = { Precedence = 0 }
           $"{p.Pattern}: {printType ctx p.Type}")
-        f.ParamList
+        paramList
       |> String.concat ", "
 
     let typeParams =
@@ -967,8 +983,9 @@ module Type =
     let ret = printType { Precedence = 0 } f.Return
 
     match (prune f.Throws).Kind with
-    | TypeKind.Keyword Keyword.Never -> $"fn {typeParams}({ps}) -> {ret}"
-    | _ -> $"fn {typeParams}({ps}) -> {ret} throws {printType ctx f.Throws}"
+    | TypeKind.Keyword Keyword.Never -> $"fn {typeParams}({paramList}) -> {ret}"
+    | _ ->
+      $"fn {typeParams}({paramList}) -> {ret} throws {printType ctx f.Throws}"
 
   let printMapped (ctx: PrintCtx) (mapped: Mapped) : string =
     let name =

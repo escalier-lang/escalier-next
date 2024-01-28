@@ -63,6 +63,7 @@ module Parser =
   // opt_or_id controls whether the type annotation is optional or not
   let funcSig<'A>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
+    (self: bool)
     : Parser<FuncSig<'A>, unit> =
     pipe5
       (opt (strWs "async"))
@@ -70,12 +71,24 @@ module Parser =
       (paramList opt_or_id)
       (opt_or_id (strWs "->" >>. typeAnn))
       (opt (ws .>> strWs "throws" >>. typeAnn))
-    <| fun async type_params param_list return_type throws ->
-      { TypeParams = type_params
-        ParamList = param_list
-        ReturnType = return_type
-        Throws = throws
-        IsAsync = async.IsSome }
+    <| fun async type_params paramList return_type throws ->
+      if self then
+        // TODO: handle the case where `self` is true but `paramList` is []
+        let self :: paramList = paramList
+
+        { TypeParams = type_params
+          Self = Some(self)
+          ParamList = paramList
+          ReturnType = return_type
+          Throws = throws
+          IsAsync = async.IsSome }
+      else
+        { TypeParams = type_params
+          Self = None
+          ParamList = paramList
+          ReturnType = return_type
+          Throws = throws
+          IsAsync = async.IsSome }
 
   let number: Parser<Number, unit> =
     let parser =
@@ -202,7 +215,7 @@ module Parser =
 
   let func: Parser<Function, unit> =
     pipe2
-      (funcSig opt)
+      (funcSig opt false)
       (block |>> BlockOrExpr.Block
        <|> (strWs "=>" >>. expr |>> BlockOrExpr.Expr))
     <| fun sig' body -> { Sig = sig'; Body = body }
@@ -687,11 +700,16 @@ module Parser =
       ((opt (strWs "->" >>. typeAnn))
        .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
       block
-    <| fun async name (type_params, param_list) (return_type, throws) body ->
+    <| fun async name (typeParams, paramList) (retType, throws) body ->
+      // TODO: check that there's at last one param in paramList before
+      // destructuring like this
+      let self :: paramList = paramList
+
       let funcSig: FuncSig<option<TypeAnn>> =
-        { TypeParams = type_params
-          ParamList = param_list
-          ReturnType = return_type
+        { TypeParams = typeParams
+          Self = Some(self)
+          ParamList = paramList
+          ReturnType = retType
           Throws = throws
           IsAsync = async.IsSome }
 
@@ -709,7 +727,7 @@ module Parser =
        .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
       block
     <| fun async name self (retType, throws) body ->
-      { Name = name
+      { Getter.Name = name
         Self = self
         ReturnType = retType
         Throws = throws }
@@ -727,7 +745,7 @@ module Parser =
       (opt (ws .>> strWs "throws" >>. typeAnn))
       block
     <| fun async name (self, param) throws body ->
-      { Name = name
+      { Setter.Name = name
         Self = self
         Param = param
         Throws = throws }
@@ -752,7 +770,7 @@ module Parser =
       { Stmt.Kind =
           Impl
             { TypeParams = typeParams
-              SelfType = typeRef
+              Self = typeRef
               Elems = elems }
         Span = { Start = start; Stop = stop } }
 
@@ -993,7 +1011,7 @@ module Parser =
         InferredType = None }
 
   let private funcTypeAnn =
-    funcSig id |> withSpan
+    funcSig id false |> withSpan
     |>> fun (f, span) ->
       { TypeAnn.Kind = TypeAnnKind.Function(f)
         Span = span
@@ -1042,7 +1060,7 @@ module Parser =
           Optional = optional }
 
   let private callableSignature =
-    pipe4 getPosition (opt (strWs "new")) (funcSig id) getPosition
+    pipe4 getPosition (opt (strWs "new")) (funcSig id false) getPosition
     <| fun start newable funcSig stop ->
       match newable with
       | Some _ -> ObjTypeAnnElem.Constructor(funcSig)

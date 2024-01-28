@@ -18,27 +18,27 @@ output: Ok
                                     Name = "T"
                                     Constraint = None
                                     Default = None }]
-               SelfType =
-                { Ident = "Foo"
-                  TypeArgs = Some [{ Kind = TypeRef { Ident = "T"
-                                                      TypeArgs = None }
-                                     Span = { Start = (Ln: 2, Col: 17)
-                                              Stop = (Ln: 2, Col: 18) }
-                                     InferredType = None }] }
+               Self = { Ident = "Foo"
+                        TypeArgs = Some [{ Kind = TypeRef { Ident = "T"
+                                                            TypeArgs = None }
+                                           Span = { Start = (Ln: 2, Col: 17)
+                                                    Stop = (Ln: 2, Col: 18) }
+                                           InferredType = None }] }
                Elems =
                 [Method
                    { Name = "bar"
                      Sig =
                       { TypeParams = None
-                        ParamList =
-                         [{ Pattern = { Kind = Ident { Name = "self"
-                                                       IsMut = false
-                                                       Assertion = None }
-                                        Span = { Start = (Ln: 3, Col: 14)
-                                                 Stop = (Ln: 3, Col: 18) }
-                                        InferredType = None }
-                            TypeAnn = None
-                            Optional = false }]
+                        Self =
+                         Some { Pattern = { Kind = Ident { Name = "self"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 3, Col: 14)
+                                                     Stop = (Ln: 3, Col: 18) }
+                                            InferredType = None }
+                                TypeAnn = None
+                                Optional = false }
+                        ParamList = []
                         ReturnType = None
                         Throws = None
                         IsAsync = false }
@@ -65,16 +65,17 @@ output: Ok
                    { Name = "baz"
                      Sig =
                       { TypeParams = None
+                        Self =
+                         Some { Pattern = { Kind = Ident { Name = "self"
+                                                           IsMut = true
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 6, Col: 14)
+                                                     Stop = (Ln: 6, Col: 22) }
+                                            InferredType = None }
+                                TypeAnn = None
+                                Optional = false }
                         ParamList =
-                         [{ Pattern = { Kind = Ident { Name = "self"
-                                                       IsMut = true
-                                                       Assertion = None }
-                                        Span = { Start = (Ln: 6, Col: 14)
-                                                 Stop = (Ln: 6, Col: 22) }
-                                        InferredType = None }
-                            TypeAnn = None
-                            Optional = false };
-                          { Pattern = { Kind = Ident { Name = "x"
+                         [{ Pattern = { Kind = Ident { Name = "x"
                                                        IsMut = false
                                                        Assertion = None }
                                         Span = { Start = (Ln: 6, Col: 24)

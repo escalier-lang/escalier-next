@@ -200,19 +200,37 @@ let StructDestructuring () =
   Assert.False(Result.isError res)
 
 [<Fact>]
-let StructPartialDestructuring () =
+let BasicStructAndImpl () =
   let res =
     result {
       let src =
         """
-        struct Point {x: number, y: number}
-        let point = Point {x: 5, y: 10}
-        let Point {x} = point
+        struct Foo {x: number, y: string}
+        
+        impl Foo {
+          fn bar(self) {
+            return self.x
+          }
+        }
+        
+        impl Foo {
+          fn baz(self) {
+            return self.y
+          }
+        }
+        
+        let foo = Foo {x: 5, y: "hello"}
+        let {x, y} = foo
+        let bar = foo.bar()
+        let baz = foo.baz()
         """
 
       let! _, env = inferScript src
 
       Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "string")
+      Assert.Value(env, "bar", "number")
+      Assert.Value(env, "baz", "string")
     }
 
   Assert.False(Result.isError res)

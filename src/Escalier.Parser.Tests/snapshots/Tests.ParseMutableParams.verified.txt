@@ -22,6 +22,7 @@ output: Ok
                       Function
                         { Sig =
                            { TypeParams = None
+                             Self = None
                              ParamList =
                               [{ Pattern = { Kind = Ident { Name = "array"
                                                             IsMut = true

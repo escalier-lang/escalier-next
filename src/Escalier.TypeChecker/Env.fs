@@ -55,13 +55,16 @@ module rec Env =
       Scheme = None }
     |> TypeKind.TypeRef
 
+  let makeFunction typeParams self paramList ret throws =
+    { TypeParams = typeParams
+      Self = self
+      ParamList = paramList
+      Return = ret
+      Throws = throws }
+
   let makeFunctionType typeParams paramList ret throws =
     { Kind =
-        TypeKind.Function
-          { TypeParams = typeParams
-            ParamList = paramList
-            Return = ret
-            Throws = throws }
+        TypeKind.Function(makeFunction typeParams None paramList ret throws)
       Provenance = None }
 
   let numType =

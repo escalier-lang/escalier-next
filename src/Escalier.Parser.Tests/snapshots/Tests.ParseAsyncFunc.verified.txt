@@ -20,6 +20,7 @@ output: Ok
                    { Kind =
                       Function
                         { Sig = { TypeParams = None
+                                  Self = None
                                   ParamList = []
                                   ReturnType = None
                                   Throws = None

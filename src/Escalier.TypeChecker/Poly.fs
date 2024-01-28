@@ -119,7 +119,8 @@ module Poly =
           { Kind =
               TypeKind.Struct
                 { TypeRef = { typeRef with TypeArgs = typeArgs }
-                  Elems = elems }
+                  Elems = elems
+                  Impls = [] }
             Provenance = None }
         | _ -> failwith $"TODO: foldType - {t.Kind}"
 
@@ -233,6 +234,7 @@ module Poly =
       f.TypeParams
 
     { TypeParams = if newTypeParams.IsEmpty then None else Some(newTypeParams)
+      Self = f.Self
       ParamList = paramList
       Return = ret
       Throws = throws }
@@ -270,6 +272,7 @@ module Poly =
 
       return
         { TypeParams = None
+          Self = f.Self
           ParamList =
             List.map
               (fun param ->

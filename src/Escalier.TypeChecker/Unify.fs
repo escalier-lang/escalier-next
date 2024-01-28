@@ -492,6 +492,7 @@ module rec Unify =
           { Type.Kind =
               TypeKind.Function
                 { ParamList = paramList
+                  Self = None // TODO: pass in the receiver if this is a method call
                   Return = retType
                   Throws = throwsType
                   TypeParams = None } // TODO

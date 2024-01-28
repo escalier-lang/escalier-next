@@ -17,6 +17,7 @@ output: Ok
                         { Elems =
                            [Constructor
                               { TypeParams = None
+                                Self = None
                                 ParamList = []
                                 ReturnType =
                                  { Kind = Keyword Symbol
@@ -27,6 +28,7 @@ output: Ok
                                 IsAsync = false };
                             Callable
                               { TypeParams = None
+                                Self = None
                                 ParamList = []
                                 ReturnType =
                                  { Kind = Keyword Symbol

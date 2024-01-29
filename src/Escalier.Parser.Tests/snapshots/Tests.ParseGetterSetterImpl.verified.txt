@@ -27,6 +27,25 @@ output: Ok
                                           InferredType = None }
                               TypeAnn = None
                               Optional = false }
+                     Body =
+                      Block
+                        { Span = { Start = (Ln: 3, Col: 21)
+                                   Stop = (Ln: 6, Col: 7) }
+                          Stmts =
+                           [{ Kind =
+                               Return
+                                 (Some
+                                    { Kind =
+                                       Member
+                                         ({ Kind = Identifier "self"
+                                            Span = { Start = (Ln: 4, Col: 16)
+                                                     Stop = (Ln: 4, Col: 20) }
+                                            InferredType = None }, "x", false)
+                                      Span = { Start = (Ln: 4, Col: 16)
+                                               Stop = (Ln: 5, Col: 7) }
+                                      InferredType = None })
+                              Span = { Start = (Ln: 4, Col: 9)
+                                       Stop = (Ln: 5, Col: 7) } }] }
                      ReturnType = None
                      Throws = None };
                  Setter
@@ -51,6 +70,35 @@ output: Ok
                                                   Stop = (Ln: 6, Col: 34) }
                                          InferredType = None }
                         Optional = false }
+                     Body =
+                      Block
+                        { Span = { Start = (Ln: 6, Col: 36)
+                                   Stop = (Ln: 9, Col: 5) }
+                          Stmts =
+                           [{ Kind =
+                               Expr
+                                 { Kind =
+                                    Assign
+                                      ("=",
+                                       { Kind =
+                                          Member
+                                            ({ Kind = Identifier "self"
+                                               Span =
+                                                { Start = (Ln: 7, Col: 9)
+                                                  Stop = (Ln: 7, Col: 13) }
+                                               InferredType = None }, "x", false)
+                                         Span = { Start = (Ln: 7, Col: 9)
+                                                  Stop = (Ln: 7, Col: 16) }
+                                         InferredType = None },
+                                       { Kind = Identifier "x"
+                                         Span = { Start = (Ln: 7, Col: 18)
+                                                  Stop = (Ln: 8, Col: 7) }
+                                         InferredType = None })
+                                   Span = { Start = (Ln: 7, Col: 9)
+                                            Stop = (Ln: 8, Col: 7) }
+                                   InferredType = None }
+                              Span = { Start = (Ln: 7, Col: 9)
+                                       Stop = (Ln: 8, Col: 7) } }] }
                      Throws = None }] }
           Span = { Start = (Ln: 2, Col: 5)
                    Stop = (Ln: 10, Col: 5) } }] }

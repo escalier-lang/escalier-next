@@ -729,6 +729,7 @@ module Parser =
     <| fun async name self (retType, throws) body ->
       { Getter.Name = name
         Self = self
+        Body = BlockOrExpr.Block body
         ReturnType = retType
         Throws = throws }
       |> ImplElem.Getter
@@ -748,6 +749,7 @@ module Parser =
       { Setter.Name = name
         Self = self
         Param = param
+        Body = BlockOrExpr.Block body
         Throws = throws }
       |> ImplElem.Setter
 

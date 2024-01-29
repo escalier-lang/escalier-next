@@ -163,6 +163,7 @@ module Syntax =
   type Getter =
     { Name: string
       Self: FuncParam<option<TypeAnn>>
+      Body: BlockOrExpr
       ReturnType: option<TypeAnn>
       Throws: option<TypeAnn> }
 
@@ -170,6 +171,7 @@ module Syntax =
     { Name: string
       Self: FuncParam<option<TypeAnn>>
       Param: FuncParam<option<TypeAnn>>
+      Body: BlockOrExpr
       Throws: option<TypeAnn> }
 
   type MatchCase =
@@ -530,10 +532,10 @@ module Type =
   // TODO: include `Provenance` on Impl
   type Impl = Common.Object<ObjTypeElem>
 
-  type Struct<'E, 'T> =
+  type Struct<'T> =
     { TypeRef: TypeRef
-      Elems: list<'E>
-      Impls: List<Impl> }
+      Elems: list<'T>
+      Impls: list<Impl> }
 
   type KeyValuePat =
     { Key: string
@@ -555,7 +557,7 @@ module Type =
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
-    | Struct of Struct<ObjPatElem, Type>
+    | Struct of Struct<ObjPatElem>
     | Tuple of Common.Tuple<option<Pattern>>
     | Literal of Common.Literal
     | Rest of Pattern
@@ -667,7 +669,9 @@ module Type =
     | Callable of Function
     | Constructor of Function
     | Method of name: PropName * is_mut: bool * fn: Function
+    // TODO: add `Self` FuncParam
     | Getter of name: PropName * return_type: Type * throws: Type
+    // TODO: add `Self` FuncParam
     | Setter of name: PropName * param: FuncParam * throws: Type
     | Mapped of Mapped
     | Property of Property
@@ -743,7 +747,7 @@ module Type =
     | Keyword of Keyword
     | Function of Function
     | Object of Common.Object<ObjTypeElem>
-    | Struct of Struct<ObjTypeElem, Type>
+    | Struct of Struct<ObjTypeElem>
     | Tuple of Common.Tuple<Type>
     | Array of Array
     | Rest of Type
@@ -951,7 +955,7 @@ module Type =
     | true -> $"#{{{elems}}}"
     | false -> $"{{{elems}}}"
 
-  let printStruct (ctx: PrintCtx) (s: Struct<ObjTypeElem, Type>) : string =
+  let printStruct (ctx: PrintCtx) (s: Struct<ObjTypeElem>) : string =
     match s.TypeRef.TypeArgs with
     | Some typeArgs ->
       let typeArgs = List.map (printType ctx) typeArgs |> String.concat ", "

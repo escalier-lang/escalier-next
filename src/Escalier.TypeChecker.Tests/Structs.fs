@@ -122,6 +122,40 @@ let PropertyAccessOnStructs () =
   Assert.False(Result.isError res)
 
 [<Fact>]
+let SettingPropertiesOnMutableStructs () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let mut point = Point {x: 5, y: 10}
+        point.x = 0
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let SettingPropertiesOnNonmutableStructsFails () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        let point = Point {x: 5, y: 10}
+        point.x = 0
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError res)
+
+[<Fact>]
 let PropertyAccessOnPrivateStructs () =
   let res =
     result {
@@ -206,19 +240,19 @@ let BasicStructAndImpl () =
       let src =
         """
         struct Foo {x: number, y: string}
-        
+
         impl Foo {
           fn bar(self) {
             return self.x
           }
         }
-        
+
         impl Foo {
           fn baz(self) {
             return self.y
           }
         }
-        
+
         let foo = Foo {x: 5, y: "hello"}
         let {x, y} = foo
         let bar = foo.bar()
@@ -231,6 +265,68 @@ let BasicStructAndImpl () =
       Assert.Value(env, "y", "string")
       Assert.Value(env, "bar", "number")
       Assert.Value(env, "baz", "string")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let CallingMethodInPreviousImpl () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {x: number}
+
+        impl Foo {
+          fn bar(self) {
+            return self.x
+          }
+        }
+
+        impl Foo {
+          fn baz(self) {
+            return self.bar()
+          }
+        }
+
+        let foo = Foo {x: 5}
+        let bar = foo.bar()
+        let baz = foo.baz()
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "bar", "number")
+      Assert.Value(env, "baz", "number")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let GetterSetterImpl () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {x: number, y: string}
+
+        impl Foo {
+          get bar(self) {
+            return self.x
+          }
+          set baz(self, y) {
+            self.y = y
+          }
+        }
+
+        let mut foo = Foo {x: 5, y: "hello"}
+        let bar = foo.bar
+        foo.baz = "world"
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "bar", "number")
     }
 
   Assert.False(Result.isError res)

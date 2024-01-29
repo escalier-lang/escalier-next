@@ -438,6 +438,7 @@ module rec Infer =
         t)
       r
 
+  // TODO: update `inferFunction` to add `self` to `env` before inferring the body
   let inferFunction
     (ctx: Ctx)
     (env: Env)
@@ -502,7 +503,7 @@ module rec Infer =
             })
           fnSig.ParamList
 
-      inferBlockOrExpr ctx newEnv body |> ignore
+      let! _ = inferBlockOrExpr ctx newEnv body
 
       let retExprs = findReturns body
       let throwTypes = findThrows body
@@ -703,6 +704,9 @@ module rec Infer =
     // TODO: intersection types
     | _ -> failwith $"TODO: lookup member on type - {t}"
 
+  // TODO: differentiate between getting and setting
+  // - getting: property, method, getter, mapped
+  // - setting: non-readonly property, setter, non-readonly mapped
   let inferMemberAccess
     // TODO: do the search first and then return the appropriate ObjTypeElem
     (key: PropName)
@@ -743,9 +747,13 @@ module rec Infer =
 
         Some t
       | Getter(name, returnType, throws) ->
-        failwith "TODO: inferMemberAccess - getter"
+        // TODO: check if it's an lvalue
+        // TODO: handle throws
+        Some returnType
       | Setter(name, param, throws) ->
-        failwith "TODO: inferMemberAccess - setter"
+        // TODO: check if it's an rvalue
+        // TODO: handle throws
+        Some param.Type
       | Mapped mapped -> failwith "TODO: inferMemberAccess - mapped"
       | Callable _ -> failwith "Callable signatures don't have a name"
       | Constructor _ -> failwith "Constructor signatures don't have a name"
@@ -1657,12 +1665,55 @@ module rec Infer =
 
                     let! fn = inferFunction ctx newEnv fnSig body
                     return ObjTypeElem.Method(Type.String name, false, fn)
-                  | ImplElem.Getter getter ->
-                    return!
-                      Error(TypeError.NotImplemented "TODO: infer impl getter")
-                  | ImplElem.Setter setter ->
-                    return!
-                      Error(TypeError.NotImplemented "TODO: infer impl setter")
+                  | ImplElem.Getter { Name = name
+                                      ReturnType = retType
+                                      Body = body } ->
+
+                    // TODO: allow `self` to be mutable in getters
+                    let self = scheme.Type
+                    let newEnv = env.AddValue "self" (self, false)
+
+                    let fnSig: FuncSig<option<TypeAnn>> =
+                      { TypeParams = None
+                        Self = None
+                        ParamList = []
+                        ReturnType = retType
+                        Throws = None
+                        IsAsync = false }
+
+                    let! fn = inferFunction ctx newEnv fnSig body
+                    let { Return = retType } = fn
+
+                    // TODO: handle throws
+                    let never =
+                      { Kind = TypeKind.Keyword Keyword.Never
+                        Provenance = None }
+
+                    return ObjTypeElem.Getter(Type.String name, retType, never)
+                  | ImplElem.Setter { Name = name
+                                      Param = param
+                                      Body = body } ->
+                    // TODO: check that `mut self` was specific in the signature
+                    let self = scheme.Type
+                    let newEnv = env.AddValue "self" (self, true)
+
+                    let fnSig: FuncSig<option<TypeAnn>> =
+                      { TypeParams = None
+                        Self = None
+                        ParamList = [ param ]
+                        ReturnType = None // TODO: make this `undefined`
+                        Throws = None
+                        IsAsync = false }
+
+                    let! fn = inferFunction ctx newEnv fnSig body
+                    let param = fn.ParamList[0]
+
+                    // TODO: handle throws
+                    let never =
+                      { Kind = TypeKind.Keyword Keyword.Never
+                        Provenance = None }
+
+                    return ObjTypeElem.Setter(Type.String name, param, never)
                 })
               elems
 

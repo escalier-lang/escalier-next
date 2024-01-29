@@ -449,6 +449,15 @@ module rec Infer =
     result {
       let mutable newEnv = env
 
+      match fnSig.Self with
+      | Some { Pattern = pattern } ->
+        match pattern.Kind with
+        | PatternKind.Ident identPat ->
+          let! scheme = env.GetScheme "Self"
+          newEnv <- newEnv.AddValue "self" (scheme.Type, identPat.IsMut)
+        | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+      | None -> ()
+
       // TODO: move this up so that we can reference any type params in the
       // function params, body, return or throws
       let! typeParams =
@@ -1638,16 +1647,16 @@ module rec Infer =
       | StmtKind.Impl { TypeParams = typeParams
                         Self = self
                         Elems = elems } ->
-        // TODO: check if the type reference `self` is in scope
-
         let { Ident = name } = self
 
+        // TODO: instantiate the scheme (apply the type args)
         let scheme =
           match env.Schemes.TryFind name with
           | Some scheme -> scheme
           | None -> failwith $"Struct {name} not in scope"
 
-        // TODO: instantiate the scheme
+        let newEnv = env.AddScheme "Self" scheme
+
         match scheme.Type.Kind with
         | TypeKind.Struct strct ->
           let! elems =
@@ -1658,24 +1667,15 @@ module rec Infer =
                   | ImplElem.Method { Name = name
                                       Sig = fnSig
                                       Body = body } ->
-
-                    // TODO: apply the type args
-                    let self = scheme.Type
-                    let newEnv = env.AddValue "self" (self, false)
-
                     let! fn = inferFunction ctx newEnv fnSig body
                     return ObjTypeElem.Method(Type.String name, false, fn)
                   | ImplElem.Getter { Name = name
+                                      Self = self
                                       ReturnType = retType
                                       Body = body } ->
-
-                    // TODO: allow `self` to be mutable in getters
-                    let self = scheme.Type
-                    let newEnv = env.AddValue "self" (self, false)
-
                     let fnSig: FuncSig<option<TypeAnn>> =
                       { TypeParams = None
-                        Self = None
+                        Self = Some self
                         ParamList = []
                         ReturnType = retType
                         Throws = None
@@ -1691,15 +1691,12 @@ module rec Infer =
 
                     return ObjTypeElem.Getter(Type.String name, retType, never)
                   | ImplElem.Setter { Name = name
+                                      Self = self
                                       Param = param
                                       Body = body } ->
-                    // TODO: check that `mut self` was specific in the signature
-                    let self = scheme.Type
-                    let newEnv = env.AddValue "self" (self, true)
-
                     let fnSig: FuncSig<option<TypeAnn>> =
                       { TypeParams = None
-                        Self = None
+                        Self = Some self
                         ParamList = [ param ]
                         ReturnType = None // TODO: make this `undefined`
                         Throws = None

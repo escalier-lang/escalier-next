@@ -314,7 +314,7 @@ let GetterSetterImpl () =
           get bar(self) {
             return self.x
           }
-          set baz(self, y) {
+          set baz(mut self, y) {
             self.y = y
           }
         }
@@ -329,4 +329,5 @@ let GetterSetterImpl () =
       Assert.Value(env, "bar", "number")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)

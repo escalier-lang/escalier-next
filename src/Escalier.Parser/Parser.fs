@@ -63,6 +63,7 @@ module Parser =
   // opt_or_id controls whether the type annotation is optional or not
   let funcSig<'A>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
+    (self: bool)
     : Parser<FuncSig<'A>, unit> =
     pipe5
       (opt (strWs "async"))
@@ -70,12 +71,24 @@ module Parser =
       (paramList opt_or_id)
       (opt_or_id (strWs "->" >>. typeAnn))
       (opt (ws .>> strWs "throws" >>. typeAnn))
-    <| fun async type_params param_list return_type throws ->
-      { TypeParams = type_params
-        ParamList = param_list
-        ReturnType = return_type
-        Throws = throws
-        IsAsync = async.IsSome }
+    <| fun async type_params paramList return_type throws ->
+      if self then
+        // TODO: handle the case where `self` is true but `paramList` is []
+        let self :: paramList = paramList
+
+        { TypeParams = type_params
+          Self = Some(self)
+          ParamList = paramList
+          ReturnType = return_type
+          Throws = throws
+          IsAsync = async.IsSome }
+      else
+        { TypeParams = type_params
+          Self = None
+          ParamList = paramList
+          ReturnType = return_type
+          Throws = throws
+          IsAsync = async.IsSome }
 
   let number: Parser<Number, unit> =
     let parser =
@@ -202,7 +215,7 @@ module Parser =
 
   let func: Parser<Function, unit> =
     pipe2
-      (funcSig opt)
+      (funcSig opt false)
       (block |>> BlockOrExpr.Block
        <|> (strWs "=>" >>. expr |>> BlockOrExpr.Expr))
     <| fun sig' body -> { Sig = sig'; Body = body }
@@ -679,7 +692,7 @@ module Parser =
               Span = span }
         Span = span }
 
-  let method: Parser<Method, unit> =
+  let private method: Parser<ImplElem, unit> =
     pipe5
       (opt (strWs "async"))
       (strWs "fn" >>. ident)
@@ -687,17 +700,58 @@ module Parser =
       ((opt (strWs "->" >>. typeAnn))
        .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
       block
-    <| fun async name (type_params, param_list) (return_type, throws) body ->
+    <| fun async name (typeParams, paramList) (retType, throws) body ->
+      // TODO: check that there's at last one param in paramList before
+      // destructuring like this
+      let self :: paramList = paramList
+
       let funcSig: FuncSig<option<TypeAnn>> =
-        { TypeParams = type_params
-          ParamList = param_list
-          ReturnType = return_type
+        { TypeParams = typeParams
+          Self = Some(self)
+          ParamList = paramList
+          ReturnType = retType
           Throws = throws
           IsAsync = async.IsSome }
 
       { Name = name
         Sig = funcSig
         Body = BlockOrExpr.Block body }
+      |> ImplElem.Method
+
+  let private getter: Parser<ImplElem, unit> =
+    pipe5
+      (opt (strWs "async"))
+      (strWs "get" >>. ident)
+      (between (strWs "(") (strWs ")") (funcParam opt))
+      ((opt (strWs "->" >>. typeAnn))
+       .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
+      block
+    <| fun async name self (retType, throws) body ->
+      { Getter.Name = name
+        Self = self
+        Body = BlockOrExpr.Block body
+        ReturnType = retType
+        Throws = throws }
+      |> ImplElem.Getter
+
+  // TODO: generic setters
+  let private setter: Parser<ImplElem, unit> =
+    pipe5
+      (opt (strWs "async"))
+      (strWs "set" >>. ident)
+      (between
+        (strWs "(")
+        (strWs ")")
+        ((funcParam opt) .>>. (strWs "," >>. (funcParam opt))))
+      (opt (ws .>> strWs "throws" >>. typeAnn))
+      block
+    <| fun async name (self, param) throws body ->
+      { Setter.Name = name
+        Self = self
+        Param = param
+        Body = BlockOrExpr.Block body
+        Throws = throws }
+      |> ImplElem.Setter
 
   // TODO: reuse below in the definition of the `typeRef` parser
   let private _typeRef =
@@ -705,18 +759,20 @@ module Parser =
      .>>. (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ",")))))
     |>> fun (ident, typeArgs) -> { Ident = ident; TypeArgs = typeArgs }
 
+  let private implElem = choice [ method; getter; setter ]
+
   let private implStmt =
     pipe5
       getPosition
       (strWs "impl" >>. (opt typeParams))
       _typeRef
-      (between (strWs "{") (strWs "}") (many method))
+      (between (strWs "{") (strWs "}") (many implElem))
       getPosition
     <| fun start typeParams typeRef elems stop ->
       { Stmt.Kind =
           Impl
             { TypeParams = typeParams
-              SelfType = typeRef
+              Self = typeRef
               Elems = elems }
         Span = { Start = start; Stop = stop } }
 
@@ -957,7 +1013,7 @@ module Parser =
         InferredType = None }
 
   let private funcTypeAnn =
-    funcSig id |> withSpan
+    funcSig id false |> withSpan
     |>> fun (f, span) ->
       { TypeAnn.Kind = TypeAnnKind.Function(f)
         Span = span
@@ -1006,7 +1062,7 @@ module Parser =
           Optional = optional }
 
   let private callableSignature =
-    pipe4 getPosition (opt (strWs "new")) (funcSig id) getPosition
+    pipe4 getPosition (opt (strWs "new")) (funcSig id false) getPosition
     <| fun start newable funcSig stop ->
       match newable with
       | Some _ -> ObjTypeAnnElem.Constructor(funcSig)

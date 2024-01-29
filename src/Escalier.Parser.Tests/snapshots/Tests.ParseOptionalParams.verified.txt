@@ -18,6 +18,7 @@ output: Ok
                       Function
                         { Sig =
                            { TypeParams = None
+                             Self = None
                              ParamList =
                               [{ Pattern = { Kind = Ident { Name = "a"
                                                             IsMut = false

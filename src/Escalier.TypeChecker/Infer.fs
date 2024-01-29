@@ -110,129 +110,12 @@ module rec Infer =
           // TODO: handle throws
 
           return result
-        | ExprKind.Function f ->
-          let mutable newEnv = env
+        | ExprKind.Function { Sig = fnSig; Body = body } ->
+          let! f = inferFunction ctx env fnSig body
 
-          // TODO: move this up so that we can reference any type params in the
-          // function params, body, return or throws
-          let! typeParams =
-            match f.Sig.TypeParams with
-            | Some(typeParams) ->
-              List.traverseResultM
-                (fun typeParam ->
-                  result {
-                    let! typeParam = inferTypeParam ctx newEnv typeParam
-
-                    let unknown =
-                      { Kind = TypeKind.Keyword Keyword.Unknown
-                        Provenance = None }
-
-                    let scheme =
-                      { TypeParams = None
-                        Type =
-                          match typeParam.Constraint with
-                          | Some c -> c
-                          | None -> unknown
-                        IsTypeParam = true }
-
-                    newEnv <- newEnv.AddScheme typeParam.Name scheme
-
-                    return typeParam
-                  })
-                typeParams
-              |> Result.map Some
-            | None -> Ok None
-
-          let! paramList =
-            List.traverseResultM
-              (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
-                result {
-                  let! paramType =
-                    match param.TypeAnn with
-                    | Some(typeAnn) -> inferTypeAnn ctx newEnv typeAnn
-                    | None -> Result.Ok(ctx.FreshTypeVar None)
-
-                  let! assumps, patternType =
-                    inferPattern ctx newEnv param.Pattern
-
-                  do! unify ctx newEnv None patternType paramType
-
-                  for KeyValue(name, binding) in assumps do
-                    // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
-                    newEnv <- newEnv.AddValue name binding
-
-                  return
-                    { Pattern = patternToPattern param.Pattern
-                      Type = paramType
-                      Optional = false }
-                })
-              f.Sig.ParamList
-
-          inferBlockOrExpr ctx newEnv f.Body |> ignore
-
-          let retExprs = findReturns f
-          let throwTypes = findThrows f
-
-          let bodyThrows = throwTypes |> union
-
-          let! sigThrows =
-            match f.Sig.Throws with
-            | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
-            | None -> Result.Ok(ctx.FreshTypeVar None)
-
-          do! unify ctx newEnv None bodyThrows sigThrows
-          let mutable throwsType = sigThrows
-
-          let! retType =
-            result {
-              match retExprs with
-              | [] ->
-                let undefined =
-                  { Kind = TypeKind.Literal(Literal.Undefined)
-                    Provenance = None }
-
-                return undefined
-              | [ expr ] ->
-                match expr.InferredType with
-                | Some(t) -> return t
-                | None -> return! Error(TypeError.SemanticError "")
-              | exprs ->
-                let! types =
-                  List.traverseResultM
-                    (fun (expr: Expr) ->
-                      match expr.InferredType with
-                      | Some(t) -> Ok(t)
-                      | None -> Error(TypeError.SemanticError ""))
-                    exprs
-
-                return union types
-            }
-
-          let retType =
-            if f.Sig.IsAsync then
-              let retType = maybeWrapInPromise retType throwsType
-
-              let never =
-                { Kind = TypeKind.Keyword Keyword.Never
-                  Provenance = None }
-
-              throwsType <- never
-
-              retType
-            else
-              retType
-
-          let! retType =
-            result {
-              match f.Sig.ReturnType with
-              | Some(sigRetType) ->
-                let! sigRetType = inferTypeAnn ctx newEnv sigRetType
-                do! unify ctx newEnv None retType sigRetType
-                return sigRetType
-              | None -> return retType
-            }
-
-          return makeFunctionType typeParams paramList retType throwsType
+          return
+            { Kind = TypeKind.Function f
+              Provenance = None }
         | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -353,6 +236,7 @@ module rec Infer =
               Provenance = None }
 
           let! scheme = env.GetScheme name
+          // printfn "scheme = %A" scheme
 
           let! typeArgs =
             match typeArgs with
@@ -364,7 +248,7 @@ module rec Infer =
           let t = expandScheme ctx env None scheme Map.empty typeArgs
 
           match t.Kind with
-          | TypeKind.Struct { Elems = elems } ->
+          | TypeKind.Struct { Elems = elems; Impls = impls } ->
             let structObjType =
               { Kind = TypeKind.Object { Elems = elems; Immutable = false }
                 Provenance = None }
@@ -377,7 +261,10 @@ module rec Infer =
                 Scheme = None } // TODO: lookup Scheme
 
             let kind: TypeKind =
-              TypeKind.Struct { TypeRef = typeRef; Elems = elems }
+              TypeKind.Struct
+                { TypeRef = typeRef
+                  Elems = elems
+                  Impls = impls }
 
             return { Type.Kind = kind; Provenance = None }
           | _ ->
@@ -551,6 +438,164 @@ module rec Infer =
         t)
       r
 
+  // TODO: update `inferFunction` to add `self` to `env` before inferring the body
+  let inferFunction
+    (ctx: Ctx)
+    (env: Env)
+    (fnSig: FuncSig<option<TypeAnn>>)
+    (body: BlockOrExpr)
+    : Result<Function, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      match fnSig.Self with
+      | Some { Pattern = pattern } ->
+        match pattern.Kind with
+        | PatternKind.Ident identPat ->
+          let! scheme = env.GetScheme "Self"
+          newEnv <- newEnv.AddValue "self" (scheme.Type, identPat.IsMut)
+        | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+      | None -> ()
+
+      // TODO: move this up so that we can reference any type params in the
+      // function params, body, return or throws
+      let! typeParams =
+        match fnSig.TypeParams with
+        | Some(typeParams) ->
+          List.traverseResultM
+            (fun typeParam ->
+              result {
+                let! typeParam = inferTypeParam ctx newEnv typeParam
+
+                let unknown =
+                  { Kind = TypeKind.Keyword Keyword.Unknown
+                    Provenance = None }
+
+                let scheme =
+                  { TypeParams = None
+                    Type =
+                      match typeParam.Constraint with
+                      | Some c -> c
+                      | None -> unknown
+                    IsTypeParam = true }
+
+                newEnv <- newEnv.AddScheme typeParam.Name scheme
+
+                return typeParam
+              })
+            typeParams
+          |> Result.map Some
+        | None -> Ok None
+
+      let! paramList =
+        List.traverseResultM
+          (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
+            result {
+              let! paramType =
+                match param.TypeAnn with
+                | Some(typeAnn) -> inferTypeAnn ctx newEnv typeAnn
+                | None -> Result.Ok(ctx.FreshTypeVar None)
+
+              let! assumps, patternType = inferPattern ctx newEnv param.Pattern
+
+              do! unify ctx newEnv None patternType paramType
+
+              for KeyValue(name, binding) in assumps do
+                // TODO: update `Env.types` to store `Binding`s insetad of `Type`s
+                newEnv <- newEnv.AddValue name binding
+
+              return
+                { Pattern = patternToPattern param.Pattern
+                  Type = paramType
+                  Optional = false }
+            })
+          fnSig.ParamList
+
+      let! _ = inferBlockOrExpr ctx newEnv body
+
+      let retExprs = findReturns body
+      let throwTypes = findThrows body
+
+      let bodyThrows = throwTypes |> union
+
+      let! sigThrows =
+        match fnSig.Throws with
+        | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
+        | None -> Result.Ok(ctx.FreshTypeVar None)
+
+      do! unify ctx newEnv None bodyThrows sigThrows
+      let mutable throwsType = sigThrows
+
+      let! retType =
+        result {
+          match retExprs with
+          | [] ->
+            let undefined =
+              { Kind = TypeKind.Literal(Literal.Undefined)
+                Provenance = None }
+
+            return undefined
+          | [ expr ] ->
+            match expr.InferredType with
+            | Some(t) -> return t
+            | None -> return! Error(TypeError.SemanticError "")
+          | exprs ->
+            let! types =
+              List.traverseResultM
+                (fun (expr: Expr) ->
+                  match expr.InferredType with
+                  | Some(t) -> Ok(t)
+                  | None -> Error(TypeError.SemanticError ""))
+                exprs
+
+            return union types
+        }
+
+      let retType =
+        if fnSig.IsAsync then
+          let retType = maybeWrapInPromise retType throwsType
+
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          throwsType <- never
+
+          retType
+        else
+          retType
+
+      let! retType =
+        result {
+          match fnSig.ReturnType with
+          | Some(sigRetType) ->
+            let! sigRetType = inferTypeAnn ctx newEnv sigRetType
+            do! unify ctx newEnv None retType sigRetType
+            return sigRetType
+          | None -> return retType
+        }
+
+      let Self: Type =
+        { Kind =
+            TypeKind.TypeRef
+              { Name = "Self"
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
+
+      let self: option<FuncParam> =
+        match fnSig.Self with
+        | Some self ->
+          Some
+            { Pattern = patternToPattern self.Pattern
+              Type = Self
+              Optional = false }
+        | None -> None
+
+      return makeFunction typeParams self paramList retType throwsType
+    }
+
   let getPropType
     (ctx: Ctx)
     (env: Env)
@@ -561,8 +606,25 @@ module rec Infer =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.Object { Elems = elems } -> inferMemberAccess key elems
-    | TypeKind.Struct { Elems = elems } -> inferMemberAccess key elems
+    | TypeKind.Object { Elems = elems } ->
+      match inferMemberAccess key elems with
+      | Some t -> t
+      | None -> failwith $"Property {key} not found"
+    | TypeKind.Struct { Elems = elems; Impls = impls } ->
+      match inferMemberAccess key elems with
+      | Some t -> t
+      | None ->
+        let mutable t: option<Type> = None
+
+        for impl in impls do
+          if t.IsSome then
+            ()
+          else
+            t <- inferMemberAccess key impl.Elems
+
+        match t with
+        | Some t -> t
+        | None -> failwith $"Property {key} not found"
     | TypeKind.TypeRef { Name = typeRefName
                          Scheme = scheme
                          TypeArgs = typeArgs } ->
@@ -651,27 +713,60 @@ module rec Infer =
     // TODO: intersection types
     | _ -> failwith $"TODO: lookup member on type - {t}"
 
-  let inferMemberAccess (key: PropName) (elems: list<ObjTypeElem>) =
-    let elems =
-      List.choose
+  // TODO: differentiate between getting and setting
+  // - getting: property, method, getter, mapped
+  // - setting: non-readonly property, setter, non-readonly mapped
+  let inferMemberAccess
+    // TODO: do the search first and then return the appropriate ObjTypeElem
+    (key: PropName)
+    (elems: list<ObjTypeElem>)
+    : option<Type> =
+
+    let elem =
+      List.tryFind
         (fun (elem: ObjTypeElem) ->
           match elem with
-          | Property p -> Some(p.Name, p)
-          | _ -> None)
+          | Property { Name = name } -> name = key
+          | Method(name, _, _) -> name = key
+          | Getter(name, _, _) -> name = key
+          | Setter(name, _, _) -> name = key
+          | Mapped _ ->
+            failwith
+              "TODO: inferMemberAccess - mapped (check if key is subtype of Mapped.TypeParam)"
+          | _ -> false)
         elems
-      |> Map.ofList
 
-    match elems.TryFind key with
-    | Some(p) ->
-      match p.Optional with
-      | true ->
-        let undefined =
-          { Kind = TypeKind.Literal(Literal.Undefined)
+    match elem with
+    | Some elem ->
+      match elem with
+      | Property p ->
+        match p.Optional with
+        | true ->
+          let undefined =
+            { Kind = TypeKind.Literal(Literal.Undefined)
+              Provenance = None }
+
+          Some(union [ p.Type; undefined ])
+        | false -> Some p.Type
+      | Method(_, _, fn) ->
+        // TODO: check if the receiver is mutable or not
+        let t =
+          { Kind = TypeKind.Function fn
             Provenance = None }
 
-        union [ p.Type; undefined ]
-      | false -> p.Type
-    | None -> failwith $"Property {key} not found"
+        Some t
+      | Getter(name, returnType, throws) ->
+        // TODO: check if it's an lvalue
+        // TODO: handle throws
+        Some returnType
+      | Setter(name, param, throws) ->
+        // TODO: check if it's an rvalue
+        // TODO: handle throws
+        Some param.Type
+      | Mapped mapped -> failwith "TODO: inferMemberAccess - mapped"
+      | Callable _ -> failwith "Callable signatures don't have a name"
+      | Constructor _ -> failwith "Constructor signatures don't have a name"
+    | None -> None
 
   let inferBlockOrExpr
     (ctx: Ctx)
@@ -985,6 +1080,7 @@ module rec Infer =
 
       let f =
         { TypeParams = typeParams
+          Self = None
           ParamList = paramList
           Return = returnType
           Throws = throws }
@@ -1180,7 +1276,11 @@ module rec Infer =
             Scheme = Some scheme }
 
         let objType =
-          { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
+          { Kind =
+              TypeKind.Struct
+                { TypeRef = typeRef
+                  Elems = elems
+                  Impls = [] }
             Provenance = None }
 
         match restType with
@@ -1529,7 +1629,11 @@ module rec Infer =
             Scheme = None }
 
         let t =
-          { Kind = TypeKind.Struct { TypeRef = typeRef; Elems = elems }
+          { Kind =
+              TypeKind.Struct
+                { TypeRef = typeRef
+                  Elems = elems
+                  Impls = [] }
             Provenance = None }
 
         let scheme =
@@ -1540,8 +1644,91 @@ module rec Infer =
         // TODO: add something to env.Values for the constructor so that
         // we can construct structs in JS/TS
         return env.AddScheme name scheme
-      | StmtKind.Impl _ ->
-        return! Error(TypeError.NotImplemented "TODO: inferStmt - Impl")
+      | StmtKind.Impl { TypeParams = typeParams
+                        Self = self
+                        Elems = elems } ->
+        let { Ident = name } = self
+
+        // TODO: instantiate the scheme (apply the type args)
+        let scheme =
+          match env.Schemes.TryFind name with
+          | Some scheme -> scheme
+          | None -> failwith $"Struct {name} not in scope"
+
+        let newEnv = env.AddScheme "Self" scheme
+
+        match scheme.Type.Kind with
+        | TypeKind.Struct strct ->
+          let! elems =
+            List.traverseResultM
+              (fun (elem: ImplElem) ->
+                result {
+                  match elem with
+                  | ImplElem.Method { Name = name
+                                      Sig = fnSig
+                                      Body = body } ->
+                    let! fn = inferFunction ctx newEnv fnSig body
+                    return ObjTypeElem.Method(Type.String name, false, fn)
+                  | ImplElem.Getter { Name = name
+                                      Self = self
+                                      ReturnType = retType
+                                      Body = body } ->
+                    let fnSig: FuncSig<option<TypeAnn>> =
+                      { TypeParams = None
+                        Self = Some self
+                        ParamList = []
+                        ReturnType = retType
+                        Throws = None
+                        IsAsync = false }
+
+                    let! fn = inferFunction ctx newEnv fnSig body
+                    let { Return = retType } = fn
+
+                    // TODO: handle throws
+                    let never =
+                      { Kind = TypeKind.Keyword Keyword.Never
+                        Provenance = None }
+
+                    return ObjTypeElem.Getter(Type.String name, retType, never)
+                  | ImplElem.Setter { Name = name
+                                      Self = self
+                                      Param = param
+                                      Body = body } ->
+                    let fnSig: FuncSig<option<TypeAnn>> =
+                      { TypeParams = None
+                        Self = Some self
+                        ParamList = [ param ]
+                        ReturnType = None // TODO: make this `undefined`
+                        Throws = None
+                        IsAsync = false }
+
+                    let! fn = inferFunction ctx newEnv fnSig body
+                    let param = fn.ParamList[0]
+
+                    // TODO: handle throws
+                    let never =
+                      { Kind = TypeKind.Keyword Keyword.Never
+                        Provenance = None }
+
+                    return ObjTypeElem.Setter(Type.String name, param, never)
+                })
+              elems
+
+          let impl: Impl = { Elems = elems; Immutable = false }
+
+          let strct =
+            { strct with
+                Impls = impl :: strct.Impls }
+
+          let scheme =
+            { scheme with
+                Type =
+                  { scheme.Type with
+                      Kind = TypeKind.Struct strct } }
+
+          return env.AddScheme name scheme
+
+        | _ -> return! Error(TypeError.SemanticError $"{name} is not a struct")
       | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->
@@ -1667,7 +1854,7 @@ module rec Infer =
       return newEnv
     }
 
-  let findReturns (f: Syntax.Function) : list<Expr> =
+  let findReturns (body: BlockOrExpr) : list<Expr> =
     let mutable returns: list<Expr> = []
 
     let visitor =
@@ -1689,7 +1876,7 @@ module rec Infer =
         ExprVisitor.VisitPattern = fun _ -> false
         ExprVisitor.VisitTypeAnn = fun _ -> false }
 
-    match f.Body with
+    match body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
     | BlockOrExpr.Expr expr ->
       walkExpr visitor expr // There might be early returns in match expression
@@ -1713,7 +1900,7 @@ module rec Infer =
         Provenance = None }
 
   // TODO: dedupe with findThrowsInBlock
-  let findThrows (f: Syntax.Function) : list<Type> =
+  let findThrows (body: BlockOrExpr) : list<Type> =
     let mutable throws: list<Type> = []
 
     let visitor =
@@ -1753,7 +1940,7 @@ module rec Infer =
         ExprVisitor.VisitPattern = fun _ -> false
         ExprVisitor.VisitTypeAnn = fun _ -> false }
 
-    match f.Body with
+    match body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
     | BlockOrExpr.Expr expr -> walkExpr visitor expr
 

@@ -1,0 +1,104 @@
+﻿input: 
+    impl Foo {
+      get bar(self) {
+        return self.x
+      }
+      set bar(mut self, x: number) {
+        self.x = x
+      }
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Impl
+             { TypeParams = None
+               Self = { Ident = "Foo"
+                        TypeArgs = None }
+               Elems =
+                [Getter
+                   { Name = "bar"
+                     Self = { Pattern = { Kind = Ident { Name = "self"
+                                                         IsMut = false
+                                                         Assertion = None }
+                                          Span = { Start = (Ln: 3, Col: 15)
+                                                   Stop = (Ln: 3, Col: 19) }
+                                          InferredType = None }
+                              TypeAnn = None
+                              Optional = false }
+                     Body =
+                      Block
+                        { Span = { Start = (Ln: 3, Col: 21)
+                                   Stop = (Ln: 6, Col: 7) }
+                          Stmts =
+                           [{ Kind =
+                               Return
+                                 (Some
+                                    { Kind =
+                                       Member
+                                         ({ Kind = Identifier "self"
+                                            Span = { Start = (Ln: 4, Col: 16)
+                                                     Stop = (Ln: 4, Col: 20) }
+                                            InferredType = None }, "x", false)
+                                      Span = { Start = (Ln: 4, Col: 16)
+                                               Stop = (Ln: 5, Col: 7) }
+                                      InferredType = None })
+                              Span = { Start = (Ln: 4, Col: 9)
+                                       Stop = (Ln: 5, Col: 7) } }] }
+                     ReturnType = None
+                     Throws = None };
+                 Setter
+                   { Name = "bar"
+                     Self = { Pattern = { Kind = Ident { Name = "self"
+                                                         IsMut = true
+                                                         Assertion = None }
+                                          Span = { Start = (Ln: 6, Col: 15)
+                                                   Stop = (Ln: 6, Col: 23) }
+                                          InferredType = None }
+                              TypeAnn = None
+                              Optional = false }
+                     Param =
+                      { Pattern = { Kind = Ident { Name = "x"
+                                                   IsMut = false
+                                                   Assertion = None }
+                                    Span = { Start = (Ln: 6, Col: 25)
+                                             Stop = (Ln: 6, Col: 26) }
+                                    InferredType = None }
+                        TypeAnn = Some { Kind = Keyword Number
+                                         Span = { Start = (Ln: 6, Col: 28)
+                                                  Stop = (Ln: 6, Col: 34) }
+                                         InferredType = None }
+                        Optional = false }
+                     Body =
+                      Block
+                        { Span = { Start = (Ln: 6, Col: 36)
+                                   Stop = (Ln: 9, Col: 5) }
+                          Stmts =
+                           [{ Kind =
+                               Expr
+                                 { Kind =
+                                    Assign
+                                      ("=",
+                                       { Kind =
+                                          Member
+                                            ({ Kind = Identifier "self"
+                                               Span =
+                                                { Start = (Ln: 7, Col: 9)
+                                                  Stop = (Ln: 7, Col: 13) }
+                                               InferredType = None }, "x", false)
+                                         Span = { Start = (Ln: 7, Col: 9)
+                                                  Stop = (Ln: 7, Col: 16) }
+                                         InferredType = None },
+                                       { Kind = Identifier "x"
+                                         Span = { Start = (Ln: 7, Col: 18)
+                                                  Stop = (Ln: 8, Col: 7) }
+                                         InferredType = None })
+                                   Span = { Start = (Ln: 7, Col: 9)
+                                            Stop = (Ln: 8, Col: 7) }
+                                   InferredType = None }
+                              Span = { Start = (Ln: 7, Col: 9)
+                                       Stop = (Ln: 8, Col: 7) } }] }
+                     Throws = None }] }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 10, Col: 5) } }] }

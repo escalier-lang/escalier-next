@@ -96,6 +96,7 @@ let func paramList stmts =
       ExprKind.Function(
         { Sig =
             { ParamList = paramList
+              Self = None
               TypeParams = None
               ReturnType = None
               Throws = None
@@ -131,6 +132,7 @@ let fatArrow paramList expr =
       ExprKind.Function(
         { Sig =
             { ParamList = paramList
+              Self = None
               TypeParams = None
               ReturnType = None
               Throws = None

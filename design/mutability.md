@@ -121,6 +121,26 @@ let {p0: mut q0, p1: q1} = {p0, p1} // error - immutable `p1`` cannot be assigne
 This is also the case with function params that are destructured as well as
 destructuring assignments that aren't introducing new bindings.
 
+```ts
+let mut p0: Point = {x: 0, y: 0};
+let mut p1: Point = {x: 5, y: 10};
+[p1, p0] = [p0, p1];
+
+let mut p = p0
+let q = p1
+[q, p] = [p, q]; // error - `q` cannot be reassigned because it's immutable
+```
+
+This also works with rest patterns and spread expressions, e.g.
+
+```ts
+let mut triangle1: Point[] = [{x: 0, y: 0}, {x: 5, y: 10}, {x: 5, y: 0}]
+let [origin, ...mut line] = triangle1
+
+let rect: Point[] = [{x: 0, y: 0}, {x:0, y: 10}, {x: 5, y: 10}, {x: 5, y: 0}]
+let [origin, ...mut triangle2] = rect // error - immutable `rect` cannot be assigned to mutable `triangle2`
+```
+
 ## Notes
 
 It is possible mutate an immutable binding with the following code:

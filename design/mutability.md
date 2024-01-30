@@ -89,9 +89,9 @@ When assigning a mutable binding to another mutable binding, both must be the
 same type. This is also true for mutable params in functions.
 
 ```ts
-let a: number[] = [1, 2, 3];
-let b: string[] = a;
-let c: (number | string)[] = a; // error - mutable binding assignments must be the same type
+let mut a: number[] = [1, 2, 3];
+let mut b: number[] = a;
+let mut c: (number | string)[] = a; // error - mutable binding assignments must be the same type
 c.push("hello"); // whoops - `a` contains a string even though its type is `number[]`
 ```
 
@@ -115,7 +115,7 @@ in these situations as well.
 let p0: Point = {x: 0, y: 0}
 let p1: Point = {x: 5, y: 10}
 
-let {p0: mut q0, p1: q1} = {p0, p1} // error - immutable `p1`` cannot be assigned to mutable `q1`
+let {p0: mut q0, p1: q1} = {p0, p1} // error - immutable `p0`` cannot be assigned to mutable `q0`
 ```
 
 This is also the case with function params that are destructured as well as

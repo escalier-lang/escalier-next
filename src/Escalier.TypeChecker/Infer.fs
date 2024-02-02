@@ -1770,7 +1770,7 @@ module rec Infer =
 
     result {
       match item with
-      | Import import ->
+      | ScriptItem.Import import ->
         let exports = ctx.GetExports filename import
 
         let mutable imports = Env.empty
@@ -1817,7 +1817,7 @@ module rec Infer =
           { env with
               Values = FSharpPlus.Map.union env.Values imports.Values
               Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
-      | DeclareLet(name, typeAnn) ->
+      | ScriptItem.DeclareLet(name, typeAnn) ->
         let! typeAnnType = inferTypeAnn ctx env typeAnn
         let! assump, patType = inferPattern ctx env name
 

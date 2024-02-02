@@ -281,7 +281,7 @@ module rec Codegen =
 
     for item in m.Items do
       match item with
-      | Import _ -> failwith "TODO: buildModuleTypes - Import"
+      | ScriptItem.Import _ -> failwith "TODO: buildModuleTypes - Import"
       | Stmt stmt ->
         match stmt.Kind with
         | StmtKind.Decl decl ->

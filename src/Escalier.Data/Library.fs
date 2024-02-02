@@ -471,6 +471,12 @@ module Syntax =
 
   type Script = { Items: list<ScriptItem> }
 
+  type ModuleItem =
+    | Import of Import
+    | DeclareLet of name: Pattern * typeAnn: TypeAnn
+
+  type Module = { Items: list<ModuleItem> }
+
 module Type =
   type PropName =
     | String of string

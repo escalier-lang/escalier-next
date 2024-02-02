@@ -269,7 +269,7 @@ let UndefinedSymbol () =
 let InferPair () =
   result {
     (* letrec f = (fn x => x) in [f 4, f true] *)
-    let ast =
+    let ast: Script =
       { Items =
           [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ScriptItem.Stmt
             varDecl (
@@ -313,7 +313,7 @@ let RecursiveUnification () =
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
-    let ast =
+    let ast: Script =
       { Items =
           [ varDecl (
               "foo",
@@ -347,10 +347,8 @@ let InferGenericAndNonGeneric () =
 [<Fact>]
 let InferFuncComposition () =
   result {
-    let ast =
-      {
-
-        Items =
+    let ast: Script =
+      { Items =
           [ varDecl (
               "foo",
               fatArrow
@@ -411,7 +409,7 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script =
+    let script: Script =
       { Items =
           [ varDecl ("S", s) |> ScriptItem.Stmt
             varDecl ("K", k) |> ScriptItem.Stmt

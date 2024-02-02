@@ -1380,18 +1380,18 @@ module Parser =
       { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
-  let declare: Parser<ModuleItem, unit> =
+  let declare: Parser<ScriptItem, unit> =
     pipe4
       getPosition
       (strWs "declare" >>. strWs "let" >>. pattern)
       (strWs ":" >>. ws >>. typeAnn)
       getPosition
-    <| fun start pattern typeAnn stop -> ModuleItem.DeclareLet(pattern, typeAnn)
+    <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)
 
-  let private moduleItem: Parser<ModuleItem, unit> =
+  let private moduleItem: Parser<ScriptItem, unit> =
     ws
     >>. choice
-      [ import |>> ModuleItem.Import; declare; _stmt |>> ModuleItem.Stmt ]
+      [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =
@@ -1404,10 +1404,10 @@ module Parser =
     | ParserResult.Success(result, _, _) -> Result.Ok(result)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 
-  let script: Parser<Module, unit> =
+  let script: Parser<Script, unit> =
     (many moduleItem) .>> eof |>> fun items -> { Items = items }
 
-  let parseScript (input: string) : Result<Module, ParserError> =
+  let parseScript (input: string) : Result<Script, ParserError> =
     match run script input with
     | ParserResult.Success(m, _, _) -> Result.Ok(m)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)

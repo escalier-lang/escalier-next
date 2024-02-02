@@ -271,14 +271,14 @@ let InferPair () =
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast =
       { Items =
-          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ModuleItem.Stmt
+          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ScriptItem.Stmt
             varDecl (
               "pair",
               tuple
                 [ call (ident "f", [ number (Number.Int 4) ])
                   call (ident "f", [ boolean true ]) ]
             )
-            |> ModuleItem.Stmt ] }
+            |> ScriptItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -330,7 +330,7 @@ let InferGenericAndNonGeneric () =
                     )
                   ) ]
             )
-            |> ModuleItem.Stmt ] }
+            |> ScriptItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -362,7 +362,7 @@ let InferFuncComposition () =
                     (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
 
             )
-            |> ModuleItem.Stmt ] }
+            |> ScriptItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -413,9 +413,9 @@ let InferScriptSKK () =
 
     let script =
       { Items =
-          [ varDecl ("S", s) |> ModuleItem.Stmt
-            varDecl ("K", k) |> ModuleItem.Stmt
-            varDecl ("I", i) |> ModuleItem.Stmt ] }
+          [ varDecl ("S", s) |> ScriptItem.Stmt
+            varDecl ("K", k) |> ScriptItem.Stmt
+            varDecl ("I", i) |> ScriptItem.Stmt ] }
 
     let ctx =
       Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))

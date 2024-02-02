@@ -464,12 +464,12 @@ module Syntax =
     { Path: string
       Specifiers: list<ImportSpecifier> }
 
-  type ModuleItem =
+  type ScriptItem =
     | Import of Import
     | DeclareLet of name: Pattern * typeAnn: TypeAnn
     | Stmt of Stmt
 
-  type Module = { Items: list<ModuleItem> }
+  type Script = { Items: list<ScriptItem> }
 
 module Type =
   type PropName =

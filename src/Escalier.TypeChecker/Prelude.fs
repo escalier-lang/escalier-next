@@ -63,7 +63,7 @@ module Prelude =
 
     List.rev names
 
-  let private findModuleBindingNames (m: Syntax.Module) : list<string> =
+  let private findModuleBindingNames (m: Syntax.Script) : list<string> =
     let mutable names: list<string> = []
 
     for item in m.Items do

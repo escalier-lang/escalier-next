@@ -1764,7 +1764,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (filename: string)
-    (item: ModuleItem)
+    (item: ScriptItem)
     (generalize: bool)
     : Result<Env, TypeError> =
 
@@ -1837,7 +1837,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (filename: string)
-    (m: Module)
+    (m: Script)
     : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -2014,7 +2014,7 @@ module rec Infer =
 
     List.rev names
 
-  let findModuleBindingNames (m: Module) : list<string> =
+  let findModuleBindingNames (m: Script) : list<string> =
     let mutable names: list<string> = []
 
     for item in m.Items do

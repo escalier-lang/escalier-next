@@ -217,7 +217,7 @@ module rec Codegen =
             stmts
         | StmtKind.Decl decl ->
           match decl.Kind with
-          | VarDecl(pattern, init, typeAnnOption) ->
+          | VarDecl { Pattern = pattern; Init = init } ->
             let pattern = buildPattern ctx pattern
             let initExpr, initStmts = buildExpr ctx init
 
@@ -286,7 +286,7 @@ module rec Codegen =
         match stmt.Kind with
         | StmtKind.Decl decl ->
           match decl.Kind with
-          | TypeDecl(name, typeAnn, typeParams) ->
+          | TypeDecl { Name = name; TypeAnn = typeAnn } ->
             match typeAnn.InferredType with
             | Some(typeAnn) ->
               let decl =
@@ -304,7 +304,7 @@ module rec Codegen =
 
               items <- item :: items
             | None -> ()
-          | VarDecl(pattern, init, typeAnnOption) ->
+          | VarDecl { Pattern = pattern } ->
             for Operators.KeyValue(name, _) in findBindings pattern do
               let n: string = name
 

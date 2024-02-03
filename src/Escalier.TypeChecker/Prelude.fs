@@ -70,7 +70,7 @@ module Prelude =
       match item with
       | Syntax.Stmt stmt ->
         match stmt.Kind with
-        | Syntax.StmtKind.Decl({ Kind = Syntax.DeclKind.VarDecl(pattern, _, _) }) ->
+        | Syntax.StmtKind.Decl({ Kind = Syntax.DeclKind.VarDecl { Pattern = pattern } }) ->
           names <- List.concat [ names; findBindingNames pattern ]
         | _ -> ()
       | _ -> ()
@@ -269,9 +269,7 @@ module Prelude =
 
             for item in m.Items do
               match item with
-              | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl(name,
-                                                                                            _,
-                                                                                            _) } } ->
+              | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
                 match env.Schemes.TryFind(name) with
                 | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
                 | None -> failwith $"scheme {name} not found"

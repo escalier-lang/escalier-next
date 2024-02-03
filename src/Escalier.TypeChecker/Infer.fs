@@ -1498,79 +1498,10 @@ module rec Infer =
 
         let! _ = inferBlock ctx newEnv block
         return env
-      | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, init, typeAnn) }) ->
-        let! invariantPaths =
-          checkMutability
-            (getPatBindingPaths pattern)
-            (getExprBindingPaths env init)
-
-        let! patBindings, patType = inferPattern ctx env pattern
-        let mutable newEnv = env
-
-        for KeyValue(name, binding) in patBindings do
-          newEnv <- newEnv.AddValue name binding
-
-        let! initType = inferExpr ctx newEnv init
-
-        match typeAnn with
-        | Some(typeAnn) ->
-          let! typeAnnType = inferTypeAnn ctx env typeAnn
-          do! unify ctx env invariantPaths initType typeAnnType
-          do! unify ctx env None typeAnnType patType
-        | None -> do! unify ctx env invariantPaths initType patType
-
-        for KeyValue(name, binding) in patBindings do
-          let binding =
-            match generalize with
-            | true ->
-              let t, isMut = binding
-              let t = prune t
-
-              // TODO: make the type immutable since we only care about
-              // mutability of type during assignment/initialization
-              let t =
-                match t.Kind with
-                | TypeKind.Function f ->
-                  { t with
-                      Kind = generalizeFunc f |> TypeKind.Function }
-                | _ -> t
-
-              t, isMut
-            | false -> binding
-
-          newEnv <- newEnv.AddValue name binding
-
-        return newEnv
-      | StmtKind.Decl({ Kind = DeclKind.TypeDecl(name, typeAnn, typeParams) }) ->
-        // Create a new environment to avoid polluting the current environment
-        // with the type parameters.
-        let mutable newEnv = env
-
-        let typeParams =
-          typeParams
-          |> Option.map (fun typeParams ->
-            typeParams
-            |> List.map (fun typeParam ->
-              let unknown =
-                { Kind = TypeKind.Keyword Keyword.Unknown
-                  Provenance = None }
-
-              let scheme =
-                { TypeParams = None
-                  Type = unknown
-                  IsTypeParam = false }
-
-              newEnv <- newEnv.AddScheme typeParam.Name scheme
-              typeParam.Name))
-
-        let! t = inferTypeAnn ctx newEnv typeAnn
-
-        let scheme =
-          { TypeParams = typeParams
-            Type = t
-            IsTypeParam = false }
-
-        return env.AddScheme name scheme
+      | StmtKind.Decl({ Kind = DeclKind.VarDecl varDecl }) ->
+        return! inferVarDecl ctx env generalize varDecl
+      | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
+        return! inferTypeDecl ctx env typeDecl
       | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
                                                      TypeParams = typeParams
                                                      Elems = elems } }) ->
@@ -1737,6 +1668,106 @@ module rec Infer =
         | None -> return env
     }
 
+  let inferVarDecl
+    (ctx: Ctx)
+    (env: Env)
+    (generalize: bool)
+    (varDecl: VarDecl)
+    : Result<Env, TypeError> =
+
+    let { Pattern = pattern
+          Init = init
+          TypeAnn = typeAnn } =
+      varDecl
+
+    result {
+      let! invariantPaths =
+        checkMutability
+          (getPatBindingPaths pattern)
+          (getExprBindingPaths env init)
+
+      let! patBindings, patType = inferPattern ctx env pattern
+      let mutable newEnv = env
+
+      for KeyValue(name, binding) in patBindings do
+        newEnv <- newEnv.AddValue name binding
+
+      let! initType = inferExpr ctx newEnv init
+
+      match typeAnn with
+      | Some(typeAnn) ->
+        let! typeAnnType = inferTypeAnn ctx env typeAnn
+        do! unify ctx env invariantPaths initType typeAnnType
+        do! unify ctx env None typeAnnType patType
+      | None -> do! unify ctx env invariantPaths initType patType
+
+      for KeyValue(name, binding) in patBindings do
+        let binding =
+          match generalize with
+          | true ->
+            let t, isMut = binding
+            let t = prune t
+
+            // TODO: make the type immutable since we only care about
+            // mutability of type during assignment/initialization
+            let t =
+              match t.Kind with
+              | TypeKind.Function f ->
+                { t with
+                    Kind = generalizeFunc f |> TypeKind.Function }
+              | _ -> t
+
+            t, isMut
+          | false -> binding
+
+        newEnv <- newEnv.AddValue name binding
+
+      return newEnv
+    }
+
+  let inferTypeDecl
+    (ctx: Ctx)
+    (env: Env)
+    (typeDecl: TypeDecl)
+    : Result<Env, TypeError> =
+
+    let { Name = name
+          TypeAnn = typeAnn
+          TypeParams = typeParams } =
+      typeDecl
+
+    result {
+      // Create a new environment to avoid polluting the current environment
+      // with the type parameters.
+      let mutable newEnv = env
+
+      let typeParams =
+        typeParams
+        |> Option.map (fun typeParams ->
+          typeParams
+          |> List.map (fun typeParam ->
+            let unknown =
+              { Kind = TypeKind.Keyword Keyword.Unknown
+                Provenance = None }
+
+            let scheme =
+              { TypeParams = None
+                Type = unknown
+                IsTypeParam = false }
+
+            newEnv <- newEnv.AddScheme typeParam.Name scheme
+            typeParam.Name))
+
+      let! t = inferTypeAnn ctx newEnv typeAnn
+
+      let scheme =
+        { TypeParams = typeParams
+          Type = t
+          IsTypeParam = false }
+
+      return env.AddScheme name scheme
+    }
+
   let resolvePath
     (baseDir: string)
     (currentPath: string)
@@ -1850,6 +1881,101 @@ module rec Infer =
               newEnv <- itemEnv
             })
           m.Items
+
+      return newEnv
+    }
+
+  let inferModule
+    (ctx: Ctx)
+    (env: Env)
+    (filename: string)
+    (m: Module)
+    : Result<Env, TypeError> =
+    result {
+      let mutable newEnv = env
+      let mutable prebindings: Map<string, Binding> = Map.empty
+
+      for item in m.Items do
+        match item with
+        | Import import -> failwith "todo"
+        | DeclareLet(name, typeAnn) -> failwith "todo"
+        | Decl { Kind = kind } ->
+          match kind with
+          | VarDecl { Pattern = pattern
+                      Init = init
+                      TypeAnn = typeAnn } ->
+            let! (bindings, _) = inferPattern ctx env pattern
+
+            for KeyValue(name, binding) in bindings do
+              prebindings <- prebindings.Add(name, binding)
+          | TypeDecl { Name = name
+                       TypeAnn = typeAnn
+                       TypeParams = typeParams } ->
+            let placeholder: Scheme =
+              { Type =
+                  { Kind = TypeKind.Keyword(Keyword.Unknown)
+                    Provenance = None }
+                TypeParams = None
+                IsTypeParam = false }
+
+            // TODO: update AddScheme to return a Result<Env, TypeError> and
+            // return an error if the name already exists since we can't redefine
+            // types.
+            newEnv <- newEnv.AddScheme name placeholder
+          | StructDecl structDecl -> failwith "todo"
+
+      let mutable bindings: Map<string, Binding> = Map.empty
+
+      for item in m.Items do
+        match item with
+        | Import import -> failwith "todo"
+        | DeclareLet(name, typeAnn) -> failwith "todo"
+        | Decl { Kind = kind } ->
+          match kind with
+          | VarDecl varDecl ->
+            // NOTE: We explicitly don't generalize here because we want other
+            // declarations to be able to unify with any free type variables
+            // from this declaration.  We generalize things below.
+            let generalize = false
+            let! newNewEnv = inferVarDecl ctx newEnv generalize varDecl
+            newEnv <- newNewEnv
+          | TypeDecl typeDecl ->
+            let! newNewEnv = inferTypeDecl ctx env typeDecl
+            newEnv <- newNewEnv
+          | StructDecl structDecl -> failwith "todo"
+
+
+      // Unify each binding with its prebinding
+      for KeyValue(name, binding) in bindings do
+
+        match prebindings.TryFind(name) with
+        | Some prebinding ->
+          // QUESTION: Which direction should we unify in?
+          let (t1, _) = prebinding
+          let (t2, _) = binding
+          do! unify ctx newEnv None t1 t2
+        | None -> ()
+
+      // Prune any functions before generalizing, this avoids
+      // issues with mutually recursive functions being generalized
+      // prematurely.
+      // for binding in bindings.values() {
+      //     let pruned_index = self.prune(binding.index);
+      //     self.bind(ctx, binding.index, pruned_index)?;
+      // }
+
+      // Generalize any functions.
+      for binding in bindings.Values do
+        let (t, _) = binding
+
+        match t.Kind with
+        | TypeKind.Function f ->
+          let generalizedType =
+            { t with
+                Kind = generalizeFunc f |> TypeKind.Function }
+
+          do! bind ctx newEnv None t generalizedType
+        | _ -> ()
 
       return newEnv
     }
@@ -2021,7 +2147,7 @@ module rec Infer =
       match item with
       | Stmt stmt ->
         match stmt.Kind with
-        | StmtKind.Decl({ Kind = DeclKind.VarDecl(pattern, _, _) }) ->
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl { Pattern = pattern } }) ->
           names <- List.concat [ names; findBindingNames pattern ]
         | _ -> ()
       | _ -> ()

@@ -614,8 +614,12 @@ module Parser =
     )
     |>> fun ((pat, typeAnn, init), span) ->
       { Stmt.Kind =
-          Decl(
-            { Kind = DeclKind.VarDecl(pat, init, typeAnn)
+          StmtKind.Decl(
+            { Kind =
+                DeclKind.VarDecl
+                  { Pattern = pat
+                    Init = init
+                    TypeAnn = typeAnn }
               Span = span }
           )
         Span = span }
@@ -632,8 +636,12 @@ module Parser =
       let span = { Start = start; Stop = stop }
 
       { Stmt.Kind =
-          Decl(
-            { Kind = TypeDecl(id, typeAnn, typeParams)
+          StmtKind.Decl(
+            { Kind =
+                TypeDecl
+                  { Name = id
+                    TypeAnn = typeAnn
+                    TypeParams = typeParams }
               Span = span }
           )
         Span = span }
@@ -683,7 +691,7 @@ module Parser =
       let span = { Start = start; Stop = stop }
 
       { Stmt.Kind =
-          Decl
+          StmtKind.Decl
             { Kind =
                 StructDecl
                   { Name = name

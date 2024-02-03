@@ -344,12 +344,19 @@ module Syntax =
       Self: TypeRef
       Elems: list<ImplElem> }
 
+  type VarDecl =
+    { Pattern: Pattern
+      TypeAnn: option<TypeAnn>
+      Init: Expr }
+
+  type TypeDecl =
+    { Name: string
+      TypeAnn: TypeAnn
+      TypeParams: option<list<TypeParam>> }
+
   type DeclKind =
-    | VarDecl of name: Pattern * init: Expr * typeAnn: option<TypeAnn>
-    | TypeDecl of
-      name: string *
-      typeAnn: TypeAnn *
-      typeParams: option<list<TypeParam>>
+    | VarDecl of VarDecl
+    | TypeDecl of TypeDecl
     | StructDecl of StructDecl
 
   type Decl = { Kind: DeclKind; Span: Span }
@@ -467,13 +474,14 @@ module Syntax =
   type ScriptItem =
     | Import of Import
     | DeclareLet of name: Pattern * typeAnn: TypeAnn
-    | Stmt of Stmt
+    | Stmt of Stmt // contains decls along with other statements
 
   type Script = { Items: list<ScriptItem> }
 
   type ModuleItem =
     | Import of Import
     | DeclareLet of name: Pattern * typeAnn: TypeAnn
+    | Decl of Decl
 
   type Module = { Items: list<ModuleItem> }
 

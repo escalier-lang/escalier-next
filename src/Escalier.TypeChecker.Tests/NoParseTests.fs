@@ -176,7 +176,11 @@ let varDecl (name, expr) =
 
   { Kind =
       StmtKind.Decl(
-        { Kind = DeclKind.VarDecl(pattern, expr, None)
+        { Kind =
+            DeclKind.VarDecl
+              { Pattern = pattern
+                Init = expr
+                TypeAnn = None }
           Span = dummySpan }
       )
     Span = dummySpan }

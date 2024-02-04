@@ -1704,7 +1704,6 @@ module rec Infer =
       let mutable newEnv = env
 
       for KeyValue(name, binding) in patBindings do
-        let (t, isMut) = binding
         newEnv <- newEnv.AddValue name binding
 
       let! initType = inferExpr ctx newEnv init
@@ -1744,11 +1743,10 @@ module rec Infer =
 
     newBindings
 
-  let inferTypeDecl
+  let inferTypeDeclScheme
     (ctx: Ctx)
-    (env: Env)
     (typeDecl: TypeDecl)
-    : Result<Env, TypeError> =
+    : Result<Scheme, TypeError> =
 
     let { Name = name
           TypeAnn = typeAnn
@@ -1758,33 +1756,72 @@ module rec Infer =
     result {
       // Create a new environment to avoid polluting the current environment
       // with the type parameters.
-      let mutable newEnv = env
+      // let mutable newEnv = env
 
+      // TODO: add support for constraints on type params to aliases
       let typeParams =
         typeParams
-        |> Option.map (fun typeParams ->
-          typeParams
-          |> List.map (fun typeParam ->
-            let unknown =
-              { Kind = TypeKind.Keyword Keyword.Unknown
-                Provenance = None }
-
-            let scheme =
-              { TypeParams = None
-                Type = unknown
-                IsTypeParam = false }
-
-            newEnv <- newEnv.AddScheme typeParam.Name scheme
-            typeParam.Name))
-
-      let! t = inferTypeAnn ctx newEnv typeAnn
+        |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
 
       let scheme =
         { TypeParams = typeParams
-          Type = t
+          Type = ctx.FreshTypeVar None
           IsTypeParam = false }
 
-      return env.AddScheme name scheme
+      return scheme
+    }
+
+  let inferTypeDeclDefn
+    (ctx: Ctx)
+    (env: Env)
+    (scheme: Scheme)
+    (typeAnn: TypeAnn)
+    : Result<Scheme, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      match scheme.TypeParams with
+      | None -> ()
+      | Some typeParams ->
+        for typeParam in typeParams do
+          let unknown =
+            { Kind = TypeKind.Keyword Keyword.Unknown
+              Provenance = None }
+
+          newEnv <-
+            newEnv.AddScheme
+              typeParam
+              { TypeParams = None
+                Type = unknown
+                IsTypeParam = true }
+
+      let! t = inferTypeAnn ctx newEnv typeAnn
+      return { scheme with Type = t }
+    }
+
+  let inferTypeDecl
+    (ctx: Ctx)
+    (env: Env)
+    (typeDecl: TypeDecl)
+    : Result<Env, TypeError> =
+
+    let { TypeDecl.Name = name
+          TypeDecl.TypeAnn = typeAnn } =
+      typeDecl
+
+    result {
+      let! scheme = inferTypeDeclScheme ctx typeDecl
+
+      // Create a new environment to avoid polluting the current environment
+      // with the type parameters.
+      let mutable newEnv = env
+
+      // Handles self-recursive types
+      newEnv <- newEnv.AddScheme name scheme
+
+      let! scheme = inferTypeDeclDefn ctx newEnv scheme typeAnn
+      return newEnv.AddScheme name scheme
     }
 
   let resolvePath
@@ -1914,6 +1951,7 @@ module rec Infer =
     result {
       let mutable newEnv = env
       let mutable prebindings: Map<string, Binding> = Map.empty
+      let mutable typeDecls: Map<string, Scheme> = Map.empty
 
       for item in m.Items do
         match item with
@@ -1931,15 +1969,9 @@ module rec Infer =
             for KeyValue(name, binding) in bindings do
               prebindings <- prebindings.Add(name, binding)
               newEnv <- newEnv.AddValue name binding
-          | TypeDecl { Name = name
-                       TypeAnn = typeAnn
-                       TypeParams = typeParams } ->
-            let placeholder: Scheme =
-              { Type =
-                  { Kind = TypeKind.Keyword(Keyword.Unknown)
-                    Provenance = None }
-                TypeParams = None
-                IsTypeParam = false }
+          | TypeDecl typeDecl ->
+            let! placeholder = inferTypeDeclScheme ctx typeDecl
+            let { TypeDecl.Name = name } = typeDecl
 
             // TODO: update AddScheme to return a Result<Env, TypeError> and
             // return an error if the name already exists since we can't redefine
@@ -1964,7 +1996,7 @@ module rec Infer =
             let! newBindings = inferVarDecl ctx newEnv varDecl
             bindings <- FSharpPlus.Map.union bindings newBindings
           | TypeDecl typeDecl ->
-            let! newNewEnv = inferTypeDecl ctx env typeDecl
+            let! newNewEnv = inferTypeDecl ctx newEnv typeDecl
             newEnv <- newNewEnv
           | StructDecl structDecl -> failwith "todo"
 

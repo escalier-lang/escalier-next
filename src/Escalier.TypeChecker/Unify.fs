@@ -678,12 +678,33 @@ module rec Unify =
     let t1 = prune t1
     let t2 = prune t2
 
+    // printfn $"bind({t1}, {t2})"
+
     result {
       if t1.Kind <> t2.Kind then
         if occursInType t1 t2 then
           match t2.Kind with
           | TypeKind.Union types ->
-            let types = types |> flatten |> List.filter (fun t -> t <> t1)
+            let types =
+              types
+              |> flatten
+              |> List.filter (fun t -> t <> t1)
+              |> List.map (fun t ->
+                // TODO: make this recursive
+                match t.Kind with
+                | TypeKind.Binary _ ->
+                  { Kind = TypeKind.Primitive Primitive.Number
+                    Provenance = None }
+                | TypeKind.Unary(op, _) ->
+                  match op with
+                  | "+"
+                  | "-" ->
+                    { Kind = TypeKind.Primitive Primitive.Number
+                      Provenance = None }
+                  | "!" ->
+                    { Kind = TypeKind.Primitive Primitive.Boolean
+                      Provenance = None }
+                | _ -> t)
 
             match types with
             | [] -> return ()
@@ -695,6 +716,19 @@ module rec Unify =
             let t =
               { Kind = TypeKind.Primitive Primitive.Number
                 Provenance = None }
+
+            let! _ = bind ctx env ips t1 t
+            return ()
+          | TypeKind.Unary(op, _) ->
+            let t =
+              match op with
+              | "+"
+              | "-" ->
+                { Kind = TypeKind.Primitive Primitive.Number
+                  Provenance = None }
+              | "!" ->
+                { Kind = TypeKind.Primitive Primitive.Boolean
+                  Provenance = None }
 
             let! _ = bind ctx env ips t1 t
             return ()

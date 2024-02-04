@@ -725,7 +725,7 @@ let InferRecursiveSequence () =
   printf "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: handle recursive types")>]
+[<Fact>]
 let InferRecursiveType () =
   let result =
     result {

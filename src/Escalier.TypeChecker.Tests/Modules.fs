@@ -96,20 +96,39 @@ let InferMutualRecursion () =
         let even = fn (x) => if (x == 0) {
             true
         } else {
-            odd(x - 1)
+            !odd(x - 1)
         }
 
         let odd = fn (x) => if (x == 1) {
             true
         } else {
-            even(x - 1)
+            !even(x - 1)
         }
         """
 
       let! _, env = inferModule src
 
-      Assert.Value(env, "even", "fn (x: number) -> true | true")
-      Assert.Value(env, "odd", "fn (x: number) -> true | true | true")
+      Assert.Value(env, "even", "fn (x: number) -> true | !boolean")
+      Assert.Value(env, "odd", "fn (x: number) -> true | !(true | !boolean)")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferMutuallyRecursiveTypes () =
+  let res =
+    result {
+      let src =
+        """
+        type Foo<T> = {bar: Bar<T>}
+        type Bar<T> = {foo: Foo<T>}
+        """
+
+      let! _, env = inferModule src
+
+      Assert.Type(env, "Foo", "<T>({bar: Bar<T>})")
+      Assert.Type(env, "Bar", "<T>({foo: Foo<T>})")
     }
 
   printfn "res = %A" res

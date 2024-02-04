@@ -244,6 +244,7 @@ module rec TypeVisitor =
             | _ -> failwith "TODO: foldType - ObjTypeElem")
           elems
 
+      | TypeKind.Struct _ -> ()
       | TypeKind.Rest t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types
@@ -270,6 +271,7 @@ module rec TypeVisitor =
         walk min
         walk max
       | TypeKind.UniqueNumber _ -> ()
+      | TypeKind.UniqueSymbol _ -> ()
       | TypeKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
 
       f t

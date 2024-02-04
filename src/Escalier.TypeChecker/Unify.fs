@@ -718,23 +718,18 @@ module rec Unify =
           | _ -> return! Error(TypeError.NotImplemented "bind error")
     }
 
-  // TODO: finish implementing this function
-  // TODO: use visitType for this
-  and occursInType (v: Type) (t2: Type) : bool =
-    match (prune t2).Kind with
-    | pruned when pruned = v.Kind -> true
-    | TypeKind.TypeRef({ TypeArgs = typeArgs }) ->
-      match typeArgs with
-      | Some(typeArgs) -> occursIn v typeArgs
-      | None -> false
-    | TypeKind.Union types -> occursIn v types
-    | TypeKind.Intersection types -> occursIn v types
-    | TypeKind.Binary(left, op, right) ->
-      occursInType v left || occursInType v right
-    | _ -> false
+  and occursInType (t1: Type) (t2: Type) : bool =
+    let mutable result: bool = false
 
-  and occursIn (t: Type) (types: list<Type>) : bool =
-    List.exists (occursInType t) types
+    let visitor =
+      fun (t: Type) ->
+        match (prune t).Kind with
+        | pruned when pruned = t1.Kind -> result <- true
+        | _ -> ()
+
+    TypeVisitor.walkType visitor t2
+
+    result
 
 
   let expandScheme

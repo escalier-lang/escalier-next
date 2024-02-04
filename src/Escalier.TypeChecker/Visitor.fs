@@ -241,7 +241,7 @@ module rec TypeVisitor =
               walk m.TypeParam.Constraint
               Option.iter walk m.NameType
               walk m.TypeAnn
-            | _ -> failwith "TODO: foldType - ObjTypeElem")
+            | _ -> failwith "TODO: walkType - ObjTypeElem")
           elems
 
       | TypeKind.Struct _ -> ()
@@ -267,6 +267,7 @@ module rec TypeVisitor =
       | TypeKind.Binary(left, op, right) ->
         walk left
         walk right
+      | TypeKind.Unary(op, arg) -> walk arg
       | TypeKind.Range { Min = min; Max = max } ->
         walk min
         walk max

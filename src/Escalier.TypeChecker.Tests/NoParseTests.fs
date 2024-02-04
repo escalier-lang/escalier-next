@@ -35,7 +35,9 @@ let getEnv () =
            never,
           false)) ]
 
-  { Values = values
+  { BinaryOps = Map.empty
+    UnaryOps = Map.empty
+    Values = values
     Schemes = Map.empty
     IsAsync = false
     IsPatternMatching = false }

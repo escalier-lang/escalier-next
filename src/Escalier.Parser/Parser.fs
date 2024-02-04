@@ -538,9 +538,8 @@ module Parser =
 
   exprParser.RegisterInfix("(", callParselet 17)
 
-  // logical not (14)
+  exprParser.RegisterPrefix("!", unaryExprParslet 14 "!")
   // bitwise not (14)
-
   exprParser.RegisterPrefix("+", unaryExprParslet 14 "+")
   exprParser.RegisterPrefix("-", unaryExprParslet 14 "-")
 

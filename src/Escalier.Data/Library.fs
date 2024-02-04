@@ -776,6 +776,7 @@ module Type =
     | Condition of Condition
     | Infer of name: string
     | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
+    | Unary of op: string * arg: Type
     | Wildcard
     | TemplateLiteral of Common.TemplateLiteral<Type>
 
@@ -858,6 +859,11 @@ module Type =
       | "!==" -> 9
       | "||" -> 6
       | "&&" -> 5
+    | TypeKind.Unary(op, arg) ->
+      match op with
+      | "+"
+      | "-"
+      | "!" -> 14
     | TypeKind.Wildcard -> 100
     | TypeKind.TemplateLiteral templateLiteral -> 100
 
@@ -924,6 +930,7 @@ module Type =
       | TypeKind.Infer name -> $"infer {name}"
       | TypeKind.Binary(left, op, right) ->
         $"{printType ctx left} {op} {printType ctx right}"
+      | TypeKind.Unary(op, arg) -> $"{op}{printType ctx arg}"
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         failwith "TODO: printType - TypeKind.TemplateLiteral"

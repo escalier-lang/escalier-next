@@ -126,6 +126,15 @@ module Prelude =
         never,
        false)
 
+    let unaryArithmetic (op: string) =
+      (makeFunctionType
+        (Some [ tpA ])
+        [ makeParam "arg" typeRefA ]
+        { Kind = TypeKind.Unary(op, typeRefA)
+          Provenance = None }
+        never,
+       false)
+
     let comparison (op: string) =
       (makeFunctionType
         (Some [ tpA; tpB ])
@@ -165,6 +174,20 @@ module Prelude =
         (Some(typeParams))
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
         boolType
+        never,
+       false)
+
+    let typeParams: list<TypeParam> =
+      [ { Name = "A"
+          Constraint = None
+          Default = None } ]
+
+    let unaryLogic (op: string) =
+      (makeFunctionType
+        (Some(typeParams))
+        [ makeParam "arg" typeRefA ]
+        { Kind = TypeKind.Unary(op, typeRefA)
+          Provenance = None }
         never,
        false)
 
@@ -212,26 +235,35 @@ module Prelude =
         TypeParams = Some([ "T"; "E" ])
         IsTypeParam = false }
 
+    let binaryOps =
+      Map.ofList
+        [ ("+", arithemtic "+")
+          ("++", stringConcat)
+          ("-", arithemtic "-")
+          ("*", arithemtic "*")
+          ("/", arithemtic "/")
+          ("%", arithemtic "%")
+          ("**", arithemtic "**")
+          ("<", comparison "<")
+          ("<=", comparison "<=")
+          (">", comparison ">")
+          (">=", comparison ">=")
+          ("==", equality)
+          ("!=", equality)
+          ("||", logical)
+          ("&&", logical) ]
+
+    let unaryOps =
+      Map.ofList
+        [ ("-", unaryArithmetic "-")
+          ("+", unaryArithmetic "+")
+          ("!", unaryLogic "!") ]
+
     result {
       let env: Env =
-        { Env.Values =
-            Map.ofList
-              [ ("+", arithemtic "+")
-                ("++", stringConcat)
-                ("-", arithemtic "-")
-                ("*", arithemtic "*")
-                ("/", arithemtic "/")
-                ("%", arithemtic "%")
-                ("**", arithemtic "**")
-                ("<", comparison "<")
-                ("<=", comparison "<=")
-                (">", comparison ">")
-                (">=", comparison ">=")
-                ("==", equality)
-                ("!=", equality)
-                ("||", logical)
-                ("&&", logical) ]
-
+        { Env.BinaryOps = binaryOps
+          Env.UnaryOps = unaryOps
+          Env.Values = Map.empty
           Env.Schemes = Map([ ("Promise", promise) ])
           Env.IsAsync = false
           Env.IsPatternMatching = false }

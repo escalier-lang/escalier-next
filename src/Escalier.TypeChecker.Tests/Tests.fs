@@ -199,7 +199,9 @@ let InferIdentifier () =
       Provenance = None }
 
   let env =
-    { Env.Values = Map([ ("foo", (t, false)) ])
+    { Env.BinaryOps = Map.empty
+      Env.UnaryOps = Map.empty
+      Env.Values = Map([ ("foo", (t, false)) ])
       Env.Schemes = Map([])
       Env.IsAsync = false
       Env.IsPatternMatching = false }
@@ -1028,3 +1030,25 @@ let InferTemplateLiteralTypeErrorWithUnion () =
     }
 
   Assert.True(Result.isError result)
+
+[<Fact>]
+let InferUnaryOperations () =
+  let result =
+    result {
+
+      let src =
+        """
+        let x = 5
+        let y = -x
+        let z = !x
+        let w = +x
+        """
+
+      let! _, env = inferScript src
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "-5")
+      Assert.Value(env, "z", "!5")
+      Assert.Value(env, "w", "+5")
+    }
+
+  Assert.False(Result.isError result)

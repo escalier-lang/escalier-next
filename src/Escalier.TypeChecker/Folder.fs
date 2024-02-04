@@ -4,7 +4,7 @@ open Escalier.Data.Type
 
 open Prune
 
-module rec Folder =
+module Folder =
 
   let foldType (f: Type -> option<Type>) (t: Type) : Type =
     let rec fold (t: Type) : Type =
@@ -36,8 +36,10 @@ module rec Folder =
                              Scheme = scheme }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
 
-          // NOTE: We explicitly do not fold the scheme here, because
-          //       we want to preserve the original type alias definition.
+          let scheme =
+            Option.map
+              (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
+              scheme
 
           { Kind =
               TypeKind.TypeRef(
@@ -54,18 +56,27 @@ module rec Folder =
               (fun elem ->
                 match elem with
                 | Property p -> Property { p with Type = fold p.Type }
-                | Mapped m ->
-                  Mapped
-                    { m with
-                        TypeParam =
-                          { m.TypeParam with
-                              Constraint = fold m.TypeParam.Constraint }
-                        NameType = Option.map fold m.NameType
-                        TypeAnn = fold m.TypeAnn }
                 | _ -> failwith "TODO: foldType - ObjTypeElem")
               elems
 
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+            Provenance = None }
+        | TypeKind.Struct { TypeRef = typeRef; Elems = elems } ->
+          let typeArgs = Option.map (List.map fold) typeRef.TypeArgs
+
+          let elems =
+            List.map
+              (fun elem ->
+                match elem with
+                | Property p -> Property { p with Type = fold p.Type }
+                | _ -> failwith "TODO: foldType - ObjTypeElem")
+              elems
+
+          { Kind =
+              TypeKind.Struct
+                { TypeRef = { typeRef with TypeArgs = typeArgs }
+                  Elems = elems
+                  Impls = [] }
             Provenance = None }
         | TypeKind.Rest t ->
           { Kind = TypeKind.Rest(fold t)
@@ -103,9 +114,14 @@ module rec Folder =
         | TypeKind.Binary(left, op, right) ->
           { Kind = TypeKind.Binary(fold left, op, fold right)
             Provenance = None }
+        | TypeKind.Unary(op, arg) ->
+          { Kind = TypeKind.Unary(op, fold arg)
+            Provenance = None }
+        | TypeKind.UniqueNumber _ -> t
         | TypeKind.Range { Min = min; Max = max } ->
           { Kind = TypeKind.Range { Min = fold min; Max = fold max }
             Provenance = None }
+        | _ -> failwith $"TODO: foldType - {t.Kind}"
 
       match f t with
       | Some(t) -> t

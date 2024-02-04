@@ -7,6 +7,7 @@ open Escalier.Data.Common
 open Escalier.Data.Type
 
 open Error
+open Folder
 open Prune
 open Env
 open Mutability

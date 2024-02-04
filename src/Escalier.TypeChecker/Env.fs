@@ -171,13 +171,17 @@ module rec Env =
 
 
   type Env =
-    { Values: Map<string, Binding>
+    { BinaryOps: Map<string, Binding>
+      UnaryOps: Map<string, Binding>
+      Values: Map<string, Binding>
       Schemes: Map<string, Scheme>
       IsAsync: bool
       IsPatternMatching: bool }
 
     static member empty =
-      { Values = Map.empty
+      { BinaryOps = Map.empty
+        UnaryOps = Map.empty
+        Values = Map.empty
         Schemes = Map.empty
         IsAsync = false
         IsPatternMatching = false }
@@ -216,6 +220,18 @@ module rec Env =
           Ok(numType)
         else
           Error(TypeError.SemanticError $"Undefined symbol {name}")
+
+    member this.GetBinaryOp(name: string) : Result<Type, TypeError> =
+      match this.BinaryOps |> Map.tryFind name with
+      | Some(var) -> Ok(fst var)
+      | None ->
+        Error(TypeError.SemanticError $"Undefined binary operator {name}")
+
+    member this.GetUnaryOp(name: string) : Result<Type, TypeError> =
+      match this.UnaryOps |> Map.tryFind name with
+      | Some(var) -> Ok(fst var)
+      | None ->
+        Error(TypeError.SemanticError $"Undefined unary operator {name}")
 
     member this.GetScheme(name: string) : Result<Scheme, TypeError> =
       match this.Schemes |> Map.tryFind name with

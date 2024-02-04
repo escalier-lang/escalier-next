@@ -102,10 +102,20 @@ module rec Infer =
 
           return result
         | ExprKind.Binary(op, left, right) ->
-          let! funTy = env.GetType op
+          let! funTy = env.GetBinaryOp op
 
           let! result, throws =
             unifyCall ctx env None inferExpr [ left; right ] None funTy
+
+          // TODO: handle throws
+
+          return result
+
+        | ExprKind.Unary(op, arg) ->
+          let! funTy = env.GetUnaryOp op
+
+          let! result, throws =
+            unifyCall ctx env None inferExpr [ arg ] None funTy
 
           // TODO: handle throws
 

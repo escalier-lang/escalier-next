@@ -6,29 +6,32 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Ident { Name = "msg"
-                                    IsMut = false
-                                    Assertion = None }
-                     Span = { Start = (Ln: 1, Col: 5)
-                              Stop = (Ln: 1, Col: 9) }
-                     InferredType = None },
-                   { Kind =
-                      TemplateLiteral
-                        { Parts = ["foo "; ""]
-                          Exprs =
-                           [{ Kind =
-                               TemplateLiteral
-                                 { Parts = ["bar "; ""]
-                                   Exprs = [{ Kind = Identifier "baz"
-                                              Span = { Start = (Ln: 1, Col: 25)
-                                                       Stop = (Ln: 1, Col: 28) }
-                                              InferredType = None }] }
-                              Span = { Start = (Ln: 1, Col: 18)
-                                       Stop = (Ln: 1, Col: 30) }
-                              InferredType = None }] }
-                     Span = { Start = (Ln: 1, Col: 11)
-                              Stop = (Ln: 1, Col: 32) }
-                     InferredType = None }, None)
+                  { Pattern = { Kind = Ident { Name = "msg"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 1, Col: 5)
+                                         Stop = (Ln: 1, Col: 9) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     { Kind =
+                        TemplateLiteral
+                          { Parts = ["foo "; ""]
+                            Exprs =
+                             [{ Kind =
+                                 TemplateLiteral
+                                   { Parts = ["bar "; ""]
+                                     Exprs =
+                                      [{ Kind = Identifier "baz"
+                                         Span = { Start = (Ln: 1, Col: 25)
+                                                  Stop = (Ln: 1, Col: 28) }
+                                         InferredType = None }] }
+                                Span = { Start = (Ln: 1, Col: 18)
+                                         Stop = (Ln: 1, Col: 30) }
+                                InferredType = None }] }
+                       Span = { Start = (Ln: 1, Col: 11)
+                                Stop = (Ln: 1, Col: 32) }
+                       InferredType = None } }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 32) } }
           Span = { Start = (Ln: 1, Col: 1)

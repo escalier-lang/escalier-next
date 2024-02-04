@@ -6,66 +6,69 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("ReturnType",
-                   { Kind =
-                      Condition
-                        { Check = { Kind = TypeRef { Ident = "T"
-                                                     TypeArgs = None }
-                                    Span = { Start = (Ln: 1, Col: 25)
-                                             Stop = (Ln: 1, Col: 26) }
-                                    InferredType = None }
-                          Extends =
-                           { Kind =
-                              Function
-                                { TypeParams = None
-                                  Self = None
-                                  ParamList =
-                                   [{ Pattern =
-                                       { Kind =
-                                          Rest
-                                            { Kind = Ident { Name = "args"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 1, Col: 35)
-                                                       Stop = (Ln: 1, Col: 39) }
-                                              InferredType = None }
-                                         Span = { Start = (Ln: 1, Col: 32)
-                                                  Stop = (Ln: 1, Col: 39) }
-                                         InferredType = None }
-                                      TypeAnn =
-                                       { Kind = TypeRef { Ident = "_"
-                                                          TypeArgs = None }
-                                         Span = { Start = (Ln: 1, Col: 41)
-                                                  Stop = (Ln: 1, Col: 42) }
-                                         InferredType = None }
-                                      Optional = false }]
-                                  ReturnType =
-                                   { Kind = Infer "R"
-                                     Span = { Start = (Ln: 1, Col: 47)
-                                              Stop = (Ln: 1, Col: 55) }
-                                     InferredType = None }
-                                  Throws = None
-                                  IsAsync = false }
-                             Span = { Start = (Ln: 1, Col: 28)
-                                      Stop = (Ln: 1, Col: 55) }
-                             InferredType = None }
-                          TrueType = { Kind = TypeRef { Ident = "R"
-                                                        TypeArgs = None }
-                                       Span = { Start = (Ln: 1, Col: 57)
-                                                Stop = (Ln: 1, Col: 59) }
+                  { Name = "ReturnType"
+                    TypeAnn =
+                     { Kind =
+                        Condition
+                          { Check = { Kind = TypeRef { Ident = "T"
+                                                       TypeArgs = None }
+                                      Span = { Start = (Ln: 1, Col: 25)
+                                               Stop = (Ln: 1, Col: 26) }
+                                      InferredType = None }
+                            Extends =
+                             { Kind =
+                                Function
+                                  { TypeParams = None
+                                    Self = None
+                                    ParamList =
+                                     [{ Pattern =
+                                         { Kind =
+                                            Rest
+                                              { Kind =
+                                                 Ident { Name = "args"
+                                                         IsMut = false
+                                                         Assertion = None }
+                                                Span =
+                                                 { Start = (Ln: 1, Col: 35)
+                                                   Stop = (Ln: 1, Col: 39) }
+                                                InferredType = None }
+                                           Span = { Start = (Ln: 1, Col: 32)
+                                                    Stop = (Ln: 1, Col: 39) }
+                                           InferredType = None }
+                                        TypeAnn =
+                                         { Kind = TypeRef { Ident = "_"
+                                                            TypeArgs = None }
+                                           Span = { Start = (Ln: 1, Col: 41)
+                                                    Stop = (Ln: 1, Col: 42) }
+                                           InferredType = None }
+                                        Optional = false }]
+                                    ReturnType =
+                                     { Kind = Infer "R"
+                                       Span = { Start = (Ln: 1, Col: 47)
+                                                Stop = (Ln: 1, Col: 55) }
                                        InferredType = None }
-                          FalseType = { Kind = Keyword Never
-                                        Span = { Start = (Ln: 1, Col: 68)
-                                                 Stop = (Ln: 1, Col: 74) }
-                                        InferredType = None } }
-                     Span = { Start = (Ln: 1, Col: 22)
-                              Stop = (Ln: 1, Col: 75) }
-                     InferredType = None },
-                   Some [{ Span = { Start = (Ln: 1, Col: 17)
-                                    Stop = (Ln: 1, Col: 18) }
-                           Name = "T"
-                           Constraint = None
-                           Default = None }])
+                                    Throws = None
+                                    IsAsync = false }
+                               Span = { Start = (Ln: 1, Col: 28)
+                                        Stop = (Ln: 1, Col: 55) }
+                               InferredType = None }
+                            TrueType = { Kind = TypeRef { Ident = "R"
+                                                          TypeArgs = None }
+                                         Span = { Start = (Ln: 1, Col: 57)
+                                                  Stop = (Ln: 1, Col: 59) }
+                                         InferredType = None }
+                            FalseType = { Kind = Keyword Never
+                                          Span = { Start = (Ln: 1, Col: 68)
+                                                   Stop = (Ln: 1, Col: 74) }
+                                          InferredType = None } }
+                       Span = { Start = (Ln: 1, Col: 22)
+                                Stop = (Ln: 1, Col: 75) }
+                       InferredType = None }
+                    TypeParams = Some [{ Span = { Start = (Ln: 1, Col: 17)
+                                                  Stop = (Ln: 1, Col: 18) }
+                                         Name = "T"
+                                         Constraint = None
+                                         Default = None }] }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 75) } }
           Span = { Start = (Ln: 1, Col: 1)

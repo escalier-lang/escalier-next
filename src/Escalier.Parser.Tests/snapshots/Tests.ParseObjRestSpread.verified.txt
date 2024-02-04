@@ -9,40 +9,42 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind = Ident { Name = "obj"
-                                    IsMut = false
-                                    Assertion = None }
-                     Span = { Start = (Ln: 2, Col: 9)
-                              Stop = (Ln: 2, Col: 13) }
-                     InferredType = None },
-                   { Kind =
-                      Object
-                        { Elems =
-                           [Property
-                              ({ Start = (Ln: 2, Col: 16)
-                                 Stop = (Ln: 2, Col: 20) }, String "a",
-                               { Kind = Literal (Number (Int 5))
-                                 Span = { Start = (Ln: 2, Col: 19)
-                                          Stop = (Ln: 2, Col: 20) }
-                                 InferredType = None });
-                            Property
-                              ({ Start = (Ln: 2, Col: 22)
-                                 Stop = (Ln: 2, Col: 32) }, String "b",
-                               { Kind = Literal (String "hello")
-                                 Span = { Start = (Ln: 2, Col: 25)
-                                          Stop = (Ln: 2, Col: 32) }
-                                 InferredType = None });
-                            Property
-                              ({ Start = (Ln: 2, Col: 34)
-                                 Stop = (Ln: 2, Col: 41) }, String "c",
-                               { Kind = Literal (Boolean true)
-                                 Span = { Start = (Ln: 2, Col: 37)
-                                          Stop = (Ln: 2, Col: 41) }
-                                 InferredType = None })]
-                          Immutable = false }
-                     Span = { Start = (Ln: 2, Col: 15)
-                              Stop = (Ln: 3, Col: 5) }
-                     InferredType = None }, None)
+                  { Pattern = { Kind = Ident { Name = "obj"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 2, Col: 9)
+                                         Stop = (Ln: 2, Col: 13) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Property
+                                ({ Start = (Ln: 2, Col: 16)
+                                   Stop = (Ln: 2, Col: 20) }, String "a",
+                                 { Kind = Literal (Number (Int 5))
+                                   Span = { Start = (Ln: 2, Col: 19)
+                                            Stop = (Ln: 2, Col: 20) }
+                                   InferredType = None });
+                              Property
+                                ({ Start = (Ln: 2, Col: 22)
+                                   Stop = (Ln: 2, Col: 32) }, String "b",
+                                 { Kind = Literal (String "hello")
+                                   Span = { Start = (Ln: 2, Col: 25)
+                                            Stop = (Ln: 2, Col: 32) }
+                                   InferredType = None });
+                              Property
+                                ({ Start = (Ln: 2, Col: 34)
+                                   Stop = (Ln: 2, Col: 41) }, String "c",
+                                 { Kind = Literal (Boolean true)
+                                   Span = { Start = (Ln: 2, Col: 37)
+                                            Stop = (Ln: 2, Col: 41) }
+                                   InferredType = None })]
+                            Immutable = false }
+                       Span = { Start = (Ln: 2, Col: 15)
+                                Stop = (Ln: 3, Col: 5) }
+                       InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -52,32 +54,35 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind =
-                      Object
-                        { Elems =
-                           [ShorthandPat { Span = { Start = (Ln: 3, Col: 10)
-                                                    Stop = (Ln: 3, Col: 11) }
-                                           Name = "a"
-                                           IsMut = false
-                                           Default = None
-                                           Assertion = None };
-                            RestPat
-                              { Span = { Start = (Ln: 3, Col: 13)
-                                         Stop = (Ln: 3, Col: 20) }
-                                Target = { Kind = Ident { Name = "rest"
-                                                          IsMut = false
-                                                          Assertion = None }
-                                           Span = { Start = (Ln: 3, Col: 16)
-                                                    Stop = (Ln: 3, Col: 20) }
-                                           InferredType = None }
-                                IsMut = false }]
-                          Immutable = false }
-                     Span = { Start = (Ln: 3, Col: 9)
-                              Stop = (Ln: 3, Col: 22) }
-                     InferredType = None }, { Kind = Identifier "obj"
-                                              Span = { Start = (Ln: 3, Col: 24)
-                                                       Stop = (Ln: 4, Col: 3) }
-                                              InferredType = None }, None)
+                  { Pattern =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [ShorthandPat { Span = { Start = (Ln: 3, Col: 10)
+                                                      Stop = (Ln: 3, Col: 11) }
+                                             Name = "a"
+                                             IsMut = false
+                                             Default = None
+                                             Assertion = None };
+                              RestPat
+                                { Span = { Start = (Ln: 3, Col: 13)
+                                           Stop = (Ln: 3, Col: 20) }
+                                  Target = { Kind = Ident { Name = "rest"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 3, Col: 16)
+                                                      Stop = (Ln: 3, Col: 20) }
+                                             InferredType = None }
+                                  IsMut = false }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 3, Col: 9)
+                                Stop = (Ln: 3, Col: 22) }
+                       InferredType = None }
+                    TypeAnn = None
+                    Init = { Kind = Identifier "obj"
+                             Span = { Start = (Ln: 3, Col: 24)
+                                      Stop = (Ln: 4, Col: 3) }
+                             InferredType = None } }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 3) } }
           Span = { Start = (Ln: 3, Col: 5)

@@ -10,107 +10,110 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("RangeIterator",
-                   { Kind =
-                      Object
-                        { Elems =
-                           [Property
-                              { Name = String "next"
-                                TypeAnn =
-                                 { Kind =
-                                    Function
-                                      { TypeParams = None
-                                        Self = None
-                                        ParamList = []
-                                        ReturnType =
-                                         { Kind =
-                                            Object
-                                              { Elems =
-                                                 [Property
-                                                    { Name = String "done"
-                                                      TypeAnn =
-                                                       { Kind = Keyword Boolean
-                                                         Span =
-                                                          { Start =
-                                                             (Ln: 3, Col: 32)
-                                                            Stop =
-                                                             (Ln: 3, Col: 39) }
-                                                         InferredType = None }
-                                                      Optional = false
-                                                      Readonly = false };
-                                                  Property
-                                                    { Name = String "value"
-                                                      TypeAnn =
-                                                       { Kind =
-                                                          Range
-                                                            { Min =
-                                                               { Kind =
-                                                                  TypeRef
-                                                                    { Ident =
-                                                                       "Min"
-                                                                      TypeArgs =
-                                                                       None }
-                                                                 Span =
-                                                                  { Start =
-                                                                     (Ln: 3, Col: 48)
-                                                                    Stop =
-                                                                     (Ln: 3, Col: 51) }
-                                                                 InferredType =
-                                                                  None }
-                                                              Max =
-                                                               { Kind =
-                                                                  TypeRef
-                                                                    { Ident =
-                                                                       "Max"
-                                                                      TypeArgs =
-                                                                       None }
-                                                                 Span =
-                                                                  { Start =
-                                                                     (Ln: 3, Col: 53)
-                                                                    Stop =
-                                                                     (Ln: 3, Col: 57) }
-                                                                 InferredType =
-                                                                  None } }
-                                                         Span =
-                                                          { Start =
-                                                             (Ln: 3, Col: 48)
-                                                            Stop =
-                                                             (Ln: 3, Col: 57) }
-                                                         InferredType = None }
-                                                      Optional = false
-                                                      Readonly = false }]
-                                                Immutable = false }
-                                           Span = { Start = (Ln: 3, Col: 24)
-                                                    Stop = (Ln: 4, Col: 7) }
-                                           InferredType = None }
-                                        Throws = None
-                                        IsAsync = false }
-                                   Span = { Start = (Ln: 3, Col: 15)
-                                            Stop = (Ln: 4, Col: 7) }
-                                   InferredType = None }
-                                Optional = false
-                                Readonly = false }]
-                          Immutable = false }
-                     Span = { Start = (Ln: 2, Col: 54)
-                              Stop = (Ln: 5, Col: 5) }
-                     InferredType = None },
-                   Some
-                     [{ Span = { Start = (Ln: 2, Col: 26)
-                                 Stop = (Ln: 2, Col: 37) }
-                        Name = "Min"
-                        Constraint = Some { Kind = Keyword Number
-                                            Span = { Start = (Ln: 2, Col: 31)
-                                                     Stop = (Ln: 2, Col: 37) }
-                                            InferredType = None }
-                        Default = None };
-                      { Span = { Start = (Ln: 2, Col: 39)
-                                 Stop = (Ln: 2, Col: 50) }
-                        Name = "Max"
-                        Constraint = Some { Kind = Keyword Number
-                                            Span = { Start = (Ln: 2, Col: 44)
-                                                     Stop = (Ln: 2, Col: 50) }
-                                            InferredType = None }
-                        Default = None }])
+                  { Name = "RangeIterator"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Property
+                                { Name = String "next"
+                                  TypeAnn =
+                                   { Kind =
+                                      Function
+                                        { TypeParams = None
+                                          Self = None
+                                          ParamList = []
+                                          ReturnType =
+                                           { Kind =
+                                              Object
+                                                { Elems =
+                                                   [Property
+                                                      { Name = String "done"
+                                                        TypeAnn =
+                                                         { Kind =
+                                                            Keyword Boolean
+                                                           Span =
+                                                            { Start =
+                                                               (Ln: 3, Col: 32)
+                                                              Stop =
+                                                               (Ln: 3, Col: 39) }
+                                                           InferredType = None }
+                                                        Optional = false
+                                                        Readonly = false };
+                                                    Property
+                                                      { Name = String "value"
+                                                        TypeAnn =
+                                                         { Kind =
+                                                            Range
+                                                              { Min =
+                                                                 { Kind =
+                                                                    TypeRef
+                                                                      { Ident =
+                                                                         "Min"
+                                                                        TypeArgs =
+                                                                         None }
+                                                                   Span =
+                                                                    { Start =
+                                                                       (Ln: 3, Col: 48)
+                                                                      Stop =
+                                                                       (Ln: 3, Col: 51) }
+                                                                   InferredType =
+                                                                    None }
+                                                                Max =
+                                                                 { Kind =
+                                                                    TypeRef
+                                                                      { Ident =
+                                                                         "Max"
+                                                                        TypeArgs =
+                                                                         None }
+                                                                   Span =
+                                                                    { Start =
+                                                                       (Ln: 3, Col: 53)
+                                                                      Stop =
+                                                                       (Ln: 3, Col: 57) }
+                                                                   InferredType =
+                                                                    None } }
+                                                           Span =
+                                                            { Start =
+                                                               (Ln: 3, Col: 48)
+                                                              Stop =
+                                                               (Ln: 3, Col: 57) }
+                                                           InferredType = None }
+                                                        Optional = false
+                                                        Readonly = false }]
+                                                  Immutable = false }
+                                             Span = { Start = (Ln: 3, Col: 24)
+                                                      Stop = (Ln: 4, Col: 7) }
+                                             InferredType = None }
+                                          Throws = None
+                                          IsAsync = false }
+                                     Span = { Start = (Ln: 3, Col: 15)
+                                              Stop = (Ln: 4, Col: 7) }
+                                     InferredType = None }
+                                  Optional = false
+                                  Readonly = false }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 2, Col: 54)
+                                Stop = (Ln: 5, Col: 5) }
+                       InferredType = None }
+                    TypeParams =
+                     Some
+                       [{ Span = { Start = (Ln: 2, Col: 26)
+                                   Stop = (Ln: 2, Col: 37) }
+                          Name = "Min"
+                          Constraint = Some { Kind = Keyword Number
+                                              Span = { Start = (Ln: 2, Col: 31)
+                                                       Stop = (Ln: 2, Col: 37) }
+                                              InferredType = None }
+                          Default = None };
+                        { Span = { Start = (Ln: 2, Col: 39)
+                                   Stop = (Ln: 2, Col: 50) }
+                          Name = "Max"
+                          Constraint = Some { Kind = Keyword Number
+                                              Span = { Start = (Ln: 2, Col: 44)
+                                                       Stop = (Ln: 2, Col: 50) }
+                                              InferredType = None }
+                          Default = None }] }
                Span = { Start = (Ln: 2, Col: 7)
                         Stop = (Ln: 5, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 7)

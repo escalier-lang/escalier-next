@@ -8,55 +8,57 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("Foo",
-                   { Kind =
-                      Condition
-                        { Check = { Kind = TypeRef { Ident = "T"
-                                                     TypeArgs = None }
-                                    Span = { Start = (Ln: 2, Col: 22)
-                                             Stop = (Ln: 2, Col: 23) }
-                                    InferredType = None }
-                          Extends = { Kind = Keyword Number
-                                      Span = { Start = (Ln: 2, Col: 25)
-                                               Stop = (Ln: 2, Col: 32) }
+                  { Name = "Foo"
+                    TypeAnn =
+                     { Kind =
+                        Condition
+                          { Check = { Kind = TypeRef { Ident = "T"
+                                                       TypeArgs = None }
+                                      Span = { Start = (Ln: 2, Col: 22)
+                                               Stop = (Ln: 2, Col: 23) }
                                       InferredType = None }
-                          TrueType = { Kind = Literal (String "number")
-                                       Span = { Start = (Ln: 2, Col: 34)
-                                                Stop = (Ln: 2, Col: 42) }
-                                       InferredType = None }
-                          FalseType =
-                           { Kind =
-                              Condition
-                                { Check = { Kind = TypeRef { Ident = "T"
-                                                             TypeArgs = None }
-                                            Span = { Start = (Ln: 2, Col: 53)
-                                                     Stop = (Ln: 2, Col: 54) }
-                                            InferredType = None }
-                                  Extends = { Kind = Keyword String
-                                              Span = { Start = (Ln: 2, Col: 56)
-                                                       Stop = (Ln: 2, Col: 63) }
+                            Extends = { Kind = Keyword Number
+                                        Span = { Start = (Ln: 2, Col: 25)
+                                                 Stop = (Ln: 2, Col: 32) }
+                                        InferredType = None }
+                            TrueType = { Kind = Literal (String "number")
+                                         Span = { Start = (Ln: 2, Col: 34)
+                                                  Stop = (Ln: 2, Col: 42) }
+                                         InferredType = None }
+                            FalseType =
+                             { Kind =
+                                Condition
+                                  { Check = { Kind = TypeRef { Ident = "T"
+                                                               TypeArgs = None }
+                                              Span = { Start = (Ln: 2, Col: 53)
+                                                       Stop = (Ln: 2, Col: 54) }
                                               InferredType = None }
-                                  TrueType =
-                                   { Kind = Literal (String "string")
-                                     Span = { Start = (Ln: 2, Col: 65)
-                                              Stop = (Ln: 2, Col: 73) }
-                                     InferredType = None }
-                                  FalseType =
-                                   { Kind = Literal (String "other")
-                                     Span = { Start = (Ln: 2, Col: 83)
-                                              Stop = (Ln: 2, Col: 90) }
-                                     InferredType = None } }
-                             Span = { Start = (Ln: 2, Col: 50)
-                                      Stop = (Ln: 3, Col: 5) }
-                             InferredType = None } }
-                     Span = { Start = (Ln: 2, Col: 19)
-                              Stop = (Ln: 3, Col: 5) }
-                     InferredType = None },
-                   Some [{ Span = { Start = (Ln: 2, Col: 14)
-                                    Stop = (Ln: 2, Col: 15) }
-                           Name = "T"
-                           Constraint = None
-                           Default = None }])
+                                    Extends =
+                                     { Kind = Keyword String
+                                       Span = { Start = (Ln: 2, Col: 56)
+                                                Stop = (Ln: 2, Col: 63) }
+                                       InferredType = None }
+                                    TrueType =
+                                     { Kind = Literal (String "string")
+                                       Span = { Start = (Ln: 2, Col: 65)
+                                                Stop = (Ln: 2, Col: 73) }
+                                       InferredType = None }
+                                    FalseType =
+                                     { Kind = Literal (String "other")
+                                       Span = { Start = (Ln: 2, Col: 83)
+                                                Stop = (Ln: 2, Col: 90) }
+                                       InferredType = None } }
+                               Span = { Start = (Ln: 2, Col: 50)
+                                        Stop = (Ln: 3, Col: 5) }
+                               InferredType = None } }
+                       Span = { Start = (Ln: 2, Col: 19)
+                                Stop = (Ln: 3, Col: 5) }
+                       InferredType = None }
+                    TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 14)
+                                                  Stop = (Ln: 2, Col: 15) }
+                                         Name = "T"
+                                         Constraint = None
+                                         Default = None }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)

@@ -680,26 +680,46 @@ module rec Unify =
     result {
       if t1.Kind <> t2.Kind then
         if occursInType t1 t2 then
-          return! Error(TypeError.RecursiveUnification(t1, t2))
+          match t2.Kind with
+          | TypeKind.Union types ->
+            let types = types |> flatten |> List.filter (fun t -> t <> t1)
 
-        match t1.Kind with
-        | TypeKind.TypeVar(v) ->
-          match v.Bound with
-          | Some(bound) ->
-            // Type params are contravariant for similar reasons to
-            // why function params are contravariant
-            do! unify ctx env ips t2 bound
+            match types with
+            | [] -> return ()
+            | [ t ] -> return! bind ctx env ips t1 t
+            | types ->
+              let t = union types
+              return! bind ctx env ips t1 t
+          | TypeKind.Binary _ ->
+            let t =
+              { Kind = TypeKind.Primitive Primitive.Number
+                Provenance = None }
 
-            match t2.Kind with
-            | TypeKind.Keyword Keyword.Never -> v.Instance <- Some(bound)
-            | _ -> v.Instance <- Some(t2)
-          | None -> v.Instance <- Some(t2)
+            let! _ = bind ctx env ips t1 t
+            return ()
+          | _ ->
+            printfn "recursive unification error"
+            return! Error(TypeError.RecursiveUnification(t1, t2))
+        else
+          match t1.Kind with
+          | TypeKind.TypeVar(v) ->
+            match v.Bound with
+            | Some(bound) ->
+              // Type params are contravariant for similar reasons to
+              // why function params are contravariant
+              do! unify ctx env ips t2 bound
 
-          return ()
-        | _ -> return! Error(TypeError.NotImplemented "bind error")
+              match t2.Kind with
+              | TypeKind.Keyword Keyword.Never -> v.Instance <- Some(bound)
+              | _ -> v.Instance <- Some(t2)
+            | None -> v.Instance <- Some(t2)
+
+            return ()
+          | _ -> return! Error(TypeError.NotImplemented "bind error")
     }
 
   // TODO: finish implementing this function
+  // TODO: use visitType for this
   and occursInType (v: Type) (t2: Type) : bool =
     match (prune t2).Kind with
     | pruned when pruned = v.Kind -> true
@@ -707,6 +727,8 @@ module rec Unify =
       match typeArgs with
       | Some(typeArgs) -> occursIn v typeArgs
       | None -> false
+    | TypeKind.Union types -> occursIn v types
+    | TypeKind.Intersection types -> occursIn v types
     | TypeKind.Binary(left, op, right) ->
       occursInType v left || occursInType v right
     | _ -> false

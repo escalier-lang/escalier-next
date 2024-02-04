@@ -188,6 +188,15 @@ module rec Env =
       { this with
           Values = Map.add name binding this.Values }
 
+    member this.AddBindings(bindings: Map<string, Binding>) =
+      let mutable newEnv = this
+
+      for KeyValue(name, binding) in bindings do
+        let t, isMut = binding
+        newEnv <- newEnv.AddValue name (prune t, isMut)
+
+      newEnv
+
     // TODO: don't curry this function
     member this.AddScheme (name: string) (s: Scheme) =
       { this with

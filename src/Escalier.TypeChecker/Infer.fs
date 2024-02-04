@@ -1516,7 +1516,14 @@ module rec Infer =
 
         return env.AddBindings bindings
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
-        return! inferTypeDecl ctx env typeDecl
+        let! scheme = inferTypeDeclScheme ctx typeDecl
+        let mutable newEnv = env
+
+        // Handles self-recursive types
+        newEnv <- newEnv.AddScheme typeDecl.Name scheme
+
+        let! scheme = inferTypeDeclDefn ctx newEnv scheme typeDecl.TypeAnn
+        return newEnv.AddScheme typeDecl.Name scheme
       | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
                                                      TypeParams = typeParams
                                                      Elems = elems } }) ->
@@ -1800,30 +1807,6 @@ module rec Infer =
       return { scheme with Type = t }
     }
 
-  let inferTypeDecl
-    (ctx: Ctx)
-    (env: Env)
-    (typeDecl: TypeDecl)
-    : Result<Env, TypeError> =
-
-    let { TypeDecl.Name = name
-          TypeDecl.TypeAnn = typeAnn } =
-      typeDecl
-
-    result {
-      let! scheme = inferTypeDeclScheme ctx typeDecl
-
-      // Create a new environment to avoid polluting the current environment
-      // with the type parameters.
-      let mutable newEnv = env
-
-      // Handles self-recursive types
-      newEnv <- newEnv.AddScheme name scheme
-
-      let! scheme = inferTypeDeclDefn ctx newEnv scheme typeAnn
-      return newEnv.AddScheme name scheme
-    }
-
   let resolvePath
     (baseDir: string)
     (currentPath: string)
@@ -1964,19 +1947,19 @@ module rec Infer =
           | VarDecl { Pattern = pattern
                       Init = init
                       TypeAnn = typeAnn } ->
-            let! (bindings, _) = inferPattern ctx env pattern
+            let! bindings, _ = inferPattern ctx env pattern
 
             for KeyValue(name, binding) in bindings do
               prebindings <- prebindings.Add(name, binding)
               newEnv <- newEnv.AddValue name binding
           | TypeDecl typeDecl ->
             let! placeholder = inferTypeDeclScheme ctx typeDecl
-            let { TypeDecl.Name = name } = typeDecl
+            typeDecls <- typeDecls.Add(typeDecl.Name, placeholder)
 
             // TODO: update AddScheme to return a Result<Env, TypeError> and
             // return an error if the name already exists since we can't redefine
             // types.
-            newEnv <- newEnv.AddScheme name placeholder
+            newEnv <- newEnv.AddScheme typeDecl.Name placeholder
           | StructDecl structDecl -> failwith "todo"
 
       // TODO: add pre-bindings to the environment before inferring the initializers
@@ -1995,9 +1978,17 @@ module rec Infer =
             // from this declaration.  We generalize things below.
             let! newBindings = inferVarDecl ctx newEnv varDecl
             bindings <- FSharpPlus.Map.union bindings newBindings
-          | TypeDecl typeDecl ->
-            let! newNewEnv = inferTypeDecl ctx newEnv typeDecl
-            newEnv <- newNewEnv
+          | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+            let scheme =
+              match typeDecls.TryFind name with
+              | None -> failwith "todo"
+              | Some value -> value
+
+            // Handles self-recursive types
+            newEnv <- newEnv.AddScheme name scheme
+
+            let! scheme = inferTypeDeclDefn ctx newEnv scheme typeAnn
+            newEnv <- newEnv.AddScheme name scheme
           | StructDecl structDecl -> failwith "todo"
 
       // Unify each binding with its prebinding

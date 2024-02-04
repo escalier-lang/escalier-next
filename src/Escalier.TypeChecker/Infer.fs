@@ -1791,15 +1791,6 @@ module rec Infer =
     else
       importPath
 
-  // let inferImport
-  //   (ctx: Ctx)
-  //   (env: Env)
-  //   (import: Import)
-  //   : Result<Env, TypeError> =
-  //   // TODO: read the file and infer the module
-  //   // TODO: have a way of store
-  //   failwith "TODO - inferImport"
-
   let inferImport
     (ctx: Ctx)
     (env: Env)

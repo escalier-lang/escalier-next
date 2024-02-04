@@ -24,7 +24,7 @@ module rec Codegen =
     { Start = FParsec.Position("", 0, 0, 0)
       Stop = FParsec.Position("", 0, 0, 0) }
 
-  let buildScript (ctx: Ctx) (m: Module) =
+  let buildScript (ctx: Ctx) (m: Script) =
     let stmts: list<Stmt> =
       m.Items
       |> List.choose (fun item ->
@@ -217,7 +217,7 @@ module rec Codegen =
             stmts
         | StmtKind.Decl decl ->
           match decl.Kind with
-          | VarDecl(pattern, init, typeAnnOption) ->
+          | VarDecl { Pattern = pattern; Init = init } ->
             let pattern = buildPattern ctx pattern
             let initExpr, initStmts = buildExpr ctx init
 
@@ -276,17 +276,17 @@ module rec Codegen =
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
   // the exported symbols since we aren't tracking provenance consistently yet
-  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Module) : TS.Module =
+  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Script) : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
     for item in m.Items do
       match item with
-      | Import _ -> failwith "TODO: buildModuleTypes - Import"
+      | ScriptItem.Import _ -> failwith "TODO: buildModuleTypes - Import"
       | Stmt stmt ->
         match stmt.Kind with
         | StmtKind.Decl decl ->
           match decl.Kind with
-          | TypeDecl(name, typeAnn, typeParams) ->
+          | TypeDecl { Name = name; TypeAnn = typeAnn } ->
             match typeAnn.InferredType with
             | Some(typeAnn) ->
               let decl =
@@ -304,7 +304,7 @@ module rec Codegen =
 
               items <- item :: items
             | None -> ()
-          | VarDecl(pattern, init, typeAnnOption) ->
+          | VarDecl { Pattern = pattern } ->
             for Operators.KeyValue(name, _) in findBindings pattern do
               let n: string = name
 

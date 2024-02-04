@@ -13,30 +13,32 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("Point",
-                   { Kind =
-                      Object
-                        { Elems =
-                           [Property
-                              { Name = String "x"
-                                TypeAnn = { Kind = Keyword Number
-                                            Span = { Start = (Ln: 2, Col: 22)
-                                                     Stop = (Ln: 2, Col: 28) }
-                                            InferredType = None }
-                                Optional = false
-                                Readonly = false };
-                            Property
-                              { Name = String "y"
-                                TypeAnn = { Kind = Keyword Number
-                                            Span = { Start = (Ln: 2, Col: 33)
-                                                     Stop = (Ln: 2, Col: 39) }
-                                            InferredType = None }
-                                Optional = false
-                                Readonly = false }]
-                          Immutable = false }
-                     Span = { Start = (Ln: 2, Col: 18)
-                              Stop = (Ln: 3, Col: 5) }
-                     InferredType = None }, None)
+                  { Name = "Point"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Property
+                                { Name = String "x"
+                                  TypeAnn = { Kind = Keyword Number
+                                              Span = { Start = (Ln: 2, Col: 22)
+                                                       Stop = (Ln: 2, Col: 28) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false };
+                              Property
+                                { Name = String "y"
+                                  TypeAnn = { Kind = Keyword Number
+                                              Span = { Start = (Ln: 2, Col: 33)
+                                                       Stop = (Ln: 2, Col: 39) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 2, Col: 18)
+                                Stop = (Ln: 3, Col: 5) }
+                       InferredType = None }
+                    TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -46,32 +48,34 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("Line",
-                   { Kind =
-                      Object
-                        { Elems =
-                           [Property
-                              { Name = String "p0"
-                                TypeAnn = { Kind = TypeRef { Ident = "Point"
-                                                             TypeArgs = None }
-                                            Span = { Start = (Ln: 3, Col: 22)
-                                                     Stop = (Ln: 3, Col: 27) }
-                                            InferredType = None }
-                                Optional = false
-                                Readonly = false };
-                            Property
-                              { Name = String "p1"
-                                TypeAnn = { Kind = TypeRef { Ident = "Point"
-                                                             TypeArgs = None }
-                                            Span = { Start = (Ln: 3, Col: 33)
-                                                     Stop = (Ln: 3, Col: 38) }
-                                            InferredType = None }
-                                Optional = false
-                                Readonly = false }]
-                          Immutable = false }
-                     Span = { Start = (Ln: 3, Col: 17)
-                              Stop = (Ln: 4, Col: 5) }
-                     InferredType = None }, None)
+                  { Name = "Line"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Property
+                                { Name = String "p0"
+                                  TypeAnn = { Kind = TypeRef { Ident = "Point"
+                                                               TypeArgs = None }
+                                              Span = { Start = (Ln: 3, Col: 22)
+                                                       Stop = (Ln: 3, Col: 27) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false };
+                              Property
+                                { Name = String "p1"
+                                  TypeAnn = { Kind = TypeRef { Ident = "Point"
+                                                               TypeArgs = None }
+                                              Span = { Start = (Ln: 3, Col: 33)
+                                                       Stop = (Ln: 3, Col: 38) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 3, Col: 17)
+                                Stop = (Ln: 4, Col: 5) }
+                       InferredType = None }
+                    TypeParams = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
           Span = { Start = (Ln: 3, Col: 5)
@@ -91,33 +95,36 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  ({ Kind =
-                      Object
-                        { Elems =
-                           [ShorthandPat { Span = { Start = (Ln: 6, Col: 10)
-                                                    Stop = (Ln: 6, Col: 16) }
-                                           Name = "p0"
-                                           IsMut = true
-                                           Default = None
-                                           Assertion = None };
-                            KeyValuePat
-                              { Span = { Start = (Ln: 6, Col: 18)
-                                         Stop = (Ln: 6, Col: 27) }
-                                Key = "p1"
-                                Value = { Kind = Ident { Name = "q"
-                                                         IsMut = true
-                                                         Assertion = None }
-                                          Span = { Start = (Ln: 6, Col: 22)
-                                                   Stop = (Ln: 6, Col: 27) }
-                                          InferredType = None }
-                                Default = None }]
-                          Immutable = false }
-                     Span = { Start = (Ln: 6, Col: 9)
-                              Stop = (Ln: 6, Col: 29) }
-                     InferredType = None }, { Kind = Identifier "line"
-                                              Span = { Start = (Ln: 6, Col: 31)
-                                                       Stop = (Ln: 7, Col: 5) }
-                                              InferredType = None }, None)
+                  { Pattern =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [ShorthandPat { Span = { Start = (Ln: 6, Col: 10)
+                                                      Stop = (Ln: 6, Col: 16) }
+                                             Name = "p0"
+                                             IsMut = true
+                                             Default = None
+                                             Assertion = None };
+                              KeyValuePat
+                                { Span = { Start = (Ln: 6, Col: 18)
+                                           Stop = (Ln: 6, Col: 27) }
+                                  Key = "p1"
+                                  Value = { Kind = Ident { Name = "q"
+                                                           IsMut = true
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 6, Col: 22)
+                                                     Stop = (Ln: 6, Col: 27) }
+                                            InferredType = None }
+                                  Default = None }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 6, Col: 9)
+                                Stop = (Ln: 6, Col: 29) }
+                       InferredType = None }
+                    TypeAnn = None
+                    Init = { Kind = Identifier "line"
+                             Span = { Start = (Ln: 6, Col: 31)
+                                      Stop = (Ln: 7, Col: 5) }
+                             InferredType = None } }
                Span = { Start = (Ln: 6, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }
           Span = { Start = (Ln: 6, Col: 5)
@@ -125,17 +132,17 @@ output: Ok
       Stmt
         { Kind =
            Decl
-             { Kind =
-                VarDecl
-                  ({ Kind = Ident { Name = "r"
-                                    IsMut = true
-                                    Assertion = None }
-                     Span = { Start = (Ln: 7, Col: 9)
-                              Stop = (Ln: 7, Col: 15) }
-                     InferredType = None }, { Kind = Identifier "q"
-                                              Span = { Start = (Ln: 7, Col: 17)
-                                                       Stop = (Ln: 8, Col: 5) }
-                                              InferredType = None }, None)
+             { Kind = VarDecl { Pattern = { Kind = Ident { Name = "r"
+                                                           IsMut = true
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 7, Col: 9)
+                                                     Stop = (Ln: 7, Col: 15) }
+                                            InferredType = None }
+                                TypeAnn = None
+                                Init = { Kind = Identifier "q"
+                                         Span = { Start = (Ln: 7, Col: 17)
+                                                  Stop = (Ln: 8, Col: 5) }
+                                         InferredType = None } }
                Span = { Start = (Ln: 7, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }
           Span = { Start = (Ln: 7, Col: 5)

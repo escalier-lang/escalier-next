@@ -604,8 +604,14 @@ module Parser =
     withSpan (strWs "return" >>. opt expr)
     |>> fun (e, span) -> { Stmt.Kind = Return(e); Span = span }
 
+  let private declStmt (decl: Parser<Decl, unit>) : Parser<Stmt, unit> =
+    withSpan decl
+    |>> fun (d, span) ->
+      { Stmt.Kind = StmtKind.Decl d
+        Span = span }
+
   // `let <expr> = <expr>`
-  let private varDecl =
+  let private varDecl: Parser<Decl, unit> =
     withSpan (
       tuple3
         (strWs "let" >>. pattern)
@@ -613,15 +619,15 @@ module Parser =
         (strWs "=" >>. expr)
     )
     |>> fun ((pat, typeAnn, init), span) ->
-      { Stmt.Kind =
-          Decl(
-            { Kind = DeclKind.VarDecl(pat, init, typeAnn)
-              Span = span }
-          )
+      { Kind =
+          DeclKind.VarDecl
+            { Pattern = pat
+              Init = init
+              TypeAnn = typeAnn }
         Span = span }
 
   // TODO: parse type params
-  let private typeDecl =
+  let private typeDecl: Parser<Decl, unit> =
     pipe5
       getPosition
       (strWs "type" >>. ident)
@@ -631,11 +637,11 @@ module Parser =
     <| fun start id typeParams typeAnn stop ->
       let span = { Start = start; Stop = stop }
 
-      { Stmt.Kind =
-          Decl(
-            { Kind = TypeDecl(id, typeAnn, typeParams)
-              Span = span }
-          )
+      { Kind =
+          TypeDecl
+            { Name = id
+              TypeAnn = typeAnn
+              TypeParams = typeParams }
         Span = span }
 
   let private forLoop =
@@ -672,7 +678,7 @@ module Parser =
         Optional = optional.IsSome
         Readonly = false }
 
-  let private structDecl =
+  let private structDecl: Parser<Decl, unit> =
     pipe5
       getPosition
       (strWs "struct" >>. ident)
@@ -682,14 +688,11 @@ module Parser =
     <| fun start name typeParams elems stop ->
       let span = { Start = start; Stop = stop }
 
-      { Stmt.Kind =
-          Decl
-            { Kind =
-                StructDecl
-                  { Name = name
-                    TypeParams = typeParams
-                    Elems = elems }
-              Span = span }
+      { Kind =
+          StructDecl
+            { Name = name
+              TypeParams = typeParams
+              Elems = elems }
         Span = span }
 
   let private method: Parser<ImplElem, unit> =
@@ -781,9 +784,9 @@ module Parser =
       [
         // TODO: these should all use `attempt` since you could have an
         // identifier like `lettuce` that conflicts with `let <ident> = <expr>`
-        varDecl
-        typeDecl
-        structDecl
+        varDecl |> declStmt
+        typeDecl |> declStmt
+        structDecl |> declStmt
         implStmt
         returnStmt
         forLoop
@@ -1380,18 +1383,23 @@ module Parser =
       { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
-  let declare: Parser<ModuleItem, unit> =
+  let declare: Parser<ScriptItem, unit> =
     pipe4
       getPosition
       (strWs "declare" >>. strWs "let" >>. pattern)
       (strWs ":" >>. ws >>. typeAnn)
       getPosition
-    <| fun start pattern typeAnn stop -> ModuleItem.DeclareLet(pattern, typeAnn)
+    <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)
 
-  let private moduleItem: Parser<ModuleItem, unit> =
+  let private scriptItems: Parser<ScriptItem, unit> =
     ws
     >>. choice
-      [ import |>> ModuleItem.Import; declare; _stmt |>> ModuleItem.Stmt ]
+      [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
+
+  let decl: Parser<Decl, unit> = choice [ varDecl; typeDecl; structDecl ]
+
+  let private moduleItem: Parser<ModuleItem, unit> =
+    ws >>. choice [ import |>> ModuleItem.Import; decl |>> ModuleItem.Decl ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =
@@ -1404,10 +1412,17 @@ module Parser =
     | ParserResult.Success(result, _, _) -> Result.Ok(result)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 
-  let script: Parser<Module, unit> =
-    (many moduleItem) .>> eof |>> fun items -> { Items = items }
+  let script: Parser<Script, unit> =
+    (many scriptItems) .>> eof |>> fun items -> { Items = items }
 
-  let parseScript (input: string) : Result<Module, ParserError> =
+  let parseScript (input: string) : Result<Script, ParserError> =
     match run script input with
+    | ParserResult.Success(m, _, _) -> Result.Ok(m)
+    | ParserResult.Failure(_, error, _) -> Result.Error(error)
+
+  let parseModule (input: string) : Result<Module, ParserError> =
+    match
+      run ((many moduleItem) .>> eof |>> fun items -> { Items = items }) input
+    with
     | ParserResult.Success(m, _, _) -> Result.Ok(m)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)

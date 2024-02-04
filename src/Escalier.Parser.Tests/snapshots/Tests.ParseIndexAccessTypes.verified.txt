@@ -6,21 +6,23 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("Foo",
-                   { Kind =
-                      Index
-                        ({ Kind = TypeRef { Ident = "Bar"
-                                            TypeArgs = None }
-                           Span = { Start = (Ln: 1, Col: 12)
-                                    Stop = (Ln: 1, Col: 15) }
-                           InferredType = None },
-                         { Kind = Literal (String "baz")
-                           Span = { Start = (Ln: 1, Col: 16)
-                                    Stop = (Ln: 1, Col: 21) }
-                           InferredType = None })
-                     Span = { Start = (Ln: 1, Col: 12)
-                              Stop = (Ln: 1, Col: 22) }
-                     InferredType = None }, None)
+                  { Name = "Foo"
+                    TypeAnn =
+                     { Kind =
+                        Index
+                          ({ Kind = TypeRef { Ident = "Bar"
+                                              TypeArgs = None }
+                             Span = { Start = (Ln: 1, Col: 12)
+                                      Stop = (Ln: 1, Col: 15) }
+                             InferredType = None },
+                           { Kind = Literal (String "baz")
+                             Span = { Start = (Ln: 1, Col: 16)
+                                      Stop = (Ln: 1, Col: 21) }
+                             InferredType = None })
+                       Span = { Start = (Ln: 1, Col: 12)
+                                Stop = (Ln: 1, Col: 22) }
+                       InferredType = None }
+                    TypeParams = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 22) } }
           Span = { Start = (Ln: 1, Col: 1)

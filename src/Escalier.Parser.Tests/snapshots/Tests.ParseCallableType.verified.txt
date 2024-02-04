@@ -11,36 +11,38 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("Callable",
-                   { Kind =
-                      Object
-                        { Elems =
-                           [Constructor
-                              { TypeParams = None
-                                Self = None
-                                ParamList = []
-                                ReturnType =
-                                 { Kind = Keyword Symbol
-                                   Span = { Start = (Ln: 3, Col: 20)
-                                            Stop = (Ln: 3, Col: 26) }
-                                   InferredType = None }
-                                Throws = None
-                                IsAsync = false };
-                            Callable
-                              { TypeParams = None
-                                Self = None
-                                ParamList = []
-                                ReturnType =
-                                 { Kind = Keyword Symbol
-                                   Span = { Start = (Ln: 4, Col: 16)
-                                            Stop = (Ln: 4, Col: 22) }
-                                   InferredType = None }
-                                Throws = None
-                                IsAsync = false }]
-                          Immutable = false }
-                     Span = { Start = (Ln: 2, Col: 21)
-                              Stop = (Ln: 6, Col: 5) }
-                     InferredType = None }, None)
+                  { Name = "Callable"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Constructor
+                                { TypeParams = None
+                                  Self = None
+                                  ParamList = []
+                                  ReturnType =
+                                   { Kind = Keyword Symbol
+                                     Span = { Start = (Ln: 3, Col: 20)
+                                              Stop = (Ln: 3, Col: 26) }
+                                     InferredType = None }
+                                  Throws = None
+                                  IsAsync = false };
+                              Callable
+                                { TypeParams = None
+                                  Self = None
+                                  ParamList = []
+                                  ReturnType =
+                                   { Kind = Keyword Symbol
+                                     Span = { Start = (Ln: 4, Col: 16)
+                                              Stop = (Ln: 4, Col: 22) }
+                                     InferredType = None }
+                                  Throws = None
+                                  IsAsync = false }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 2, Col: 21)
+                                Stop = (Ln: 6, Col: 5) }
+                       InferredType = None }
+                    TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 6, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)

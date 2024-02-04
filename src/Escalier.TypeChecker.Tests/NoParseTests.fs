@@ -176,7 +176,11 @@ let varDecl (name, expr) =
 
   { Kind =
       StmtKind.Decl(
-        { Kind = DeclKind.VarDecl(pattern, expr, None)
+        { Kind =
+            DeclKind.VarDecl
+              { Pattern = pattern
+                Init = expr
+                TypeAnn = None }
           Span = dummySpan }
       )
     Span = dummySpan }
@@ -269,16 +273,16 @@ let UndefinedSymbol () =
 let InferPair () =
   result {
     (* letrec f = (fn x => x) in [f 4, f true] *)
-    let ast =
+    let ast: Script =
       { Items =
-          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ModuleItem.Stmt
+          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ScriptItem.Stmt
             varDecl (
               "pair",
               tuple
                 [ call (ident "f", [ number (Number.Int 4) ])
                   call (ident "f", [ boolean true ]) ]
             )
-            |> ModuleItem.Stmt ] }
+            |> ScriptItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -313,7 +317,7 @@ let RecursiveUnification () =
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
-    let ast =
+    let ast: Script =
       { Items =
           [ varDecl (
               "foo",
@@ -330,7 +334,7 @@ let InferGenericAndNonGeneric () =
                     )
                   ) ]
             )
-            |> ModuleItem.Stmt ] }
+            |> ScriptItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -347,10 +351,8 @@ let InferGenericAndNonGeneric () =
 [<Fact>]
 let InferFuncComposition () =
   result {
-    let ast =
-      {
-
-        Items =
+    let ast: Script =
+      { Items =
           [ varDecl (
               "foo",
               fatArrow
@@ -362,7 +364,7 @@ let InferFuncComposition () =
                     (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
 
             )
-            |> ModuleItem.Stmt ] }
+            |> ScriptItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -411,11 +413,11 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script =
+    let script: Script =
       { Items =
-          [ varDecl ("S", s) |> ModuleItem.Stmt
-            varDecl ("K", k) |> ModuleItem.Stmt
-            varDecl ("I", i) |> ModuleItem.Stmt ] }
+          [ varDecl ("S", s) |> ScriptItem.Stmt
+            varDecl ("K", k) |> ScriptItem.Stmt
+            varDecl ("I", i) |> ScriptItem.Stmt ] }
 
     let ctx =
       Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))

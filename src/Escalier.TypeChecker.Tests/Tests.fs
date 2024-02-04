@@ -686,6 +686,62 @@ let InferFactorial () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferRecursive () =
+  let result =
+    result {
+
+      let src =
+        """
+        let rec = fn () => rec()
+        """
+
+      let! _, env = inferScript src
+
+      // TODO: figure out how to get the param name back
+      Assert.Value(env, "rec", "fn <A>() -> A")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferRecursiveSequence () =
+  let result =
+    result {
+
+      let src =
+        """
+        let seq = fn () => seq() + 1
+        """
+
+      let! _, env = inferScript src
+
+      // TODO: figure out how to get the param name back
+      Assert.Value(env, "seq", "fn () -> number")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: handle recursive types")>]
+let InferRecursiveType () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Foo = number | Foo[]
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(env, "Foo", "number | Foo[]")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferFuncGeneralization () =
   let result =
     result {

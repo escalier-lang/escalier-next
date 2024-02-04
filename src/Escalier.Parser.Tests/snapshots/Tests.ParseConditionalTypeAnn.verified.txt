@@ -8,41 +8,43 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  ("Exclude",
-                   { Kind =
-                      Condition
-                        { Check = { Kind = TypeRef { Ident = "T"
-                                                     TypeArgs = None }
-                                    Span = { Start = (Ln: 2, Col: 29)
-                                             Stop = (Ln: 2, Col: 30) }
-                                    InferredType = None }
-                          Extends = { Kind = TypeRef { Ident = "U"
+                  { Name = "Exclude"
+                    TypeAnn =
+                     { Kind =
+                        Condition
+                          { Check = { Kind = TypeRef { Ident = "T"
                                                        TypeArgs = None }
-                                      Span = { Start = (Ln: 2, Col: 32)
-                                               Stop = (Ln: 2, Col: 34) }
+                                      Span = { Start = (Ln: 2, Col: 29)
+                                               Stop = (Ln: 2, Col: 30) }
                                       InferredType = None }
-                          TrueType = { Kind = Keyword Never
-                                       Span = { Start = (Ln: 2, Col: 36)
-                                                Stop = (Ln: 2, Col: 42) }
-                                       InferredType = None }
-                          FalseType = { Kind = TypeRef { Ident = "T"
+                            Extends = { Kind = TypeRef { Ident = "U"
                                                          TypeArgs = None }
-                                        Span = { Start = (Ln: 2, Col: 51)
-                                                 Stop = (Ln: 2, Col: 53) }
-                                        InferredType = None } }
-                     Span = { Start = (Ln: 2, Col: 26)
-                              Stop = (Ln: 3, Col: 5) }
-                     InferredType = None },
-                   Some
-                     [{ Span = { Start = (Ln: 2, Col: 18)
-                                 Stop = (Ln: 2, Col: 19) }
-                        Name = "T"
-                        Constraint = None
-                        Default = None }; { Span = { Start = (Ln: 2, Col: 21)
-                                                     Stop = (Ln: 2, Col: 22) }
-                                            Name = "U"
-                                            Constraint = None
-                                            Default = None }])
+                                        Span = { Start = (Ln: 2, Col: 32)
+                                                 Stop = (Ln: 2, Col: 34) }
+                                        InferredType = None }
+                            TrueType = { Kind = Keyword Never
+                                         Span = { Start = (Ln: 2, Col: 36)
+                                                  Stop = (Ln: 2, Col: 42) }
+                                         InferredType = None }
+                            FalseType = { Kind = TypeRef { Ident = "T"
+                                                           TypeArgs = None }
+                                          Span = { Start = (Ln: 2, Col: 51)
+                                                   Stop = (Ln: 2, Col: 53) }
+                                          InferredType = None } }
+                       Span = { Start = (Ln: 2, Col: 26)
+                                Stop = (Ln: 3, Col: 5) }
+                       InferredType = None }
+                    TypeParams =
+                     Some
+                       [{ Span = { Start = (Ln: 2, Col: 18)
+                                   Stop = (Ln: 2, Col: 19) }
+                          Name = "T"
+                          Constraint = None
+                          Default = None }; { Span = { Start = (Ln: 2, Col: 21)
+                                                       Stop = (Ln: 2, Col: 22) }
+                                              Name = "U"
+                                              Constraint = None
+                                              Default = None }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)

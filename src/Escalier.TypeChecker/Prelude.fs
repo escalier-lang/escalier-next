@@ -255,7 +255,9 @@ module Prelude =
             let env =
               match Infer.inferScript ctx env entry m with
               | Ok value -> value
-              | Error _ -> failwith $"failed to infer {resolvedImportPath}"
+              | Error err ->
+                printfn "err = %A" err
+                failwith $"failed to infer {resolvedImportPath}"
 
             let mutable newEnv = Env.Env.empty
 

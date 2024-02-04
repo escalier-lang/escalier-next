@@ -1791,16 +1791,72 @@ module rec Infer =
     else
       importPath
 
+  // let inferImport
+  //   (ctx: Ctx)
+  //   (env: Env)
+  //   (import: Import)
+  //   : Result<Env, TypeError> =
+  //   // TODO: read the file and infer the module
+  //   // TODO: have a way of store
+  //   failwith "TODO - inferImport"
+
   let inferImport
     (ctx: Ctx)
     (env: Env)
+    (filename: string)
     (import: Import)
     : Result<Env, TypeError> =
-    // TODO: read the file and infer the module
-    // TODO: have a way of store
-    failwith "TODO - inferImport"
 
-  let inferModuleItem
+    result {
+      let exports = ctx.GetExports filename import
+
+      let mutable imports = Env.empty
+
+      for specifier in import.Specifiers do
+        match specifier with
+        | Named(name, alias) ->
+          let source = name
+
+          let target =
+            match alias with
+            | Some(alias) -> alias
+            | None -> source
+
+          let valueLookup =
+            match Map.tryFind source exports.Values with
+            | Some(binding) ->
+              imports <- imports.AddValue target binding
+              Ok(())
+            | None -> Error("not found")
+
+          let schemeLookup =
+            match Map.tryFind source exports.Schemes with
+            | Some(scheme) ->
+              imports <- imports.AddScheme target scheme
+              Ok(())
+            | None -> Error("not found")
+
+          match valueLookup, schemeLookup with
+          // If we can't find the symbol in either the values or schemes
+          // we report an error
+          | Error _, Error _ ->
+            let resolvedPath = ctx.ResolvePath filename import
+
+            return!
+              Error(
+                TypeError.SemanticError
+                  $"{resolvedPath} doesn't export '{name}'"
+              )
+          | _, _ -> ()
+        | ModuleAlias _ -> failwith "TODO"
+
+      return
+        { env with
+            Values = FSharpPlus.Map.union env.Values imports.Values
+            Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+    }
+
+  let inferScriptItem
     (ctx: Ctx)
     (env: Env)
     (filename: string)
@@ -1810,53 +1866,7 @@ module rec Infer =
 
     result {
       match item with
-      | ScriptItem.Import import ->
-        let exports = ctx.GetExports filename import
-
-        let mutable imports = Env.empty
-
-        for specifier in import.Specifiers do
-          match specifier with
-          | Named(name, alias) ->
-            let source = name
-
-            let target =
-              match alias with
-              | Some(alias) -> alias
-              | None -> source
-
-            let valueLookup =
-              match Map.tryFind source exports.Values with
-              | Some(binding) ->
-                imports <- imports.AddValue target binding
-                Ok(())
-              | None -> Error("not found")
-
-            let schemeLookup =
-              match Map.tryFind source exports.Schemes with
-              | Some(scheme) ->
-                imports <- imports.AddScheme target scheme
-                Ok(())
-              | None -> Error("not found")
-
-            match valueLookup, schemeLookup with
-            // If we can't find the symbol in either the values or schemes
-            // we report an error
-            | Error _, Error _ ->
-              let resolvedPath = ctx.ResolvePath filename import
-
-              return!
-                Error(
-                  TypeError.SemanticError
-                    $"{resolvedPath} doesn't export '{name}'"
-                )
-            | _, _ -> ()
-          | ModuleAlias _ -> failwith "TODO"
-
-        return
-          { env with
-              Values = FSharpPlus.Map.union env.Values imports.Values
-              Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+      | ScriptItem.Import import -> return! inferImport ctx env filename import
       | ScriptItem.DeclareLet(name, typeAnn) ->
         let! typeAnnType = inferTypeAnn ctx env typeAnn
         let! assump, patType = inferPattern ctx env name
@@ -1886,7 +1896,7 @@ module rec Infer =
         List.traverseResultM
           (fun item ->
             result {
-              let! itemEnv = inferModuleItem ctx newEnv filename item true
+              let! itemEnv = inferScriptItem ctx newEnv filename item true
               newEnv <- itemEnv
             })
           m.Items
@@ -1906,7 +1916,9 @@ module rec Infer =
 
       for item in m.Items do
         match item with
-        | Import import -> failwith "todo"
+        | Import import ->
+          let! importEnv = inferImport ctx newEnv filename import
+          newEnv <- importEnv
         | DeclareLet(name, typeAnn) -> failwith "todo"
         | Decl { Kind = kind } ->
           match kind with
@@ -1940,7 +1952,7 @@ module rec Infer =
 
       for item in m.Items do
         match item with
-        | Import import -> failwith "todo"
+        | Import _ -> () // handled in the first pass
         | DeclareLet(name, typeAnn) -> failwith "todo"
         | Decl { Kind = kind } ->
           match kind with

@@ -1,6 +1,6 @@
 module Modules
 
-
+open System.Collections.Generic
 open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 open Xunit
@@ -8,7 +8,6 @@ open Xunit
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
-open Escalier.TypeChecker.Infer
 
 type Assert with
 
@@ -31,7 +30,21 @@ let inferModule src =
     let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! env =
-      inferModule ctx env "input.esc" ast
+      Infer.inferModule ctx env "input.esc" ast
+      |> Result.mapError CompileError.TypeError
+
+    return ctx, env
+  }
+
+let inferModules (mockFileSystem: MockFileSystem) (src: string) =
+  result {
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+    mockFileSystem.AddFile("/prelude.esc", MockFileData(""))
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/prelude.esc"
+
+    let! env =
+      Infer.inferModule ctx env "/input.esc" ast
       |> Result.mapError CompileError.TypeError
 
     return ctx, env
@@ -97,6 +110,24 @@ let InferMutualRecursion () =
 
       Assert.Value(env, "even", "fn (x: number) -> true | true")
       Assert.Value(env, "odd", "fn (x: number) -> true | true | true")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferImports () =
+  let res =
+    result {
+      let files = Dictionary<string, MockFileData>()
+      let src = "import \"./foo.esc\" {foo}"
+      files.Add("/input.esc", MockFileData(src))
+      files.Add("/foo.esc", MockFileData("let foo = 5"))
+      let mockFileSystem = MockFileSystem(files, "/")
+
+      let! _, env = inferModules mockFileSystem src
+
+      Assert.Value(env, "foo", "5")
     }
 
   printfn "res = %A" res

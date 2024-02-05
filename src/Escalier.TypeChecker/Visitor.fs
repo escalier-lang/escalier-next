@@ -224,12 +224,11 @@ module rec TypeVisitor =
         List.iter (fun (param: FuncParam) -> walk param.Type) f.ParamList
         walk f.Return
       | TypeKind.Tuple { Elems = elems } -> List.iter walk elems
-      | TypeKind.TypeRef({ Name = name
-                           TypeArgs = typeArgs
-                           Scheme = scheme }) ->
+      | TypeKind.TypeRef { TypeArgs = typeArgs } ->
+        // We explicitly don't walk the scheme here, it isn't necessary for any
+        // use cases we're aware of.  This avoids infinite loops in the case of
+        // recursive types.
         Option.iter (List.iter walk) typeArgs
-
-        Option.iter (fun (scheme: Scheme) -> walk scheme.Type) scheme
       | TypeKind.Literal _ -> ()
       | TypeKind.Wildcard -> ()
       | TypeKind.Object { Elems = elems } ->

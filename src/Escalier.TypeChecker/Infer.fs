@@ -1516,13 +1516,19 @@ module rec Infer =
 
         return env.AddBindings bindings
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
-        let! scheme = inferTypeDeclScheme ctx typeDecl
+        let! placeholder = inferTypeDeclScheme ctx typeDecl
         let mutable newEnv = env
 
         // Handles self-recursive types
-        newEnv <- newEnv.AddScheme typeDecl.Name scheme
+        newEnv <- newEnv.AddScheme typeDecl.Name placeholder
 
-        let! scheme = inferTypeDeclDefn ctx newEnv scheme typeDecl.TypeAnn
+        let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeDecl.TypeAnn
+
+        // Replace the placeholder's type with the actual type.
+        // NOTE: This is a bit hacky and we may want to change this later to use
+        // `foldType` to replace any uses of the placeholder with the actual type.
+        placeholder.Type <- scheme.Type
+
         return newEnv.AddScheme typeDecl.Name scheme
       | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
                                                      TypeParams = typeParams
@@ -1953,6 +1959,8 @@ module rec Infer =
               prebindings <- prebindings.Add(name, binding)
               newEnv <- newEnv.AddValue name binding
           | TypeDecl typeDecl ->
+            // TODO: replace placeholders, with a reference the actual definition
+            // once we've inferred the definition
             let! placeholder = inferTypeDeclScheme ctx typeDecl
             typeDecls <- typeDecls.Add(typeDecl.Name, placeholder)
 

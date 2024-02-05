@@ -23,6 +23,7 @@ module rec Unify =
     (t1: Type)
     (t2: Type)
     : Result<unit, TypeError> =
+
     // printfn $"unify({t1}, {t2})"
 
     match ips with

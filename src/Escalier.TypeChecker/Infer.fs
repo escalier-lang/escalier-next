@@ -1516,7 +1516,20 @@ module rec Infer =
 
         return env.AddBindings bindings
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
-        return! inferTypeDecl ctx env typeDecl
+        let! placeholder = inferTypeDeclScheme ctx typeDecl
+        let mutable newEnv = env
+
+        // Handles self-recursive types
+        newEnv <- newEnv.AddScheme typeDecl.Name placeholder
+
+        let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeDecl.TypeAnn
+
+        // Replace the placeholder's type with the actual type.
+        // NOTE: This is a bit hacky and we may want to change this later to use
+        // `foldType` to replace any uses of the placeholder with the actual type.
+        placeholder.Type <- scheme.Type
+
+        return newEnv.AddScheme typeDecl.Name scheme
       | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
                                                      TypeParams = typeParams
                                                      Elems = elems } }) ->
@@ -1704,7 +1717,6 @@ module rec Infer =
       let mutable newEnv = env
 
       for KeyValue(name, binding) in patBindings do
-        let (t, isMut) = binding
         newEnv <- newEnv.AddValue name binding
 
       let! initType = inferExpr ctx newEnv init
@@ -1744,11 +1756,10 @@ module rec Infer =
 
     newBindings
 
-  let inferTypeDecl
+  let inferTypeDeclScheme
     (ctx: Ctx)
-    (env: Env)
     (typeDecl: TypeDecl)
-    : Result<Env, TypeError> =
+    : Result<Scheme, TypeError> =
 
     let { Name = name
           TypeAnn = typeAnn
@@ -1758,33 +1769,48 @@ module rec Infer =
     result {
       // Create a new environment to avoid polluting the current environment
       // with the type parameters.
-      let mutable newEnv = env
+      // let mutable newEnv = env
 
+      // TODO: add support for constraints on type params to aliases
       let typeParams =
         typeParams
-        |> Option.map (fun typeParams ->
-          typeParams
-          |> List.map (fun typeParam ->
-            let unknown =
-              { Kind = TypeKind.Keyword Keyword.Unknown
-                Provenance = None }
-
-            let scheme =
-              { TypeParams = None
-                Type = unknown
-                IsTypeParam = false }
-
-            newEnv <- newEnv.AddScheme typeParam.Name scheme
-            typeParam.Name))
-
-      let! t = inferTypeAnn ctx newEnv typeAnn
+        |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
 
       let scheme =
         { TypeParams = typeParams
-          Type = t
+          Type = ctx.FreshTypeVar None
           IsTypeParam = false }
 
-      return env.AddScheme name scheme
+      return scheme
+    }
+
+  let inferTypeDeclDefn
+    (ctx: Ctx)
+    (env: Env)
+    (scheme: Scheme)
+    (typeAnn: TypeAnn)
+    : Result<Scheme, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      match scheme.TypeParams with
+      | None -> ()
+      | Some typeParams ->
+        for typeParam in typeParams do
+          let unknown =
+            { Kind = TypeKind.Keyword Keyword.Unknown
+              Provenance = None }
+
+          newEnv <-
+            newEnv.AddScheme
+              typeParam
+              { TypeParams = None
+                Type = unknown
+                IsTypeParam = true }
+
+      let! t = inferTypeAnn ctx newEnv typeAnn
+      return { scheme with Type = t }
     }
 
   let resolvePath
@@ -1914,6 +1940,7 @@ module rec Infer =
     result {
       let mutable newEnv = env
       let mutable prebindings: Map<string, Binding> = Map.empty
+      let mutable typeDecls: Map<string, Scheme> = Map.empty
 
       for item in m.Items do
         match item with
@@ -1926,25 +1953,21 @@ module rec Infer =
           | VarDecl { Pattern = pattern
                       Init = init
                       TypeAnn = typeAnn } ->
-            let! (bindings, _) = inferPattern ctx env pattern
+            let! bindings, _ = inferPattern ctx env pattern
 
             for KeyValue(name, binding) in bindings do
               prebindings <- prebindings.Add(name, binding)
               newEnv <- newEnv.AddValue name binding
-          | TypeDecl { Name = name
-                       TypeAnn = typeAnn
-                       TypeParams = typeParams } ->
-            let placeholder: Scheme =
-              { Type =
-                  { Kind = TypeKind.Keyword(Keyword.Unknown)
-                    Provenance = None }
-                TypeParams = None
-                IsTypeParam = false }
+          | TypeDecl typeDecl ->
+            // TODO: replace placeholders, with a reference the actual definition
+            // once we've inferred the definition
+            let! placeholder = inferTypeDeclScheme ctx typeDecl
+            typeDecls <- typeDecls.Add(typeDecl.Name, placeholder)
 
             // TODO: update AddScheme to return a Result<Env, TypeError> and
             // return an error if the name already exists since we can't redefine
             // types.
-            newEnv <- newEnv.AddScheme name placeholder
+            newEnv <- newEnv.AddScheme typeDecl.Name placeholder
           | StructDecl structDecl -> failwith "todo"
 
       // TODO: add pre-bindings to the environment before inferring the initializers
@@ -1963,9 +1986,17 @@ module rec Infer =
             // from this declaration.  We generalize things below.
             let! newBindings = inferVarDecl ctx newEnv varDecl
             bindings <- FSharpPlus.Map.union bindings newBindings
-          | TypeDecl typeDecl ->
-            let! newNewEnv = inferTypeDecl ctx env typeDecl
-            newEnv <- newNewEnv
+          | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+            let scheme =
+              match typeDecls.TryFind name with
+              | None -> failwith "todo"
+              | Some value -> value
+
+            // Handles self-recursive types
+            newEnv <- newEnv.AddScheme name scheme
+
+            let! scheme = inferTypeDeclDefn ctx newEnv scheme typeAnn
+            newEnv <- newEnv.AddScheme name scheme
           | StructDecl structDecl -> failwith "todo"
 
       // Unify each binding with its prebinding

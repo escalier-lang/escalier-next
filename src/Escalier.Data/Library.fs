@@ -797,7 +797,7 @@ module Type =
   type Scheme =
     // TODO: allow type params to have constraints and defaults
     { TypeParams: option<list<string>>
-      Type: Type
+      mutable Type: Type // Only used when inferring type declarations
       IsTypeParam: bool }
 
     override this.ToString() =

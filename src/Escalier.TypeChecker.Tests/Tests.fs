@@ -725,7 +725,7 @@ let InferRecursiveSequence () =
   printf "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: handle recursive types")>]
+[<Fact>]
 let InferRecursiveType () =
   let result =
     result {
@@ -733,14 +733,20 @@ let InferRecursiveType () =
       let src =
         """
         type Foo = number | Foo[]
+        let x: Foo = 5
+        let y: Foo = [5, 10]
+        let z: Foo = [5, [10, 15]]
         """
 
       let! _, env = inferScript src
 
       Assert.Type(env, "Foo", "number | Foo[]")
+      Assert.Value(env, "x", "Foo")
+      Assert.Value(env, "y", "Foo")
+      Assert.Value(env, "z", "Foo")
     }
 
-  printf "result = %A" result
+  // printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

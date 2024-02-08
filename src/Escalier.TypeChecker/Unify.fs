@@ -738,17 +738,35 @@ module rec Unify =
             return! Error(TypeError.RecursiveUnification(t1, t2))
         else
           match t1.Kind with
-          | TypeKind.TypeVar(v) ->
-            match v.Bound with
-            | Some(bound) ->
+          | TypeKind.TypeVar(v1) ->
+            match v1.Bound with
+            | Some bound1 ->
+              // printfn $"unify({t2}, {bound1})"
+              // If t2 is a TypeVar then we want to check if the bounds
+              // unify
+              
               // Type params are contravariant for similar reasons to
               // why function params are contravariant
-              do! unify ctx env ips t2 bound
+              // do! unify ctx env ips t2 bound1
 
               match t2.Kind with
-              | TypeKind.Keyword Keyword.Never -> v.Instance <- Some(bound)
-              | _ -> v.Instance <- Some(t2)
-            | None -> v.Instance <- Some(t2)
+              | TypeKind.TypeVar v2 ->
+                match v2.Bound with
+                | Some bound2 ->
+                  // TODO: we need to know the directionality of the bind
+                  // call so that we can unify the bounds in the correct direction
+                  do! unify ctx env ips bound2 bound1
+                | None -> ()
+                v2.Bound <- Some(bound1)
+                v1.Instance <- Some(t2)
+              | TypeKind.Keyword Keyword.Never ->
+                // TODO: figure out when the bound is never so I can write
+                // some docs here
+                v1.Instance <- Some(bound1)
+              | _ ->
+                do! unify ctx env ips t2 bound1
+                v1.Instance <- Some(t2)
+            | None -> v1.Instance <- Some(t2)
 
             return ()
           | _ -> return! Error(TypeError.NotImplemented "bind error")

@@ -448,28 +448,16 @@ module rec Infer =
         t)
       r
 
-  // TODO: update `inferFunction` to add `self` to `env` before inferring the body
-  let inferFunction
+  let inferFuncSig
     (ctx: Ctx)
     (env: Env)
+    (self: option<FuncParam>)
     (fnSig: FuncSig<option<TypeAnn>>)
-    (body: BlockOrExpr)
-    : Result<Function, TypeError> =
+    : Result<Function * Env, TypeError> =
 
     result {
       let mutable newEnv = env
 
-      match fnSig.Self with
-      | Some { Pattern = pattern } ->
-        match pattern.Kind with
-        | PatternKind.Ident identPat ->
-          let! scheme = env.GetScheme "Self"
-          newEnv <- newEnv.AddValue "self" (scheme.Type, identPat.IsMut)
-        | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
-      | None -> ()
-
-      // TODO: move this up so that we can reference any type params in the
-      // function params, body, return or throws
       let! typeParams =
         match fnSig.TypeParams with
         | Some(typeParams) ->
@@ -522,17 +510,61 @@ module rec Infer =
             })
           fnSig.ParamList
 
+      let! sigThrows =
+        match fnSig.Throws with
+        | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
+        | None -> Result.Ok(ctx.FreshTypeVar None)
+
+      let! sigRetType =
+        match fnSig.ReturnType with
+        | Some(sigRetType) -> inferTypeAnn ctx newEnv sigRetType
+        | None -> Result.Ok(ctx.FreshTypeVar None)
+
+      let func: Function =
+        { TypeParams = typeParams
+          Self = self
+          ParamList = paramList
+          Return = sigRetType
+          Throws = sigThrows }
+
+      return func, newEnv
+    }
+
+  let inferFunction
+    (ctx: Ctx)
+    (env: Env)
+    (fnSig: FuncSig<option<TypeAnn>>)
+    (body: BlockOrExpr)
+    : Result<Function, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      match fnSig.Self with
+      | Some { Pattern = pattern } ->
+        match pattern.Kind with
+        | PatternKind.Ident identPat ->
+          let! scheme = env.GetScheme "Self"
+          newEnv <- newEnv.AddValue "self" (scheme.Type, identPat.IsMut)
+        | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+      | None -> ()
+
+      let! (fn, newEnv) = inferFuncSig ctx newEnv None fnSig
+
+      let { TypeParams = typeParams
+            ParamList = paramList
+            Return= sigRetType
+            Throws= sigThrows } =
+        fn
+
+      let mutable newEnv = newEnv
+
       let! _ = inferBlockOrExpr ctx newEnv body
 
       let retExprs = findReturns body
       let throwTypes = findThrows body
 
       let bodyThrows = throwTypes |> union
-
-      let! sigThrows =
-        match fnSig.Throws with
-        | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
-        | None -> Result.Ok(ctx.FreshTypeVar None)
 
       do! unify ctx newEnv None bodyThrows sigThrows
       let mutable throwsType = sigThrows
@@ -576,15 +608,8 @@ module rec Infer =
         else
           retType
 
-      let! retType =
-        result {
-          match fnSig.ReturnType with
-          | Some(sigRetType) ->
-            let! sigRetType = inferTypeAnn ctx newEnv sigRetType
-            do! unify ctx newEnv None retType sigRetType
-            return sigRetType
-          | None -> return retType
-        }
+      do! unify ctx newEnv None retType sigRetType
+      let retType = sigRetType
 
       let Self: Type =
         { Kind =

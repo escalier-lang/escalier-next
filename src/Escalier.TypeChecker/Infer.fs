@@ -457,6 +457,15 @@ module rec Infer =
 
     result {
       let mutable newEnv = env
+      
+      match fnSig.Self with
+      | Some { Pattern = pattern } ->
+        match pattern.Kind with
+        | PatternKind.Ident identPat ->
+          let! scheme = env.GetScheme "Self"
+          newEnv <- newEnv.AddValue "self" (scheme.Type, identPat.IsMut)
+        | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+      | None -> ()
 
       let! typeParams =
         match fnSig.TypeParams with
@@ -520,45 +529,25 @@ module rec Infer =
         | Some(sigRetType) -> inferTypeAnn ctx newEnv sigRetType
         | None -> Result.Ok(ctx.FreshTypeVar None)
 
-      let func: Function =
-        { TypeParams = typeParams
-          Self = self
-          ParamList = paramList
-          Return = sigRetType
-          Throws = sigThrows }
+      let func = makeFunction typeParams self paramList sigRetType sigThrows
 
       return func, newEnv
     }
-
-  let inferFunction
+    
+  let inferFuncBody
     (ctx: Ctx)
-    (env: Env)
+    (newEnv: Env)
     (fnSig: FuncSig<option<TypeAnn>>)
+    (placeholderFn: Function)
     (body: BlockOrExpr)
     : Result<Function, TypeError> =
-
+      
     result {
-      let mutable newEnv = env
-
-      match fnSig.Self with
-      | Some { Pattern = pattern } ->
-        match pattern.Kind with
-        | PatternKind.Ident identPat ->
-          let! scheme = env.GetScheme "Self"
-          newEnv <- newEnv.AddValue "self" (scheme.Type, identPat.IsMut)
-        | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
-      | None -> ()
-
-      let! (fn, newEnv) = inferFuncSig ctx newEnv None fnSig
-
       let { TypeParams = typeParams
             ParamList = paramList
             Return= sigRetType
-            Throws= sigThrows } =
-        fn
-
-      let mutable newEnv = newEnv
-
+            Throws= sigThrows } = placeholderFn
+    
       let! _ = inferBlockOrExpr ctx newEnv body
 
       let retExprs = findReturns body
@@ -611,17 +600,17 @@ module rec Infer =
       do! unify ctx newEnv None retType sigRetType
       let retType = sigRetType
 
-      let Self: Type =
-        { Kind =
-            TypeKind.TypeRef
-              { Name = "Self"
-                TypeArgs = None
-                Scheme = None }
-          Provenance = None }
-
       let self: option<FuncParam> =
         match fnSig.Self with
         | Some self ->
+          let Self: Type =
+            { Kind =
+                TypeKind.TypeRef
+                  { Name = "Self"
+                    TypeArgs = None
+                    Scheme = None }
+              Provenance = None }
+          
           Some
             { Pattern = patternToPattern self.Pattern
               Type = Self
@@ -629,6 +618,19 @@ module rec Infer =
         | None -> None
 
       return makeFunction typeParams self paramList retType throwsType
+    
+    }  
+
+  let inferFunction
+    (ctx: Ctx)
+    (env: Env)
+    (fnSig: FuncSig<option<TypeAnn>>)
+    (body: BlockOrExpr)
+    : Result<Function, TypeError> =
+
+    result {
+      let! placeholderFn, newEnv = inferFuncSig ctx env None fnSig      
+      return! inferFuncBody ctx newEnv fnSig placeholderFn body
     }
 
   let getPropType
@@ -1632,7 +1634,7 @@ module rec Infer =
                         Self = self
                         Elems = elems } ->
         let { Ident = name } = self
-
+        
         // TODO: instantiate the scheme (apply the type args)
         let scheme =
           match env.Schemes.TryFind name with
@@ -1640,6 +1642,14 @@ module rec Infer =
           | None -> failwith $"Struct {name} not in scope"
 
         let newEnv = env.AddScheme "Self" scheme
+        
+        for elem in elems do
+          match elem with
+          | ImplElem.Method method ->
+            let! (method, newEnv) = inferFuncSig ctx newEnv None method.Sig
+            printfn $"method = {method}"
+          | ImplElem.Getter getter -> printfn "TODO: getter"
+          | ImplElem.Setter setter -> printfn "TODO: setter"
 
         match scheme.Type.Kind with
         | TypeKind.Struct strct ->

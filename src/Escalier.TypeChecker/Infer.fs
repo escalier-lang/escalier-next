@@ -1642,14 +1642,43 @@ module rec Infer =
           | None -> failwith $"Struct {name} not in scope"
 
         let newEnv = env.AddScheme "Self" scheme
+                
+        let mutable tuples: list<string * Function * Env * FuncSig<TypeAnn option> * BlockOrExpr> = []
         
         for elem in elems do
           match elem with
-          | ImplElem.Method method ->
-            let! (method, newEnv) = inferFuncSig ctx newEnv None method.Sig
-            printfn $"method = {method}"
-          | ImplElem.Getter getter -> printfn "TODO: getter"
-          | ImplElem.Setter setter -> printfn "TODO: setter"
+          | ImplElem.Method {Name=name;Sig=fnSig;Body=body} ->
+            let! (placeholderFn, newEnv) = inferFuncSig ctx newEnv None fnSig
+            // printfn $"method - placeholderFn = {placeholderFn}"
+            tuples <- (name, placeholderFn, newEnv, fnSig, body) :: tuples
+          | ImplElem.Getter {Name=name;Self=self;ReturnType=retType;Body=body} ->
+            let fnSig: FuncSig<option<TypeAnn>> =
+              { TypeParams = None
+                Self = Some self
+                ParamList = []
+                ReturnType = retType
+                Throws = None
+                IsAsync = false }
+            let! (placeholderFn, newEnv) = inferFuncSig ctx newEnv None fnSig
+            // printfn $"getter - placeholderFn = {placeholderFn}"
+            tuples <- (name, placeholderFn, newEnv, fnSig, body) :: tuples
+          | ImplElem.Setter {Name=name;Self=self;Param=param;Body=body} ->
+            let fnSig: FuncSig<option<TypeAnn>> =
+              { TypeParams = None
+                Self = Some self
+                ParamList = [ param ]
+                ReturnType = None // TODO: make this `undefined`
+                Throws = None
+                IsAsync = false }
+            let! (placeholderFn, newEnv) = inferFuncSig ctx newEnv None fnSig
+            // printfn $"setter - placeholderFn = {placeholderFn}"
+            tuples <- (name, placeholderFn, newEnv, fnSig, body) :: tuples
+                        
+        // let mutable elems: list<ObjTypeElem> = []
+        
+        for (name, placeholderFn, newEnv, fnSig, body) in tuples do
+          let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+          printfn $"fn - {name} = {fn}"
 
         match scheme.Type.Kind with
         | TypeKind.Struct strct ->

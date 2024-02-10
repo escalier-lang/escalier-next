@@ -287,7 +287,19 @@ module rec Infer =
 
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
-          return getPropType ctx env objType propKey optChain
+          let t = getPropType ctx env objType propKey optChain
+          
+          match t.Kind with
+          | TypeKind.Function {Self=Some(self)} ->
+            match self.Pattern with
+            | Identifier identPat ->
+              let! isObjMut = getIsMut ctx env obj
+              if identPat.IsMut && not isObjMut then
+                return! Error(TypeError.SemanticError "Can't call a mutable method on a mutable object")
+            | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+          | _ -> ()
+          
+          return t
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env await.Value
 
@@ -2436,6 +2448,24 @@ module rec Infer =
         let! target, isMut = getLvalue ctx env target
         let t = getPropType ctx env target (PropName.String name) false
         return t, isMut
+      | _ ->
+        return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
+    }
+
+  let rec getIsMut
+    (ctx: Ctx)
+    (env: Env)
+    (expr: Expr)
+    : Result<bool, TypeError> =
+    result {
+      match expr.Kind with
+      | ExprKind.Identifier name ->
+        let! _, isMut = env.GetBinding name
+        return isMut
+      | ExprKind.Index(target, index, optChain) ->
+        return! getIsMut ctx env target
+      | ExprKind.Member(target, name, optChain) ->
+        return! getIsMut ctx env target
       | _ ->
         return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
     }

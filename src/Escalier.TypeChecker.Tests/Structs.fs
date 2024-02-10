@@ -362,3 +362,86 @@ let CallingMethodInSameImpl () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let MutMethodsCanCallOtherMutMethods () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {x: number}
+
+        impl Foo {
+          fn bar(mut self, x) {
+            return self.x = x
+          }
+          
+          fn baz(mut self, x) {
+            return self.bar(x)
+          }
+        }
+
+        let mut foo = Foo {x: 5}
+        foo.bar(10)
+        foo.baz(15)
+        """
+
+      let! _, env = inferScript src
+      ()
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let CannotCallMutatingMethodOnNonMutableBinding () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {x: number}
+
+        impl Foo {
+          fn bar(mut self, x) {
+            return self.x = x
+          }
+        }
+
+        let foo = Foo {x: 5}
+        foo.bar(10)
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError res)
+
+
+[<Fact>]
+let NonMutatingMethodsCannotCallOtherMutMethods () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {x: number}
+
+        impl Foo {
+          fn bar(mut self, x) {
+            return self.x = x
+          }
+          
+          fn baz(self, x) {
+            return self.bar(x)
+          }
+        }
+
+        let mut foo = Foo {x: 5}
+        foo.bar(10)
+        foo.baz(15)
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError res)

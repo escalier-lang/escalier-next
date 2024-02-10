@@ -541,10 +541,10 @@ let InferSKK () =
       Assert.Value(
         env,
         "S",
-        "fn <A, B, C>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C"
+        "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C"
       )
 
-      Assert.Value(env, "K", "fn <A, B>(x: A) -> fn (y: B) -> A")
+      Assert.Value(env, "K", "fn <B, A>(x: A) -> fn (y: B) -> A")
       Assert.Value(env, "I", "fn <A>(x: A) -> A")
     }
 
@@ -681,7 +681,7 @@ let InferFactorial () =
       let! _, env = inferScript src
 
       // TODO: figure out how to get the param name back
-      Assert.Value(env, "factorial", "fn (arg0: number) -> number")
+      Assert.Value(env, "factorial", "fn (arg0: number) -> 1 | number")
     }
 
   printf "result = %A" result
@@ -757,7 +757,7 @@ let InferFuncGeneralization () =
 
       let! _, env = inferScript src
 
-      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
+      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
     }
 
   printf "result = %A" result

@@ -539,9 +539,9 @@ module rec Codegen =
             TypeAnn = buildTypeAnn ctx prop.Type
             Loc = None }
       | _ -> failwith "TODO: buildObjTypeElem - Property"
-    | Method(name, isMut, fn) -> failwith "todo"
-    | Getter(name, returnType, throws) -> failwith "todo"
-    | Setter(name, param, throws) -> failwith "todo"
+    | Method(name, fn) -> failwith "todo"
+    | Getter(name, fn) -> failwith "todo"
+    | Setter(name, fn) -> failwith "todo"
     | Mapped mapped -> failwith "todo"
 
   type Binding = Type * bool

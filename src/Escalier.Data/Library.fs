@@ -682,11 +682,9 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: PropName * is_mut: bool * fn: Function
-    // TODO: add `Self` FuncParam
-    | Getter of name: PropName * return_type: Type * throws: Type
-    // TODO: add `Self` FuncParam
-    | Setter of name: PropName * param: FuncParam * throws: Type
+    | Method of name: PropName * fn: Function
+    | Getter of name: PropName * fn: Function
+    | Setter of name: PropName * fn: Function
     | Mapped of Mapped
     | Property of Property
 
@@ -694,43 +692,9 @@ module Type =
       match this with
       | Callable(func) -> func.ToString()
       | Constructor(func) -> sprintf "new %s" (func.ToString())
-      | Method(name,
-               is_mut,
-               { ParamList = paramList
-                 Return = return_type }) ->
-        let sb = StringBuilder()
-
-        let self = if is_mut then "mut self" else "self"
-        let paramList' = self :: List.map (fun p -> p.ToString()) paramList
-
-        sb
-          .Append("fn ")
-          .Append(name)
-          .Append("(")
-          // Do we need to include `self` in types?
-          .Append(if is_mut then "mut self" else "self")
-          .Append(String.concat ", " paramList')
-          .Append(") -> ")
-          .Append(return_type)
-        |> ignore
-
-        sb.ToString()
-      | Getter(name, return_type, throws) ->
-        let throws =
-          if throws.Kind = TypeKind.Keyword Keyword.Never then
-            ""
-          else
-            $" throws {throws}"
-
-        $"get {name}() -> {return_type}{throws}"
-      | Setter(name, param, throws) ->
-        let throws =
-          if throws.Kind = TypeKind.Keyword Keyword.Never then
-            ""
-          else
-            $" throws {throws}"
-
-        $"set {name}({param}){throws}"
+      | Method(name, fn) -> $"{name} {fn}"
+      | Getter(name, fn) -> $"get {name} {fn}"
+      | Setter(name, fn) -> $"set {name} {fn}"
       | Mapped(mapped) -> mapped.ToString()
       | Property { Name = name
                    Optional = optional
@@ -964,7 +928,7 @@ module Type =
             let readonly = if readonly then "readonly " else ""
             $"{readonly}{name}{optional}: {printType ctx t}"
           | Mapped mapped -> printMapped ctx mapped
-          | Method(propName, isMut, fn) -> $"{propName} {fn}"
+          | Method(propName, fn) -> $"{propName} {fn}"
           | _ -> failwith "TODO: Type.ToString - Object - Elem"
 
         )

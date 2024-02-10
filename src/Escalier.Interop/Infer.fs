@@ -134,8 +134,23 @@ module rec Infer =
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
+        
+      let Self: Type =
+        { Kind =
+            TypeKind.TypeRef
+              { Name = "Self"
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
 
-      ObjTypeElem.Getter(key, returnType, throws)
+      let self: FuncParam =
+        { Pattern = Pattern.Identifier { Name = "self"; IsMut = false }
+          Type = Self
+          Optional = false }
+        
+      let fn = makeFunction None (Some self) [] returnType throws
+
+      ObjTypeElem.Getter(key, fn)
     | TsSetterSignature tsSetterSignature ->
       // TODO: handle computed keys
       let key =
@@ -150,8 +165,25 @@ module rec Infer =
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
+        
+      let undefined = { Type.Kind = TypeKind.Literal(Literal.Undefined); Provenance = None }
+      
+      let Self: Type =
+        { Kind =
+            TypeKind.TypeRef
+              { Name = "Self"
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
 
-      ObjTypeElem.Setter(key, param, throws)
+      let self: FuncParam =
+        { Pattern = Pattern.Identifier { Name = "self"; IsMut = false }
+          Type = Self
+          Optional = false }
+        
+      let fn = makeFunction None (Some self) [] undefined throws
+
+      ObjTypeElem.Setter(key, fn)
     | TsMethodSignature tsMethodSignature ->
       let key =
         match tsMethodSignature.Key with
@@ -187,14 +219,9 @@ module rec Infer =
           Type = Self
           Optional = false }
 
-      let f: Type.Function =
-        { TypeParams = typeParams
-          Self = Some(self)
-          ParamList = paramList
-          Return = returnType
-          Throws = throws }
+      let fn = makeFunction None (Some self) paramList returnType throws
 
-      ObjTypeElem.Method(key, false, f)
+      ObjTypeElem.Method(key, fn)
     | TsIndexSignature tsIndexSignature ->
       let readonly =
         match tsIndexSignature.Readonly with

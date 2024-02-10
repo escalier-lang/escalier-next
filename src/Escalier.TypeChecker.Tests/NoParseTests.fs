@@ -378,7 +378,7 @@ let InferFuncComposition () =
     let! t = newEnv.GetType "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
-      "fn <A, B, C>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
+      "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
       t.ToString()
     )
   }

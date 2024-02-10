@@ -331,3 +331,34 @@ let GetterSetterImpl () =
 
   printfn "res = %A" res
   Assert.False(Result.isError res)
+
+[<Fact>]
+let CallingMethodInSameImpl () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {x: number}
+
+        impl Foo {
+          fn bar(self) {
+            return self.x
+          }
+          
+          fn baz(self) {
+            return self.bar()
+          }
+        }
+
+        let foo = Foo {x: 5}
+        let bar = foo.bar()
+        let baz = foo.baz()
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "bar", "number")
+      Assert.Value(env, "baz", "number")
+    }
+
+  Assert.False(Result.isError res)

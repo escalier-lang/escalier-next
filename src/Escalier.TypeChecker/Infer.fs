@@ -764,9 +764,9 @@ module rec Infer =
         (fun (elem: ObjTypeElem) ->
           match elem with
           | Property { Name = name } -> name = key
-          | Method(name, _, _) -> name = key
-          | Getter(name, _, _) -> name = key
-          | Setter(name, _, _) -> name = key
+          | Method(name, _) -> name = key
+          | Getter(name, _) -> name = key
+          | Setter(name, _) -> name = key
           | Mapped _ ->
             failwith
               "TODO: inferMemberAccess - mapped (check if key is subtype of Mapped.TypeParam)"
@@ -785,21 +785,21 @@ module rec Infer =
 
           Some(union [ p.Type; undefined ])
         | false -> Some p.Type
-      | Method(_, _, fn) ->
+      | Method(_, fn) ->
         // TODO: check if the receiver is mutable or not
         let t =
           { Kind = TypeKind.Function fn
             Provenance = None }
 
         Some t
-      | Getter(name, returnType, throws) ->
+      | Getter(name, fn) ->
         // TODO: check if it's an lvalue
         // TODO: handle throws
-        Some returnType
-      | Setter(name, param, throws) ->
+        Some fn.Return
+      | Setter(name, fn) ->
         // TODO: check if it's an rvalue
         // TODO: handle throws
-        Some param.Type
+        Some fn.ParamList[0].Type
       | Mapped mapped -> failwith "TODO: inferMemberAccess - mapped"
       | Callable _ -> failwith "Callable signatures don't have a name"
       | Constructor _ -> failwith "Constructor signatures don't have a name"
@@ -1643,14 +1643,13 @@ module rec Infer =
 
         let newEnv = env.AddScheme "Self" scheme
                 
-        let mutable tuples: list<string * Function * Env * FuncSig<TypeAnn option> * BlockOrExpr> = []
+        let mutable tuples: list<ObjTypeElem * Env * FuncSig<TypeAnn option> * BlockOrExpr> = []
         
         for elem in elems do
           match elem with
           | ImplElem.Method {Name=name;Sig=fnSig;Body=body} ->
-            let! (placeholderFn, newEnv) = inferFuncSig ctx newEnv None fnSig
-            // printfn $"method - placeholderFn = {placeholderFn}"
-            tuples <- (name, placeholderFn, newEnv, fnSig, body) :: tuples
+            let! placeholderFn, newEnv = inferFuncSig ctx newEnv None fnSig
+            tuples <- (ObjTypeElem.Method(PropName.String name, placeholderFn), newEnv, fnSig, body) :: tuples
           | ImplElem.Getter {Name=name;Self=self;ReturnType=retType;Body=body} ->
             let fnSig: FuncSig<option<TypeAnn>> =
               { TypeParams = None
@@ -1659,9 +1658,8 @@ module rec Infer =
                 ReturnType = retType
                 Throws = None
                 IsAsync = false }
-            let! (placeholderFn, newEnv) = inferFuncSig ctx newEnv None fnSig
-            // printfn $"getter - placeholderFn = {placeholderFn}"
-            tuples <- (name, placeholderFn, newEnv, fnSig, body) :: tuples
+            let! placeholderFn, newEnv = inferFuncSig ctx newEnv None fnSig
+            tuples <- (ObjTypeElem.Getter(PropName.String name, placeholderFn), newEnv, fnSig, body) :: tuples
           | ImplElem.Setter {Name=name;Self=self;Param=param;Body=body} ->
             let fnSig: FuncSig<option<TypeAnn>> =
               { TypeParams = None
@@ -1670,73 +1668,28 @@ module rec Infer =
                 ReturnType = None // TODO: make this `undefined`
                 Throws = None
                 IsAsync = false }
-            let! (placeholderFn, newEnv) = inferFuncSig ctx newEnv None fnSig
-            // printfn $"setter - placeholderFn = {placeholderFn}"
-            tuples <- (name, placeholderFn, newEnv, fnSig, body) :: tuples
+            let! placeholderFn, newEnv = inferFuncSig ctx newEnv None fnSig
+            tuples <- (ObjTypeElem.Setter(PropName.String name, placeholderFn), newEnv, fnSig, body) :: tuples
                         
-        // let mutable elems: list<ObjTypeElem> = []
+        let mutable elems: list<ObjTypeElem> = []
         
-        for (name, placeholderFn, newEnv, fnSig, body) in tuples do
-          let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
-          printfn $"fn - {name} = {fn}"
+        for elem, newEnv, fnSig, body in tuples do
+          match elem with
+          | Method(name, placeholderFn) ->
+            let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+            printfn $"method - {name} = {fn}"
+            elems <- ObjTypeElem.Method(name, fn) :: elems
+          | Getter(name, placeholderFn) ->
+            let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+            printfn $"getter - {name} = {fn}"
+            elems <- ObjTypeElem.Getter(name, fn) :: elems
+          | Setter(name, placeholderFn) ->
+            let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+            printfn $"setter - {name} = {fn}"
+            elems <- ObjTypeElem.Setter(name, fn) :: elems
 
         match scheme.Type.Kind with
         | TypeKind.Struct strct ->
-          let! elems =
-            List.traverseResultM
-              (fun (elem: ImplElem) ->
-                result {
-                  match elem with
-                  | ImplElem.Method { Name = name
-                                      Sig = fnSig
-                                      Body = body } ->
-                    let! fn = inferFunction ctx newEnv fnSig body
-                    return ObjTypeElem.Method(Type.String name, false, fn)
-                  | ImplElem.Getter { Name = name
-                                      Self = self
-                                      ReturnType = retType
-                                      Body = body } ->
-                    let fnSig: FuncSig<option<TypeAnn>> =
-                      { TypeParams = None
-                        Self = Some self
-                        ParamList = []
-                        ReturnType = retType
-                        Throws = None
-                        IsAsync = false }
-
-                    let! fn = inferFunction ctx newEnv fnSig body
-                    let { Return = retType } = fn
-
-                    // TODO: handle throws
-                    let never =
-                      { Kind = TypeKind.Keyword Keyword.Never
-                        Provenance = None }
-
-                    return ObjTypeElem.Getter(Type.String name, retType, never)
-                  | ImplElem.Setter { Name = name
-                                      Self = self
-                                      Param = param
-                                      Body = body } ->
-                    let fnSig: FuncSig<option<TypeAnn>> =
-                      { TypeParams = None
-                        Self = Some self
-                        ParamList = [ param ]
-                        ReturnType = None // TODO: make this `undefined`
-                        Throws = None
-                        IsAsync = false }
-
-                    let! fn = inferFunction ctx newEnv fnSig body
-                    let param = fn.ParamList[0]
-
-                    // TODO: handle throws
-                    let never =
-                      { Kind = TypeKind.Keyword Keyword.Never
-                        Provenance = None }
-
-                    return ObjTypeElem.Setter(Type.String name, param, never)
-                })
-              elems
-
           let impl: Impl = { Elems = elems; Immutable = false }
 
           let strct =

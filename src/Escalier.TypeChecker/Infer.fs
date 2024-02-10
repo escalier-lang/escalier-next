@@ -1684,13 +1684,13 @@ module rec Infer =
       | StmtKind.Impl { TypeParams = typeParams
                         Self = self
                         Elems = elems } ->
-        let { Ident = name } = self
+        let { Ident = structName } = self
 
         // TODO: instantiate the scheme (apply the type args)
         let scheme =
-          match env.Schemes.TryFind name with
+          match env.Schemes.TryFind structName with
           | Some scheme -> scheme
-          | None -> failwith $"Struct {name} not in scope"
+          | None -> failwith $"Struct {structName} not in scope"
 
         let newEnv = env.AddScheme "Self" scheme
 
@@ -1737,7 +1737,7 @@ module rec Infer =
               { TypeParams = None
                 Self = Some self
                 ParamList = [ param ]
-                ReturnType = None // TODO: make this `undefined`
+                ReturnType = None
                 Throws = None
                 IsAsync = false }
 
@@ -1749,40 +1749,45 @@ module rec Infer =
                body)
               :: tuples
 
-        let mutable elems: list<ObjTypeElem> = []
-
-        for elem, fnSig, body in tuples do
-          match elem with
-          | Method(name, placeholderFn) ->
-            let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
-            printfn $"method - {name} = {fn}"
-            elems <- ObjTypeElem.Method(name, fn) :: elems
-          | Getter(name, placeholderFn) ->
-            let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
-            printfn $"getter - {name} = {fn}"
-            elems <- ObjTypeElem.Getter(name, fn) :: elems
-          | Setter(name, placeholderFn) ->
-            let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
-            printfn $"setter - {name} = {fn}"
-            elems <- ObjTypeElem.Setter(name, fn) :: elems
-
         match scheme.Type.Kind with
         | TypeKind.Struct strct ->
+          // Build temporary impl from placeholder method signatures
+          let mutable elems: list<ObjTypeElem> = []
+        
+          for elem, fnSig, body in tuples do
+            match elem with
+            | Method(name, placeholderFn) ->
+              elems <- ObjTypeElem.Method(name, placeholderFn) :: elems
+            | Getter(name, placeholderFn) ->
+              elems <- ObjTypeElem.Getter(name, placeholderFn) :: elems
+            | Setter(name, placeholderFn) ->
+              elems <- ObjTypeElem.Setter(name, placeholderFn) :: elems
+              
           let impl: Impl = { Elems = elems; Immutable = false }
-
+          
           let strct =
             { strct with
                 Impls = impl :: strct.Impls }
-
-          let scheme =
-            { scheme with
-                Type =
-                  { scheme.Type with
-                      Kind = TypeKind.Struct strct } }
-
-          return env.AddScheme name scheme
-
-        | _ -> return! Error(TypeError.SemanticError $"{name} is not a struct")
+            
+          // Update the `Self` scheme to include the new impl
+          scheme.Type <- { scheme.Type with Kind = TypeKind.Struct strct }
+          
+          // Inf the bodies of each method body
+          for elem, fnSig, body in tuples do
+            match elem with
+            | Method(name, placeholderFn) ->
+              let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+              elems <- ObjTypeElem.Method(name, fn) :: elems
+            | Getter(name, placeholderFn) ->
+              let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+              elems <- ObjTypeElem.Getter(name, fn) :: elems
+            | Setter(name, placeholderFn) ->
+              let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body
+              elems <- ObjTypeElem.Setter(name, fn) :: elems
+          
+          // Update the scheme for the original named struct 
+          return env.AddScheme structName scheme
+        | _ -> return! Error(TypeError.SemanticError $"{structName} is not a struct")
       | StmtKind.Return expr ->
         match expr with
         | Some(expr) ->

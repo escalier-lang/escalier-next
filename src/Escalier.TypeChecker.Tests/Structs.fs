@@ -332,7 +332,7 @@ let GetterSetterImpl () =
   printfn "res = %A" res
   Assert.False(Result.isError res)
 
-[<Fact(Skip="TODO")>]
+[<Fact>]
 let CallingMethodInSameImpl () =
   let res =
     result {

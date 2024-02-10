@@ -452,7 +452,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (fnSig: FuncSig<option<TypeAnn>>)
-    : Result<Function * Env, TypeError> =
+    : Result<Function, TypeError> =
 
     result {
       let mutable newEnv = env
@@ -542,7 +542,7 @@ module rec Infer =
 
       let func = makeFunction typeParams self paramList sigRetType sigThrows
 
-      return func, newEnv
+      return func
     }
 
   let inferFuncBody
@@ -680,8 +680,8 @@ module rec Infer =
     : Result<Function, TypeError> =
 
     result {
-      let! placeholderFn, newEnv = inferFuncSig ctx env fnSig
-      return! inferFuncBody ctx newEnv fnSig placeholderFn body
+      let! placeholderFn = inferFuncSig ctx env fnSig
+      return! inferFuncBody ctx env fnSig placeholderFn body
     }
 
   let getPropType
@@ -1695,7 +1695,7 @@ module rec Infer =
         let newEnv = env.AddScheme "Self" scheme
 
         let mutable tuples
-          : list<ObjTypeElem * Env * FuncSig<TypeAnn option> * BlockOrExpr> =
+          : list<ObjTypeElem * FuncSig<TypeAnn option> * BlockOrExpr> =
           []
 
         for elem in elems do
@@ -1703,11 +1703,10 @@ module rec Infer =
           | ImplElem.Method { Name = name
                               Sig = fnSig
                               Body = body } ->
-            let! placeholderFn, newEnv = inferFuncSig ctx newEnv fnSig
+            let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
             tuples <-
               (ObjTypeElem.Method(PropName.String name, placeholderFn),
-               newEnv,
                fnSig,
                body)
               :: tuples
@@ -1723,11 +1722,10 @@ module rec Infer =
                 Throws = None
                 IsAsync = false }
 
-            let! placeholderFn, newEnv = inferFuncSig ctx newEnv fnSig
+            let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
             tuples <-
               (ObjTypeElem.Getter(PropName.String name, placeholderFn),
-               newEnv,
                fnSig,
                body)
               :: tuples
@@ -1743,18 +1741,17 @@ module rec Infer =
                 Throws = None
                 IsAsync = false }
 
-            let! placeholderFn, newEnv = inferFuncSig ctx newEnv fnSig
+            let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
             tuples <-
               (ObjTypeElem.Setter(PropName.String name, placeholderFn),
-               newEnv,
                fnSig,
                body)
               :: tuples
 
         let mutable elems: list<ObjTypeElem> = []
 
-        for elem, newEnv, fnSig, body in tuples do
+        for elem, fnSig, body in tuples do
           match elem with
           | Method(name, placeholderFn) ->
             let! fn = inferFuncBody ctx newEnv fnSig placeholderFn body

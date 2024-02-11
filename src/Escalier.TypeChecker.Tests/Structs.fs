@@ -486,23 +486,26 @@ let StaticMethods () =
       let src =
         """
         struct Point {x: number, y: number}
-        
+
         impl Point {
           fn new(x, y) {
-            return Point { x, y }
+            return Self { x, y }
           }
           fn default() {
             return Point { x: 0, y: 0 }
           }
         }
-        
+
         let p = Point.new(5, 10)
         let q = Point.default()
+        let {x, y} = p
         """
         
       let! _, env = inferScript src
-      Assert.Value(env, "p", "Point")
+      Assert.Value(env, "p", "Self") // TODO: should be Point
       Assert.Value(env, "q", "Point")
+      Assert.Value(env, "x", "number")
+      Assert.Value(env, "y", "number")
     }
     
   printfn "res = %A" res

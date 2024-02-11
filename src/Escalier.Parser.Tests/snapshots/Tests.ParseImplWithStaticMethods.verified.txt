@@ -14,8 +14,7 @@ output: Ok
         { Kind =
            Impl
              { TypeParams = None
-               Self = { Ident = "Point"
-                        TypeArgs = None }
+               Self = "Point"
                Elems =
                 [Method
                    { Name = "new"

@@ -647,7 +647,7 @@ let ParseImplWithStaticMethods () =
 let ParseGenericImpl () =
   let src =
     """
-    impl<T> Foo<T> {
+    impl Foo<T> {
       fn bar(self) {
         return self.x
       }

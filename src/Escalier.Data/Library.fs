@@ -341,7 +341,7 @@ module Syntax =
 
   type Impl =
     { TypeParams: option<list<TypeParam>>
-      Self: TypeRef
+      Self: string
       Elems: list<ImplElem> }
 
   type VarDecl =

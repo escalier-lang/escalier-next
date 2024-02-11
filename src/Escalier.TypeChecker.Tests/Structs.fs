@@ -364,6 +364,33 @@ let CallingMethodInSameImpl () =
   Assert.False(Result.isError res)
   
 [<Fact>]
+let InferGenericImpls () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point<T> {x: T, y: T}
+        
+        impl Point<T> {
+          fn bar(self) -> T {
+            return self.x
+          }
+        }
+        
+        let point = Point<number> {x: 5, y: 10}
+        let bar = point.bar()
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "point", "Point<number>")
+      Assert.Value(env, "bar", "number")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+  
+[<Fact>]
 let RecursiveMethodsCanBeInferred () =
   let res =
     result {

@@ -1710,9 +1710,8 @@ module rec Infer =
 
         return newEnv
       | StmtKind.Impl { TypeParams = typeParams
-                        Self = self
+                        Self = structName
                         Elems = elems } ->
-        let { Ident = structName } = self
 
         // TODO: instantiate the scheme (apply the type args)
         let scheme =
@@ -1720,7 +1719,53 @@ module rec Infer =
           | Some scheme -> scheme
           | None -> failwith $"Struct {structName} not in scope"
 
-        let newEnv = env.AddScheme "Self" scheme
+        let mutable newEnv = env
+
+        let typeParams =
+          typeParams
+          |> Option.map (fun typeParams ->
+            typeParams
+            |> List.map (fun typeParam ->
+              let unknown =
+                { Kind = TypeKind.Keyword Keyword.Unknown
+                  Provenance = None }
+
+              let scheme =
+                { TypeParams = None
+                  Type = unknown
+                  IsTypeParam = false }
+
+              newEnv <- newEnv.AddScheme typeParam.Name scheme
+              typeParam.Name))
+
+        let typeArgs =
+          typeParams
+          |> Option.map (fun typeParams ->
+            typeParams
+            |> List.map (fun name ->
+              { Kind =
+                  TypeKind.TypeRef
+                    { Name = name
+                      TypeArgs = None
+                      Scheme = None }
+                Provenance = None }))
+
+        newEnv <- newEnv.AddScheme structName scheme
+
+        let selfType =
+          { Kind =
+              TypeKind.TypeRef
+                { Name = structName
+                  TypeArgs = typeArgs
+                  Scheme = Some scheme }
+            Provenance = None }
+
+        let selfScheme =
+          { TypeParams = None
+            Type = selfType
+            IsTypeParam = false }
+
+        newEnv <- newEnv.AddScheme "Self" selfScheme
 
         let mutable instanceTuples
           : list<ObjTypeElem * FuncSig<TypeAnn option> * BlockOrExpr> =
@@ -1857,12 +1902,16 @@ module rec Infer =
 
           let! oldStaticObjElems =
             match newEnv.GetBinding structName with
-            | Ok (t, _) ->
+            | Ok(t, _) ->
               match t.Kind with
-              | TypeKind.Object {Elems = elems} -> Result.Ok elems
-              | _ -> Result.Error (TypeError.SemanticError $"{structName} is not an object")
-            | Error _ -> Result.Error (TypeError.SemanticError $"{structName} not found")
-          
+              | TypeKind.Object { Elems = elems } -> Result.Ok elems
+              | _ ->
+                Result.Error(
+                  TypeError.SemanticError $"{structName} is not an object"
+                )
+            | Error _ ->
+              Result.Error(TypeError.SemanticError $"{structName} not found")
+
           let staticObjType =
             { Kind =
                 TypeKind.Object

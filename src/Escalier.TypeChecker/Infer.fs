@@ -246,7 +246,6 @@ module rec Infer =
               Provenance = None }
 
           let! scheme = env.GetScheme name
-          // printfn "scheme = %A" scheme
 
           let! typeArgs =
             match typeArgs with
@@ -256,7 +255,7 @@ module rec Infer =
             | None -> Ok None
 
           let t = expandScheme ctx env None scheme Map.empty typeArgs
-
+          
           match t.Kind with
           | TypeKind.Struct { Elems = elems; Impls = impls } ->
             let structObjType =

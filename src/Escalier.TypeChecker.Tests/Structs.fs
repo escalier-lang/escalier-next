@@ -363,7 +363,7 @@ let CallingMethodInSameImpl () =
 
   Assert.False(Result.isError res)
   
-[<Fact(Skip="TODO")>]
+[<Fact>]
 let InferGenericImpls () =
   let res =
     result {

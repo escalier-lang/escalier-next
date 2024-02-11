@@ -10,21 +10,30 @@ module Folder =
     let rec fold (t: Type) : Type =
       let t = prune t
 
+      let foldFn (f: Function) : Function =
+        { f with
+            ParamList =
+              List.map
+                (fun param -> { param with Type = fold param.Type })
+                f.ParamList
+            // TODO: fold TypeParams
+            Return = fold f.Return }
+
+      let foldObjElem (elem: ObjTypeElem) : ObjTypeElem =
+        match elem with
+        | Property p -> Property { p with Type = fold p.Type }
+        | Method(name, fn) -> Method(name, foldFn fn)
+        | Getter(name, fn) -> Getter(name, foldFn fn)
+        | Setter(name, fn) -> Setter(name, foldFn fn)
+        | _ -> failwith "TODO: foldType - ObjTypeElem"
+
       let t =
         match t.Kind with
         | TypeKind.TypeVar _ -> t
         | TypeKind.Primitive _ -> t
         | TypeKind.Keyword _ -> t
         | TypeKind.Function f ->
-          { Kind =
-              TypeKind.Function
-                { f with
-                    ParamList =
-                      List.map
-                        (fun param -> { param with Type = fold param.Type })
-                        f.ParamList
-                    // TODO: fold TypeParams
-                    Return = fold f.Return }
+          { Kind = TypeKind.Function(foldFn f)
             Provenance = None }
         | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
           let elems = List.map fold elems
@@ -51,32 +60,27 @@ module Folder =
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
         | TypeKind.Object { Elems = elems; Immutable = immutable } ->
-          let elems =
-            List.map
-              (fun elem ->
-                match elem with
-                | Property p -> Property { p with Type = fold p.Type }
-                | _ -> failwith "TODO: foldType - ObjTypeElem")
-              elems
+          let elems = List.map foldObjElem elems
 
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
             Provenance = None }
-        | TypeKind.Struct { TypeRef = typeRef; Elems = elems } ->
+        | TypeKind.Struct { TypeRef = typeRef
+                            Elems = elems
+                            Impls = impls } ->
           let typeArgs = Option.map (List.map fold) typeRef.TypeArgs
+          let elems = List.map foldObjElem elems
 
-          let elems =
-            List.map
-              (fun elem ->
-                match elem with
-                | Property p -> Property { p with Type = fold p.Type }
-                | _ -> failwith "TODO: foldType - ObjTypeElem")
-              elems
+          let impls: list<Impl> =
+            impls
+            |> List.map (fun impl ->
+              { impl with
+                  Elems = List.map foldObjElem impl.Elems })
 
           { Kind =
               TypeKind.Struct
                 { TypeRef = { typeRef with TypeArgs = typeArgs }
                   Elems = elems
-                  Impls = [] }
+                  Impls = impls }
             Provenance = None }
         | TypeKind.Rest t ->
           { Kind = TypeKind.Rest(fold t)

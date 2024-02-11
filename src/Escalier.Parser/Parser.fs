@@ -703,17 +703,29 @@ module Parser =
        .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
       block
     <| fun async name (typeParams, paramList) (retType, throws) body ->
-      // TODO: check that there's at last one param in paramList before
-      // destructuring like this
-      let self :: paramList = paramList
-
       let funcSig: FuncSig<option<TypeAnn>> =
-        { TypeParams = typeParams
-          Self = Some(self)
-          ParamList = paramList
-          ReturnType = retType
-          Throws = throws
-          IsAsync = async.IsSome }
+        match paramList with
+        | [] ->
+          { TypeParams = typeParams
+            Self = None
+            ParamList = paramList
+            ReturnType = retType
+            Throws = throws
+            IsAsync = async.IsSome }
+        | { Pattern = { Kind = PatternKind.Ident { Name = "self" } } } as self :: paramList ->
+          { TypeParams = typeParams
+            Self = Some(self)
+            ParamList = paramList
+            ReturnType = retType
+            Throws = throws
+            IsAsync = async.IsSome }
+        | paramList ->
+          { TypeParams = typeParams
+            Self = None
+            ParamList = paramList
+            ReturnType = retType
+            Throws = throws
+            IsAsync = async.IsSome }
 
       { Name = name
         Sig = funcSig

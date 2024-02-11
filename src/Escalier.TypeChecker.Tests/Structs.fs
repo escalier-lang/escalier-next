@@ -362,6 +362,37 @@ let CallingMethodInSameImpl () =
     }
 
   Assert.False(Result.isError res)
+  
+[<Fact>]
+let RecursiveMethodsCanBeInferred () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo {}
+
+        impl Foo {
+          fn fact(self, n) {
+            return if n == 0 {
+              1
+            } else {
+              n * self.fact(n - 1)
+            }
+          }
+        }
+
+        let foo = Foo {}
+        let res = foo.fact(5)
+        let fact = foo.fact
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "res", "number")
+      Assert.Value(env, "fact", "fn (self: Self, n: number) -> number")
+    }
+
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let MutMethodsCanCallOtherMutMethods () =
@@ -384,10 +415,13 @@ let MutMethodsCanCallOtherMutMethods () =
         let mut foo = Foo {x: 5}
         foo.bar(10)
         foo.baz(15)
+        let bar = foo.bar
+        let baz = foo.baz
         """
 
       let! _, env = inferScript src
-      ()
+      Assert.Value(env, "bar", "fn (mut self: Self, x: number) -> number")
+      Assert.Value(env, "baz", "fn (mut self: Self, x: number) -> number")
     }
 
   Assert.False(Result.isError res)
@@ -415,7 +449,6 @@ let CannotCallMutatingMethodOnNonMutableBinding () =
     }
 
   Assert.True(Result.isError res)
-
 
 [<Fact>]
 let NonMutatingMethodsCannotCallOtherMutMethods () =
@@ -445,3 +478,32 @@ let NonMutatingMethodsCannotCallOtherMutMethods () =
     }
 
   Assert.True(Result.isError res)
+
+[<Fact>]
+let StaticMethods () =
+  let res =
+    result {
+      let src =
+        """
+        struct Point {x: number, y: number}
+        
+        impl Point {
+          fn new(x, y) {
+            return Point { x, y }
+          }
+          fn default() {
+            return Point { x: 0, y: 0 }
+          }
+        }
+        
+        let p = Point.new(5, 10)
+        let q = Point.default()
+        """
+        
+      let! _, env = inferScript src
+      Assert.Value(env, "p", "Point")
+      Assert.Value(env, "q", "Point")
+    }
+    
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

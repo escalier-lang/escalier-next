@@ -1,5 +1,5 @@
 ﻿input: 
-    impl<T> Foo<T> {
+    impl Foo<T> {
       fn bar(self) {
         return self.x
       }
@@ -13,17 +13,12 @@ output: Ok
      [Stmt
         { Kind =
            Impl
-             { TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 10)
-                                             Stop = (Ln: 2, Col: 11) }
+             { TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 14)
+                                             Stop = (Ln: 2, Col: 15) }
                                     Name = "T"
                                     Constraint = None
                                     Default = None }]
-               Self = { Ident = "Foo"
-                        TypeArgs = Some [{ Kind = TypeRef { Ident = "T"
-                                                            TypeArgs = None }
-                                           Span = { Start = (Ln: 2, Col: 17)
-                                                    Stop = (Ln: 2, Col: 18) }
-                                           InferredType = None }] }
+               Self = "Foo"
                Elems =
                 [Method
                    { Name = "bar"

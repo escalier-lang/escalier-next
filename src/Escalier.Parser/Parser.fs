@@ -703,17 +703,29 @@ module Parser =
        .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
       block
     <| fun async name (typeParams, paramList) (retType, throws) body ->
-      // TODO: check that there's at last one param in paramList before
-      // destructuring like this
-      let self :: paramList = paramList
-
       let funcSig: FuncSig<option<TypeAnn>> =
-        { TypeParams = typeParams
-          Self = Some(self)
-          ParamList = paramList
-          ReturnType = retType
-          Throws = throws
-          IsAsync = async.IsSome }
+        match paramList with
+        | [] ->
+          { TypeParams = typeParams
+            Self = None
+            ParamList = paramList
+            ReturnType = retType
+            Throws = throws
+            IsAsync = async.IsSome }
+        | { Pattern = { Kind = PatternKind.Ident { Name = "self" } } } as self :: paramList ->
+          { TypeParams = typeParams
+            Self = Some(self)
+            ParamList = paramList
+            ReturnType = retType
+            Throws = throws
+            IsAsync = async.IsSome }
+        | paramList ->
+          { TypeParams = typeParams
+            Self = None
+            ParamList = paramList
+            ReturnType = retType
+            Throws = throws
+            IsAsync = async.IsSome }
 
       { Name = name
         Sig = funcSig
@@ -755,26 +767,20 @@ module Parser =
         Throws = throws }
       |> ImplElem.Setter
 
-  // TODO: reuse below in the definition of the `typeRef` parser
-  let private _typeRef =
-    (ident
-     .>>. (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ",")))))
-    |>> fun (ident, typeArgs) -> { Ident = ident; TypeArgs = typeArgs }
-
   let private implElem = choice [ method; getter; setter ]
 
   let private implStmt =
     pipe5
       getPosition
-      (strWs "impl" >>. (opt typeParams))
-      _typeRef
+      (strWs "impl" >>. ident)
+      (opt typeParams)
       (between (strWs "{") (strWs "}") (many implElem))
       getPosition
-    <| fun start typeParams typeRef elems stop ->
+    <| fun start name typeParams elems stop ->
       { Stmt.Kind =
           Impl
             { TypeParams = typeParams
-              Self = typeRef
+              Self = name
               Elems = elems }
         Span = { Start = start; Stop = stop } }
 

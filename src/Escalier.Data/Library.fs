@@ -335,13 +335,13 @@ module Syntax =
       Elems: list<Property> }
 
   type ImplElem =
-    | Method of Method
-    | Getter of Getter
-    | Setter of Setter
+    | Method of Method // replace with (string, Function)
+    | Getter of Getter // replace with (string, Function)
+    | Setter of Setter // replace with (string, Function)
 
   type Impl =
     { TypeParams: option<list<TypeParam>>
-      Self: TypeRef
+      Self: string
       Elems: list<ImplElem> }
 
   type VarDecl =

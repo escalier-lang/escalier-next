@@ -623,12 +623,31 @@ let ParseBasicImpl () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+  
+[<Fact>]
+let ParseImplWithStaticMethods () =
+  let src =
+    """
+    impl Point {
+      fn new(x, y) {
+        return Point { x, y }
+      }
+      fn default() {
+        return Point { x: 0, y: 0 }
+      }
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
 let ParseGenericImpl () =
   let src =
     """
-    impl<T> Foo<T> {
+    impl Foo<T> {
       fn bar(self) {
         return self.x
       }

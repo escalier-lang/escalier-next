@@ -750,6 +750,91 @@ let InferRecursiveType () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferRecursiveTypeUnifyWithDefn () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Foo = number | Foo[]
+        let foo: Foo = 5
+        let bar: number | Foo[] = foo
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(env, "Foo", "number | Foo[]")
+    }
+
+  // printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferRecursiveObjectType () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Node = {
+          value: number,
+          left?: Node,
+          right?: Node
+        }
+        
+        let node: Node = {
+          value: 5,
+          left: {
+            value: 10
+          },
+          right: {
+            value: 15
+          }
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "node", "Node")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact(Skip = "TODO: T is not in scope")>]
+let InferRecursiveGenericObjectType () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Node<T> = {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>
+        }
+        
+        let node: Node<number> = {
+          value: 5,
+          left: {
+            value: 10
+          },
+          right: {
+            value: 15
+          }
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "node", "Node<number>")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferFuncGeneralization () =
   let result =
     result {

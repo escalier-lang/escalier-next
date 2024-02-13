@@ -255,7 +255,7 @@ module rec Infer =
             | None -> Ok None
 
           let t = expandScheme ctx env None scheme Map.empty typeArgs
-          
+
           match t.Kind with
           | TypeKind.Struct { Elems = elems; Impls = impls } ->
             let structObjType =
@@ -1632,6 +1632,17 @@ module rec Infer =
                                                      Elems = elems } }) ->
         let mutable newEnv = env
 
+        // TODO: add support for constraints on type params to aliases
+        let placeholder =
+          { TypeParams =
+              typeParams
+              |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
+            Type = ctx.FreshTypeVar None
+            IsTypeParam = false }
+
+        // Handles self-recursive types
+        newEnv <- newEnv.AddScheme name placeholder
+
         let typeParams =
           typeParams
           |> Option.map (fun typeParams ->
@@ -1697,10 +1708,16 @@ module rec Infer =
             Type = t
             IsTypeParam = false }
 
+        // Replace the placeholder's type with the actual type.
+        // NOTE: This is a bit hacky and we may want to change this later to use
+        // `foldType` to replace any uses of the placeholder with the actual type.
+        placeholder.Type <- scheme.Type
+
         // TODO: add something to env.Values for the constructor so that
         // we can construct structs in JS/TS
         let newEnv = env.AddScheme name scheme
 
+        // Add object with statics to env.Values
         let t =
           { Kind = TypeKind.Object { Elems = []; Immutable = false }
             Provenance = None }

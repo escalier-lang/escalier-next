@@ -233,7 +233,8 @@ let InferBasicVarDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -268,7 +269,8 @@ let InferTypeDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -307,7 +309,8 @@ let InferLibES5 () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -340,7 +343,8 @@ let InferArrayPrototype () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError

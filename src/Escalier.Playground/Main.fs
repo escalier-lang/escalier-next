@@ -37,11 +37,12 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let mockFileSystem = MockFileSystem()
-    let! tcCtx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+    let prelude = Prelude.Prelude()
+    let! tcCtx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! env =
       Infer.inferScript tcCtx env "input.esc" ast
-      |> Result.mapError CompileError.TypeError
+      |> Result.mapError CompileError.TypeError 
 
     let mod' = Codegen.buildModuleTypes env ctx ast
     let dts = Printer.printModule printCtx mod'

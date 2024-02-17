@@ -64,7 +64,8 @@ module Compiler =
       let! ast =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
 
-      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir srcFile
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx filesystem baseDir srcFile
 
       let! env =
         Infer.inferScript ctx env srcFile ast
@@ -100,7 +101,8 @@ module Compiler =
     (entry: string)
     =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir entry
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx filesystem baseDir entry
 
       let contents = filesystem.File.ReadAllText(entry)
 

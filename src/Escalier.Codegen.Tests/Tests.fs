@@ -273,7 +273,8 @@ let CodegenDtsBasics () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       let! env =
         Infer.inferScript ctx env "input.esc" escAst
@@ -305,7 +306,8 @@ let CodegenDtsGeneric () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let prelude = Prelude.Prelude()
+      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type

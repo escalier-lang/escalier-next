@@ -28,7 +28,8 @@ let inferModule src =
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+    let prelude = Prelude.Prelude()
+    let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
 
     let! env =
       Infer.inferModule ctx env "input.esc" ast
@@ -42,7 +43,8 @@ let inferModules (mockFileSystem: MockFileSystem) (src: string) =
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     mockFileSystem.AddFile("/prelude.esc", MockFileData(""))
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/prelude.esc"
+    let prelude = Prelude.Prelude()
+    let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/prelude.esc"
 
     let! env =
       Infer.inferModule ctx env "/input.esc" ast

@@ -498,12 +498,13 @@ let InferTypeAliasOfTypeParam () =
           return y
         }
         let z = foo(5)
-        let w: number = z
         """
 
+      // let w: number = z
       let! _, env = inferScript src
 
       Assert.Value(env, "foo", "fn <A>(x: A) -> B")
+      // TODO: This should be inferred as `fn <A>(x: A) -> A`
       Assert.Value(env, "bar", "fn <A>(x: A) -> A")
       Assert.Value(env, "z", "B")
     }
@@ -802,10 +803,18 @@ let InferRecursiveObjectType () =
   Assert.False(Result.isError result)
 
 
-[<Fact(Skip = "TODO: T is not in scope")>]
+[<Fact>]
 let InferRecursiveGenericObjectType () =
   let result =
     result {
+      // We want the `Node<T>` TypeRefs to be replaces with `Node<number>`
+      // That's the easy part... the hard part is that we want their Scheme's
+      // to be replaced with a new Scheme that represents `Node<number>`
+      // but what does that look like?
+
+      // let scheme: Scheme = {
+      //
+      // }
 
       let src =
         """

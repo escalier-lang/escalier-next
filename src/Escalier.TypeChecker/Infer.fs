@@ -1039,6 +1039,7 @@ module rec Infer =
                   Scheme = scheme }
                 |> TypeKind.TypeRef
             | None ->
+              // TODO: check if scheme required type args
               return
                 { Name = name
                   TypeArgs = None

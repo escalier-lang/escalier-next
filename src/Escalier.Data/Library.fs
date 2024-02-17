@@ -458,10 +458,18 @@ module Syntax =
     | Binary of left: TypeAnn * op: string * right: TypeAnn // TODO: BinaryOp
     | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
 
+  [<CustomEquality; NoComparison>]
   type TypeAnn =
     { Kind: TypeAnnKind
       Span: Span
       mutable InferredType: option<Type.Type> }
+    
+    override this.Equals other =
+      match other with
+      | :? Expr as p -> p.Kind.Equals this.Kind
+      | _ -> false
+    
+    override this.GetHashCode() = this.Kind.GetHashCode()
 
   type ImportSpecifier =
     | Named of name: string * alias: option<string>
@@ -514,10 +522,27 @@ module Type =
       mutable Instance: option<Type> }
 
   ///An n-ary type constructor which builds a new type from old
+  [<CustomEquality; NoComparison>]
   type TypeRef =
     { Name: string
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
+    
+    // TODO: include `Scheme` in the equality check
+    // First we need to figure out how to check the equality of
+    // recursive types like `type Foo = number | Foo[]`
+    override this.Equals other =
+      match other with
+      | :? TypeRef as p ->
+        (p.Name.Equals this.Name) &&
+          match p.TypeArgs, this.TypeArgs with
+          | Some typeArgs1, Some typeArgs2 -> typeArgs1.Equals typeArgs2
+          | None, None -> true
+          | _ -> false
+      | _ -> false
+    
+    override this.GetHashCode() =
+      (this.Name, this.TypeArgs).GetHashCode()
 
   type Primitive =
     | Boolean
@@ -751,7 +776,8 @@ module Type =
 
     override this.Equals other =
       match other with
-      | :? Type as p -> p.Kind.Equals this.Kind
+      | :? Type as p ->
+        p.Kind.Equals this.Kind
       | _ -> false
 
     override this.GetHashCode() = this.Kind.GetHashCode()

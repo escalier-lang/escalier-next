@@ -362,7 +362,7 @@ let CallingMethodInSameImpl () =
     }
 
   Assert.False(Result.isError res)
-  
+
 [<Fact>]
 let InferGenericImpls () =
   let res =
@@ -389,7 +389,126 @@ let InferGenericImpls () =
 
   printfn "res = %A" res
   Assert.False(Result.isError res)
-  
+
+[<Fact>]
+let InferGenericImplsWithParams () =
+  let res =
+    result {
+      let src =
+        """
+        struct Foo<T> {x: T}
+
+        impl Foo<T> {
+          fn bar(mut self, x) {
+            return self.x = x
+          }
+          
+          fn baz(mut self, x) {
+            return self.bar(x)
+          }
+
+          get qux(self) -> T {
+            return self.x
+          }
+        }
+
+        let mut foo = Foo<number>{x: 5}
+        foo.bar(10)
+        foo.baz(15)
+        let qux = foo.qux 
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "foo", "Foo<number>")
+      Assert.Value(env, "qux", "number")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferGenericRecursiveStruct () =
+  let res =
+    result {
+      let src =
+        """
+        struct Node<T> {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>,
+        }
+        """
+
+      let! _, env = inferScript src
+      Assert.Type(env, "Node", "<T>(Node)")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact(Skip = "TODO: Stack overflow")>]
+let InferRecursiveStructType () =
+  let result =
+    result {
+
+      let src =
+        """
+        struct Node<T> {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>
+        }
+        
+        let node = Node<number> {
+          value: 5,
+          left: Node<number> {
+            value: 10
+          },
+          right: Node<number> {
+            value: 15
+          }
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(env, "node", "Node<number>")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: Stack overflow")>]
+let InferGenericRecursiveStructWithImpls () =
+  let res =
+    result {
+      let src =
+        """
+        struct Node<T> {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>,
+        }
+        
+        impl Node<T> {
+          fn map<U>(self, mapper: fn (x: T) -> U) -> Node<U> {
+            return {
+              value: mapper(self.value),
+              left: self.left?.map(mapper),
+              right: self.right?.map(mapper)
+            }
+          }
+        }
+        """
+
+      let! _, env = inferScript src
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
 [<Fact>]
 let RecursiveMethodsCanBeInferred () =
   let res =
@@ -527,13 +646,13 @@ let StaticMethods () =
         let q = Point.default()
         let {x, y} = p
         """
-        
+
       let! _, env = inferScript src
       Assert.Value(env, "p", "Self") // TODO: should be Point
       Assert.Value(env, "q", "Point")
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
     }
-    
+
   printfn "res = %A" res
   Assert.False(Result.isError res)

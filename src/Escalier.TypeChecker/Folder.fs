@@ -5,7 +5,6 @@ open Escalier.Data.Type
 open Prune
 
 module Folder =
-
   let foldType (f: Type -> option<Type>) (t: Type) : Type =
     let rec fold (t: Type) : Type =
       let t = prune t
@@ -45,10 +44,12 @@ module Folder =
                              Scheme = scheme }) ->
           let typeArgs = Option.map (List.map fold) typeArgs
 
-          let scheme =
-            Option.map
-              (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
-              scheme
+          // NOTE: We explicitly don't fold the scheme type here because
+          // this can cause an infinite loop with generic rercusive types.
+          // let scheme =
+          //   Option.map
+          //     (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
+          //     scheme
 
           { Kind =
               TypeKind.TypeRef(

@@ -24,6 +24,7 @@ module rec Unify =
     (t2: Type)
     : Result<unit, TypeError> =
 
+    // TODO: update printType to work with template string types
     // printfn $"unify({t1}, {t2})"
 
     match ips with
@@ -217,6 +218,52 @@ module rec Unify =
 
           List.map2 (unify ctx env ips) types1 types2 |> ignore
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      | TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme }, _ ->
+        match scheme with
+        | Some scheme ->
+          // TODO: dedupe the same code in generalizeFunc
+          let mutable mapping: Map<string, Type> = Map.empty
+
+          match scheme.TypeParams with
+          | Some(typeParams) ->
+            match typeArgs with
+            | Some(typeArgs) ->
+              if typeArgs.Length <> typeParams.Length then
+                return! Error(TypeError.WrongNumberOfTypeArgs)
+
+              for tp, ta in List.zip typeParams typeArgs do
+                mapping <- mapping.Add(tp, ta)
+            | None ->
+              for tp in typeParams do
+                mapping <- mapping.Add(tp, ctx.FreshTypeVar None)
+          | None -> ()
+
+          let t = expandScheme ctx env ips scheme mapping typeArgs
+          do! unify ctx env ips t t2
+        | _ -> return! unifyFallThrough ctx env ips t1 t2
+      | _, TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme } ->
+        match scheme with
+        | Some scheme ->
+          // TODO: dedupe the same code in generalizeFunc
+          let mutable mapping: Map<string, Type> = Map.empty
+
+          match scheme.TypeParams with
+          | Some(typeParams) ->
+            match typeArgs with
+            | Some(typeArgs) ->
+              if typeArgs.Length <> typeParams.Length then
+                return! Error(TypeError.WrongNumberOfTypeArgs)
+
+              for tp, ta in List.zip typeParams typeArgs do
+                mapping <- mapping.Add(tp, ta)
+            | None ->
+              for tp in typeParams do
+                mapping <- mapping.Add(tp, ctx.FreshTypeVar None)
+          | None -> ()
+
+          let t = expandScheme ctx env ips scheme mapping typeArgs
+          do! unify ctx env ips t1 t
+        | _ -> return! unifyFallThrough ctx env ips t1 t2
       | TypeKind.Range range1, TypeKind.Range range2 ->
         match
           range1.Min.Kind, range1.Max.Kind, range2.Min.Kind, range2.Max.Kind
@@ -425,15 +472,26 @@ module rec Unify =
         op = "++"
         ->
         return ()
-      | _, _ ->
-        let t1' = expandType ctx env ips Map.empty t1
-        let t2' = expandType ctx env ips Map.empty t2
+      | _, _ -> return! unifyFallThrough ctx env ips t1 t2
+    }
 
-        if t1' <> t1 || t2' <> t2 then
-          return! unify ctx env ips t1' t2'
-        else
-          printfn $"failed to unify {t1} and {t2}"
-          return! Error(TypeError.TypeMismatch(t1, t2))
+  let unifyFallThrough
+    (ctx: Ctx)
+    (env: Env)
+    (ips: option<list<list<string>>>)
+    (t1: Type)
+    (t2: Type)
+    : Result<unit, TypeError> =
+
+    result {
+      let t1' = expandType ctx env ips Map.empty t1
+      let t2' = expandType ctx env ips Map.empty t2
+
+      if t1' <> t1 || t2' <> t2 then
+        return! unify ctx env ips t1' t2'
+      else
+        printfn $"failed to unify {t1} and {t2}"
+        return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
   let unifyCall
@@ -744,7 +802,7 @@ module rec Unify =
               // printfn $"unify({t2}, {bound1})"
               // If t2 is a TypeVar then we want to check if the bounds
               // unify
-              
+
               // Type params are contravariant for similar reasons to
               // why function params are contravariant
               // do! unify ctx env ips t2 bound1
@@ -757,6 +815,7 @@ module rec Unify =
                   // call so that we can unify the bounds in the correct direction
                   do! unify ctx env ips bound2 bound1
                 | None -> ()
+
                 v2.Bound <- Some(bound1)
                 v1.Instance <- Some(t2)
               | TypeKind.Keyword Keyword.Never ->
@@ -1031,7 +1090,6 @@ module rec Unify =
                            TypeArgs = typeArgs
                            Scheme = scheme } ->
 
-
         // TODO: Take this a setep further and update ExpandType and ExpandScheme
         // to be functions that accept an `env: Env` param.  We can then augment
         // the `env` instead of using the `mapping` param.
@@ -1044,7 +1102,10 @@ module rec Unify =
             | None ->
               match env.Schemes.TryFind name with
               | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
-              | None -> failwith $"{name} is not in scope"
+              | None ->
+                printfn $"t = {t}"
+                printfn $"scheme = {scheme}"
+                failwith $"{name} is not in scope"
 
         expand mapping t
       | _ ->

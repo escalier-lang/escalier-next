@@ -807,15 +807,6 @@ let InferRecursiveObjectType () =
 let InferRecursiveGenericObjectType () =
   let result =
     result {
-      // We want the `Node<T>` TypeRefs to be replaces with `Node<number>`
-      // That's the easy part... the hard part is that we want their Scheme's
-      // to be replaced with a new Scheme that represents `Node<number>`
-      // but what does that look like?
-
-      // let scheme: Scheme = {
-      //
-      // }
-
       let src =
         """
         type Node<T> = {

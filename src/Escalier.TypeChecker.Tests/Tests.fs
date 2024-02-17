@@ -814,7 +814,7 @@ let InferRecursiveGenericObjectType () =
           left?: Node<T>,
           right?: Node<T>
         }
-        
+
         let node: Node<number> = {
           value: 5,
           left: {

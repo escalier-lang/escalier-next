@@ -835,6 +835,82 @@ let InferRecursiveGenericObjectType () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let ReturnRecursivePrivateGenericObjectType () =
+  let result =
+    result {
+      let src =
+        """
+        let makeTree = fn () {
+          type Node<T> = {
+            value: T,
+            left?: Node<T>,
+            right?: Node<T>
+          }
+
+          let node: Node<number> = {
+            value: 5,
+            left: {
+              value: 10
+            },
+            right: {
+              value: 15
+            }
+          }
+          
+          return node
+        }
+        let node = makeTree()
+        let x = node.left?.value
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "node", "Node<number>")
+      Assert.Value(env, "x", "number | undefined")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ReturnRecursiveGenericObjectType () =
+  let result =
+    result {
+      let src =
+        """
+        type Node<T> = {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>
+        }
+        
+        let makeTree = fn () {
+          let node: Node<number> = {
+            value: 5,
+            left: {
+              value: 10
+            },
+            right: {
+              value: 15
+            }
+          }
+          
+          return node
+        }
+        let node = makeTree()
+        let x = node.left?.value
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "node", "Node<number>")
+      Assert.Value(env, "x", "number | undefined")
+    }
+
+  printf "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferFuncGeneralization () =
   let result =
     result {

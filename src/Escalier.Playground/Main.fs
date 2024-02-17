@@ -6,6 +6,7 @@ open Bolero
 open Bolero.Html
 open System.IO.Abstractions.TestingHelpers
 
+open Escalier.Compiler
 open Escalier.TypeChecker
 open Escalier.Parser
 open Escalier.Codegen

@@ -6,12 +6,12 @@ open Xunit
 open FParsec
 open FsToolkit.ErrorHandling
 
+open Escalier.Compiler.Prelude
 open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
-open Escalier.TypeChecker.Prelude
 
 let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
   { Pattern = Type.Pattern.Identifier { Name = name; IsMut = false }

@@ -4,8 +4,8 @@ open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 open Xunit
 
+open Escalier.Compiler
 open Escalier.Parser
-open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
 

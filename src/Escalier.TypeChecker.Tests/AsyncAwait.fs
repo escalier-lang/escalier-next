@@ -4,8 +4,8 @@ open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 open Xunit
 
+open Escalier.Compiler
 open Escalier.Parser
-open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
 
@@ -133,7 +133,11 @@ let InfersTryCatchAsync () =
         "fn <A: number>(x: A) -> Promise<A, \"RangeError\">"
       )
 
-      Assert.Value(env, "bar", "fn <A: number>(x: A) -> Promise<A + 10 | 0, never>")
+      Assert.Value(
+        env,
+        "bar",
+        "fn <A: number>(x: A) -> Promise<A + 10 | 0, never>"
+      )
     }
 
   printfn "res: %A" res

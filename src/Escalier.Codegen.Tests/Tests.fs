@@ -7,6 +7,7 @@ open VerifyTests
 open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 
+open Escalier.Compiler
 open Escalier.Data
 open Escalier.Interop.TypeScript
 open Escalier.Codegen.Printer

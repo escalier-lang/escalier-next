@@ -5,6 +5,7 @@ open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 open Xunit
 
+open Escalier.Compiler
 open Escalier.Data.Type
 open Escalier.Parser
 open Escalier.TypeChecker
@@ -821,7 +822,10 @@ let InferRecursiveGenericObjectType () =
             value: 10
           },
           right: {
-            value: 15
+            value: 15,
+            left: {
+              value: 20
+            }
           }
         }
         """

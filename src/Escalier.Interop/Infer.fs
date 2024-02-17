@@ -134,7 +134,7 @@ module rec Infer =
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
-        
+
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
@@ -147,7 +147,7 @@ module rec Infer =
         { Pattern = Pattern.Identifier { Name = "self"; IsMut = false }
           Type = Self
           Optional = false }
-        
+
       let fn = makeFunction None (Some self) [] returnType throws
 
       ObjTypeElem.Getter(key, fn)
@@ -165,9 +165,11 @@ module rec Infer =
       let throws =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
-        
-      let undefined = { Type.Kind = TypeKind.Literal(Literal.Undefined); Provenance = None }
-      
+
+      let undefined =
+        { Type.Kind = TypeKind.Literal(Literal.Undefined)
+          Provenance = None }
+
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
@@ -180,7 +182,7 @@ module rec Infer =
         { Pattern = Pattern.Identifier { Name = "self"; IsMut = false }
           Type = Self
           Optional = false }
-        
+
       let fn = makeFunction None (Some self) [] undefined throws
 
       ObjTypeElem.Setter(key, fn)
@@ -574,7 +576,7 @@ module rec Infer =
             Provenance = None }
 
         let scheme =
-          { TypeParams = None
+          { TypeParams = None // TODO: fix this so we can use Array
             Type = t
             IsTypeParam = false }
         // TODO: handle interface merging

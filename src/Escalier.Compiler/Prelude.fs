@@ -1,4 +1,4 @@
-namespace Escalier.TypeChecker
+namespace Escalier.Compiler
 
 open FParsec.Error
 open FsToolkit.ErrorHandling

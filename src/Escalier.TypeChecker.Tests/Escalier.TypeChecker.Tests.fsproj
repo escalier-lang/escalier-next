@@ -39,6 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
         <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
         <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
     </ItemGroup>

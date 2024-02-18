@@ -24,10 +24,42 @@ type CompileError = Prelude.CompileError
 
 let inferScript src =
   result {
-    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
-
     let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx false mockFileSystem "/" "/input.esc"
+    let! ctx, env = Prelude.getEnvAndCtx false mockFileSystem "/"
+
+    let prelude =
+      """
+        declare let Symbol: {
+          asyncIterator: unique symbol,
+          iterator: unique symbol,
+          match: unique symbol,
+          matchAll: unique symbol,
+          replace: unique symbol,
+          search: unique symbol,
+          species: unique symbol,
+          split: unique symbol,
+          toPrimitive: unique symbol,
+          toStringTag: unique symbol,
+        }
+        type Iterator<T> = {
+          next: fn () -> { done: boolean, value: T }
+        }
+        type Array<T> = {
+          [Symbol.iterator]: fn () -> Iterator<T>
+        }
+        type RangeIterator<Min: number, Max: number> = {
+          next: fn () -> { done: boolean, value: Min..Max }
+        }
+        """
+
+    let! ast =
+      Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+
+    let! env =
+      inferScript ctx env "/prelude.esc" ast
+      |> Result.mapError CompileError.TypeError
+
+    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
     let! env =
       inferScript ctx env "input.esc" ast

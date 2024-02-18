@@ -93,7 +93,6 @@ module Prelude =
     (loadTypeDefs: bool)
     (filesystem: IFileSystem)
     (baseDir: string)
-    (entry: string)
     : Result<Ctx * Env, CompileError> =
     let tpA =
       { Name = "A"
@@ -289,7 +288,7 @@ module Prelude =
 
             // scriptEnv
             let env =
-              match Infer.inferScript ctx globalEnv entry m with
+              match Infer.inferScript ctx globalEnv filename m with
               | Ok value -> value
               | Error err ->
                 printfn "err = %A" err
@@ -318,32 +317,6 @@ module Prelude =
           (fun ctx filename import -> resolvePath baseDir filename import.Path)
         )
 
-      let prelude =
-        """
-          declare let Symbol: {
-            asyncIterator: unique symbol,
-            iterator: unique symbol,
-            match: unique symbol,
-            matchAll: unique symbol,
-            replace: unique symbol,
-            search: unique symbol,
-            species: unique symbol,
-            split: unique symbol,
-            toPrimitive: unique symbol,
-            toStringTag: unique symbol,
-          }
-          type Iterator<T> = {
-            next: fn () -> { done: boolean, value: T }
-          }
-          type Array<T> = {
-            [Symbol.iterator]: fn () -> Iterator<T>
-          }
-          type RangeIterator<Min: number, Max: number> = {
-            next: fn () -> { done: boolean, value: Min..Max }
-          }
-          """
-      // TODO: add an `Iterator` type and define `RangeIterator` using it
-
       if loadTypeDefs then
         let input = File.ReadAllText("./lib/lib.es5.d.ts")
 
@@ -359,13 +332,5 @@ module Prelude =
 
         globalEnv <- newEnv
 
-      let! ast =
-        Parser.parseScript prelude |> Result.mapError CompileError.ParseError
-
-      // scriptEnv
-      let! env =
-        Infer.inferScript ctx globalEnv entry ast
-        |> Result.mapError CompileError.TypeError
-
-      return ctx, env
+      return ctx, globalEnv
     }

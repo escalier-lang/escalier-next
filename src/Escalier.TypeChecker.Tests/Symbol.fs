@@ -25,7 +25,7 @@ type CompileError = Prelude.CompileError
 let inferScript src =
   result {
     let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx false mockFileSystem "/"
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
     let prelude =
       """

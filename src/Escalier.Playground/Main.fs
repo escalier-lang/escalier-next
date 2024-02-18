@@ -37,7 +37,7 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let mockFileSystem = MockFileSystem()
-    let! tcCtx, env = Prelude.getEnvAndCtx false mockFileSystem "/"
+    let! tcCtx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
     let! env =
       Infer.inferScript tcCtx env "input.esc" ast

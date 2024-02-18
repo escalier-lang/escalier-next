@@ -60,7 +60,7 @@ module Compiler =
     result {
       let filename = Path.GetFullPath(Path.Join(baseDir, srcFile))
       let contents = filesystem.File.ReadAllText filename
-      let! ctx, env = Prelude.getEnvAndCtx false filesystem baseDir
+      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir
 
       let! ast =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
@@ -99,7 +99,7 @@ module Compiler =
     (entry: string)
     =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx false filesystem baseDir
+      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir
       let contents = filesystem.File.ReadAllText(entry)
 
       let! m =

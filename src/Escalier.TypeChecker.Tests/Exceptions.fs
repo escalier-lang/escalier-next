@@ -27,7 +27,7 @@ let inferScript src =
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
     let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx false mockFileSystem "/"
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
     let! env =
       inferScript ctx env "input.esc" ast

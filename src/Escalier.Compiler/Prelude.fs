@@ -90,7 +90,6 @@ module Prelude =
 
   // TODO: add memoization
   let getEnvAndCtx
-    (loadTypeDefs: bool)
     (filesystem: IFileSystem)
     (baseDir: string)
     : Result<Ctx * Env, CompileError> =
@@ -317,20 +316,28 @@ module Prelude =
           (fun ctx filename import -> resolvePath baseDir filename import.Path)
         )
 
-      if loadTypeDefs then
-        let input = File.ReadAllText("./lib/lib.es5.d.ts")
-
-        let! ast =
-          match Parser.parseModule input with
-          | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
-          | FParsec.CharParsers.Failure(_, parserError, _) ->
-            Result.mapError CompileError.ParseError (Result.Error(parserError))
-
-        let! newEnv =
-          Infer.inferModule ctx globalEnv ast
-          |> Result.mapError CompileError.TypeError
-
-        globalEnv <- newEnv
-
       return ctx, globalEnv
+    }
+
+  // TODO: add memoization
+  let getEnvAndCtxWithES5
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    : Result<Ctx * Env, CompileError> =
+
+    result {
+      let! ctx, env = getEnvAndCtx filesystem baseDir
+
+      let input = File.ReadAllText("./lib/lib.es5.d.ts")
+
+      let! ast =
+        match Parser.parseModule input with
+        | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
+        | FParsec.CharParsers.Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      return ctx, env
     }

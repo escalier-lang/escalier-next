@@ -11,6 +11,7 @@ open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.ExprVisitor
+open Escalier.Interop
 
 open Env
 
@@ -87,237 +88,238 @@ module Prelude =
       Type = ty
       Optional = false }
 
-  type Prelude() =
-    member this.getEnvAndCtx
-      (filesystem: IFileSystem)
-      (baseDir: string)
-      (entry: string)
-      : Result<Ctx * Env, CompileError> =
-      let tpA =
-        { Name = "A"
-          Constraint = Some(numType)
-          Default = None }
+  // TODO: add memoization
+  let getEnvAndCtx
+    (loadTypeDefs: bool)
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    (entry: string)
+    : Result<Ctx * Env, CompileError> =
+    let tpA =
+      { Name = "A"
+        Constraint = Some(numType)
+        Default = None }
 
-      let tpB =
-        { Name = "B"
-          Constraint = Some(numType)
-          Default = None }
+    let tpB =
+      { Name = "B"
+        Constraint = Some(numType)
+        Default = None }
 
-      let typeRefA =
-        { Kind =
-            { Name = "A"
-              TypeArgs = None
-              Scheme = None }
-            |> TypeKind.TypeRef
-          Provenance = None }
+    let typeRefA =
+      { Kind =
+          { Name = "A"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
 
-      let typeRefB =
-        { Kind =
-            { Name = "B"
-              TypeArgs = None
-              Scheme = None }
-            |> TypeKind.TypeRef
-          Provenance = None }
-
-      let arithemtic (op: string) =
-        (makeFunctionType
-          (Some [ tpA; tpB ])
-          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-          { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
-            Provenance = None }
-          never,
-         false)
-
-      let unaryArithmetic (op: string) =
-        (makeFunctionType
-          (Some [ tpA ])
-          [ makeParam "arg" typeRefA ]
-          { Kind = TypeKind.Unary(op, typeRefA)
-            Provenance = None }
-          never,
-         false)
-
-      let comparison (op: string) =
-        (makeFunctionType
-          (Some [ tpA; tpB ])
-          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-          { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
-            Provenance = None }
-          never,
-         false)
-
-      let logical =
-        (makeFunctionType
-          None
-          [ makeParam "left" boolType; makeParam "right" boolType ]
-          boolType
-          never,
-         false)
-
-      let typeRefA =
-        { Kind = makeTypeRefKind "A"
-          Provenance = None }
-
-      let typeRefB =
-        { Kind = makeTypeRefKind "B"
-          Provenance = None }
-
-      let typeParams: list<TypeParam> =
-        [ { Name = "A"
-            Constraint = None
-            Default = None }
+    let typeRefB =
+      { Kind =
           { Name = "B"
-            Constraint = None
-            Default = None } ]
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
 
-      // TODO: figure out how to make quality polymorphic
-      let equality =
-        (makeFunctionType
-          (Some(typeParams))
-          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-          boolType
-          never,
-         false)
+    let arithemtic (op: string) =
+      (makeFunctionType
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+          Provenance = None }
+        never,
+       false)
 
-      let typeParams: list<TypeParam> =
-        [ { Name = "A"
-            Constraint = None
-            Default = None } ]
+    let unaryArithmetic (op: string) =
+      (makeFunctionType
+        (Some [ tpA ])
+        [ makeParam "arg" typeRefA ]
+        { Kind = TypeKind.Unary(op, typeRefA)
+          Provenance = None }
+        never,
+       false)
 
-      let unaryLogic (op: string) =
-        (makeFunctionType
-          (Some(typeParams))
-          [ makeParam "arg" typeRefA ]
-          { Kind = TypeKind.Unary(op, typeRefA)
-            Provenance = None }
-          never,
-         false)
+    let comparison (op: string) =
+      (makeFunctionType
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+          Provenance = None }
+        never,
+       false)
 
-      let tpA =
-        { Name = "A"
-          Constraint = Some(strType)
+    let logical =
+      (makeFunctionType
+        None
+        [ makeParam "left" boolType; makeParam "right" boolType ]
+        boolType
+        never,
+       false)
+
+    let typeRefA =
+      { Kind = makeTypeRefKind "A"
+        Provenance = None }
+
+    let typeRefB =
+      { Kind = makeTypeRefKind "B"
+        Provenance = None }
+
+    let typeParams: list<TypeParam> =
+      [ { Name = "A"
+          Constraint = None
           Default = None }
-
-      let tpB =
         { Name = "B"
-          Constraint = Some(strType)
-          Default = None }
+          Constraint = None
+          Default = None } ]
 
-      let typeRefA =
-        { Kind =
-            { Name = "A"
-              TypeArgs = None
-              Scheme = None }
-            |> TypeKind.TypeRef
+    // TODO: figure out how to make quality polymorphic
+    let equality =
+      (makeFunctionType
+        (Some(typeParams))
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        boolType
+        never,
+       false)
+
+    let typeParams: list<TypeParam> =
+      [ { Name = "A"
+          Constraint = None
+          Default = None } ]
+
+    let unaryLogic (op: string) =
+      (makeFunctionType
+        (Some(typeParams))
+        [ makeParam "arg" typeRefA ]
+        { Kind = TypeKind.Unary(op, typeRefA)
           Provenance = None }
+        never,
+       false)
 
-      let typeRefB =
-        { Kind =
-            { Name = "B"
-              TypeArgs = None
-              Scheme = None }
-            |> TypeKind.TypeRef
+    let tpA =
+      { Name = "A"
+        Constraint = Some(strType)
+        Default = None }
+
+    let tpB =
+      { Name = "B"
+        Constraint = Some(strType)
+        Default = None }
+
+    let typeRefA =
+      { Kind =
+          { Name = "A"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let typeRefB =
+      { Kind =
+          { Name = "B"
+            TypeArgs = None
+            Scheme = None }
+          |> TypeKind.TypeRef
+        Provenance = None }
+
+    let stringConcat =
+      (makeFunctionType
+        (Some [ tpA; tpB ])
+        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+        { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
           Provenance = None }
+        never,
+       false)
 
-      let stringConcat =
-        (makeFunctionType
-          (Some [ tpA; tpB ])
-          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-          { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
+    // TODO: we need an opaque type for now, or some way not to expand
+    // Promise types.
+    let promise: Scheme =
+      { Type =
+          { Kind = makeTypeRefKind "FooBar"
             Provenance = None }
-          never,
-         false)
+        TypeParams = Some([ "T"; "E" ])
+        IsTypeParam = false }
 
-      // TODO: we need an opaque type for now, or some way not to expand
-      // Promise types.
-      let promise: Scheme =
-        { Type =
-            { Kind = makeTypeRefKind "FooBar"
-              Provenance = None }
-          TypeParams = Some([ "T"; "E" ])
-          IsTypeParam = false }
+    let binaryOps =
+      Map.ofList
+        [ ("+", arithemtic "+")
+          ("++", stringConcat)
+          ("-", arithemtic "-")
+          ("*", arithemtic "*")
+          ("/", arithemtic "/")
+          ("%", arithemtic "%")
+          ("**", arithemtic "**")
+          ("<", comparison "<")
+          ("<=", comparison "<=")
+          (">", comparison ">")
+          (">=", comparison ">=")
+          ("==", equality)
+          ("!=", equality)
+          ("||", logical)
+          ("&&", logical) ]
 
-      let binaryOps =
-        Map.ofList
-          [ ("+", arithemtic "+")
-            ("++", stringConcat)
-            ("-", arithemtic "-")
-            ("*", arithemtic "*")
-            ("/", arithemtic "/")
-            ("%", arithemtic "%")
-            ("**", arithemtic "**")
-            ("<", comparison "<")
-            ("<=", comparison "<=")
-            (">", comparison ">")
-            (">=", comparison ">=")
-            ("==", equality)
-            ("!=", equality)
-            ("||", logical)
-            ("&&", logical) ]
+    let unaryOps =
+      Map.ofList
+        [ ("-", unaryArithmetic "-")
+          ("+", unaryArithmetic "+")
+          ("!", unaryLogic "!") ]
 
-      let unaryOps =
-        Map.ofList
-          [ ("-", unaryArithmetic "-")
-            ("+", unaryArithmetic "+")
-            ("!", unaryLogic "!") ]
+    result {
+      let mutable globalEnv =
+        { Env.empty with
+            Env.BinaryOps = binaryOps
+            Env.UnaryOps = unaryOps }
 
-      result {
-        let env: Env =
-          { Env.BinaryOps = binaryOps
-            Env.UnaryOps = unaryOps
-            Env.Values = Map.empty
-            Env.Schemes = Map([ ("Promise", promise) ])
-            Env.IsAsync = false
-            Env.IsPatternMatching = false }
+      globalEnv <- globalEnv.AddScheme "Promise" promise
 
-        let ctx =
-          Ctx(
-            (fun ctx filename import ->
-              let resolvedImportPath =
-                Path.ChangeExtension(
-                  resolvePath baseDir filename import.Path,
-                  ".esc"
-                )
+      let ctx =
+        Ctx(
+          (fun ctx filename import ->
+            let resolvedImportPath =
+              Path.ChangeExtension(
+                resolvePath baseDir filename import.Path,
+                ".esc"
+              )
 
-              let contents = filesystem.File.ReadAllText(resolvedImportPath)
+            let contents = filesystem.File.ReadAllText(resolvedImportPath)
 
-              let m =
-                match Parser.parseScript contents with
-                | Ok value -> value
-                | Error _ -> failwith $"failed to parse {resolvedImportPath}"
+            let m =
+              match Parser.parseScript contents with
+              | Ok value -> value
+              | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
-              let env =
-                match Infer.inferScript ctx env entry m with
-                | Ok value -> value
-                | Error err ->
-                  printfn "err = %A" err
-                  failwith $"failed to infer {resolvedImportPath}"
+            // scriptEnv
+            let env =
+              match Infer.inferScript ctx globalEnv entry m with
+              | Ok value -> value
+              | Error err ->
+                printfn "err = %A" err
+                failwith $"failed to infer {resolvedImportPath}"
 
-              let mutable newEnv = Env.Env.empty
+            // exportEnv
+            let mutable newEnv = Env.Env.empty
 
-              let bindings = findModuleBindingNames m
+            let bindings = findModuleBindingNames m
 
-              for name in bindings do
-                match env.Values.TryFind(name) with
-                // NOTE: exports are immutable
-                | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
-                | None -> failwith $"binding {name} not found"
+            for name in bindings do
+              match env.Values.TryFind(name) with
+              // NOTE: exports are immutable
+              | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
+              | None -> failwith $"binding {name} not found"
 
-              for item in m.Items do
-                match item with
-                | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
-                  match env.Schemes.TryFind(name) with
-                  | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
-                  | None -> failwith $"scheme {name} not found"
-                | _ -> ()
+            for item in m.Items do
+              match item with
+              | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
+                match env.Schemes.TryFind(name) with
+                | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
+                | None -> failwith $"scheme {name} not found"
+              | _ -> ()
 
-              newEnv),
-            (fun ctx filename import ->
-              resolvePath baseDir filename import.Path)
-          )
+            newEnv),
+          (fun ctx filename import -> resolvePath baseDir filename import.Path)
+        )
 
-        let prelude =
-          """
+      let prelude =
+        """
           declare let Symbol: {
             asyncIterator: unique symbol,
             iterator: unique symbol,
@@ -340,14 +342,30 @@ module Prelude =
             next: fn () -> { done: boolean, value: Min..Max }
           }
           """
-        // TODO: add an `Iterator` type and define `RangeIterator` using it
+      // TODO: add an `Iterator` type and define `RangeIterator` using it
+
+      if loadTypeDefs then
+        let input = File.ReadAllText("./lib/lib.es5.d.ts")
 
         let! ast =
-          Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+          match Parser.parseModule input with
+          | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
+          | FParsec.CharParsers.Failure(_, parserError, _) ->
+            Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-        let! env =
-          Infer.inferScript ctx env entry ast
+        let! newEnv =
+          Infer.inferModule ctx globalEnv ast
           |> Result.mapError CompileError.TypeError
 
-        return ctx, env
-      }
+        globalEnv <- newEnv
+
+      let! ast =
+        Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+
+      // scriptEnv
+      let! env =
+        Infer.inferScript ctx globalEnv entry ast
+        |> Result.mapError CompileError.TypeError
+
+      return ctx, env
+    }

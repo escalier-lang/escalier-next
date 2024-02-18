@@ -233,8 +233,7 @@ let InferBasicVarDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let prelude = Prelude.Prelude()
-      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx false mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -269,8 +268,7 @@ let InferTypeDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let prelude = Prelude.Prelude()
-      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx false mockFileSystem "/" "/input.esc"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -300,20 +298,9 @@ let ParseLibES5 () =
 let InferLibES5 () =
   let result =
     result {
-      let input = File.ReadAllText("./lib/lib.es5.d.ts")
-
-      let! ast =
-        match parseModule input with
-        | Success(value, _, _) -> Result.Ok(value)
-        | Failure(_, parserError, _) ->
-          Result.mapError CompileError.ParseError (Result.Error(parserError))
-
       let mockFileSystem = MockFileSystem()
-      let prelude = Prelude.Prelude()
-      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
-
-      let! newEnv =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      let! ctx, env = Prelude.getEnvAndCtx true mockFileSystem "/" "/input.esc"
+      // let! newEnv = prelude.loadTypeDefinitions ctx env
 
       // printfn "---- Schemes ----"
       //
@@ -325,7 +312,7 @@ let InferLibES5 () =
       // for KeyValue(name, t) in newEnv.Values do
       //   printfn $"{name}"
 
-      return newEnv
+      return env
     }
 
   Assert.True(Result.isOk result)
@@ -334,26 +321,14 @@ let InferLibES5 () =
 let InferArrayPrototype () =
   let result =
     result {
-      let input = File.ReadAllText("./lib/lib.es5.d.ts")
-
-      let! ast =
-        match parseModule input with
-        | Success(value, _, _) -> Result.Ok(value)
-        | Failure(_, parserError, _) ->
-          Result.mapError CompileError.ParseError (Result.Error(parserError))
-
       let mockFileSystem = MockFileSystem()
-      let prelude = Prelude.Prelude()
-      let! ctx, env = prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx true mockFileSystem "/" "/input.esc"
 
-      let! newEnv =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
-
-      let scheme = Map.find "Array" newEnv.Schemes
+      let scheme = Map.find "Array" env.Schemes
 
       printfn $"Array = {scheme}"
 
-      return newEnv
+      return env
     }
 
   Assert.True(Result.isOk result)

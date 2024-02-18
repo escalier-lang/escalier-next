@@ -9,6 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="TestUtils.fs"/>
         <Compile Include="Tests.fs"/>
         <Compile Include="Mutability.fs"/>
         <Compile Include="NoParseTests.fs"/>

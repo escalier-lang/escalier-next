@@ -88,11 +88,7 @@ module Prelude =
       Type = ty
       Optional = false }
 
-  // TODO: add memoization
-  let getEnvAndCtx
-    (filesystem: IFileSystem)
-    (baseDir: string)
-    : Result<Ctx * Env, CompileError> =
+  let getGlobalEnv () : Env =
     let tpA =
       { Name = "A"
         Constraint = Some(numType)
@@ -261,14 +257,31 @@ module Prelude =
           ("+", unaryArithmetic "+")
           ("!", unaryLogic "!") ]
 
+    let mutable env =
+      { Env.empty with
+          Env.BinaryOps = binaryOps
+          Env.UnaryOps = unaryOps }
+
+    env <- env.AddScheme "Promise" promise
+    env
+
+  let mutable envMemoized: Env option = None
+
+  let getGlobalEnvMemoized () =
+    match envMemoized with
+    | Some(e) -> e
+    | None ->
+      let env = getGlobalEnv ()
+      envMemoized <- Some(env)
+      env
+
+  let getCtx
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    (globalEnv: Env)
+    : Result<Ctx, CompileError> =
+
     result {
-      let mutable globalEnv =
-        { Env.empty with
-            Env.BinaryOps = binaryOps
-            Env.UnaryOps = unaryOps }
-
-      globalEnv <- globalEnv.AddScheme "Promise" promise
-
       let ctx =
         Ctx(
           (fun ctx filename import ->
@@ -316,17 +329,33 @@ module Prelude =
           (fun ctx filename import -> resolvePath baseDir filename import.Path)
         )
 
-      return ctx, globalEnv
+      return ctx
     }
 
   // TODO: add memoization
+  // This is hard to memoize without reusing the filesystem
+  let getEnvAndCtx
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    : Result<Ctx * Env, CompileError> =
+
+    result {
+      let env = getGlobalEnvMemoized ()
+      let! ctx = getCtx filesystem baseDir env
+
+      return ctx, env
+    }
+
+  // TODO: add memoization
+  // This is hard to memoize without reusing the filesystem
   let getEnvAndCtxWithES5
     (filesystem: IFileSystem)
     (baseDir: string)
     : Result<Ctx * Env, CompileError> =
 
     result {
-      let! ctx, env = getEnvAndCtx filesystem baseDir
+      let env = getGlobalEnvMemoized ()
+      let! ctx = getCtx filesystem baseDir env
 
       let input = File.ReadAllText("./lib/lib.es5.d.ts")
 

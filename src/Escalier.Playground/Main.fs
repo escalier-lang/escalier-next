@@ -6,6 +6,7 @@ open Bolero
 open Bolero.Html
 open System.IO.Abstractions.TestingHelpers
 
+open Escalier.Compiler
 open Escalier.TypeChecker
 open Escalier.Parser
 open Escalier.Codegen
@@ -36,7 +37,7 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
     let mockFileSystem = MockFileSystem()
-    let! tcCtx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+    let! tcCtx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
     let! env =
       Infer.inferScript tcCtx env "input.esc" ast

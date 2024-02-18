@@ -1,4 +1,4 @@
-namespace Escalier.TypeChecker
+namespace Escalier.Compiler
 
 open FParsec.Error
 open FsToolkit.ErrorHandling
@@ -11,11 +11,13 @@ open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.ExprVisitor
+open Escalier.Interop
 
 open Env
 
-// TODO: move the prelude into its own file so that Provenance
-// can be set to something
+// TODO: move the definitions in the prelude into its own source file so that
+// Provenance can be set to something the appropriate AST nodes from that file.
+// TODO: turn this into a class
 module Prelude =
   type CompileError =
     | ParseError of ParserError
@@ -86,11 +88,7 @@ module Prelude =
       Type = ty
       Optional = false }
 
-  let getEnvAndCtx
-    (filesystem: IFileSystem)
-    (baseDir: string)
-    (entry: string)
-    : Result<Ctx * Env, CompileError> =
+  let getGlobalEnv () : Env =
     let tpA =
       { Name = "A"
         Constraint = Some(numType)
@@ -259,15 +257,31 @@ module Prelude =
           ("+", unaryArithmetic "+")
           ("!", unaryLogic "!") ]
 
-    result {
-      let env: Env =
-        { Env.BinaryOps = binaryOps
-          Env.UnaryOps = unaryOps
-          Env.Values = Map.empty
-          Env.Schemes = Map([ ("Promise", promise) ])
-          Env.IsAsync = false
-          Env.IsPatternMatching = false }
+    let mutable env =
+      { Env.empty with
+          Env.BinaryOps = binaryOps
+          Env.UnaryOps = unaryOps }
 
+    env <- env.AddScheme "Promise" promise
+    env
+
+  let mutable envMemoized: Env option = None
+
+  let getGlobalEnvMemoized () =
+    match envMemoized with
+    | Some(e) -> e
+    | None ->
+      let env = getGlobalEnv ()
+      envMemoized <- Some(env)
+      env
+
+  let getCtx
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    (globalEnv: Env)
+    : Result<Ctx, CompileError> =
+
+    result {
       let ctx =
         Ctx(
           (fun ctx filename import ->
@@ -284,13 +298,15 @@ module Prelude =
               | Ok value -> value
               | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
+            // scriptEnv
             let env =
-              match Infer.inferScript ctx env entry m with
+              match Infer.inferScript ctx globalEnv filename m with
               | Ok value -> value
               | Error err ->
                 printfn "err = %A" err
                 failwith $"failed to infer {resolvedImportPath}"
 
+            // exportEnv
             let mutable newEnv = Env.Env.empty
 
             let bindings = findModuleBindingNames m
@@ -313,38 +329,44 @@ module Prelude =
           (fun ctx filename import -> resolvePath baseDir filename import.Path)
         )
 
-      let prelude =
-        """
-        declare let Symbol: {
-          asyncIterator: unique symbol,
-          iterator: unique symbol,
-          match: unique symbol,
-          matchAll: unique symbol,
-          replace: unique symbol,
-          search: unique symbol,
-          species: unique symbol,
-          split: unique symbol,
-          toPrimitive: unique symbol,
-          toStringTag: unique symbol,
-        }
-        type Iterator<T> = {
-          next: fn () -> { done: boolean, value: T }
-        }
-        type Array<T> = {
-          [Symbol.iterator]: fn () -> Iterator<T>
-        }
-        type RangeIterator<Min: number, Max: number> = {
-          next: fn () -> { done: boolean, value: Min..Max }
-        }
-        """
-      // TODO: add an `Iterator` type and define `RangeIterator` using it
+      return ctx
+    }
+
+  // TODO: add memoization
+  // This is hard to memoize without reusing the filesystem
+  let getEnvAndCtx
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    : Result<Ctx * Env, CompileError> =
+
+    result {
+      let env = getGlobalEnvMemoized ()
+      let! ctx = getCtx filesystem baseDir env
+
+      return ctx, env
+    }
+
+  // TODO: add memoization
+  // This is hard to memoize without reusing the filesystem
+  let getEnvAndCtxWithES5
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    : Result<Ctx * Env, CompileError> =
+
+    result {
+      let env = getGlobalEnvMemoized ()
+      let! ctx = getCtx filesystem baseDir env
+
+      let input = File.ReadAllText("./lib/lib.es5.d.ts")
 
       let! ast =
-        Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+        match Parser.parseModule input with
+        | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
+        | FParsec.CharParsers.Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let! env =
-        Infer.inferScript ctx env entry ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       return ctx, env
     }

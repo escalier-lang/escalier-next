@@ -1,7 +1,6 @@
 [<VerifyXunit.UsesVerify>]
 module Tests
 
-open Escalier.TypeChecker
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
 open System.IO.Abstractions.TestingHelpers
@@ -10,6 +9,7 @@ open VerifyTests
 open VerifyXunit
 open Xunit
 
+open Escalier.Compiler
 open Escalier.TypeChecker.Env
 open Escalier.Interop.Parser
 open Escalier.Interop.Infer
@@ -233,7 +233,7 @@ let InferBasicVarDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -268,7 +268,7 @@ let InferTypeDecls () =
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -298,19 +298,9 @@ let ParseLibES5 () =
 let InferLibES5 () =
   let result =
     result {
-      let input = File.ReadAllText("./lib/lib.es5.d.ts")
-
-      let! ast =
-        match parseModule input with
-        | Success(value, _, _) -> Result.Ok(value)
-        | Failure(_, parserError, _) ->
-          Result.mapError CompileError.ParseError (Result.Error(parserError))
-
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
-
-      let! newEnv =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+      // let! newEnv = prelude.loadTypeDefinitions ctx env
 
       // printfn "---- Schemes ----"
       //
@@ -322,7 +312,23 @@ let InferLibES5 () =
       // for KeyValue(name, t) in newEnv.Values do
       //   printfn $"{name}"
 
-      return newEnv
+      return env
+    }
+
+  Assert.True(Result.isOk result)
+
+[<Fact>]
+let InferArrayPrototype () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let scheme = Map.find "Array" env.Schemes
+
+      printfn $"Array = {scheme}"
+
+      return env
     }
 
   Assert.True(Result.isOk result)

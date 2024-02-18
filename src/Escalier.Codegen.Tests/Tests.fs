@@ -7,6 +7,7 @@ open VerifyTests
 open FsToolkit.ErrorHandling
 open System.IO.Abstractions.TestingHelpers
 
+open Escalier.Compiler
 open Escalier.Data
 open Escalier.Interop.TypeScript
 open Escalier.Codegen.Printer
@@ -272,7 +273,7 @@ let CodegenDtsBasics () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
       let! env =
         Infer.inferScript ctx env "input.esc" escAst
@@ -304,7 +305,7 @@ let CodegenDtsGeneric () =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
       let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/" "/input.esc"
+      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type

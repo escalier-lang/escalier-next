@@ -544,7 +544,7 @@ module rec Infer =
               return
                 { Pattern = patternToPattern param.Pattern
                   Type = paramType
-                  Optional = false }
+                  Optional = param.Optional }
             })
           fnSig.ParamList
 

@@ -654,17 +654,52 @@ module rec Unify =
             })
           args
 
-      if args.Length < callee.ParamList.Length then
+      let optionalParams, requiredParams =
+        callee.ParamList |> List.partition (_.Optional)
+
+      if args.Length < requiredParams.Length then
         // TODO: make this into a diagnostic instead of an error
         return!
           Error(
             TypeError.SemanticError "function called with too few arguments"
           )
 
-      // List.zip requires that both lists have the same length
-      let args = List.take callee.ParamList.Length args
+      let requiredArgs, optionalArgs = List.splitAt requiredParams.Length args
 
-      for (arg, argType), param in List.zip args callee.ParamList do
+      for (arg, argType), param in List.zip requiredArgs requiredParams do
+        if
+          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+        then
+          ()
+        else
+          let! invariantPaths =
+            checkMutability
+              (getTypePatBindingPaths param.Pattern)
+              (getExprBindingPaths env arg)
+
+          match unify ctx env invariantPaths argType param.Type with
+          | Ok _ -> ()
+          | Error(reason) ->
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
+
+            do! unify ctx env ips never param.Type
+
+            ctx.AddDiagnostic(
+              { Description =
+                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                Reasons = [ reason ] }
+            )
+
+      // Functions can be passed more args than parameters as well as
+      // fewer args that the number optional params.  We handle both
+      // cases here.
+      let minLength = min optionalArgs.Length optionalParams.Length
+      let optionalParams = List.take minLength optionalParams
+      let optionalArgs = List.take minLength optionalArgs
+
+      for (arg, argType), param in List.zip optionalArgs optionalParams do
         if
           param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
         then

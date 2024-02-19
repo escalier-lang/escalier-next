@@ -33,13 +33,13 @@ output: Success: { Body =
                        Param =
                         { Pat = Ident { Id = { Name = "value"
                                                Loc = None }
-                                        Optional = false
                                         Loc = None }
                           TypeAnn =
                            Some
                              { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
                                                          Loc = None }
                                Loc = None }
+                          Optional = false
                           Loc = None }
                        Loc = None }]
                  Loc = None }

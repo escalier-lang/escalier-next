@@ -815,8 +815,10 @@ module rec Infer =
           match env.Schemes.TryFind "Array" with
           | Some scheme -> scheme
           | None -> failwith "Array not in scope"
-        // TODO: lookup keys in array prototype
-        failwith "TODO: lookup member on array type"
+
+        let t = expandScheme ctx env None arrayScheme Map.empty None
+        printfn $"t = {t}"
+        getPropType ctx env t key optChain
     // TODO: intersection types
     | _ -> failwith $"TODO: lookup member on type - {t}"
 

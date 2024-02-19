@@ -640,12 +640,10 @@ module rec TypeScript =
   type BindingIdent =
     { Id: Ident
       // TypeAnn: option<TsTypeAnn>
-      Optional: bool
       Loc: option<SourceLocation> }
 
   type ArrayPat =
     { Elems: list<option<Pat>>
-      Optional: bool
       // TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
@@ -656,7 +654,6 @@ module rec TypeScript =
 
   type ObjectPat =
     { Props: list<ObjectPatProp>
-      Optional: bool
       // TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 
@@ -1072,6 +1069,7 @@ module rec TypeScript =
   type TsFnParam =
     { Pat: TsFnParamPat
       TypeAnn: option<TsTypeAnn>
+      Optional: bool
       Loc: option<SourceLocation> }
 
   type ObjectPatProp =

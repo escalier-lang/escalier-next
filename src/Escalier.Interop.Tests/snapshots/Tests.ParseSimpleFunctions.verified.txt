@@ -14,7 +14,6 @@ output: Success: { Body =
                { Params =
                   [{ Pat = Ident { Id = { Name = "x"
                                           Loc = None }
-                                   Optional = false
                                    Loc = None }
                      TypeAnn =
                       Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
@@ -40,7 +39,6 @@ output: Success: { Body =
                { Params =
                   [{ Pat = Ident { Id = { Name = "a"
                                           Loc = None }
-                                   Optional = false
                                    Loc = None }
                      TypeAnn =
                       Some
@@ -53,7 +51,6 @@ output: Success: { Body =
                      Loc = None };
                    { Pat = Ident { Id = { Name = "b"
                                           Loc = None }
-                                   Optional = false
                                    Loc = None }
                      TypeAnn =
                       Some

@@ -2,7 +2,6 @@
 
 open FParsec
 open System.Globalization
-open System.Text
 
 module Common =
   let ci = CultureInfo("en-US", true)
@@ -463,12 +462,12 @@ module Syntax =
     { Kind: TypeAnnKind
       Span: Span
       mutable InferredType: option<Type.Type> }
-    
+
     override this.Equals other =
       match other with
       | :? Expr as p -> p.Kind.Equals this.Kind
       | _ -> false
-    
+
     override this.GetHashCode() = this.Kind.GetHashCode()
 
   type ImportSpecifier =
@@ -527,20 +526,20 @@ module Type =
     { Name: string
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
-    
+
     // TODO: include `Scheme` in the equality check
     // First we need to figure out how to check the equality of
     // recursive types like `type Foo = number | Foo[]`
     override this.Equals other =
       match other with
       | :? TypeRef as p ->
-        (p.Name.Equals this.Name) &&
-          match p.TypeArgs, this.TypeArgs with
-          | Some typeArgs1, Some typeArgs2 -> typeArgs1.Equals typeArgs2
-          | None, None -> true
-          | _ -> false
+        (p.Name.Equals this.Name)
+        && match p.TypeArgs, this.TypeArgs with
+           | Some typeArgs1, Some typeArgs2 -> typeArgs1.Equals typeArgs2
+           | None, None -> true
+           | _ -> false
       | _ -> false
-    
+
     override this.GetHashCode() =
       (this.Name, this.TypeArgs).GetHashCode()
 
@@ -654,7 +653,10 @@ module Type =
       Type: Type
       Optional: bool }
 
-    override this.ToString() = $"{this.Pattern}: {this.Type}"
+    override this.ToString() =
+      match this.Optional with
+      | true -> $"{this.Pattern}?: {this.Type}"
+      | false -> $"{this.Pattern}: {this.Type}"
 
   type TypeParam =
     { Name: string
@@ -776,8 +778,7 @@ module Type =
 
     override this.Equals other =
       match other with
-      | :? Type as p ->
-        p.Kind.Equals this.Kind
+      | :? Type as p -> p.Kind.Equals this.Kind
       | _ -> false
 
     override this.GetHashCode() = this.Kind.GetHashCode()
@@ -979,13 +980,7 @@ module Type =
       | Some(self) -> self :: f.ParamList
       | None -> f.ParamList
 
-    let paramList =
-      List.map
-        (fun p ->
-          let ctx = { Precedence = 0 }
-          $"{p.Pattern}: {printType ctx p.Type}")
-        paramList
-      |> String.concat ", "
+    let paramList = List.map (_.ToString()) paramList |> String.concat ", "
 
     let typeParams =
       match f.TypeParams with

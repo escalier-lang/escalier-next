@@ -45,7 +45,7 @@ module rec Infer =
 
     { Pattern = pat
       Type = typeAnn
-      Optional = false }
+      Optional = param.Optional }
 
   let inferTypeElement
     (ctx: Ctx)

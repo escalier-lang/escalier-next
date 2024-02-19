@@ -1075,7 +1075,10 @@ module rec Unify =
                       Optional = false // TODO
                       Readonly = false // TODO
                     } ]
-              | _ -> failwith "TODO: expand mapped type - constraint type"
+              | _ -> [ elem ]
+            // printfn $"constraint - c = {c}"
+            // printfn $"mapped type - m = {m}"
+            // failwith "TODO: expand mapped type - constraint type"
             | _ -> [ elem ])
 
         let t =

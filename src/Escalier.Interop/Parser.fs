@@ -82,20 +82,11 @@ module Parser =
   // Patterns
 
   let bindingIdent: Parser<BindingIdent, unit> =
-    pipe2 ident (opt (strWs "?"))
-    <| fun ident question ->
-      { Id = ident
-        Optional = question.IsSome
-        Loc = None }
+    ident |>> fun ident -> { Id = ident; Loc = None }
 
   let arrayPat: Parser<ArrayPat, unit> =
-    pipe2
-      ((strWs "[") >>. (sepBy (opt pat) (strWs ",")) .>> (strWs "]"))
-      (opt (strWs "?"))
-    <| fun elems question ->
-      { Elems = elems
-        Optional = question.IsSome
-        Loc = None }
+    ((strWs "[") >>. (sepBy (opt pat) (strWs ",")) .>> (strWs "]"))
+    |>> fun elems -> { Elems = elems; Loc = None }
 
   let restPat: Parser<RestPat, unit> =
     (strWs "..." >>. pat) |>> fun arg -> { Arg = arg; Loc = None }
@@ -105,13 +96,8 @@ module Parser =
     <| fun name typeAnn loc -> failwith "TODO: objectPatProp"
 
   let objectPat: Parser<ObjectPat, unit> =
-    pipe2
-      ((strWs "{") >>. (sepBy objectPatProp (strWs ",")) .>> (strWs "}"))
-      (opt (strWs "?"))
-    <| fun props question ->
-      { Props = props
-        Optional = question.IsSome
-        Loc = None }
+    ((strWs "{") >>. (sepBy objectPatProp (strWs ",")) .>> (strWs "}"))
+    |>> fun props -> { Props = props; Loc = None }
 
   // TODO flesh this out
   patRef.Value <-
@@ -146,10 +132,12 @@ module Parser =
           restPat |>> TsFnParamPat.Rest
           objectPat |>> TsFnParamPat.Object ]
 
-    pipe2 paramPat (opt (strWs ":" >>. tsTypeAnn))
-    <| fun pat typeAnn ->
+    pipe3 paramPat (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
+    <| fun pat optional typeAnn ->
+
       { Pat = pat
         TypeAnn = typeAnn
+        Optional = optional.IsSome
         Loc = None }
 
   let tsFnParams: Parser<list<TsFnParam>, unit> =
@@ -574,8 +562,8 @@ module Parser =
         |> Decl.TsInterface
 
   let param: Parser<Param, unit> =
-    pipe2 pat (opt (strWs ":" >>. tsTypeAnn))
-    <| fun p typeAnn ->
+    pipe3 pat (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
+    <| fun p optional typeAnn ->
       { Pat = p
         TypeAnn = typeAnn
         Loc = None }

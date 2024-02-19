@@ -101,7 +101,6 @@ module rec Codegen =
             [ { Id =
                   Pat.Ident
                     { Id = { Name = tempId; Loc = None }
-                      Optional = false
                       Loc = None }
                 TypeAnn = None
                 Init = None } ]
@@ -163,7 +162,6 @@ module rec Codegen =
             [ { Id =
                   Pat.Ident
                     { Id = { Name = tempId; Loc = None }
-                      Optional = false
                       Loc = None }
                 TypeAnn = None
                 Init = None } ]
@@ -269,7 +267,6 @@ module rec Codegen =
     | PatternKind.Ident { Name = name } ->
       Pat.Ident
         { Id = { Name = name; Loc = None }
-          Optional = false
           Loc = None }
     | _ -> failwith "TODO"
 
@@ -317,7 +314,6 @@ module rec Codegen =
                 { Id =
                     Pat.Ident
                       { Id = { Name = n; Loc = None }
-                        Optional = false
                         Loc = None }
                   TypeAnn = Some(buildTypeAnn ctx t)
                   Init = None }
@@ -388,11 +384,11 @@ module rec Codegen =
             let pat =
               TsFnParamPat.Ident
                 { Id = { Name = name; Loc = None }
-                  Optional = false
                   Loc = None }
 
             { Pat = pat
               TypeAnn = Some(t)
+              Optional = p.Optional
               Loc = None }
           | Pattern.Object _ -> failwith "TODO"
           | Pattern.Tuple _ -> failwith "TODO"

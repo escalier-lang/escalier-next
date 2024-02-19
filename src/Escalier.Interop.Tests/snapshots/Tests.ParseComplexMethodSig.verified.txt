@@ -24,16 +24,15 @@ output: Success: { Body =
                        Params =
                         [{ Pat = Ident { Id = { Name = "value"
                                                 Loc = None }
-                                         Optional = false
                                          Loc = None }
                            TypeAnn =
                             Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
                                                              Loc = None }
                                    Loc = None }
+                           Optional = false
                            Loc = None };
                          { Pat = Ident { Id = { Name = "replacer"
                                                 Loc = None }
-                                         Optional = true
                                          Loc = None }
                            TypeAnn =
                             Some
@@ -63,10 +62,10 @@ output: Success: { Body =
                                                           Loc = None }]
                                         Loc = None })
                                 Loc = None }
+                           Optional = true
                            Loc = None };
                          { Pat = Ident { Id = { Name = "space"
                                                 Loc = None }
-                                         Optional = true
                                          Loc = None }
                            TypeAnn =
                             Some
@@ -80,6 +79,7 @@ output: Success: { Body =
                                                           Loc = None }]
                                         Loc = None })
                                 Loc = None }
+                           Optional = true
                            Loc = None }]
                        TypeAnn =
                         Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
@@ -95,7 +95,6 @@ output: Success: { Body =
                        Params =
                         [{ Pat = Ident { Id = { Name = "predicate"
                                                 Loc = None }
-                                         Optional = false
                                          Loc = None }
                            TypeAnn =
                             Some
@@ -105,7 +104,6 @@ output: Success: { Body =
                                       { Params =
                                          [{ Pat = Ident { Id = { Name = "value"
                                                                  Loc = None }
-                                                          Optional = false
                                                           Loc = None }
                                             TypeAnn =
                                              Some
@@ -117,10 +115,10 @@ output: Success: { Body =
                                                                     Loc = None }
                                                       TypeParams = None }
                                                  Loc = None }
+                                            Optional = false
                                             Loc = None };
                                           { Pat = Ident { Id = { Name = "index"
                                                                  Loc = None }
-                                                          Optional = false
                                                           Loc = None }
                                             TypeAnn =
                                              Some
@@ -129,10 +127,10 @@ output: Success: { Body =
                                                     { Kind = TsNumberKeyword
                                                       Loc = None }
                                                  Loc = None }
+                                            Optional = false
                                             Loc = None };
                                           { Pat = Ident { Id = { Name = "array"
                                                                  Loc = None }
-                                                          Optional = false
                                                           Loc = None }
                                             TypeAnn =
                                              Some
@@ -153,6 +151,7 @@ output: Success: { Body =
                                                            Loc = None }
                                                       Loc = None }
                                                  Loc = None }
+                                            Optional = false
                                             Loc = None }]
                                         TypeParams = None
                                         TypeAnn =
@@ -177,15 +176,16 @@ output: Success: { Body =
                                            Loc = None }
                                         Loc = None })
                                 Loc = None }
+                           Optional = false
                            Loc = None };
                          { Pat = Ident { Id = { Name = "thisArg"
                                                 Loc = None }
-                                         Optional = true
                                          Loc = None }
                            TypeAnn =
                             Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
                                                              Loc = None }
                                    Loc = None }
+                           Optional = true
                            Loc = None }]
                        TypeAnn =
                         Some

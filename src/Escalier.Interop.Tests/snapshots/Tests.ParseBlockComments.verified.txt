@@ -12,7 +12,6 @@ output: Success: { Body =
             { Decls =
                [{ Id = Ident { Id = { Name = "a"
                                       Loc = None }
-                               Optional = false
                                Loc = None }
                   TypeAnn =
                    Some
@@ -31,7 +30,6 @@ output: Success: { Body =
             { Decls =
                [{ Id = Ident { Id = { Name = "b"
                                       Loc = None }
-                               Optional = false
                                Loc = None }
                   TypeAnn =
                    Some

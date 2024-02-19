@@ -10,9 +10,11 @@ open VerifyXunit
 open Xunit
 
 open Escalier.Compiler
-open Escalier.TypeChecker.Env
-open Escalier.Interop.Parser
+open Escalier.Parser
 open Escalier.Interop.Infer
+open Escalier.Interop.Parser
+open Escalier.TypeChecker
+open Escalier.TypeChecker.Env
 
 type Assert with
 
@@ -24,6 +26,21 @@ type Assert with
     let scheme = Map.find name env.Schemes
     Assert.Equal(expected, scheme.ToString())
 
+type CompileError = Prelude.CompileError
+
+let inferScript src =
+  result {
+    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+    let mockFileSystem = MockFileSystem()
+    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+
+    let! env =
+      Infer.inferScript ctx env "input.esc" ast
+      |> Result.mapError CompileError.TypeError
+
+    return ctx, env
+  }
 
 let settings = VerifySettings()
 settings.UseDirectory("snapshots")
@@ -211,7 +228,6 @@ let ParseLineComments () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-type CompileError = Prelude.CompileError
 
 [<Fact>]
 let InferBasicVarDecls () =
@@ -331,4 +347,34 @@ let InferArrayPrototype () =
       return env
     }
 
+  Assert.True(Result.isOk result)
+
+[<Fact(Skip = "TODO")>]
+let CallMethodsOnArray () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let scheme = Map.find "Array" env.Schemes
+      printfn $"Array = {scheme}"
+
+      let src =
+        """
+        let a: number[] = [3, 2, 1]
+        a.sort()
+        let b = a.map(fn (x) => x * 2)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      return env
+    }
+
+  printfn "result = %A" result
   Assert.True(Result.isOk result)

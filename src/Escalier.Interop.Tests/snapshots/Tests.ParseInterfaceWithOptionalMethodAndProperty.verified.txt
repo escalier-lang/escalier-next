@@ -47,13 +47,13 @@ output: Success: { Body =
                        Params =
                         [{ Pat = Ident { Id = { Name = "a"
                                                 Loc = None }
-                                         Optional = false
                                          Loc = None }
                            TypeAnn =
                             Some
                               { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
                                                           Loc = None }
                                 Loc = None }
+                           Optional = false
                            Loc = None }]
                        TypeAnn =
                         Some { TypeAnn = TsKeywordType { Kind = TsBooleanKeyword

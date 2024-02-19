@@ -1616,7 +1616,7 @@ module rec Infer =
 
         return env.AddBindings bindings
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
-        let! placeholder = inferTypeDeclScheme ctx typeDecl
+        let! placeholder = inferTypeDeclScheme ctx env typeDecl
         let mutable newEnv = env
 
         // Handles self-recursive types
@@ -1635,33 +1635,43 @@ module rec Infer =
                                                      Elems = elems } }) ->
         let mutable newEnv = env
 
+        let! placeholderTypeParams =
+          match typeParams with
+          | None -> ResultOption.ofOption None
+          | Some typeParams ->
+            List.traverseResultM (inferTypeParam ctx newEnv) typeParams
+            |> ResultOption.ofResult
+
         // TODO: add support for constraints on type params to aliases
         let placeholder =
-          { TypeParams =
-              typeParams
-              |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
+          { TypeParams = placeholderTypeParams
             Type = ctx.FreshTypeVar None
             IsTypeParam = false }
 
         // Handles self-recursive types
         newEnv <- newEnv.AddScheme name placeholder
 
-        let typeParams =
-          typeParams
-          |> Option.map (fun typeParams ->
-            typeParams
-            |> List.map (fun typeParam ->
-              let unknown =
-                { Kind = TypeKind.Keyword Keyword.Unknown
-                  Provenance = None }
+        let! typeParams =
+          match typeParams with
+          | None -> ResultOption.ofOption None
+          | Some typeParams ->
+            List.traverseResultM
+              (fun (typeParam: Syntax.TypeParam) ->
+                result {
+                  let unknown =
+                    { Kind = TypeKind.Keyword Keyword.Unknown
+                      Provenance = None }
 
-              let scheme =
-                { TypeParams = None
-                  Type = unknown
-                  IsTypeParam = false }
+                  let scheme =
+                    { TypeParams = None
+                      Type = unknown
+                      IsTypeParam = false }
 
-              newEnv <- newEnv.AddScheme typeParam.Name scheme
-              typeParam.Name))
+                  newEnv <- newEnv.AddScheme typeParam.Name scheme
+                  return! inferTypeParam ctx env typeParam
+                })
+              typeParams
+            |> ResultOption.ofResult
 
         let! elems =
           elems
@@ -2017,6 +2027,7 @@ module rec Infer =
 
   let inferTypeDeclScheme
     (ctx: Ctx)
+    (env: Env)
     (typeDecl: TypeDecl)
     : Result<Scheme, TypeError> =
 
@@ -2028,12 +2039,25 @@ module rec Infer =
     result {
       // Create a new environment to avoid polluting the current environment
       // with the type parameters.
-      // let mutable newEnv = env
+      let mutable newEnv = env
 
       // TODO: add support for constraints on type params to aliases
-      let typeParams =
-        typeParams
-        |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
+      let! typeParams =
+        match typeParams with
+        | None -> ResultOption.ofOption None
+        | Some typeParams ->
+          List.map
+            (fun (tp: Syntax.TypeParam) ->
+              { Name = tp.Name
+                Constraint = None
+                Default = None })
+            typeParams
+          |> Some
+          |> Result.Ok
+      // TODO: ensure we're adding newly created TypeParams to `newEnv`
+      // so that they can reference one another
+      // List.traverseResultM (inferTypeParam ctx newEnv) typeParams
+      // |> ResultOption.ofResult
 
       let scheme =
         { TypeParams = typeParams
@@ -2063,7 +2087,7 @@ module rec Infer =
 
           newEnv <-
             newEnv.AddScheme
-              typeParam
+              typeParam.Name
               { TypeParams = None
                 Type = unknown
                 IsTypeParam = true }
@@ -2220,7 +2244,7 @@ module rec Infer =
           | TypeDecl typeDecl ->
             // TODO: replace placeholders, with a reference the actual definition
             // once we've inferred the definition
-            let! placeholder = inferTypeDeclScheme ctx typeDecl
+            let! placeholder = inferTypeDeclScheme ctx env typeDecl
             typeDecls <- typeDecls.Add(typeDecl.Name, placeholder)
 
             // TODO: update AddScheme to return a Result<Env, TypeError> and

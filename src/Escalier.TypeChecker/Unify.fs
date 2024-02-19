@@ -232,10 +232,10 @@ module rec Unify =
                 return! Error(TypeError.WrongNumberOfTypeArgs)
 
               for tp, ta in List.zip typeParams typeArgs do
-                mapping <- mapping.Add(tp, ta)
+                mapping <- mapping.Add(tp.Name, ta)
             | None ->
               for tp in typeParams do
-                mapping <- mapping.Add(tp, ctx.FreshTypeVar None)
+                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
           | None -> ()
 
           let t = expandScheme ctx env ips scheme mapping typeArgs
@@ -255,10 +255,10 @@ module rec Unify =
                 return! Error(TypeError.WrongNumberOfTypeArgs)
 
               for tp, ta in List.zip typeParams typeArgs do
-                mapping <- mapping.Add(tp, ta)
+                mapping <- mapping.Add(tp.Name, ta)
             | None ->
               for tp in typeParams do
-                mapping <- mapping.Add(tp, ctx.FreshTypeVar None)
+                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
           | None -> ()
 
           let t = expandScheme ctx env ips scheme mapping typeArgs
@@ -900,7 +900,9 @@ module rec Unify =
     match scheme.TypeParams, typeArgs with
     | None, None -> expandType ctx env ips mapping scheme.Type
     | Some(typeParams), Some(typeArgs) ->
+      let typeParams = List.map (fun (p: TypeParam) -> p.Name) typeParams
       let mapping = Map.ofList (List.zip typeParams typeArgs)
+
       expandType ctx env ips mapping scheme.Type
     | _ -> failwith "TODO: expandScheme with type params/args"
 

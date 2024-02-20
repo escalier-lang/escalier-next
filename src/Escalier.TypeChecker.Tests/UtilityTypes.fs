@@ -50,18 +50,21 @@ let InferSimpleConditionalType () =
 
       let! ctx, env = inferScript src
 
-      let a =
+      let! a =
         expandScheme ctx env None (Map.find "A" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"string\"", a.ToString())
 
-      let b =
+      let! b =
         expandScheme ctx env None (Map.find "B" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"number\"", b.ToString())
 
-      let c =
+      let! c =
         expandScheme ctx env None (Map.find "C" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"other\"", c.ToString())
     }
@@ -91,18 +94,21 @@ let InferNestedConditionalTypes () =
 
       let! ctx, env = inferScript src
 
-      let a =
+      let! a =
         expandScheme ctx env None (Map.find "A" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"string\"", a.ToString())
 
-      let b =
+      let! b =
         expandScheme ctx env None (Map.find "B" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"number\"", b.ToString())
 
-      let c =
+      let! c =
         expandScheme ctx env None (Map.find "C" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"other\"", c.ToString())
     }
@@ -122,8 +128,9 @@ let InferExclude () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Result" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"b\" | \"c\" | \"d\"", result.ToString())
     }
@@ -143,8 +150,9 @@ let InferExtract () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Result" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{x: 5, y: 10}", result.ToString())
     }
@@ -172,8 +180,9 @@ let InferCartesianProdType () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Cells" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
         """["A", 1] | ["A", 2] | ["B", 1] | ["B", 2]""",
@@ -184,7 +193,7 @@ let InferCartesianProdType () =
   Assert.False(Result.isError res)
 
 [<Fact>]
-let InfersPick () =
+let InfersPickUnionOfKey () =
   let res =
     result {
       let src =
@@ -199,13 +208,65 @@ let InfersPick () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersPickSingleKey () =
+  let res =
+    result {
+      let src =
+        """
+        type Pick<T, K: keyof T> = {
+          [P]: T[P] for P in K
+        }
+
+        type Foo = {a: number, b: string, c: boolean}
+        type Bar = Pick<Foo, "a" | "c">
+        """
+
+      let! ctx, env = inferScript src
+
+      let! result =
+        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, c: boolean}", result.ToString())
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersPickWrongKeyType () =
+  let res =
+    result {
+      let src =
+        """
+        type Pick<T, K: keyof T> = {
+          [P]: T[P] for P in K
+        }
+
+        type Foo = {a: number, b: string, c: boolean}
+        type Bar = Pick<Foo, 5 | 10>
+        """
+
+      let! ctx, env = inferScript src
+
+      let! result =
+        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, c: boolean}", result.ToString())
+    }
+
+  // TypeMismatch
+  Assert.True(Result.isError res)
 
 [<Fact>]
 let InfersOmit () =
@@ -226,8 +287,9 @@ let InfersOmit () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
@@ -268,8 +330,9 @@ let InfersNestedConditionals () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("5 | 3", result.ToString())
     }
@@ -290,13 +353,15 @@ let InfersReturnType () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("number", result.ToString())
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("number", result.ToString())
     }
@@ -316,13 +381,15 @@ let InfersParameters () =
 
       let! ctx, env = inferScript src
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("[]", result.ToString())
 
-      let result =
+      let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal("[string, boolean]", result.ToString())
     }

@@ -238,7 +238,7 @@ module rec Unify =
                 mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
           | None -> ()
 
-          let t = expandScheme ctx env ips scheme mapping typeArgs
+          let! t = expandScheme ctx env ips scheme mapping typeArgs
           do! unify ctx env ips t t2
         | _ -> return! unifyFallThrough ctx env ips t1 t2
       | _, TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme } ->
@@ -261,7 +261,7 @@ module rec Unify =
                 mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
           | None -> ()
 
-          let t = expandScheme ctx env ips scheme mapping typeArgs
+          let! t = expandScheme ctx env ips scheme mapping typeArgs
           do! unify ctx env ips t1 t
         | _ -> return! unifyFallThrough ctx env ips t1 t2
       | TypeKind.Range range1, TypeKind.Range range2 ->
@@ -484,8 +484,8 @@ module rec Unify =
     : Result<unit, TypeError> =
 
     result {
-      let t1' = expandType ctx env ips Map.empty t1
-      let t2' = expandType ctx env ips Map.empty t2
+      let! t1' = expandType ctx env ips Map.empty t1
+      let! t2' = expandType ctx env ips Map.empty t2
 
       if t1' <> t1 || t2' <> t2 then
         return! unify ctx env ips t1' t2'
@@ -753,8 +753,8 @@ module rec Unify =
         if t1 = t2 then
           return ()
         else
-          let t1' = expandType ctx env ips Map.empty t1
-          let t2' = expandType ctx env ips Map.empty t2
+          let! t1' = expandType ctx env ips Map.empty t1
+          let! t2' = expandType ctx env ips Map.empty t2
 
           if t1' <> t1 || t2' <> t2 then
             return! unifyInvariant ctx env ips t1' t2'
@@ -887,24 +887,50 @@ module rec Unify =
     (scheme: Scheme)
     (mapping: Map<string, Type>)
     (typeArgs: option<list<Type>>)
-    : Type =
+    : Result<Type, TypeError> =
 
-    // We eagerly expand type args so that any union types can
-    // be distributed properly across conditionals so that types
-    // like `Exclude<T, U> = T extends U ? never : T` work properly.
-    let typeArgs =
-      typeArgs
-      |> Option.map (fun typeArgs ->
-        typeArgs |> List.map (fun t -> expandType ctx env ips mapping t))
+    result {
+      // We eagerly expand type args so that any union types can
+      // be distributed properly across conditionals so that types
+      // like `Exclude<T, U> = T extends U ? never : T` work properly.
+      let! typeArgs =
+        match typeArgs with
+        | None -> ResultOption.ofOption None
+        | Some typeArgs ->
+          typeArgs
+          |> List.traverseResultM (fun t -> expandType ctx env ips mapping t)
+          |> ResultOption.ofResult
 
-    match scheme.TypeParams, typeArgs with
-    | None, None -> expandType ctx env ips mapping scheme.Type
-    | Some(typeParams), Some(typeArgs) ->
-      let typeParams = List.map (fun (p: TypeParam) -> p.Name) typeParams
-      let mapping = Map.ofList (List.zip typeParams typeArgs)
+      match scheme.TypeParams, typeArgs with
+      | None, None -> return! expandType ctx env ips mapping scheme.Type
+      | Some(typeParams), Some(typeArgs) ->
+        let mutable newEnv = env
+        let mutable mapping: Map<string, Type> = Map.empty
 
-      expandType ctx env ips mapping scheme.Type
-    | _ -> failwith "TODO: expandScheme with type params/args"
+        for typeArg, typeParam in List.zip typeArgs typeParams do
+          match typeParam.Constraint with
+          | Some c -> do! unify ctx newEnv ips typeArg c
+          | None -> ()
+
+          newEnv <-
+            newEnv.AddScheme
+              typeParam.Name
+              { Type = typeArg
+                TypeParams = None
+                IsTypeParam = true }
+
+          mapping <- mapping.Add(typeParam.Name, typeArg)
+
+        let typeParams = List.map (fun (p: TypeParam) -> p.Name) typeParams
+        let mapping = Map.ofList (List.zip typeParams typeArgs)
+
+        return! expandType ctx env ips mapping scheme.Type
+      | _ ->
+        return!
+          Error(
+            TypeError.NotImplemented "TODO: expandScheme with type params/args"
+          )
+    }
 
   // `mapping` must be distict from `env` because type params that are union
   // types distribute across conditional types.
@@ -914,9 +940,13 @@ module rec Unify =
     (ips: option<list<list<string>>>)
     (mapping: Map<string, Type>) // type param names -> type args
     (t: Type)
-    : Type =
+    : Result<Type, TypeError> =
 
-    let rec expand mapping t =
+    let rec expand
+      (mapping: Map<string, Type>)
+      (t: Type)
+      : Result<Type, TypeError> =
+
       // TODO: only define `fold` when we actually need to use it
       let fold =
         fun t ->
@@ -930,228 +960,256 @@ module rec Unify =
 
           Some(result)
 
-      match t.Kind with
-      | TypeKind.TypeRef { Name = "Promise" } -> printfn $"t = {t}"
-      | _ -> ()
-
-      let t = prune t
-
-      match t.Kind with
-      | TypeKind.KeyOf t ->
-        let t = expandType ctx env ips mapping t
+      result {
 
         match t.Kind with
-        | TypeKind.Object { Elems = elems } ->
-          let keys =
-            elems
-            |> List.choose (fun elem ->
-              // TODO: handle mapped types
+        | TypeKind.TypeRef { Name = "Promise" } -> printfn $"t = {t}"
+        | _ -> ()
+
+        let t = prune t
+
+        match t.Kind with
+        | TypeKind.KeyOf t ->
+          let! t = expandType ctx env ips mapping t
+
+          match t.Kind with
+          | TypeKind.Object { Elems = elems } ->
+            let keys =
+              elems
+              |> List.choose (fun elem ->
+                // TODO: handle mapped types
+                match elem with
+                | Property p -> Some(p.Name)
+                | _ -> None)
+
+            let keys =
+              keys
+              |> List.map (fun key ->
+                match key with
+                | PropName.String s ->
+                  { Kind = TypeKind.Literal(Literal.String s)
+                    Provenance = None }
+                | PropName.Number n ->
+                  { Kind = TypeKind.Literal(Literal.Number n)
+                    Provenance = None }
+                | PropName.Symbol id ->
+                  { Kind = TypeKind.UniqueSymbol id
+                    Provenance = None })
+
+            return union keys
+          | _ -> return! Error(TypeError.NotImplemented "TODO: expand keyof")
+        | TypeKind.Index(target, index) ->
+          let! target = expandType ctx env ips mapping target
+          let! index = expandType ctx env ips mapping index
+
+          let key =
+            match index.Kind with
+            | TypeKind.Literal(Literal.String s) -> PropName.String s
+            | TypeKind.Literal(Literal.Number n) -> PropName.Number n
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+            | _ -> failwith "TODO: expand index - key type"
+
+          match target.Kind with
+          | TypeKind.Object { Elems = elems } ->
+            let mutable t = None
+
+            for elem in elems do
               match elem with
-              | Property p -> Some(p.Name)
-              | _ -> None)
+              | Property p when p.Name = key -> t <- Some(p.Type)
+              | _ -> ()
 
-          let keys =
-            keys
-            |> List.map (fun key ->
-              match key with
-              | PropName.String s ->
-                { Kind = TypeKind.Literal(Literal.String s)
-                  Provenance = None }
-              | PropName.Number n ->
-                { Kind = TypeKind.Literal(Literal.Number n)
-                  Provenance = None }
-              | PropName.Symbol id ->
-                { Kind = TypeKind.UniqueSymbol id
-                  Provenance = None })
-
-          union keys
-        | _ -> failwith "TODO: expand keyof"
-      | TypeKind.Index(target, index) ->
-        let target = expandType ctx env ips mapping target
-        let index = expandType ctx env ips mapping index
-
-        let key =
-          match index.Kind with
-          | TypeKind.Literal(Literal.String s) -> PropName.String s
-          | TypeKind.Literal(Literal.Number n) -> PropName.Number n
-          | TypeKind.UniqueSymbol id -> PropName.Symbol id
-          | _ -> failwith "TODO: expand index - key type"
-
-        match target.Kind with
-        | TypeKind.Object { Elems = elems } ->
-          let mutable t = None
-
-          for elem in elems do
-            match elem with
-            | Property p when p.Name = key -> t <- Some(p.Type)
-            | _ -> ()
-
-          match t with
-          | Some t -> t
-          | None -> failwith $"Property {key} not found"
-        | _ ->
-          // TODO: Handle the case where the type is a primitive and use a
-          // special function to expand the type
-          // TODO: Handle different kinds of index types, e.g. number, symbol
-          failwith "TODO: expand index"
-      | TypeKind.Condition { Check = check
-                             Extends = extends
-                             TrueType = trueType
-                             FalseType = falseType } ->
-
-        let infers = findInfers extends
-        let mutable newMapping = mapping
-
-        for name in infers do
-          let t = ctx.FreshTypeVar None
-          newMapping <- Map.add name t newMapping
-
-        let extends = replaceInfers extends newMapping
-
-        match check.Kind with
-        | TypeKind.TypeRef { Name = name } ->
-          match Map.tryFind name newMapping with
-          | Some { Kind = TypeKind.Union types } ->
-            let extends = expand newMapping extends
-
-            let types =
-              types
-              |> List.map (fun check ->
-                let newMapping = Map.add name check newMapping
-
-                match unify ctx env ips check extends with
-                | Ok _ -> expand newMapping trueType
-                | Error _ -> expand newMapping falseType)
-
-            union types
-          | Some check ->
-            let newMapping = Map.add name check newMapping
-
-            match unify ctx env ips check extends with
-            | Ok _ -> expand newMapping trueType
-            | Error _ -> expand newMapping falseType
-
-          // failwith "TODO: replace check type with the type argument"
-          | _ ->
-            failwith "TODO: check if the TypeRef's scheme is defined and use it"
-
-            match unify ctx env ips check extends with
-            | Ok _ -> expand newMapping trueType
-            | Error _ -> expand newMapping falseType
-        | _ ->
-          match unify ctx env ips check extends with
-          | Ok _ -> expand newMapping trueType
-          | Error _ -> expand newMapping falseType
-
-      | TypeKind.Binary _ -> simplify t
-      // TODO: instead of expanding object types, we should try to
-      // look up properties on the object type without expanding it
-      // since expansion can be quite expensive
-      | TypeKind.Object { Elems = elems; Immutable = immutable } ->
-        let elems =
-          elems
-          |> List.collect (fun elem ->
-            match elem with
-            | Mapped m ->
-              let c = expandType ctx env ips mapping m.TypeParam.Constraint
-
-              match c.Kind with
-              | TypeKind.Union types ->
-                let elems =
-                  types
-                  |> List.map (fun keyType ->
-                    // let key =
-                    //   match keyType.Kind with
-                    //   | TypeKind.Literal(Literal.String s) ->
-                    //     PropKey.String s
-                    //   | TypeKind.Literal(Literal.Number n) ->
-                    //     PropKey.Number n
-                    //   | TypeKind.UniqueSymbol id -> PropKey.Symbol id
-                    //   | _ -> failwith "TODO: expand mapped type - key type"
-
-                    match keyType.Kind with
-                    | TypeKind.Literal(Literal.String name) ->
-                      let typeAnn = m.TypeAnn
-
-                      let folder t =
-                        match t.Kind with
-                        | TypeKind.TypeRef({ Name = name }) when
-                          name = m.TypeParam.Name
-                          ->
-                          Some(keyType)
-                        | _ -> None
-
-                      let typeAnn = foldType folder typeAnn
-
-                      Property
-                        { Name = PropName.String name
-                          Type = expandType ctx env ips mapping typeAnn
-                          Optional = false // TODO
-                          Readonly = false // TODO
-                        }
-                    // TODO: handle other valid key types, e.g. number, symbol
-                    | _ -> failwith "TODO: expand mapped type - key type")
-
-                elems
-              | TypeKind.Literal(Literal.String key) ->
-                let typeAnn = m.TypeAnn
-
-                let folder t =
-                  match t.Kind with
-                  | TypeKind.TypeRef({ Name = name }) when
-                    name = m.TypeParam.Name
-                    ->
-                    Some(m.TypeParam.Constraint)
-                  | _ -> None
-
-                let typeAnn = foldType folder typeAnn
-
-                [ Property
-                    { Name = PropName.String key
-                      Type = expandType ctx env ips mapping typeAnn
-                      Optional = false // TODO
-                      Readonly = false // TODO
-                    } ]
-              | _ -> [ elem ]
-            // printfn $"constraint - c = {c}"
-            // printfn $"mapped type - m = {m}"
-            // failwith "TODO: expand mapped type - constraint type"
-            | _ -> [ elem ])
-
-        let t =
-          { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
-            Provenance = None // TODO: set provenance
-          }
-
-        // Replaces type parameters with their corresponding type arguments
-        // TODO: do this more consistently
-        if mapping = Map.empty then t else foldType fold t
-      | TypeKind.TypeRef { Name = name
-                           TypeArgs = typeArgs
-                           Scheme = scheme } ->
-
-        // TODO: Take this a setep further and update ExpandType and ExpandScheme
-        // to be functions that accept an `env: Env` param.  We can then augment
-        // the `env` instead of using the `mapping` param.
-        let t =
-          match Map.tryFind name mapping with
-          | Some t -> t
-          | None ->
-            match scheme with
-            | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
+            match t with
+            | Some t -> return t
             | None ->
-              match env.Schemes.TryFind name with
+              return! Error(TypeError.SemanticError $"Property {key} not found")
+          | _ ->
+            // TODO: Handle the case where the type is a primitive and use a
+            // special function to expand the type
+            // TODO: Handle different kinds of index types, e.g. number, symbol
+            return! Error(TypeError.NotImplemented "TODO: expand index")
+        | TypeKind.Condition { Check = check
+                               Extends = extends
+                               TrueType = trueType
+                               FalseType = falseType } ->
+
+          let infers = findInfers extends
+          let mutable newMapping = mapping
+
+          for name in infers do
+            let t = ctx.FreshTypeVar None
+            newMapping <- Map.add name t newMapping
+
+          let extends = replaceInfers extends newMapping
+
+          match check.Kind with
+          | TypeKind.TypeRef { Name = name } ->
+            match Map.tryFind name newMapping with
+            | Some { Kind = TypeKind.Union types } ->
+              let! extends = expand newMapping extends
+
+              let! types =
+                types
+                |> List.traverseResultM (fun check ->
+                  let newMapping = Map.add name check newMapping
+
+                  match unify ctx env ips check extends with
+                  | Ok _ -> expand newMapping trueType
+                  | Error _ -> expand newMapping falseType)
+
+              return union types
+            | Some check ->
+              let newMapping = Map.add name check newMapping
+
+              match unify ctx env ips check extends with
+              | Ok _ -> return! expand newMapping trueType
+              | Error _ -> return! expand newMapping falseType
+
+            // failwith "TODO: replace check type with the type argument"
+            | _ ->
+              failwith
+                "TODO: check if the TypeRef's scheme is defined and use it"
+
+              match unify ctx env ips check extends with
+              | Ok _ -> return! expand newMapping trueType
+              | Error _ -> return! expand newMapping falseType
+          | _ ->
+            match unify ctx env ips check extends with
+            | Ok _ -> return! expand newMapping trueType
+            | Error _ -> return! expand newMapping falseType
+
+        | TypeKind.Binary _ -> return simplify t
+        // TODO: instead of expanding object types, we should try to
+        // look up properties on the object type without expanding it
+        // since expansion can be quite expensive
+        | TypeKind.Object { Elems = elems; Immutable = immutable } ->
+          let! elems =
+            elems
+            |> List.traverseResultM (fun elem ->
+              result {
+                match elem with
+                | Mapped m ->
+                  let! c =
+                    expandType ctx env ips mapping m.TypeParam.Constraint
+
+                  match c.Kind with
+                  | TypeKind.Union types ->
+                    let! elems =
+                      types
+                      |> List.traverseResultM (fun keyType ->
+                        result {
+                          // let key =
+                          //   match keyType.Kind with
+                          //   | TypeKind.Literal(Literal.String s) ->
+                          //     PropKey.String s
+                          //   | TypeKind.Literal(Literal.Number n) ->
+                          //     PropKey.Number n
+                          //   | TypeKind.UniqueSymbol id -> PropKey.Symbol id
+                          //   | _ -> failwith "TODO: expand mapped type - key type"
+
+                          match keyType.Kind with
+                          | TypeKind.Literal(Literal.String name) ->
+                            let typeAnn = m.TypeAnn
+
+                            let folder t =
+                              match t.Kind with
+                              | TypeKind.TypeRef({ Name = name }) when
+                                name = m.TypeParam.Name
+                                ->
+                                Some(keyType)
+                              | _ -> None
+
+                            let typeAnn = foldType folder typeAnn
+                            let! t = expandType ctx env ips mapping typeAnn
+
+                            return
+                              Property
+                                { Name = PropName.String name
+                                  Type = t
+                                  Optional = false // TODO
+                                  Readonly = false // TODO
+                                }
+                          // TODO: handle other valid key types, e.g. number, symbol
+                          | _ ->
+                            return!
+                              Error(
+                                TypeError.NotImplemented
+                                  "TODO: expand mapped type - key type"
+                              )
+                        })
+
+                    return elems
+                  | TypeKind.Literal(Literal.String key) ->
+                    let typeAnn = m.TypeAnn
+
+                    let folder t =
+                      match t.Kind with
+                      | TypeKind.TypeRef({ Name = name }) when
+                        name = m.TypeParam.Name
+                        ->
+                        Some(m.TypeParam.Constraint)
+                      | _ -> None
+
+                    let typeAnn = foldType folder typeAnn
+                    let! t = expandType ctx env ips mapping typeAnn
+
+                    return
+                      [ Property
+                          { Name = PropName.String key
+                            Type = t
+                            Optional = false // TODO
+                            Readonly = false // TODO
+                          } ]
+                  | _ -> return [ elem ]
+                // printfn $"constraint - c = {c}"
+                // printfn $"mapped type - m = {m}"
+                // failwith "TODO: expand mapped type - constraint type"
+                | _ -> return [ elem ]
+              })
+
+          let elems = List.collect id elems
+
+          let t =
+            { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+              Provenance = None // TODO: set provenance
+            }
+
+          // Replaces type parameters with their corresponding type arguments
+          // TODO: do this more consistently
+          if mapping = Map.empty then
+            return t
+          else
+            return foldType fold t
+        | TypeKind.TypeRef { Name = name
+                             TypeArgs = typeArgs
+                             Scheme = scheme } ->
+
+          // TODO: Take this a setep further and update ExpandType and ExpandScheme
+          // to be functions that accept an `env: Env` param.  We can then augment
+          // the `env` instead of using the `mapping` param.
+          let! t =
+            match Map.tryFind name mapping with
+            | Some t -> Result.Ok t
+            | None ->
+              match scheme with
               | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
               | None ->
-                printfn $"t = {t}"
-                printfn $"scheme = {scheme}"
-                failwith $"{name} is not in scope"
+                match env.Schemes.TryFind name with
+                | Some scheme ->
+                  expandScheme ctx env ips scheme mapping typeArgs
+                | None ->
+                  printfn $"t = {t}"
+                  printfn $"scheme = {scheme}"
+                  failwith $"{name} is not in scope"
 
-        expand mapping t
-      | _ ->
-        // Replaces type parameters with their corresponding type arguments
-        // TODO: do this more consistently
-        if mapping = Map.empty then t else foldType fold t
+          return! expand mapping t
+        | _ ->
+          // Replaces type parameters with their corresponding type arguments
+          // TODO: do this more consistently
+          if mapping = Map.empty then
+            return t
+          else
+            return foldType fold t
+      }
 
     expand mapping t
 

@@ -324,6 +324,7 @@ module rec Unify =
         ()
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
+      | TypeKind.UniqueNumber id1, TypeKind.Primitive Primitive.Number -> ()
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))

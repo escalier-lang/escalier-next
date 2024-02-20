@@ -282,7 +282,7 @@ let InferRangeMath () =
 
   Assert.False(Result.isError res)
 
-[<Fact(Skip = "TODO: Fix this test")>]
+[<Fact>]
 let InferRangeWithArrayLength () =
   let res =
     result {

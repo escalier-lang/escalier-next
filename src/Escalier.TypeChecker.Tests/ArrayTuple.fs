@@ -308,6 +308,7 @@ let InferRangeWithArrayLength () =
       Assert.Value(env, "elem", "number")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

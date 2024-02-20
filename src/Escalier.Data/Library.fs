@@ -787,14 +787,16 @@ module Type =
 
   type Scheme =
     // TODO: allow type params to have constraints and defaults
-    { TypeParams: option<list<string>>
+    { TypeParams: option<list<TypeParam>>
       mutable Type: Type // Only used when inferring type declarations
       IsTypeParam: bool }
 
     override this.ToString() =
       match this.TypeParams with
       | Some(typeParams) ->
-        let typeParams = String.concat ", " typeParams
+        let typeParams =
+          typeParams |> List.map (_.ToString()) |> String.concat ", "
+
         $"<{typeParams}>({this.Type})"
       | None -> this.Type.ToString()
 

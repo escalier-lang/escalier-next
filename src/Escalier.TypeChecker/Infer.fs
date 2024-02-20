@@ -254,7 +254,7 @@ module rec Infer =
               |> Result.map Some
             | None -> Ok None
 
-          let t = expandScheme ctx env None scheme Map.empty typeArgs
+          let! t = expandScheme ctx env None scheme Map.empty typeArgs
 
           match t.Kind with
           | TypeKind.Struct { Elems = elems; Impls = impls } ->
@@ -286,7 +286,7 @@ module rec Infer =
 
           // TODO: handle optional chaining
           // TODO: lookup properties on object type
-          let t = getPropType ctx env objType propKey optChain
+          let! t = getPropType ctx env objType propKey optChain
 
           match t.Kind with
           | TypeKind.Function { Self = Some(self) } ->
@@ -419,7 +419,7 @@ module rec Infer =
                 printfn "index = %A" index
                 failwith $"TODO: index can't be a {index}"
 
-            return getPropType ctx env target key optChain
+            return! getPropType ctx env target key optChain
         | ExprKind.Range { Min = min; Max = max } ->
           // TODO: add a constraint that `min` and `max` must be numbers
           // We can do this by creating type variables for them with the
@@ -500,31 +500,7 @@ module rec Infer =
           | None -> return None
         }
 
-      let! typeParams =
-        match fnSig.TypeParams with
-        | Some(typeParams) ->
-          List.traverseResultM
-            (fun typeParam ->
-              result {
-                let! typeParam = inferTypeParam ctx newEnv typeParam
-
-                let scheme =
-                  { TypeParams = None
-                    Type =
-                      match typeParam.Constraint with
-                      | Some c -> c
-                      | None ->
-                        { Kind = TypeKind.Keyword Keyword.Unknown
-                          Provenance = None }
-                    IsTypeParam = true }
-
-                newEnv <- newEnv.AddScheme typeParam.Name scheme
-
-                return typeParam
-              })
-            typeParams
-          |> Result.map Some
-        | None -> Ok None
+      let! typeParams, newEnv = inferTypeParams ctx newEnv fnSig.TypeParams
 
       let! paramList =
         List.traverseResultM
@@ -709,118 +685,128 @@ module rec Infer =
     (t: Type)
     (key: PropName)
     (optChain: bool)
-    : Type =
-    let t = prune t
+    : Result<Type, TypeError> =
+    result {
 
-    match t.Kind with
-    | TypeKind.Object { Elems = elems } ->
-      match inferMemberAccess key elems with
-      | Some t -> t
-      | None -> failwith $"Property {key} not found"
-    | TypeKind.Struct { Elems = elems; Impls = impls } ->
-      match inferMemberAccess key elems with
-      | Some t -> t
-      | None ->
-        let mutable t: option<Type> = None
+      let t = prune t
 
-        for impl in impls do
-          if t.IsSome then
-            ()
-          else
-            t <- inferMemberAccess key impl.Elems
+      match t.Kind with
+      | TypeKind.Object { Elems = elems } ->
+        match inferMemberAccess key elems with
+        | Some t -> return t
+        | None ->
+          return! Error(TypeError.SemanticError $"Property {key} not found")
+      | TypeKind.Struct { Elems = elems; Impls = impls } ->
+        match inferMemberAccess key elems with
+        | Some t -> return t
+        | None ->
+          let mutable t: option<Type> = None
 
-        match t with
-        | Some t -> t
-        | None -> failwith $"Property {key} not found"
-    | TypeKind.TypeRef { Name = typeRefName
-                         Scheme = scheme
-                         TypeArgs = typeArgs } ->
-      match scheme with
-      | Some scheme ->
-        getPropType
-          ctx
-          env
-          (expandScheme ctx env None scheme Map.empty typeArgs)
-          key
-          optChain
-      | None ->
-        match env.Schemes.TryFind typeRefName with
+          for impl in impls do
+            if t.IsSome then
+              ()
+            else
+              t <- inferMemberAccess key impl.Elems
+
+          match t with
+          | Some t -> return t
+          | None ->
+            return! Error(TypeError.SemanticError $"Property {key} not found")
+      | TypeKind.TypeRef { Name = typeRefName
+                           Scheme = scheme
+                           TypeArgs = typeArgs } ->
+        match scheme with
         | Some scheme ->
-          getPropType
-            ctx
-            env
-            (expandScheme ctx env None scheme Map.empty typeArgs)
-            key
-            optChain
-        | None -> failwith $"{key} not in scope"
-    | TypeKind.Union types ->
-      let undefinedTypes, definedTypes =
-        List.partition
-          (fun t -> t.Kind = TypeKind.Literal(Literal.Undefined))
-          types
+          let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+          return! getPropType ctx env objType key optChain
+        | None ->
+          match env.Schemes.TryFind typeRefName with
+          | Some scheme ->
+            let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+            return! getPropType ctx env objType key optChain
+          | None -> return! Error(TypeError.SemanticError $"{key} not in scope")
+      | TypeKind.Union types ->
+        let undefinedTypes, definedTypes =
+          List.partition
+            (fun t -> t.Kind = TypeKind.Literal(Literal.Undefined))
+            types
 
-      if undefinedTypes.IsEmpty then
-        failwith "TODO: lookup member on union type"
-      else if not optChain then
-        failwith "Can't lookup property on undefined"
-      else
-        match definedTypes with
-        | [ t ] ->
-          let t = getPropType ctx env t key optChain
+        if undefinedTypes.IsEmpty then
+          return!
+            Error(TypeError.NotImplemented "TODO: lookup member on union type")
+        else if not optChain then
+          return!
+            Error(TypeError.SemanticError "Can't lookup property on undefined")
+        else
+          match definedTypes with
+          | [ t ] ->
+            let! t = getPropType ctx env t key optChain
 
-          let undefined =
+            let undefined =
+              { Kind = TypeKind.Literal(Literal.Undefined)
+                Provenance = None }
+
+            return union [ t; undefined ]
+          | _ ->
+            return!
+              Error(
+                TypeError.NotImplemented "TODO: lookup member on union type"
+              )
+      | TypeKind.Tuple { Elems = elems } ->
+        match key with
+        | PropName.String "length" ->
+          return
+            { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
+              Provenance = None }
+        | PropName.Number number ->
+          match number with
+          | Float f ->
+            return!
+              Error(TypeError.SemanticError "numeric indexes can't be floats")
+          | Int i ->
+            if i >= 0 && i < elems.Length then
+              return elems.[int i]
+            else
+              // TODO: report a diagnost about the index being out of range
+              return
+                { Kind = TypeKind.Literal(Literal.Undefined)
+                  Provenance = None }
+        | _ ->
+          let arrayScheme =
+            match env.Schemes.TryFind "Array" with
+            | Some scheme -> scheme
+            | None -> failwith "Array not in scope"
+          // TODO: lookup keys in array prototype
+          return!
+            Error(TypeError.NotImplemented "TODO: lookup member on tuple type")
+      | TypeKind.Array { Elem = elem; Length = length } ->
+        // TODO: update `TypeKind.Array` to also contain a `Length` type param
+        // TODO: use getPropertyType to look up the type of the `.length` property
+        // here (and when handling tuples) instead of fabricating it here.
+        // TODO: make type param mutable so that we can update it if it's a mutable
+        // array and the array size changes.
+        match key with
+        | PropName.String "length" -> return length
+        | PropName.Number _ ->
+          let unknown =
             { Kind = TypeKind.Literal(Literal.Undefined)
               Provenance = None }
 
-          union [ t; undefined ]
-        | _ -> failwith "TODO: lookup member on union type"
-    | TypeKind.Tuple { Elems = elems } ->
-      match key with
-      | PropName.String "length" ->
-        { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
-          Provenance = None }
-      | PropName.Number number ->
-        match number with
-        | Float f -> failwith "numeric indexes can't be floats"
-        | Int i ->
-          if i >= 0 && i < elems.Length then
-            elems.[int i]
-          else
-            // TODO: report a diagnost about the index being out of range
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Provenance = None }
-      | _ ->
-        let arrayScheme =
-          match env.Schemes.TryFind "Array" with
-          | Some scheme -> scheme
-          | None -> failwith "Array not in scope"
-        // TODO: lookup keys in array prototype
-        failwith "TODO: lookup member on tuple type"
-    | TypeKind.Array { Elem = elem; Length = length } ->
-      // TODO: update `TypeKind.Array` to also contain a `Length` type param
-      // TODO: use getPropertyType to look up the type of the `.length` property
-      // here (and when handling tuples) instead of fabricating it here.
-      // TODO: make type param mutable so that we can update it if it's a mutable
-      // array and the array size changes.
-      match key with
-      | PropName.String "length" -> length
-      | PropName.Number _ ->
-        let unknown =
-          { Kind = TypeKind.Literal(Literal.Undefined)
-            Provenance = None }
+          return union [ elem; unknown ]
+        | _ ->
+          let arrayScheme =
+            match env.Schemes.TryFind "Array" with
+            | Some scheme -> scheme
+            | None -> failwith "Array not in scope"
 
-        union [ elem; unknown ]
+          let! t = expandScheme ctx env None arrayScheme Map.empty None
+          printfn $"t = {t}"
+          return! getPropType ctx env t key optChain
+      // TODO: intersection types
       | _ ->
-        let arrayScheme =
-          match env.Schemes.TryFind "Array" with
-          | Some scheme -> scheme
-          | None -> failwith "Array not in scope"
-
-        let t = expandScheme ctx env None arrayScheme Map.empty None
-        printfn $"t = {t}"
-        getPropType ctx env t key optChain
-    // TODO: intersection types
-    | _ -> failwith $"TODO: lookup member on type - {t}"
+        return!
+          Error(TypeError.NotImplemented $"TODO: lookup member on type - {t}")
+    }
 
   // TODO: differentiate between getting and setting
   // - getting: property, method, getter, mapped
@@ -1133,36 +1119,7 @@ module rec Infer =
     (functionType: Syntax.FunctionType)
     : Result<Function, TypeError> =
     result {
-      let mutable newEnv = env
-
-      let! typeParams =
-        match functionType.TypeParams with
-        | Some(typeParams) ->
-          List.traverseResultM
-            (fun typeParam ->
-              result {
-                let! typeParam = inferTypeParam ctx newEnv typeParam
-
-                let unknown =
-                  { Kind = TypeKind.Keyword Keyword.Unknown
-                    Provenance = None }
-
-                let scheme =
-                  { TypeParams = None
-                    Type =
-                      match typeParam.Constraint with
-                      | Some c -> c
-                      | None -> unknown
-                    IsTypeParam = true }
-
-                newEnv <- newEnv.AddScheme typeParam.Name scheme
-
-                return typeParam
-              })
-            typeParams
-          |> Result.map Some
-        | None -> Ok None
-
+      let! typeParams, newEnv = inferTypeParams ctx env functionType.TypeParams
       let! returnType = inferTypeAnn ctx newEnv functionType.ReturnType
 
       let! throws =
@@ -1538,6 +1495,43 @@ module rec Infer =
           Default = d }
     }
 
+  let inferTypeParams
+    (ctx: Ctx)
+    (env: Env)
+    (typeParams: option<list<Syntax.TypeParam>>)
+    : Result<option<list<TypeParam>> * Env, TypeError> =
+    result {
+      let mutable newEnv = env
+
+      let! typeParams =
+        match typeParams with
+        | Some(typeParams) ->
+          List.traverseResultM
+            (fun typeParam ->
+              result {
+                let! typeParam = inferTypeParam ctx newEnv typeParam
+
+                let scheme =
+                  { TypeParams = None
+                    Type =
+                      match typeParam.Constraint with
+                      | Some c -> c
+                      | None ->
+                        { Kind = TypeKind.Keyword Keyword.Unknown
+                          Provenance = None }
+                    IsTypeParam = true }
+
+                newEnv <- newEnv.AddScheme typeParam.Name scheme
+
+                return typeParam
+              })
+            typeParams
+          |> Result.map Some
+        | None -> Ok None
+
+      return typeParams, newEnv
+    }
+
   // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
   let inferStmt
     (ctx: Ctx)
@@ -1559,7 +1553,7 @@ module rec Infer =
           | Some scheme -> fst scheme
           | None -> failwith "Symbol not in scope"
 
-        let symbolIterator =
+        let! symbolIterator =
           getPropType ctx env symbol (PropName.String "iterator") false
 
         // TODO: only lookup Symbol.iterator on Array for arrays and tuples
@@ -1578,26 +1572,38 @@ module rec Infer =
 
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.
-        let expandedRightType = expandType ctx env None Map.empty rightType
+        let! expandedRightType = expandType ctx env None Map.empty rightType
 
-        let elemType =
-          match expandedRightType.Kind with
-          | TypeKind.Array { Elem = elem; Length = length } -> elem
-          | TypeKind.Tuple { Elems = elems } -> union elems
-          | TypeKind.Range _ -> expandedRightType
-          | TypeKind.Object _ ->
-            // TODO: try using unify and/or an utility type to extract the
-            // value type from an iterator
+        let! elemType =
+          result {
+            match expandedRightType.Kind with
+            | TypeKind.Array { Elem = elem; Length = length } -> return elem
+            | TypeKind.Tuple { Elems = elems } -> return union elems
+            | TypeKind.Range _ -> return expandedRightType
+            | TypeKind.Object _ ->
+              // TODO: try using unify and/or an utility type to extract the
+              // value type from an iterator
 
-            // TODO: add a `tryGetPropType` function that returns an option
-            let next =
-              getPropType ctx env rightType (PropName.String "next") false
+              // TODO: add a `tryGetPropType` function that returns an option
+              let! next =
+                getPropType ctx env rightType (PropName.String "next") false
 
-            match next.Kind with
-            | TypeKind.Function f ->
-              getPropType ctx env f.Return (PropName.String "value") false
-            | _ -> failwith $"{rightType} is not an iterator"
-          | _ -> failwith "TODO: for loop over non-iterable type"
+              match next.Kind with
+              | TypeKind.Function f ->
+                return!
+                  getPropType ctx env f.Return (PropName.String "value") false
+              | _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError $"{rightType} is not an iterator"
+                  )
+            | _ ->
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    "TODO: for loop over non-iterable type"
+                )
+          }
 
         do! unify ctx env None elemType patType
 
@@ -1616,7 +1622,7 @@ module rec Infer =
 
         return env.AddBindings bindings
       | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
-        let! placeholder = inferTypeDeclScheme ctx typeDecl
+        let! placeholder = inferTypeDeclScheme ctx env typeDecl
         let mutable newEnv = env
 
         // Handles self-recursive types
@@ -1635,33 +1641,43 @@ module rec Infer =
                                                      Elems = elems } }) ->
         let mutable newEnv = env
 
+        let! placeholderTypeParams =
+          match typeParams with
+          | None -> ResultOption.ofOption None
+          | Some typeParams ->
+            List.traverseResultM (inferTypeParam ctx newEnv) typeParams
+            |> ResultOption.ofResult
+
         // TODO: add support for constraints on type params to aliases
         let placeholder =
-          { TypeParams =
-              typeParams
-              |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
+          { TypeParams = placeholderTypeParams
             Type = ctx.FreshTypeVar None
             IsTypeParam = false }
 
         // Handles self-recursive types
         newEnv <- newEnv.AddScheme name placeholder
 
-        let typeParams =
-          typeParams
-          |> Option.map (fun typeParams ->
-            typeParams
-            |> List.map (fun typeParam ->
-              let unknown =
-                { Kind = TypeKind.Keyword Keyword.Unknown
-                  Provenance = None }
+        let! typeParams =
+          match typeParams with
+          | None -> ResultOption.ofOption None
+          | Some typeParams ->
+            List.traverseResultM
+              (fun (typeParam: Syntax.TypeParam) ->
+                result {
+                  let unknown =
+                    { Kind = TypeKind.Keyword Keyword.Unknown
+                      Provenance = None }
 
-              let scheme =
-                { TypeParams = None
-                  Type = unknown
-                  IsTypeParam = false }
+                  let scheme =
+                    { TypeParams = None
+                      Type = unknown
+                      IsTypeParam = false }
 
-              newEnv <- newEnv.AddScheme typeParam.Name scheme
-              typeParam.Name))
+                  newEnv <- newEnv.AddScheme typeParam.Name scheme
+                  return! inferTypeParam ctx env typeParam
+                })
+              typeParams
+            |> ResultOption.ofResult
 
         let! elems =
           elems
@@ -2017,6 +2033,7 @@ module rec Infer =
 
   let inferTypeDeclScheme
     (ctx: Ctx)
+    (env: Env)
     (typeDecl: TypeDecl)
     : Result<Scheme, TypeError> =
 
@@ -2026,14 +2043,7 @@ module rec Infer =
       typeDecl
 
     result {
-      // Create a new environment to avoid polluting the current environment
-      // with the type parameters.
-      // let mutable newEnv = env
-
-      // TODO: add support for constraints on type params to aliases
-      let typeParams =
-        typeParams
-        |> Option.map (fun typeParams -> typeParams |> List.map (_.Name))
+      let! typeParams, _ = inferTypeParams ctx env typeParams
 
       let scheme =
         { TypeParams = typeParams
@@ -2063,7 +2073,7 @@ module rec Infer =
 
           newEnv <-
             newEnv.AddScheme
-              typeParam
+              typeParam.Name
               { TypeParams = None
                 Type = unknown
                 IsTypeParam = true }
@@ -2220,7 +2230,7 @@ module rec Infer =
           | TypeDecl typeDecl ->
             // TODO: replace placeholders, with a reference the actual definition
             // once we've inferred the definition
-            let! placeholder = inferTypeDeclScheme ctx typeDecl
+            let! placeholder = inferTypeDeclScheme ctx env typeDecl
             typeDecls <- typeDecls.Add(typeDecl.Name, placeholder)
 
             // TODO: update AddScheme to return a Result<Env, TypeError> and
@@ -2563,7 +2573,7 @@ module rec Infer =
     | QualifiedIdent.Member(left, right) ->
       result {
         let! left = getQualifiedIdentType ctx env left
-        return getPropType ctx env left (PropName.String right) false
+        return! getPropType ctx env left (PropName.String right) false
       }
 
   let rec getLvalue
@@ -2588,12 +2598,12 @@ module rec Infer =
             printfn "index = %A" index
             failwith $"TODO: index can't be a {index}"
 
-        let t = getPropType ctx env target key false
+        let! t = getPropType ctx env target key false
         return t, isMut
       | ExprKind.Member(target, name, optChain) ->
         // TODO: disallow optChain in lvalues
         let! target, isMut = getLvalue ctx env target
-        let t = getPropType ctx env target (PropName.String name) false
+        let! t = getPropType ctx env target (PropName.String name) false
         return t, isMut
       | _ ->
         return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")

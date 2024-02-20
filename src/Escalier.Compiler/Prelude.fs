@@ -224,13 +224,21 @@ module Prelude =
         never,
        false)
 
+    let typeParams: list<TypeParam> =
+      [ { Name = "T"
+          Constraint = None
+          Default = None }
+        { Name = "E"
+          Constraint = None
+          Default = None } ]
+
     // TODO: we need an opaque type for now, or some way not to expand
     // Promise types.
     let promise: Scheme =
       { Type =
           { Kind = makeTypeRefKind "FooBar"
             Provenance = None }
-        TypeParams = Some([ "T"; "E" ])
+        TypeParams = Some(typeParams)
         IsTypeParam = false }
 
     let binaryOps =

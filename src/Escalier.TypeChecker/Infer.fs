@@ -500,31 +500,7 @@ module rec Infer =
           | None -> return None
         }
 
-      let! typeParams =
-        match fnSig.TypeParams with
-        | Some(typeParams) ->
-          List.traverseResultM
-            (fun typeParam ->
-              result {
-                let! typeParam = inferTypeParam ctx newEnv typeParam
-
-                let scheme =
-                  { TypeParams = None
-                    Type =
-                      match typeParam.Constraint with
-                      | Some c -> c
-                      | None ->
-                        { Kind = TypeKind.Keyword Keyword.Unknown
-                          Provenance = None }
-                    IsTypeParam = true }
-
-                newEnv <- newEnv.AddScheme typeParam.Name scheme
-
-                return typeParam
-              })
-            typeParams
-          |> Result.map Some
-        | None -> Ok None
+      let! typeParams, newEnv = inferTypeParams ctx newEnv fnSig.TypeParams
 
       let! paramList =
         List.traverseResultM
@@ -1133,36 +1109,7 @@ module rec Infer =
     (functionType: Syntax.FunctionType)
     : Result<Function, TypeError> =
     result {
-      let mutable newEnv = env
-
-      let! typeParams =
-        match functionType.TypeParams with
-        | Some(typeParams) ->
-          List.traverseResultM
-            (fun typeParam ->
-              result {
-                let! typeParam = inferTypeParam ctx newEnv typeParam
-
-                let unknown =
-                  { Kind = TypeKind.Keyword Keyword.Unknown
-                    Provenance = None }
-
-                let scheme =
-                  { TypeParams = None
-                    Type =
-                      match typeParam.Constraint with
-                      | Some c -> c
-                      | None -> unknown
-                    IsTypeParam = true }
-
-                newEnv <- newEnv.AddScheme typeParam.Name scheme
-
-                return typeParam
-              })
-            typeParams
-          |> Result.map Some
-        | None -> Ok None
-
+      let! typeParams, newEnv = inferTypeParams ctx env functionType.TypeParams
       let! returnType = inferTypeAnn ctx newEnv functionType.ReturnType
 
       let! throws =
@@ -1536,6 +1483,43 @@ module rec Infer =
         { Name = tp.Name
           Constraint = c
           Default = d }
+    }
+
+  let inferTypeParams
+    (ctx: Ctx)
+    (env: Env)
+    (typeParams: option<list<Syntax.TypeParam>>)
+    : Result<option<list<TypeParam>> * Env, TypeError> =
+    result {
+      let mutable newEnv = env
+
+      let! typeParams =
+        match typeParams with
+        | Some(typeParams) ->
+          List.traverseResultM
+            (fun typeParam ->
+              result {
+                let! typeParam = inferTypeParam ctx newEnv typeParam
+
+                let scheme =
+                  { TypeParams = None
+                    Type =
+                      match typeParam.Constraint with
+                      | Some c -> c
+                      | None ->
+                        { Kind = TypeKind.Keyword Keyword.Unknown
+                          Provenance = None }
+                    IsTypeParam = true }
+
+                newEnv <- newEnv.AddScheme typeParam.Name scheme
+
+                return typeParam
+              })
+            typeParams
+          |> Result.map Some
+        | None -> Ok None
+
+      return typeParams, newEnv
     }
 
   // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
@@ -2037,27 +2021,7 @@ module rec Infer =
       typeDecl
 
     result {
-      // Create a new environment to avoid polluting the current environment
-      // with the type parameters.
-      let mutable newEnv = env
-
-      // TODO: add support for constraints on type params to aliases
-      let! typeParams =
-        match typeParams with
-        | None -> ResultOption.ofOption None
-        | Some typeParams ->
-          List.map
-            (fun (tp: Syntax.TypeParam) ->
-              { Name = tp.Name
-                Constraint = None
-                Default = None })
-            typeParams
-          |> Some
-          |> Result.Ok
-      // TODO: ensure we're adding newly created TypeParams to `newEnv`
-      // so that they can reference one another
-      // List.traverseResultM (inferTypeParam ctx newEnv) typeParams
-      // |> ResultOption.ofResult
+      let! typeParams, _ = inferTypeParams ctx env typeParams
 
       let scheme =
         { TypeParams = typeParams

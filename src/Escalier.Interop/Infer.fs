@@ -194,7 +194,15 @@ module rec Infer =
         | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
-      let typeParams = None // TODO: handle type params
+      let typeParams =
+        tsMethodSignature.TypeParams
+        |> Option.map (fun typeParamDecl ->
+          typeParamDecl.Params
+          |> List.map (fun typeParam ->
+            { Name = typeParam.Name.Name
+              Constraint =
+                Option.map (inferTsType ctx env) typeParam.Constraint
+              Default = Option.map (inferTsType ctx env) typeParam.Default }))
 
       let paramList =
         tsMethodSignature.Params |> List.map (inferFnParam ctx env)
@@ -221,7 +229,7 @@ module rec Infer =
           Type = Self
           Optional = false }
 
-      let fn = makeFunction None (Some self) paramList returnType throws
+      let fn = makeFunction typeParams (Some self) paramList returnType throws
 
       ObjTypeElem.Method(key, fn)
     | TsIndexSignature tsIndexSignature ->
@@ -566,7 +574,17 @@ module rec Infer =
 
       | Decl.Using usingDecl -> failwith "TODO: usingDecl"
       | Decl.TsInterface tsInterfaceDecl ->
-        // TODO: handle type params
+        let typeParams =
+          match tsInterfaceDecl.TypeParams with
+          | None -> None
+          | Some typeParamDecl ->
+            typeParamDecl.Params
+            |> List.map (fun (typeParam: TsTypeParam) ->
+              { Name = typeParam.Name.Name
+                Constraint = None
+                Default = None })
+            |> Some
+
         // TODO: handle extends
         let elems =
           tsInterfaceDecl.Body.Body |> List.map (inferTypeElement ctx env)
@@ -576,7 +594,7 @@ module rec Infer =
             Provenance = None }
 
         let scheme =
-          { TypeParams = None // TODO: fix this so we can use Array
+          { TypeParams = typeParams
             Type = t
             IsTypeParam = false }
         // TODO: handle interface merging

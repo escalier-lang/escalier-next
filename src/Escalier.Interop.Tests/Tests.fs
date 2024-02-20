@@ -349,15 +349,12 @@ let InferArrayPrototype () =
 
   Assert.True(Result.isOk result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let CallMethodsOnArray () =
   let result =
     result {
       let mockFileSystem = MockFileSystem()
       let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
-      let scheme = Map.find "Array" env.Schemes
-      printfn $"Array = {scheme}"
 
       let src =
         """
@@ -373,8 +370,7 @@ let CallMethodsOnArray () =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      return env
+      Assert.Value(env, "b", "number[]")
     }
 
-  printfn "result = %A" result
   Assert.True(Result.isOk result)

@@ -163,3 +163,38 @@ module Poly =
           Return = foldType folder f.Return
           Throws = foldType folder f.Throws }
     }
+
+  let instantiateType
+    (ctx: Ctx)
+    (t: Type)
+    (typeParams: option<list<TypeParam>>)
+    (typeArgs: option<list<Type>>)
+    : Result<Type, TypeError> =
+
+    result {
+      let mutable mapping: Map<string, Type> = Map.empty
+
+      let folder t =
+        match t.Kind with
+        | TypeKind.TypeRef({ Name = name }) ->
+          match Map.tryFind name mapping with
+          | Some(tv) -> Some(tv)
+          | None -> None
+        | _ -> None
+
+      match typeParams with
+      | Some(typeParams) ->
+        match typeArgs with
+        | Some(typeArgs) ->
+          if typeArgs.Length <> typeParams.Length then
+            return! Error(TypeError.WrongNumberOfTypeArgs)
+
+          for tp, ta in List.zip typeParams typeArgs do
+            mapping <- mapping.Add(tp.Name, ta)
+        | None ->
+          for tp in typeParams do
+            mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar tp.Constraint)
+      | None -> ()
+
+      return foldType folder t
+    }

@@ -794,14 +794,21 @@ module rec Infer =
 
           return union [ elem; unknown ]
         | _ ->
+          // TODO: update interop infer to make sure schemes have their type params
           let arrayScheme =
             match env.Schemes.TryFind "Array" with
             | Some scheme -> scheme
             | None -> failwith "Array not in scope"
 
-          let! t = expandScheme ctx env None arrayScheme Map.empty None
-          printfn $"t = {t}"
-          return! getPropType ctx env t key optChain
+          // Instead of expanding the whole scheme which could be quite expensive
+          // we get the property from the type and then only instantiate it.
+          let t = arrayScheme.Type
+          let! prop = getPropType ctx env t key optChain
+
+          let! prop =
+            instantiateType ctx prop arrayScheme.TypeParams (Some [ elem ])
+
+          return prop
       // TODO: intersection types
       | _ ->
         return!

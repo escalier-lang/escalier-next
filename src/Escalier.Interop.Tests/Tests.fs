@@ -267,6 +267,7 @@ let InferBasicVarDecls () =
 let InferTypeDecls () =
   let res =
     result {
+      // TODO: parse these from lib.es5.d.ts instead
       let input =
         """
         type Pick<T, K extends keyof T> = {
@@ -350,7 +351,33 @@ let InferArrayPrototype () =
   Assert.True(Result.isOk result)
 
 [<Fact>]
-let CallMethodsOnArray () =
+let CanCallMutableMethodsOnMutableArray () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let mut a: number[] = [3, 2, 1]
+        a.sort()
+        let b = a.map(fn (x) => x * 2)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! _ =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let CannotCallMutableMethodsOnNonMutableArray () =
   let result =
     result {
       let mockFileSystem = MockFileSystem()
@@ -366,11 +393,12 @@ let CallMethodsOnArray () =
       let! ast =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-      let! env =
+      let! _ =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "b", "number[]")
+      ()
     }
 
-  Assert.True(Result.isOk result)
+  printfn "result = %A" result
+  Assert.True(Result.isError result)

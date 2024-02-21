@@ -546,6 +546,7 @@ module Type =
   type Primitive =
     | Boolean
     | Number
+    | BigInt
     | String
     | Symbol
 
@@ -553,6 +554,7 @@ module Type =
       match this with
       | Boolean -> "boolean"
       | Number -> "number"
+      | BigInt -> "bigint"
       | String -> "string"
       | Symbol -> "symbol"
 

@@ -794,7 +794,9 @@ module rec Infer =
 
           return union [ elem; unknown ]
         | _ ->
-          // TODO: update interop infer to make sure schemes have their type params
+          // TODO: update Interop.Infer to combine Array and ReadonlyArray into
+          // a single Array type where methods are marked appropriately with
+          // `self` and `mut self`.
           let arrayScheme =
             match env.Schemes.TryFind "Array" with
             | Some scheme -> scheme

@@ -266,7 +266,7 @@ module rec Infer =
         | TsNumberKeyword -> TypeKind.Primitive Primitive.Number
         | TsObjectKeyword -> TypeKind.Keyword Keyword.Object
         | TsBooleanKeyword -> TypeKind.Primitive Primitive.Boolean
-        | TsBigIntKeyword -> failwith "TODO: TsBigIntKeyword"
+        | TsBigIntKeyword -> TypeKind.Primitive Primitive.BigInt
         | TsStringKeyword -> TypeKind.Primitive Primitive.String
         | TsSymbolKeyword -> makeTypeRefKind "symbol"
         // TODO: figure out if Escalier needs its own `void` type

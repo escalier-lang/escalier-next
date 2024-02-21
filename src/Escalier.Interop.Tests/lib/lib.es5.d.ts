@@ -231,9 +231,7 @@ interface ObjectConstructor {
      */
     freeze<T extends {
         [idx: string]: U | null | undefined | object;
-    }, U extends string | number | boolean | symbol>(o: T): Readonly<T>;
-
-    // TODO: add bigint back in when supported
+    }, U extends string | bigint | number | boolean | symbol>(o: T): Readonly<T>;
 
     /**
      * Prevents the modification of existing property attributes and values, and prevents the addition of new properties.

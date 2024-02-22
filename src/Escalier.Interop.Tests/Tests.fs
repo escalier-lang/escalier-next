@@ -267,6 +267,7 @@ let InferBasicVarDecls () =
 let InferTypeDecls () =
   let res =
     result {
+      // TODO: parse these from lib.es5.d.ts instead
       let input =
         """
         type Pick<T, K extends keyof T> = {
@@ -349,19 +350,16 @@ let InferArrayPrototype () =
 
   Assert.True(Result.isOk result)
 
-[<Fact(Skip = "TODO")>]
-let CallMethodsOnArray () =
+[<Fact>]
+let CanCallMutableMethodsOnMutableArray () =
   let result =
     result {
       let mockFileSystem = MockFileSystem()
       let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
 
-      let scheme = Map.find "Array" env.Schemes
-      printfn $"Array = {scheme}"
-
       let src =
         """
-        let a: number[] = [3, 2, 1]
+        let mut a: number[] = [3, 2, 1]
         a.sort()
         let b = a.map(fn (x) => x * 2)
         """
@@ -373,8 +371,64 @@ let CallMethodsOnArray () =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      return env
+      Assert.Value(env, "b", "number[]")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let CanIndexOnArrays () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let mut a: number[] = [3, 2, 1]
+        let b = a[0]
+        let mut len1 = a.length
+        let len2 = a.length
+        len1 = len2
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "b", "number | undefined")
+      Assert.Value(env, "len1", "unique number")
+      Assert.Value(env, "len2", "unique number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let CannotCallMutableMethodsOnNonMutableArray () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let a: number[] = [3, 2, 1]
+        a.sort()
+        let b = a.map(fn (x) => x * 2)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! _ =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      ()
     }
 
   printfn "result = %A" result
-  Assert.True(Result.isOk result)
+  Assert.True(Result.isError result)

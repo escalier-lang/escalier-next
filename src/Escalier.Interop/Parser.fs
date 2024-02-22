@@ -316,6 +316,7 @@ module Parser =
     <| fun readonly name c typeAnn ->
       let param: TsIndexParam = { Name = name; Constraint = c }
 
+      // TODO: parse +/- modifiers on readonly
       { Param = param
         Readonly = readonly.IsSome
         TypeAnn = typeAnn

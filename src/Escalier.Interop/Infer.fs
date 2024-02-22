@@ -194,7 +194,15 @@ module rec Infer =
         | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
-      let typeParams = None // TODO: handle type params
+      let typeParams =
+        tsMethodSignature.TypeParams
+        |> Option.map (fun typeParamDecl ->
+          typeParamDecl.Params
+          |> List.map (fun typeParam ->
+            { Name = typeParam.Name.Name
+              Constraint =
+                Option.map (inferTsType ctx env) typeParam.Constraint
+              Default = Option.map (inferTsType ctx env) typeParam.Default }))
 
       let paramList =
         tsMethodSignature.Params |> List.map (inferFnParam ctx env)
@@ -221,14 +229,14 @@ module rec Infer =
           Type = Self
           Optional = false }
 
-      let fn = makeFunction None (Some self) paramList returnType throws
+      let fn = makeFunction typeParams (Some self) paramList returnType throws
 
       ObjTypeElem.Method(key, fn)
     | TsIndexSignature tsIndexSignature ->
       let readonly =
         match tsIndexSignature.Readonly with
         | true -> Some(MappedModifier.Add)
-        | false -> Some(MappedModifier.Remove)
+        | false -> None // Some(MappedModifier.Remove)
 
       let optional = None
 
@@ -258,7 +266,7 @@ module rec Infer =
         | TsNumberKeyword -> TypeKind.Primitive Primitive.Number
         | TsObjectKeyword -> TypeKind.Keyword Keyword.Object
         | TsBooleanKeyword -> TypeKind.Primitive Primitive.Boolean
-        | TsBigIntKeyword -> failwith "TODO: TsBigIntKeyword"
+        | TsBigIntKeyword -> TypeKind.Primitive Primitive.BigInt
         | TsStringKeyword -> TypeKind.Primitive Primitive.String
         | TsSymbolKeyword -> makeTypeRefKind "symbol"
         // TODO: figure out if Escalier needs its own `void` type
@@ -566,7 +574,17 @@ module rec Infer =
 
       | Decl.Using usingDecl -> failwith "TODO: usingDecl"
       | Decl.TsInterface tsInterfaceDecl ->
-        // TODO: handle type params
+        let typeParams =
+          match tsInterfaceDecl.TypeParams with
+          | None -> None
+          | Some typeParamDecl ->
+            typeParamDecl.Params
+            |> List.map (fun (typeParam: TsTypeParam) ->
+              { Name = typeParam.Name.Name
+                Constraint = None
+                Default = None })
+            |> Some
+
         // TODO: handle extends
         let elems =
           tsInterfaceDecl.Body.Body |> List.map (inferTypeElement ctx env)
@@ -576,7 +594,7 @@ module rec Infer =
             Provenance = None }
 
         let scheme =
-          { TypeParams = None // TODO: fix this so we can use Array
+          { TypeParams = typeParams
             Type = t
             IsTypeParam = false }
         // TODO: handle interface merging
@@ -643,6 +661,106 @@ module rec Infer =
       | ModuleItem.ModuleDecl decl -> return env
     }
 
+  let mergeType (imutType: Type) (mutType: Type) : Type =
+    // If a method exists on both `imutType` and `mutType` then it's a mutable method
+    // If it only exists on `imutType` then it's an immutable method
+    // There should never be a method that only exists on `mutType`
+
+    match imutType.Kind, mutType.Kind with
+    | TypeKind.Object imutElems, TypeKind.Object mutElems ->
+      // TODO: figure out how to handle overloaded methods
+      let mutable imutNamedElems: Map<string, ObjTypeElem> =
+        imutElems.Elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Property p ->
+            match p.Name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Method(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | _ -> None)
+        |> Map.ofSeq
+
+      let mutable unnamedElems: list<ObjTypeElem> = []
+
+      let mutable mutNamedElems: Map<string, ObjTypeElem> =
+        mutElems.Elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Property p ->
+            match p.Name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Method(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | elem ->
+            // This assumes that indexed/mapped signatures are on both the
+            // readonly and non-readonly interfaces.  We ignore the readonly
+            // one because the signature isn't responsible for preventing
+            // mutation of the object in this way.  Instead we have a special
+            // check for this.
+            unnamedElems <- elem :: unnamedElems
+            None)
+        |> Map.ofSeq
+
+      let elems =
+        mutNamedElems
+        |> Map.toSeq
+        |> Seq.map (fun (key, value) ->
+          match imutNamedElems.TryFind key with
+          | Some(imutValue) -> imutValue
+          | None ->
+            match value with
+            | ObjTypeElem.Method(name, fn) ->
+              let self =
+                match fn.Self with
+                | None -> None
+                | Some self ->
+                  Some
+                    { self with
+                        Pattern =
+                          Pattern.Identifier { Name = "self"; IsMut = true } }
+
+              ObjTypeElem.Method(name, { fn with Self = self })
+            | elem -> elem)
+
+      let kind =
+        TypeKind.Object
+          { Elems = List.ofSeq elems @ unnamedElems
+            Immutable = false }
+
+      { Kind = kind; Provenance = None }
+    | _ -> failwith "both types must be objects to merge them"
+
   let inferModule (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -650,6 +768,23 @@ module rec Infer =
       for item in m.Body do
         let! env = inferModuleItem ctx newEnv item
         newEnv <- env
+
+      // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
+      // future versions of the JavaScript standard library type defs
+      match
+        newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
+      with
+      | Some(readonlyArray), Some(array) ->
+        let merged = mergeType readonlyArray.Type array.Type
+        newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
+
+        // TODO: for type definitions using Array and ReadonlyArray we need to
+        // make sure that params are marked with `mut` appropriately and all
+        // references to ReadonlyArray must be replaced with Array
+        newEnv <-
+          { newEnv with
+              Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
+      | _ -> ()
 
       return newEnv
     }

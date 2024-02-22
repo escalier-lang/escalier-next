@@ -367,11 +367,41 @@ let CanCallMutableMethodsOnMutableArray () =
       let! ast =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-      let! _ =
+      let! env =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      ()
+      Assert.Value(env, "b", "number[]")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let CanIndexOnArrays () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let mut a: number[] = [3, 2, 1]
+        let b = a[0]
+        let mut len1 = a.length
+        let len2 = a.length
+        len1 = len2
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "b", "number | undefined")
+      Assert.Value(env, "len1", "unique number")
+      Assert.Value(env, "len2", "unique number")
     }
 
   Assert.False(Result.isError result)

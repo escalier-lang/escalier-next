@@ -236,7 +236,7 @@ module rec Infer =
       let readonly =
         match tsIndexSignature.Readonly with
         | true -> Some(MappedModifier.Add)
-        | false -> Some(MappedModifier.Remove)
+        | false -> None // Some(MappedModifier.Remove)
 
       let optional = None
 
@@ -669,7 +669,7 @@ module rec Infer =
     match imutType.Kind, mutType.Kind with
     | TypeKind.Object imutElems, TypeKind.Object mutElems ->
       // TODO: figure out how to handle overloaded methods
-      let mutable imutNamedProps: Map<string, ObjTypeElem> =
+      let mutable imutNamedElems: Map<string, ObjTypeElem> =
         imutElems.Elems
         |> List.choose (fun elem ->
           match elem with
@@ -683,10 +683,22 @@ module rec Infer =
             | PropName.String s -> Some(s, elem)
             | PropName.Number n -> Some(n.ToString(), elem)
             | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
           | _ -> None)
         |> Map.ofSeq
 
-      let mutable mutNamedProps: Map<string, ObjTypeElem> =
+      let mutable unnamedElems: list<ObjTypeElem> = []
+
+      let mutable mutNamedElems: Map<string, ObjTypeElem> =
         mutElems.Elems
         |> List.choose (fun elem ->
           match elem with
@@ -700,14 +712,31 @@ module rec Infer =
             | PropName.String s -> Some(s, elem)
             | PropName.Number n -> Some(n.ToString(), elem)
             | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
-          | _ -> None)
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(s, elem)
+            | PropName.Number n -> Some(n.ToString(), elem)
+            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+          | elem ->
+            // This assumes that indexed/mapped signatures are on both the
+            // readonly and non-readonly interfaces.  We ignore the readonly
+            // one because the signature isn't responsible for preventing
+            // mutation of the object in this way.  Instead we have a special
+            // check for this.
+            unnamedElems <- elem :: unnamedElems
+            None)
         |> Map.ofSeq
 
       let elems =
-        mutNamedProps
+        mutNamedElems
         |> Map.toSeq
         |> Seq.map (fun (key, value) ->
-          match imutNamedProps.TryFind key with
+          match imutNamedElems.TryFind key with
           | Some(imutValue) -> imutValue
           | None ->
             match value with
@@ -726,7 +755,7 @@ module rec Infer =
 
       let kind =
         TypeKind.Object
-          { Elems = List.ofSeq elems
+          { Elems = List.ofSeq elems @ unnamedElems
             Immutable = false }
 
       { Kind = kind; Provenance = None }
@@ -740,10 +769,8 @@ module rec Infer =
         let! env = inferModuleItem ctx newEnv item
         newEnv <- env
 
-      // - Find all types that start with the prefix: 'Readonly'
-      // - Find the corresponding non-readonly type
-      // - Merge them into a single type
-
+      // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
+      // future versions of the JavaScript standard library type defs
       match
         newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
       with

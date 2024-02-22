@@ -721,9 +721,9 @@ module Type =
       match this with
       | Callable(func) -> func.ToString()
       | Constructor(func) -> sprintf "new %s" (func.ToString())
-      | Method(name, fn) -> $"{name} {fn}"
-      | Getter(name, fn) -> $"get {name} {fn}"
-      | Setter(name, fn) -> $"set {name} {fn}"
+      | Method(name, fn) -> $"{name} {fn}" // should be `fn name<...>(...)`
+      | Getter(name, fn) -> $"get {name} {fn}" // should be `get name(...)`
+      | Setter(name, fn) -> $"set {name} {fn}" // should be `set name(...)`
       | Mapped(mapped) -> mapped.ToString()
       | Property { Name = name
                    Optional = optional

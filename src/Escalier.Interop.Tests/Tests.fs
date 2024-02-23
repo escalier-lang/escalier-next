@@ -342,8 +342,29 @@ let InferArrayPrototype () =
       let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
 
       let scheme = Map.find "Array" env.Schemes
+      // printfn $"Array = {scheme}"
 
-      printfn $"Array = {scheme}"
+      let value = Map.find "Array" env.Values
+      // printfn $"Array = {value}"
+
+      let scheme = Map.find "ArrayConstructor" env.Schemes
+      // printfn $"ArrayConstructor = {scheme}"
+
+      return env
+    }
+
+  Assert.True(Result.isOk result)
+
+[<Fact>]
+let InferInt8ArrayPrototype () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let scheme = Map.find "Int8Array" env.Schemes
+
+      // printfn $"Int8Array = {scheme}"
 
       return env
     }

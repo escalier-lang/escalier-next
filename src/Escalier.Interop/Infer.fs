@@ -589,6 +589,14 @@ module rec Infer =
         let elems =
           tsInterfaceDecl.Body.Body |> List.map (inferTypeElement ctx env)
 
+        let elems =
+          elems
+          |> List.map (fun elem ->
+            match elem with
+            | ObjTypeElem.Method(name, fn) ->
+              ObjTypeElem.Method(name, sanitizeMethod fn)
+            | _ -> elem)
+
         let t =
           { Kind = TypeKind.Object { Elems = elems; Immutable = false }
             Provenance = None }
@@ -788,3 +796,40 @@ module rec Infer =
 
       return newEnv
     }
+
+
+  let sanitizeMethod (fn: Type.Function) : Type.Function =
+    let paramList =
+      fn.ParamList
+      |> List.filter (fun param ->
+        match param.Pattern with
+        | Pattern.Identifier id -> id.Name <> "thisArg"
+        | _ -> true)
+      |> List.map (fun param ->
+        match param.Pattern with
+        | Pattern.Identifier id when
+          List.contains id.Name [ "predicate"; "callbackfn" ]
+          ->
+          match param.Type.Kind with
+          | TypeKind.Function fn ->
+            let fn = sanitizeArrayCallback fn
+
+            let t =
+              { param.Type with
+                  Kind = TypeKind.Function fn }
+
+            { param with Type = t }
+          | _ -> param
+        | _ -> param)
+
+    { fn with ParamList = paramList }
+
+  let sanitizeArrayCallback (fn: Type.Function) : Type.Function =
+    let paramList =
+      fn.ParamList
+      |> List.filter (fun param ->
+        match param.Pattern with
+        | Pattern.Identifier id -> id.Name <> "array"
+        | _ -> true)
+
+    { fn with ParamList = paramList }

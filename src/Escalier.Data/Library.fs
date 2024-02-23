@@ -959,10 +959,11 @@ module Type =
             let readonly = if readonly then "readonly " else ""
             $"{readonly}{name}{optional}: {printType ctx t}"
           | Mapped mapped -> printMapped ctx mapped
-          | Method(propName, fn) -> $"{propName} {fn}"
-          | _ -> failwith "TODO: Type.ToString - Object - Elem"
-
-        )
+          | Method(name, fn) -> $"{name} {fn}"
+          | Getter(name, fn) -> $"get {name} {fn}"
+          | Setter(name, fn) -> $"set {name} {fn}"
+          | Callable func -> func.ToString()
+          | Constructor func -> $"new {func}")
         obj.Elems
 
     let elems = String.concat ", " elems

@@ -1,0 +1,23 @@
+﻿input: add<number>()
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                Call { Callee = { Kind = Identifier "add"
+                                  Span = { Start = (Ln: 1, Col: 1)
+                                           Stop = (Ln: 1, Col: 4) }
+                                  InferredType = None }
+                       TypeArgs = Some [{ Kind = Keyword Number
+                                          Span = { Start = (Ln: 1, Col: 5)
+                                                   Stop = (Ln: 1, Col: 11) }
+                                          InferredType = None }]
+                       Args = []
+                       OptChain = false
+                       Throws = None }
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 14) }
+               InferredType = None }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 14) } }] }

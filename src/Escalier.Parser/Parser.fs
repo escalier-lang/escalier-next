@@ -534,6 +534,13 @@ module Parser =
               match left.Kind with
               | ExprKind.New n ->
                 ExprKind.New { n with Args = Some(args.Result) }
+              | ExprKind.ExprWithTypeArgs(callee, typeArgs) ->
+                ExprKind.Call
+                  { Callee = callee
+                    TypeArgs = Some(typeArgs)
+                    Args = args.Result
+                    OptChain = false
+                    Throws = None }
               | _ ->
                 ExprKind.Call
                   { Callee = left
@@ -583,9 +590,7 @@ module Parser =
           | _ -> Reply(typeArgs.Status, typeArgs.Error)
       Precedence = precedence }
 
-  // TODO: re-enabled once we support multiple parselets per operator
-  // TODO: test out different precedences
-  // exprParser.RegisterInfix("<", typeArgsParselet 16)
+  exprParser.RegisterInfix("<", typeArgsParselet 16)
 
   exprParser.RegisterPrefix("!", unaryExprParslet 14 "!")
   // bitwise not (14)

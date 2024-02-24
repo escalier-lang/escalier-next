@@ -66,16 +66,24 @@ type InfixParselet<'T> =
 type PrattParser<'T>(term: Parser<'T, unit>) =
   // TODO: sort keys based on length
   let mutable prefixParselets: Map<string, PrefixParselet<'T>> = Map.empty
-  let mutable infixParselets: Map<string, InfixParselet<'T>> = Map.empty
+  let mutable infixParselets: Map<string, list<InfixParselet<'T>>> = Map.empty
 
   member this.RegisterPrefix(operator: string, parselet: PrefixParselet<'T>) =
     prefixParselets <- Map.add operator parselet prefixParselets
 
   member this.RegisterInfix(operator: string, parselet: InfixParselet<'T>) =
-    infixParselets <- Map.add operator parselet infixParselets
+    infixParselets <-
+      match infixParselets |> Map.tryFind operator with
+      | Some(parselets) ->
+        Map.add operator (parselet :: parselets) infixParselets
+      | None -> Map.add operator [ parselet ] infixParselets
 
   member this.RegisterPostfix(operator: string, parselet: InfixParselet<'T>) =
-    infixParselets <- Map.add operator parselet infixParselets
+    infixParselets <-
+      match infixParselets |> Map.tryFind operator with
+      | Some(parselets) ->
+        Map.add operator (parselet :: parselets) infixParselets
+      | None -> Map.add operator [ parselet ] infixParselets
 
   member this.NextPrefixOperator
     (stream: CharStream<unit>)
@@ -108,7 +116,7 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
 
   member this.NextInfixOperator
     (stream: CharStream<unit>)
-    : Option<string * InfixParselet<'T>> =
+    : Option<string * list<InfixParselet<'T>>> =
 
     // TODO: optimize this by only doing this grouping once after we've defined
     // all of the operators we care about.
@@ -123,7 +131,7 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       |> Seq.rev
       |> List.ofSeq
 
-    let rec find (groups: list<int * seq<string * InfixParselet<'T>>>) =
+    let rec find (groups: list<int * seq<string * List<InfixParselet<'T>>>>) =
       match groups with
       | [] -> None
       | (length, group) :: rest ->
@@ -162,13 +170,48 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       let rec led (left: Reply<'T>) =
         // TODO: handle `NextInfixOperator` returning multiple parselets
         match this.NextInfixOperator(stream) with
-        | Some(operator, parselet) ->
-          if precedence < parselet.Precedence then
-            stream.Skip(operator.Length)
-            ws stream |> ignore // always succeeds
-            led (parselet.Parse(this, stream, left.Result, operator))
-          else
-            left
+        | Some(operator, parselets) ->
+          match parselets with
+          | [ parselet ] ->
+            if precedence < parselet.Precedence then
+              stream.Skip(operator.Length)
+              ws stream |> ignore // always succeeds
+              led (parselet.Parse(this, stream, left.Result, operator))
+            else
+              left
+          | [ parselet1; parselet2 ] ->
+            let parselets =
+              [ parselet1; parselet2 ]
+              |> List.sortBy (fun p -> p.Precedence)
+              |> List.rev
+
+            let parselet = parselets[0]
+
+            if precedence < parselet.Precedence then
+              let mutable state = CharStreamState(stream)
+              stream.Skip(operator.Length)
+              ws stream |> ignore // always succeeds
+
+              let reply =
+                led (parselet.Parse(this, stream, left.Result, operator))
+
+              match reply.Status with
+              | ReplyStatus.Ok -> reply
+              | ReplyStatus.Error ->
+                stream.BacktrackTo(&state)
+                let parselet = parselets[1]
+
+                if precedence < parselet.Precedence then
+                  stream.Skip(operator.Length)
+                  ws stream |> ignore // always succeeds
+
+                  led (parselet.Parse(this, stream, left.Result, operator))
+                else
+                  left
+              | ReplyStatus.FatalError -> reply
+            else
+              left
+          | _ -> failwith "TODO: handle multiple parselets"
         | None -> left
 
       match left.Status with

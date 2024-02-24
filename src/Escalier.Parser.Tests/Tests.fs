@@ -76,7 +76,7 @@ let ParseEmptyCall () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ParseExprWithTypeParam () =
   let src = "add<number | string>"
   let ast = Parser.parseScript src
@@ -84,7 +84,7 @@ let ParseExprWithTypeParam () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ParseCallWithTypeParam () =
   let src = "add<number>()"
   let ast = Parser.parseScript src

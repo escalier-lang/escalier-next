@@ -417,7 +417,6 @@ module Parser =
     : Pratt.PrefixParselet<Expr> =
     { Parse =
         fun (parser, stream, operator) ->
-          let precedence = parser.GetPrecedence(operator)
           let operand = parser.Parse precedence stream
 
           match operand.Status with
@@ -440,7 +439,6 @@ module Parser =
     : Pratt.InfixParselet<Expr> =
     { Parse =
         fun (parser, stream, left, operator) ->
-          let precedence = parser.GetPrecedence(operator)
           let right = parser.Parse precedence stream
 
           match right.Status with
@@ -463,6 +461,19 @@ module Parser =
       Precedence = precedence }
 
   exprParser.RegisterPrefix("(", groupingExprParselet 18)
+
+  let newingParselet: Pratt.PrefixParselet<Expr> =
+    prefixExprParslet 17 (fun operand ->
+      { Expr.Kind =
+          ExprKind.New
+            { Callee = operand
+              TypeArgs = None
+              Args = None
+              Throws = None }
+        Span = operand.Span
+        InferredType = None })
+
+  exprParser.RegisterPrefix("new", newingParselet)
 
   let indexParselet (precedence: int) : Pratt.InfixParselet<Expr> =
     { Parse =
@@ -519,24 +530,73 @@ module Parser =
 
           match args.Status with
           | Ok ->
+            let kind =
+              match left.Kind with
+              | ExprKind.New n ->
+                ExprKind.New { n with Args = Some(args.Result) }
+              | ExprKind.ExprWithTypeArgs(callee, typeArgs) ->
+                ExprKind.Call
+                  { Callee = callee
+                    TypeArgs = Some(typeArgs)
+                    Args = args.Result
+                    OptChain = false
+                    Throws = None }
+              | _ ->
+                ExprKind.Call
+                  { Callee = left
+                    TypeArgs = None
+                    Args = args.Result
+                    OptChain = false
+                    Throws = None }
+
             Reply(
-              { Expr.Kind =
-                  ExprKind.Call
-                    { Callee = left
-                      TypeArgs = None
-                      Args = args.Result
-                      OptChain = false
-                      Throws = None }
+              { Expr.Kind = kind
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+            )
+          | _ -> Reply(args.Status, args.Error)
+      Precedence = precedence }
+
+  exprParser.RegisterInfix("(", callParselet 17)
+
+  let typeArgsParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+
+          let typeArgs =
+            if stream.PeekString(1) = ">" then
+              stream.Skip(1)
+              ws stream |> ignore // always succeeds
+              Reply([])
+            else
+              let parseTypeArgs = sepBy typeAnn (strWs ",")
+              let reply = (parseTypeArgs .>> (strWs ">")) stream
+              reply
+
+          match typeArgs.Status with
+          | Ok ->
+            let kind =
+              match left.Kind with
+              | ExprKind.New n ->
+                ExprKind.New
+                  { n with
+                      TypeArgs = Some(typeArgs.Result) }
+              | _ -> ExprKind.ExprWithTypeArgs(left, typeArgs.Result)
+
+            Reply(
+              { Expr.Kind = kind
                 Span =
                   { Start = left.Span.Start
                     Stop = stream.Position }
                 InferredType = None }
             )
 
-          | _ -> Reply(args.Status, args.Error)
+          | _ -> Reply(typeArgs.Status, typeArgs.Error)
       Precedence = precedence }
 
-  exprParser.RegisterInfix("(", callParselet 17)
+  exprParser.RegisterInfix("<", typeArgsParselet 16)
 
   exprParser.RegisterPrefix("!", unaryExprParslet 14 "!")
   // bitwise not (14)
@@ -1343,7 +1403,6 @@ module Parser =
     : Pratt.InfixParselet<TypeAnn> =
     { Parse =
         fun (parser, stream, left, operator) ->
-          let precedence = parser.GetPrecedence(operator)
           let right = parser.Parse precedence stream
 
           match right.Status with

@@ -225,7 +225,7 @@ module Parser =
 
   // let typeQuery: Parser<TsTypeQuery, unit> = ...
 
-  let callSignDecl: Parser<TsTypeElement, unit> =
+  let callSigDecl: Parser<TsTypeElement, unit> =
     pipe3 (opt typeParams) tsFnParams (opt (strWs ":" >>. tsTypeAnn))
     <| fun typeParams ps typeAnn ->
       { TsCallSignatureDecl.TypeParams = typeParams
@@ -234,7 +234,7 @@ module Parser =
         Loc = None }
       |> TsTypeElement.TsCallSignatureDecl
 
-  let constructorSignDecl: Parser<TsTypeElement, unit> =
+  let constructorSigDecl: Parser<TsTypeElement, unit> =
     pipe3
       (strWs "new" >>. (opt typeParams))
       tsFnParams
@@ -326,8 +326,8 @@ module Parser =
 
   let typeMember: Parser<TsTypeElement, unit> =
     choice
-      [ callSignDecl
-        constructorSignDecl
+      [ callSigDecl
+        constructorSigDecl
         attempt propSig
         attempt getterSig
         attempt setterSig

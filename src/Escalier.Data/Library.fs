@@ -209,6 +209,12 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
+  type New =
+    { Callee: Expr
+      TypeArgs: option<list<TypeAnn>>
+      Args: option<list<Expr>>
+      mutable Throws: option<Type.Type> }
+
   type Try =
     { Body: Block
       Catch: option<list<MatchCase>>
@@ -227,6 +233,8 @@ module Syntax =
     | Literal of Common.Literal
     | Function of Function
     | Call of Call
+    | New of New
+    | ExprWithTypeArgs of target: Expr * typeArgs: list<TypeAnn>
     | Object of Common.Object<ObjElem>
     | Struct of Struct<ObjElem>
     | Tuple of Common.Tuple<Expr>

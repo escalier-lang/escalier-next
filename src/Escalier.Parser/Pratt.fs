@@ -66,21 +66,30 @@ type InfixParselet<'T> =
 type PrattParser<'T>(term: Parser<'T, unit>) =
   // TODO: sort keys based on length
   let mutable prefixParselets: Map<string, PrefixParselet<'T>> = Map.empty
-  let mutable infixParselets: Map<string, InfixParselet<'T>> = Map.empty
+  let mutable infixParselets: Map<string, list<InfixParselet<'T>>> = Map.empty
 
   member this.RegisterPrefix(operator: string, parselet: PrefixParselet<'T>) =
     prefixParselets <- Map.add operator parselet prefixParselets
 
   member this.RegisterInfix(operator: string, parselet: InfixParselet<'T>) =
-    infixParselets <- Map.add operator parselet infixParselets
+    infixParselets <-
+      match infixParselets |> Map.tryFind operator with
+      | Some(parselets) ->
+        let parselets =
+          (parselet :: parselets) |> List.sortBy (_.Precedence) |> List.rev
+
+        Map.add operator parselets infixParselets
+      | None -> Map.add operator [ parselet ] infixParselets
 
   member this.RegisterPostfix(operator: string, parselet: InfixParselet<'T>) =
-    infixParselets <- Map.add operator parselet infixParselets
+    infixParselets <-
+      match infixParselets |> Map.tryFind operator with
+      | Some(parselets) ->
+        let parselets =
+          (parselet :: parselets) |> List.sortBy (_.Precedence) |> List.rev
 
-  member this.GetPrecedence(operator: string) =
-    match infixParselets.TryFind operator with
-    | Some parselet -> parselet.Precedence
-    | None -> 0
+        Map.add operator parselets infixParselets
+      | None -> Map.add operator [ parselet ] infixParselets
 
   member this.NextPrefixOperator
     (stream: CharStream<unit>)
@@ -113,7 +122,7 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
 
   member this.NextInfixOperator
     (stream: CharStream<unit>)
-    : Option<string * InfixParselet<'T>> =
+    : Option<string * list<InfixParselet<'T>>> =
 
     // TODO: optimize this by only doing this grouping once after we've defined
     // all of the operators we care about.
@@ -128,12 +137,15 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       |> Seq.rev
       |> List.ofSeq
 
-    let rec find (groups: list<int * seq<string * InfixParselet<'T>>>) =
+    let rec find (groups: list<int * seq<string * List<InfixParselet<'T>>>>) =
       match groups with
       | [] -> None
       | (length, group) :: rest ->
         let nextChars = stream.PeekString(length)
 
+        // NOTE: `=>` is not an operator. Without this check here the parser
+        // would recognize the `=` as the assignment operator and the fail
+        // when it encounters the `>`.
         if nextChars = "=>" then
           None
         else
@@ -163,14 +175,43 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
 
       let rec led (left: Reply<'T>) =
         match this.NextInfixOperator(stream) with
-        | Some(operator, parselet) ->
-          if precedence < this.GetPrecedence(operator) then
+        | Some(operator, parselets) -> parse_parselets left operator parselets
+        | None -> left
+
+      and parse_parselets
+        (left: Reply<'T>)
+        (operator: string)
+        (parselets: list<InfixParselet<'T>>)
+        : Reply<'T> =
+
+        match parselets with
+        | [] -> left
+        | parselet :: parselets ->
+          if precedence < parselet.Precedence then
+            let mutable state = CharStreamState(stream)
             stream.Skip(operator.Length)
             ws stream |> ignore // always succeeds
-            led (parselet.Parse(this, stream, left.Result, operator))
+
+            let reply =
+              led (parselet.Parse(this, stream, left.Result, operator))
+
+            match reply.Status with
+            | ReplyStatus.Ok -> reply
+            | ReplyStatus.Error ->
+              if parselets.IsEmpty then
+                reply
+              else
+                // This is similar to what `attempt` does
+                stream.BacktrackTo(&state)
+                parse_parselets left operator parselets
+            | ReplyStatus.FatalError ->
+              // We can't recover from a fatal error so just return it
+              reply
           else
+            // It's fine to return `left` here since the rest of the parselets
+            // will have a precedence that's strictly less than the current
+            // parselet's.
             left
-        | None -> left
 
       match left.Status with
       | Ok -> led left
@@ -179,7 +220,6 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
 let prefixParselet (precedence: int) : PrefixParselet<Expr> =
   { Parse =
       fun (parser, stream, operator) ->
-        let precedence = parser.GetPrecedence(operator)
         let operand = parser.Parse precedence stream
 
         match operand.Status with
@@ -199,7 +239,6 @@ let groupingParselet (precedence: int) : PrefixParselet<'T> =
 let infixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) ->
-        let precedence = parser.GetPrecedence(operator)
         let right = parser.Parse precedence stream
 
         match right.Status with
@@ -213,6 +252,7 @@ let naryInfixParselet (precedence: int) : InfixParselet<Expr> =
         let right = parser.Parse precedence stream
 
         let rec led (acc: list<Expr>) (left: Reply<Expr>) =
+          // TODO: handle `NextInfixOperator` returning multiple parselets
           match parser.NextInfixOperator(stream) with
           | Some(nextOperator, parselet) ->
             if operator = nextOperator then

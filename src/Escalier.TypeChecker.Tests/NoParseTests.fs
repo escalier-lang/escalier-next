@@ -67,6 +67,7 @@ let call (f, args) =
       TypeArgs = None
       Args = args
       OptChain = false
+      New = false
       Throws = None }
 
   { Expr.Kind = ExprKind.Call(c)

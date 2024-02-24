@@ -76,6 +76,38 @@ let ParseEmptyCall () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+[<Fact(Skip = "TODO")>]
+let ParseExprWithTypeParam () =
+  let src = "add<number | string>"
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact(Skip = "TODO")>]
+let ParseCallWithTypeParam () =
+  let src = "add<number>()"
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseConstructorCall () =
+  let src = "new Array()"
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact(Skip = "TODO")>]
+let ParseConstructorCallWithTypeParam () =
+  let src = "new Array<number>()"
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
 [<Fact>]
 let ParseIndexer () =
   let src = "array[0]"
@@ -623,7 +655,7 @@ let ParseBasicImpl () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-  
+
 [<Fact>]
 let ParseImplWithStaticMethods () =
   let src =

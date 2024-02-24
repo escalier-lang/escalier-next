@@ -77,11 +77,6 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
   member this.RegisterPostfix(operator: string, parselet: InfixParselet<'T>) =
     infixParselets <- Map.add operator parselet infixParselets
 
-  member this.GetPrecedence(operator: string) =
-    match infixParselets.TryFind operator with
-    | Some parselet -> parselet.Precedence
-    | None -> 0
-
   member this.NextPrefixOperator
     (stream: CharStream<unit>)
     : Option<string * PrefixParselet<'T>> =
@@ -134,6 +129,9 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       | (length, group) :: rest ->
         let nextChars = stream.PeekString(length)
 
+        // NOTE: `=>` is not an operator. Without this check here the parser
+        // would recognize the `=` as the assignment operator and the fail
+        // when it encounters the `>`.
         if nextChars = "=>" then
           None
         else
@@ -162,9 +160,10 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       let left = nud ()
 
       let rec led (left: Reply<'T>) =
+        // TODO: handle `NextInfixOperator` returning multiple parselets
         match this.NextInfixOperator(stream) with
         | Some(operator, parselet) ->
-          if precedence < this.GetPrecedence(operator) then
+          if precedence < parselet.Precedence then
             stream.Skip(operator.Length)
             ws stream |> ignore // always succeeds
             led (parselet.Parse(this, stream, left.Result, operator))
@@ -179,7 +178,6 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
 let prefixParselet (precedence: int) : PrefixParselet<Expr> =
   { Parse =
       fun (parser, stream, operator) ->
-        let precedence = parser.GetPrecedence(operator)
         let operand = parser.Parse precedence stream
 
         match operand.Status with
@@ -199,7 +197,6 @@ let groupingParselet (precedence: int) : PrefixParselet<'T> =
 let infixParselet (precedence: int) : InfixParselet<Expr> =
   { Parse =
       fun (parser, stream, left, operator) ->
-        let precedence = parser.GetPrecedence(operator)
         let right = parser.Parse precedence stream
 
         match right.Status with
@@ -213,6 +210,7 @@ let naryInfixParselet (precedence: int) : InfixParselet<Expr> =
         let right = parser.Parse precedence stream
 
         let rec led (acc: list<Expr>) (left: Reply<Expr>) =
+          // TODO: handle `NextInfixOperator` returning multiple parselets
           match parser.NextInfixOperator(stream) with
           | Some(nextOperator, parselet) ->
             if operator = nextOperator then

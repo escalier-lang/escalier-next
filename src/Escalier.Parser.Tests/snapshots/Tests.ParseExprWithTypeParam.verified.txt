@@ -1,0 +1,30 @@
+﻿input: add<number | string>
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                ExprWithTypeArgs
+                  ({ Kind = Identifier "add"
+                     Span = { Start = (Ln: 1, Col: 1)
+                              Stop = (Ln: 1, Col: 4) }
+                     InferredType = None },
+                   [{ Kind =
+                       Union
+                         [{ Kind = Keyword Number
+                            Span = { Start = (Ln: 1, Col: 5)
+                                     Stop = (Ln: 1, Col: 12) }
+                            InferredType = None };
+                          { Kind = Keyword String
+                            Span = { Start = (Ln: 1, Col: 14)
+                                     Stop = (Ln: 1, Col: 20) }
+                            InferredType = None }]
+                      Span = { Start = (Ln: 1, Col: 5)
+                               Stop = (Ln: 1, Col: 20) }
+                      InferredType = None }])
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 21) }
+               InferredType = None }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 21) } }] }

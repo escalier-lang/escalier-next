@@ -453,3 +453,55 @@ let CannotCallMutableMethodsOnNonMutableArray () =
 
   printfn "result = %A" result
   Assert.True(Result.isError result)
+
+[<Fact>]
+let CallArrayConstructor () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let mut a = new Array()
+        a.push(5)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "b", "number[]")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let CallArrayConstructorWithTypeArgs () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let mut a: number[] = [3, 2, 1]
+        a.sort()
+        let b = a.map(fn (x) => x * 2)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "b", "number[]")
+    }
+
+  Assert.False(Result.isError result)

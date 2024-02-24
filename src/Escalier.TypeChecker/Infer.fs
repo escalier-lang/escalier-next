@@ -101,6 +101,18 @@ module rec Infer =
           call.Throws <- Some(throws)
 
           return result
+        | ExprKind.New call ->
+          printfn "call = %A" call
+          let! callee = inferExpr ctx env call.Callee
+          // TODO: compute the mapping for typeArgs
+          let mapping = Map.empty
+          let callee = expandType ctx env None mapping callee
+
+          printfn "callee = %A" callee
+
+          // TODO: lookup constructor type signatures in "Array"
+
+          return! Error(TypeError.NotImplemented "TODO: inferExpr - new")
         | ExprKind.Binary(op, left, right) ->
           let! funTy = env.GetBinaryOp op
 

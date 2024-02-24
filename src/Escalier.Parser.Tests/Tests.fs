@@ -100,7 +100,7 @@ let ParseConstructorCall () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ParseConstructorCallWithTypeParam () =
   let src = "new Array<number>()"
   let ast = Parser.parseScript src

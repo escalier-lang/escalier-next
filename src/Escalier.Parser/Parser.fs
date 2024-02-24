@@ -573,14 +573,20 @@ module Parser =
             else
               let parseTypeArgs = sepBy typeAnn (strWs ",")
               let reply = (parseTypeArgs .>> (strWs ">")) stream
-              printfn "reply = %A" reply
               reply
 
           match typeArgs.Status with
           | Ok ->
-            Reply(
-              { Expr.Kind = ExprKind.ExprWithTypeArgs(left, typeArgs.Result)
+            let kind =
+              match left.Kind with
+              | ExprKind.New n ->
+                ExprKind.New
+                  { n with
+                      TypeArgs = Some(typeArgs.Result) }
+              | _ -> ExprKind.ExprWithTypeArgs(left, typeArgs.Result)
 
+            Reply(
+              { Expr.Kind = kind
                 Span =
                   { Start = left.Span.Start
                     Stop = stream.Position }

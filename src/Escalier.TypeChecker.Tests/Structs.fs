@@ -603,7 +603,7 @@ let StaticMethods () =
         struct Point {x: number, y: number}
 
         impl Point {
-          fn new(x, y) {
+          fn make(x, y) {
             return Self { x, y }
           }
           fn default() {
@@ -611,7 +611,7 @@ let StaticMethods () =
           }
         }
 
-        let p = Point.new(5, 10)
+        let p = Point.make(5, 10)
         let q = Point.default()
         let {x, y} = p
         """

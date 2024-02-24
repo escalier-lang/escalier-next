@@ -75,14 +75,20 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
     infixParselets <-
       match infixParselets |> Map.tryFind operator with
       | Some(parselets) ->
-        Map.add operator (parselet :: parselets) infixParselets
+        let parselets =
+          (parselet :: parselets) |> List.sortBy (_.Precedence) |> List.rev
+
+        Map.add operator parselets infixParselets
       | None -> Map.add operator [ parselet ] infixParselets
 
   member this.RegisterPostfix(operator: string, parselet: InfixParselet<'T>) =
     infixParselets <-
       match infixParselets |> Map.tryFind operator with
       | Some(parselets) ->
-        Map.add operator (parselet :: parselets) infixParselets
+        let parselets =
+          (parselet :: parselets) |> List.sortBy (_.Precedence) |> List.rev
+
+        Map.add operator parselets infixParselets
       | None -> Map.add operator [ parselet ] infixParselets
 
   member this.NextPrefixOperator
@@ -168,51 +174,44 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       let left = nud ()
 
       let rec led (left: Reply<'T>) =
-        // TODO: handle `NextInfixOperator` returning multiple parselets
         match this.NextInfixOperator(stream) with
-        | Some(operator, parselets) ->
-          match parselets with
-          | [ parselet ] ->
-            if precedence < parselet.Precedence then
-              stream.Skip(operator.Length)
-              ws stream |> ignore // always succeeds
-              led (parselet.Parse(this, stream, left.Result, operator))
-            else
-              left
-          | [ parselet1; parselet2 ] ->
-            let parselets =
-              [ parselet1; parselet2 ]
-              |> List.sortBy (fun p -> p.Precedence)
-              |> List.rev
-
-            let parselet = parselets[0]
-
-            if precedence < parselet.Precedence then
-              let mutable state = CharStreamState(stream)
-              stream.Skip(operator.Length)
-              ws stream |> ignore // always succeeds
-
-              let reply =
-                led (parselet.Parse(this, stream, left.Result, operator))
-
-              match reply.Status with
-              | ReplyStatus.Ok -> reply
-              | ReplyStatus.Error ->
-                stream.BacktrackTo(&state)
-                let parselet = parselets[1]
-
-                if precedence < parselet.Precedence then
-                  stream.Skip(operator.Length)
-                  ws stream |> ignore // always succeeds
-
-                  led (parselet.Parse(this, stream, left.Result, operator))
-                else
-                  left
-              | ReplyStatus.FatalError -> reply
-            else
-              left
-          | _ -> failwith "TODO: handle multiple parselets"
+        | Some(operator, parselets) -> parse_parselets left operator parselets
         | None -> left
+
+      and parse_parselets
+        (left: Reply<'T>)
+        (operator: string)
+        (parselets: list<InfixParselet<'T>>)
+        : Reply<'T> =
+
+        match parselets with
+        | [] -> left
+        | parselet :: parselets ->
+          if precedence < parselet.Precedence then
+            let mutable state = CharStreamState(stream)
+            stream.Skip(operator.Length)
+            ws stream |> ignore // always succeeds
+
+            let reply =
+              led (parselet.Parse(this, stream, left.Result, operator))
+
+            match reply.Status with
+            | ReplyStatus.Ok -> reply
+            | ReplyStatus.Error ->
+              if parselets.IsEmpty then
+                reply
+              else
+                // This is similar to what `attempt` does
+                stream.BacktrackTo(&state)
+                parse_parselets left operator parselets
+            | ReplyStatus.FatalError ->
+              // We can't recover from a fatal error so just return it
+              reply
+          else
+            // It's fine to return `left` here since the rest of the parselets
+            // will have a precedence that's strictly less than the current
+            // parselet's.
+            left
 
       match left.Status with
       | Ok -> led left

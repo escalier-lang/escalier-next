@@ -161,6 +161,8 @@ module rec Unify =
           // Multiple rest elements in undeciable
           // TODO: create an Undecable error type
           return! Error(TypeError.SemanticError("Too many rest elements!"))
+      | TypeKind.Rest rest, TypeKind.Array array ->
+        do! unify ctx env ips rest t2
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
         // TODO: check if the type params have the same variance
@@ -655,8 +657,14 @@ module rec Unify =
             })
           args
 
+      // TODO: require the optional params come after the required params
+      // TODO: require that if there is a rest param, it comes last
       let optionalParams, requiredParams =
-        callee.ParamList |> List.partition (_.Optional)
+        callee.ParamList
+        |> List.partition (fun p ->
+          match p.Pattern with
+          | Rest _ -> true
+          | _ -> p.Optional)
 
       if args.Length < requiredParams.Length then
         // TODO: make this into a diagnostic instead of an error
@@ -693,6 +701,28 @@ module rec Unify =
                 Reasons = [ reason ] }
             )
 
+      let optionalParams, restParams =
+        optionalParams
+        |> List.partition (fun p ->
+          match p.Pattern with
+          | Rest _ -> false
+          | _ -> true)
+
+      let! restParam =
+        match restParams with
+        | [] -> Result.Ok None
+        | [ restParam ] -> Result.Ok(Some(restParam))
+        | _ -> Error(TypeError.SemanticError "Too many rest params!")
+
+      let restArgs =
+        match restParam with
+        | None -> None
+        | Some _ ->
+          if optionalArgs.Length > optionalParams.Length then
+            Some(List.skip optionalParams.Length optionalArgs)
+          else
+            Some []
+
       // Functions can be passed more args than parameters as well as
       // fewer args that the number optional params.  We handle both
       // cases here.
@@ -725,6 +755,17 @@ module rec Unify =
                   $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
                 Reasons = [ reason ] }
             )
+
+      match restArgs, restParam with
+      | Some args, Some param ->
+        let args = List.map (fun (arg, argType) -> argType) args
+
+        let tuple =
+          { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
+            Provenance = None }
+
+        do! unify ctx env ips tuple param.Type
+      | _ -> ()
 
       return (callee.Return, callee.Throws)
     }

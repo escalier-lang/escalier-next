@@ -521,8 +521,9 @@ module rec Unify =
           | TypeKind.Function func ->
             match unifyCall ctx env ips inferExpr args typeArgs t with
             | Result.Ok value ->
-              printfn $"unifyCall - function type: {t}, return type: {value}"
-              result <- Some(value)
+              match result with
+              | Some _ -> ()
+              | None -> result <- Some(value)
             | Result.Error _ -> ()
           | _ -> ()
 

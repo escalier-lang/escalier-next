@@ -8,6 +8,7 @@ open Escalier.Data.Common
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Unify
+open Escalier.TypeChecker.Poly
 open Escalier.Interop.TypeScript
 
 // NOTES:
@@ -68,15 +69,12 @@ module rec Infer =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
-      let f: Type.Function =
-        { TypeParams = typeParams
-          Self = None
-          ParamList = paramList
-          Return = returnType
-          Throws = throws }
+      let fn = makeFunction typeParams None paramList returnType throws
+      let fn = generalizeFunc fn
 
-      ObjTypeElem.Callable f
+      ObjTypeElem.Callable fn
     | TsConstructSignatureDecl tsConstructSignatureDecl ->
+      // TODO: generalize type variables
       let typeParams =
         tsConstructSignatureDecl.TypeParams
         |> Option.map (fun typeParamDecl ->
@@ -99,14 +97,10 @@ module rec Infer =
         { Kind = TypeKind.Keyword Keyword.Never
           Provenance = None }
 
-      let f: Type.Function =
-        { TypeParams = typeParams
-          Self = None
-          ParamList = paramList
-          Return = returnType
-          Throws = throws }
+      let fn = makeFunction typeParams None paramList returnType throws
+      let fn = generalizeFunc fn
 
-      ObjTypeElem.Constructor f
+      ObjTypeElem.Constructor fn
     | TsPropertySignature tsPropertySignature ->
       // TODO: handle computed keys
       let key =
@@ -157,6 +151,7 @@ module rec Infer =
           Optional = false }
 
       let fn = makeFunction None (Some self) [] returnType throws
+      let fn = generalizeFunc fn
 
       ObjTypeElem.Getter(key, fn)
     | TsSetterSignature tsSetterSignature ->
@@ -192,6 +187,7 @@ module rec Infer =
           Optional = false }
 
       let fn = makeFunction None (Some self) [] undefined throws
+      let fn = generalizeFunc fn
 
       ObjTypeElem.Setter(key, fn)
     | TsMethodSignature tsMethodSignature ->
@@ -202,6 +198,7 @@ module rec Infer =
         | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
         | _ -> failwith "TODO: computed property name"
 
+      // TODO: generalize type variables
       let typeParams =
         tsMethodSignature.TypeParams
         |> Option.map (fun typeParamDecl ->
@@ -238,6 +235,7 @@ module rec Infer =
           Optional = false }
 
       let fn = makeFunction typeParams (Some self) paramList returnType throws
+      let fn = generalizeFunc fn
 
       ObjTypeElem.Method(key, fn)
     | TsIndexSignature tsIndexSignature ->

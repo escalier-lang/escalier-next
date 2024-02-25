@@ -344,9 +344,6 @@ let InferArrayPrototype () =
       let scheme = Map.find "Array" env.Schemes
       // printfn $"Array = {scheme}"
 
-      let value = Map.find "Array" env.Values
-      // printfn $"Array = {value}"
-
       let scheme = Map.find "ArrayConstructor" env.Schemes
       // printfn $"ArrayConstructor = {scheme}"
 
@@ -500,6 +497,31 @@ let CallArrayConstructorWithTypeArgs () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number[]")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let CallArrayConstructorWithNoTypeAnnotations () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let mut a = new Array()
+        a.push(5)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "a", "5[]")
     }
 
   Assert.False(Result.isError result)

@@ -701,10 +701,6 @@ module rec Unify =
                 Reasons = [ reason ] }
             )
 
-      // TODO: check if optionalParams contains a "rest" param
-      // - remove it from optionalParams if it does
-      // - if there are any left over optional args then unify them
-      //   with the rest type
       let optionalParams, restParams =
         optionalParams
         |> List.partition (fun p ->

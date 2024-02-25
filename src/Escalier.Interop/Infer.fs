@@ -77,7 +77,15 @@ module rec Infer =
 
       ObjTypeElem.Callable f
     | TsConstructSignatureDecl tsConstructSignatureDecl ->
-      let typeParams = None // TODO: handle type params
+      let typeParams =
+        tsConstructSignatureDecl.TypeParams
+        |> Option.map (fun typeParamDecl ->
+          typeParamDecl.Params
+          |> List.map (fun typeParam ->
+            { Name = typeParam.Name.Name
+              Constraint =
+                Option.map (inferTsType ctx env) typeParam.Constraint
+              Default = Option.map (inferTsType ctx env) typeParam.Default }))
 
       let paramList =
         tsConstructSignatureDecl.Params |> List.map (inferFnParam ctx env)

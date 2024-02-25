@@ -102,17 +102,53 @@ module rec Infer =
 
           return result
         | ExprKind.New call ->
-          printfn "call = %A" call
           let! callee = inferExpr ctx env call.Callee
-          // TODO: compute the mapping for typeArgs
-          let mapping = Map.empty
-          let callee = expandType ctx env None mapping callee
+          let! callee = expandType ctx env None Map.empty callee
 
-          printfn "callee = %A" callee
+          match callee.Kind with
+          | TypeKind.Object objElems ->
+            let constructors =
+              objElems.Elems
+              |> List.choose (function
+                | Constructor c -> Some c
+                | _ -> None)
 
-          // TODO: lookup constructor type signatures in "Array"
+            let callee: Type =
+              constructors
+              |> List.map (fun fn ->
+                { Kind = TypeKind.Function fn
+                  Provenance = None })
+              |> intersection
 
-          return! Error(TypeError.NotImplemented "TODO: inferExpr - new")
+            let args =
+              match call.Args with
+              | Some args -> args
+              | None -> []
+
+            let! typeArgs =
+              match call.TypeArgs with
+              | Some typeArgs ->
+                List.traverseResultM
+                  (fun typeArg ->
+                    result {
+                      let! typeArg = inferTypeAnn ctx env typeArg
+                      return typeArg
+                    })
+                  typeArgs
+                |> Result.map Some
+              | _ -> Ok None
+
+            // TODO: update unifyCall so that it can handle calling an object
+            // type with constructor signatures directly
+            let! result, throws =
+              unifyCall ctx env None inferExpr args typeArgs callee
+
+            call.Throws <- Some(throws)
+
+            return result
+          | _ ->
+            return!
+              Error(TypeError.SemanticError "Callee is not a constructor type")
         | ExprKind.Binary(op, left, right) ->
           let! funTy = env.GetBinaryOp op
 

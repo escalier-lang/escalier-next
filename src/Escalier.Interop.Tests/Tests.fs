@@ -463,7 +463,7 @@ let CallArrayConstructor () =
 
       let src =
         """
-        let mut a = new Array()
+        let mut a: number[] = new Array()
         a.push(5)
         """
 
@@ -474,10 +474,9 @@ let CallArrayConstructor () =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "b", "number[]")
+      Assert.Value(env, "a", "number[]")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -489,9 +488,8 @@ let CallArrayConstructorWithTypeArgs () =
 
       let src =
         """
-        let mut a: number[] = [3, 2, 1]
-        a.sort()
-        let b = a.map(fn (x) => x * 2)
+        let mut a = new Array<number>()
+        a.push(5)
         """
 
       let! ast =
@@ -501,7 +499,7 @@ let CallArrayConstructorWithTypeArgs () =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "b", "number[]")
+      Assert.Value(env, "a", "number[]")
     }
 
   Assert.False(Result.isError result)

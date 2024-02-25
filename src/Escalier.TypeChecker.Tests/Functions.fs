@@ -193,6 +193,43 @@ let CheckOptionalParmsErrorsWithIncorrectType () =
   Assert.False(Result.isError res)
 
 [<Fact>]
+let InferFunctionWithRestParms () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (a: number, ...b: string[]) => a
+        let a = foo(5)
+        let b = foo(10, "hello")
+        let c = foo(10, "hello", "world")
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "b", "number")
+      Assert.Value(env, "c", "number")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let PassingIncorrectArgsAsRestParm () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (a: number, ...b: string[]) => a
+        let c = foo(10, "hello", true)
+        """
+
+      let! _ = inferScript src
+      ()
+    }
+
+  Assert.True(Result.isError res)
+
+[<Fact>]
 let InferFuncGeneralization () =
   let result =
     result {

@@ -28,4 +28,15 @@
         <EmbeddedResource Include="lib\lib.es5.d.ts"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="lib\es2015.core.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.generator.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.iterable.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.promise.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.proxy.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.reflect.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.symbol.d.ts"/>
+        <EmbeddedResource Include="lib\es2015.symbol.wellknown.d.ts"/>
+    </ItemGroup>
+
 </Project>

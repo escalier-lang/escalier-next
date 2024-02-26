@@ -584,12 +584,21 @@ module rec Infer =
           match tsInterfaceDecl.TypeParams with
           | None -> None
           | Some typeParamDecl ->
-            typeParamDecl.Params
-            |> List.map (fun (typeParam: TsTypeParam) ->
-              { Name = typeParam.Name.Name
-                Constraint = None
-                Default = None })
-            |> Some
+            let mutable typeParams =
+              typeParamDecl.Params
+              |> List.map (fun (typeParam: TsTypeParam) ->
+                { Name = typeParam.Name.Name
+                  Constraint = None
+                  Default = None })
+
+            if tsInterfaceDecl.Id.Name = "Promise" then
+              typeParams <-
+                typeParams
+                @ [ { Name = "E"
+                      Constraint = None
+                      Default = None } ]
+
+            typeParams |> Some
 
         // TODO: handle extends
         let elems =
@@ -611,8 +620,29 @@ module rec Infer =
           { TypeParams = typeParams
             Type = t
             IsTypeParam = false }
-        // TODO: handle interface merging
-        newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
+
+        match env.Schemes |> Map.tryFind tsInterfaceDecl.Id.Name with
+        | Some existingScheme ->
+          // TODO: check that the type params are the same
+          match existingScheme.Type.Kind, scheme.Type.Kind with
+          | TypeKind.Object { Elems = existingElems },
+            TypeKind.Object { Elems = newElems } ->
+            let mergedElems = existingElems @ newElems
+
+            let kind =
+              TypeKind.Object
+                { Elems = mergedElems
+                  Immutable = false }
+
+            let t = { Kind = kind; Provenance = None }
+            let scheme = { existingScheme with Type = t }
+            newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
+          | _ ->
+            printfn $"tsInterfaceDecl.Id.Name = {tsInterfaceDecl.Id.Name}"
+            printfn $"existingScheme: {existingScheme}"
+            printfn $"scheme: {scheme}"
+            return! Error(TypeError.SemanticError "")
+        | None -> newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
       | Decl.TsTypeAlias decl ->
         let typeParams = None
         let t = inferTsType ctx env decl.TypeAnn
@@ -775,6 +805,7 @@ module rec Infer =
       { Kind = kind; Provenance = None }
     | _ -> failwith "both types must be objects to merge them"
 
+  // TODO: handle interface merging
   let inferModule (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -782,23 +813,6 @@ module rec Infer =
       for item in m.Body do
         let! env = inferModuleItem ctx newEnv item
         newEnv <- env
-
-      // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
-      // future versions of the JavaScript standard library type defs
-      match
-        newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
-      with
-      | Some(readonlyArray), Some(array) ->
-        let merged = mergeType readonlyArray.Type array.Type
-        newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
-
-        // TODO: for type definitions using Array and ReadonlyArray we need to
-        // make sure that params are marked with `mut` appropriately and all
-        // references to ReadonlyArray must be replaced with Array
-        newEnv <-
-          { newEnv with
-              Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
-      | _ -> ()
 
       return newEnv
     }

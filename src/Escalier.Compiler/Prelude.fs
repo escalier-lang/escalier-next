@@ -225,23 +225,6 @@ module Prelude =
         never,
        false)
 
-    let typeParams: list<TypeParam> =
-      [ { Name = "T"
-          Constraint = None
-          Default = None }
-        { Name = "E"
-          Constraint = None
-          Default = None } ]
-
-    // TODO: we need an opaque type for now, or some way not to expand
-    // Promise types.
-    let promise: Scheme =
-      { Type =
-          { Kind = makeTypeRefKind "FooBar"
-            Provenance = None }
-        TypeParams = Some(typeParams)
-        IsTypeParam = false }
-
     let binaryOps =
       Map.ofList
         [ ("+", arithemtic "+")
@@ -271,7 +254,6 @@ module Prelude =
           Env.BinaryOps = binaryOps
           Env.UnaryOps = unaryOps }
 
-    env <- env.AddScheme "Promise" promise
     env
 
   let mutable envMemoized: Env option = None
@@ -355,21 +337,16 @@ module Prelude =
       return ctx, env
     }
 
-  // TODO: add memoization
-  // This is hard to memoize without reusing the filesystem
-  let getEnvAndCtxWithES5
-    (filesystem: IFileSystem)
-    (baseDir: string)
-    : Result<Ctx * Env, CompileError> =
+  let private inferLib
+    (ctx: Ctx)
+    (env: Env)
+    (libName: string)
+    : Result<Env, CompileError> =
 
     result {
-      let env = getGlobalEnvMemoized ()
-      let! ctx = getCtx filesystem baseDir env
-
       let assembly = Assembly.GetExecutingAssembly()
 
-      let stream =
-        assembly.GetManifestResourceStream("Escalier.Compiler.lib.lib.es5.d.ts")
+      let stream = assembly.GetManifestResourceStream(libName)
 
       let reader = new StreamReader(stream)
       let input = reader.ReadToEnd()
@@ -383,5 +360,41 @@ module Prelude =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      return ctx, env
+      return env
+    }
+
+  // TODO: add memoization
+  // This is hard to memoize without reusing the filesystem
+  let getEnvAndCtxWithES5
+    (filesystem: IFileSystem)
+    (baseDir: string)
+    : Result<Ctx * Env, CompileError> =
+
+    result {
+      let env = getGlobalEnvMemoized ()
+      let! ctx = getCtx filesystem baseDir env
+
+      let! env = inferLib ctx env "Escalier.Compiler.lib.lib.es5.d.ts"
+      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.core.d.ts"
+
+      let mutable newEnv = env
+
+      // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
+      // future versions of the JavaScript standard library type defs
+      match
+        newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
+      with
+      | Some(readonlyArray), Some(array) ->
+        let merged = Infer.mergeType readonlyArray.Type array.Type
+        newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
+
+        // TODO: for type definitions using Array and ReadonlyArray we need to
+        // make sure that params are marked with `mut` appropriately and all
+        // references to ReadonlyArray must be replaced with Array
+        newEnv <-
+          { newEnv with
+              Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
+      | _ -> ()
+
+      return ctx, newEnv
     }

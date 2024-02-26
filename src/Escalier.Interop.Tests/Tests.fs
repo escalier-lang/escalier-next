@@ -4,7 +4,6 @@ module Tests
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
 open System.IO.Abstractions.TestingHelpers
-open System.IO
 open VerifyTests
 open VerifyXunit
 open Xunit
@@ -298,18 +297,6 @@ let InferTypeDecls () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
-
-[<Fact>]
-let ParseLibES5 () =
-  let input = File.ReadAllText("./lib/lib.es5.d.ts")
-
-  let result = parseModule input
-
-  match result with
-  | Success _ -> ()
-  | Failure(_, error, _) ->
-    printfn "%A" error
-    Assert.Fail("failed to parse lib.es5.d.ts")
 
 [<Fact>]
 let InferLibES5 () =

@@ -24,4 +24,8 @@
         <PackageReference Include="TestableIO.System.IO.Abstractions.Wrappers" Version="20.0.4"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="lib\lib.es5.d.ts"/>
+    </ItemGroup>
+
 </Project>

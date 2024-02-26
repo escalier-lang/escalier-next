@@ -72,9 +72,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include="lib\lib.es5.d.ts">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
         <Compile Include="Tests.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>

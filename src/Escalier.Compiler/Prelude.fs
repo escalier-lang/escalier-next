@@ -4,6 +4,7 @@ open FParsec.Error
 open FsToolkit.ErrorHandling
 open System.IO
 open System.IO.Abstractions
+open System.Reflection
 
 open Escalier.Data.Type
 open Escalier.Data
@@ -365,7 +366,13 @@ module Prelude =
       let env = getGlobalEnvMemoized ()
       let! ctx = getCtx filesystem baseDir env
 
-      let input = File.ReadAllText("./lib/lib.es5.d.ts")
+      let assembly = Assembly.GetExecutingAssembly()
+
+      let stream =
+        assembly.GetManifestResourceStream("Escalier.Compiler.lib.lib.es5.d.ts")
+
+      let reader = new StreamReader(stream)
+      let input = reader.ReadToEnd()
 
       let! ast =
         match Parser.parseModule input with

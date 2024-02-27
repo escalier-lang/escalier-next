@@ -655,7 +655,7 @@ module rec Infer =
           { Kind = TypeKind.Object { Elems = elems; Immutable = false }
             Provenance = None }
 
-        let scheme =
+        let newScheme =
           { TypeParams = typeParams
             Type = t
             IsTypeParam = false }
@@ -663,7 +663,7 @@ module rec Infer =
         match env.Schemes |> Map.tryFind tsInterfaceDecl.Id.Name with
         | Some existingScheme ->
           // TODO: check that the type params are the same
-          match existingScheme.Type.Kind, scheme.Type.Kind with
+          match existingScheme.Type.Kind, newScheme.Type.Kind with
           | TypeKind.Object { Elems = existingElems },
             TypeKind.Object { Elems = newElems } ->
             let mergedElems = existingElems @ newElems
@@ -673,17 +673,17 @@ module rec Infer =
                 { Elems = mergedElems
                   Immutable = false }
 
-            // TODO: figure out how to update varibles that use a particular
-            // scheme to use the new scheme
             let t = { Kind = kind; Provenance = None }
-            let scheme = { existingScheme with Type = t }
-            newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
+
+            // We modify the existing scheme in place so that existing values
+            // with this type are updated.
+            existingScheme.Type <- t
           | _ ->
             printfn $"tsInterfaceDecl.Id.Name = {tsInterfaceDecl.Id.Name}"
             printfn $"existingScheme: {existingScheme}"
-            printfn $"scheme: {scheme}"
+            printfn $"scheme: {newScheme}"
             return! Error(TypeError.SemanticError "")
-        | None -> newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
+        | None -> newEnv <- env.AddScheme tsInterfaceDecl.Id.Name newScheme
       | Decl.TsTypeAlias decl ->
         let typeParams = None
         let t = inferTsType ctx env decl.TypeAnn

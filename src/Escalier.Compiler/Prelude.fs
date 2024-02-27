@@ -384,10 +384,11 @@ module Prelude =
       let! env =
         inferLib ctx env "Escalier.Compiler.lib.es2015.symbol.wellknown.d.ts"
 
-      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.generator.d.ts"
-      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.iterable.d.ts"
+      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.iterable.d.ts"
+      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.generator.d.ts"
+      // TODO: modify Promise types to include type param for rejections
       // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.promise.d.ts"
-      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.proxy.d.ts"
+      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.proxy.d.ts"
       // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.reflect.d.ts"
 
       let mutable newEnv = env

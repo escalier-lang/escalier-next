@@ -123,6 +123,7 @@ module Folder =
           { Kind = TypeKind.Unary(op, fold arg)
             Provenance = None }
         | TypeKind.UniqueNumber _ -> t
+        | TypeKind.UniqueSymbol _ -> t
         | TypeKind.Range { Min = min; Max = max } ->
           { Kind = TypeKind.Range { Min = fold min; Max = fold max }
             Provenance = None }

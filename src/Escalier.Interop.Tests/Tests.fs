@@ -170,6 +170,21 @@ let ParseComplexMethodSig () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseInterfaceWithComputedPropertyAndComputedMethod () =
+  let input =
+    """
+    interface Foo {
+      [Bar.Baz]: number;
+      [Symbol.toPrimitive](hint: string): symbol;
+    }
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseMappedType () =
   let input =
     """

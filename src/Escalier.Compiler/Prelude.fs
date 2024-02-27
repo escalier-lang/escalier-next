@@ -376,6 +376,19 @@ module Prelude =
 
       let! env = inferLib ctx env "Escalier.Compiler.lib.lib.es5.d.ts"
       let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.core.d.ts"
+      // NOTE: lib.es5.symbol.d.ts and lib.es5.symbol.wellknown.d.ts must be
+      // inferred before other .d.ts files since they define `Symbol` which is
+      // used by the other .d.ts files.
+      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.symbol.d.ts"
+
+      let! env =
+        inferLib ctx env "Escalier.Compiler.lib.es2015.symbol.wellknown.d.ts"
+
+      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.generator.d.ts"
+      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.iterable.d.ts"
+      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.promise.d.ts"
+      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.proxy.d.ts"
+      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.reflect.d.ts"
 
       let mutable newEnv = env
 

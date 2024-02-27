@@ -77,7 +77,40 @@ module Parser =
 
   // Expressions
 
-  exprRef.Value <- ident |>> Expr.Ident
+  let atom = choice [ ident |>> Expr.Ident ]
+
+  let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)
+
+  let infixExprParselet
+    (precedence: int)
+    (callback: Expr -> Expr -> Expr)
+    : Pratt.InfixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = parser.Parse precedence stream
+
+          match right.Status with
+          | Ok -> Reply(callback left right.Result)
+          | _ -> right
+      Precedence = precedence }
+
+  let memberOp =
+    fun (optChain: bool) (obj: Expr) (prop: Expr) ->
+      match prop with
+      | Expr.Ident _ ->
+        Expr.Member
+          { Object = obj
+            Property = prop
+            Computed = false
+            Loc = None }
+      | _ -> failwith "Expected identifier"
+
+  exprParser.RegisterInfix(
+    ".",
+    infixExprParselet 17 (fun left right -> memberOp false left right)
+  )
+
+  exprRef.Value <- exprParser.Parse(0)
 
   // Patterns
 
@@ -246,18 +279,23 @@ module Parser =
         Loc = None }
       |> TsTypeElement.TsConstructSignatureDecl
 
+  let propKey: Parser<Expr * bool, unit> =
+    choice
+      [ strWs "[" >>. expr .>> strWs "]" |>> fun expr -> expr, true
+        ident |>> fun id -> Expr.Ident id, false
+        num |>> fun value -> Expr.Lit(Lit.Num value), false
+        str |>> fun value -> Expr.Lit(Lit.Str value), false ]
+
   let propSig: Parser<TsTypeElement, unit> =
     pipe4
       (opt (strWs "readonly"))
-      ((ident |>> Expr.Ident)
-       <|> (num |>> fun value -> Expr.Lit(Lit.Num value))
-       <|> (str |>> fun value -> Expr.Lit(Lit.Str value))) // TODO: support computed properties
+      propKey
       (opt (strWs "?"))
       (strWs ":" >>. tsTypeAnn)
-    <| fun readonly id optional typeAnn ->
+    <| fun readonly (key, computed) optional typeAnn ->
       { Readonly = readonly.IsSome
-        Key = id
-        Computed = false // TODO
+        Key = key
+        Computed = computed
         Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
@@ -292,14 +330,14 @@ module Parser =
 
   let methodSig: Parser<TsTypeElement, unit> =
     pipe5
-      ident
+      propKey
       (opt (strWs "?"))
       (opt typeParams)
       tsFnParams
       (opt (strWs ":" >>. tsTypeAnn))
-    <| fun key question typeParams ps typeAnn ->
-      { Key = Expr.Ident key
-        Computed = false // TODO
+    <| fun (key, computed) question typeParams ps typeAnn ->
+      { Key = key
+        Computed = computed
         Optional = question.IsSome
         Params = ps
         TypeAnn = typeAnn
@@ -328,11 +366,11 @@ module Parser =
     choice
       [ callSigDecl
         constructorSigDecl
+        attempt indexSig // can conflict with propSig when parsing computed properties
         attempt propSig
         attempt getterSig
         attempt setterSig
-        attempt methodSig
-        indexSig ]
+        attempt methodSig ]
 
   let typeLit: Parser<TsTypeLit, unit> =
     between

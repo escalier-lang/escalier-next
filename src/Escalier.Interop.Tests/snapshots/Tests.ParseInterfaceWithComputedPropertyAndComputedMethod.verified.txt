@@ -1,0 +1,62 @@
+﻿input: 
+    interface Foo {
+      [Bar.Baz]: number;
+      [Symbol.toPrimitive](hint: string): symbol;
+    }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsInterface
+            { Id = { Name = "Foo"
+                     Loc = None }
+              Declare = false
+              TypeParams = None
+              Extends = None
+              Body =
+               { Body =
+                  [TsPropertySignature
+                     { Readonly = false
+                       Key = Member { Object = Ident { Name = "Bar"
+                                                       Loc = None }
+                                      Property = Ident { Name = "Baz"
+                                                         Loc = None }
+                                      Computed = false
+                                      Loc = None }
+                       Computed = true
+                       Optional = false
+                       TypeAnn =
+                        { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
+                                                    Loc = None }
+                          Loc = None }
+                       Loc = None };
+                   TsMethodSignature
+                     { Key = Member { Object = Ident { Name = "Symbol"
+                                                       Loc = None }
+                                      Property = Ident { Name = "toPrimitive"
+                                                         Loc = None }
+                                      Computed = false
+                                      Loc = None }
+                       Computed = true
+                       Optional = false
+                       Params =
+                        [{ Pat = Ident { Id = { Name = "hint"
+                                                Loc = None }
+                                         Loc = None }
+                           TypeAnn =
+                            Some
+                              { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                          Loc = None }
+                                Loc = None }
+                           Optional = false
+                           Loc = None }]
+                       TypeAnn =
+                        Some { TypeAnn = TsKeywordType { Kind = TsSymbolKeyword
+                                                         Loc = None }
+                               Loc = None }
+                       TypeParams = None
+                       Loc = None }]
+                 Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

@@ -1,5 +1,6 @@
 namespace Escalier.Interop
 
+open Escalier.TypeChecker
 open FsToolkit.ErrorHandling
 
 open Escalier.Data
@@ -108,7 +109,22 @@ module rec Infer =
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
         | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | _ -> failwith "TODO: computed property name"
+        | expr ->
+          if tsPropertySignature.Computed then
+            // TODO: convert the TypeScript expr to an Escalier expr
+            // and then infer its type
+            let expr = Migrate.migrateExpr expr
+
+            let t =
+              match Infer.inferExpr ctx env expr with
+              | Ok resultValue -> resultValue
+              | Error errorValue -> failwith "inference failed"
+
+            match t.Kind with
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+            | _ -> failwith "Key isn't a unique symbol"
+          else
+            failwith "TODO: non-computed property name"
 
       let t = inferTsTypeAnn ctx env tsPropertySignature.TypeAnn
 
@@ -196,7 +212,24 @@ module rec Infer =
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
         | Expr.Lit(Lit.Num num) -> PropName.Number num.Value
-        | _ -> failwith "TODO: computed property name"
+        | expr ->
+          if tsMethodSignature.Computed then
+            // TODO: convert the TypeScript expr to an Escalier expr
+            // and then infer its type
+            let expr = Migrate.migrateExpr expr
+
+            let t =
+              match Infer.inferExpr ctx env expr with
+              | Ok resultValue -> resultValue
+              | Error errorValue ->
+                printfn "errorValue: %A" errorValue
+                failwith "inference failed"
+
+            match t.Kind with
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+            | _ -> failwith "Key isn't a unique symbol"
+          else
+            failwith "TODO: non-computed property name"
 
       // TODO: generalize type variables
       let typeParams =
@@ -349,7 +382,7 @@ module rec Infer =
         let id = ctx.FreshUniqueId()
 
         let length =
-          { Kind = TypeKind.UniqueNumber id
+          { Kind = TypeKind.UniqueSymbol id
             Provenance = None }
 
         // NOTE: If this array type is the return value of a function, we need
@@ -398,7 +431,12 @@ module rec Infer =
         match tsTypeOperator.Op with
         | TsTypeOperatorOp.KeyOf ->
           TypeKind.KeyOf(inferTsType ctx env tsTypeOperator.TypeAnn)
-        | TsTypeOperatorOp.Unique -> failwith "TODO: inferTsType - Unique"
+        | TsTypeOperatorOp.Unique ->
+          match tsTypeOperator.TypeAnn with
+          | TsType.TsKeywordType { Kind = TsSymbolKeyword } ->
+            let id = ctx.FreshUniqueId()
+            TypeKind.UniqueSymbol id
+          | _ -> failwith "TODO: unique can only be used with symbol"
         | TsTypeOperatorOp.Readonly ->
           // TODO: Add support for readonly types
           let t = inferTsType ctx env tsTypeOperator.TypeAnn
@@ -497,6 +535,7 @@ module rec Infer =
               | PropName.Str str -> str.Value
               | PropName.Num num -> num.Value |> string
               | PropName.Computed computedPropName ->
+                // TODO: update `key` to handle `unique symbol`s as well
                 failwith "TODO: computed property name"
 
             ObjPatElem.KeyValuePat
@@ -584,12 +623,21 @@ module rec Infer =
           match tsInterfaceDecl.TypeParams with
           | None -> None
           | Some typeParamDecl ->
-            typeParamDecl.Params
-            |> List.map (fun (typeParam: TsTypeParam) ->
-              { Name = typeParam.Name.Name
-                Constraint = None
-                Default = None })
-            |> Some
+            let mutable typeParams =
+              typeParamDecl.Params
+              |> List.map (fun (typeParam: TsTypeParam) ->
+                { Name = typeParam.Name.Name
+                  Constraint = None
+                  Default = None })
+
+            if tsInterfaceDecl.Id.Name = "Promise" then
+              typeParams <-
+                typeParams
+                @ [ { Name = "E"
+                      Constraint = None
+                      Default = None } ]
+
+            typeParams |> Some
 
         // TODO: handle extends
         let elems =
@@ -607,12 +655,35 @@ module rec Infer =
           { Kind = TypeKind.Object { Elems = elems; Immutable = false }
             Provenance = None }
 
-        let scheme =
+        let newScheme =
           { TypeParams = typeParams
             Type = t
             IsTypeParam = false }
-        // TODO: handle interface merging
-        newEnv <- env.AddScheme tsInterfaceDecl.Id.Name scheme
+
+        match env.Schemes |> Map.tryFind tsInterfaceDecl.Id.Name with
+        | Some existingScheme ->
+          // TODO: check that the type params are the same
+          match existingScheme.Type.Kind, newScheme.Type.Kind with
+          | TypeKind.Object { Elems = existingElems },
+            TypeKind.Object { Elems = newElems } ->
+            let mergedElems = existingElems @ newElems
+
+            let kind =
+              TypeKind.Object
+                { Elems = mergedElems
+                  Immutable = false }
+
+            let t = { Kind = kind; Provenance = None }
+
+            // We modify the existing scheme in place so that existing values
+            // with this type are updated.
+            existingScheme.Type <- t
+          | _ ->
+            printfn $"tsInterfaceDecl.Id.Name = {tsInterfaceDecl.Id.Name}"
+            printfn $"existingScheme: {existingScheme}"
+            printfn $"scheme: {newScheme}"
+            return! Error(TypeError.SemanticError "")
+        | None -> newEnv <- env.AddScheme tsInterfaceDecl.Id.Name newScheme
       | Decl.TsTypeAlias decl ->
         let typeParams = None
         let t = inferTsType ctx env decl.TypeAnn
@@ -683,59 +754,59 @@ module rec Infer =
     match imutType.Kind, mutType.Kind with
     | TypeKind.Object imutElems, TypeKind.Object mutElems ->
       // TODO: figure out how to handle overloaded methods
-      let mutable imutNamedElems: Map<string, ObjTypeElem> =
+      let mutable imutNamedElems: Map<Type.PropName, ObjTypeElem> =
         imutElems.Elems
         |> List.choose (fun elem ->
           match elem with
           | ObjTypeElem.Property p ->
             match p.Name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | ObjTypeElem.Method(name, fn) ->
             match name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | ObjTypeElem.Getter(name, fn) ->
             match name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | ObjTypeElem.Setter(name, fn) ->
             match name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | _ -> None)
         |> Map.ofSeq
 
       let mutable unnamedElems: list<ObjTypeElem> = []
 
-      let mutable mutNamedElems: Map<string, ObjTypeElem> =
+      let mutable mutNamedElems: Map<Type.PropName, ObjTypeElem> =
         mutElems.Elems
         |> List.choose (fun elem ->
           match elem with
           | ObjTypeElem.Property p ->
             match p.Name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | ObjTypeElem.Method(name, fn) ->
             match name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | ObjTypeElem.Getter(name, fn) ->
             match name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | ObjTypeElem.Setter(name, fn) ->
             match name with
-            | PropName.String s -> Some(s, elem)
-            | PropName.Number n -> Some(n.ToString(), elem)
-            | PropName.Symbol i -> failwith "TODO: mergeType - Symbol key"
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
           | elem ->
             // This assumes that indexed/mapped signatures are on both the
             // readonly and non-readonly interfaces.  We ignore the readonly
@@ -775,6 +846,7 @@ module rec Infer =
       { Kind = kind; Provenance = None }
     | _ -> failwith "both types must be objects to merge them"
 
+  // TODO: handle interface merging
   let inferModule (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -782,23 +854,6 @@ module rec Infer =
       for item in m.Body do
         let! env = inferModuleItem ctx newEnv item
         newEnv <- env
-
-      // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
-      // future versions of the JavaScript standard library type defs
-      match
-        newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
-      with
-      | Some(readonlyArray), Some(array) ->
-        let merged = mergeType readonlyArray.Type array.Type
-        newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
-
-        // TODO: for type definitions using Array and ReadonlyArray we need to
-        // make sure that params are marked with `mut` appropriately and all
-        // references to ReadonlyArray must be replaced with Array
-        newEnv <-
-          { newEnv with
-              Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
-      | _ -> ()
 
       return newEnv
     }

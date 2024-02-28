@@ -95,8 +95,7 @@ module rec Infer =
         | ExprKind.Call call ->
           let! callee = inferExpr ctx env call.Callee
 
-          let! result, throws =
-            unifyCall ctx env None inferExpr call.Args None callee
+          let! result, throws = unifyCall ctx env None call.Args None callee
 
           call.Throws <- Some(throws)
 
@@ -140,8 +139,7 @@ module rec Infer =
 
             // TODO: update unifyCall so that it can handle calling an object
             // type with constructor signatures directly
-            let! result, throws =
-              unifyCall ctx env None inferExpr args typeArgs callee
+            let! result, throws = unifyCall ctx env None args typeArgs callee
 
             call.Throws <- Some(throws)
 
@@ -153,7 +151,7 @@ module rec Infer =
           let! funTy = env.GetBinaryOp op
 
           let! result, throws =
-            unifyCall ctx env None inferExpr [ left; right ] None funTy
+            unifyCall ctx env None [ left; right ] None funTy
 
           // TODO: handle throws
 
@@ -162,8 +160,7 @@ module rec Infer =
         | ExprKind.Unary(op, arg) ->
           let! funTy = env.GetUnaryOp op
 
-          let! result, throws =
-            unifyCall ctx env None inferExpr [ arg ] None funTy
+          let! result, throws = unifyCall ctx env None [ arg ] None funTy
 
           // TODO: handle throws
 
@@ -2682,4 +2679,215 @@ module rec Infer =
         return! getIsMut ctx env target
       | _ ->
         return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
+    }
+
+
+  let unifyCall
+    (ctx: Ctx)
+    (env: Env)
+    (ips: option<list<list<string>>>)
+    (args: list<Syntax.Expr>)
+    (typeArgs: option<list<Type>>)
+    (callee: Type)
+    : Result<(Type * Type), TypeError> =
+
+    result {
+      let callee = prune callee
+
+      match callee.Kind with
+      | TypeKind.Function func ->
+        return! unifyFuncCall ctx env ips args typeArgs func
+      | TypeKind.Intersection types ->
+        let mutable result = None
+
+        for t in types do
+          match t.Kind with
+          | TypeKind.Function func ->
+            match unifyCall ctx env ips args typeArgs t with
+            | Result.Ok value ->
+              match result with
+              | Some _ -> ()
+              | None -> result <- Some(value)
+            | Result.Error _ -> ()
+          | _ -> ()
+
+        match result with
+        | Some(value) -> return value
+        | None ->
+          return! Error(TypeError.NotImplemented $"kind = {callee.Kind}")
+      | TypeKind.TypeVar _ ->
+
+        // TODO: use a `result {}` CE here
+        let! argTypes = List.traverseResultM (inferExpr ctx env) args
+
+        let paramList =
+          List.mapi
+            (fun i t ->
+              let name = $"arg{i}"
+
+              let p: Pattern =
+                Pattern.Identifier { Name = name; IsMut = false }
+
+              { Pattern = p
+                Type = t
+                Optional = false })
+            argTypes
+
+        let retType = ctx.FreshTypeVar None
+        let throwsType = ctx.FreshTypeVar None
+
+        let callType =
+          { Type.Kind =
+              TypeKind.Function
+                { ParamList = paramList
+                  Self = None // TODO: pass in the receiver if this is a method call
+                  Return = retType
+                  Throws = throwsType
+                  TypeParams = None } // TODO
+            Provenance = None }
+
+        match bind ctx env ips callee callType with
+        | Ok _ -> return (prune retType, prune throwsType)
+        | Error e -> return! Error e
+      | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")
+    }
+
+  let unifyFuncCall
+    (ctx: Ctx)
+    (env: Env)
+    (ips: option<list<list<string>>>)
+    (args: list<Syntax.Expr>)
+    (typeArgs: option<list<Type>>)
+    (callee: Function)
+    : Result<Type * Type, TypeError> =
+
+    result {
+      let! callee =
+        result {
+          if callee.TypeParams.IsSome then
+            return! instantiateFunc ctx callee typeArgs
+          else
+            return callee
+        }
+
+      let! args =
+        List.traverseResultM
+          (fun arg ->
+            result {
+              let! argType = inferExpr ctx env arg
+              return arg, argType
+            })
+          args
+
+      // TODO: require the optional params come after the required params
+      // TODO: require that if there is a rest param, it comes last
+      let optionalParams, requiredParams =
+        callee.ParamList
+        |> List.partition (fun p ->
+          match p.Pattern with
+          | Rest _ -> true
+          | _ -> p.Optional)
+
+      if args.Length < requiredParams.Length then
+        // TODO: make this into a diagnostic instead of an error
+        return!
+          Error(
+            TypeError.SemanticError "function called with too few arguments"
+          )
+
+      let requiredArgs, optionalArgs = List.splitAt requiredParams.Length args
+
+      for (arg, argType), param in List.zip requiredArgs requiredParams do
+        if
+          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+        then
+          ()
+        else
+          let! invariantPaths =
+            checkMutability
+              (getTypePatBindingPaths param.Pattern)
+              (getExprBindingPaths env arg)
+
+          match unify ctx env invariantPaths argType param.Type with
+          | Ok _ -> ()
+          | Error(reason) ->
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
+
+            do! unify ctx env ips never param.Type
+
+            ctx.AddDiagnostic(
+              { Description =
+                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                Reasons = [ reason ] }
+            )
+
+      let optionalParams, restParams =
+        optionalParams
+        |> List.partition (fun p ->
+          match p.Pattern with
+          | Rest _ -> false
+          | _ -> true)
+
+      let! restParam =
+        match restParams with
+        | [] -> Result.Ok None
+        | [ restParam ] -> Result.Ok(Some(restParam))
+        | _ -> Error(TypeError.SemanticError "Too many rest params!")
+
+      let restArgs =
+        match restParam with
+        | None -> None
+        | Some _ ->
+          if optionalArgs.Length > optionalParams.Length then
+            Some(List.skip optionalParams.Length optionalArgs)
+          else
+            Some []
+
+      // Functions can be passed more args than parameters as well as
+      // fewer args that the number optional params.  We handle both
+      // cases here.
+      let minLength = min optionalArgs.Length optionalParams.Length
+      let optionalParams = List.take minLength optionalParams
+      let optionalArgs = List.take minLength optionalArgs
+
+      for (arg, argType), param in List.zip optionalArgs optionalParams do
+        if
+          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+        then
+          ()
+        else
+          let! invariantPaths =
+            checkMutability
+              (getTypePatBindingPaths param.Pattern)
+              (getExprBindingPaths env arg)
+
+          match unify ctx env invariantPaths argType param.Type with
+          | Ok _ -> ()
+          | Error(reason) ->
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
+
+            do! unify ctx env ips never param.Type
+
+            ctx.AddDiagnostic(
+              { Description =
+                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                Reasons = [ reason ] }
+            )
+
+      match restArgs, restParam with
+      | Some args, Some param ->
+        let args = List.map (fun (arg, argType) -> argType) args
+
+        let tuple =
+          { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
+            Provenance = None }
+
+        do! unify ctx env ips tuple param.Type
+      | _ -> ()
+
+      return (callee.Return, callee.Throws)
     }

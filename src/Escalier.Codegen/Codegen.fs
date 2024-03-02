@@ -340,6 +340,15 @@ module rec Codegen =
     { TypeAnn = buildType ctx t
       Loc = None }
 
+  let qualifiedIdentToTsEntityName (id: QualifiedIdent) : TsEntityName =
+    match id with
+    | QualifiedIdent.Ident name ->
+      TsEntityName.Identifier { Name = name; Loc = None }
+    | QualifiedIdent.Member(qualifier, name) ->
+      TsEntityName.TsQualifiedName
+        { Left = qualifiedIdentToTsEntityName qualifier
+          Right = { Name = name; Loc = None } }
+
   let buildType (ctx: Ctx) (t: Type) : TsType =
     let t = prune t
 
@@ -353,7 +362,7 @@ module rec Codegen =
             Loc = None })
 
       TsType.TsTypeRef
-        { TypeName = TsEntityName.Identifier { Name = name; Loc = None }
+        { TypeName = qualifiedIdentToTsEntityName name
           TypeParams = typeArgs
           Loc = None }
     | TypeKind.Primitive p ->

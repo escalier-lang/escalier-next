@@ -24,6 +24,7 @@ module rec Infer =
     { Kind = TypeKind.Keyword Keyword.Never
       Provenance = None }
 
+  // TODO: replace this with a function that outputs a QualifiedIdent
   let rec printTsEntityName (name: TsEntityName) : string =
     match name with
     | TsEntityName.Identifier id -> id.Name
@@ -156,7 +157,7 @@ module rec Infer =
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
-              { Name = "Self"
+              { Name = QualifiedIdent.Ident "Self"
                 TypeArgs = None
                 Scheme = None }
           Provenance = None }
@@ -192,7 +193,7 @@ module rec Infer =
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
-              { Name = "Self"
+              { Name = QualifiedIdent.Ident "Self"
                 TypeArgs = None
                 Scheme = None }
           Provenance = None }
@@ -257,7 +258,7 @@ module rec Infer =
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
-              { Name = "Self"
+              { Name = QualifiedIdent.Ident "Self"
                 TypeArgs = None
                 Scheme = None }
           Provenance = None }
@@ -307,7 +308,8 @@ module rec Infer =
         | TsBooleanKeyword -> TypeKind.Primitive Primitive.Boolean
         | TsBigIntKeyword -> TypeKind.Primitive Primitive.BigInt
         | TsStringKeyword -> TypeKind.Primitive Primitive.String
-        | TsSymbolKeyword -> makeTypeRefKind "symbol"
+        // TOOD: this should be TypeKind.Primitive Primitive.Symbol
+        | TsSymbolKeyword -> makeTypeRefKind (QualifiedIdent.Ident "symbol")
         // TODO: figure out if Escalier needs its own `void` type
         | TsVoidKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsUndefinedKeyword -> TypeKind.Literal(Literal.Undefined)
@@ -318,7 +320,7 @@ module rec Infer =
       | TsType.TsThisType tsThisType ->
         // TODO: use a TypeRef for this, but we need to know what `this`
         // is reference so we can create a Scheme for it
-        { Name = "Self"
+        { Name = QualifiedIdent.Ident "Self"
           TypeArgs = None
           Scheme = None }
         |> TypeKind.TypeRef
@@ -367,7 +369,7 @@ module rec Infer =
             typeParams |> List.map (fun t -> inferTsType ctx env t))
 
         let kind =
-          { Name = printTsEntityName tsTypeRef.TypeName
+          { Name = QualifiedIdent.Ident(printTsEntityName tsTypeRef.TypeName)
             TypeArgs = typeArgs
             Scheme = None }
           |> TypeKind.TypeRef
@@ -724,7 +726,7 @@ module rec Infer =
                 | Decl.Using _usingDecl ->
                   failwith "TODO: inferModuleBlock - usingDecl"
                 | Decl.TsInterface { Id = ident } ->
-                  let! scheme = nsEnv.GetScheme ident.Name
+                  let! scheme = nsEnv.GetScheme(QualifiedIdent.Ident ident.Name)
                   ns <- ns.AddScheme ident.Name scheme
                 | Decl.TsTypeAlias _tsTypeAliasDecl ->
                   failwith "TODO: inferModuleBlock - TsTypeAlias"

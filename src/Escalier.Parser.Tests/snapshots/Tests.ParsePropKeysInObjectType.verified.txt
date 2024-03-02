@@ -55,12 +55,12 @@ output: Ok
                                           ReturnType =
                                            { Kind =
                                               TypeRef
-                                                { Ident = "Iterator"
+                                                { Ident = Ident "Iterator"
                                                   TypeArgs =
                                                    Some
                                                      [{ Kind =
                                                          TypeRef
-                                                           { Ident = "T"
+                                                           { Ident = Ident "T"
                                                              TypeArgs = None }
                                                         Span =
                                                          { Start =

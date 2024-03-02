@@ -118,6 +118,14 @@ module Common =
   type TemplateLiteral<'T> =
     { Parts: list<string>; Exprs: list<'T> }
 
+  type QualifiedIdent =
+    | Ident of string
+    | Member of left: QualifiedIdent * right: string
+
+    override this.ToString() =
+      match this with
+      | Ident value -> value
+      | Member(left, right) -> $"{left}.{right}"
 
 module Syntax =
   type Span = { Start: Position; Stop: Position }
@@ -274,12 +282,8 @@ module Syntax =
 
     override this.GetHashCode() = this.Kind.GetHashCode()
 
-  type QualifiedIdent =
-    | Ident of string
-    | Member of left: QualifiedIdent * right: string
-
   type TypeRef =
-    { Ident: string // TOOD: use QualifiedIdent
+    { Ident: Common.QualifiedIdent
       TypeArgs: option<list<TypeAnn>> }
 
   type KeyValuePat =
@@ -293,7 +297,7 @@ module Syntax =
       Name: string
       IsMut: bool
       Default: option<Expr>
-      Assertion: option<QualifiedIdent> }
+      Assertion: option<Common.QualifiedIdent> }
 
   type RestPat =
     { Span: Span
@@ -310,9 +314,10 @@ module Syntax =
   type IdentPat =
     { Name: string
       IsMut: bool
-      Assertion: option<QualifiedIdent> }
+      Assertion: option<Common.QualifiedIdent> }
 
-  type WildcardPattern = { Assertion: option<QualifiedIdent> }
+  type WildcardPattern =
+    { Assertion: option<Common.QualifiedIdent> }
 
   [<RequireQualifiedAccess>]
   type PatternKind =
@@ -456,7 +461,7 @@ module Syntax =
     | Function of FunctionType
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
-    | Typeof of target: QualifiedIdent
+    | Typeof of target: Common.QualifiedIdent
     | Index of target: TypeAnn * index: TypeAnn
     | Condition of ConditionType
     | Match of MatchType
@@ -531,7 +536,7 @@ module Type =
   ///An n-ary type constructor which builds a new type from old
   [<CustomEquality; NoComparison>]
   type TypeRef =
-    { Name: string
+    { Name: Common.QualifiedIdent
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
 

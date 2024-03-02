@@ -1,0 +1,8 @@
+﻿input: type Foo = Intl.NumberFormat
+output: Error
+  Error in Ln: 1 Col: 16
+Expecting: end of input, identifier, '"', '#[', '#{', '<', '[', 'async',
+'declare', 'do', 'false', 'fn', 'for', 'if', 'impl', 'import', 'let', 'match',
+'null', 'return', 'struct', 'throw', 'true', 'try', 'type', 'undefined' or '{'
+Other error messages:
+  Expected '`'

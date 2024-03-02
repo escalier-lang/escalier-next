@@ -26,6 +26,28 @@ module Parser =
 
     many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
+  let qualifiedIdentPratt =
+    Pratt.PrattParser<QualifiedIdent>(
+      ident |>> fun ident -> QualifiedIdent.Ident ident
+    )
+
+  let infixQualifiedNameParselet
+    (precedence: int)
+    : Pratt.InfixParselet<QualifiedIdent> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = ident stream
+
+          match right.Status with
+          | Ok -> Reply(QualifiedIdent.Member(left, right.Result))
+          | _ -> Reply(left)
+      Precedence = precedence }
+
+  qualifiedIdentPratt.RegisterInfix(".", infixQualifiedNameParselet 17)
+
+  let qualifiedIdent: Parser<QualifiedIdent, unit> =
+    qualifiedIdentPratt.Parse(0)
+
   let tuple<'A> (parser: Parser<'A, unit>) =
     between (strWs "[") (strWs "]") (sepBy parser (strWs ","))
 
@@ -332,14 +354,14 @@ module Parser =
   let structExpr: Parser<Expr, unit> =
     pipe5
       getPosition
-      ident
+      qualifiedIdent
       (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
       (between (strWs "{") (strWs "}") (sepBy objElem (strWs ",")))
       getPosition
-    <| fun start name typeArgs elems stop ->
+    <| fun start ident typeArgs elems stop ->
       let kind =
         ExprKind.Struct
-          { TypeRef = { Ident = name; TypeArgs = typeArgs }
+          { TypeRef = { Ident = ident; TypeArgs = typeArgs }
             Elems = elems }
 
       { Kind = kind
@@ -862,26 +884,7 @@ module Parser =
 
   stmtRef.Value <- ws >>. _stmt
 
-  let qualifiedIdent =
-    Pratt.PrattParser<QualifiedIdent>(
-      ident |>> fun ident -> QualifiedIdent.Ident ident
-    )
-
-  let infixQualifiedNameParselet
-    (precedence: int)
-    : Pratt.InfixParselet<QualifiedIdent> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          let right = ident stream
-
-          match right.Status with
-          | Ok -> Reply(QualifiedIdent.Member(left, right.Result))
-          | _ -> Reply(left)
-      Precedence = precedence }
-
-  qualifiedIdent.RegisterInfix(".", infixQualifiedNameParselet 17)
-
-  let private isAssertion = (strWs "is" >>. qualifiedIdent.Parse 0)
+  let private isAssertion = (strWs "is" >>. qualifiedIdent)
 
   let private identPattern =
     withSpan (tuple3 (opt (strWs "mut")) ident (opt isAssertion))
@@ -978,14 +981,14 @@ module Parser =
   let private structPattern =
     withSpan (
       tuple3
-        ident
+        qualifiedIdent
         (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
         (between (strWs "{") (strWs "}") (sepBy objPatElem (strWs ",")))
     )
-    |>> fun ((name, typeArgs, elems), span) ->
+    |>> fun ((ident, typeArgs, elems), span) ->
       let kind =
         PatternKind.Struct
-          { TypeRef = { Ident = name; TypeArgs = typeArgs }
+          { TypeRef = { Ident = ident; TypeArgs = typeArgs }
             Elems = elems }
 
       { Pattern.Kind = kind
@@ -1118,7 +1121,9 @@ module Parser =
 
       let name =
         match name.Kind with
-        | TypeAnnKind.TypeRef { Ident = name } when name = typeParam.Name ->
+        | TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } when
+          name = typeParam.Name
+          ->
           None
         | _ -> Some(name)
 
@@ -1181,7 +1186,7 @@ module Parser =
 
   // TODO: don't include strWs in the span
   let private typeofTypeAnn =
-    withSpan (strWs "typeof" >>. qualifiedIdent.Parse 0)
+    withSpan (strWs "typeof" >>. qualifiedIdent)
     |>> fun (e, span) ->
       { TypeAnn.Kind = TypeAnnKind.Typeof e
         Span = span
@@ -1215,8 +1220,11 @@ module Parser =
       ident
       (opt (between (strWs "<") (strWs ">") (sepBy typeAnn (strWs ","))))
       getPosition
-    <| fun start name typeArgs stop ->
-      { TypeAnn.Kind = TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs }
+    <| fun start ident typeArgs stop ->
+      { TypeAnn.Kind =
+          TypeAnnKind.TypeRef
+            { Ident = QualifiedIdent.Ident ident
+              TypeArgs = typeArgs }
         Span = { Start = start; Stop = stop }
         InferredType = None }
 

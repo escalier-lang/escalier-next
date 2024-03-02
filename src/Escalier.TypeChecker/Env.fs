@@ -2,7 +2,6 @@ namespace Escalier.TypeChecker
 
 open FsToolkit.ErrorHandling
 
-open Escalier.Data.Syntax
 open Escalier.TypeChecker.Error
 
 open Escalier.Data.Common
@@ -307,10 +306,18 @@ module rec Env =
       | None ->
         Error(TypeError.SemanticError $"Undefined unary operator {name}")
 
-    member this.GetScheme(name: string) : Result<Scheme, TypeError> =
-      match this.Schemes |> Map.tryFind name with
-      | Some(s) -> Ok(s)
-      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+    member this.GetScheme(ident: QualifiedIdent) : Result<Scheme, TypeError> =
+      result {
+        match ident with
+        | Ident name ->
+          match this.Schemes |> Map.tryFind name with
+          | Some(s) -> return s
+          | None ->
+            return! Error(TypeError.SemanticError $"Undefined symbol {ident}")
+        | Member(qualifier, ident) ->
+          let! ns = this.GetNamspace qualifier
+          return! ns.GetScheme ident
+      }
 
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
       match this.Values |> Map.tryFind name with
@@ -336,17 +343,17 @@ module rec Env =
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
       }
 
-    member this.GetQualifiedScheme
-      (ident: QualifiedIdent)
-      : Result<Scheme, TypeError> =
-
-      result {
-        match ident with
-        | QualifiedIdent.Ident name -> return! this.GetScheme name
-        | QualifiedIdent.Member(qualifier, name) ->
-          let! ns = this.GetNamspace qualifier
-          return! ns.GetScheme name
-      }
+    // member this.GetQualifiedScheme
+    //   (ident: QualifiedIdent)
+    //   : Result<Scheme, TypeError> =
+    //
+    //   result {
+    //     match ident with
+    //     | QualifiedIdent.Ident name -> return! this.GetScheme name
+    //     | QualifiedIdent.Member(qualifier, name) ->
+    //       let! ns = this.GetNamspace qualifier
+    //       return! ns.GetScheme name
+    //   }
 
     member this.GetQualifiedBinding
       (ident: QualifiedIdent)

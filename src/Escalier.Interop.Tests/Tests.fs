@@ -527,3 +527,28 @@ let CallArrayConstructorWithNoTypeAnnotations () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let AcessNamespaceType () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        type Foo = Intl.NumberFormat
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Foo", "{}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

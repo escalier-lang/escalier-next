@@ -10,7 +10,7 @@ output: Ok
                     TypeAnn =
                      { Kind =
                         Condition
-                          { Check = { Kind = TypeRef { Ident = "T"
+                          { Check = { Kind = TypeRef { Ident = Ident "T"
                                                        TypeArgs = None }
                                       Span = { Start = (Ln: 1, Col: 25)
                                                Stop = (Ln: 1, Col: 26) }
@@ -36,7 +36,7 @@ output: Ok
                                                     Stop = (Ln: 1, Col: 39) }
                                            InferredType = None }
                                         TypeAnn =
-                                         { Kind = TypeRef { Ident = "_"
+                                         { Kind = TypeRef { Ident = Ident "_"
                                                             TypeArgs = None }
                                            Span = { Start = (Ln: 1, Col: 41)
                                                     Stop = (Ln: 1, Col: 42) }
@@ -52,7 +52,7 @@ output: Ok
                                Span = { Start = (Ln: 1, Col: 28)
                                         Stop = (Ln: 1, Col: 55) }
                                InferredType = None }
-                            TrueType = { Kind = TypeRef { Ident = "R"
+                            TrueType = { Kind = TypeRef { Ident = Ident "R"
                                                           TypeArgs = None }
                                          Span = { Start = (Ln: 1, Col: 57)
                                                   Stop = (Ln: 1, Col: 59) }

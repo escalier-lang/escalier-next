@@ -76,7 +76,7 @@ output: Ok
                                         Span = { Start = (Ln: 6, Col: 24)
                                                  Stop = (Ln: 6, Col: 25) }
                                         InferredType = None }
-                            TypeAnn = Some { Kind = TypeRef { Ident = "T"
+                            TypeAnn = Some { Kind = TypeRef { Ident = Ident "T"
                                                               TypeArgs = None }
                                              Span = { Start = (Ln: 6, Col: 27)
                                                       Stop = (Ln: 6, Col: 28) }

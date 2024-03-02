@@ -12,12 +12,12 @@ output: Ok
                     TypeAnn =
                      { Kind =
                         Condition
-                          { Check = { Kind = TypeRef { Ident = "T"
+                          { Check = { Kind = TypeRef { Ident = Ident "T"
                                                        TypeArgs = None }
                                       Span = { Start = (Ln: 2, Col: 29)
                                                Stop = (Ln: 2, Col: 30) }
                                       InferredType = None }
-                            Extends = { Kind = TypeRef { Ident = "U"
+                            Extends = { Kind = TypeRef { Ident = Ident "U"
                                                          TypeArgs = None }
                                         Span = { Start = (Ln: 2, Col: 32)
                                                  Stop = (Ln: 2, Col: 34) }
@@ -26,7 +26,7 @@ output: Ok
                                          Span = { Start = (Ln: 2, Col: 36)
                                                   Stop = (Ln: 2, Col: 42) }
                                          InferredType = None }
-                            FalseType = { Kind = TypeRef { Ident = "T"
+                            FalseType = { Kind = TypeRef { Ident = Ident "T"
                                                            TypeArgs = None }
                                           Span = { Start = (Ln: 2, Col: 51)
                                                    Stop = (Ln: 2, Col: 53) }

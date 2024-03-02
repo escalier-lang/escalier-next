@@ -11,7 +11,7 @@ output: Ok
                   { Pattern =
                      { Kind =
                         Struct
-                          { TypeRef = { Ident = "Point"
+                          { TypeRef = { Ident = Ident "Point"
                                         TypeArgs = None }
                             Elems =
                              [ShorthandPat { Span = { Start = (Ln: 2, Col: 16)

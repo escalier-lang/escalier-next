@@ -353,7 +353,7 @@ module rec Infer =
           let! t = inferExpr ctx env await.Value
 
           match t.Kind with
-          | TypeKind.TypeRef { Name = "Promise"
+          | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise"
                                TypeArgs = Some([ t; e ]) } ->
             await.Throws <- Some e
             return t
@@ -477,7 +477,7 @@ module rec Infer =
           return
             { Kind =
                 TypeKind.TypeRef
-                  { Name = "RangeIterator"
+                  { Name = QualifiedIdent.Ident "RangeIterator"
                     TypeArgs = Some([ min; max ])
                     Scheme = scheme }
               Provenance = None }
@@ -527,7 +527,7 @@ module rec Infer =
               let t =
                 { Kind =
                     TypeKind.TypeRef
-                      { Name = "Self"
+                      { Name = QualifiedIdent.Ident "Self"
                         Scheme = None
                         TypeArgs = None }
                   Provenance = None }
@@ -697,7 +697,7 @@ module rec Infer =
           let Self: Type =
             { Kind =
                 TypeKind.TypeRef
-                  { Name = "Self"
+                  { Name = QualifiedIdent.Ident "Self"
                     TypeArgs = None
                     Scheme = None }
               Provenance = None }
@@ -765,11 +765,14 @@ module rec Infer =
           let! objType = expandScheme ctx env None scheme Map.empty typeArgs
           return! getPropType ctx env objType key optChain
         | None ->
-          match env.Schemes.TryFind typeRefName with
-          | Some scheme ->
-            let! objType = expandScheme ctx env None scheme Map.empty typeArgs
-            return! getPropType ctx env objType key optChain
-          | None -> return! Error(TypeError.SemanticError $"{key} not in scope")
+          let! scheme = env.GetScheme typeRefName
+          let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+          return! getPropType ctx env objType key optChain
+      // match env.Schemes.TryFind typeRefName with
+      // | Some scheme ->
+      //   let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+      //   return! getPropType ctx env objType key optChain
+      // | None -> return! Error(TypeError.SemanticError $"{key} not in scope")
       | TypeKind.Union types ->
         let undefinedTypes, definedTypes =
           List.partition
@@ -1062,9 +1065,8 @@ module rec Infer =
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return TypeKind.Intersection types
         | TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs } ->
-          match env.Schemes.TryFind(name) with
-          | Some(scheme) ->
-
+          match env.GetScheme name with
+          | Ok scheme ->
             let scheme =
               match scheme.IsTypeParam with
               | true -> None
@@ -1087,11 +1089,41 @@ module rec Infer =
                   TypeArgs = None
                   Scheme = scheme }
                 |> TypeKind.TypeRef
-          | None ->
-            if name = "_" then
-              return TypeKind.Wildcard
-            else
+          | Error errorValue ->
+            match name with
+            | QualifiedIdent.Ident "_" -> return TypeKind.Wildcard
+            | _ ->
               return! Error(TypeError.SemanticError $"{name} is not in scope")
+        // match env.Schemes.TryFind(name) with
+        // | Some(scheme) ->
+        //
+        //   let scheme =
+        //     match scheme.IsTypeParam with
+        //     | true -> None
+        //     | false -> Some(scheme)
+        //
+        //   match typeArgs with
+        //   | Some(typeArgs) ->
+        //     let! typeArgs =
+        //       List.traverseResultM (inferTypeAnn ctx env) typeArgs
+        //
+        //     return
+        //       { Name = name
+        //         TypeArgs = Some(typeArgs)
+        //         Scheme = scheme }
+        //       |> TypeKind.TypeRef
+        //   | None ->
+        //     // TODO: check if scheme required type args
+        //     return
+        //       { Name = name
+        //         TypeArgs = None
+        //         Scheme = scheme }
+        //       |> TypeKind.TypeRef
+        // | None ->
+        //   if name = "_" then
+        //     return TypeKind.Wildcard
+        //   else
+        //     return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
           let! f = inferFunctionType ctx env functionType
           return TypeKind.Function(f)
@@ -1764,7 +1796,7 @@ module rec Infer =
               })
 
         let typeRef: TypeRef =
-          { Name = name
+          { Name = QualifiedIdent.Ident name
             TypeArgs = None // Should we be setting this to `Some(typeParams)`?
             Scheme = None }
 
@@ -1834,7 +1866,7 @@ module rec Infer =
             |> List.map (fun name ->
               { Kind =
                   TypeKind.TypeRef
-                    { Name = name
+                    { Name = QualifiedIdent.Ident name
                       TypeArgs = None
                       Scheme = None }
                 Provenance = None }))
@@ -1844,7 +1876,7 @@ module rec Infer =
         let selfType =
           { Kind =
               TypeKind.TypeRef
-                { Name = structName
+                { Name = QualifiedIdent.Ident structName
                   TypeArgs = typeArgs
                   Scheme = Some scheme }
             Provenance = None }
@@ -2378,7 +2410,7 @@ module rec Infer =
 
   let maybeWrapInPromise (t: Type) (e: Type) : Type =
     match t.Kind with
-    | TypeKind.TypeRef { Name = "Promise" } -> t
+    | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise" } -> t
     | _ ->
       let never =
         { Kind = TypeKind.Keyword Keyword.Never
@@ -2386,7 +2418,7 @@ module rec Infer =
 
       { Kind =
           TypeKind.TypeRef
-            { Name = "Promise"
+            { Name = QualifiedIdent.Ident "Promise"
               TypeArgs = Some([ t; e ])
               Scheme = None }
         Provenance = None }

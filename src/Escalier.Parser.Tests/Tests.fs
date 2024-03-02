@@ -440,6 +440,21 @@ let ParseComplexPatternMatching () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+[<Fact>]
+let ParseEnum () =
+  let src =
+    """
+    enum MyEnum {
+      | Foo(number, string, boolean)
+      | Bar([number, number])
+      | Baz(number | string)
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
 let ParseCallableType () =

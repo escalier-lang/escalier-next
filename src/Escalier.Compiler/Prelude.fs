@@ -43,6 +43,7 @@ module Prelude =
     else
       importPath
 
+  // TODO: dedupe with Escalier.Interop.Infer
   let findBindingNames (p: Syntax.Pattern) : list<string> =
     let mutable names: list<string> = []
 
@@ -66,6 +67,7 @@ module Prelude =
 
     List.rev names
 
+  // TODO: dedupe with Escalier.Interop.Infer
   let private findModuleBindingNames (m: Syntax.Script) : list<string> =
     let mutable names: list<string> = []
 

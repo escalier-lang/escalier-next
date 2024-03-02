@@ -508,8 +508,6 @@ module rec Infer =
         | Pat.Object objectPat -> failwith "TODO: infer_pattern_rec - Object"
         | Pat.Assign assignPat -> failwith "TODO: infer_pattern_rec - Assign"
         | Pat.Invalid invalid -> failwith "TODO: infer_pattern_rec - Invalid"
-        // TODO: remove Pat.Expr from Pat
-        | Pat.Expr expr -> failwith "TODO: infer_pattern_rec - Expr"
 
       let t = infer_pattern_rec p
       return (assump, t)
@@ -554,8 +552,6 @@ module rec Infer =
     // TODO: add assign patterns to Escalier's AST
     | Pat.Assign assignPat -> failwith "TODO: patToPattern - Assign"
     | Pat.Invalid invalid -> failwith "TODO: patToPattern - Invalid"
-    // TODO: remove Pat.Expr from Pat
-    | Pat.Expr expr -> failwith "TODO: remove Pat.Expr from Expr"
 
   let inferFunction (ctx: Ctx) (env: Env) (f: Function) : Type =
     let typeParams =
@@ -696,9 +692,56 @@ module rec Infer =
         // TODO: if decl.Global is true, add to the global env
         newEnv <- env.AddScheme decl.Id.Name scheme
       | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
-      | Decl.TsModule tsModuleDecl ->
-        // TODO: handle namespaces
-        ()
+      | Decl.TsModule { Id = name; Body = body } ->
+        let mutable ns: Env.Namespace =
+          { Values = Map.empty
+            Schemes = Map.empty
+            Namespaces = Map.empty }
+
+        match body with
+        | None -> ()
+        | Some body ->
+          match body with
+          | TsModuleBlock tsModuleBlock ->
+            let! nsEnv = inferModuleBlock ctx env tsModuleBlock
+
+            for item in tsModuleBlock.Body do
+              match item with
+              | ModuleDecl _moduleDecl ->
+                failwith "TODO: inferDecl - ModuleDecl"
+              | Stmt(Stmt.Decl decl) ->
+                match decl with
+                | Decl.Class _classDecl ->
+                  failwith "TODO: inferDecl - classDecl"
+                | Decl.Fn _fnDecl -> failwith "TODO: inferDecl - fnDecl"
+                | Decl.Var { Decls = decls } ->
+                  for decl in decls do
+                    let names = findBindingNames decl.Id
+
+                    for name in names do
+                      let! binding = nsEnv.GetBinding name
+                      ns <- ns.AddBinding name binding
+                | Decl.Using _usingDecl ->
+                  failwith "TODO: inferModuleBlock - usingDecl"
+                | Decl.TsInterface { Id = ident } ->
+                  let! scheme = nsEnv.GetScheme ident.Name
+                  ns <- ns.AddScheme ident.Name scheme
+                | Decl.TsTypeAlias _tsTypeAliasDecl ->
+                  failwith "TODO: inferModuleBlock - TsTypeAlias"
+                | Decl.TsEnum _tsEnumDecl ->
+                  failwith "TODO: inferModuleBlock - TsEnum"
+                | Decl.TsModule _tsModuleDecl ->
+                  failwith "TODO: inferModuleBlock - TsModule"
+              | _ -> failwith "item must be a decl"
+          | TsNamespaceDecl _tsNamespaceDecl ->
+            failwith "TODO: inferModuleBlock- TsNamespaceDecl"
+
+        let name: string =
+          match name with
+          | TsModuleName.Ident ident -> ident.Name
+          | TsModuleName.Str str -> str.Value
+
+        newEnv <- newEnv.AddNamespace name ns
 
       return newEnv
     }
@@ -846,7 +889,6 @@ module rec Infer =
       { Kind = kind; Provenance = None }
     | _ -> failwith "both types must be objects to merge them"
 
-  // TODO: handle interface merging
   let inferModule (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -858,6 +900,20 @@ module rec Infer =
       return newEnv
     }
 
+  let inferModuleBlock
+    (ctx: Ctx)
+    (env: Env)
+    (m: TsModuleBlock)
+    : Result<Env, TypeError> =
+    result {
+      let mutable newEnv = env
+
+      for item in m.Body do
+        let! env = inferModuleItem ctx newEnv item
+        newEnv <- env
+
+      return newEnv
+    }
 
   let sanitizeMethod (fn: Type.Function) : Type.Function =
     let paramList =
@@ -894,3 +950,44 @@ module rec Infer =
         | _ -> true)
 
     { fn with ParamList = paramList }
+
+  let walkPat (visit: Pat -> unit) (p: Pat) : unit =
+    let rec walk (p: Pat) : unit =
+      match p with
+      | Pat.Ident _ -> () // leaf node
+      | Pat.Array { Elems = elems } ->
+        List.iter
+          (fun elem ->
+            match elem with
+            | Some(pat) -> walk pat
+            | None -> ())
+          elems
+      | Pat.Rest restPat -> walk restPat.Arg
+      | Pat.Object { Props = props } ->
+        for prop in props do
+          match prop with
+          | KeyValue { Value = value } -> walk value
+          | Assign { Key = key } ->
+            // TODO: update Key to handle computed keys
+            let pat = Pat.Ident { Id = key; Loc = None }
+            walk pat
+          | Rest restPat -> walk restPat.Arg
+      | Pat.Assign { Left = pat; Right = _expr } -> walk pat
+      | Pat.Invalid invalid -> failwith "todo"
+
+      visit p
+
+    walk p
+
+  let findBindingNames (p: Pat) : list<string> =
+    let mutable names: list<string> = []
+
+    let visitor =
+      fun pat ->
+        match pat with
+        | Pat.Ident { Id = id } -> names <- id.Name :: names
+        | _ -> ()
+
+    walkPat visitor p
+
+    List.rev names

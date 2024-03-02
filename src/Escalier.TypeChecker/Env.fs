@@ -1,5 +1,8 @@
 namespace Escalier.TypeChecker
 
+open FsToolkit.ErrorHandling
+
+open Escalier.Data.Syntax
 open Escalier.TypeChecker.Error
 
 open Escalier.Data.Common
@@ -169,12 +172,78 @@ module rec Env =
   type BindingAssump = Map<string, Binding>
   type SchemeAssump = string * Scheme
 
+  type Namespace =
+    { Values: Map<string, Binding>
+      Schemes: Map<string, Scheme>
+      Namespaces: Map<string, Namespace> }
+
+    member this.AddScheme (name: string) (scheme: Scheme) =
+      { this with
+          Schemes = Map.add name scheme this.Schemes }
+
+    member this.GetScheme(name: string) : Result<Scheme, TypeError> =
+      match this.Schemes |> Map.tryFind name with
+      | Some(s) -> Ok(s)
+      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+
+    member this.AddBinding (name: string) (binding: Binding) =
+      { this with
+          Values = Map.add name binding this.Values }
+
+    member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
+      match this.Values |> Map.tryFind name with
+      | Some(var) -> Ok var
+      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+
+    member this.GetNamspace
+      (ident: QualifiedIdent)
+      : Result<Namespace, TypeError> =
+      result {
+        match ident with
+        | Ident name ->
+          match this.Namespaces |> Map.tryFind name with
+          | Some(ns) -> return ns
+          | None ->
+            return! Error(TypeError.SemanticError $"Undefined namespace {name}")
+        | Member(qualifier, name) ->
+          let! ns = this.GetNamspace qualifier
+
+          match ns.Namespaces |> Map.tryFind name with
+          | Some(ns) -> return ns
+          | None ->
+            return! Error(TypeError.SemanticError $"Undefined namespace {name}")
+      }
+
+    member this.GetQualifiedScheme
+      (ident: QualifiedIdent)
+      : Result<Scheme, TypeError> =
+
+      result {
+        match ident with
+        | QualifiedIdent.Ident name -> return! this.GetScheme name
+        | QualifiedIdent.Member(qualifier, name) ->
+          let! ns = this.GetNamspace qualifier
+          return! ns.GetScheme name
+      }
+
+    member this.GetQualifiedBinding
+      (ident: QualifiedIdent)
+      : Result<Binding, TypeError> =
+
+      result {
+        match ident with
+        | QualifiedIdent.Ident name -> return! this.GetBinding name
+        | QualifiedIdent.Member(qualifier, name) ->
+          let! ns = this.GetNamspace qualifier
+          return! ns.GetBinding name
+      }
 
   type Env =
     { BinaryOps: Map<string, Binding>
       UnaryOps: Map<string, Binding>
       Values: Map<string, Binding>
       Schemes: Map<string, Scheme>
+      Namespaces: Map<string, Namespace>
       IsAsync: bool
       IsPatternMatching: bool }
 
@@ -183,6 +252,7 @@ module rec Env =
         UnaryOps = Map.empty
         Values = Map.empty
         Schemes = Map.empty
+        Namespaces = Map.empty
         IsAsync = false
         IsPatternMatching = false }
 
@@ -205,6 +275,10 @@ module rec Env =
     member this.AddScheme (name: string) (s: Scheme) =
       { this with
           Schemes = Map.add name s this.Schemes }
+
+    member this.AddNamespace (name: string) (ns: Namespace) =
+      { this with
+          Namespaces = Map.add name ns this.Namespaces }
 
     // TODO: Rename to `GetBinding`
     // Get the type of identifier name from the type environment env
@@ -242,3 +316,46 @@ module rec Env =
       match this.Values |> Map.tryFind name with
       | Some(var) -> Ok var
       | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+
+    member this.GetNamspace
+      (ident: QualifiedIdent)
+      : Result<Namespace, TypeError> =
+      result {
+        match ident with
+        | Ident name ->
+          match this.Namespaces |> Map.tryFind name with
+          | Some(ns) -> return ns
+          | None ->
+            return! Error(TypeError.SemanticError $"Undefined namespace {name}")
+        | Member(qualifier, name) ->
+          let! ns = this.GetNamspace qualifier
+
+          match ns.Namespaces |> Map.tryFind name with
+          | Some(ns) -> return ns
+          | None ->
+            return! Error(TypeError.SemanticError $"Undefined namespace {name}")
+      }
+
+    member this.GetQualifiedScheme
+      (ident: QualifiedIdent)
+      : Result<Scheme, TypeError> =
+
+      result {
+        match ident with
+        | QualifiedIdent.Ident name -> return! this.GetScheme name
+        | QualifiedIdent.Member(qualifier, name) ->
+          let! ns = this.GetNamspace qualifier
+          return! ns.GetScheme name
+      }
+
+    member this.GetQualifiedBinding
+      (ident: QualifiedIdent)
+      : Result<Binding, TypeError> =
+
+      result {
+        match ident with
+        | QualifiedIdent.Ident name -> return! this.GetBinding name
+        | QualifiedIdent.Member(qualifier, name) ->
+          let! ns = this.GetNamspace qualifier
+          return! ns.GetBinding name
+      }

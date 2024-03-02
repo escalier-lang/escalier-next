@@ -8,7 +8,6 @@ open Xunit
 open Escalier.Compiler
 open Escalier.Data.Type
 open Escalier.Parser
-open Escalier.TypeChecker
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
@@ -143,12 +142,13 @@ let InferIdentifier () =
       Provenance = None }
 
   let env =
-    { Env.BinaryOps = Map.empty
-      Env.UnaryOps = Map.empty
-      Env.Values = Map([ ("foo", (t, false)) ])
-      Env.Schemes = Map([])
-      Env.IsAsync = false
-      Env.IsPatternMatching = false }
+    { BinaryOps = Map.empty
+      UnaryOps = Map.empty
+      Values = Map([ ("foo", (t, false)) ])
+      Schemes = Map.empty
+      Namespaces = Map.empty
+      IsAsync = false
+      IsPatternMatching = false }
 
   let result =
     result {

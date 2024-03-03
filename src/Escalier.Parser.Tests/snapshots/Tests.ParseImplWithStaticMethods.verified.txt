@@ -51,7 +51,7 @@ output: Ok
                                  (Some
                                     { Kind =
                                        Struct
-                                         { TypeRef = { Ident = "Point"
+                                         { TypeRef = { Ident = Ident "Point"
                                                        TypeArgs = None }
                                            Elems =
                                             [Shorthand
@@ -83,7 +83,7 @@ output: Ok
                                  (Some
                                     { Kind =
                                        Struct
-                                         { TypeRef = { Ident = "Point"
+                                         { TypeRef = { Ident = Ident "Point"
                                                        TypeArgs = None }
                                            Elems =
                                             [Property

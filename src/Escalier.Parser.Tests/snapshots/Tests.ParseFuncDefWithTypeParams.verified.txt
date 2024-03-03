@@ -13,16 +13,17 @@ output: Ok
                                       Stop = (Ln: 1, Col: 17) }
                              Name = "T"
                              Constraint =
-                              Some { Kind = TypeRef { Ident = "Foo"
+                              Some { Kind = TypeRef { Ident = Ident "Foo"
                                                       TypeArgs = None }
                                      Span = { Start = (Ln: 1, Col: 8)
                                               Stop = (Ln: 1, Col: 12) }
                                      InferredType = None }
-                             Default = Some { Kind = TypeRef { Ident = "Bar"
-                                                               TypeArgs = None }
-                                              Span = { Start = (Ln: 1, Col: 14)
-                                                       Stop = (Ln: 1, Col: 17) }
-                                              InferredType = None } }]
+                             Default =
+                              Some { Kind = TypeRef { Ident = Ident "Bar"
+                                                      TypeArgs = None }
+                                     Span = { Start = (Ln: 1, Col: 14)
+                                              Stop = (Ln: 1, Col: 17) }
+                                     InferredType = None } }]
                        Self = None
                        ParamList =
                         [{ Pattern = { Kind = Ident { Name = "x"
@@ -31,13 +32,13 @@ output: Ok
                                        Span = { Start = (Ln: 1, Col: 19)
                                                 Stop = (Ln: 1, Col: 20) }
                                        InferredType = None }
-                           TypeAnn = Some { Kind = TypeRef { Ident = "T"
+                           TypeAnn = Some { Kind = TypeRef { Ident = Ident "T"
                                                              TypeArgs = None }
                                             Span = { Start = (Ln: 1, Col: 22)
                                                      Stop = (Ln: 1, Col: 23) }
                                             InferredType = None }
                            Optional = false }]
-                       ReturnType = Some { Kind = TypeRef { Ident = "T"
+                       ReturnType = Some { Kind = TypeRef { Ident = Ident "T"
                                                             TypeArgs = None }
                                            Span = { Start = (Ln: 1, Col: 28)
                                                     Stop = (Ln: 1, Col: 30) }

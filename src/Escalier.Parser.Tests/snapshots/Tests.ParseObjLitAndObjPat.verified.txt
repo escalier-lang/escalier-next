@@ -66,7 +66,7 @@ output: Ok
                        Span = { Start = (Ln: 3, Col: 9)
                                 Stop = (Ln: 3, Col: 15) }
                        InferredType = None }
-                    TypeAnn = Some { Kind = TypeRef { Ident = "Point"
+                    TypeAnn = Some { Kind = TypeRef { Ident = Ident "Point"
                                                       TypeArgs = None }
                                      Span = { Start = (Ln: 3, Col: 17)
                                               Stop = (Ln: 3, Col: 23) }
@@ -108,7 +108,7 @@ output: Ok
                                 Span = { Start = (Ln: 4, Col: 9)
                                          Stop = (Ln: 4, Col: 10) }
                                 InferredType = None }
-                    TypeAnn = Some { Kind = TypeRef { Ident = "Point"
+                    TypeAnn = Some { Kind = TypeRef { Ident = Ident "Point"
                                                       TypeArgs = None }
                                      Span = { Start = (Ln: 4, Col: 12)
                                               Stop = (Ln: 4, Col: 18) }
@@ -173,11 +173,12 @@ output: Ok
                                                Stop = (Ln: 5, Col: 25) }
                                       InferredType = None }
                                    TypeAnn =
-                                    Some { Kind = TypeRef { Ident = "Point"
-                                                            TypeArgs = None }
-                                           Span = { Start = (Ln: 5, Col: 27)
-                                                    Stop = (Ln: 5, Col: 32) }
-                                           InferredType = None }
+                                    Some
+                                      { Kind = TypeRef { Ident = Ident "Point"
+                                                         TypeArgs = None }
+                                        Span = { Start = (Ln: 5, Col: 27)
+                                                 Stop = (Ln: 5, Col: 32) }
+                                        InferredType = None }
                                    Optional = false }]
                                ReturnType = None
                                Throws = None

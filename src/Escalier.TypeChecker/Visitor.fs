@@ -1,5 +1,6 @@
 namespace Escalier.TypeChecker
 
+// TODO: move to Escalier.Data.Visitor
 module rec ExprVisitor =
   open Escalier.Data.Syntax
 
@@ -211,6 +212,11 @@ module rec TypeVisitor =
 
   open Prune
 
+  let walkFunction (walk: Type -> unit) (f: Function) : unit =
+    List.iter (fun (param: FuncParam) -> walk param.Type) f.ParamList
+    walk f.Return
+    walk f.Throws
+
   // TODO: support early termination
   let walkType (f: Type -> unit) (t: Type) : unit =
     let rec walk (t: Type) : unit =
@@ -220,9 +226,7 @@ module rec TypeVisitor =
       | TypeKind.TypeVar _ -> ()
       | TypeKind.Primitive _ -> ()
       | TypeKind.Keyword _ -> ()
-      | TypeKind.Function f ->
-        List.iter (fun (param: FuncParam) -> walk param.Type) f.ParamList
-        walk f.Return
+      | TypeKind.Function fn -> walkFunction walk fn
       | TypeKind.Tuple { Elems = elems } -> List.iter walk elems
       | TypeKind.TypeRef { TypeArgs = typeArgs } ->
         // We explicitly don't walk the scheme here, it isn't necessary for any
@@ -240,7 +244,12 @@ module rec TypeVisitor =
               walk m.TypeParam.Constraint
               Option.iter walk m.NameType
               walk m.TypeAnn
-            | _ -> failwith "TODO: walkType - ObjTypeElem")
+            | Constructor fn -> walkFunction walk fn
+            | Callable fn -> walkFunction walk fn
+            | Method(_, fn) -> walkFunction walk fn
+            | _ ->
+              printfn "elem = %A" elem
+              failwith "TODO: walkType - ObjTypeElem")
           elems
 
       | TypeKind.Struct _ -> ()

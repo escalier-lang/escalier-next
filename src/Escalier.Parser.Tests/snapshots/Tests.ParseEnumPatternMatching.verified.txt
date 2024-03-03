@@ -1,0 +1,9 @@
+﻿input: 
+    match value {
+      | Foo(a, b, c) => a + b + c
+      | Bar([x, y]) => x * y
+      | Baz(z) => z
+    }
+    
+output: Error Error in Ln: 3 Col: 7
+Expecting: identifier, '...' or '}'

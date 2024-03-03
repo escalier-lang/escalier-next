@@ -6,8 +6,9 @@ open System.IO
 open System.IO.Abstractions
 open System.Reflection
 
-open Escalier.Data.Type
 open Escalier.Data
+open Escalier.Data.Common
+open Escalier.Data.Type
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
@@ -43,6 +44,7 @@ module Prelude =
     else
       importPath
 
+  // TODO: dedupe with Escalier.Interop.Infer
   let findBindingNames (p: Syntax.Pattern) : list<string> =
     let mutable names: list<string> = []
 
@@ -66,6 +68,7 @@ module Prelude =
 
     List.rev names
 
+  // TODO: dedupe with Escalier.Interop.Infer
   let private findModuleBindingNames (m: Syntax.Script) : list<string> =
     let mutable names: list<string> = []
 
@@ -102,7 +105,7 @@ module Prelude =
 
     let typeRefA =
       { Kind =
-          { Name = "A"
+          { Name = QualifiedIdent.Ident "A"
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
@@ -110,7 +113,7 @@ module Prelude =
 
     let typeRefB =
       { Kind =
-          { Name = "B"
+          { Name = QualifiedIdent.Ident "B"
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
@@ -152,11 +155,11 @@ module Prelude =
        false)
 
     let typeRefA =
-      { Kind = makeTypeRefKind "A"
+      { Kind = makeTypeRefKind (QualifiedIdent.Ident "A")
         Provenance = None }
 
     let typeRefB =
-      { Kind = makeTypeRefKind "B"
+      { Kind = makeTypeRefKind (QualifiedIdent.Ident "B")
         Provenance = None }
 
     let typeParams: list<TypeParam> =
@@ -202,7 +205,7 @@ module Prelude =
 
     let typeRefA =
       { Kind =
-          { Name = "A"
+          { Name = (QualifiedIdent.Ident "A")
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef
@@ -210,7 +213,7 @@ module Prelude =
 
     let typeRefB =
       { Kind =
-          { Name = "B"
+          { Name = (QualifiedIdent.Ident "B")
             TypeArgs = None
             Scheme = None }
           |> TypeKind.TypeRef

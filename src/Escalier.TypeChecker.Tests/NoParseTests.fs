@@ -39,6 +39,7 @@ let getEnv () =
     UnaryOps = Map.empty
     Values = values
     Schemes = Map.empty
+    Namespaces = Map.empty
     IsAsync = false
     IsPatternMatching = false }
 

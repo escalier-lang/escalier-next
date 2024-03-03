@@ -359,6 +359,22 @@ let ParseIndexAccessTypes () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseNamespacedType () =
+  let src = "type Foo = Intl.NumberFormat"
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseNamespacedValue () =
+  let src = """let fmt = new Intl.NumberFormat("en-CA")"""
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseAsyncFunc () =
   let src =
     """

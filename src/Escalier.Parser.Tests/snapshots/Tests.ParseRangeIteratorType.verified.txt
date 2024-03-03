@@ -49,7 +49,8 @@ output: Ok
                                                                  { Kind =
                                                                     TypeRef
                                                                       { Ident =
-                                                                         "Min"
+                                                                         Ident
+                                                                           "Min"
                                                                         TypeArgs =
                                                                          None }
                                                                    Span =
@@ -63,7 +64,8 @@ output: Ok
                                                                  { Kind =
                                                                     TypeRef
                                                                       { Ident =
-                                                                         "Max"
+                                                                         Ident
+                                                                           "Max"
                                                                         TypeArgs =
                                                                          None }
                                                                    Span =

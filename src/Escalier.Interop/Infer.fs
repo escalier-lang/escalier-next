@@ -24,6 +24,7 @@ module rec Infer =
     { Kind = TypeKind.Keyword Keyword.Never
       Provenance = None }
 
+  // TODO: replace this with a function that outputs a QualifiedIdent
   let rec printTsEntityName (name: TsEntityName) : string =
     match name with
     | TsEntityName.Identifier id -> id.Name
@@ -156,7 +157,7 @@ module rec Infer =
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
-              { Name = "Self"
+              { Name = QualifiedIdent.Ident "Self"
                 TypeArgs = None
                 Scheme = None }
           Provenance = None }
@@ -192,7 +193,7 @@ module rec Infer =
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
-              { Name = "Self"
+              { Name = QualifiedIdent.Ident "Self"
                 TypeArgs = None
                 Scheme = None }
           Provenance = None }
@@ -257,7 +258,7 @@ module rec Infer =
       let Self: Type =
         { Kind =
             TypeKind.TypeRef
-              { Name = "Self"
+              { Name = QualifiedIdent.Ident "Self"
                 TypeArgs = None
                 Scheme = None }
           Provenance = None }
@@ -307,7 +308,8 @@ module rec Infer =
         | TsBooleanKeyword -> TypeKind.Primitive Primitive.Boolean
         | TsBigIntKeyword -> TypeKind.Primitive Primitive.BigInt
         | TsStringKeyword -> TypeKind.Primitive Primitive.String
-        | TsSymbolKeyword -> makeTypeRefKind "symbol"
+        // TOOD: this should be TypeKind.Primitive Primitive.Symbol
+        | TsSymbolKeyword -> makeTypeRefKind (QualifiedIdent.Ident "symbol")
         // TODO: figure out if Escalier needs its own `void` type
         | TsVoidKeyword -> TypeKind.Literal(Literal.Undefined)
         | TsUndefinedKeyword -> TypeKind.Literal(Literal.Undefined)
@@ -318,7 +320,7 @@ module rec Infer =
       | TsType.TsThisType tsThisType ->
         // TODO: use a TypeRef for this, but we need to know what `this`
         // is reference so we can create a Scheme for it
-        { Name = "Self"
+        { Name = QualifiedIdent.Ident "Self"
           TypeArgs = None
           Scheme = None }
         |> TypeKind.TypeRef
@@ -367,7 +369,7 @@ module rec Infer =
             typeParams |> List.map (fun t -> inferTsType ctx env t))
 
         let kind =
-          { Name = printTsEntityName tsTypeRef.TypeName
+          { Name = QualifiedIdent.Ident(printTsEntityName tsTypeRef.TypeName)
             TypeArgs = typeArgs
             Scheme = None }
           |> TypeKind.TypeRef
@@ -508,8 +510,6 @@ module rec Infer =
         | Pat.Object objectPat -> failwith "TODO: infer_pattern_rec - Object"
         | Pat.Assign assignPat -> failwith "TODO: infer_pattern_rec - Assign"
         | Pat.Invalid invalid -> failwith "TODO: infer_pattern_rec - Invalid"
-        // TODO: remove Pat.Expr from Pat
-        | Pat.Expr expr -> failwith "TODO: infer_pattern_rec - Expr"
 
       let t = infer_pattern_rec p
       return (assump, t)
@@ -554,8 +554,6 @@ module rec Infer =
     // TODO: add assign patterns to Escalier's AST
     | Pat.Assign assignPat -> failwith "TODO: patToPattern - Assign"
     | Pat.Invalid invalid -> failwith "TODO: patToPattern - Invalid"
-    // TODO: remove Pat.Expr from Pat
-    | Pat.Expr expr -> failwith "TODO: remove Pat.Expr from Expr"
 
   let inferFunction (ctx: Ctx) (env: Env) (f: Function) : Type =
     let typeParams =
@@ -696,9 +694,58 @@ module rec Infer =
         // TODO: if decl.Global is true, add to the global env
         newEnv <- env.AddScheme decl.Id.Name scheme
       | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
-      | Decl.TsModule tsModuleDecl ->
-        // TODO: handle namespaces
-        ()
+      | Decl.TsModule { Id = name; Body = body } ->
+
+        let name: string =
+          match name with
+          | TsModuleName.Ident ident -> ident.Name
+          | TsModuleName.Str str -> str.Value
+
+        let mutable ns: Namespace =
+          { Name = name
+            Values = Map.empty
+            Schemes = Map.empty
+            Namespaces = Map.empty }
+
+        match body with
+        | None -> ()
+        | Some body ->
+          match body with
+          | TsModuleBlock tsModuleBlock ->
+            let! nsEnv = inferModuleBlock ctx env tsModuleBlock
+
+            for item in tsModuleBlock.Body do
+              match item with
+              | ModuleDecl _moduleDecl ->
+                failwith "TODO: inferDecl - ModuleDecl"
+              | Stmt(Stmt.Decl decl) ->
+                match decl with
+                | Decl.Class _classDecl ->
+                  failwith "TODO: inferDecl - classDecl"
+                | Decl.Fn _fnDecl -> failwith "TODO: inferDecl - fnDecl"
+                | Decl.Var { Decls = decls } ->
+                  for decl in decls do
+                    let names = findBindingNames decl.Id
+
+                    for name in names do
+                      let! binding = nsEnv.GetBinding name
+                      ns <- ns.AddBinding name binding
+                | Decl.Using _usingDecl ->
+                  failwith "TODO: inferModuleBlock - usingDecl"
+                | Decl.TsInterface { Id = ident } ->
+                  let! scheme = nsEnv.GetScheme(QualifiedIdent.Ident ident.Name)
+                  ns <- ns.AddScheme ident.Name scheme
+                | Decl.TsTypeAlias _tsTypeAliasDecl ->
+                  failwith "TODO: inferModuleBlock - TsTypeAlias"
+                | Decl.TsEnum _tsEnumDecl ->
+                  failwith "TODO: inferModuleBlock - TsEnum"
+                | Decl.TsModule _tsModuleDecl ->
+                  failwith "TODO: inferModuleBlock - TsModule"
+              | _ -> failwith "item must be a decl"
+          | TsNamespaceDecl _tsNamespaceDecl ->
+            failwith "TODO: inferModuleBlock- TsNamespaceDecl"
+
+        newEnv <- newEnv.AddNamespace name ns
 
       return newEnv
     }
@@ -846,7 +893,6 @@ module rec Infer =
       { Kind = kind; Provenance = None }
     | _ -> failwith "both types must be objects to merge them"
 
-  // TODO: handle interface merging
   let inferModule (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -858,6 +904,29 @@ module rec Infer =
       return newEnv
     }
 
+  let inferModuleBlock
+    (ctx: Ctx)
+    (env: Env)
+    (m: TsModuleBlock)
+    : Result<Env, TypeError> =
+    result {
+      let mutable newEnv = env
+
+      // TODO: Figure out how to ensure that type refs for things defined
+      // in the namespace are qualified but... maybe we need to do two pass
+      // with the first pass identifying all of those things that are in
+      // the current namespace and thus must be qualified.  The tricky thing
+      // is that we don't want to qualify them while we're inferring them.
+      // Maybe we can do some post process afterwards to add the qualifier.
+
+      // Maybe when looking up a value in the namespace, we can update any
+      // TypeRefs in the type to be qualified
+      for item in m.Body do
+        let! env = inferModuleItem ctx newEnv item
+        newEnv <- env
+
+      return newEnv
+    }
 
   let sanitizeMethod (fn: Type.Function) : Type.Function =
     let paramList =
@@ -894,3 +963,44 @@ module rec Infer =
         | _ -> true)
 
     { fn with ParamList = paramList }
+
+  let walkPat (visit: Pat -> unit) (p: Pat) : unit =
+    let rec walk (p: Pat) : unit =
+      match p with
+      | Pat.Ident _ -> () // leaf node
+      | Pat.Array { Elems = elems } ->
+        List.iter
+          (fun elem ->
+            match elem with
+            | Some(pat) -> walk pat
+            | None -> ())
+          elems
+      | Pat.Rest restPat -> walk restPat.Arg
+      | Pat.Object { Props = props } ->
+        for prop in props do
+          match prop with
+          | KeyValue { Value = value } -> walk value
+          | Assign { Key = key } ->
+            // TODO: update Key to handle computed keys
+            let pat = Pat.Ident { Id = key; Loc = None }
+            walk pat
+          | Rest restPat -> walk restPat.Arg
+      | Pat.Assign { Left = pat; Right = _expr } -> walk pat
+      | Pat.Invalid invalid -> failwith "todo"
+
+      visit p
+
+    walk p
+
+  let findBindingNames (p: Pat) : list<string> =
+    let mutable names: list<string> = []
+
+    let visitor =
+      fun pat ->
+        match pat with
+        | Pat.Ident { Id = id } -> names <- id.Name :: names
+        | _ -> ()
+
+    walkPat visitor p
+
+    List.rev names

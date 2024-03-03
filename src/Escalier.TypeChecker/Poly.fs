@@ -3,6 +3,7 @@ namespace Escalier.TypeChecker
 open FsToolkit.ErrorHandling
 
 open Escalier.Data.Type
+open Escalier.Data.Common
 
 open Error
 open Folder
@@ -67,7 +68,7 @@ module Poly =
             Some(
               { Kind =
                   TypeKind.TypeRef
-                    { Name = name
+                    { Name = QualifiedIdent.Ident name
                       TypeArgs = None
                       Scheme = None }
                 Provenance = None }
@@ -80,7 +81,7 @@ module Poly =
             Some(
               { Kind =
                   TypeKind.TypeRef
-                    { Name = tpName
+                    { Name = QualifiedIdent.Ident tpName
                       TypeArgs = None
                       Scheme = None }
                 Provenance = None }
@@ -131,7 +132,7 @@ module Poly =
 
       let folder t =
         match t.Kind with
-        | TypeKind.TypeRef({ Name = name }) ->
+        | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
           match Map.tryFind name mapping with
           | Some(tv) -> Some(tv)
           | None -> None
@@ -176,7 +177,7 @@ module Poly =
 
       let folder t =
         match t.Kind with
-        | TypeKind.TypeRef({ Name = name }) ->
+        | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
           match Map.tryFind name mapping with
           | Some(tv) -> Some(tv)
           | None -> None

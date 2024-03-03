@@ -12,7 +12,7 @@ output: Ok
                      { Kind =
                         Struct
                           { TypeRef =
-                             { Ident = "Point"
+                             { Ident = Ident "Point"
                                TypeArgs =
                                 Some [{ Kind = Keyword Number
                                         Span = { Start = (Ln: 2, Col: 15)

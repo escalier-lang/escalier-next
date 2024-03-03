@@ -188,7 +188,7 @@ let ModuleAliasImport () =
         Compiler.printDiagnostics mockWriter ctx.Diagnostics
         printfn "DIAGNOSTICS:\n%s" (mockWriter.ToString())
 
-      Assert.Value(env, "p", "Point")
+      Assert.Value(env, "p", "point.Point")
       Assert.Equal(ctx.Diagnostics.Length, 0)
 
       return ()

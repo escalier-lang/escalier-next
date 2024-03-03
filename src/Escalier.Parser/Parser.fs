@@ -1029,6 +1029,20 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private enumVariantPattern: Parser<Pattern, unit> =
+    withSpan (
+      tuple3
+        ident
+        (strWs "." >>. ident)
+        (opt (between (strWs "(") (strWs ")") (sepBy pattern (strWs ","))))
+    )
+    |>> fun ((qualifier, ident, args), span) ->
+      let ident = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, ident)
+
+      { Pattern.Kind = PatternKind.Enum { Ident = ident; Args = args }
+        Span = span
+        InferredType = None }
+
   let private restPattern =
     withSpan (strWs "..." >>. pattern)
     |>> fun (pattern, span) ->
@@ -1039,6 +1053,7 @@ module Parser =
   patternRef.Value <-
     choice
       [ attempt structPattern
+        attempt enumVariantPattern
         identPattern
         literalPattern
         wildcardPattern
@@ -1455,7 +1470,6 @@ module Parser =
   typeAnnParser.RegisterInfix(
     "|",
     naryTypeAnnParselet 3 (fun typeAnns ->
-      printfn "typeAnns: %A" typeAnns
       let first = typeAnns[0]
       let last = typeAnns[typeAnns.Length - 1]
 

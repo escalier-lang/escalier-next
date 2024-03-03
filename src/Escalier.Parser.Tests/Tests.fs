@@ -473,6 +473,22 @@ let ParseEnum () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseEnumPatternMatching () =
+  let src =
+    """
+    match value {
+      | MyEnum.Foo(a, b, c) => a + b + c
+      | MyEnum.Bar([x, y]) => x * y
+      | MyEnum.Baz(z) => z
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseCallableType () =
   let src =
     """

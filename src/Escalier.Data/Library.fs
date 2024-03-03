@@ -316,6 +316,10 @@ module Syntax =
       IsMut: bool
       Assertion: option<Common.QualifiedIdent> }
 
+  type EnumVariantPattern =
+    { Ident: Common.QualifiedIdent
+      Args: option<list<Pattern>> }
+
   type WildcardPattern =
     { Assertion: option<Common.QualifiedIdent> }
 
@@ -325,6 +329,7 @@ module Syntax =
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
     | Struct of Struct<ObjPatElem> // TODO: rest patterns
     | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
+    | Enum of EnumVariantPattern
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
     | Rest of Pattern

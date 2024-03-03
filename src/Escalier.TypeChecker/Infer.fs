@@ -2286,12 +2286,20 @@ module rec Infer =
                   $"{resolvedPath} doesn't export '{name}'"
               )
           | _, _ -> ()
-        | ModuleAlias _ -> failwith "TODO"
+        | ModuleAlias name ->
+          let ns: Namespace =
+            { Name = name
+              Values = exports.Values
+              Schemes = exports.Schemes
+              Namespaces = exports.Namespaces }
+
+          imports <- imports.AddNamespace name ns
 
       return
         { env with
             Values = FSharpPlus.Map.union env.Values imports.Values
-            Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes }
+            Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes
+            Namespaces = FSharpPlus.Map.union env.Namespaces imports.Namespaces }
     }
 
   let inferScriptItem

@@ -695,8 +695,15 @@ module rec Infer =
         newEnv <- env.AddScheme decl.Id.Name scheme
       | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
       | Decl.TsModule { Id = name; Body = body } ->
+
+        let name: string =
+          match name with
+          | TsModuleName.Ident ident -> ident.Name
+          | TsModuleName.Str str -> str.Value
+
         let mutable ns: Namespace =
-          { Values = Map.empty
+          { Name = name
+            Values = Map.empty
             Schemes = Map.empty
             Namespaces = Map.empty }
 
@@ -737,11 +744,6 @@ module rec Infer =
               | _ -> failwith "item must be a decl"
           | TsNamespaceDecl _tsNamespaceDecl ->
             failwith "TODO: inferModuleBlock- TsNamespaceDecl"
-
-        let name: string =
-          match name with
-          | TsModuleName.Ident ident -> ident.Name
-          | TsModuleName.Str str -> str.Value
 
         newEnv <- newEnv.AddNamespace name ns
 
@@ -910,6 +912,15 @@ module rec Infer =
     result {
       let mutable newEnv = env
 
+      // TODO: Figure out how to ensure that type refs for things defined
+      // in the namespace are qualified but... maybe we need to do two pass
+      // with the first pass identifying all of those things that are in
+      // the current namespace and thus must be qualified.  The tricky thing
+      // is that we don't want to qualify them while we're inferring them.
+      // Maybe we can do some post process afterwards to add the qualifier.
+
+      // Maybe when looking up a value in the namespace, we can update any
+      // TypeRefs in the type to be qualified
       for item in m.Body do
         let! env = inferModuleItem ctx newEnv item
         newEnv <- env

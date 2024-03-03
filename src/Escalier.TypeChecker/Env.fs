@@ -212,6 +212,8 @@ module rec Env =
       (ident: QualifiedIdent)
       : Result<Scheme, TypeError> =
 
+      printfn "ident = %A" ident
+
       result {
         match ident with
         | QualifiedIdent.Ident name -> return! this.GetScheme name

@@ -819,7 +819,8 @@ module Type =
       | None -> this.Type.ToString()
 
   type Namespace =
-    { Values: Map<string, Binding>
+    { Name: string
+      Values: Map<string, Binding>
       Schemes: Map<string, Scheme>
       Namespaces: Map<string, Namespace> }
 

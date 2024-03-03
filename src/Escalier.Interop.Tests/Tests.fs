@@ -537,7 +537,7 @@ let AcessNamespaceType () =
 
       let src =
         """
-        type Foo = Intl.NumberFormat
+        type NumFmt = Intl.NumberFormat
         """
 
       let! ast =
@@ -547,7 +547,7 @@ let AcessNamespaceType () =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Foo", "Intl.NumberFormat")
+      Assert.Type(env, "NumFmt", "Intl.NumberFormat")
     }
 
   Assert.False(Result.isError result)
@@ -561,7 +561,8 @@ let AcessNamespaceValue () =
 
       let src =
         """
-        let format = new Intl.NumberFormat(5)
+        let fmt = new Intl.NumberFormat("en-CA")
+        fmt.format(1.23)
         """
 
       let! ast =
@@ -572,7 +573,7 @@ let AcessNamespaceValue () =
         |> Result.mapError CompileError.TypeError
 
       // TODO: the type should include the namespace, i.e. Intl.NumberFormat
-      Assert.Value(env, "format", "NumberFormat")
+      Assert.Value(env, "fmt", "Intl.NumberFormat")
     }
 
   printfn "result = %A" result

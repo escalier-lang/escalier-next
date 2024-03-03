@@ -347,7 +347,7 @@ module rec Infer =
                 return!
                   Error(
                     TypeError.SemanticError
-                      "Can't call a mutable method on a mutable object"
+                      "Can't call a mutable method on a immutable object"
                   )
             | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
           | _ -> ()
@@ -728,6 +728,34 @@ module rec Infer =
       return! inferFuncBody ctx env fnSig placeholderFn body
     }
 
+  let qualifyTypeRefs
+    (t: Type)
+    (nsName: string)
+    (nsScheme: Map<string, Scheme>)
+    : Type =
+
+    let f =
+      fun (t: Type) ->
+        match t.Kind with
+        | TypeKind.TypeRef { Name = QualifiedIdent.Ident name
+                             Scheme = scheme
+                             TypeArgs = typeArgs } ->
+          match nsScheme.TryFind name with
+          | Some _ ->
+            let name = QualifiedIdent.Member(QualifiedIdent.Ident nsName, name)
+
+            let kind =
+              TypeKind.TypeRef
+                { Name = name
+                  TypeArgs = typeArgs
+                  Scheme = scheme }
+
+            Some { t with Kind = kind }
+          | None -> Some t
+        | _ -> Some t
+
+    Folder.foldType f t
+
   let getPropType
     (ctx: Ctx)
     (env: Env)
@@ -745,7 +773,9 @@ module rec Infer =
         | Some t -> return t
         | None ->
           return! Error(TypeError.SemanticError $"Property {key} not found")
-      | TypeKind.Namespace { Values = values
+      | TypeKind.Namespace { Name = nsName
+                             Values = values
+                             Schemes = schemes
                              Namespaces = namespaces } ->
         match key with
         | PropName.String s ->
@@ -758,7 +788,9 @@ module rec Infer =
               return
                 { Kind = TypeKind.Namespace ns
                   Provenance = None }
-          | Some(t, _) -> return t
+          // TODO: handle nested namespaces by adding a optional reference
+          // to the parent namespace that we can follow
+          | Some(t, _) -> return qualifyTypeRefs t nsName schemes
         | PropName.Number _ ->
           return!
             Error(
@@ -798,11 +830,6 @@ module rec Infer =
           let! scheme = env.GetScheme typeRefName
           let! objType = expandScheme ctx env None scheme Map.empty typeArgs
           return! getPropType ctx env objType key optChain
-      // match env.Schemes.TryFind typeRefName with
-      // | Some scheme ->
-      //   let! objType = expandScheme ctx env None scheme Map.empty typeArgs
-      //   return! getPropType ctx env objType key optChain
-      // | None -> return! Error(TypeError.SemanticError $"{key} not in scope")
       | TypeKind.Union types ->
         let undefinedTypes, definedTypes =
           List.partition

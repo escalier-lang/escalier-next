@@ -166,15 +166,10 @@ module rec Env =
       { Kind = TypeKind.Union(types)
         Provenance = None }
 
-
-  type Binding = Type * bool
   type BindingAssump = Map<string, Binding>
   type SchemeAssump = string * Scheme
 
-  type Namespace =
-    { Values: Map<string, Binding>
-      Schemes: Map<string, Scheme>
-      Namespaces: Map<string, Namespace> }
+  type Namespace with
 
     member this.AddScheme (name: string) (scheme: Scheme) =
       { this with
@@ -342,18 +337,6 @@ module rec Env =
           | None ->
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
       }
-
-    // member this.GetQualifiedScheme
-    //   (ident: QualifiedIdent)
-    //   : Result<Scheme, TypeError> =
-    //
-    //   result {
-    //     match ident with
-    //     | QualifiedIdent.Ident name -> return! this.GetScheme name
-    //     | QualifiedIdent.Member(qualifier, name) ->
-    //       let! ns = this.GetNamspace qualifier
-    //       return! ns.GetScheme name
-    //   }
 
     member this.GetQualifiedBinding
       (ident: QualifiedIdent)

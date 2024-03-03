@@ -87,7 +87,13 @@ module rec Infer =
     let r =
       result {
         match expr.Kind with
-        | ExprKind.Identifier(name) -> return! env.GetType name
+        | ExprKind.Identifier(name) ->
+
+          match env.Namespaces.TryFind name with
+          | None -> return! env.GetType name
+          | Some value ->
+            let kind = TypeKind.Namespace value
+            return { Kind = kind; Provenance = None }
         | ExprKind.Literal(literal) ->
           return
             { Kind = TypeKind.Literal(literal)
@@ -326,36 +332,27 @@ module rec Infer =
               Error(TypeError.SemanticError $"Expected Struct type, got {t}")
 
         | ExprKind.Member(obj, prop, optChain) ->
-          // TODO: replace with inferring a namespace type
-          match! env.GetNamespace obj with
-          | Some(ns, None) ->
-            let! (t, _) = ns.GetBinding prop
-            return t
-          | _ ->
-            let! objType = inferExpr ctx env obj
-            let propKey = PropName.String(prop)
+          let! objType = inferExpr ctx env obj
+          let propKey = PropName.String(prop)
 
-            // TODO: handle optional chaining
-            // TODO: lookup properties on object type
-            let! t = getPropType ctx env objType propKey optChain
+          let! t = getPropType ctx env objType propKey optChain
 
-            match t.Kind with
-            | TypeKind.Function { Self = Some(self) } ->
-              match self.Pattern with
-              | Identifier identPat ->
-                let! isObjMut = getIsMut ctx env obj
+          match t.Kind with
+          | TypeKind.Function { Self = Some(self) } ->
+            match self.Pattern with
+            | Identifier identPat ->
+              let! isObjMut = getIsMut ctx env obj
 
-                if identPat.IsMut && not isObjMut then
-                  return!
-                    Error(
-                      TypeError.SemanticError
-                        "Can't call a mutable method on a mutable object"
-                    )
-              | _ ->
-                return! Error(TypeError.SemanticError "Invalid self pattern")
-            | _ -> ()
+              if identPat.IsMut && not isObjMut then
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "Can't call a mutable method on a mutable object"
+                  )
+            | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+          | _ -> ()
 
-            return t
+          return t
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env await.Value
 
@@ -748,6 +745,32 @@ module rec Infer =
         | Some t -> return t
         | None ->
           return! Error(TypeError.SemanticError $"Property {key} not found")
+      | TypeKind.Namespace { Values = values
+                             Namespaces = namespaces } ->
+        match key with
+        | PropName.String s ->
+          match values.TryFind s with
+          | None ->
+            match namespaces.TryFind s with
+            | None ->
+              return! Error(TypeError.SemanticError $"Property {key} not found")
+            | Some ns ->
+              return
+                { Kind = TypeKind.Namespace ns
+                  Provenance = None }
+          | Some(t, _) -> return t
+        | PropName.Number _ ->
+          return!
+            Error(
+              TypeError.SemanticError
+                "Can't use a number as a key with a namespace"
+            )
+        | PropName.Symbol _ ->
+          return!
+            Error(
+              TypeError.SemanticError
+                "Can't use a symbol as a key with a namespace"
+            )
       | TypeKind.Struct { Elems = elems; Impls = impls } ->
         match inferMemberAccess key elems with
         | Some t -> return t
@@ -1660,8 +1683,7 @@ module rec Infer =
           | TypeKind.UniqueSymbol id -> PropName.Symbol id
           | _ -> failwith "Symbol.iterator is not a unique symbol"
 
-        // TODO: Update `getPropType` to return a Result<Type, TypeError>
-        getPropType ctx env arrayScheme.Type propName false |> ignore
+        let! _ = getPropType ctx env arrayScheme.Type propName false
 
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.

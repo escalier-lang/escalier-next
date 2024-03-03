@@ -695,7 +695,7 @@ module rec Infer =
         newEnv <- env.AddScheme decl.Id.Name scheme
       | Decl.TsEnum tsEnumDecl -> failwith "TODO: tsEnumDecl"
       | Decl.TsModule { Id = name; Body = body } ->
-        let mutable ns: Env.Namespace =
+        let mutable ns: Namespace =
           { Values = Map.empty
             Schemes = Map.empty
             Namespaces = Map.empty }

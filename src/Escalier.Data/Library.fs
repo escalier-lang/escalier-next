@@ -763,6 +763,7 @@ module Type =
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
+    | Namespace of Namespace
     | Primitive of Primitive
     | Keyword of Keyword
     | Function of Function
@@ -800,6 +801,8 @@ module Type =
 
     override this.ToString() = printType { Precedence = 0 } this
 
+  type Binding = Type * bool
+
   type Scheme =
     // TODO: allow type params to have constraints and defaults
     { TypeParams: option<list<TypeParam>>
@@ -814,6 +817,11 @@ module Type =
 
         $"<{typeParams}>({this.Type})"
       | None -> this.Type.ToString()
+
+  type Namespace =
+    { Values: Map<string, Binding>
+      Schemes: Map<string, Scheme>
+      Namespaces: Map<string, Namespace> }
 
   // TODO: Figure out how to share this code with TypeChecker.Prune
   let rec prune (t: Type) : Type =
@@ -830,6 +838,7 @@ module Type =
     match t.Kind with
     | TypeKind.TypeVar typeVar -> 100
     | TypeKind.TypeRef typeRef -> 100
+    | TypeKind.Namespace ns -> 100
     | TypeKind.Primitive primitive -> 100
     | TypeKind.Keyword keyword -> 100
     | TypeKind.Function f -> 100
@@ -903,6 +912,7 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
+      | TypeKind.Namespace ns -> ns.ToString()
       | TypeKind.Primitive primitive -> primitive.ToString()
       | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> printFunction ctx f

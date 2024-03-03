@@ -366,3 +366,16 @@ module rec Env =
           let! ns = this.GetNamspace qualifier
           return! ns.GetBinding name
       }
+
+    member this.GetNamespace
+      (expr: Syntax.Expr)
+      : Result<option<Namespace * option<Syntax.Expr>>, TypeError> =
+
+      result {
+        match expr.Kind with
+        | Syntax.ExprKind.Identifier ident ->
+          match this.Namespaces.TryFind ident with
+          | None -> return None
+          | Some ns -> return Some(ns, None)
+        | _ -> return None
+      }

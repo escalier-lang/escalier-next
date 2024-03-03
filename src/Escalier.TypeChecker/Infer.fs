@@ -326,29 +326,36 @@ module rec Infer =
               Error(TypeError.SemanticError $"Expected Struct type, got {t}")
 
         | ExprKind.Member(obj, prop, optChain) ->
-          let! objType = inferExpr ctx env obj
-          let propKey = PropName.String(prop)
+          // TODO: replace with inferring a namespace type
+          match! env.GetNamespace obj with
+          | Some(ns, None) ->
+            let! (t, _) = ns.GetBinding prop
+            return t
+          | _ ->
+            let! objType = inferExpr ctx env obj
+            let propKey = PropName.String(prop)
 
-          // TODO: handle optional chaining
-          // TODO: lookup properties on object type
-          let! t = getPropType ctx env objType propKey optChain
+            // TODO: handle optional chaining
+            // TODO: lookup properties on object type
+            let! t = getPropType ctx env objType propKey optChain
 
-          match t.Kind with
-          | TypeKind.Function { Self = Some(self) } ->
-            match self.Pattern with
-            | Identifier identPat ->
-              let! isObjMut = getIsMut ctx env obj
+            match t.Kind with
+            | TypeKind.Function { Self = Some(self) } ->
+              match self.Pattern with
+              | Identifier identPat ->
+                let! isObjMut = getIsMut ctx env obj
 
-              if identPat.IsMut && not isObjMut then
-                return!
-                  Error(
-                    TypeError.SemanticError
-                      "Can't call a mutable method on a mutable object"
-                  )
-            | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
-          | _ -> ()
+                if identPat.IsMut && not isObjMut then
+                  return!
+                    Error(
+                      TypeError.SemanticError
+                        "Can't call a mutable method on a mutable object"
+                    )
+              | _ ->
+                return! Error(TypeError.SemanticError "Invalid self pattern")
+            | _ -> ()
 
-          return t
+            return t
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env await.Value
 
@@ -2687,6 +2694,10 @@ module rec Infer =
         let! t = getPropType ctx env target key false
         return t, isMut
       | ExprKind.Member(target, name, optChain) ->
+        // TODO: check if `target` is a namespace
+        // If the target is either an Identifier or another Member, we
+        // can try to look look for a namespace for it.
+
         // TODO: disallow optChain in lvalues
         let! target, isMut = getLvalue ctx env target
         let! t = getPropType ctx env target (PropName.String name) false

@@ -484,19 +484,6 @@ module Parser =
 
   exprParser.RegisterPrefix("(", groupingExprParselet 18)
 
-  let newingParselet: Pratt.PrefixParselet<Expr> =
-    prefixExprParslet 17 (fun operand ->
-      { Expr.Kind =
-          ExprKind.New
-            { Callee = operand
-              TypeArgs = None
-              Args = None
-              Throws = None }
-        Span = operand.Span
-        InferredType = None })
-
-  exprParser.RegisterPrefix("new", newingParselet)
-
   let indexParselet (precedence: int) : Pratt.InfixParselet<Expr> =
     { Parse =
         fun (parser, stream, left, operator) ->
@@ -554,8 +541,6 @@ module Parser =
           | Ok ->
             let kind =
               match left.Kind with
-              | ExprKind.New n ->
-                ExprKind.New { n with Args = Some(args.Result) }
               | ExprKind.ExprWithTypeArgs(callee, typeArgs) ->
                 ExprKind.Call
                   { Callee = callee
@@ -599,13 +584,7 @@ module Parser =
 
           match typeArgs.Status with
           | Ok ->
-            let kind =
-              match left.Kind with
-              | ExprKind.New n ->
-                ExprKind.New
-                  { n with
-                      TypeArgs = Some(typeArgs.Result) }
-              | _ -> ExprKind.ExprWithTypeArgs(left, typeArgs.Result)
+            let kind = ExprKind.ExprWithTypeArgs(left, typeArgs.Result)
 
             Reply(
               { Expr.Kind = kind
@@ -618,7 +597,24 @@ module Parser =
           | _ -> Reply(typeArgs.Status, typeArgs.Error)
       Precedence = precedence }
 
-  exprParser.RegisterInfix("<", typeArgsParselet 16)
+  exprParser.RegisterInfix("<", typeArgsParselet 17)
+
+  let newingParselet: Pratt.PrefixParselet<Expr> =
+    prefixExprParslet 16 (fun operand ->
+      match operand.Kind with
+      | ExprKind.Call call ->
+        { Expr.Kind =
+            ExprKind.New
+              { Callee = call.Callee
+                TypeArgs = call.TypeArgs
+                Args = Some call.Args
+                Throws = None }
+          Span = operand.Span
+          InferredType = None }
+      // TODO: return a Reply
+      | _ -> failwith "Expected call expression")
+
+  exprParser.RegisterPrefix("new", newingParselet)
 
   exprParser.RegisterPrefix("!", unaryExprParslet 14 "!")
   // bitwise not (14)
@@ -1308,6 +1304,20 @@ module Parser =
         typeRef ]
     .>> ws
 
+  let infixTypeAnnParselet
+    (precedence: int)
+    // TODO: update callback to return a Reply<TypeAnn>
+    (callback: TypeAnn -> TypeAnn -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = parser.Parse precedence stream
+
+          match right.Status with
+          | Ok -> Reply(callback left right.Result)
+          | _ -> right
+      Precedence = precedence }
+
   let typeAnnParser = Pratt.PrattParser<TypeAnn>(primaryType)
 
   let groupingTypeAnnParselet
@@ -1319,6 +1329,24 @@ module Parser =
       Precedence = precedence }
 
   typeAnnParser.RegisterPrefix("(", groupingTypeAnnParselet 18)
+
+  typeAnnParser.RegisterInfix(
+    ".",
+    infixTypeAnnParselet 17 (fun left right ->
+      match left.Kind, right.Kind with
+      | TypeAnnKind.TypeRef { Ident = qualifier },
+        TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } ->
+        let kind =
+          TypeAnnKind.TypeRef
+            { Ident = QualifiedIdent.Member(qualifier, name)
+              TypeArgs = None }
+
+        { TypeAnn.Kind = kind
+          Span = mergeSpans left.Span right.Span
+          InferredType = None }
+      // TODO: return a Reply for this error case
+      | _ -> failwith "TODO")
+  )
 
   let indexTypeAnnParselet (precedence: int) : Pratt.InfixParselet<TypeAnn> =
     { Parse =
@@ -1404,19 +1432,6 @@ module Parser =
         Span = mergeSpans first.Span last.Span
         InferredType = None })
   )
-
-  let infixTypeAnnParselet
-    (precedence: int)
-    (callback: TypeAnn -> TypeAnn -> TypeAnn)
-    : Pratt.InfixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          let right = parser.Parse precedence stream
-
-          match right.Status with
-          | Ok -> Reply(callback left right.Result)
-          | _ -> right
-      Precedence = precedence }
 
   typeAnnParser.RegisterInfix(
     "..",

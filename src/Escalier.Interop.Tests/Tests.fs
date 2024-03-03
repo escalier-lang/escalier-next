@@ -528,7 +528,7 @@ let CallArrayConstructorWithNoTypeAnnotations () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let AcessNamespaceType () =
   let result =
     result {
@@ -547,7 +547,32 @@ let AcessNamespaceType () =
         Infer.inferScript ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Foo", "{}")
+      Assert.Type(env, "Foo", "Intl.NumberFormat")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let AcessNamespaceValue () =
+  let result =
+    result {
+      let mockFileSystem = MockFileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+
+      let src =
+        """
+        let format = new Intl.NumberFormat(5)
+        """
+
+      let! ast =
+        Parser.parseScript src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      // TODO: the type should include the namespace, i.e. Intl.NumberFormat
+      Assert.Value(env, "format", "NumberFormat")
     }
 
   printfn "result = %A" result

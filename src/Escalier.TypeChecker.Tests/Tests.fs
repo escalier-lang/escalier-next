@@ -729,3 +729,61 @@ let InferUnaryOperations () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferEnum () =
+  let result =
+    result {
+      let src =
+        """
+        enum MyEnum {
+          | Foo(number, string, boolean)
+          | Bar([number, number])
+          | Baz(number | string)
+        }
+        let value = MyEnum.Foo(5, "hello", true)
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(
+        env,
+        "MyEnum",
+        "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
+      )
+
+      // TODO: how do we include `MyEnum.` in the type?
+      // What does this mean in the context of creating new enums from existings enums
+      Assert.Value(env, "value", "Foo(number, string, boolean)")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferEnumVariantIsSubtypeOfEnum () =
+  let result =
+    result {
+      let src =
+        """
+        enum MyEnum {
+          | Foo(number, string, boolean)
+          | Bar([number, number])
+          | Baz(number | string)
+        }
+        let value: MyEnum = MyEnum.Foo(5, "hello", true)
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(
+        env,
+        "MyEnum",
+        "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
+      )
+
+      // TODO: how do we include `MyEnum.` in the type?
+      // What does this mean in the context of creating new enums from existings enums
+      Assert.Value(env, "value", "MyEnum")
+    }
+
+  Assert.False(Result.isError result)

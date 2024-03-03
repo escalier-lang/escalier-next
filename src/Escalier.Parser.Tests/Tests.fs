@@ -465,6 +465,7 @@ let ParseEnum () =
       | Bar([number, number])
       | Baz(number | string)
     }
+    let value = MyEnum.Foo(5, "hello", true)
     """
 
   let ast = Parser.parseScript src

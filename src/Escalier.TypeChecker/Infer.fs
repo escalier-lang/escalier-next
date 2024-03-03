@@ -1675,95 +1675,102 @@ module rec Infer =
       return typeParams, newEnv
     }
 
-  // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
-  let inferStmt
+  let inferDecl
     (ctx: Ctx)
     (env: Env)
-    (stmt: Stmt)
+    (decl: Decl)
     (generalize: bool)
     : Result<Env, TypeError> =
+
     result {
-      match stmt.Kind with
-      | StmtKind.Expr expr ->
-        let! _ = inferExpr ctx env expr
-        return env
-      | StmtKind.For(pattern, right, block) ->
-        let! patBindings, patType = inferPattern ctx env pattern
-        let! rightType = inferExpr ctx env right
-
-        let symbol =
-          match env.Values.TryFind "Symbol" with
-          | Some scheme -> fst scheme
-          | None -> failwith "Symbol not in scope"
-
-        let! symbolIterator =
-          getPropType ctx env symbol (PropName.String "iterator") false
-
-        // TODO: only lookup Symbol.iterator on Array for arrays and tuples
-        let arrayScheme =
-          match env.Schemes.TryFind "Array" with
-          | Some scheme -> scheme
-          | None -> failwith "Array not in scope"
-
-        let propName =
-          match symbolIterator.Kind with
-          | TypeKind.UniqueSymbol id -> PropName.Symbol id
-          | _ -> failwith "Symbol.iterator is not a unique symbol"
-
-        let! _ = getPropType ctx env arrayScheme.Type propName false
-
-        // TODO: add a variant of `ExpandType` that allows us to specify a
-        // predicate that can stop the expansion early.
-        let! expandedRightType = expandType ctx env None Map.empty rightType
-
-        let! elemType =
-          result {
-            match expandedRightType.Kind with
-            | TypeKind.Array { Elem = elem; Length = length } -> return elem
-            | TypeKind.Tuple { Elems = elems } -> return union elems
-            | TypeKind.Range _ -> return expandedRightType
-            | TypeKind.Object _ ->
-              // TODO: try using unify and/or an utility type to extract the
-              // value type from an iterator
-
-              // TODO: add a `tryGetPropType` function that returns an option
-              let! next =
-                getPropType ctx env rightType (PropName.String "next") false
-
-              match next.Kind with
-              | TypeKind.Function f ->
-                return!
-                  getPropType ctx env f.Return (PropName.String "value") false
-              | _ ->
-                return!
-                  Error(
-                    TypeError.SemanticError $"{rightType} is not an iterator"
-                  )
-            | _ ->
-              return!
-                Error(
-                  TypeError.NotImplemented
-                    "TODO: for loop over non-iterable type"
-                )
-          }
-
-        do! unify ctx env None elemType patType
-
-        let mutable newEnv = env
-
-        for KeyValue(name, binding) in patBindings do
-          newEnv <- newEnv.AddValue name binding
-
-        let! _ = inferBlock ctx newEnv block
-        return env
-      | StmtKind.Decl({ Kind = DeclKind.VarDecl varDecl }) ->
+      match decl.Kind with
+      | DeclKind.VarDecl varDecl ->
         let! bindings = inferVarDecl ctx env varDecl
 
         let bindings =
           if generalize then generalizeBindings bindings else bindings
 
         return env.AddBindings bindings
-      | StmtKind.Decl({ Kind = DeclKind.TypeDecl typeDecl }) ->
+      | DeclKind.EnumDecl { Name = name
+                            TypeParams = _typeParams
+                            Variants = variants } ->
+        // TODO: handle type params in enums
+
+        let never =
+          { Kind = TypeKind.Keyword Keyword.Never
+            Provenance = None }
+
+        let! variants =
+          List.traverseResultM
+            (fun (variant: Syntax.EnumVariant) ->
+              result {
+                let name = variant.Name
+
+                let! types =
+                  List.traverseResultM
+                    (fun typeAnn ->
+                      result {
+                        let! t = inferTypeAnn ctx env typeAnn
+                        return t
+                      })
+                    variant.TypeAnns
+
+                let variant =
+                  { SymbolId = ctx.FreshUniqueId()
+                    Name = name
+                    Types = types }
+
+                return variant
+              })
+            variants
+
+        let elems =
+          variants
+          |> List.map (fun variant ->
+            // TODO: make each function param generic
+            let paramList: list<FuncParam> =
+              variant.Types
+              |> List.mapi (fun i t ->
+                { Pattern =
+                    Pattern.Identifier { Name = $"arg{i}"; IsMut = false }
+                  Type = t
+                  Optional = false })
+
+            let retType =
+              { Type.Kind = TypeKind.EnumVariant variant
+                Provenance = None }
+
+            ObjTypeElem.Method(
+              PropName.String variant.Name,
+              makeFunction None None paramList retType never
+            ))
+
+        let types =
+          variants
+          |> List.map (fun variant ->
+            { Type.Kind = TypeKind.EnumVariant variant
+              Provenance = None })
+
+        let t = union types
+
+        let scheme =
+          { Type = t
+            TypeParams = None
+            IsTypeParam = false }
+
+        printfn $"Adding enum {name} to env"
+
+        let value =
+          { Type.Kind = TypeKind.Object { Elems = elems; Immutable = false }
+            Provenance = None }
+
+        let mutable newEnv = env
+
+        newEnv <- newEnv.AddScheme name scheme
+        newEnv <- newEnv.AddValue name (value, false)
+
+        return newEnv
+      | DeclKind.TypeDecl typeDecl ->
         let! placeholder = inferTypeDeclScheme ctx env typeDecl
         let mutable newEnv = env
 
@@ -1778,9 +1785,9 @@ module rec Infer =
         placeholder.Type <- scheme.Type
 
         return newEnv.AddScheme typeDecl.Name scheme
-      | StmtKind.Decl({ Kind = DeclKind.StructDecl { Name = name
-                                                     TypeParams = typeParams
-                                                     Elems = elems } }) ->
+      | DeclKind.StructDecl { Name = name
+                              TypeParams = typeParams
+                              Elems = elems } ->
         let mutable newEnv = env
 
         let! placeholderTypeParams =
@@ -1886,6 +1893,91 @@ module rec Infer =
         let newEnv = newEnv.AddValue name (t, false)
 
         return newEnv
+
+    }
+
+  // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
+  let inferStmt
+    (ctx: Ctx)
+    (env: Env)
+    (stmt: Stmt)
+    (generalize: bool)
+    : Result<Env, TypeError> =
+    result {
+      match stmt.Kind with
+      | StmtKind.Expr expr ->
+        let! _ = inferExpr ctx env expr
+        return env
+      | StmtKind.For(pattern, right, block) ->
+        let! patBindings, patType = inferPattern ctx env pattern
+        let! rightType = inferExpr ctx env right
+
+        let symbol =
+          match env.Values.TryFind "Symbol" with
+          | Some scheme -> fst scheme
+          | None -> failwith "Symbol not in scope"
+
+        let! symbolIterator =
+          getPropType ctx env symbol (PropName.String "iterator") false
+
+        // TODO: only lookup Symbol.iterator on Array for arrays and tuples
+        let arrayScheme =
+          match env.Schemes.TryFind "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+
+        let propName =
+          match symbolIterator.Kind with
+          | TypeKind.UniqueSymbol id -> PropName.Symbol id
+          | _ -> failwith "Symbol.iterator is not a unique symbol"
+
+        let! _ = getPropType ctx env arrayScheme.Type propName false
+
+        // TODO: add a variant of `ExpandType` that allows us to specify a
+        // predicate that can stop the expansion early.
+        let! expandedRightType = expandType ctx env None Map.empty rightType
+
+        let! elemType =
+          result {
+            match expandedRightType.Kind with
+            | TypeKind.Array { Elem = elem; Length = length } -> return elem
+            | TypeKind.Tuple { Elems = elems } -> return union elems
+            | TypeKind.Range _ -> return expandedRightType
+            | TypeKind.Object _ ->
+              // TODO: try using unify and/or an utility type to extract the
+              // value type from an iterator
+
+              // TODO: add a `tryGetPropType` function that returns an option
+              let! next =
+                getPropType ctx env rightType (PropName.String "next") false
+
+              match next.Kind with
+              | TypeKind.Function f ->
+                return!
+                  getPropType ctx env f.Return (PropName.String "value") false
+              | _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError $"{rightType} is not an iterator"
+                  )
+            | _ ->
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    "TODO: for loop over non-iterable type"
+                )
+          }
+
+        do! unify ctx env None elemType patType
+
+        let mutable newEnv = env
+
+        for KeyValue(name, binding) in patBindings do
+          newEnv <- newEnv.AddValue name binding
+
+        let! _ = inferBlock ctx newEnv block
+        return env
+      | StmtKind.Decl decl -> return! inferDecl ctx env decl generalize
       | StmtKind.Impl { TypeParams = typeParams
                         Self = structName
                         Elems = elems } ->

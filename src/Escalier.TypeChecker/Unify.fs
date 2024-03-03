@@ -326,6 +326,17 @@ module rec Unify =
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
       | TypeKind.UniqueNumber _, TypeKind.Primitive Primitive.Number -> ()
+      | TypeKind.EnumVariant v1, TypeKind.EnumVariant v2 when
+        v1.SymbolId = v2.SymbolId
+        ->
+        if v1.Types.Length <> v2.Types.Length then
+          return!
+            Error(TypeError.SemanticError "Enum variant types don't match")
+
+        for t1, t2 in List.zip v1.Types v2.Types do
+          do! unify ctx env ips t1 t2
+
+        ()
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))

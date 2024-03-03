@@ -4,6 +4,7 @@
       | Bar([number, number])
       | Baz(number | string)
     }
+    let value = MyEnum.Foo(5, "hello", true)
     
 output: Ok
   { Items =
@@ -64,4 +65,51 @@ output: Ok
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
-                   Stop = (Ln: 7, Col: 5) } }] }
+                   Stop = (Ln: 7, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Pattern = { Kind = Ident { Name = "value"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 7, Col: 9)
+                                         Stop = (Ln: 7, Col: 15) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     { Kind =
+                        Call
+                          { Callee =
+                             { Kind =
+                                Member ({ Kind = Identifier "MyEnum"
+                                          Span = { Start = (Ln: 7, Col: 17)
+                                                   Stop = (Ln: 7, Col: 23) }
+                                          InferredType = None }, "Foo", false)
+                               Span = { Start = (Ln: 7, Col: 17)
+                                        Stop = (Ln: 7, Col: 27) }
+                               InferredType = None }
+                            TypeArgs = None
+                            Args =
+                             [{ Kind = Literal (Number (Int 5))
+                                Span = { Start = (Ln: 7, Col: 28)
+                                         Stop = (Ln: 7, Col: 29) }
+                                InferredType = None };
+                              { Kind = Literal (String "hello")
+                                Span = { Start = (Ln: 7, Col: 31)
+                                         Stop = (Ln: 7, Col: 38) }
+                                InferredType = None };
+                              { Kind = Literal (Boolean true)
+                                Span = { Start = (Ln: 7, Col: 40)
+                                         Stop = (Ln: 7, Col: 44) }
+                                InferredType = None }]
+                            OptChain = false
+                            Throws = None }
+                       Span = { Start = (Ln: 7, Col: 17)
+                                Stop = (Ln: 8, Col: 5) }
+                       InferredType = None } }
+               Span = { Start = (Ln: 7, Col: 5)
+                        Stop = (Ln: 8, Col: 5) } }
+          Span = { Start = (Ln: 7, Col: 5)
+                   Stop = (Ln: 8, Col: 5) } }] }

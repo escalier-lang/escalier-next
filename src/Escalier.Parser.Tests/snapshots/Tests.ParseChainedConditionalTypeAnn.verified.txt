@@ -12,7 +12,7 @@ output: Ok
                     TypeAnn =
                      { Kind =
                         Condition
-                          { Check = { Kind = TypeRef { Ident = "T"
+                          { Check = { Kind = TypeRef { Ident = Ident "T"
                                                        TypeArgs = None }
                                       Span = { Start = (Ln: 2, Col: 22)
                                                Stop = (Ln: 2, Col: 23) }
@@ -28,7 +28,7 @@ output: Ok
                             FalseType =
                              { Kind =
                                 Condition
-                                  { Check = { Kind = TypeRef { Ident = "T"
+                                  { Check = { Kind = TypeRef { Ident = Ident "T"
                                                                TypeArgs = None }
                                               Span = { Start = (Ln: 2, Col: 53)
                                                        Stop = (Ln: 2, Col: 54) }

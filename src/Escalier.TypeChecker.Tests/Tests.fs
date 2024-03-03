@@ -6,9 +6,9 @@ open System.IO.Abstractions.TestingHelpers
 open Xunit
 
 open Escalier.Compiler
+open Escalier.Data.Common
 open Escalier.Data.Type
 open Escalier.Parser
-open Escalier.TypeChecker
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
@@ -139,16 +139,17 @@ let InferIfElseChaining () =
 [<Fact>]
 let InferIdentifier () =
   let t: Type =
-    { Kind = makeTypeRefKind "number"
+    { Kind = makeTypeRefKind (QualifiedIdent.Ident "number")
       Provenance = None }
 
   let env =
-    { Env.BinaryOps = Map.empty
-      Env.UnaryOps = Map.empty
-      Env.Values = Map([ ("foo", (t, false)) ])
-      Env.Schemes = Map([])
-      Env.IsAsync = false
-      Env.IsPatternMatching = false }
+    { BinaryOps = Map.empty
+      UnaryOps = Map.empty
+      Values = Map([ ("foo", (t, false)) ])
+      Schemes = Map.empty
+      Namespaces = Map.empty
+      IsAsync = false
+      IsPatternMatching = false }
 
   let result =
     result {

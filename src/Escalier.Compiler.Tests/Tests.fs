@@ -159,3 +159,40 @@ let SimpleNamedImports () =
 
   printfn "result = %A" result
   Assert.True(Result.isOk result)
+
+[<Fact>]
+let ModuleAliasImport () =
+  let result =
+    result {
+
+      let mockFileSystem = MockFileSystem()
+
+      let files =
+        [ "/imports2/entry.esc"; "/imports2/math.esc"; "/imports2/point.esc" ]
+
+      for file in files do
+        let srcPath = Path.Join("/fixtures/imports", file)
+        let srcContents = File.ReadAllText(Path.Join(baseDir, srcPath))
+        mockFileSystem.AddFile(srcPath, srcContents)
+
+      let mockWriter = new StringWriter()
+
+      let! ctx, env =
+        Compiler.compileFiles
+          mockFileSystem
+          mockWriter
+          "/fixtures/imports"
+          "/fixtures/imports/imports2/entry.esc"
+
+      if ctx.Diagnostics.Length > 0 then
+        Compiler.printDiagnostics mockWriter ctx.Diagnostics
+        printfn "DIAGNOSTICS:\n%s" (mockWriter.ToString())
+
+      Assert.Value(env, "p", "point.Point")
+      Assert.Equal(ctx.Diagnostics.Length, 0)
+
+      return ()
+    }
+
+  printfn "result = %A" result
+  Assert.True(Result.isOk result)

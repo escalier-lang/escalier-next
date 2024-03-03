@@ -782,7 +782,7 @@ module rec Unify =
         fun t ->
           let result =
             match t.Kind with
-            | TypeKind.TypeRef { Name = name } ->
+            | TypeKind.TypeRef { Name = QualifiedIdent.Ident name } ->
               match Map.tryFind name mapping with
               | Some typeArg -> typeArg
               | None -> t
@@ -793,7 +793,8 @@ module rec Unify =
       result {
 
         match t.Kind with
-        | TypeKind.TypeRef { Name = "Promise" } -> printfn $"t = {t}"
+        | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise" } ->
+          printfn $"t = {t}"
         | _ -> ()
 
         let t = prune t
@@ -872,7 +873,7 @@ module rec Unify =
           let extends = replaceInfers extends newMapping
 
           match check.Kind with
-          | TypeKind.TypeRef { Name = name } ->
+          | TypeKind.TypeRef { Name = QualifiedIdent.Ident name } ->
             match Map.tryFind name newMapping with
             | Some { Kind = TypeKind.Union types } ->
               let! extends = expand newMapping extends
@@ -942,7 +943,7 @@ module rec Unify =
 
                             let folder t =
                               match t.Kind with
-                              | TypeKind.TypeRef({ Name = name }) when
+                              | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
                                 name = m.TypeParam.Name
                                 ->
                                 Some(keyType)
@@ -973,7 +974,7 @@ module rec Unify =
 
                     let folder t =
                       match t.Kind with
-                      | TypeKind.TypeRef({ Name = name }) when
+                      | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
                         name = m.TypeParam.Name
                         ->
                         Some(m.TypeParam.Constraint)
@@ -1016,20 +1017,26 @@ module rec Unify =
           // TODO: Take this a setep further and update ExpandType and ExpandScheme
           // to be functions that accept an `env: Env` param.  We can then augment
           // the `env` instead of using the `mapping` param.
+          // TODO: check if `name` is a qualified ident first
+          // only unqualified idents can appear in the mapping
           let! t =
-            match Map.tryFind name mapping with
-            | Some t -> Result.Ok t
-            | None ->
-              match scheme with
-              | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
+            match name with
+            | Ident name ->
+              match Map.tryFind name mapping with
+              | Some t -> Result.Ok t
               | None ->
-                match env.Schemes.TryFind name with
+                match scheme with
                 | Some scheme ->
                   expandScheme ctx env ips scheme mapping typeArgs
                 | None ->
-                  printfn $"t = {t}"
-                  printfn $"scheme = {scheme}"
-                  failwith $"{name} is not in scope"
+                  match env.Schemes.TryFind name with
+                  | Some scheme ->
+                    expandScheme ctx env ips scheme mapping typeArgs
+                  | None ->
+                    printfn $"t = {t}"
+                    printfn $"scheme = {scheme}"
+                    failwith $"{name} is not in scope"
+            | Member(left, right) -> failwith "TODO: expand qualified ident"
 
           return! expand mapping t
         | _ ->

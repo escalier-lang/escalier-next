@@ -19,7 +19,7 @@ output: Ok
                     Init =
                      { Kind =
                         Struct
-                          { TypeRef = { Ident = "Foo"
+                          { TypeRef = { Ident = Ident "Foo"
                                         TypeArgs = None }
                             Elems =
                              [Property
@@ -59,7 +59,7 @@ output: Ok
                      { Kind =
                         Struct
                           { TypeRef =
-                             { Ident = "Bar"
+                             { Ident = Ident "Bar"
                                TypeArgs =
                                 Some [{ Kind = Keyword Number
                                         Span = { Start = (Ln: 3, Col: 19)

@@ -1,0 +1,7 @@
+import "~/imports2/math" as math
+import "./point" as point
+
+let p = point.makePoint(5, 10)
+let q: point.Point = {x: 20, y: 30}
+let x = math.add(p.x, q.x)
+let y = math.sub(p.y, q.y)

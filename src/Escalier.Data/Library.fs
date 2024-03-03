@@ -118,6 +118,14 @@ module Common =
   type TemplateLiteral<'T> =
     { Parts: list<string>; Exprs: list<'T> }
 
+  type QualifiedIdent =
+    | Ident of string
+    | Member of left: QualifiedIdent * right: string
+
+    override this.ToString() =
+      match this with
+      | Ident value -> value
+      | Member(left, right) -> $"{left}.{right}"
 
 module Syntax =
   type Span = { Start: Position; Stop: Position }
@@ -274,12 +282,8 @@ module Syntax =
 
     override this.GetHashCode() = this.Kind.GetHashCode()
 
-  type QualifiedIdent =
-    | Ident of string
-    | Member of left: QualifiedIdent * right: string
-
   type TypeRef =
-    { Ident: string // TOOD: use QualifiedIdent
+    { Ident: Common.QualifiedIdent
       TypeArgs: option<list<TypeAnn>> }
 
   type KeyValuePat =
@@ -293,7 +297,7 @@ module Syntax =
       Name: string
       IsMut: bool
       Default: option<Expr>
-      Assertion: option<QualifiedIdent> }
+      Assertion: option<Common.QualifiedIdent> }
 
   type RestPat =
     { Span: Span
@@ -310,9 +314,10 @@ module Syntax =
   type IdentPat =
     { Name: string
       IsMut: bool
-      Assertion: option<QualifiedIdent> }
+      Assertion: option<Common.QualifiedIdent> }
 
-  type WildcardPattern = { Assertion: option<QualifiedIdent> }
+  type WildcardPattern =
+    { Assertion: option<Common.QualifiedIdent> }
 
   [<RequireQualifiedAccess>]
   type PatternKind =
@@ -466,7 +471,7 @@ module Syntax =
     | Function of FunctionType
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
-    | Typeof of target: QualifiedIdent
+    | Typeof of target: Common.QualifiedIdent
     | Index of target: TypeAnn * index: TypeAnn
     | Condition of ConditionType
     | Match of MatchType
@@ -541,7 +546,7 @@ module Type =
   ///An n-ary type constructor which builds a new type from old
   [<CustomEquality; NoComparison>]
   type TypeRef =
-    { Name: string
+    { Name: Common.QualifiedIdent
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
 
@@ -768,6 +773,7 @@ module Type =
   type TypeKind =
     | TypeVar of TypeVar
     | TypeRef of TypeRef
+    | Namespace of Namespace
     | Primitive of Primitive
     | Keyword of Keyword
     | Function of Function
@@ -805,6 +811,8 @@ module Type =
 
     override this.ToString() = printType { Precedence = 0 } this
 
+  type Binding = Type * bool
+
   type Scheme =
     // TODO: allow type params to have constraints and defaults
     { TypeParams: option<list<TypeParam>>
@@ -819,6 +827,12 @@ module Type =
 
         $"<{typeParams}>({this.Type})"
       | None -> this.Type.ToString()
+
+  type Namespace =
+    { Name: string
+      Values: Map<string, Binding>
+      Schemes: Map<string, Scheme>
+      Namespaces: Map<string, Namespace> }
 
   // TODO: Figure out how to share this code with TypeChecker.Prune
   let rec prune (t: Type) : Type =
@@ -835,6 +849,7 @@ module Type =
     match t.Kind with
     | TypeKind.TypeVar typeVar -> 100
     | TypeKind.TypeRef typeRef -> 100
+    | TypeKind.Namespace ns -> 100
     | TypeKind.Primitive primitive -> 100
     | TypeKind.Keyword keyword -> 100
     | TypeKind.Function f -> 100
@@ -908,6 +923,7 @@ module Type =
           | None -> ""
 
         $"{name}{typeArgs}"
+      | TypeKind.Namespace ns -> ns.ToString()
       | TypeKind.Primitive primitive -> primitive.ToString()
       | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> printFunction ctx f

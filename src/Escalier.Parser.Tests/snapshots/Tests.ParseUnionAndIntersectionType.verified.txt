@@ -3,11 +3,11 @@ output: Success: { Kind =
    Union
      [{ Kind =
          Intersection
-           [{ Kind = TypeRef { Ident = "A"
+           [{ Kind = TypeRef { Ident = Ident "A"
                                TypeArgs = None }
               Span = { Start = (Ln: 1, Col: 1)
                        Stop = (Ln: 1, Col: 3) }
-              InferredType = None }; { Kind = TypeRef { Ident = "B"
+              InferredType = None }; { Kind = TypeRef { Ident = Ident "B"
                                                         TypeArgs = None }
                                        Span = { Start = (Ln: 1, Col: 5)
                                                 Stop = (Ln: 1, Col: 7) }
@@ -17,11 +17,11 @@ output: Success: { Kind =
         InferredType = None };
       { Kind =
          Intersection
-           [{ Kind = TypeRef { Ident = "C"
+           [{ Kind = TypeRef { Ident = Ident "C"
                                TypeArgs = None }
               Span = { Start = (Ln: 1, Col: 9)
                        Stop = (Ln: 1, Col: 11) }
-              InferredType = None }; { Kind = TypeRef { Ident = "D"
+              InferredType = None }; { Kind = TypeRef { Ident = Ident "D"
                                                         TypeArgs = None }
                                        Span = { Start = (Ln: 1, Col: 13)
                                                 Stop = (Ln: 1, Col: 14) }

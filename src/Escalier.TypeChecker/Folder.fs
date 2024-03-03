@@ -9,14 +9,14 @@ module Folder =
     let rec fold (t: Type) : Type =
       let t = prune t
 
-      let foldFn (f: Function) : Function =
-        { f with
+      let foldFn (fn: Function) : Function =
+        { fn with
             ParamList =
               List.map
                 (fun param -> { param with Type = fold param.Type })
-                f.ParamList
+                fn.ParamList
             // TODO: fold TypeParams
-            Return = fold f.Return }
+            Return = fold fn.Return }
 
       let foldObjElem (elem: ObjTypeElem) : ObjTypeElem =
         match elem with
@@ -24,6 +24,8 @@ module Folder =
         | Method(name, fn) -> Method(name, foldFn fn)
         | Getter(name, fn) -> Getter(name, foldFn fn)
         | Setter(name, fn) -> Setter(name, foldFn fn)
+        | Constructor fn -> Constructor(foldFn fn)
+        | Callable fn -> Callable(foldFn fn)
         | _ -> failwith "TODO: foldType - ObjTypeElem"
 
       let t =

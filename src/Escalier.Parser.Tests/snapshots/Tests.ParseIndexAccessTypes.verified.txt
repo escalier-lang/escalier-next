@@ -10,7 +10,7 @@ output: Ok
                     TypeAnn =
                      { Kind =
                         Index
-                          ({ Kind = TypeRef { Ident = "Bar"
+                          ({ Kind = TypeRef { Ident = Ident "Bar"
                                               TypeArgs = None }
                              Span = { Start = (Ln: 1, Col: 12)
                                       Stop = (Ln: 1, Col: 15) }

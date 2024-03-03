@@ -19,7 +19,7 @@ output: Ok
                                          Default = None }]
                     Elems =
                      [{ Name = String "x"
-                        TypeAnn = { Kind = TypeRef { Ident = "T"
+                        TypeAnn = { Kind = TypeRef { Ident = Ident "T"
                                                      TypeArgs = None }
                                     Span = { Start = (Ln: 3, Col: 10)
                                              Stop = (Ln: 3, Col: 11) }
@@ -27,7 +27,7 @@ output: Ok
                         Optional = false
                         Readonly = false };
                       { Name = String "y"
-                        TypeAnn = { Kind = TypeRef { Ident = "T"
+                        TypeAnn = { Kind = TypeRef { Ident = Ident "T"
                                                      TypeArgs = None }
                                     Span = { Start = (Ln: 4, Col: 10)
                                              Stop = (Ln: 4, Col: 11) }

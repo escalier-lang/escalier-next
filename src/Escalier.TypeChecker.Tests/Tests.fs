@@ -787,3 +787,36 @@ let InferEnumVariantIsSubtypeOfEnum () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferEnumPatternMatching () =
+  let result =
+    result {
+      let src =
+        """
+        enum MyEnum {
+          | Foo(number, string, boolean)
+          | Bar([number, number])
+          | Baz(number | string)
+        }
+        declare let value: MyEnum
+        
+        let x = match value {
+          | MyEnum.Foo(x, y, z) => x
+          | MyEnum.Bar([x, y]) => x
+          | MyEnum.Baz(x) => x
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(
+        env,
+        "MyEnum",
+        "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
+      )
+
+      Assert.Value(env, "x", "number | string")
+    }
+
+  Assert.False(Result.isError result)

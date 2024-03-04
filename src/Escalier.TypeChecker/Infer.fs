@@ -1305,6 +1305,7 @@ module rec Infer =
     : Result<BindingAssump * Type, TypeError> =
     let mutable assump = BindingAssump([])
 
+    // TODO: update to return a result
     let rec infer_pattern_rec (pat: Syntax.Pattern) : Type =
       match pat.Kind with
       | PatternKind.Ident({ Name = name
@@ -1504,6 +1505,49 @@ module rec Infer =
 
         { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
           Provenance = None }
+      | PatternKind.Enum variant ->
+        let argTypes =
+          variant.Args |> Option.defaultValue [] |> List.map infer_pattern_rec
+
+        // TODO: stop using QualifiedIdent for Enum variants
+        let enumName, variantName =
+          match variant.Ident with
+          | QualifiedIdent.Member(QualifiedIdent.Ident qualifier, name) ->
+            (qualifier, name)
+          | _ -> failwith "This should never happen"
+
+        match env.GetScheme(QualifiedIdent.Ident enumName) with
+        | Ok scheme ->
+          // TODO: handle type args
+          match scheme.Type.Kind with
+          | TypeKind.Union types ->
+            let variantType =
+              types
+              |> List.tryFind (fun t ->
+                match t.Kind with
+                | TypeKind.EnumVariant v -> v.Name = variantName
+                | _ -> false)
+
+            match variantType with
+            | Some t ->
+              match t.Kind with
+              | TypeKind.EnumVariant variant ->
+                let paramTypes = variant.Types
+
+                for t1, t2 in List.zip argTypes paramTypes do
+                  let result = unify ctx env None t1 t2
+
+                  match result with
+                  | Ok resultValue -> ()
+                  | Error errorValue ->
+                    failwith $"Failed to unify {t1} and {t2}"
+              | _ -> failwith "Can't find variant type in enum"
+
+              t
+            | None -> failwith "Can't find variant type in enum"
+          | _ -> failwith "enum scheme type is not a union type"
+        | Error errorValue -> failwith $"Can't find scheme for {variant.Ident}"
+
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
         | Some qi ->

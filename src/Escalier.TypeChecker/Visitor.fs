@@ -259,6 +259,7 @@ module rec TypeVisitor =
       | TypeKind.Array { Elem = elem; Length = length } ->
         walk elem
         walk length
+      | TypeKind.EnumVariant { Types = types } -> List.iter walk types
       | TypeKind.KeyOf t -> walk t
       | TypeKind.Index(target, index) ->
         walk target

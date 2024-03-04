@@ -316,6 +316,10 @@ module Syntax =
       IsMut: bool
       Assertion: option<Common.QualifiedIdent> }
 
+  type EnumVariantPattern =
+    { Ident: Common.QualifiedIdent
+      Args: option<list<Pattern>> }
+
   type WildcardPattern =
     { Assertion: option<Common.QualifiedIdent> }
 
@@ -325,6 +329,7 @@ module Syntax =
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
     | Struct of Struct<ObjPatElem> // TODO: rest patterns
     | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
+    | Enum of EnumVariantPattern
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
     | Rest of Pattern
@@ -366,9 +371,19 @@ module Syntax =
       TypeAnn: TypeAnn
       TypeParams: option<list<TypeParam>> }
 
+  type EnumVariant =
+    { Name: string
+      TypeAnns: list<TypeAnn> }
+
+  type EnumDecl =
+    { Name: string
+      TypeParams: option<list<TypeParam>>
+      Variants: list<EnumVariant> }
+
   type DeclKind =
     | VarDecl of VarDecl
     | TypeDecl of TypeDecl
+    | EnumDecl of EnumDecl
     | StructDecl of StructDecl
 
   type Decl = { Kind: DeclKind; Span: Span }
@@ -605,6 +620,11 @@ module Type =
     | ShorthandPat of ShorthandPat
     | RestPat of Pattern
 
+  type EnumVariantPat =
+    { SymbolId: int
+      Ident: Common.QualifiedIdent // for human readable for
+      Args: option<list<Pattern>> }
+
   type IdentPat = { Name: string; IsMut: bool }
 
   type Pattern =
@@ -612,6 +632,7 @@ module Type =
     | Object of Common.Object<ObjPatElem>
     | Struct of Struct<ObjPatElem>
     | Tuple of Common.Tuple<option<Pattern>>
+    | Enum of EnumVariantPat
     | Literal of Common.Literal
     | Rest of Pattern
     | Wildcard
@@ -753,6 +774,13 @@ module Type =
 
     override this.ToString() = $"{this.Elem}[]"
 
+  type EnumVariant =
+    { SymbolId: int
+      Name: string
+      Types: list<Type> } // TODO: consider making these named like function params
+
+  type Enum = { Variants: Map<string, EnumVariant> }
+
   type Condition =
     { Check: Type
       Extends: Type
@@ -771,6 +799,7 @@ module Type =
     | Struct of Struct<ObjTypeElem>
     | Tuple of Common.Tuple<Type>
     | Array of Array
+    | EnumVariant of EnumVariant
     | Rest of Type
     | Literal of Common.Literal
     | Range of Common.Range<Type>
@@ -847,6 +876,7 @@ module Type =
     | TypeKind.Struct s -> 100
     | TypeKind.Tuple tuple -> 100
     | TypeKind.Array array -> 17
+    | TypeKind.EnumVariant enum -> 100
     | TypeKind.Rest t -> 100
     | TypeKind.Literal literal -> 100
     | TypeKind.Range range -> 2
@@ -928,6 +958,13 @@ module Type =
         | false -> $"[{elems}]"
       | TypeKind.Array { Elem = elem; Length = length } ->
         $"{printType ctx elem}[]"
+      | TypeKind.EnumVariant variant ->
+        match variant.Types with
+        | [] -> variant.Name
+        | types ->
+          let types = types |> List.map (printType ctx) |> String.concat ", "
+
+          $"{variant.Name}({types})"
       | TypeKind.Rest t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
       | TypeKind.Range { Min = min; Max = max } ->

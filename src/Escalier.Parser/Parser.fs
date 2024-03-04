@@ -703,7 +703,6 @@ module Parser =
               TypeAnn = typeAnn }
         Span = span }
 
-  // TODO: parse type params
   let private typeDecl: Parser<Decl, unit> =
     pipe5
       getPosition
@@ -719,6 +718,36 @@ module Parser =
             { Name = id
               TypeAnn = typeAnn
               TypeParams = typeParams }
+        Span = span }
+
+  let private enumVariant: Parser<EnumVariant, unit> =
+    pipe4
+      getPosition
+      (strWs "|" >>. ident)
+      (between (strWs "(") (strWs ")") (sepBy typeAnn (strWs ",")))
+      getPosition
+    <| fun start name typeAnns stop ->
+
+      let span = { Start = start; Stop = stop }
+
+      { Name = name; TypeAnns = typeAnns }
+
+  let private enumDecl: Parser<Decl, unit> =
+    pipe5
+      getPosition
+      (strWs "enum" >>. ident)
+      (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
+      (between (strWs "{") (strWs "}") (many enumVariant))
+      getPosition
+    <| fun start name typeParams variants stop ->
+
+      let span = { Start = start; Stop = stop }
+
+      { Kind =
+          EnumDecl
+            { Name = name
+              TypeParams = typeParams
+              Variants = variants }
         Span = span }
 
   let private forLoop =
@@ -870,6 +899,7 @@ module Parser =
         varDecl |> declStmt
         typeDecl |> declStmt
         structDecl |> declStmt
+        enumDecl |> declStmt
         implStmt
         returnStmt
         forLoop
@@ -999,6 +1029,20 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let private enumVariantPattern: Parser<Pattern, unit> =
+    withSpan (
+      tuple3
+        ident
+        (strWs "." >>. ident)
+        (opt (between (strWs "(") (strWs ")") (sepBy pattern (strWs ","))))
+    )
+    |>> fun ((qualifier, ident, args), span) ->
+      let ident = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, ident)
+
+      { Pattern.Kind = PatternKind.Enum { Ident = ident; Args = args }
+        Span = span
+        InferredType = None }
+
   let private restPattern =
     withSpan (strWs "..." >>. pattern)
     |>> fun (pattern, span) ->
@@ -1009,6 +1053,7 @@ module Parser =
   patternRef.Value <-
     choice
       [ attempt structPattern
+        attempt enumVariantPattern
         identPattern
         literalPattern
         wildcardPattern
@@ -1483,7 +1528,8 @@ module Parser =
     >>. choice
       [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
 
-  let decl: Parser<Decl, unit> = choice [ varDecl; typeDecl; structDecl ]
+  let decl: Parser<Decl, unit> =
+    choice [ varDecl; typeDecl; structDecl; enumDecl ]
 
   let private moduleItem: Parser<ModuleItem, unit> =
     ws >>. choice [ import |>> ModuleItem.Import; decl |>> ModuleItem.Decl ]

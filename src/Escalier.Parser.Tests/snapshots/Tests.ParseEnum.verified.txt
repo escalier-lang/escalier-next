@@ -1,0 +1,115 @@
+﻿input: 
+    enum MyEnum {
+      | Foo(number, string, boolean)
+      | Bar([number, number])
+      | Baz(number | string)
+    }
+    let value = MyEnum.Foo(5, "hello", true)
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                EnumDecl
+                  { Name = "MyEnum"
+                    TypeParams = None
+                    Variants =
+                     [{ Name = "Foo"
+                        TypeAnns =
+                         [{ Kind = Keyword Number
+                            Span = { Start = (Ln: 3, Col: 13)
+                                     Stop = (Ln: 3, Col: 19) }
+                            InferredType = None };
+                          { Kind = Keyword String
+                            Span = { Start = (Ln: 3, Col: 21)
+                                     Stop = (Ln: 3, Col: 27) }
+                            InferredType = None };
+                          { Kind = Keyword Boolean
+                            Span = { Start = (Ln: 3, Col: 29)
+                                     Stop = (Ln: 3, Col: 36) }
+                            InferredType = None }] };
+                      { Name = "Bar"
+                        TypeAnns =
+                         [{ Kind =
+                             Tuple
+                               { Elems =
+                                  [{ Kind = Keyword Number
+                                     Span = { Start = (Ln: 4, Col: 14)
+                                              Stop = (Ln: 4, Col: 20) }
+                                     InferredType = None };
+                                   { Kind = Keyword Number
+                                     Span = { Start = (Ln: 4, Col: 22)
+                                              Stop = (Ln: 4, Col: 28) }
+                                     InferredType = None }]
+                                 Immutable = false }
+                            Span = { Start = (Ln: 4, Col: 13)
+                                     Stop = (Ln: 4, Col: 29) }
+                            InferredType = None }] };
+                      { Name = "Baz"
+                        TypeAnns =
+                         [{ Kind =
+                             Union
+                               [{ Kind = Keyword Number
+                                  Span = { Start = (Ln: 5, Col: 13)
+                                           Stop = (Ln: 5, Col: 20) }
+                                  InferredType = None };
+                                { Kind = Keyword String
+                                  Span = { Start = (Ln: 5, Col: 22)
+                                           Stop = (Ln: 5, Col: 28) }
+                                  InferredType = None }]
+                            Span = { Start = (Ln: 5, Col: 13)
+                                     Stop = (Ln: 5, Col: 28) }
+                            InferredType = None }] }] }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 7, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 7, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Pattern = { Kind = Ident { Name = "value"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 7, Col: 9)
+                                         Stop = (Ln: 7, Col: 15) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     { Kind =
+                        Call
+                          { Callee =
+                             { Kind =
+                                Member ({ Kind = Identifier "MyEnum"
+                                          Span = { Start = (Ln: 7, Col: 17)
+                                                   Stop = (Ln: 7, Col: 23) }
+                                          InferredType = None }, "Foo", false)
+                               Span = { Start = (Ln: 7, Col: 17)
+                                        Stop = (Ln: 7, Col: 27) }
+                               InferredType = None }
+                            TypeArgs = None
+                            Args =
+                             [{ Kind = Literal (Number (Int 5))
+                                Span = { Start = (Ln: 7, Col: 28)
+                                         Stop = (Ln: 7, Col: 29) }
+                                InferredType = None };
+                              { Kind = Literal (String "hello")
+                                Span = { Start = (Ln: 7, Col: 31)
+                                         Stop = (Ln: 7, Col: 38) }
+                                InferredType = None };
+                              { Kind = Literal (Boolean true)
+                                Span = { Start = (Ln: 7, Col: 40)
+                                         Stop = (Ln: 7, Col: 44) }
+                                InferredType = None }]
+                            OptChain = false
+                            Throws = None }
+                       Span = { Start = (Ln: 7, Col: 17)
+                                Stop = (Ln: 8, Col: 5) }
+                       InferredType = None } }
+               Span = { Start = (Ln: 7, Col: 5)
+                        Stop = (Ln: 8, Col: 5) } }
+          Span = { Start = (Ln: 7, Col: 5)
+                   Stop = (Ln: 8, Col: 5) } }] }

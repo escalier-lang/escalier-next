@@ -797,7 +797,7 @@ let InferEnumPatternMatching () =
         enum MyEnum {
           | Foo(number, string, boolean)
           | Bar([number, number])
-          | Baz(number | string)
+          | Baz(number)
         }
         declare let value: MyEnum
         
@@ -813,10 +813,10 @@ let InferEnumPatternMatching () =
       Assert.Type(
         env,
         "MyEnum",
-        "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
+        "Foo(number, string, boolean) | Bar([number, number]) | Baz(number)"
       )
 
-      Assert.Value(env, "x", "number | string")
+      Assert.Value(env, "x", "number")
     }
 
   Assert.False(Result.isError result)

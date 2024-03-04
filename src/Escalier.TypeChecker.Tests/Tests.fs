@@ -781,8 +781,6 @@ let InferEnumVariantIsSubtypeOfEnum () =
         "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
       )
 
-      // TODO: how do we include `MyEnum.` in the type?
-      // What does this mean in the context of creating new enums from existings enums
       Assert.Value(env, "value", "MyEnum")
     }
 
@@ -799,7 +797,7 @@ let InferEnumPatternMatching () =
           | Bar([number, number])
           | Baz(number)
         }
-        declare let value: MyEnum
+        let value: MyEnum = MyEnum.Foo(5, "hello", true)
         
         let x = match value {
           | MyEnum.Foo(x, y, z) => x

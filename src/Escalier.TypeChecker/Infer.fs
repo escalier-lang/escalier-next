@@ -1768,6 +1768,19 @@ module rec Infer =
               })
             variants
 
+        let types =
+          variants
+          |> List.map (fun variant ->
+            { Type.Kind = TypeKind.EnumVariant variant
+              Provenance = None })
+
+        let t = union types
+
+        let scheme =
+          { Type = t
+            TypeParams = None
+            IsTypeParam = false }
+
         let elems =
           variants
           |> List.map (fun variant ->
@@ -1788,19 +1801,6 @@ module rec Infer =
               PropName.String variant.Name,
               makeFunction None None paramList retType never
             ))
-
-        let types =
-          variants
-          |> List.map (fun variant ->
-            { Type.Kind = TypeKind.EnumVariant variant
-              Provenance = None })
-
-        let t = union types
-
-        let scheme =
-          { Type = t
-            TypeParams = None
-            IsTypeParam = false }
 
         printfn $"Adding enum {name} to env"
 

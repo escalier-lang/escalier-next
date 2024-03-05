@@ -523,11 +523,11 @@ let ApplyGenericTypeArgWithoutCallingFunction () =
     result {
       let src =
         """
-          let foo = fn (x) {
-            return x
-          }
-          let bar = foo<number>
-          """
+        let foo = fn (x) {
+          return x
+        }
+        let bar = foo<number>
+        """
 
       let! _, env = inferScript src
 
@@ -543,10 +543,10 @@ let ApplyGenericTypeArgWithoutCallingFunctionWithTypeAlias () =
     result {
       let src =
         """
-          type Identity = fn <A>(x: A) -> A
-          declare let foo: Identity
-          let bar = foo<number>
-          """
+        type Identity = fn <A>(x: A) -> A
+        declare let foo: Identity
+        let bar = foo<number>
+        """
 
       let! _, env = inferScript src
 

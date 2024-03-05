@@ -326,9 +326,7 @@ module rec Unify =
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
       | TypeKind.UniqueNumber _, TypeKind.Primitive Primitive.Number -> ()
-      | TypeKind.EnumVariant v1, TypeKind.EnumVariant v2 when
-        v1.SymbolId = v2.SymbolId
-        ->
+      | TypeKind.EnumVariant v1, TypeKind.EnumVariant v2 when v1.Tag = v2.Tag ->
         if v1.Types.Length <> v2.Types.Length then
           return!
             Error(TypeError.SemanticError "Enum variant types don't match")

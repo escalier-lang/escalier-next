@@ -1760,7 +1760,7 @@ module rec Infer =
                     variant.TypeAnns
 
                 let variant =
-                  { SymbolId = ctx.FreshUniqueId()
+                  { Tag = ctx.FreshSymbol()
                     Name = name
                     Types = types }
 

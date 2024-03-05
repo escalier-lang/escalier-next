@@ -518,6 +518,46 @@ let InferFuncGenericFunc () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let ApplyGenericTypeArgWithoutCallingFunction () =
+  let result =
+    result {
+      let src =
+        """
+          let foo = fn (x) {
+            return x
+          }
+          let bar = foo<number>
+          """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "foo", "fn <A>(x: A) -> A")
+      Assert.Value(env, "bar", "fn (x: number) -> number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ApplyGenericTypeArgWithoutCallingFunctionWithTypeAlias () =
+  let result =
+    result {
+      let src =
+        """
+          type Identity = fn <A>(x: A) -> A
+          declare let foo: Identity
+          let bar = foo<number>
+          """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "foo", "Identity")
+      Assert.Value(env, "bar", "fn (x: number) -> number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferFuncGenericFuncWithExplicitTypeParams () =
   let result =
     result {

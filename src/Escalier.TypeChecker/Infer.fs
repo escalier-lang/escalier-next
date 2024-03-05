@@ -497,6 +497,36 @@ module rec Infer =
               Error(TypeError.SemanticError "Can't assign to immutable binding")
 
           return rightType
+        | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
+          let! t = inferExpr ctx env target
+
+          let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
+
+          let rec instantiate (t: Type) : Result<Type, TypeError> =
+            result {
+              match (prune t).Kind with
+              | TypeKind.Function fn ->
+                let! fn = instantiateFunc ctx fn (Some typeArgs)
+
+                return
+                  { Type.Kind = TypeKind.Function fn
+                    Provenance = None }
+              | TypeKind.TypeRef typeRef ->
+                let! scheme =
+                  match typeRef.Scheme with
+                  | Some scheme -> Result.Ok scheme
+                  | None -> env.GetScheme typeRef.Name
+
+                return! instantiate scheme.Type
+              | _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "Can't instantiate a non-function type"
+                  )
+            }
+
+          return! instantiate t
         | _ ->
           printfn "expr.Kind = %A" expr.Kind
 

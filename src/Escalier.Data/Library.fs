@@ -621,7 +621,7 @@ module Type =
     | RestPat of Pattern
 
   type EnumVariantPat =
-    { SymbolId: int
+    { Tag: Type
       Ident: Common.QualifiedIdent // for human readable for
       Args: option<list<Pattern>> }
 
@@ -632,7 +632,7 @@ module Type =
     | Object of Common.Object<ObjPatElem>
     | Struct of Struct<ObjPatElem>
     | Tuple of Common.Tuple<option<Pattern>>
-    | Enum of EnumVariantPat
+    | Enum of EnumVariantPat // isn't being used and we may not need it
     | Literal of Common.Literal
     | Rest of Pattern
     | Wildcard
@@ -775,7 +775,7 @@ module Type =
     override this.ToString() = $"{this.Elem}[]"
 
   type EnumVariant =
-    { SymbolId: int
+    { Tag: Type
       Name: string
       Types: list<Type> } // TODO: consider making these named like function params
 
@@ -866,29 +866,29 @@ module Type =
 
   let getPrecedence (t: Type) : int =
     match t.Kind with
-    | TypeKind.TypeVar typeVar -> 100
-    | TypeKind.TypeRef typeRef -> 100
-    | TypeKind.Namespace ns -> 100
-    | TypeKind.Primitive primitive -> 100
-    | TypeKind.Keyword keyword -> 100
-    | TypeKind.Function f -> 100
-    | TypeKind.Object o -> 100
-    | TypeKind.Struct s -> 100
-    | TypeKind.Tuple tuple -> 100
-    | TypeKind.Array array -> 17
-    | TypeKind.EnumVariant enum -> 100
-    | TypeKind.Rest t -> 100
-    | TypeKind.Literal literal -> 100
-    | TypeKind.Range range -> 2
-    | TypeKind.UniqueSymbol id -> 15 // because `unique` is a keyword operator
-    | TypeKind.UniqueNumber id -> 15 // because `unique` is a keyword operator
-    | TypeKind.Union types -> 3
-    | TypeKind.Intersection types -> 4
-    | TypeKind.KeyOf t -> 15 // because `keyof` is a keyword operator
-    | TypeKind.Index(target, index) -> 18
-    | TypeKind.Condition condition -> 100
-    | TypeKind.Infer name -> 15 // because `keyof` is a keyword operator
-    | TypeKind.Binary(left, op, right) ->
+    | TypeKind.TypeVar _ -> 100
+    | TypeKind.TypeRef _ -> 100
+    | TypeKind.Namespace _ -> 100
+    | TypeKind.Primitive _ -> 100
+    | TypeKind.Keyword _ -> 100
+    | TypeKind.Function _ -> 100
+    | TypeKind.Object _ -> 100
+    | TypeKind.Struct _ -> 100
+    | TypeKind.Tuple _ -> 100
+    | TypeKind.Array _ -> 17
+    | TypeKind.EnumVariant _ -> 100
+    | TypeKind.Rest _ -> 100
+    | TypeKind.Literal _ -> 100
+    | TypeKind.Range _ -> 2
+    | TypeKind.UniqueSymbol _ -> 15 // because `unique` is a keyword operator
+    | TypeKind.UniqueNumber _ -> 15 // because `unique` is a keyword operator
+    | TypeKind.Union _ -> 3
+    | TypeKind.Intersection _ -> 4
+    | TypeKind.KeyOf _ -> 15 // because `keyof` is a keyword operator
+    | TypeKind.Index _ -> 18
+    | TypeKind.Condition _ -> 100
+    | TypeKind.Infer _ -> 15 // because `keyof` is a keyword operator
+    | TypeKind.Binary(_, op, _) ->
       match op with
       | "**" -> 13
       | "*"
@@ -913,7 +913,7 @@ module Type =
       | "-"
       | "!" -> 14
     | TypeKind.Wildcard -> 100
-    | TypeKind.TemplateLiteral templateLiteral -> 100
+    | TypeKind.TemplateLiteral _ -> 100
 
   let rec printType (ctx: PrintCtx) (t: Type) : string =
     let outerPrec = ctx.Precedence

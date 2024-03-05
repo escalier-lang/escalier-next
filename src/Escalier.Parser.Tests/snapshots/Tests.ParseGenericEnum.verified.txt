@@ -1,0 +1,54 @@
+﻿input: 
+    enum MyEnum<A, B, C> {
+      | Foo(A)
+      | Bar(B)
+      | Baz(C)
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                EnumDecl
+                  { Name = "MyEnum"
+                    TypeParams =
+                     Some
+                       [{ Span = { Start = (Ln: 2, Col: 17)
+                                   Stop = (Ln: 2, Col: 18) }
+                          Name = "A"
+                          Constraint = None
+                          Default = None }; { Span = { Start = (Ln: 2, Col: 20)
+                                                       Stop = (Ln: 2, Col: 21) }
+                                              Name = "B"
+                                              Constraint = None
+                                              Default = None };
+                        { Span = { Start = (Ln: 2, Col: 23)
+                                   Stop = (Ln: 2, Col: 24) }
+                          Name = "C"
+                          Constraint = None
+                          Default = None }]
+                    Variants =
+                     [{ Name = "Foo"
+                        TypeAnns = [{ Kind = TypeRef { Ident = Ident "A"
+                                                       TypeArgs = None }
+                                      Span = { Start = (Ln: 3, Col: 13)
+                                               Stop = (Ln: 3, Col: 14) }
+                                      InferredType = None }] };
+                      { Name = "Bar"
+                        TypeAnns = [{ Kind = TypeRef { Ident = Ident "B"
+                                                       TypeArgs = None }
+                                      Span = { Start = (Ln: 4, Col: 13)
+                                               Stop = (Ln: 4, Col: 14) }
+                                      InferredType = None }] };
+                      { Name = "Baz"
+                        TypeAnns = [{ Kind = TypeRef { Ident = Ident "C"
+                                                       TypeArgs = None }
+                                      Span = { Start = (Ln: 5, Col: 13)
+                                               Stop = (Ln: 5, Col: 14) }
+                                      InferredType = None }] }] }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 7, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 7, Col: 5) } }] }

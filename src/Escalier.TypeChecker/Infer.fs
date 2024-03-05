@@ -1548,8 +1548,14 @@ module rec Infer =
 
         match env.GetScheme(QualifiedIdent.Ident enumName) with
         | Ok scheme ->
-          // TODO: handle type args
-          match scheme.Type.Kind with
+          let t = instantiateType ctx scheme.Type scheme.TypeParams None
+
+          let t =
+            match t with
+            | Ok t -> t
+            | Error errorValue -> failwith "Failed to instantiate enum scheme"
+
+          match t.Kind with
           | TypeKind.Union types ->
             let variantType =
               types
@@ -1766,9 +1772,9 @@ module rec Infer =
 
         return env.AddBindings bindings
       | DeclKind.EnumDecl { Name = name
-                            TypeParams = _typeParams
+                            TypeParams = typeParams
                             Variants = variants } ->
-        // TODO: handle type params in enums
+        let! typeParams, enumEnv = inferTypeParams ctx env typeParams
 
         let never =
           { Kind = TypeKind.Keyword Keyword.Never
@@ -1784,7 +1790,7 @@ module rec Infer =
                   List.traverseResultM
                     (fun typeAnn ->
                       result {
-                        let! t = inferTypeAnn ctx env typeAnn
+                        let! t = inferTypeAnn ctx enumEnv typeAnn
                         return t
                       })
                     variant.TypeAnns
@@ -1808,7 +1814,7 @@ module rec Infer =
 
         let scheme =
           { Type = t
-            TypeParams = None
+            TypeParams = typeParams
             IsTypeParam = false }
 
         let elems =
@@ -1829,10 +1835,10 @@ module rec Infer =
 
             ObjTypeElem.Method(
               PropName.String variant.Name,
-              makeFunction None None paramList retType never
+              // We include all type params for the enum here even if the
+              // method doesn't make use of all of them.
+              makeFunction typeParams None paramList retType never
             ))
-
-        printfn $"Adding enum {name} to env"
 
         let value =
           { Type.Kind = TypeKind.Object { Elems = elems; Immutable = false }

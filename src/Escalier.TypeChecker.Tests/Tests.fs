@@ -787,6 +787,59 @@ let InferEnumVariantIsSubtypeOfEnum () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferGenericEnum () =
+  let result =
+    result {
+      let src =
+        """
+        enum MyEnum<A, B, C> {
+          | Foo(A)
+          | Bar(B)
+          | Baz(C)
+        }
+        let value = MyEnum.Foo(5)
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
+
+      // TODO: how do we include `MyEnum.` in the type?
+      // What does this mean in the context of creating new enums from existings enums
+      Assert.Value(env, "value", "Foo(5)")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericEnumWithSubtyping () =
+  let result =
+    result {
+      let src =
+        """
+        enum MyEnum<A, B, C> {
+          | Foo(A)
+          | Bar(B)
+          | Baz(C)
+        }
+        let value: MyEnum<number, string, boolean> = MyEnum.Foo(5)
+        let x = match value {
+          | MyEnum.Foo(a) => a
+          | MyEnum.Bar(b) => b
+          | MyEnum.Baz(c) => c
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
+      Assert.Value(env, "value", "MyEnum<number, string, boolean>")
+      Assert.Value(env, "x", "number | string | boolean")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferEnumPatternMatching () =
   let result =
     result {

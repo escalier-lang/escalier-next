@@ -474,6 +474,22 @@ let ParseEnum () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseGenericEnum () =
+  let src =
+    """
+    enum MyEnum<A, B, C> {
+      | Foo(A)
+      | Bar(B)
+      | Baz(C)
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseEnumPatternMatching () =
   let src =
     """

@@ -1,4 +1,4 @@
-﻿input: let fmt = new Intl.NumberFormat("en-CA")
+﻿input: let fmt = new Intl.NumberFormat("en-CA");
 output: Ok
   { Items =
      [Stmt
@@ -37,6 +37,6 @@ output: Ok
                                 Stop = (Ln: 1, Col: 41) }
                        InferredType = None } }
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 41) } }
+                        Stop = (Ln: 1, Col: 42) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 41) } }] }
+                   Stop = (Ln: 1, Col: 42) } }] }

@@ -1,4 +1,4 @@
-﻿input: type Foo = Intl.NumberFormat
+﻿input: type Foo = Intl.NumberFormat;
 output: Ok
   { Items =
      [Stmt
@@ -16,6 +16,6 @@ output: Ok
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 29) } }
+                        Stop = (Ln: 1, Col: 30) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 29) } }] }
+                   Stop = (Ln: 1, Col: 30) } }] }

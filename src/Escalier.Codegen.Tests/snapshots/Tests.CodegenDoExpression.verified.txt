@@ -1,9 +1,9 @@
 ﻿input: 
         let sum = do {
-          let x = 5
-          let y = 10
+          let x = 5;
+          let y = 10;
           x + y
-        }
+        };
         
 output:
 var temp0;

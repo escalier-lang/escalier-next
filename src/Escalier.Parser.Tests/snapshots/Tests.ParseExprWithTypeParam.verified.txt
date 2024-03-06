@@ -1,4 +1,4 @@
-﻿input: add<number | string>
+﻿input: add<number | string>;
 output: Ok
   { Items =
      [Stmt

@@ -1,4 +1,4 @@
-﻿input: foo()[0]
+﻿input: foo()[0];
 output: Ok
   { Items =
      [Stmt

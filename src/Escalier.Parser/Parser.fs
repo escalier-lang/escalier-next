@@ -674,11 +674,34 @@ module Parser =
 
   exprRef.Value <- exprParser.Parse(0)
 
+  // let private exprSemi:
+
   let private exprStmt: Parser<Stmt, unit> =
-    withSpan expr |>> fun (e, span) -> { Stmt.Kind = Expr(e); Span = span }
+    fun stream ->
+      let reply = expr stream
+
+      if reply.Status <> Ok then
+        Reply(reply.Status, reply.Error)
+      else
+        let e = reply.Result
+
+        match e.Kind with
+        // Don't allow ';' after these expressions
+        | ExprKind.IfElse _
+        | ExprKind.Try _
+        | ExprKind.Match _
+        | ExprKind.Do _ -> Reply({ Stmt.Kind = Expr(e); Span = e.Span })
+        // Require ';' after all other expressions
+        | _ ->
+          let semi = choice [ strWs ";"; lookAhead (strWs "}") ]
+          let semiReply = semi stream
+
+          match semiReply.Status with
+          | Ok -> Reply({ Stmt.Kind = Expr(e); Span = e.Span })
+          | _ -> Reply(semiReply.Status, semiReply.Error)
 
   let private returnStmt: Parser<Stmt, unit> =
-    withSpan (strWs "return" >>. opt expr)
+    withSpan (strWs "return" >>. opt expr .>> (strWs ";"))
     |>> fun (e, span) -> { Stmt.Kind = Return(e); Span = span }
 
   let private declStmt (decl: Parser<Decl, unit>) : Parser<Stmt, unit> =
@@ -693,7 +716,7 @@ module Parser =
       tuple3
         (strWs "let" >>. pattern)
         (opt (strWs ":" >>. ws >>. typeAnn))
-        (strWs "=" >>. expr)
+        (strWs "=" >>. expr .>> (strWs ";"))
     )
     |>> fun ((pat, typeAnn, init), span) ->
       { Kind =
@@ -708,7 +731,7 @@ module Parser =
       getPosition
       (strWs "type" >>. ident)
       (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
-      (strWs "=" >>. typeAnn)
+      (strWs "=" >>. typeAnn .>> (strWs ";"))
       getPosition
     <| fun start id typeParams typeAnn stop ->
       let span = { Start = start; Stop = stop }
@@ -1509,7 +1532,7 @@ module Parser =
     pipe4
       getPosition
       (strWs "import" >>. _string .>> ws)
-      (opt importSpecifiers)
+      (opt importSpecifiers .>> (strWs ";"))
       getPosition
     <| fun start source specifiers stop ->
       { Path = source
@@ -1519,7 +1542,7 @@ module Parser =
     pipe4
       getPosition
       (strWs "declare" >>. strWs "let" >>. pattern)
-      (strWs ":" >>. ws >>. typeAnn)
+      (strWs ":" >>. ws >>. typeAnn .>> (strWs ";"))
       getPosition
     <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)
 

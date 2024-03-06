@@ -1,10 +1,10 @@
 ﻿input: 
     impl Foo {
       fn bar(self) {
-        return self.x
+        return self.x;
       }
       fn baz(mut self, x: number) {
-        self.x = x
+        self.x = x;
       }
     }
     
@@ -48,7 +48,7 @@ output: Ok
                                                      Stop = (Ln: 4, Col: 20) }
                                             InferredType = None }, "x", false)
                                       Span = { Start = (Ln: 4, Col: 16)
-                                               Stop = (Ln: 5, Col: 7) }
+                                               Stop = (Ln: 4, Col: 22) }
                                       InferredType = None })
                               Span = { Start = (Ln: 4, Col: 9)
                                        Stop = (Ln: 5, Col: 7) } }] } };
@@ -102,12 +102,12 @@ output: Ok
                                          InferredType = None },
                                        { Kind = Identifier "x"
                                          Span = { Start = (Ln: 7, Col: 18)
-                                                  Stop = (Ln: 8, Col: 7) }
+                                                  Stop = (Ln: 7, Col: 19) }
                                          InferredType = None })
                                    Span = { Start = (Ln: 7, Col: 9)
-                                            Stop = (Ln: 8, Col: 7) }
+                                            Stop = (Ln: 7, Col: 19) }
                                    InferredType = None }
                               Span = { Start = (Ln: 7, Col: 9)
-                                       Stop = (Ln: 8, Col: 7) } }] } }] }
+                                       Stop = (Ln: 7, Col: 19) } }] } }] }
           Span = { Start = (Ln: 2, Col: 5)
                    Stop = (Ln: 10, Col: 5) } }] }

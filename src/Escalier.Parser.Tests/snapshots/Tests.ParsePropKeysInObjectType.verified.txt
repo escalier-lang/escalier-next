@@ -3,7 +3,7 @@
       5: string,
       "hello": number,
       [Symbol.iterator]: fn () -> Iterator<T>,
-    }
+    };
     
 output: Ok
   { Items =
@@ -80,7 +80,7 @@ output: Ok
                                   Readonly = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 18)
-                                Stop = (Ln: 7, Col: 5) }
+                                Stop = (Ln: 6, Col: 6) }
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)

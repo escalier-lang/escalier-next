@@ -1,5 +1,5 @@
 ﻿input: 
-    type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" }
+    type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" };
     
 output: Ok
   { Items =
@@ -49,10 +49,10 @@ output: Ok
                                                 Stop = (Ln: 2, Col: 90) }
                                        InferredType = None } }
                                Span = { Start = (Ln: 2, Col: 50)
-                                        Stop = (Ln: 3, Col: 5) }
+                                        Stop = (Ln: 2, Col: 92) }
                                InferredType = None } }
                        Span = { Start = (Ln: 2, Col: 19)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 92) }
                        InferredType = None }
                     TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 14)
                                                   Stop = (Ln: 2, Col: 15) }

@@ -34,8 +34,8 @@ let InferBasicMutability () =
     result {
       let src =
         """
-        let mut x: number = 5
-        x = 10
+        let mut x: number = 5;
+        x = 10;
         """
 
       let! _, _ = inferScript src
@@ -50,10 +50,10 @@ let InferBasicObjectMutability () =
     result {
       let src =
         """
-        type Point = {x: number, y: number}
-        let mut p: Point = {x: 0, y: 0}
-        p.x = 5
-        p.y = 10
+        type Point = {x: number, y: number};
+        let mut p: Point = {x: 0, y: 0};
+        p.x = 5;
+        p.y = 10;
         """
 
       let! _, _ = inferScript src
@@ -68,8 +68,8 @@ let InferBasicArrayMutability () =
     result {
       let src =
         """
-        let mut array: number[] = [1, 2, 3]
-        array[3] = 4
+        let mut array: number[] = [1, 2, 3];
+        array[3] = 4;
         """
 
       let! _, _ = inferScript src
@@ -84,8 +84,8 @@ let DisallowAssigningToImmutableBindings () =
     result {
       let src =
         """
-        let x: number = 5
-        x = 10
+        let x: number = 5;
+        x = 10;
         """
 
       let! _, _ = inferScript src
@@ -101,9 +101,9 @@ let InferFnWithMutableParam () =
       let src =
         """
         let foo = fn (mut array: (number | string)[]) {
-          array[0] = 5
-          array[1] = "hello"
-        }
+          array[0] = 5;
+          array[1] = "hello";
+        };
         """
 
       let! _, env = inferScript src
@@ -124,11 +124,11 @@ let MutableParamsAreInvariant () =
       let src =
         """
         let foo = fn (mut array: (number | string)[]) {
-          array[0] = 5
-          array[1] = "hello"
-        }
-        let mut numbers: (number | string)[] = [1, 2, 3]
-        foo(numbers)
+          array[0] = 5;
+          array[1] = "hello";
+        };
+        let mut numbers: (number | string)[] = [1, 2, 3];
+        foo(numbers);
         """
 
       let! _, env = inferScript src
@@ -149,11 +149,11 @@ let MutableParamsCantBeCovariant () =
       let src =
         """
         let foo = fn (mut array: (number | string)[]) {
-          array[0] = 5
-          array[1] = "hello"
-        }
-        let mut numbers: number[] = [1, 2, 3]
-        foo(numbers)
+          array[0] = 5;
+          array[1] = "hello";
+        };
+        let mut numbers: number[] = [1, 2, 3];
+        foo(numbers);
         """
 
       let! ctx, _ = inferScript src
@@ -169,8 +169,8 @@ let ImmutableAssignmentIsBeCovariant () =
     result {
       let src =
         """
-        let foo: number[] = [1, 2, 3]
-        let bar: (number | string)[] = foo
+        let foo: number[] = [1, 2, 3];
+        let bar: (number | string)[] = foo;
         """
 
       let! ctx, _ = inferScript src
@@ -186,8 +186,8 @@ let MutableAssignmentIsInvariant () =
     result {
       let src =
         """
-        let mut foo: number[] = [1, 2, 3]
-        let mut bar: number[] = foo
+        let mut foo: number[] = [1, 2, 3];
+        let mut bar: number[] = foo;
         """
 
       let! _ = inferScript src
@@ -202,8 +202,8 @@ let MutableAssignmentCantBeCovariant () =
     result {
       let src =
         """
-        let mut foo: number[] = [1, 2, 3]
-        let mut bar: (number | string)[] = foo
+        let mut foo: number[] = [1, 2, 3];
+        let mut bar: (number | string)[] = foo;
         """
 
       let! _ = inferScript src
@@ -218,9 +218,9 @@ let MutableTupleAssignmentCantBeCovariant () =
     result {
       let src =
         """
-        let mut foo: number[] = [5, 10]
-        let mut bar: string[] = ["hello", "world"]
-        let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar]
+        let mut foo: number[] = [5, 10];
+        let mut bar: string[] = ["hello", "world"];
+        let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar];
         """
 
       let! _ = inferScript src
@@ -236,11 +236,11 @@ let CantPassImmutableArgsToMutableParams () =
       let src =
         """
         let foo = fn (mut array: number[]) {
-          array[0] = 5
-          array[1] = "hello"
-        }
-        let numbers: number[] = [1, 2, 3]
-        foo(numbers)
+          array[0] = 5;
+          array[1] = "hello";
+        };
+        let numbers: number[] = [1, 2, 3];
+        foo(numbers);
         """
 
       let! _ = inferScript src
@@ -258,10 +258,10 @@ let ImmutableParamsAreCovariant () =
       let src =
         """
         let foo = fn (array: (number | string)[]) {
-          return array.length
-        }
-        let numbers: number[] = [1, 2, 3]
-        foo(numbers)
+          return array.length;
+        };
+        let numbers: number[] = [1, 2, 3];
+        foo(numbers);
         """
 
       let! _, env = inferScript src
@@ -281,16 +281,16 @@ let MutableObjectPartialInitialization () =
     result {
       let src =
         """
-        type Point = {x:number, y:number}
-        type Line = {p0: Point, p1: Point}
+        type Point = {x:number, y:number};
+        type Line = {p0: Point, p1: Point};
         
-        let mut p0: Point = {x: 0, y: 0}
-        let mut p1: Point = {x: 5, y: 10}
+        let mut p0: Point = {x: 0, y: 0};
+        let mut p1: Point = {x: 5, y: 10};
         
-        let line: Line = {p0, p1}
-        let {p0: mut start, p1: mut end}: Line = {p0, p1}
-        let {p0: start, p1: mut end}: Line = {p0, p1}
-        let {p0: mut start, p1: end}: Line = {p0, p1}
+        let line: Line = {p0, p1};
+        let {p0: mut start, p1: mut end}: Line = {p0, p1};
+        let {p0: start, p1: mut end}: Line = {p0, p1};
+        let {p0: mut start, p1: end}: Line = {p0, p1};
         """
 
       let! _ = inferScript src
@@ -306,16 +306,16 @@ let MutableArrayPartialInitialization () =
     result {
       let src =
         """
-        type Point = [number, number]
-        type Line = [Point, Point]
+        type Point = [number, number];
+        type Line = [Point, Point];
         
-        let mut p0: Point = [0, 0]
-        let mut p1: Point = [5, 10]
+        let mut p0: Point = [0, 0];
+        let mut p1: Point = [5, 10];
         
-        let line: Line = [p0, p1]
-        let [mut start, mut end]: Line = [p0, p1]
-        let [start, mut end]: Line = [p0, p1]
-        let [mut start, end]: Line = [p0, p1]
+        let line: Line = [p0, p1];
+        let [mut start, mut end]: Line = [p0, p1];
+        let [start, mut end]: Line = [p0, p1];
+        let [mut start, end]: Line = [p0, p1];
         """
 
       let! _ = inferScript src
@@ -331,13 +331,13 @@ let MutableObjectInitializationError () =
     result {
       let src =
         """
-        type Point = {x:number, y:number}
-        type Line = {p0: Point, p1: Point}
+        type Point = {x:number, y:number};
+        type Line = {p0: Point, p1: Point};
         
-        let mut p0 = {x: 0, y: 0}
-        let p1 = {x: 5, y: 5}
+        let mut p0 = {x: 0, y: 0};
+        let p1 = {x: 5, y: 5};
         
-        let mut line: Line = {p0, p1}
+        let mut line: Line = {p0, p1};
         """
 
       let! _ = inferScript src
@@ -352,13 +352,13 @@ let MutableArrayInitializationError () =
     result {
       let src =
         """
-        type Point = [number, number]
-        type Line = [Point, Point]
+        type Point = [number, number];
+        type Line = [Point, Point];
         
-        let mut p0 = [0, 0]
-        let p1 = [5, 10]
+        let mut p0 = [0, 0];
+        let p1 = [5, 10];
         
-        let mut line: Line = [p0, p1]
+        let mut line: Line = [p0, p1];
         """
 
       let! _ = inferScript src
@@ -373,13 +373,13 @@ let MutableObjectPartialInitializationError () =
     result {
       let src =
         """
-        type Point = {x:number, y:number}
-        type Line = {p0: Point, p1: Point}
+        type Point = {x:number, y:number};
+        type Line = {p0: Point, p1: Point};
         
-        let mut p0 = {x: 0, y: 0}
-        let p1 = {x: 5, y: 5}
+        let mut p0 = {x: 0, y: 0};
+        let p1 = {x: 5, y: 5};
         
-        let {p0: start, p1: mut end}: Line = {p0, p1}
+        let {p0: start, p1: mut end}: Line = {p0, p1};
         """
 
       let! _ = inferScript src
@@ -394,13 +394,13 @@ let MutableArrayPartialInitializationError () =
     result {
       let src =
         """
-        type Point = [number, number]
-        type Line = [Point, Point]
+        type Point = [number, number];
+        type Line = [Point, Point];
         
-        let mut p0 = [0, 0]
-        let p1 = [5, 10]
+        let mut p0 = [0, 0];
+        let p1 = [5, 10];
         
-        let [start, mut end]: Line = [p0, p1]
+        let [start, mut end]: Line = [p0, p1];
         """
 
       let! _ = inferScript src

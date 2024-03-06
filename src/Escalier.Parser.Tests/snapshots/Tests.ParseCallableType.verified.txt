@@ -2,7 +2,7 @@
     type Callable = {
       new fn () -> symbol,
       fn () -> symbol,
-    }
+    };
     
 output: Ok
   { Items =
@@ -40,7 +40,7 @@ output: Ok
                                   IsAsync = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 21)
-                                Stop = (Ln: 6, Col: 5) }
+                                Stop = (Ln: 5, Col: 6) }
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)

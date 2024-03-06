@@ -1,6 +1,6 @@
 ﻿input: 
-        type Point = {x: number, y: number}
-        let add = fn (a: number, b: number) => a + b
+        type Point = {x: number, y: number};
+        let add = fn (a: number, b: number) => a + b;
         
 output:
 export type Point = {

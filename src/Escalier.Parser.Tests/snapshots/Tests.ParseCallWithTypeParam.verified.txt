@@ -1,4 +1,4 @@
-﻿input: add<number>()
+﻿input: add<number>();
 output: Ok
   { Items =
      [Stmt

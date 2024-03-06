@@ -1,4 +1,4 @@
-﻿input: type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never }
+﻿input: type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never };
 output: Ok
   { Items =
      [Stmt
@@ -70,6 +70,6 @@ output: Ok
                                          Constraint = None
                                          Default = None }] }
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 75) } }
+                        Stop = (Ln: 1, Col: 76) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 75) } }] }
+                   Stop = (Ln: 1, Col: 76) } }] }

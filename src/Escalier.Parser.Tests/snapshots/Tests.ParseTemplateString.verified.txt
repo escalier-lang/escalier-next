@@ -1,4 +1,4 @@
-﻿input: let msg = `foo ${`bar ${baz}`}`
+﻿input: let msg = `foo ${`bar ${baz}`}`;
 output: Ok
   { Items =
      [Stmt
@@ -33,6 +33,6 @@ output: Ok
                                 Stop = (Ln: 1, Col: 32) }
                        InferredType = None } }
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 32) } }
+                        Stop = (Ln: 1, Col: 33) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 32) } }] }
+                   Stop = (Ln: 1, Col: 33) } }] }

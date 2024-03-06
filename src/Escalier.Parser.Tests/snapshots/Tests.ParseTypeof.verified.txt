@@ -1,5 +1,5 @@
 ﻿input: 
-    let iterator: typeof Symbol.iterator = Symbol.iterator
+    let iterator: typeof Symbol.iterator = Symbol.iterator;
     
 output: Ok
   { Items =
@@ -26,7 +26,7 @@ output: Ok
                                            Stop = (Ln: 2, Col: 50) }
                                   InferredType = None }, "iterator", false)
                        Span = { Start = (Ln: 2, Col: 44)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 59) }
                        InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }

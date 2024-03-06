@@ -1,7 +1,7 @@
 ﻿input: 
-    import "./math" {add, sub as subtract}
-    import "~/net" as network
-    import "path"
+    import "./math" {add, sub as subtract};
+    import "~/net" as network;
+    import "path";
     
 output: Ok
   { Items =

@@ -12,12 +12,12 @@ let InfersAsyncFunc () =
       let src =
         """
         let foo = async fn () {
-          return 5
-        }
+          return 5;
+        };
         let bar = async fn () {
-          let x = await foo()
-          return x + await 10
-        }
+          let x = await foo();
+          return x + await 10;
+        };
         """
 
       let! _, env = inferScript src
@@ -34,7 +34,7 @@ let InfersAsyncError () =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
+        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
         """
 
       let! _, env = inferScript src
@@ -54,11 +54,11 @@ let InfersPropagateAsyncError () =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
+        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
         let bar = async fn (x) {
-          let y = await foo(x)
-          return y + await 10
-        }
+          let y = await foo(x);
+          return y + await 10;
+        };
         """
 
       let! _, env = inferScript src
@@ -84,14 +84,14 @@ let InfersTryCatchAsync () =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x }
+        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
         let bar = async fn (x) =>
           try {
-            let y = await foo(x)
-            y + await 10
+            let y = await foo(x);
+            y + await 10;
           } catch {
             | "RangeError" => 0
-          }
+          };
         """
 
       let! _, env = inferScript src

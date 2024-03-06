@@ -1,4 +1,4 @@
-﻿input: fn <T: Foo = Bar>(x: T) -> T { x }
+﻿input: fn <T: Foo = Bar>(x: T) -> T { x };
 output: Ok
   { Items =
      [Stmt

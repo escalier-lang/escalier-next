@@ -1,4 +1,4 @@
-﻿input: obj?.a?.b
+﻿input: obj?.a?.b;
 output: Ok
   { Items =
      [Stmt

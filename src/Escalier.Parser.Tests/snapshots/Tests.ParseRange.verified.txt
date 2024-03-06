@@ -1,6 +1,6 @@
 ﻿input: 
-    type DieRoll = 1..6
-    let range = 0..10
+    type DieRoll = 1..6;
+    let range = 0..10;
     
 output: Ok
   { Items =
@@ -17,10 +17,10 @@ output: Ok
                                               InferredType = None }
                                       Max = { Kind = Literal (Number (Int 6))
                                               Span = { Start = (Ln: 2, Col: 23)
-                                                       Stop = (Ln: 3, Col: 5) }
+                                                       Stop = (Ln: 2, Col: 24) }
                                               InferredType = None } }
                        Span = { Start = (Ln: 2, Col: 20)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 24) }
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)
@@ -46,10 +46,10 @@ output: Ok
                                               InferredType = None }
                                       Max = { Kind = Literal (Number (Int 10))
                                               Span = { Start = (Ln: 3, Col: 20)
-                                                       Stop = (Ln: 4, Col: 5) }
+                                                       Stop = (Ln: 3, Col: 22) }
                                               InferredType = None } }
                        Span = { Start = (Ln: 3, Col: 17)
-                                Stop = (Ln: 4, Col: 5) }
+                                Stop = (Ln: 3, Col: 22) }
                        InferredType = None } }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }

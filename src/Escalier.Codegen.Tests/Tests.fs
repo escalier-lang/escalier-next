@@ -147,10 +147,10 @@ let CodegenDoExpression () =
       let src =
         """
         let sum = do {
-          let x = 5
-          let y = 10
+          let x = 5;
+          let y = 10;
           x + y
-        }
+        };
         """
 
       let! escAst = Parser.parseScript src
@@ -175,17 +175,17 @@ let CodegenNestedDoExpressions () =
         """
         let sum = do {
           let x = do {
-            let a = 5
-            let b = 10
+            let a = 5;
+            let b = 10;
             a + b
-          }
+          };
           let y = do {
-            let c = 15
-            let d = 20
+            let c = 15;
+            let d = 20;
             c - d
-          }
+          };
           x * y
-        }
+        };
         """
 
       let! escAst = Parser.parseScript src
@@ -209,7 +209,7 @@ let CodegenFunction () =
       let src =
         """
         let factorial = fn (n) =>
-          if (n == 0) { 1 } else { n * factorial(n - 1) } 
+          if (n == 0) { 1 } else { n * factorial(n - 1) }; 
         """
 
       let! escAst = Parser.parseScript src
@@ -239,7 +239,7 @@ let CodegenChainedIfElse () =
           bar
         } else {
           baz
-        }
+        };
         """
 
       let! escAst = Parser.parseScript src
@@ -265,8 +265,8 @@ let CodegenDtsBasics () =
     result {
       let src =
         """
-        type Point = {x: number, y: number}
-        let add = fn (a: number, b: number) => a + b
+        type Point = {x: number, y: number};
+        let add = fn (a: number, b: number) => a + b;
         """
 
       let! escAst =
@@ -298,7 +298,7 @@ let CodegenDtsGeneric () =
     result {
       let src =
         """
-        let fst = fn (a, b) => a
+        let fst = fn (a, b) => a;
         """
 
       let! ast =

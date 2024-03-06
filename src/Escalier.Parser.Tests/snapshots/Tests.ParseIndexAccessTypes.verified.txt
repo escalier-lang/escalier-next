@@ -1,4 +1,4 @@
-﻿input: type Foo = Bar["baz"]
+﻿input: type Foo = Bar["baz"];
 output: Ok
   { Items =
      [Stmt
@@ -24,6 +24,6 @@ output: Ok
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 22) } }
+                        Stop = (Ln: 1, Col: 23) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 22) } }] }
+                   Stop = (Ln: 1, Col: 23) } }] }

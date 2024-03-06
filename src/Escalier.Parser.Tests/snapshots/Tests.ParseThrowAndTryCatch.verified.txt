@@ -1,18 +1,18 @@
 ﻿input: 
     let foo = fn (x) {
       if x < 0 {
-        throw "x must be positive"
+        throw "x must be positive";
       }
-      return x
-    }
+      return x;
+    };
     let bar = fn (x) {
       let result = try {
-        foo(x)
+        foo(x);
       } catch {
         | _ => 0
-      }
-      return result
-    }
+      };
+      return result;
+    };
     
 output: Ok
   { Items =
@@ -50,7 +50,7 @@ output: Ok
                             Body =
                              Block
                                { Span = { Start = (Ln: 2, Col: 22)
-                                          Stop = (Ln: 8, Col: 5) }
+                                          Stop = (Ln: 7, Col: 6) }
                                  Stmts =
                                   [{ Kind =
                                       Expr
@@ -99,11 +99,11 @@ output: Ok
                                                           { Start =
                                                              (Ln: 4, Col: 9)
                                                             Stop =
-                                                             (Ln: 5, Col: 7) }
+                                                             (Ln: 4, Col: 35) }
                                                          InferredType = None }
                                                     Span =
                                                      { Start = (Ln: 4, Col: 9)
-                                                       Stop = (Ln: 5, Col: 7) } }] },
+                                                       Stop = (Ln: 4, Col: 35) } }] },
                                               None)
                                           Span = { Start = (Ln: 3, Col: 7)
                                                    Stop = (Ln: 6, Col: 7) }
@@ -115,12 +115,12 @@ output: Ok
                                         (Some
                                            { Kind = Identifier "x"
                                              Span = { Start = (Ln: 6, Col: 14)
-                                                      Stop = (Ln: 7, Col: 5) }
+                                                      Stop = (Ln: 6, Col: 15) }
                                              InferredType = None })
                                      Span = { Start = (Ln: 6, Col: 7)
                                               Stop = (Ln: 7, Col: 5) } }] } }
                        Span = { Start = (Ln: 2, Col: 15)
-                                Stop = (Ln: 8, Col: 5) }
+                                Stop = (Ln: 7, Col: 6) }
                        InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }
@@ -160,7 +160,7 @@ output: Ok
                             Body =
                              Block
                                { Span = { Start = (Ln: 8, Col: 22)
-                                          Stop = (Ln: 16, Col: 5) }
+                                          Stop = (Ln: 15, Col: 6) }
                                  Stmts =
                                   [{ Kind =
                                       Decl
@@ -222,14 +222,14 @@ output: Ok
                                                                     { Start =
                                                                        (Ln: 10, Col: 9)
                                                                       Stop =
-                                                                       (Ln: 11, Col: 7) }
+                                                                       (Ln: 10, Col: 15) }
                                                                    InferredType =
                                                                     None }
                                                               Span =
                                                                { Start =
                                                                   (Ln: 10, Col: 9)
                                                                  Stop =
-                                                                  (Ln: 11, Col: 7) } }] }
+                                                                  (Ln: 10, Col: 15) } }] }
                                                        Catch =
                                                         Some
                                                           [{ Span =
@@ -270,7 +270,7 @@ output: Ok
                                                        Throws = None }
                                                   Span =
                                                    { Start = (Ln: 9, Col: 20)
-                                                     Stop = (Ln: 14, Col: 7) }
+                                                     Stop = (Ln: 13, Col: 8) }
                                                   InferredType = None } }
                                           Span = { Start = (Ln: 9, Col: 7)
                                                    Stop = (Ln: 14, Col: 7) } }
@@ -281,12 +281,12 @@ output: Ok
                                         (Some
                                            { Kind = Identifier "result"
                                              Span = { Start = (Ln: 14, Col: 14)
-                                                      Stop = (Ln: 15, Col: 5) }
+                                                      Stop = (Ln: 14, Col: 20) }
                                              InferredType = None })
                                      Span = { Start = (Ln: 14, Col: 7)
                                               Stop = (Ln: 15, Col: 5) } }] } }
                        Span = { Start = (Ln: 8, Col: 15)
-                                Stop = (Ln: 16, Col: 5) }
+                                Stop = (Ln: 15, Col: 6) }
                        InferredType = None } }
                Span = { Start = (Ln: 8, Col: 5)
                         Stop = (Ln: 16, Col: 5) } }

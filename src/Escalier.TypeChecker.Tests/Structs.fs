@@ -12,7 +12,7 @@ let InferBasicStruct () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point = Point {x: 5, y: 10}
+        let point = Point {x: 5, y: 10};
         """
 
       let! _, env = inferScript src
@@ -29,7 +29,7 @@ let InferBasicStructIncorrectTypes () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point = Point {x: "hello", y: true}
+        let point = Point {x: "hello", y: true};
         """
 
       let! _ = inferScript src
@@ -45,7 +45,7 @@ let InferGenericStruct () =
       let src =
         """
         struct Point<T> {x: T, y: T}
-        let point = Point<number> {x: 5, y: 10}
+        let point = Point<number> {x: 5, y: 10};
         """
 
       let! _, env = inferScript src
@@ -62,7 +62,7 @@ let StructsAreSubtypesOfObjects () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point: {x: number, y: number} = Point {x: 5, y: 10}
+        let point: {x: number, y: number} = Point {x: 5, y: 10};
         """
 
       let! _, env = inferScript src
@@ -79,8 +79,8 @@ let PropertyAccessOnStructs () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point = Point {x: 5, y: 10}
-        let x = point.x
+        let point = Point {x: 5, y: 10};
+        let x = point.x;
         """
 
       let! _, env = inferScript src
@@ -97,8 +97,8 @@ let SettingPropertiesOnMutableStructs () =
       let src =
         """
         struct Point {x: number, y: number}
-        let mut point = Point {x: 5, y: 10}
-        point.x = 0
+        let mut point = Point {x: 5, y: 10};
+        point.x = 0;
         """
 
       let! _ = inferScript src
@@ -114,8 +114,8 @@ let SettingPropertiesOnNonmutableStructsFails () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point = Point {x: 5, y: 10}
-        point.x = 0
+        let point = Point {x: 5, y: 10};
+        point.x = 0;
         """
 
       let! _ = inferScript src
@@ -132,10 +132,10 @@ let PropertyAccessOnPrivateStructs () =
         """
         let makePoint = fn (x, y) {
           struct Point {x: number, y: number}
-          return Point {x, y}
-        }
-        let point = makePoint(5, 10)
-        let x = point.x
+          return Point {x, y};
+        };
+        let point = makePoint(5, 10);
+        let x = point.x;
         """
 
       let! _, env = inferScript src
@@ -154,10 +154,10 @@ let PropertyAccessOnPrivateStructsWrongKey () =
         """
         let makePoint = fn (x, y) {
           struct Point {x: number, y: number}
-          return Point {x, y}
-        }
-        let point = makePoint(5, 10)
-        let z = point.z
+          return Point {x, y};
+        };
+        let point = makePoint(5, 10);
+        let z = point.z;
         """
 
       let! _ = inferScript src
@@ -173,8 +173,8 @@ let ObjectDestructuringOfStructs () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point = Point {x: 5, y: 10}
-        let {x, y} = point
+        let point = Point {x: 5, y: 10};
+        let {x, y} = point;
         """
 
       let! _, env = inferScript src
@@ -191,8 +191,8 @@ let StructDestructuring () =
       let src =
         """
         struct Point {x: number, y: number}
-        let point = Point {x: 5, y: 10}
-        let Point {x, y} = point
+        let point = Point {x: 5, y: 10};
+        let Point {x, y} = point;
         """
 
       let! _, env = inferScript src
@@ -212,20 +212,20 @@ let BasicStructAndImpl () =
 
         impl Foo {
           fn bar(self) {
-            return self.x
+            return self.x;
           }
         }
 
         impl Foo {
           fn baz(self) {
-            return self.y
+            return self.y;
           }
         }
 
-        let foo = Foo {x: 5, y: "hello"}
-        let {x, y} = foo
-        let bar = foo.bar()
-        let baz = foo.baz()
+        let foo = Foo {x: 5, y: "hello"};
+        let {x, y} = foo;
+        let bar = foo.bar();
+        let baz = foo.baz();
         """
 
       let! _, env = inferScript src
@@ -248,19 +248,19 @@ let CallingMethodInPreviousImpl () =
 
         impl Foo {
           fn bar(self) {
-            return self.x
+            return self.x;
           }
         }
 
         impl Foo {
           fn baz(self) {
-            return self.bar()
+            return self.bar();
           }
         }
 
-        let foo = Foo {x: 5}
-        let bar = foo.bar()
-        let baz = foo.baz()
+        let foo = Foo {x: 5};
+        let bar = foo.bar();
+        let baz = foo.baz();
         """
 
       let! _, env = inferScript src
@@ -281,16 +281,16 @@ let GetterSetterImpl () =
 
         impl Foo {
           get bar(self) {
-            return self.x
+            return self.x;
           }
           set baz(mut self, y) {
-            self.y = y
+            self.y = y;
           }
         }
 
-        let mut foo = Foo {x: 5, y: "hello"}
-        let bar = foo.bar
-        foo.baz = "world"
+        let mut foo = Foo {x: 5, y: "hello"};
+        let bar = foo.bar;
+        foo.baz = "world";
         """
 
       let! _, env = inferScript src
@@ -311,17 +311,17 @@ let CallingMethodInSameImpl () =
 
         impl Foo {
           fn bar(self) {
-            return self.x
+            return self.x;
           }
           
           fn baz(self) {
-            return self.bar()
+            return self.bar();
           }
         }
 
-        let foo = Foo {x: 5}
-        let bar = foo.bar()
-        let baz = foo.baz()
+        let foo = Foo {x: 5};
+        let bar = foo.bar();
+        let baz = foo.baz();
         """
 
       let! _, env = inferScript src
@@ -342,12 +342,12 @@ let InferGenericImpls () =
         
         impl Point<T> {
           fn bar(self) -> T {
-            return self.x
+            return self.x;
           }
         }
         
-        let point = Point<number> {x: 5, y: 10}
-        let bar = point.bar()
+        let point = Point<number> {x: 5, y: 10};
+        let bar = point.bar();
         """
 
       let! _, env = inferScript src
@@ -369,22 +369,22 @@ let InferGenericImplsWithParams () =
 
         impl Foo<T> {
           fn bar(mut self, x) {
-            return self.x = x
+            return self.x = x;
           }
           
           fn baz(mut self, x) {
-            return self.bar(x)
+            return self.bar(x);
           }
 
           get qux(self) -> T {
-            return self.x
+            return self.x;
           }
         }
 
-        let mut foo = Foo<number>{x: 5}
-        foo.bar(10)
-        foo.baz(15)
-        let qux = foo.qux 
+        let mut foo = Foo<number>{x: 5};
+        foo.bar(10);
+        foo.baz(15);
+        let qux = foo.qux; 
         """
 
       let! _, env = inferScript src
@@ -437,7 +437,7 @@ let InferRecursiveStructType () =
           right: Node<number> {
             value: 15
           }
-        }
+        };
         """
 
       let! _, env = inferScript src
@@ -466,7 +466,7 @@ let InferGenericRecursiveStructWithImpls () =
               value: mapper(self.value),
               left: self.left?.map(mapper),
               right: self.right?.map(mapper)
-            }
+            };
           }
         }
         """
@@ -492,13 +492,13 @@ let RecursiveMethodsCanBeInferred () =
               1
             } else {
               n * self.fact(n - 1)
-            }
+            };
           }
         }
 
-        let foo = Foo {}
-        let res = foo.fact(5)
-        let fact = foo.fact
+        let foo = Foo {};
+        let res = foo.fact(5);
+        let fact = foo.fact;
         """
 
       let! _, env = inferScript src
@@ -519,19 +519,19 @@ let MutMethodsCanCallOtherMutMethods () =
 
         impl Foo {
           fn bar(mut self, x) {
-            return self.x = x
+            return self.x = x;
           }
           
           fn baz(mut self, x) {
-            return self.bar(x)
+            return self.bar(x);
           }
         }
 
-        let mut foo = Foo {x: 5}
-        foo.bar(10)
-        foo.baz(15)
-        let bar = foo.bar
-        let baz = foo.baz
+        let mut foo = Foo {x: 5};
+        foo.bar(10);
+        foo.baz(15);
+        let bar = foo.bar;
+        let baz = foo.baz;
         """
 
       let! _, env = inferScript src
@@ -551,12 +551,12 @@ let CannotCallMutatingMethodOnNonMutableBinding () =
 
         impl Foo {
           fn bar(mut self, x) {
-            return self.x = x
+            return self.x = x;
           }
         }
 
-        let foo = Foo {x: 5}
-        foo.bar(10)
+        let foo = Foo {x: 5};
+        foo.bar(10);
         """
 
       let! _ = inferScript src
@@ -575,17 +575,17 @@ let NonMutatingMethodsCannotCallOtherMutMethods () =
 
         impl Foo {
           fn bar(mut self, x) {
-            return self.x = x
+            return self.x = x;
           }
           
           fn baz(self, x) {
-            return self.bar(x)
+            return self.bar(x);
           }
         }
 
-        let mut foo = Foo {x: 5}
-        foo.bar(10)
-        foo.baz(15)
+        let mut foo = Foo {x: 5};
+        foo.bar(10);
+        foo.baz(15);
         """
 
       let! _ = inferScript src
@@ -604,16 +604,16 @@ let StaticMethods () =
 
         impl Point {
           fn make(x, y) {
-            return Self { x, y }
+            return Self { x, y };
           }
           fn default() {
-            return Point { x: 0, y: 0 }
+            return Point { x: 0, y: 0 };
           }
         }
 
-        let p = Point.make(5, 10)
-        let q = Point.default()
-        let {x, y} = p
+        let p = Point.make(5, 10);
+        let q = Point.default();
+        let {x, y} = p;
         """
 
       let! _, env = inferScript src

@@ -12,8 +12,8 @@ let InferCallFuncWithSingleWrongArg () =
     result {
       let src =
         """
-        let add = fn (x, y) => {value: x + y}
-        let sum = add("hello", "world")
+        let add = fn (x, y) => {value: x + y};
+        let sum = add("hello", "world");
         """
 
       let! ctx, env = inferScript src
@@ -31,8 +31,8 @@ let InferCallFuncWithWrongArgs () =
     result {
       let src =
         """
-        let add = fn (x, y) => x + y
-        let sum = "hello" + "world"
+        let add = fn (x, y) => x + y;
+        let sum = "hello" + "world";
         """
 
       let! ctx, env = inferScript src
@@ -49,8 +49,8 @@ let InferCallGenericFuncWithWrongArg () =
     result {
       let src =
         """
-        let foo = fn <T: number>(x: T) -> T => x
-        let bar = foo("bar")
+        let foo = fn <T: number>(x: T) -> T => x;
+        let bar = foo("bar");
         """
 
       let! ctx, env = inferScript src
@@ -67,8 +67,8 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
     result {
       let src =
         """
-        let foo = fn <T: number>(x: T) => {value: x}
-        let bar = foo("hello")
+        let foo = fn <T: number>(x: T) => {value: x};
+        let bar = foo("hello");
         """
 
       let! ctx, env = inferScript src
@@ -85,9 +85,9 @@ let InferFuncTypeAnnotation () =
     result {
       let src =
         """
-        let foo: fn <T: number>(x: T) -> T = fn (x) => x
-        let x = foo(5)
-        let y = foo("hello")
+        let foo: fn <T: number>(x: T) -> T = fn (x) => x;
+        let x = foo(5);
+        let y = foo("hello");
         """
 
       let! ctx, env = inferScript src
@@ -106,8 +106,8 @@ let PassingTooManyArgsIsOkay () =
     result {
       let src =
         """
-        let add = fn (x, y) => x + y
-        let sum = add(5, 10, "hello")
+        let add = fn (x, y) => x + y;
+        let sum = add(5, 10, "hello");
         """
 
       let! _, env = inferScript src
@@ -123,8 +123,8 @@ let PassingTooFewArgsIsAnError () =
     result {
       let src =
         """
-        let add = fn (x, y) => x + y
-        let sum = add(5)
+        let add = fn (x, y) => x + y;
+        let sum = add(5);
         """
 
       let! _, _ = inferScript src
@@ -142,7 +142,7 @@ let InferBasicFunction () =
     result {
       let src =
         """
-        let add = fn (a, b) => a + b
+        let add = fn (a, b) => a + b;
         """
 
       let! _, env = inferScript src
@@ -158,9 +158,9 @@ let InferFunctionWithOptionalParms () =
     result {
       let src =
         """
-        let foo = fn (a: number, b?: string) => a
-        let a = foo(5)
-        let b = foo(10, "hello")
+        let foo = fn (a: number, b?: string) => a;
+        let a = foo(5);
+        let b = foo(10, "hello");
         """
 
       let! _, env = inferScript src
@@ -177,9 +177,9 @@ let CheckOptionalParmsErrorsWithIncorrectType () =
     result {
       let src =
         """
-        let foo = fn (a: number, b?: string) => a
-        let a = foo(5)
-        let b = foo(10, true)
+        let foo = fn (a: number, b?: string) => a;
+        let a = foo(5);
+        let b = foo(10, true);
         """
 
       let! ctx, env = inferScript src
@@ -198,10 +198,10 @@ let InferFunctionWithRestParms () =
     result {
       let src =
         """
-        let foo = fn (a: number, ...b: string[]) => a
-        let a = foo(5)
-        let b = foo(10, "hello")
-        let c = foo(10, "hello", "world")
+        let foo = fn (a: number, ...b: string[]) => a;
+        let a = foo(5);
+        let b = foo(10, "hello");
+        let c = foo(10, "hello", "world");
         """
 
       let! _, env = inferScript src
@@ -219,8 +219,8 @@ let PassingIncorrectArgsAsRestParm () =
     result {
       let src =
         """
-        let foo = fn (a: number, ...b: string[]) => a
-        let c = foo(10, "hello", true)
+        let foo = fn (a: number, ...b: string[]) => a;
+        let c = foo(10, "hello", true);
         """
 
       let! _ = inferScript src
@@ -233,7 +233,7 @@ let PassingIncorrectArgsAsRestParm () =
 let InferFuncGeneralization () =
   let result =
     result {
-      let src = "let fst = fn (x, y) => x"
+      let src = "let fst = fn (x, y) => x;"
 
       let! _, env = inferScript src
 
@@ -252,7 +252,7 @@ let InferFactorial () =
       let src =
         """
         let factorial = fn (n) =>
-          if (n == 0) { 1 } else { n * factorial(n - 1) } 
+          if (n == 0) { 1 } else { n * factorial(n - 1) };
         """
 
       let! _, env = inferScript src
@@ -271,7 +271,7 @@ let InferRecursiveFunc () =
 
       let src =
         """
-        let rec = fn () => rec()
+        let rec = fn () => rec();
         """
 
       let! _, env = inferScript src
@@ -290,7 +290,7 @@ let InferRecursiveSequence () =
 
       let src =
         """
-        let seq = fn () => seq() + 1
+        let seq = fn () => seq() + 1;
         """
 
       let! _, env = inferScript src
@@ -310,16 +310,16 @@ let InferTypeAliasOfTypeParam () =
       let src =
         """
         let foo = fn <A>(x: A) {
-          type B = A
-          let y: B = x
-          return y
-        }
+          type B = A;
+          let y: B = x;
+          return y;
+        };
         let bar = fn <A>(x: A) -> A {
-          type B = A
-          let y: B = x
-          return y
-        }
-        let z = foo(5)
+          type B = A;
+          let y: B = x;
+          return y;
+        };
+        let z = foo(5);
         """
 
       // let w: number = z
@@ -339,7 +339,7 @@ let InferTypeAliasOfTypeParam () =
 let InferLambda () =
   let result =
     result {
-      let src = "let add = fn (x, y) => x + y"
+      let src = "let add = fn (x, y) => x + y;"
 
       let! _, env = inferScript src
 
@@ -354,9 +354,9 @@ let InferSKK () =
     result {
       let src =
         """
-          let S = fn (f) => fn (g) => fn (x) => f(x)(g(x))
-          let K = fn (x) => fn (y) => x
-          let I = S(K)(K)
+          let S = fn (f) => fn (g) => fn (x) => f(x)(g(x));
+          let K = fn (x) => fn (y) => x;
+          let I = S(K)(K);
         """
 
       let! _, env = inferScript src
@@ -381,14 +381,14 @@ let InferFuncParams () =
       let src =
         """
           let addNums = fn (x, y) {
-            return x + y
-          }
+            return x + y;
+          };
           let addStrs = fn (x, y) {
-            return x ++ y
-          }
-          let msg = addStrs("Hello, ", "world!")
-          let greeting: string = "Bonjour, "
-          let frMsg = addStrs(greeting, "monde!")
+            return x ++ y;
+          };
+          let msg = addStrs("Hello, ", "world!");
+          let greeting: string = "Bonjour, ";
+          let frMsg = addStrs(greeting, "monde!");
           """
 
       let! _, env = inferScript src
@@ -418,17 +418,17 @@ let InferBinaryOpStressTest () =
       let src =
         """
           let foo = fn (a, b, c) {
-            return a * b + c
-          }
+            return a * b + c;
+          };
           let double = fn (x) {
-            return 2 * x
-          }
+            return 2 * x;
+          };
           let inc = fn (x) {
-            return x + 1
-          }
-          let bar = foo(double(1), inc(2), 3)
-          let baz: number = 5
-          let qux = double(baz)
+            return x + 1;
+          };
+          let bar = foo(double(1), inc(2), 3);
+          let baz: number = 5;
+          let qux = double(baz);
           """
 
       let! _, env = inferScript src
@@ -455,11 +455,11 @@ let InferFuncParamsWithTypeAnns () =
       let src =
         """
           let addNums = fn (x: number, y: number) -> number {
-            return x + y
-          }
+            return x + y;
+          };
           let addStrs = fn (x: string, y: string) -> string {
-            return x ++ y
-          }
+            return x ++ y;
+          };
           """
 
       let! _, env = inferScript src
@@ -479,11 +479,11 @@ let InferFuncWithMultipleReturns () =
         """
           let foo = fn <A: number>(x: A, y: string) {
             if (x > 0) {
-              return x
+              return x;
             }
-            return y
-          }
-          let bar = foo(5, "hello")
+            return y;
+          };
+          let bar = foo(5, "hello");
           """
 
       let! _, env = inferScript src
@@ -502,10 +502,10 @@ let InferFuncGenericFunc () =
       let src =
         """
           let foo = fn (x) {
-            return x
-          }
-          let bar = foo(5)
-          let baz = foo("hello")
+            return x;
+          };
+          let bar = foo(5);
+          let baz = foo("hello");
           """
 
       let! _, env = inferScript src
@@ -524,9 +524,9 @@ let ApplyGenericTypeArgWithoutCallingFunction () =
       let src =
         """
         let foo = fn (x) {
-          return x
-        }
-        let bar = foo<number>
+          return x;
+        };
+        let bar = foo<number>;
         """
 
       let! _, env = inferScript src
@@ -543,9 +543,9 @@ let ApplyGenericTypeArgWithoutCallingFunctionWithTypeAlias () =
     result {
       let src =
         """
-        type Identity = fn <A>(x: A) -> A
-        declare let foo: Identity
-        let bar = foo<number>
+        type Identity = fn <A>(x: A) -> A;
+        declare let foo: Identity;
+        let bar = foo<number>;
         """
 
       let! _, env = inferScript src
@@ -564,10 +564,10 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
       let src =
         """
           let foo = fn <T>(x: T) -> T {
-            return x
-          }
-          let bar = foo(5)
-          let baz = foo("hello")
+            return x;
+          };
+          let bar = foo(5);
+          let baz = foo("hello");
           """
 
       let! _, env = inferScript src

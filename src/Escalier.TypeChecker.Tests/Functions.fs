@@ -544,7 +544,7 @@ let ApplyGenericTypeArgWithoutCallingFunctionWithTypeAlias () =
       let src =
         """
         type Identity = fn <A>(x: A) -> A;
-        declare let foo: Identity
+        declare let foo: Identity;
         let bar = foo<number>;
         """
 

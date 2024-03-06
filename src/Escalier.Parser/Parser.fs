@@ -1532,7 +1532,7 @@ module Parser =
     pipe4
       getPosition
       (strWs "import" >>. _string .>> ws)
-      (opt importSpecifiers)
+      (opt importSpecifiers .>> (strWs ";"))
       getPosition
     <| fun start source specifiers stop ->
       { Path = source
@@ -1542,7 +1542,7 @@ module Parser =
     pipe4
       getPosition
       (strWs "declare" >>. strWs "let" >>. pattern)
-      (strWs ":" >>. ws >>. typeAnn)
+      (strWs ":" >>. ws >>. typeAnn .>> (strWs ";"))
       getPosition
     <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)
 

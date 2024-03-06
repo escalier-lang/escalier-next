@@ -1,7 +1,7 @@
 ﻿input: 
     type Point = {x: number, y: number};
     type Line = {p0: Point, p1: Point};
-    declare let line: Line
+    declare let line: Line;
     
     let {mut p0, p1: mut q} = line;
     let mut r = q;
@@ -91,7 +91,7 @@ output: Ok
            InferredType = None }, { Kind = TypeRef { Ident = Ident "Line"
                                                      TypeArgs = None }
                                     Span = { Start = (Ln: 4, Col: 23)
-                                             Stop = (Ln: 6, Col: 5) }
+                                             Stop = (Ln: 4, Col: 27) }
                                     InferredType = None });
       Stmt
         { Kind =

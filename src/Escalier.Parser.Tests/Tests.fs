@@ -308,9 +308,9 @@ let ParseArrowIdentifier () =
 let ParseImports () =
   let src =
     """
-    import "./math" {add, sub as subtract}
-    import "~/net" as network
-    import "path"
+    import "./math" {add, sub as subtract};
+    import "~/net" as network;
+    import "path";
     """
 
   let ast = Parser.parseScript src
@@ -554,8 +554,8 @@ let ParseForLoop () =
 let ParseDeclare () =
   let src =
     """
-    declare let foo: number
-    declare let bar: string
+    declare let foo: number;
+    declare let bar: string;
     """
 
   let ast = Parser.parseScript src
@@ -629,7 +629,7 @@ let ParseMutableBindings () =
     """
     type Point = {x: number, y: number};
     type Line = {p0: Point, p1: Point};
-    declare let line: Line
+    declare let line: Line;
     
     let {mut p0, p1: mut q} = line;
     let mut r = q;

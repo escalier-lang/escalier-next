@@ -116,7 +116,7 @@ let PatternMatchingObjects () =
           end: Point
         };
         
-        declare let shape: Shape
+        declare let shape: Shape;
         
         let centroid =
           match shape {
@@ -160,7 +160,7 @@ let PatternMatchingObjectsWithBlockBody () =
           end: Point
         };
         
-        declare let shape: Shape
+        declare let shape: Shape;
         
         let centroid =
           match shape {
@@ -212,7 +212,7 @@ let PatternMatchingPrimitiveAssertions () =
     result {
       let src =
         """
-        declare let value: number | string | boolean
+        declare let value: number | string | boolean;
         
         let result =
           match value {
@@ -235,7 +235,7 @@ let PartialPatternMatchingObject () =
     result {
       let src =
         """
-        declare let value: {a: number, b: string} | [number, string]
+        declare let value: {a: number, b: string} | [number, string];
         let result = match value {
           | [a, _] => a
           | {b} => b
@@ -259,7 +259,7 @@ let PatternMatchingImmutableTypes () =
     result {
       let src =
         """
-        declare let value: #[number, string] | #{a: number, b: string}
+        declare let value: #[number, string] | #{a: number, b: string};
         let result = match value {
           | #[a, b] => a
           | #{a, b} => a
@@ -281,7 +281,7 @@ let PatternMatchingDisallowsExtraProperties () =
     result {
       let src =
         """
-        declare let value: {a: number, b: string}
+        declare let value: {a: number, b: string};
         let result = match value {
           | {a, b: _, c: _} => a
         };
@@ -304,7 +304,7 @@ let PatternMatchingDisallowsPartialMappingOfTuples () =
     result {
       let src =
         """
-        declare let value: [number, string]
+        declare let value: [number, string];
         let result = match value {
           | [a] => a
         };

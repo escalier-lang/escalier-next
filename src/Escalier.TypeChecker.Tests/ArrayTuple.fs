@@ -246,7 +246,7 @@ let InferRangeMath () =
     result {
       let src =
         """
-        declare let range: 0..3
+        declare let range: 0..3;
         let inc_range = range + 1;
         let dec_range = range - 1;
         let mul_range = 2 * range;
@@ -269,14 +269,14 @@ let InferRangeWithArrayLength () =
     result {
       let src =
         """
-        declare let array: number[]
+        declare let array: number[];
 
         let length = array.length;
         for x in 0..length {
           let item: number = array[x];
         }
         
-        declare let range: 0..(typeof length)
+        declare let range: 0..(typeof length);
         let elem = array[range];
         
         let first = array[0];
@@ -298,14 +298,14 @@ let InferRangeWithDifferentArrayLengths () =
     result {
       let src =
         """
-        declare let array1: number[]
-        declare let array2: string[]
+        declare let array1: number[];
+        declare let array2: string[];
         
         let length1 = array1.length;
         let length2 = array2.length;
         
-        declare let range1: 0..(typeof length1)
-        declare let range2: 0..(typeof length2)
+        declare let range1: 0..(typeof length1);
+        declare let range2: 0..(typeof length2);
         
         let elem1 = array1[range1];
         let elem2 = array2[range2];
@@ -325,14 +325,14 @@ let InferRangeWithDifferentArrayLengthsAreIncompatible () =
     result {
       let src =
         """
-        declare let array1: number[]
-        declare let array2: string[]
+        declare let array1: number[];
+        declare let array2: string[];
         
         let length1 = array1.length;
         let length2 = array2.length;
         
-        declare let range1: 0..(typeof length1)
-        declare let range2: 0..(typeof length2)
+        declare let range1: 0..(typeof length1);
+        declare let range2: 0..(typeof length2);
         
         let elem1 = array1[range2];
         let elem2 = array2[range1];
@@ -351,8 +351,8 @@ let InferDestructureArray () =
     result {
       let src =
         """
-        declare let array: number[]
-        declare let tuple: [number, string, boolean]
+        declare let array: number[];
+        declare let tuple: [number, string, boolean];
         
         let [a, ...rest] = array;
         """
@@ -372,7 +372,7 @@ let InferDestructureTuple () =
     result {
       let src =
         """
-        declare let tuple: [number, string, boolean]
+        declare let tuple: [number, string, boolean];
         
         let [a, ...rest] = tuple;
         """
@@ -453,7 +453,7 @@ let ImmutableTuplesAreIncompatibleWithRegularTuples () =
     result {
       let src =
         """
-        declare let foo: fn (point: #[number, number]) -> undefined
+        declare let foo: fn (point: #[number, number]) -> undefined;
         foo([5, 10]);
         """
 
@@ -470,7 +470,7 @@ let ImmutableObjectsAreIncompatibleWithRegularObjects () =
     result {
       let src =
         """
-        declare let foo: fn (point: #{x:number, x:number}) -> undefined
+        declare let foo: fn (point: #{x:number, x:number}) -> undefined;
         foo({x:5, y:10});
         """
 
@@ -488,7 +488,7 @@ let DescructuringArray () =
     result {
       let src =
         """
-        declare let array: number[]
+        declare let array: number[];
         let [a, b] = array;
         """
 

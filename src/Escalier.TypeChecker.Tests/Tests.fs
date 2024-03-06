@@ -588,7 +588,7 @@ let InferTuple () =
 let InferDeclare () =
   let result =
     result {
-      let src = "declare let [x, y]: [number, string, boolean]"
+      let src = "declare let [x, y]: [number, string, boolean];"
       let! _, env = inferScript src
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "string")

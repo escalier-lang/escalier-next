@@ -96,7 +96,7 @@ let InferImports () =
   let res =
     result {
       let files = Dictionary<string, MockFileData>()
-      let src = "import \"./foo.esc\" {foo}"
+      let src = "import \"./foo.esc\" {foo};"
       files.Add("/input.esc", MockFileData(src))
       files.Add("/foo.esc", MockFileData("let foo = 5;"))
       let mockFileSystem = MockFileSystem(files, "/")

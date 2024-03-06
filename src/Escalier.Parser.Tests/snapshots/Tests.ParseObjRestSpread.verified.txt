@@ -1,6 +1,6 @@
 ﻿input: 
-    let obj = {a: 5, b: "hello", c: true}
-    let {a, ...rest} = obj
+    let obj = {a: 5, b: "hello", c: true};
+    let {a, ...rest} = obj;
   
 output: Ok
   { Items =
@@ -43,7 +43,7 @@ output: Ok
                                    InferredType = None })]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 15)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 42) }
                        InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
@@ -81,7 +81,7 @@ output: Ok
                     TypeAnn = None
                     Init = { Kind = Identifier "obj"
                              Span = { Start = (Ln: 3, Col: 24)
-                                      Stop = (Ln: 4, Col: 3) }
+                                      Stop = (Ln: 3, Col: 27) }
                              InferredType = None } }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 3) } }

@@ -17,7 +17,7 @@ let BasicPatternMatching () =
             | 1 => "one"
             | n if n < 0 => "negative"
             | _ => "other"
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -44,7 +44,7 @@ let BasicPatternMatchingInferExpr () =
             | 1 => "one"
             | n if n < 0 => "negative"
             | _ => "other"
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -71,7 +71,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
             | {x is number, y: 0} => "x-axis"
             | {x: 0, y is number} => "y-axis"
             | _ => "other"
-          }
+          };
           
         let bar = fn (x, y) =>
           match {x, y} {
@@ -79,7 +79,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
             | {x is number, y: 0} => "x-axis"
             | {x: 0, y is number} => "y-axis"
             | {x is number, y is number} => "other"
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -105,7 +105,7 @@ let PatternMatchingObjects () =
     result {
       let src =
         """
-        type Point = {x: number, y: number}
+        type Point = {x: number, y: number};
         type Shape = {
           type: "circle",
           radius: number,
@@ -114,7 +114,7 @@ let PatternMatchingObjects () =
           type: "line",
           start: Point,
           end: Point
-        }
+        };
         
         declare let shape: Shape
         
@@ -125,7 +125,7 @@ let PatternMatchingObjects () =
               x: (start.x + end.x) / 2,
               y: (start.y + end.y) / 2
             })
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -149,7 +149,7 @@ let PatternMatchingObjectsWithBlockBody () =
     result {
       let src =
         """
-        type Point = {x: number, y: number}
+        type Point = {x: number, y: number};
         type Shape = {
           type: "circle",
           radius: number,
@@ -158,7 +158,7 @@ let PatternMatchingObjectsWithBlockBody () =
           type: "line",
           start: Point,
           end: Point
-        }
+        };
         
         declare let shape: Shape
         
@@ -166,11 +166,11 @@ let PatternMatchingObjectsWithBlockBody () =
           match shape {
             | {type: "circle", ...rest} => rest.center
             | {type: "line", start, end} => {
-              let x = (start.x + end.x) / 2
-              let y = (start.y + end.y) / 2
+              let x = (start.x + end.x) / 2;
+              let y = (start.y + end.y) / 2;
               {x, y}
             }
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -195,7 +195,7 @@ let PatternMatchingArrays () =
             | [x, y] => x + y
             | [x, y, z] => x + y + z
             | [x, y, z, ...rest] => x + y + z + sum(rest)
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -219,7 +219,7 @@ let PatternMatchingPrimitiveAssertions () =
             | n is number => n + 1
             | s is string => s ++ "!"
             | _ is boolean => true
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -239,7 +239,7 @@ let PartialPatternMatchingObject () =
         let result = match value {
           | [a, _] => a
           | {b} => b
-        }
+        };
         """
 
       let! _, env = inferScript src
@@ -263,7 +263,7 @@ let PatternMatchingImmutableTypes () =
         let result = match value {
           | #[a, b] => a
           | #{a, b} => a
-        }
+        };
         """
 
       let! _, env = inferScript src
@@ -284,7 +284,7 @@ let PatternMatchingDisallowsExtraProperties () =
         declare let value: {a: number, b: string}
         let result = match value {
           | {a, b: _, c: _} => a
-        }
+        };
         """
 
       let! _ = inferScript src
@@ -307,7 +307,7 @@ let PatternMatchingDisallowsPartialMappingOfTuples () =
         declare let value: [number, string]
         let result = match value {
           | [a] => a
-        }
+        };
         """
 
       let! _ = inferScript src

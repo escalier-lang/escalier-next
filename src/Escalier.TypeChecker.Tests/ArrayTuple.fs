@@ -30,7 +30,7 @@ let inferScript src =
       """
         type RangeIterator<Min: number, Max: number> = {
           next: fn () -> { done: boolean, value: Min..Max }
-        }
+        };
       """
 
     let! ast =
@@ -55,8 +55,8 @@ let InferTupleLength () =
     result {
       let src =
         """
-        let tuple = [5, "hello", true]
-        let length = tuple.length
+        let tuple = [5, "hello", true];
+        let length = tuple.length;
         """
 
       let! _, env = inferScript src
@@ -73,8 +73,8 @@ let InferArrayLength () =
     result {
       let src =
         """
-        let array: number[] = [1, 2, 3]
-        let length = array.length
+        let array: number[] = [1, 2, 3];
+        let length = array.length;
         """
 
       let! _, env = inferScript src
@@ -91,11 +91,11 @@ let InferTupleIndexing () =
     result {
       let src =
         """
-        let tuple = [5, "hello", true]
-        let first = tuple[0]
-        let second = tuple[1]
-        let third = tuple[2]
-        let fourth = tuple[3]
+        let tuple = [5, "hello", true];
+        let first = tuple[0];
+        let second = tuple[1];
+        let third = tuple[2];
+        let fourth = tuple[3];
         """
 
       let! _, env = inferScript src
@@ -115,11 +115,11 @@ let InferArrayIndexing () =
     result {
       let src =
         """
-        let array: number[] = [1, 2, 3]
-        let first = array[0]
-        let second = array[1]
-        let third = array[2]
-        let fourth = array[3]
+        let array: number[] = [1, 2, 3];
+        let first = array[0];
+        let second = array[1];
+        let third = array[2];
+        let fourth = array[3];
         """
 
       let! _, env = inferScript src
@@ -138,11 +138,11 @@ let InferForIn () =
       let src =
         """
         for x in [1, 2, 3] {
-          let y: number = x
+          let y: number = x;
         }
-        let array: number[] = [1, 2, 3]
+        let array: number[] = [1, 2, 3];
         for x in array {
-          let y: number = x
+          let y: number = x;
         }
         """
 
@@ -160,9 +160,9 @@ let InferForInRange () =
       let src =
         """
         for x in 0..3 {
-          let a: number = x
-          let b: 0..10 = x
-          let c: 0..3 = x
+          let a: number = x;
+          let b: 0..10 = x;
+          let c: 0..3 = x;
         }
         """
 
@@ -179,9 +179,9 @@ let InferRangeTypeAssignment () =
     result {
       let src =
         """
-        let a: 0..3 = 0
-        let b: 0..3 = 1
-        let c: 0..3 = 2
+        let a: 0..3 = 0;
+        let b: 0..3 = 1;
+        let c: 0..3 = 2;
         """
 
       let! _ = inferScript src
@@ -197,7 +197,7 @@ let InferOutOfBoundsRangeLiteralAssignment () =
     result {
       let src =
         """
-        let out_of_bounds: 0..3 = 3
+        let out_of_bounds: 0..3 = 3;
         """
 
       let! _ = inferScript src
@@ -213,8 +213,8 @@ let InferOutOfBoundsRangeRangeAssignment () =
     result {
       let src =
         """
-        let range: 0..10 = 0
-        let bounds_mismatch: 0..3 = range
+        let range: 0..10 = 0;
+        let bounds_mismatch: 0..3 = range;
         """
 
       let! _ = inferScript src
@@ -230,7 +230,7 @@ let InferRangeWithNegativeStart () =
     result {
       let src =
         """
-        declare let range: -1..1
+        declare let range: -1..1;
         """
 
       let! _, env = inferScript src
@@ -247,10 +247,10 @@ let InferRangeMath () =
       let src =
         """
         declare let range: 0..3
-        let inc_range = range + 1
-        let dec_range = range - 1
-        let mul_range = 2 * range
-        let range_plus_range = range + range
+        let inc_range = range + 1;
+        let dec_range = range - 1;
+        let mul_range = 2 * range;
+        let range_plus_range = range + range;
         """
 
       let! _, env = inferScript src
@@ -271,15 +271,15 @@ let InferRangeWithArrayLength () =
         """
         declare let array: number[]
 
-        let length = array.length
+        let length = array.length;
         for x in 0..length {
-          let item: number = array[x]
+          let item: number = array[x];
         }
         
         declare let range: 0..(typeof length)
-        let elem = array[range]
+        let elem = array[range];
         
-        let first = array[0]
+        let first = array[0];
         """
 
       let! _, env = inferScript src
@@ -301,14 +301,14 @@ let InferRangeWithDifferentArrayLengths () =
         declare let array1: number[]
         declare let array2: string[]
         
-        let length1 = array1.length
-        let length2 = array2.length
+        let length1 = array1.length;
+        let length2 = array2.length;
         
         declare let range1: 0..(typeof length1)
         declare let range2: 0..(typeof length2)
         
-        let elem1 = array1[range1]
-        let elem2 = array2[range2]
+        let elem1 = array1[range1];
+        let elem2 = array2[range2];
         """
 
       let! _, env = inferScript src
@@ -328,14 +328,14 @@ let InferRangeWithDifferentArrayLengthsAreIncompatible () =
         declare let array1: number[]
         declare let array2: string[]
         
-        let length1 = array1.length
-        let length2 = array2.length
+        let length1 = array1.length;
+        let length2 = array2.length;
         
         declare let range1: 0..(typeof length1)
         declare let range2: 0..(typeof length2)
         
-        let elem1 = array1[range2]
-        let elem2 = array2[range1]
+        let elem1 = array1[range2];
+        let elem2 = array2[range1];
         """
 
       let! _, env = inferScript src
@@ -354,7 +354,7 @@ let InferDestructureArray () =
         declare let array: number[]
         declare let tuple: [number, string, boolean]
         
-        let [a, ...rest] = array
+        let [a, ...rest] = array;
         """
 
       let! _, env = inferScript src
@@ -374,7 +374,7 @@ let InferDestructureTuple () =
         """
         declare let tuple: [number, string, boolean]
         
-        let [a, ...rest] = tuple
+        let [a, ...rest] = tuple;
         """
 
       let! _, env = inferScript src
@@ -390,8 +390,8 @@ let InferBasicImmutableTypes () =
     result {
       let src =
         """
-        let tuple = #[5, "hello", true]
-        let record = #{ a: 5, b: "hello", c: true }
+        let tuple = #[5, "hello", true];
+        let record = #{ a: 5, b: "hello", c: true };
         """
 
       let! _, env = inferScript src
@@ -409,10 +409,10 @@ let DestructuringImmutableTypes () =
     result {
       let src =
         """
-        let [a, b] = #[5, "hello"]
-        let #[c, d] = #[5, "hello"]
-        let {e, f} = #{e: 5, f: "hello"}
-        let #{g, h} = #{g: 5, h: "hello"}
+        let [a, b] = #[5, "hello"];
+        let #[c, d] = #[5, "hello"];
+        let {e, f} = #{e: 5, f: "hello"};
+        let #{g, h} = #{g: 5, h: "hello"};
         """
 
       let! _, env = inferScript src
@@ -435,8 +435,8 @@ let PartialDestructuring () =
     result {
       let src =
         """
-        let [a] = [5, "hello"]
-        let {b} = {a: 5, b: "hello"}
+        let [a] = [5, "hello"];
+        let {b} = {a: 5, b: "hello"};
         """
 
       let! _, env = inferScript src
@@ -454,7 +454,7 @@ let ImmutableTuplesAreIncompatibleWithRegularTuples () =
       let src =
         """
         declare let foo: fn (point: #[number, number]) -> undefined
-        foo([5, 10])
+        foo([5, 10]);
         """
 
       let! ctx, env = inferScript src
@@ -471,7 +471,7 @@ let ImmutableObjectsAreIncompatibleWithRegularObjects () =
       let src =
         """
         declare let foo: fn (point: #{x:number, x:number}) -> undefined
-        foo({x:5, y:10})
+        foo({x:5, y:10});
         """
 
       let! ctx, env = inferScript src
@@ -489,7 +489,7 @@ let DescructuringArray () =
       let src =
         """
         declare let array: number[]
-        let [a, b] = array
+        let [a, b] = array;
         """
 
       let! _, env = inferScript src

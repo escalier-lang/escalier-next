@@ -4,7 +4,7 @@
       | Bar([number, number])
       | Baz(number | string)
     }
-    let value = MyEnum.Foo(5, "hello", true)
+    let value = MyEnum.Foo(5, "hello", true);
     
 output: Ok
   { Items =
@@ -107,7 +107,7 @@ output: Ok
                             OptChain = false
                             Throws = None }
                        Span = { Start = (Ln: 7, Col: 17)
-                                Stop = (Ln: 8, Col: 5) }
+                                Stop = (Ln: 7, Col: 45) }
                        InferredType = None } }
                Span = { Start = (Ln: 7, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }

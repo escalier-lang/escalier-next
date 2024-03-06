@@ -17,7 +17,7 @@ settings.DisableDiff()
 
 [<Fact>]
 let ParseArithmetic () =
-  let src = "0.1 + 2 * (3 - 4) / -5.6"
+  let src = "0.1 + 2 * (3 - 4) / -5.6;"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -25,7 +25,7 @@ let ParseArithmetic () =
 
 [<Fact>]
 let ParseString () =
-  let src = """let msg = "Hello,\n\t\"world!\"" """
+  let src = """let msg = "Hello,\n\t\"world!\"";"""
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -35,8 +35,8 @@ let ParseString () =
 let ParseOtherLiterals () =
   let src =
     """
-    let a = undefined
-    let b = null
+    let a = undefined;
+    let b = null;
     """
 
   let ast = Parser.parseScript src
@@ -46,7 +46,7 @@ let ParseOtherLiterals () =
 
 [<Fact>]
 let ParseTemplateString () =
-  let src = """let msg = `foo ${`bar ${baz}`}`"""
+  let src = """let msg = `foo ${`bar ${baz}`}`;"""
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -54,7 +54,7 @@ let ParseTemplateString () =
 
 [<Fact>]
 let ParseFunctionCall () =
-  let src = "add(x, y)"
+  let src = "add(x, y);"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -62,7 +62,7 @@ let ParseFunctionCall () =
 
 [<Fact>]
 let ParseFunctionCallExtraSpaces () =
-  let src = "add( x , y )"
+  let src = "add( x , y );"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -70,7 +70,7 @@ let ParseFunctionCallExtraSpaces () =
 
 [<Fact>]
 let ParseEmptyCall () =
-  let src = "add()"
+  let src = "add();"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -78,7 +78,7 @@ let ParseEmptyCall () =
 
 [<Fact>]
 let ParseExprWithTypeParam () =
-  let src = "add<number | string>"
+  let src = "add<number | string>;"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -86,7 +86,7 @@ let ParseExprWithTypeParam () =
 
 [<Fact>]
 let ParseCallWithTypeParam () =
-  let src = "add<number>()"
+  let src = "add<number>();"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -94,7 +94,7 @@ let ParseCallWithTypeParam () =
 
 [<Fact>]
 let ParseConstructorCall () =
-  let src = "new Array()"
+  let src = "new Array();"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -102,7 +102,7 @@ let ParseConstructorCall () =
 
 [<Fact>]
 let ParseConstructorCallWithTypeParam () =
-  let src = "new Array<number>()"
+  let src = "new Array<number>();"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -110,7 +110,7 @@ let ParseConstructorCallWithTypeParam () =
 
 [<Fact>]
 let ParseIndexer () =
-  let src = "array[0]"
+  let src = "array[0];"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -118,7 +118,7 @@ let ParseIndexer () =
 
 [<Fact>]
 let ParseMultipleIndexers () =
-  let src = "array[0][1]"
+  let src = "array[0][1];"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -126,7 +126,7 @@ let ParseMultipleIndexers () =
 
 [<Fact>]
 let ParseIndexerThenCall () =
-  let src = "array[0]()"
+  let src = "array[0]();"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -134,7 +134,7 @@ let ParseIndexerThenCall () =
 
 [<Fact>]
 let ParseCallThenIndexer () =
-  let src = "foo()[0]"
+  let src = "foo()[0];"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -142,7 +142,7 @@ let ParseCallThenIndexer () =
 
 [<Fact>]
 let ParseObjProperty () =
-  let src = "obj.a.b"
+  let src = "obj.a.b;"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -150,7 +150,7 @@ let ParseObjProperty () =
 
 [<Fact>]
 let ParseObjPropWithOptChain () =
-  let src = "obj?.a?.b"
+  let src = "obj?.a?.b;"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -158,7 +158,7 @@ let ParseObjPropWithOptChain () =
 
 [<Fact>]
 let ParseFuncDef () =
-  let src = "fn (x, y) { x }"
+  let src = "fn (x, y) { x };"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -166,7 +166,7 @@ let ParseFuncDef () =
 
 [<Fact>]
 let ParseFuncDefWithTypes () =
-  let src = "fn (x: number) -> number throws \"RangeError\" { x }"
+  let src = "fn (x: number) -> number throws \"RangeError\" { x };"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -174,7 +174,7 @@ let ParseFuncDefWithTypes () =
 
 [<Fact>]
 let ParseFuncDefWithTypeParams () =
-  let src = "fn <T: Foo = Bar>(x: T) -> T { x }"
+  let src = "fn <T: Foo = Bar>(x: T) -> T { x };"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -182,7 +182,7 @@ let ParseFuncDefWithTypeParams () =
 
 [<Fact>]
 let ParseTuple () =
-  let src = "[1, 2, 3]"
+  let src = "[1, 2, 3];"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -248,10 +248,10 @@ let ParseFunctionType () =
 let ParseObjLitAndObjPat () =
   let src =
     """
-    type Point = {x: number, y: number}
-    let {x, y}: Point = {x: 5, y: 10}
-    let p: Point = {x, y}
-    let foo = fn ({x, y}: Point) => x + y
+    type Point = {x: number, y: number};
+    let {x, y}: Point = {x: 5, y: 10};
+    let p: Point = {x, y};
+    let foo = fn ({x, y}: Point) => x + y;
     """
 
   let ast = Parser.parseScript src
@@ -263,8 +263,8 @@ let ParseObjLitAndObjPat () =
 let ParseObjRestSpread () =
   let src =
     """
-    let obj = {a: 5, b: "hello", c: true}
-    let {a, ...rest} = obj
+    let obj = {a: 5, b: "hello", c: true};
+    let {a, ...rest} = obj;
   """
 
   let ast = Parser.parseScript src
@@ -276,7 +276,7 @@ let ParseObjRestSpread () =
 let ParseOptionalProps () =
   let src =
     """
-    type Obj = {a?: {b?: {c?: number}}}
+    type Obj = {a?: {b?: {c?: number}}};
     """
 
   let ast = Parser.parseScript src
@@ -288,7 +288,7 @@ let ParseOptionalProps () =
 let ParseOptionalParams () =
   let src =
     """
-    let foo = fn(a?: number, b?: string) => a
+    let foo = fn(a?: number, b?: string) => a;
     """
 
   let ast = Parser.parseScript src
@@ -298,7 +298,7 @@ let ParseOptionalParams () =
 
 [<Fact>]
 let ParseArrowIdentifier () =
-  let src = "let fst = fn (x, y) => x"
+  let src = "let fst = fn (x, y) => x;"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -322,7 +322,7 @@ let ParseImports () =
 let ParseConditionalTypeAnn () =
   let src =
     """
-    type Exclude<T, U> = if T: U { never } else { T }
+    type Exclude<T, U> = if T: U { never } else { T };
     """
 
   let ast = Parser.parseScript src
@@ -334,7 +334,7 @@ let ParseConditionalTypeAnn () =
 let ParseChainedConditionalTypeAnn () =
   let src =
     """
-    type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" }
+    type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" };
     """
 
   let ast = Parser.parseScript src
@@ -344,7 +344,7 @@ let ParseChainedConditionalTypeAnn () =
 
 [<Fact>]
 let ParseMappedTypes () =
-  let src = """type Point = {[P]: number for P in "x" | "y"}"""
+  let src = """type Point = {[P]: number for P in "x" | "y"};"""
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -352,7 +352,7 @@ let ParseMappedTypes () =
 
 [<Fact>]
 let ParseIndexAccessTypes () =
-  let src = "type Foo = Bar[\"baz\"]"
+  let src = "type Foo = Bar[\"baz\"];"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -360,7 +360,7 @@ let ParseIndexAccessTypes () =
 
 [<Fact>]
 let ParseNamespacedType () =
-  let src = "type Foo = Intl.NumberFormat"
+  let src = "type Foo = Intl.NumberFormat;"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -368,7 +368,7 @@ let ParseNamespacedType () =
 
 [<Fact>]
 let ParseNamespacedValue () =
-  let src = """let fmt = new Intl.NumberFormat("en-CA")"""
+  let src = """let fmt = new Intl.NumberFormat("en-CA");"""
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -379,9 +379,9 @@ let ParseAsyncFunc () =
   let src =
     """
     let bar = async fn () {
-      let x = await foo()
-      return x + 10
-    }
+      let x = await foo();
+      return x + 10;
+    };
     """
 
   let ast = Parser.parseScript src
@@ -395,18 +395,18 @@ let ParseThrowAndTryCatch () =
     """
     let foo = fn (x) {
       if x < 0 {
-        throw "x must be positive"
+        throw "x must be positive";
       }
-      return x
-    }
+      return x;
+    };
     let bar = fn (x) {
       let result = try {
-        foo(x)
+        foo(x);
       } catch {
         | _ => 0
-      }
-      return result
-    }
+      };
+      return result;
+    };
     """
 
   let ast = Parser.parseScript src
@@ -424,7 +424,7 @@ let ParsePatternMatching () =
         | 1 => "one"
         | n if n < 0 => "negative"
         | _ => "other"
-      }
+      };
     """
 
   let ast = Parser.parseScript src
@@ -465,7 +465,7 @@ let ParseEnum () =
       | Bar([number, number])
       | Baz(number | string)
     }
-    let value = MyEnum.Foo(5, "hello", true)
+    let value = MyEnum.Foo(5, "hello", true);
     """
 
   let ast = Parser.parseScript src
@@ -512,7 +512,7 @@ let ParseCallableType () =
     type Callable = {
       new fn () -> symbol,
       fn () -> symbol,
-    }
+    };
     """
 
   let ast = Parser.parseScript src
@@ -528,7 +528,7 @@ let ParsePropKeysInObjectType () =
       5: string,
       "hello": number,
       [Symbol.iterator]: fn () -> Iterator<T>,
-    }
+    };
     """
 
   let ast = Parser.parseScript src
@@ -541,7 +541,7 @@ let ParseForLoop () =
   let src =
     """
     for x in [1, 2, 3] {
-      print(x)
+      print(x);
     }
     """
 
@@ -567,8 +567,8 @@ let ParseDeclare () =
 let ParseRange () =
   let src =
     """
-    type DieRoll = 1..6
-    let range = 0..10
+    type DieRoll = 1..6;
+    let range = 0..10;
     """
 
   let ast = Parser.parseScript src
@@ -582,7 +582,7 @@ let ParseRangeIteratorType () =
     """
       type RangeIterator<Min: number, Max: number> = {
         next: fn () -> { done: boolean, value: Min..Max }
-      }
+      };
     """
 
   let ast = Parser.parseScript src
@@ -592,10 +592,7 @@ let ParseRangeIteratorType () =
 
 [<Fact>]
 let ParseTemplateLiteralType () =
-  let src =
-    """
-      type TemplateLiteral = `foo${number}`
-    """
+  let src = """type TemplateLiteral = `foo${number}`;"""
 
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
@@ -605,7 +602,7 @@ let ParseTemplateLiteralType () =
 [<Fact>]
 let ParseInferType () =
   let src =
-    "type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never }"
+    "type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never };"
 
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
@@ -616,9 +613,9 @@ let ParseInferType () =
 let ParseRecordTuple () =
   let src =
     """
-    let p0 = #[5, 10]
-    let p1 = #{x: 5, y: 10}
-    let line = #{p0, p1}
+    let p0 = #[5, 10];
+    let p1 = #{x: 5, y: 10};
+    let line = #{p0, p1};
     """
 
   let ast = Parser.parseScript src
@@ -630,12 +627,12 @@ let ParseRecordTuple () =
 let ParseMutableBindings () =
   let src =
     """
-    type Point = {x: number, y: number}
-    type Line = {p0: Point, p1: Point}
+    type Point = {x: number, y: number};
+    type Line = {p0: Point, p1: Point};
     declare let line: Line
     
-    let {mut p0, p1: mut q} = line
-    let mut r = q
+    let {mut p0, p1: mut q} = line;
+    let mut r = q;
     """
 
   let ast = Parser.parseScript src
@@ -649,9 +646,9 @@ let ParseMutableParams () =
     """
     let update = fn (mut array: number[]) {
       for i in 0..array.length {
-        array[i] = array[i] + 1
+        array[i] = array[i] + 1;
       }
-    }
+    };
     """
 
   let ast = Parser.parseScript src
@@ -663,7 +660,7 @@ let ParseMutableParams () =
 let ParseTypeof () =
   let src =
     """
-    let iterator: typeof Symbol.iterator = Symbol.iterator
+    let iterator: typeof Symbol.iterator = Symbol.iterator;
     """
 
   let ast = Parser.parseScript src
@@ -707,10 +704,10 @@ let ParseBasicImpl () =
     """
     impl Foo {
       fn bar(self) {
-        return self.x
+        return self.x;
       }
       fn baz(mut self, x: number) {
-        self.x = x
+        self.x = x;
       }
     }
     """
@@ -726,10 +723,10 @@ let ParseImplWithStaticMethods () =
     """
     impl Point {
       fn new(x, y) {
-        return Point { x, y }
+        return Point { x, y };
       }
       fn default() {
-        return Point { x: 0, y: 0 }
+        return Point { x: 0, y: 0 };
       }
     }
     """
@@ -745,10 +742,10 @@ let ParseGenericImpl () =
     """
     impl Foo<T> {
       fn bar(self) {
-        return self.x
+        return self.x;
       }
       fn baz(mut self, x: T) {
-        self.x = x
+        self.x = x;
       }
     }
     """
@@ -764,10 +761,10 @@ let ParseGetterSetterImpl () =
     """
     impl Foo {
       get bar(self) {
-        return self.x
+        return self.x;
       }
       set bar(mut self, x: number) {
-        self.x = x
+        self.x = x;
       }
     }
     """
@@ -782,8 +779,8 @@ let ParseGetterSetterImpl () =
 let ParseStructExprs () =
   let src =
     """
-    let foo = Foo { a: 5, b: "hello" }
-    let bar = Bar<number> { a: 5, b: "hello" }
+    let foo = Foo { a: 5, b: "hello" };
+    let bar = Bar<number> { a: 5, b: "hello" };
     """
 
   let ast = Parser.parseScript src
@@ -795,7 +792,7 @@ let ParseStructExprs () =
 let ParseBasicStructPattern () =
   let src =
     """
-    let Point {x, y} = point
+    let Point {x, y} = point;
     """
 
   let ast = Parser.parseScript src
@@ -807,7 +804,7 @@ let ParseBasicStructPattern () =
 let ParseGenericStructPattern () =
   let src =
     """
-    let Point<number> {x, y} = point
+    let Point<number> {x, y} = point;
     """
 
   let ast = Parser.parseScript src

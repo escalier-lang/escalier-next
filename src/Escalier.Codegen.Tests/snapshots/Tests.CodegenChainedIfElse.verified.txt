@@ -5,7 +5,7 @@
           bar
         } else {
           baz
-        }
+        };
         
 output:
 var temp0;

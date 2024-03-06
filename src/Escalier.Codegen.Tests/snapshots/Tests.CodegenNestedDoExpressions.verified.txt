@@ -1,17 +1,17 @@
 ﻿input: 
         let sum = do {
           let x = do {
-            let a = 5
-            let b = 10
+            let a = 5;
+            let b = 10;
             a + b
-          }
+          };
           let y = do {
-            let c = 15
-            let d = 20
+            let c = 15;
+            let d = 20;
             c - d
-          }
+          };
           x * y
-        }
+        };
         
 output:
 var temp0;

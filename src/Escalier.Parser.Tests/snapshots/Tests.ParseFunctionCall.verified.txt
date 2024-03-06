@@ -1,4 +1,4 @@
-﻿input: add(x, y)
+﻿input: add(x, y);
 output: Ok
   { Items =
      [Stmt

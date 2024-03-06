@@ -13,10 +13,10 @@ let InfersExplicitThrow () =
         """
         let foo = fn (x) {
           if x < 0 {
-            throw "RangeError"
+            throw "RangeError";
           }
-          return x
-        }
+          return x;
+        };
         """
 
       let! _, env = inferScript src
@@ -38,7 +38,7 @@ let InfersThrowExpression () =
       let src =
         """
         let foo = fn (x) =>
-          if x < 0 { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x };
         """
 
       let! _, env = inferScript src
@@ -58,7 +58,7 @@ let InfersJustThrowExpression () =
     result {
       let src =
         """
-        let foo = fn <T: string>(exc: T) => throw exc
+        let foo = fn <T: string>(exc: T) => throw exc;
         """
 
       let! _, env = inferScript src
@@ -75,7 +75,7 @@ let InfersThrowingMultipleExpressions () =
       let src =
         """
         let foo = fn <A: number>(x: A) =>
-          if x < 0 { throw "RangeError" } else { throw "BoundsError" }
+          if x < 0 { throw "RangeError" } else { throw "BoundsError" };
         """
 
       let! _, env = inferScript src
@@ -96,9 +96,9 @@ let InfersThrowsFromCall () =
       let src =
         """
         let foo = fn (x) =>
-          if x < 0 { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x };
           
-        let bar = fn (x) => foo(x)
+        let bar = fn (x) => foo(x);
         """
 
       let! _, env = inferScript src
@@ -125,14 +125,14 @@ let InferCatchesException () =
       let src =
         """
         let foo = fn (x) =>
-          if x < 0 { throw "RangeError" } else { x }
+          if x < 0 { throw "RangeError" } else { x };
           
         let bar = fn (x) =>
           try {
-            foo(x)
+            foo(x);
           } catch {
             | "RangeError" => 0
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -149,15 +149,15 @@ let InferCatchesMultipleExceptions () =
       let src =
         """
         let foo = fn <A: number>(x: A) =>
-          if x < 0 { throw "RangeError" } else { throw "BoundsError" }
+          if x < 0 { throw "RangeError" } else { throw "BoundsError" };
           
         let bar = fn (x) =>
           try {
-            foo(x)
+            foo(x);
           } catch {
             | "RangeError" => 0
             | "BoundsError" => 0
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -175,14 +175,14 @@ let InferCatchesOneOfManyExceptions () =
       let src =
         """
         let foo = fn <A: number>(x: A) =>
-          if x < 0 { throw "RangeError" } else { throw "BoundsError" }
+          if x < 0 { throw "RangeError" } else { throw "BoundsError" };
           
         let bar = fn (x) =>
           try {
-            foo(x)
+            foo(x);
           } catch {
             | "RangeError" => 0
-          }
+          };
         """
 
       let! _, env = inferScript src
@@ -204,15 +204,15 @@ let InferTryFinally () =
       let src =
         """
         let foo = fn (x) =>
-          if x < 0 { throw "RangeError" } else { x }
-        let cleanup = fn () => {}
+          if x < 0 { throw "RangeError" } else { x };
+        let cleanup = fn () => {};
 
         let bar = fn (x) =>
           try {
             foo(x)
           } finally {
             cleanup()
-          }
+          };
         """
 
       let! ctx, env = inferScript src
@@ -233,17 +233,17 @@ let InferTryCatchFinally () =
       let src =
         """
         let foo = fn (x) =>
-          if x < 0 { throw "RangeError" } else { x }
-        let cleanup = fn () => {}
+          if x < 0 { throw "RangeError" } else { x };
+        let cleanup = fn () => {};
 
         let bar = fn (x) =>
           try {
-            foo(x)
+            foo(x);
           } catch {
             | "RangeError" => 0
           } finally {
-            cleanup()
-          }
+            cleanup();
+          };
         """
 
       let! ctx, env = inferScript src

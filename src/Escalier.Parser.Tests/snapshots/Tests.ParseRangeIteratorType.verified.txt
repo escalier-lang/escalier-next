@@ -1,7 +1,7 @@
 ﻿input: 
       type RangeIterator<Min: number, Max: number> = {
         next: fn () -> { done: boolean, value: Min..Max }
-      }
+      };
     
 output: Ok
   { Items =
@@ -96,7 +96,7 @@ output: Ok
                                   Readonly = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 54)
-                                Stop = (Ln: 5, Col: 5) }
+                                Stop = (Ln: 4, Col: 8) }
                        InferredType = None }
                     TypeParams =
                      Some

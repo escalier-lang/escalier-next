@@ -1,5 +1,5 @@
 ﻿input: 
-    type Obj = {a?: {b?: {c?: number}}}
+    type Obj = {a?: {b?: {c?: number}}};
     
 output: Ok
   { Items =
@@ -54,7 +54,7 @@ output: Ok
                                   Readonly = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 16)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 40) }
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)

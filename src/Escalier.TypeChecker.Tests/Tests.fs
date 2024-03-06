@@ -70,8 +70,8 @@ let InferSimpleTypeError () =
     result {
       let src =
         """
-        let y: string = "hello"
-        let x: number = y
+        let y: string = "hello";
+        let x: number = y;
         """
 
       let! ctx, env = inferScript src
@@ -108,7 +108,7 @@ let InferBinaryOperators () =
 let InferIfElse () =
   let result =
     result {
-      let! t = infer "if (true) { let x = 5\nx } else { \"hello\" }"
+      let! t = infer "if (true) { let x = 5;\nx } else { \"hello\" }"
       Assert.Equal("5 | \"hello\"", t.ToString())
     }
 
@@ -126,7 +126,7 @@ let InferIfElseChaining () =
         "hello"
       } else {
         true
-      }
+      };
       """
 
       let! _, env = inferScript src
@@ -163,7 +163,7 @@ let InferIdentifier () =
 let InferLetStatements () =
   let result =
     result {
-      let! _, env = inferScript "let foo = 5\nlet bar =\"hello\""
+      let! _, env = inferScript "let foo = 5;\nlet bar =\"hello\";"
 
       Assert.Value(env, "foo", "5")
       Assert.Value(env, "bar", "\"hello\"")
@@ -177,9 +177,9 @@ let InferBinOpsOnPrimitives () =
     result {
       let src =
         """
-          let x = 5
-          let y = 10
-          let sum = x + y
+          let x = 5;
+          let y = 10;
+          let sum = x + y;
           """
 
       let! _, env = inferScript src
@@ -195,11 +195,11 @@ let InferTypeDecls () =
     result {
       let src =
         """
-          type A = number
-          type B = [string, boolean]
-          type C = 5 | "hello"
-          type D = fn (x: number) -> number
-          type Nullable<T> = T | undefined
+          type A = number;
+          type B = [string, boolean];
+          type C = 5 | "hello";
+          type D = fn (x: number) -> number;
+          type Nullable<T> = T | undefined;
           """
 
       let! _, env = inferScript src
@@ -222,12 +222,12 @@ let InferPrivateDecl () =
       let src =
         """
           let makePoint = fn (x, y) {
-            type Point = {x: number, y: number}
-            let point: Point = {x, y}
-            return point
-          }
-          let p = makePoint(5, 10)
-          let {x, y} = p
+            type Point = {x: number, y: number};
+            let point: Point = {x, y};
+            return point;
+          };
+          let p = makePoint(5, 10);
+          let {x, y} = p;
           """
 
       let! _, env = inferScript src
@@ -247,8 +247,8 @@ let InferTypeAliasOfPrimtiveType () =
     result {
       let src =
         """
-        type Bar = number
-        let x: Bar = 5
+        type Bar = number;
+        let x: Bar = 5;
         """
 
       let! _, env = inferScript src
@@ -265,10 +265,10 @@ let InferTypeAnn () =
     result {
       let src =
         """
-        let a: number = 5
-        let [b, c]: [string, boolean] = ["hello", true]
-        type Point = {x: number, y: number}
-        let {x, y}: Point = {x: 5, y: 10}
+        let a: number = 5;
+        let [b, c]: [string, boolean] = ["hello", true];
+        type Point = {x: number, y: number};
+        let {x, y}: Point = {x: 5, y: 10};
         """
 
       let! _, env = inferScript src
@@ -288,12 +288,12 @@ let InferObjectDestructuring () =
     result {
       let src =
         """
-        type Point = {x: number, y: number}
-        let {x, y}: Point = {x: 5, y: 10}
-        let p: Point = {x, y}
-        let foo = fn ({x, y}: Point) => x + y
-        let sum = foo({x: 5, y: 10})
-        foo({x, y})
+        type Point = {x: number, y: number};
+        let {x, y}: Point = {x: 5, y: 10};
+        let p: Point = {x, y};
+        let foo = fn ({x, y}: Point) => x + y;
+        let sum = foo({x: 5, y: 10});
+        foo({x, y});
         """
 
       let! _, env = inferScript src
@@ -312,11 +312,11 @@ let InferObjectRestSpread () =
     result {
       let src =
         """
-        let obj1 = {a: 5, b: "hello", c: true}
-        let {a, ...rest} = obj1
-        let obj2 = {a, ...rest}
-        let foo = fn({a, ...rest}: {a: number, b: string, c: boolean}) => a
-        foo(obj2)
+        let obj1 = {a: 5, b: "hello", c: true};
+        let {a, ...rest} = obj1;
+        let obj2 = {a, ...rest};
+        let foo = fn({a, ...rest}: {a: number, b: string, c: boolean}) => a;
+        foo(obj2);
         """
 
       let! _, env = inferScript src
@@ -334,9 +334,9 @@ let InferObjProps () =
     result {
       let src =
         """
-        let obj = {a: {b: 5, c: "hello"}}
-        let b = obj.a.b
-        let c = obj.a.c
+        let obj = {a: {b: 5, c: "hello"}};
+        let b = obj.a.b;
+        let c = obj.a.c;
         """
 
       let! _, env = inferScript src
@@ -353,14 +353,14 @@ let InferOptionalChaining () =
     result {
       let src =
         """
-        type Obj = {a?: {b?: {c: number}}}
-        let obj: Obj = {a: {b: undefined}}
-        let a = obj.a
-        let b = obj.a?.b
-        let c = obj.a?.b?.c
-        type Point = {x: number, y: number}
-        let p: Point = {x: 5, y: 10}
-        let x = p?.x
+        type Obj = {a?: {b?: {c: number}}};
+        let obj: Obj = {a: {b: undefined}};
+        let a = obj.a;
+        let b = obj.a?.b;
+        let c = obj.a?.b?.c;
+        type Point = {x: number, y: number};
+        let p: Point = {x: 5, y: 10};
+        let x = p?.x;
         """
 
       let! _, env = inferScript src
@@ -383,10 +383,10 @@ let InferRecursiveType () =
 
       let src =
         """
-        type Foo = number | Foo[]
-        let x: Foo = 5
-        let y: Foo = [5, 10]
-        let z: Foo = [5, [10, 15]]
+        type Foo = number | Foo[];
+        let x: Foo = 5;
+        let y: Foo = [5, 10];
+        let z: Foo = [5, [10, 15]];
         """
 
       let! _, env = inferScript src
@@ -407,9 +407,9 @@ let InferRecursiveTypeUnifyWithDefn () =
 
       let src =
         """
-        type Foo = number | Foo[]
-        let foo: Foo = 5
-        let bar: number | Foo[] = foo
+        type Foo = number | Foo[];
+        let foo: Foo = 5;
+        let bar: number | Foo[] = foo;
         """
 
       let! _, env = inferScript src
@@ -431,7 +431,7 @@ let InferRecursiveObjectType () =
           value: number,
           left?: Node,
           right?: Node
-        }
+        };
         
         let node: Node = {
           value: 5,
@@ -441,7 +441,7 @@ let InferRecursiveObjectType () =
           right: {
             value: 15
           }
-        }
+        };
         """
 
       let! _, env = inferScript src
@@ -463,7 +463,7 @@ let InferRecursiveGenericObjectType () =
           value: T,
           left?: Node<T>,
           right?: Node<T>
-        }
+        };
 
         let node: Node<number> = {
           value: 5,
@@ -476,7 +476,7 @@ let InferRecursiveGenericObjectType () =
               value: 20
             }
           }
-        }
+        };
         """
 
       let! _, env = inferScript src
@@ -498,7 +498,7 @@ let ReturnRecursivePrivateGenericObjectType () =
             value: T,
             left?: Node<T>,
             right?: Node<T>
-          }
+          };
 
           let node: Node<number> = {
             value: 5,
@@ -508,12 +508,12 @@ let ReturnRecursivePrivateGenericObjectType () =
             right: {
               value: 15
             }
-          }
+          };
           
-          return node
-        }
-        let node = makeTree()
-        let x = node.left?.value
+          return node;
+        };
+        let node = makeTree();
+        let x = node.left?.value;
         """
 
       let! _, env = inferScript src
@@ -535,7 +535,7 @@ let ReturnRecursiveGenericObjectType () =
           value: T,
           left?: Node<T>,
           right?: Node<T>
-        }
+        };
         
         let makeTree = fn () {
           let node: Node<number> = {
@@ -546,12 +546,12 @@ let ReturnRecursiveGenericObjectType () =
             right: {
               value: 15
             }
-          }
+          };
           
-          return node
-        }
-        let node = makeTree()
-        let x = node.left?.value
+          return node;
+        };
+        let node = makeTree();
+        let x = node.left?.value;
         """
 
       let! _, env = inferScript src
@@ -569,9 +569,9 @@ let InferTuple () =
     result {
       let src =
         """
-        let foo = [1, 2, 3]
-        let bar = fn(nums: number[]) => nums
-        let baz = bar(foo)
+        let foo = [1, 2, 3];
+        let bar = fn(nums: number[]) => nums;
+        let baz = bar(foo);
         """
 
       let! _, env = inferScript src
@@ -605,13 +605,13 @@ let InferTemplateLiteralType () =
 
       let src =
         """
-        type Foo = `foo${number}`
-        let x: Foo = "foo123"
-        type Bar = `A${string}B`
-        let y: Bar = "A1B"
-        type Baz = `A${string}B${string}C`
-        let z: Baz = "A1B2C"
-        let w: Baz = "ABCBC"
+        type Foo = `foo${number}`;
+        let x: Foo = "foo123";
+        type Bar = `A${string}B`;
+        let y: Bar = "A1B";
+        type Baz = `A${string}B${string}C`;
+        let z: Baz = "A1B2C";
+        let w: Baz = "ABCBC";
         """
 
       let! _, env = inferScript src
@@ -632,11 +632,11 @@ let InferTemplateLiteralTypeWithUnions () =
 
       let src =
         """
-        type Dir = `${"top" | "bottom"}-${"left" | "right"}`
-        let a: Dir = "top-left"
-        let b: Dir = "top-right"
-        let c: Dir = "bottom-right"
-        let d: Dir = "bottom-left"
+        type Dir = `${"top" | "bottom"}-${"left" | "right"}`;
+        let a: Dir = "top-left";
+        let b: Dir = "top-right";
+        let c: Dir = "bottom-right";
+        let d: Dir = "bottom-left";
         """
 
       let! _, env = inferScript src
@@ -682,8 +682,8 @@ let InferTemplateLiteralTypeError () =
     result {
       let src =
         """
-        type Foo = `foo${number}`
-        let x: Foo = "foo123abc"
+        type Foo = `foo${number}`;
+        let x: Foo = "foo123abc";
         """
 
       let! _, _ = inferScript src
@@ -698,8 +698,8 @@ let InferTemplateLiteralTypeErrorWithUnion () =
     result {
       let src =
         """
-        type Dir = `${"top" | "bottom"}-${"left" | "right"}`
-        let x: Dir = "top-bottom"
+        type Dir = `${"top" | "bottom"}-${"left" | "right"}`;
+        let x: Dir = "top-bottom";
         """
 
       let! _, _ = inferScript src
@@ -715,10 +715,10 @@ let InferUnaryOperations () =
 
       let src =
         """
-        let x = 5
-        let y = -x
-        let z = !x
-        let w = +x
+        let x = 5;
+        let y = -x;
+        let z = !x;
+        let w = +x;
         """
 
       let! _, env = inferScript src
@@ -741,7 +741,7 @@ let InferEnum () =
           | Bar([number, number])
           | Baz(number | string)
         }
-        let value = MyEnum.Foo(5, "hello", true)
+        let value = MyEnum.Foo(5, "hello", true);
         """
 
       let! _, env = inferScript src
@@ -770,7 +770,7 @@ let InferEnumVariantIsSubtypeOfEnum () =
           | Bar([number, number])
           | Baz(number | string)
         }
-        let value: MyEnum = MyEnum.Foo(5, "hello", true)
+        let value: MyEnum = MyEnum.Foo(5, "hello", true);
         """
 
       let! _, env = inferScript src
@@ -797,7 +797,7 @@ let InferGenericEnum () =
           | Bar(B)
           | Baz(C)
         }
-        let value = MyEnum.Foo(5)
+        let value = MyEnum.Foo(5);
         """
 
       let! _, env = inferScript src
@@ -822,12 +822,12 @@ let InferGenericEnumWithSubtyping () =
           | Bar(B)
           | Baz(C)
         }
-        let value: MyEnum<number, string, boolean> = MyEnum.Foo(5)
+        let value: MyEnum<number, string, boolean> = MyEnum.Foo(5);
         let x = match value {
           | MyEnum.Foo(a) => a
           | MyEnum.Bar(b) => b
           | MyEnum.Baz(c) => c
-        }
+        };
         """
 
       let! _, env = inferScript src
@@ -850,13 +850,13 @@ let InferEnumPatternMatching () =
           | Bar([number, number])
           | Baz({x: number, y: number})
         }
-        let value: MyEnum = MyEnum.Foo(5, "hello", true)
+        let value: MyEnum = MyEnum.Foo(5, "hello", true);
 
         let x = match value {
           | MyEnum.Foo(x, y, z) => x
           | MyEnum.Bar([x, y]) => x
           | MyEnum.Baz({x, y}) => x
-        }
+        };
         """
 
       let! _, env = inferScript src

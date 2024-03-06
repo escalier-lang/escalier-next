@@ -1,6 +1,6 @@
 ﻿input: 
     for x in [1, 2, 3] {
-      print(x)
+      print(x);
     }
     
 output: Ok
@@ -51,9 +51,9 @@ output: Ok
                                  OptChain = false
                                  Throws = None }
                          Span = { Start = (Ln: 3, Col: 7)
-                                  Stop = (Ln: 4, Col: 5) }
+                                  Stop = (Ln: 3, Col: 15) }
                          InferredType = None }
                     Span = { Start = (Ln: 3, Col: 7)
-                             Stop = (Ln: 4, Col: 5) } }] })
+                             Stop = (Ln: 3, Col: 15) } }] })
           Span = { Start = (Ln: 2, Col: 5)
                    Stop = (Ln: 5, Col: 5) } }] }

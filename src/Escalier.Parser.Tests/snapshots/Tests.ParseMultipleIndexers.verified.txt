@@ -1,4 +1,4 @@
-﻿input: array[0][1]
+﻿input: array[0][1];
 output: Ok
   { Items =
      [Stmt

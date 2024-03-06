@@ -1,4 +1,4 @@
-﻿input: let fst = fn (x, y) => x
+﻿input: let fst = fn (x, y) => x;
 output: Ok
   { Items =
      [Stmt
@@ -49,6 +49,6 @@ output: Ok
                                 Stop = (Ln: 1, Col: 25) }
                        InferredType = None } }
                Span = { Start = (Ln: 1, Col: 1)
-                        Stop = (Ln: 1, Col: 25) } }
+                        Stop = (Ln: 1, Col: 26) } }
           Span = { Start = (Ln: 1, Col: 1)
-                   Stop = (Ln: 1, Col: 25) } }] }
+                   Stop = (Ln: 1, Col: 26) } }] }

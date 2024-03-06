@@ -30,7 +30,7 @@ let inferScript src =
       """
         type RangeIterator<Min: number, Max: number> = {
           next: fn () -> { done: boolean, value: Min..Max }
-        }
+        };
       """
 
     let! ast =
@@ -55,7 +55,7 @@ let InfersTypeofWellknownSymbol () =
     result {
       let src =
         """
-        let iterator: typeof Symbol.iterator = Symbol.iterator
+        let iterator: typeof Symbol.iterator = Symbol.iterator;
         """
 
       let! _, env = inferScript src
@@ -71,7 +71,7 @@ let InfersSymbolsAreUnique () =
     result {
       let src =
         """
-        let iterator: Symbol.match = Symbol.iterator
+        let iterator: Symbol.match = Symbol.iterator;
         """
 
       let! _, _ = inferScript src

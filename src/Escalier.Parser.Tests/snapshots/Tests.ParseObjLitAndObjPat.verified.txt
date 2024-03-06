@@ -1,8 +1,8 @@
 ﻿input: 
-    type Point = {x: number, y: number}
-    let {x, y}: Point = {x: 5, y: 10}
-    let p: Point = {x, y}
-    let foo = fn ({x, y}: Point) => x + y
+    type Point = {x: number, y: number};
+    let {x, y}: Point = {x: 5, y: 10};
+    let p: Point = {x, y};
+    let foo = fn ({x, y}: Point) => x + y;
     
 output: Ok
   { Items =
@@ -34,7 +34,7 @@ output: Ok
                                   Readonly = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 18)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 40) }
                        InferredType = None }
                     TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)
@@ -91,7 +91,7 @@ output: Ok
                                    InferredType = None })]
                             Immutable = false }
                        Span = { Start = (Ln: 3, Col: 25)
-                                Stop = (Ln: 4, Col: 5) }
+                                Stop = (Ln: 3, Col: 38) }
                        InferredType = None } }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
@@ -123,7 +123,7 @@ output: Ok
                                            Stop = (Ln: 4, Col: 25) }, "y")]
                             Immutable = false }
                        Span = { Start = (Ln: 4, Col: 20)
-                                Stop = (Ln: 5, Col: 5) }
+                                Stop = (Ln: 4, Col: 26) }
                        InferredType = None } }
                Span = { Start = (Ln: 4, Col: 5)
                         Stop = (Ln: 5, Col: 5) } }
@@ -193,13 +193,13 @@ output: Ok
                                             InferredType = None },
                                      { Kind = Identifier "y"
                                        Span = { Start = (Ln: 5, Col: 41)
-                                                Stop = (Ln: 6, Col: 5) }
+                                                Stop = (Ln: 5, Col: 42) }
                                        InferredType = None })
                                  Span = { Start = (Ln: 5, Col: 37)
-                                          Stop = (Ln: 6, Col: 5) }
+                                          Stop = (Ln: 5, Col: 42) }
                                  InferredType = None } }
                        Span = { Start = (Ln: 5, Col: 15)
-                                Stop = (Ln: 6, Col: 5) }
+                                Stop = (Ln: 5, Col: 42) }
                        InferredType = None } }
                Span = { Start = (Ln: 5, Col: 5)
                         Stop = (Ln: 6, Col: 5) } }

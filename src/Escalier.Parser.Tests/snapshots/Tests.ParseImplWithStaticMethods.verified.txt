@@ -1,10 +1,10 @@
 ﻿input: 
     impl Point {
       fn new(x, y) {
-        return Point { x, y }
+        return Point { x, y };
       }
       fn default() {
-        return Point { x: 0, y: 0 }
+        return Point { x: 0, y: 0 };
       }
     }
     
@@ -61,7 +61,7 @@ output: Ok
                                                ({ Start = (Ln: 4, Col: 27)
                                                   Stop = (Ln: 4, Col: 29) }, "y")] }
                                       Span = { Start = (Ln: 4, Col: 16)
-                                               Stop = (Ln: 5, Col: 7) }
+                                               Stop = (Ln: 4, Col: 30) }
                                       InferredType = None })
                               Span = { Start = (Ln: 4, Col: 9)
                                        Stop = (Ln: 5, Col: 7) } }] } };
@@ -107,7 +107,7 @@ output: Ok
                                                      Stop = (Ln: 7, Col: 35) }
                                                   InferredType = None })] }
                                       Span = { Start = (Ln: 7, Col: 16)
-                                               Stop = (Ln: 8, Col: 7) }
+                                               Stop = (Ln: 7, Col: 36) }
                                       InferredType = None })
                               Span = { Start = (Ln: 7, Col: 9)
                                        Stop = (Ln: 8, Col: 7) } }] } }] }

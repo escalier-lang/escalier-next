@@ -1,6 +1,6 @@
 ﻿input: 
-    let foo = Foo { a: 5, b: "hello" }
-    let bar = Bar<number> { a: 5, b: "hello" }
+    let foo = Foo { a: 5, b: "hello" };
+    let bar = Bar<number> { a: 5, b: "hello" };
     
 output: Ok
   { Items =
@@ -37,7 +37,7 @@ output: Ok
                                             Stop = (Ln: 2, Col: 37) }
                                    InferredType = None })] }
                        Span = { Start = (Ln: 2, Col: 15)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 39) }
                        InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
@@ -81,7 +81,7 @@ output: Ok
                                             Stop = (Ln: 3, Col: 45) }
                                    InferredType = None })] }
                        Span = { Start = (Ln: 3, Col: 15)
-                                Stop = (Ln: 4, Col: 5) }
+                                Stop = (Ln: 3, Col: 47) }
                        InferredType = None } }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }

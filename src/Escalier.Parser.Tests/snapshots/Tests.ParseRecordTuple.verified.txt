@@ -1,7 +1,7 @@
 ﻿input: 
-    let p0 = #[5, 10]
-    let p1 = #{x: 5, y: 10}
-    let line = #{p0, p1}
+    let p0 = #[5, 10];
+    let p1 = #{x: 5, y: 10};
+    let line = #{p0, p1};
     
 output: Ok
   { Items =
@@ -31,7 +31,7 @@ output: Ok
                                 InferredType = None }]
                             Immutable = true }
                        Span = { Start = (Ln: 2, Col: 14)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 22) }
                        InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
@@ -69,7 +69,7 @@ output: Ok
                                    InferredType = None })]
                             Immutable = true }
                        Span = { Start = (Ln: 3, Col: 14)
-                                Stop = (Ln: 4, Col: 5) }
+                                Stop = (Ln: 3, Col: 28) }
                        InferredType = None } }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
@@ -97,7 +97,7 @@ output: Ok
                                            Stop = (Ln: 4, Col: 24) }, "p1")]
                             Immutable = true }
                        Span = { Start = (Ln: 4, Col: 16)
-                                Stop = (Ln: 5, Col: 5) }
+                                Stop = (Ln: 4, Col: 25) }
                        InferredType = None } }
                Span = { Start = (Ln: 4, Col: 5)
                         Stop = (Ln: 5, Col: 5) } }

@@ -1,4 +1,4 @@
-﻿input: fn (x: number) -> number throws "RangeError" { x }
+﻿input: fn (x: number) -> number throws "RangeError" { x };
 output: Ok
   { Items =
      [Stmt

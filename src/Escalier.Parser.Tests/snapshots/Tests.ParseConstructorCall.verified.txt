@@ -1,4 +1,4 @@
-﻿input: new Array()
+﻿input: new Array();
 output: Ok
   { Items =
      [Stmt
@@ -13,5 +13,5 @@ output: Ok
                   Span = { Start = (Ln: 1, Col: 5)
                            Stop = (Ln: 1, Col: 12) }
                   InferredType = None }
-          Span = { Start = (Ln: 1, Col: 1)
+          Span = { Start = (Ln: 1, Col: 5)
                    Stop = (Ln: 1, Col: 12) } }] }

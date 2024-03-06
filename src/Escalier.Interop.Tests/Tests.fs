@@ -379,9 +379,9 @@ let CanCallMutableMethodsOnMutableArray () =
 
       let src =
         """
-        let mut a: number[] = [3, 2, 1]
-        a.sort()
-        let b = a.map(fn (x) => x * 2)
+        let mut a: number[] = [3, 2, 1];
+        a.sort();
+        let b = a.map(fn (x) => x * 2);
         """
 
       let! ast =
@@ -405,11 +405,11 @@ let CanIndexOnArrays () =
 
       let src =
         """
-        let mut a: number[] = [3, 2, 1]
-        let b = a[0]
-        let mut len1 = a.length
-        let len2 = a.length
-        len1 = len2
+        let mut a: number[] = [3, 2, 1];
+        let b = a[0];
+        let mut len1 = a.length;
+        let len2 = a.length;
+        len1 = len2;
         """
 
       let! ast =
@@ -435,9 +435,9 @@ let CannotCallMutableMethodsOnNonMutableArray () =
 
       let src =
         """
-        let a: number[] = [3, 2, 1]
-        a.sort()
-        let b = a.map(fn (x) => x * 2)
+        let a: number[] = [3, 2, 1];
+        a.sort();
+        let b = a.map(fn (x) => x * 2);
         """
 
       let! ast =
@@ -462,8 +462,8 @@ let CallArrayConstructor () =
 
       let src =
         """
-        let mut a: number[] = new Array()
-        a.push(5)
+        let mut a: number[] = new Array();
+        a.push(5);
         """
 
       let! ast =
@@ -487,8 +487,8 @@ let CallArrayConstructorWithTypeArgs () =
 
       let src =
         """
-        let mut a = new Array<number>()
-        a.push(5)
+        let mut a = new Array<number>();
+        a.push(5);
         """
 
       let! ast =
@@ -512,8 +512,8 @@ let CallArrayConstructorWithNoTypeAnnotations () =
 
       let src =
         """
-        let mut a = new Array()
-        a.push(5)
+        let mut a = new Array();
+        a.push(5);
         """
 
       let! ast =
@@ -537,7 +537,7 @@ let AcessNamespaceType () =
 
       let src =
         """
-        type NumFmt = Intl.NumberFormat
+        type NumFmt = Intl.NumberFormat;
         """
 
       let! ast =
@@ -561,8 +561,8 @@ let AcessNamespaceValue () =
 
       let src =
         """
-        let fmt = new Intl.NumberFormat("en-CA")
-        fmt.format(1.23)
+        let fmt = new Intl.NumberFormat("en-CA");
+        fmt.format(1.23);
         """
 
       let! ast =

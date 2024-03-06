@@ -13,8 +13,8 @@ let InferBasicModule () =
     result {
       let src =
         """
-        let add = fn(a, b) => a + b
-        let sub = fn(a, b) => a - b
+        let add = fn(a, b) => a + b;
+        let sub = fn(a, b) => a - b;
         """
 
       let! _, env = inferModule src
@@ -31,8 +31,8 @@ let InferMutuallyRecursiveFunctions () =
     result {
       let src =
         """
-        let foo = fn() => bar() + 1
-        let bar = fn() => foo() - 1
+        let foo = fn() => bar() + 1;
+        let bar = fn() => foo() - 1;
         """
 
       let! _, env = inferModule src
@@ -54,13 +54,13 @@ let InferMutualRecursion () =
             true
         } else {
             !odd(x - 1)
-        }
+        };
 
         let odd = fn (x) => if (x == 1) {
             true
         } else {
             !even(x - 1)
-        }
+        };
         """
 
       let! _, env = inferModule src
@@ -78,8 +78,8 @@ let InferMutuallyRecursiveTypes () =
     result {
       let src =
         """
-        type Foo<T> = {bar: Bar<T>}
-        type Bar<T> = {foo: Foo<T>}
+        type Foo<T> = {bar: Bar<T>};
+        type Bar<T> = {foo: Foo<T>};
         """
 
       let! _, env = inferModule src
@@ -98,7 +98,7 @@ let InferImports () =
       let files = Dictionary<string, MockFileData>()
       let src = "import \"./foo.esc\" {foo}"
       files.Add("/input.esc", MockFileData(src))
-      files.Add("/foo.esc", MockFileData("let foo = 5"))
+      files.Add("/foo.esc", MockFileData("let foo = 5;"))
       let mockFileSystem = MockFileSystem(files, "/")
 
       let! _, env = inferModules mockFileSystem src

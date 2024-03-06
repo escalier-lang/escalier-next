@@ -1,5 +1,5 @@
 ﻿input: 
-    type Exclude<T, U> = if T: U { never } else { T }
+    type Exclude<T, U> = if T: U { never } else { T };
     
 output: Ok
   { Items =
@@ -32,7 +32,7 @@ output: Ok
                                                    Stop = (Ln: 2, Col: 53) }
                                           InferredType = None } }
                        Span = { Start = (Ln: 2, Col: 26)
-                                Stop = (Ln: 3, Col: 5) }
+                                Stop = (Ln: 2, Col: 54) }
                        InferredType = None }
                     TypeParams =
                      Some

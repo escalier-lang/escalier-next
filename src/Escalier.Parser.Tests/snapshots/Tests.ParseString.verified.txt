@@ -1,4 +1,4 @@
-﻿input: let msg = "Hello,\n\t\"world!\"" 
+﻿input: let msg = "Hello,\n\t\"world!\"";
 output: Ok
   { Items =
      [Stmt

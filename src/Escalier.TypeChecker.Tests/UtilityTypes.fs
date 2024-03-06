@@ -14,10 +14,10 @@ let InferCollaspingNever () =
     result {
       let src =
         """
-        type Foo = string | never
-        type Bar = string | number | never
-        type Baz = string | number | never | never
-        type Qux = never | never
+        type Foo = string | never;
+        type Bar = string | number | never;
+        type Baz = string | number | never | never;
+        type Qux = never | never;
         """
 
       let! _, env = inferScript src
@@ -42,10 +42,10 @@ let InferSimpleConditionalType () =
           "number"
         } else {
           "other"
-        }
-        type A = Foo<string>
-        type B = Foo<number>
-        type C = Foo<boolean>
+        };
+        type A = Foo<string>;
+        type B = Foo<number>;
+        type C = Foo<boolean>;
         """
 
       let! ctx, env = inferScript src
@@ -86,10 +86,10 @@ let InferNestedConditionalTypes () =
           }
         } else {
           "other"
-        }
-        type A = Foo<string>
-        type B = Foo<number>
-        type C = Foo<boolean>
+        };
+        type A = Foo<string>;
+        type B = Foo<number>;
+        type C = Foo<boolean>;
         """
 
       let! ctx, env = inferScript src
@@ -122,8 +122,8 @@ let InferExclude () =
     result {
       let src =
         """
-        type Exclude<T, U> = if T: U { never } else { T }
-        type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">
+        type Exclude<T, U> = if T: U { never } else { T };
+        type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">;
         """
 
       let! ctx, env = inferScript src
@@ -143,9 +143,9 @@ let InferExtract () =
     result {
       let src =
         """
-        type Point = {x: number, y: number}
-        type Extract<T, U> = if T: Point { T } else { never }
-        type Result = Extract<{x: 5, y: 10} | number | string, Point>
+        type Point = {x: number, y: number};
+        type Extract<T, U> = if T: Point { T } else { never };
+        type Result = Extract<{x: 5, y: 10} | number | string, Point>;
         """
 
       let! ctx, env = inferScript src
@@ -174,8 +174,8 @@ let InferCartesianProdType () =
             }
           } else {
             never
-          }
-        type Cells = CartesianProduct<"A" | "B", 1 | 2>
+          };
+        type Cells = CartesianProduct<"A" | "B", 1 | 2>;
         """
 
       let! ctx, env = inferScript src
@@ -200,10 +200,10 @@ let InfersPickUnionOfKey () =
         """
         type Pick<T, K: keyof T> = {
           [P]: T[P] for P in K
-        }
+        };
 
-        type Foo = {a: number, b: string, c: boolean}
-        type Bar = Pick<Foo, "a" | "c">
+        type Foo = {a: number, b: string, c: boolean};
+        type Bar = Pick<Foo, "a" | "c">;
         """
 
       let! ctx, env = inferScript src
@@ -225,10 +225,10 @@ let InfersPickSingleKey () =
         """
         type Pick<T, K: keyof T> = {
           [P]: T[P] for P in K
-        }
+        };
 
-        type Foo = {a: number, b: string, c: boolean}
-        type Bar = Pick<Foo, "a" | "c">
+        type Foo = {a: number, b: string, c: boolean};
+        type Bar = Pick<Foo, "a" | "c">;
         """
 
       let! ctx, env = inferScript src
@@ -250,10 +250,10 @@ let InfersPickWrongKeyType () =
         """
         type Pick<T, K: keyof T> = {
           [P]: T[P] for P in K
-        }
+        };
 
-        type Foo = {a: number, b: string, c: boolean}
-        type Bar = Pick<Foo, 5 | 10>
+        type Foo = {a: number, b: string, c: boolean};
+        type Bar = Pick<Foo, 5 | 10>;
         """
 
       let! ctx, env = inferScript src
@@ -276,13 +276,13 @@ let InfersOmit () =
         """
         type Pick<T, K: keyof T> = {
           [P]: T[P] for P in K
-        }
-        type Exclude<T, U> = if T : U { never } else { T }
-        type AnyKey = string | number | symbol
-        type Omit<T, K: AnyKey> = Pick<T, Exclude<keyof T, K>>
+        };
+        type Exclude<T, U> = if T : U { never } else { T };
+        type AnyKey = string | number | symbol;
+        type Omit<T, K: AnyKey> = Pick<T, Exclude<keyof T, K>>;
         
-        type Foo = {a: number, b: string, c: boolean}
-        type Bar = Omit<Foo, "b">
+        type Foo = {a: number, b: string, c: boolean};
+        type Bar = Omit<Foo, "b">;
         """
 
       let! ctx, env = inferScript src
@@ -302,12 +302,12 @@ let InfersRecord () =
     result {
       let src =
         """
-        type AnyKey = string | number | symbol
+        type AnyKey = string | number | symbol;
         type Record<K: AnyKey, T> = {
           [P]: T for P in K
-        }
-        type Point = Record<"x" | "y", number>
-        let p: Point = {x: 5, y: 10}
+        };
+        type Point = Record<"x" | "y", number>;
+        let p: Point = {x: 5, y: 10};
         """
 
       let! _, env = inferScript src
@@ -324,8 +324,8 @@ let InfersNestedConditionals () =
     result {
       let src =
         """
-        type Extends<X, Y, Z> = if X : Y { X } else { if Y : Z { Y } else { never } }
-        type Foo = Extends<5 | 10, 2 | 3 | 5 | 7, 3 | 6 | 9>
+        type Extends<X, Y, Z> = if X : Y { X } else { if Y : Z { Y } else { never } };
+        type Foo = Extends<5 | 10, 2 | 3 | 5 | 7, 3 | 6 | 9>;
         """
 
       let! ctx, env = inferScript src
@@ -346,9 +346,9 @@ let InfersReturnType () =
     result {
       let src =
         """
-        type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never }
-        type Foo = ReturnType<fn () -> number>
-        type Bar = ReturnType<fn (a: string, b: boolean) -> number>
+        type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never };
+        type Foo = ReturnType<fn () -> number>;
+        type Bar = ReturnType<fn (a: string, b: boolean) -> number>;
         """
 
       let! ctx, env = inferScript src
@@ -374,9 +374,9 @@ let InfersParameters () =
     result {
       let src =
         """
-        type Parameters<T> = if T: fn (...args: infer P) -> _ { P } else { never }
-        type Foo = Parameters<fn () -> number>
-        type Bar = Parameters<fn (a: string, b: boolean) -> number>
+        type Parameters<T> = if T: fn (...args: infer P) -> _ { P } else { never };
+        type Foo = Parameters<fn () -> number>;
+        type Bar = Parameters<fn (a: string, b: boolean) -> number>;
         """
 
       let! ctx, env = inferScript src

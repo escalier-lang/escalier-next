@@ -5,7 +5,7 @@
         | 1 => "one"
         | n if n < 0 => "negative"
         | _ => "other"
-      }
+      };
     
 output: Ok
   { Items =
@@ -127,10 +127,10 @@ output: Ok
                                                       Stop = (Ln: 7, Col: 23) }
                                              InferredType = None } }])
                                  Span = { Start = (Ln: 3, Col: 7)
-                                          Stop = (Ln: 9, Col: 5) }
+                                          Stop = (Ln: 8, Col: 8) }
                                  InferredType = None } }
                        Span = { Start = (Ln: 2, Col: 15)
-                                Stop = (Ln: 9, Col: 5) }
+                                Stop = (Ln: 8, Col: 8) }
                        InferredType = None } }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 9, Col: 5) } }

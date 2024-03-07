@@ -253,6 +253,11 @@ module Syntax =
       condition: Expr *
       thenBranch: Block *
       elseBranch: option<BlockOrExpr> // Expr is only used when chaining if-else expressions
+    | IfLet of
+      pattern: Pattern *
+      target: Expr *
+      thenBranch: Block *
+      elseBranch: option<BlockOrExpr>
     | Match of target: Expr * cases: list<MatchCase>
     | Assign of op: string * left: Expr * right: Expr
     | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
@@ -364,7 +369,8 @@ module Syntax =
   type VarDecl =
     { Pattern: Pattern
       TypeAnn: option<TypeAnn>
-      Init: Expr }
+      Init: Expr
+      Else: option<Block> }
 
   type TypeDecl =
     { Name: string

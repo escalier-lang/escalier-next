@@ -17,7 +17,8 @@ output: Ok
                                 Init = { Kind = Literal Undefined
                                          Span = { Start = (Ln: 2, Col: 13)
                                                   Stop = (Ln: 2, Col: 22) }
-                                         InferredType = None } }
+                                         InferredType = None }
+                                Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -35,7 +36,8 @@ output: Ok
                                 Init = { Kind = Literal Null
                                          Span = { Start = (Ln: 3, Col: 13)
                                                   Stop = (Ln: 3, Col: 17) }
-                                         InferredType = None } }
+                                         InferredType = None }
+                                Else = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
           Span = { Start = (Ln: 3, Col: 5)

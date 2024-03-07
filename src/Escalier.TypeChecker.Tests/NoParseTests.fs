@@ -183,7 +183,8 @@ let varDecl (name, expr) =
             DeclKind.VarDecl
               { Pattern = pattern
                 Init = expr
-                TypeAnn = None }
+                TypeAnn = None
+                Else = None }
           Span = dummySpan }
       )
     Span = dummySpan }

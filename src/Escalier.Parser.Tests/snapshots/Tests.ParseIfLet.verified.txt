@@ -1,0 +1,54 @@
+﻿input: 
+    if let Option.Some(x) = maybe {
+      print(x);
+    };
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                IfLet
+                  ({ Kind =
+                      Enum { Ident = Member (Ident "Option", "Some")
+                             Args = Some [{ Kind = Ident { Name = "x"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 2, Col: 24)
+                                                     Stop = (Ln: 2, Col: 25) }
+                                            InferredType = None }] }
+                     Span = { Start = (Ln: 2, Col: 12)
+                              Stop = (Ln: 2, Col: 27) }
+                     InferredType = None }, { Kind = Identifier "maybe"
+                                              Span = { Start = (Ln: 2, Col: 29)
+                                                       Stop = (Ln: 2, Col: 35) }
+                                              InferredType = None },
+                   { Span = { Start = (Ln: 2, Col: 35)
+                              Stop = (Ln: 4, Col: 6) }
+                     Stmts =
+                      [{ Kind =
+                          Expr
+                            { Kind =
+                               Call
+                                 { Callee = { Kind = Identifier "print"
+                                              Span = { Start = (Ln: 3, Col: 7)
+                                                       Stop = (Ln: 3, Col: 12) }
+                                              InferredType = None }
+                                   TypeArgs = None
+                                   Args = [{ Kind = Identifier "x"
+                                             Span = { Start = (Ln: 3, Col: 13)
+                                                      Stop = (Ln: 3, Col: 14) }
+                                             InferredType = None }]
+                                   OptChain = false
+                                   Throws = None }
+                              Span = { Start = (Ln: 3, Col: 7)
+                                       Stop = (Ln: 3, Col: 15) }
+                              InferredType = None }
+                         Span = { Start = (Ln: 3, Col: 7)
+                                  Stop = (Ln: 3, Col: 15) } }] }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 4, Col: 6) }
+               InferredType = None }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 4, Col: 6) } }] }

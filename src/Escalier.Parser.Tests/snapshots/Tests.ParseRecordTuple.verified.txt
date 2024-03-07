@@ -32,7 +32,8 @@ output: Ok
                             Immutable = true }
                        Span = { Start = (Ln: 2, Col: 14)
                                 Stop = (Ln: 2, Col: 22) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -70,7 +71,8 @@ output: Ok
                             Immutable = true }
                        Span = { Start = (Ln: 3, Col: 14)
                                 Stop = (Ln: 3, Col: 28) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
           Span = { Start = (Ln: 3, Col: 5)
@@ -98,7 +100,8 @@ output: Ok
                             Immutable = true }
                        Span = { Start = (Ln: 4, Col: 16)
                                 Stop = (Ln: 4, Col: 25) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 4, Col: 5)
                         Stop = (Ln: 5, Col: 5) } }
           Span = { Start = (Ln: 4, Col: 5)

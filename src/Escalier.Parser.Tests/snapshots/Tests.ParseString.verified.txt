@@ -16,7 +16,8 @@ output: Ok
 	"world!"")
                                    Span = { Start = (Ln: 1, Col: 11)
                                             Stop = (Ln: 1, Col: 33) }
-                                   InferredType = None } }
+                                   InferredType = None }
+                          Else = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 34) } }
           Span = { Start = (Ln: 1, Col: 1)

@@ -878,17 +878,84 @@ let InferIfLet () =
     result {
       let src =
         """
-        declare let x: number | undefined;
-        let y = if let x = x {
-          x + 1
+        declare let value: number | undefined;
+        let y = if let x = value {
+          x + 1;
         } else {
-          0
+          0;
         };
         """
 
       let! _, env = inferScript src
 
       Assert.Value(env, "y", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIfLetWithShadowing () =
+  let result =
+    result {
+      let src =
+        """
+        declare let x: number | undefined;
+        let y = if let x = x {
+          x + 1;
+        } else {
+          0;
+        };
+        """
+
+      let! _, env = inferScript src
+
+      // TODO: fix this shadowing issue
+      Assert.Value(env, "y", "t3:number + 1 | 0")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIfLetWithDestructuring () =
+  let result =
+    result {
+      let src =
+        """
+        declare let point: {x: number, y: number} | undefined;
+        let sum = if let {x, y} = point {
+          x + y;
+        } else {
+          0;
+        };
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "sum", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIfLetWithChaining () =
+  let result =
+    result {
+      // TODO: figure out why changing `y;` to `y` causes a parse error
+      let src =
+        """
+        declare let value: number | string | undefined;
+        let result = if let x is number = value {
+          x + 1;
+        } else if let y is string = value {
+          y;
+        } else {
+          0;
+        };
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "result", "number | string")
     }
 
   printfn "result = %A" result

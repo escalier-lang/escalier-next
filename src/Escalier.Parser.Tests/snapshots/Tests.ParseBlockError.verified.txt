@@ -1,0 +1,29 @@
+﻿input: 
+    if cond {
+      x;
+    }
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Expr
+             { Kind =
+                IfElse
+                  ({ Kind = Identifier "cond"
+                     Span = { Start = (Ln: 2, Col: 8)
+                              Stop = (Ln: 2, Col: 13) }
+                     InferredType = None },
+                   { Span = { Start = (Ln: 2, Col: 13)
+                              Stop = (Ln: 5, Col: 5) }
+                     Stmts = [{ Kind = Expr { Kind = Identifier "x"
+                                              Span = { Start = (Ln: 3, Col: 7)
+                                                       Stop = (Ln: 3, Col: 8) }
+                                              InferredType = None }
+                                Span = { Start = (Ln: 3, Col: 7)
+                                         Stop = (Ln: 3, Col: 8) } }] }, None)
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 5, Col: 5) }
+               InferredType = None }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 5, Col: 5) } }] }

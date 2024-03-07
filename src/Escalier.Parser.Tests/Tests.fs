@@ -827,6 +827,22 @@ let ParseIfLet () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseIfLetElse () =
+  let src =
+    """
+    let y = if let x = value {
+      x + 1;
+    } else {
+      0;
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseIfLetChaining () =
   let src =
     """
@@ -849,6 +865,22 @@ let ParseLetElse () =
     let Foo {x, y} = foo else {
       print("foo is not a Foo");
     };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBlockError () =
+  // Without the `;` after the `x` it thinks that `cond { x }` is a struct
+  // TODO: remove struct parsing after support for classes has been added
+  let src =
+    """
+    if cond {
+      x;
+    }
     """
 
   let ast = Parser.parseScript src

@@ -215,10 +215,10 @@ module rec Infer =
 
           let! initType = inferExpr ctx newEnv init
 
-          do! unify ctx newEnv invariantPaths initType patType
+          do! unify ctx newEnv invariantPaths patType initType
 
           let! thenBranchTy =
-            inferBlockOrExpr ctx env (thenBranch |> BlockOrExpr.Block)
+            inferBlockOrExpr ctx newEnv (thenBranch |> BlockOrExpr.Block)
 
           let! elseBranchTy =
             Option.traverseResult (inferBlockOrExpr ctx env) elseBranch
@@ -1677,6 +1677,9 @@ module rec Infer =
       // TODO: write a function that checks if something has type variables in it
 
       let mutable newExprTypes: list<Type> = []
+
+      // TODO: check mutability when unifying by computing invariant paths
+      // using checkMutability
 
       // Unify all pattern types with `exprType`
       if hasTypeVars exprType then

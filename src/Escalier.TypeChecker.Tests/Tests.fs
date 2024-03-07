@@ -871,3 +871,25 @@ let InferEnumPatternMatching () =
     }
 
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIfLet () =
+  let result =
+    result {
+      let src =
+        """
+        declare let x: number | undefined;
+        let y = if let x = x {
+          x + 1
+        } else {
+          0
+        };
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "y", "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

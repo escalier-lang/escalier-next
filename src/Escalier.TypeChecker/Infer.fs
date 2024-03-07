@@ -200,6 +200,35 @@ module rec Infer =
             | None ->
               { Kind = TypeKind.Literal(Literal.Undefined)
                 Provenance = None }
+        | ExprKind.IfLet(pattern, init, thenBranch, elseBranch) ->
+          // treat pattern/target the as a let binding
+          let! invariantPaths =
+            checkMutability
+              (getPatBindingPaths pattern)
+              (getExprBindingPaths env init)
+
+          let! patBindings, patType = inferPattern ctx env pattern
+          let mutable newEnv = env
+
+          for KeyValue(name, binding) in patBindings do
+            newEnv <- newEnv.AddValue name binding
+
+          let! initType = inferExpr ctx newEnv init
+
+          do! unify ctx newEnv invariantPaths initType patType
+
+          let! thenBranchTy =
+            inferBlockOrExpr ctx env (thenBranch |> BlockOrExpr.Block)
+
+          let! elseBranchTy =
+            Option.traverseResult (inferBlockOrExpr ctx env) elseBranch
+
+          return
+            match elseBranchTy with
+            | Some(elseBranchTy) -> union [ thenBranchTy; elseBranchTy ]
+            | None ->
+              { Kind = TypeKind.Literal(Literal.Undefined)
+                Provenance = None }
         | ExprKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable spreadTypes = []
 

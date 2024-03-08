@@ -20,9 +20,13 @@ module Parser =
     pipe3 getPosition p getPosition
     <| fun start value stop -> (value, { Start = start; Stop = stop })
 
+  let isIdentifierChar c = isLetter c || isDigit c || c = '_'
+
+  let keyword s =
+    pstring s .>> notFollowedBy (satisfy isIdentifierChar) .>> ws
+
   let ident =
     let isIdentifierFirstChar c = isLetter c || c = '_'
-    let isIdentifierChar c = isLetter c || isDigit c || c = '_'
 
     many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
 
@@ -88,11 +92,11 @@ module Parser =
     (self: bool)
     : Parser<FuncSig<'A>, unit> =
     pipe5
-      (opt (strWs "async"))
-      (strWs "fn" >>. (opt typeParams))
+      (opt (keyword "async"))
+      (keyword "fn" >>. (opt typeParams))
       (paramList opt_or_id)
       (opt_or_id (strWs "->" >>. typeAnn))
-      (opt (ws .>> strWs "throws" >>. typeAnn))
+      (opt (ws .>> keyword "throws" >>. typeAnn))
     <| fun async type_params paramList return_type throws ->
       if self then
         // TODO: handle the case where `self` is true but `paramList` is []
@@ -162,12 +166,12 @@ module Parser =
   let string: Parser<Literal, unit> = _string |>> fun sl -> Literal.String(sl)
 
   let boolean =
-    (pstring "true" |>> fun _ -> Literal.Boolean true)
-    <|> (pstring "false" |>> fun _ -> Literal.Boolean false)
+    (keyword "true" |>> fun _ -> Literal.Boolean true)
+    <|> (keyword "false" |>> fun _ -> Literal.Boolean false)
 
   let otherLiterals =
-    (pstring "undefined" |>> fun _ -> Literal.Undefined)
-    <|> (pstring "null" |>> fun _ -> Literal.Null)
+    (keyword "undefined" |>> fun _ -> Literal.Undefined)
+    <|> (keyword "null" |>> fun _ -> Literal.Null)
 
   litRef.Value <-
     choice [ number |>> Literal.Number; string; boolean; otherLiterals ]
@@ -303,13 +307,13 @@ module Parser =
   let ifElse, ifElseRef = createParserForwardedToRef<Expr, unit> ()
 
   let elseClause =
-    strWs "else"
+    keyword "else"
     >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e)))
          <|> (block |>> BlockOrExpr.Block))
 
   let ifLet: Parser<ExprKind, unit> =
     pipe3
-      ((strWs "let") >>. pattern .>>. (strWs "=" >>. expr))
+      ((keyword "let") >>. pattern .>>. (strWs "=" >>. expr))
       block
       (opt elseClause)
     <| fun (pattern, expr) then_ else_ ->
@@ -320,7 +324,7 @@ module Parser =
     <| fun cond then_ else_ -> ExprKind.IfElse(cond, then_, else_)
 
   ifElseRef.Value <-
-    pipe3 getPosition ((strWs "if") >>. choice [ ifLet; ifCond ]) getPosition
+    pipe3 getPosition ((keyword "if") >>. choice [ ifLet; ifCond ]) getPosition
     <| fun start kind stop ->
       { Kind = kind
         Span = { Start = start; Stop = stop }
@@ -337,7 +341,7 @@ module Parser =
     pipe5
       getPosition
       (strWs "|" >>. pattern)
-      (opt ((strWs "if") >>. expr))
+      (opt ((keyword "if") >>. expr))
       (strWs "=>"
        >>. ((block |>> BlockOrExpr.Block) <|> (expr |>> BlockOrExpr.Expr)))
       getPosition
@@ -384,7 +388,7 @@ module Parser =
     <| fun start cases stop -> cases
 
   let throwExpr: Parser<Expr, unit> =
-    withSpan (strWs "throw" >>. expr)
+    withSpan (keyword "throw" >>. expr)
     |>> fun (expr, span) ->
       { Kind = ExprKind.Throw(expr)
         Span = span
@@ -393,9 +397,9 @@ module Parser =
   let tryExpr: Parser<Expr, unit> =
     pipe5
       getPosition
-      (strWs "try" >>. block)
-      (opt (strWs "catch" >>. catchClause))
-      (opt (strWs "finally" >>. block))
+      (keyword "try" >>. block)
+      (opt (keyword "catch" >>. catchClause))
+      (opt (keyword "finally" >>. block))
       getPosition
     <| fun start body cases finally_ stop ->
       { Kind =
@@ -709,7 +713,7 @@ module Parser =
           | _ -> Reply(semiReply.Status, semiReply.Error)
 
   let private returnStmt: Parser<Stmt, unit> =
-    withSpan (strWs "return" >>. opt expr .>> (strWs ";"))
+    withSpan (keyword "return" >>. opt expr .>> (strWs ";"))
     |>> fun (e, span) -> { Stmt.Kind = Return(e); Span = span }
 
   let private declStmt (decl: Parser<Decl, unit>) : Parser<Stmt, unit> =
@@ -721,10 +725,10 @@ module Parser =
   let private varDecl: Parser<Decl, unit> =
     withSpan (
       tuple4
-        (strWs "let" >>. pattern)
+        (keyword "let" >>. pattern)
         (opt (strWs ":" >>. ws >>. typeAnn))
         (strWs "=" >>. expr)
-        ((opt (strWs "else" >>. block)) .>> (strWs ";"))
+        ((opt (keyword "else" >>. block)) .>> (strWs ";"))
     )
     |>> fun ((pat, typeAnn, init, elseClause), span) ->
       { Kind =
@@ -738,7 +742,7 @@ module Parser =
   let private typeDecl: Parser<Decl, unit> =
     pipe5
       getPosition
-      (strWs "type" >>. ident)
+      (keyword "type" >>. ident)
       (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
       (strWs "=" >>. typeAnn .>> (strWs ";"))
       getPosition
@@ -767,7 +771,7 @@ module Parser =
   let private enumDecl: Parser<Decl, unit> =
     pipe5
       getPosition
-      (strWs "enum" >>. ident)
+      (keyword "enum" >>. ident)
       (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
       (between (strWs "{") (strWs "}") (many enumVariant))
       getPosition
@@ -785,8 +789,8 @@ module Parser =
   let private forLoop =
     pipe5
       getPosition
-      (strWs "for" >>. pattern)
-      (strWs "in" >>. expr)
+      (keyword "for" >>. pattern)
+      (keyword "in" >>. expr)
       (ws >>. block)
       getPosition
     <| fun start pattern expr body stop ->
@@ -819,7 +823,7 @@ module Parser =
   let private structDecl: Parser<Decl, unit> =
     pipe5
       getPosition
-      (strWs "struct" >>. ident)
+      (keyword "struct" >>. ident)
       (opt (between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))))
       (between (strWs "{") (strWs "}") (sepEndBy propertyTypeAnn (strWs ",")))
       getPosition
@@ -835,11 +839,11 @@ module Parser =
 
   let private method: Parser<ImplElem, unit> =
     pipe5
-      (opt (strWs "async"))
-      (strWs "fn" >>. ident)
+      (opt (keyword "async"))
+      (keyword "fn" >>. ident)
       ((opt typeParams) .>>. (paramList opt))
       ((opt (strWs "->" >>. typeAnn))
-       .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
+       .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
       block
     <| fun async name (typeParams, paramList) (retType, throws) body ->
       let funcSig: FuncSig<option<TypeAnn>> =
@@ -873,11 +877,11 @@ module Parser =
 
   let private getter: Parser<ImplElem, unit> =
     pipe5
-      (opt (strWs "async"))
-      (strWs "get" >>. ident)
+      (opt (keyword "async"))
+      (keyword "get" >>. ident)
       (between (strWs "(") (strWs ")") (funcParam opt))
       ((opt (strWs "->" >>. typeAnn))
-       .>>. (opt (ws .>> strWs "throws" >>. typeAnn)))
+       .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
       block
     <| fun async name self (retType, throws) body ->
       { Getter.Name = name
@@ -890,13 +894,13 @@ module Parser =
   // TODO: generic setters
   let private setter: Parser<ImplElem, unit> =
     pipe5
-      (opt (strWs "async"))
-      (strWs "set" >>. ident)
+      (opt (keyword "async"))
+      (keyword "set" >>. ident)
       (between
         (strWs "(")
         (strWs ")")
         ((funcParam opt) .>>. (strWs "," >>. (funcParam opt))))
-      (opt (ws .>> strWs "throws" >>. typeAnn))
+      (opt (ws .>> keyword "throws" >>. typeAnn))
       block
     <| fun async name (self, param) throws body ->
       { Setter.Name = name
@@ -911,7 +915,7 @@ module Parser =
   let private implStmt =
     pipe5
       getPosition
-      (strWs "impl" >>. ident)
+      (keyword "impl" >>. ident)
       (opt typeParams)
       (between (strWs "{") (strWs "}") (many implElem))
       getPosition
@@ -942,10 +946,10 @@ module Parser =
 
   stmtRef.Value <- ws >>. _stmt
 
-  let private isAssertion = (strWs "is" >>. qualifiedIdent)
+  let private isAssertion = (keyword "is" >>. qualifiedIdent)
 
   let private identPattern =
-    withSpan (tuple3 (opt (strWs "mut")) ident (opt isAssertion))
+    withSpan (tuple3 (opt (keyword "mut")) ident (opt isAssertion))
     |>> fun ((mut, name, assertion), span) ->
       { Pattern.Kind =
           PatternKind.Ident
@@ -1004,7 +1008,7 @@ module Parser =
   let private shorthandPat =
     withSpan (
       tuple4
-        (opt (strWs "mut"))
+        (opt (keyword "mut"))
         ident
         (opt isAssertion)
         (opt (strWs "=" >>. expr))
@@ -1105,15 +1109,15 @@ module Parser =
   let private keywordTypeAnn =
     let keyword =
       choice
-        [ (strWs "object" |>> fun _ -> KeywordTypeAnn.Object)
-          (strWs "never" |>> fun _ -> Never)
-          (strWs "unknown" |>> fun _ -> Unknown)
-          (strWs "boolean" |>> fun _ -> Boolean)
-          (strWs "number" |>> fun _ -> Number)
-          (strWs "string" |>> fun _ -> String)
-          (strWs "symbol" |>> fun _ -> Symbol)
-          (strWs "null" |>> fun _ -> Null)
-          (strWs "undefined" |>> fun _ -> Undefined) ]
+        [ (keyword "object" |>> fun _ -> KeywordTypeAnn.Object)
+          (keyword "never" |>> fun _ -> Never)
+          (keyword "unknown" |>> fun _ -> Unknown)
+          (keyword "boolean" |>> fun _ -> Boolean)
+          (keyword "number" |>> fun _ -> Number)
+          (keyword "string" |>> fun _ -> String)
+          (keyword "symbol" |>> fun _ -> Symbol)
+          (keyword "null" |>> fun _ -> Null)
+          (keyword "undefined" |>> fun _ -> Undefined) ]
 
     withSpan keyword
     |>> fun (keyword, span) ->
@@ -1129,16 +1133,16 @@ module Parser =
   // function signature should get their own type variable (or whatever the
   // symbol equivalent of that is)
   let private uniqueSymbolTypeAnn =
-    withSpan (strWs "unique" >>. strWs "symbol")
+    withSpan (keyword "unique" >>. keyword "symbol")
     |>> fun (_, span) ->
       { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
         Span = span
         InferredType = None }
 
   let private uniqueNumberTypeAnn =
-    withSpan (strWs "unique" >>. strWs "symbol")
+    withSpan (keyword "unique" >>. keyword "number")
     |>> fun (_, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
+      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueNumber
         Span = span
         InferredType = None }
 
@@ -1164,7 +1168,7 @@ module Parser =
         InferredType = None }
 
   let private readonlyModifier =
-    pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "readonly")
+    pipe2 (opt (strWs "+" <|> strWs "-")) (keyword "readonly")
     <| fun pm _ ->
       match pm with
       | Some("+") -> MappedModifier.Add
@@ -1180,7 +1184,7 @@ module Parser =
       | _ -> MappedModifier.Add
 
   let private mappedTypeParam =
-    pipe2 (strWs "for" >>. ident) (strWs "in" >>. typeAnn)
+    pipe2 (keyword "for" >>. ident) (keyword "in" >>. typeAnn)
     <| fun name c -> { Name = name; Constraint = c }
 
   let private mappedTypeAnn =
@@ -1208,7 +1212,7 @@ module Parser =
           Optional = optional }
 
   let private callableSignature =
-    pipe4 getPosition (opt (strWs "new")) (funcSig id false) getPosition
+    pipe4 getPosition (opt (keyword "new")) (funcSig id false) getPosition
     <| fun start newable funcSig stop ->
       match newable with
       | Some _ -> ObjTypeAnnElem.Constructor(funcSig)
@@ -1243,7 +1247,7 @@ module Parser =
 
   // TODO: don't include strWs in the span
   let private keyofTypeAnn =
-    withSpan (strWs "keyof" >>. typeAnn)
+    withSpan (keyword "keyof" >>. typeAnn)
     |>> fun (typeAnn, span) ->
       { TypeAnn.Kind = TypeAnnKind.Keyof(typeAnn)
         Span = span
@@ -1259,7 +1263,7 @@ module Parser =
 
   // TODO: don't include strWs in the span
   let private typeofTypeAnn =
-    withSpan (strWs "typeof" >>. qualifiedIdent)
+    withSpan (keyword "typeof" >>. qualifiedIdent)
     |>> fun (e, span) ->
       { TypeAnn.Kind = TypeAnnKind.Typeof e
         Span = span
@@ -1271,11 +1275,12 @@ module Parser =
   condTypeAnnRef.Value <-
     pipe5
       getPosition
-      (strWs "if"
+      (keyword "if"
        >>. (pipe2 typeAnn (strWs ":" >>. typeAnn)
             <| fun check extends -> (check, extends)))
       (strWs "{" >>. typeAnn .>> strWs "}")
-      (strWs "else" >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
+      (keyword "else"
+       >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
       getPosition
     <| fun start (check, extends) trueType falseType stop ->
       { TypeAnn.Kind =
@@ -1521,7 +1526,7 @@ module Parser =
   typeAnnRef.Value <- typeAnnParser.Parse(0)
 
   let namedSpecifier: Parser<ImportSpecifier, unit> =
-    pipe4 getPosition ident (opt (strWs "as" >>. ident)) getPosition
+    pipe4 getPosition ident (opt (keyword "as" >>. ident)) getPosition
     <| fun start name alias stop ->
       let span = { Start = start; Stop = stop }
       ImportSpecifier.Named(name, alias)
@@ -1530,7 +1535,7 @@ module Parser =
     between (strWs "{") (strWs "}") (sepBy namedSpecifier (strWs ","))
 
   let private moduleAlias: Parser<list<ImportSpecifier>, unit> =
-    pipe3 getPosition (strWs "as" >>. ident) getPosition
+    pipe3 getPosition (keyword "as" >>. ident) getPosition
     <| fun start alias stop ->
       let span = { Start = start; Stop = stop }
       [ ImportSpecifier.ModuleAlias alias ]
@@ -1540,7 +1545,7 @@ module Parser =
   let import: Parser<Import, unit> =
     pipe4
       getPosition
-      (strWs "import" >>. _string .>> ws)
+      (keyword "import" >>. _string .>> ws)
       (opt importSpecifiers .>> (strWs ";"))
       getPosition
     <| fun start source specifiers stop ->
@@ -1550,7 +1555,7 @@ module Parser =
   let declare: Parser<ScriptItem, unit> =
     pipe4
       getPosition
-      (strWs "declare" >>. strWs "let" >>. pattern)
+      (keyword "declare" >>. keyword "let" >>. pattern)
       (strWs ":" >>. ws >>. typeAnn .>> (strWs ";"))
       getPosition
     <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)

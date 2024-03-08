@@ -1,0 +1,176 @@
+﻿input: 
+    let Foo = class<T> {
+      bar: T;
+      fn map<U>(self, callback: fn (bar: T) -> U) {
+        return callback(self.bar);
+      }
+    };
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Pattern = { Kind = Ident { Name = "Foo"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 2, Col: 9)
+                                         Stop = (Ln: 2, Col: 13) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     { Kind =
+                        Class
+                          { Name = None
+                            TypeParams =
+                             Some [{ Span = { Start = (Ln: 2, Col: 21)
+                                              Stop = (Ln: 2, Col: 22) }
+                                     Name = "T"
+                                     Constraint = None
+                                     Default = None }]
+                            Elems =
+                             [Property
+                                ({ Start = (Ln: 3, Col: 7)
+                                   Stop = (Ln: 3, Col: 13) }, String "bar",
+                                 { Kind = TypeRef { Ident = Ident "T"
+                                                    TypeArgs = None }
+                                   Span = { Start = (Ln: 3, Col: 12)
+                                            Stop = (Ln: 3, Col: 13) }
+                                   InferredType = None });
+                              Method
+                                { Name = "map"
+                                  Sig =
+                                   { TypeParams =
+                                      Some [{ Span = { Start = (Ln: 4, Col: 14)
+                                                       Stop = (Ln: 4, Col: 15) }
+                                              Name = "U"
+                                              Constraint = None
+                                              Default = None }]
+                                     Self =
+                                      Some
+                                        { Pattern =
+                                           { Kind = Ident { Name = "self"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 4, Col: 17)
+                                                      Stop = (Ln: 4, Col: 21) }
+                                             InferredType = None }
+                                          TypeAnn = None
+                                          Optional = false }
+                                     ParamList =
+                                      [{ Pattern =
+                                          { Kind = Ident { Name = "callback"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 4, Col: 23)
+                                                     Stop = (Ln: 4, Col: 31) }
+                                            InferredType = None }
+                                         TypeAnn =
+                                          Some
+                                            { Kind =
+                                               Function
+                                                 { TypeParams = None
+                                                   Self = None
+                                                   ParamList =
+                                                    [{ Pattern =
+                                                        { Kind =
+                                                           Ident
+                                                             { Name = "bar"
+                                                               IsMut = false
+                                                               Assertion = None }
+                                                          Span =
+                                                           { Start =
+                                                              (Ln: 4, Col: 37)
+                                                             Stop =
+                                                              (Ln: 4, Col: 40) }
+                                                          InferredType = None }
+                                                       TypeAnn =
+                                                        { Kind =
+                                                           TypeRef
+                                                             { Ident = Ident "T"
+                                                               TypeArgs = None }
+                                                          Span =
+                                                           { Start =
+                                                              (Ln: 4, Col: 42)
+                                                             Stop =
+                                                              (Ln: 4, Col: 43) }
+                                                          InferredType = None }
+                                                       Optional = false }]
+                                                   ReturnType =
+                                                    { Kind =
+                                                       TypeRef
+                                                         { Ident = Ident "U"
+                                                           TypeArgs = None }
+                                                      Span =
+                                                       { Start =
+                                                          (Ln: 4, Col: 48)
+                                                         Stop = (Ln: 4, Col: 49) }
+                                                      InferredType = None }
+                                                   Throws = None
+                                                   IsAsync = false }
+                                              Span = { Start = (Ln: 4, Col: 33)
+                                                       Stop = (Ln: 4, Col: 49) }
+                                              InferredType = None }
+                                         Optional = false }]
+                                     ReturnType = None
+                                     Throws = None
+                                     IsAsync = false }
+                                  Body =
+                                   Block
+                                     { Span = { Start = (Ln: 4, Col: 51)
+                                                Stop = (Ln: 7, Col: 5) }
+                                       Stmts =
+                                        [{ Kind =
+                                            Return
+                                              (Some
+                                                 { Kind =
+                                                    Call
+                                                      { Callee =
+                                                         { Kind =
+                                                            Identifier
+                                                              "callback"
+                                                           Span =
+                                                            { Start =
+                                                               (Ln: 5, Col: 16)
+                                                              Stop =
+                                                               (Ln: 5, Col: 24) }
+                                                           InferredType = None }
+                                                        TypeArgs = None
+                                                        Args =
+                                                         [{ Kind =
+                                                             Member
+                                                               ({ Kind =
+                                                                   Identifier
+                                                                     "self"
+                                                                  Span =
+                                                                   { Start =
+                                                                      (Ln: 5, Col: 25)
+                                                                     Stop =
+                                                                      (Ln: 5, Col: 29) }
+                                                                  InferredType =
+                                                                   None }, "bar",
+                                                                false)
+                                                            Span =
+                                                             { Start =
+                                                                (Ln: 5, Col: 25)
+                                                               Stop =
+                                                                (Ln: 5, Col: 33) }
+                                                            InferredType = None }]
+                                                        OptChain = false
+                                                        Throws = None }
+                                                   Span =
+                                                    { Start = (Ln: 5, Col: 16)
+                                                      Stop = (Ln: 5, Col: 34) }
+                                                   InferredType = None })
+                                           Span = { Start = (Ln: 5, Col: 9)
+                                                    Stop = (Ln: 6, Col: 7) } }] } }] }
+                       Span = { Start = (Ln: 2, Col: 15)
+                                Stop = (Ln: 7, Col: 6) }
+                       InferredType = None }
+                    Else = None }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 8, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 8, Col: 5) } }] }

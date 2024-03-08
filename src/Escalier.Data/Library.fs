@@ -200,6 +200,12 @@ module Syntax =
       | Number value -> $"[{value}]"
       | Computed expr -> $"[{expr}]"
 
+  type ClassElem =
+    | Property of span: Span * name: PropName * value: TypeAnn
+    | Method of Method
+    | Getter of Getter
+    | Setter of Setter
+
   type ObjElem =
     // TODO: Add syntax for specifying callables
     // TODO: Add support for getters, setters, and methods
@@ -235,6 +241,11 @@ module Syntax =
 
   type Struct<'T> = { TypeRef: TypeRef; Elems: list<'T> }
 
+  type Class =
+    { Name: option<string>
+      TypeParams: option<list<TypeParam>>
+      Elems: list<ClassElem> }
+
   [<RequireQualifiedAccess>]
   type ExprKind =
     | Identifier of name: string // TODO: Make an Ident struct
@@ -245,6 +256,7 @@ module Syntax =
     | ExprWithTypeArgs of target: Expr * typeArgs: list<TypeAnn>
     | Object of Common.Object<ObjElem>
     | Struct of Struct<ObjElem>
+    | Class of Class
     | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
     | Index of target: Expr * index: Expr * opt_chain: bool
@@ -610,6 +622,10 @@ module Type =
     { TypeRef: TypeRef
       Elems: list<'T>
       Impls: list<Impl> }
+
+  type Class<'T> =
+    { Name: option<string>
+      Elems: list<'T> }
 
   type KeyValuePat =
     { Key: string

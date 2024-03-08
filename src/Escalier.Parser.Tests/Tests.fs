@@ -887,3 +887,60 @@ let ParseBlockError () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseClassWithMethods () =
+  let src =
+    """
+    let Foo = class {
+      msg: string;
+      fn bar(self) {
+        return self.msg;
+      }
+      fn baz(mut self, msg: string) {
+        self.msg = msg;
+      }
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseClassWithGetterSetter () =
+  let src =
+    """
+    let Foo = class {
+      _msg: string;
+      get msg(self) {
+        return self._msg;
+      }
+      set msg(mut self, msg: string) {
+        self._msg = msg;
+      }
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseClassWithTypeParams () =
+  let src =
+    """
+    let Foo = class<T> {
+      bar: T;
+      fn map<U>(self, callback: fn (bar: T) -> U) {
+        return callback(self.bar);
+      }
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

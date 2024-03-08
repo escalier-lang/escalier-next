@@ -909,6 +909,23 @@ let ParseClassWithMethods () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseClassWithConstructor () =
+  let src =
+    """
+    let Foo = class {
+      msg: string;
+      fn constructor(msg: string) {
+        self.msg = msg;
+      }
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseClassWithGetterSetter () =
   let src =
     """

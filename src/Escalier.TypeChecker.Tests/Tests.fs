@@ -859,7 +859,9 @@ let InferEnumPatternMatching () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Type(
         env,
@@ -886,8 +888,32 @@ let InferIfLet () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "y", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIfLetWithTypeAlias () =
+  let result =
+    result {
+      let src =
+        """
+        type Nullable<T> = T | undefined;
+        declare let value: Nullable<number>;
+        let y = if let x = value {
+          x + 1;
+        } else {
+          0;
+        };
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "y", "number")
     }
 
@@ -929,8 +955,9 @@ let InferIfLetWithDestructuring () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "sum", "number")
     }
 
@@ -953,10 +980,98 @@ let InferIfLetWithChaining () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number | string")
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferLetElse () =
+  let result =
+    result {
+      let src =
+        """
+        declare let value: number | undefined;
+        declare let print: fn (msg: string) -> undefined;
+        let x = value else {
+          print("value is undefined");
+        };
+        let y = x + 1;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "y", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferLetElseWithDestructuring () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number};
+        type Line = {start: Point, end: Point};
+        declare let value: Point | Line | undefined;
+        declare let print: fn (msg: string) -> undefined;
+        let {x, y} = value else {
+          print("value is not a point");
+        };
+        let sum = x + y;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "sum", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferLetElseIsPattern () =
+  let result =
+    result {
+      let src =
+        """
+        declare let value: number | string | undefined;
+        declare let print: fn (msg: string) -> undefined;
+        let x is number = value else {
+          print("value is not a number");
+        };
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferLetElseWithTypeAnnotation () =
+  let result =
+    result {
+      let src =
+        """
+        declare let value: number | string | undefined;
+        declare let print: fn (msg: string) -> undefined;
+        let x: number = value else {
+          print("value is not a number");
+        };
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "number")
+    }
+
   Assert.False(Result.isError result)

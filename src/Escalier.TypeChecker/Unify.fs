@@ -42,7 +42,7 @@ module rec Unify =
     result {
       match (prune t1).Kind, (prune t2).Kind with
       | TypeKind.TypeVar _, _ -> do! bind ctx env ips t1 t2
-      | _, TypeKind.TypeVar _ -> do! unify ctx env ips t2 t1
+      | _, TypeKind.TypeVar _ -> do! bind ctx env ips t2 t1
       | TypeKind.Primitive p1, TypeKind.Primitive p2 when p1 = p2 -> ()
       | TypeKind.Wildcard, _ -> ()
       | _, TypeKind.Wildcard -> ()

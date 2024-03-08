@@ -79,7 +79,6 @@ let InferSimpleTypeError () =
       printDiagnostics ctx.Diagnostics
     }
 
-  printfn "result = %A" result
   Assert.True(Result.isError result)
 
 [<Fact>]
@@ -129,8 +128,9 @@ let InferIfElseChaining () =
       };
       """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "5 | \"hello\" | true")
     }
 
@@ -163,8 +163,9 @@ let InferIdentifier () =
 let InferLetStatements () =
   let result =
     result {
-      let! _, env = inferScript "let foo = 5;\nlet bar =\"hello\";"
+      let! ctx, env = inferScript "let foo = 5;\nlet bar =\"hello\";"
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "5")
       Assert.Value(env, "bar", "\"hello\"")
     }
@@ -182,8 +183,9 @@ let InferBinOpsOnPrimitives () =
           let sum = x + y;
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "sum", "15")
     }
 
@@ -202,8 +204,9 @@ let InferTypeDecls () =
           type Nullable<T> = T | undefined;
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "A", "number")
       Assert.Type(env, "B", "[string, boolean]")
       Assert.Type(env, "C", "5 | \"hello\"")
@@ -211,7 +214,6 @@ let InferTypeDecls () =
       Assert.Type(env, "Nullable", "<T>(T | undefined)")
     }
 
-  printfn "result = %A" result
 
   Assert.False(Result.isError result)
 
@@ -230,15 +232,15 @@ let InferPrivateDecl () =
           let {x, y} = p;
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
       Assert.Value(env, "p", "Point")
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -251,12 +253,12 @@ let InferTypeAliasOfPrimtiveType () =
         let x: Bar = 5;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "Bar")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -271,8 +273,9 @@ let InferTypeAnn () =
         let {x, y}: Point = {x: 5, y: 10};
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string")
       Assert.Value(env, "c", "boolean")
@@ -296,8 +299,9 @@ let InferObjectDestructuring () =
         foo({x, y});
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
       Assert.Value(env, "p", "Point")
@@ -319,8 +323,9 @@ let InferObjectRestSpread () =
         foo(obj2);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
       Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
@@ -339,8 +344,9 @@ let InferObjProps () =
         let c = obj.a.c;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "b", "5")
       Assert.Value(env, "c", "\"hello\"")
     }
@@ -363,8 +369,9 @@ let InferOptionalChaining () =
         let x = p?.x;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "obj", "Obj")
       Assert.Value(env, "a", "{b?: {c: number}} | undefined")
       Assert.Value(env, "b", "{c: number} | undefined")
@@ -373,7 +380,6 @@ let InferOptionalChaining () =
       Assert.Value(env, "x", "number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -389,8 +395,9 @@ let InferRecursiveType () =
         let z: Foo = [5, [10, 15]];
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Foo", "number | Foo[]")
       Assert.Value(env, "x", "Foo")
       Assert.Value(env, "y", "Foo")
@@ -412,8 +419,9 @@ let InferRecursiveTypeUnifyWithDefn () =
         let bar: number | Foo[] = foo;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Foo", "number | Foo[]")
     }
 
@@ -444,12 +452,12 @@ let InferRecursiveObjectType () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "node", "Node")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 
@@ -479,12 +487,12 @@ let InferRecursiveGenericObjectType () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "node", "Node<number>")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -516,13 +524,13 @@ let ReturnRecursivePrivateGenericObjectType () =
         let x = node.left?.value;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "node", "Node<number>")
       Assert.Value(env, "x", "number | undefined")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -554,13 +562,13 @@ let ReturnRecursiveGenericObjectType () =
         let x = node.left?.value;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "node", "Node<number>")
       Assert.Value(env, "x", "number | undefined")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact(Skip = "TODO: unify tuples and arrays")>]
@@ -574,14 +582,14 @@ let InferTuple () =
         let baz = bar(foo);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "[1, 2, 3]")
       Assert.Value(env, "bar", "fn (nums: number[]) -> number[]")
       Assert.Value(env, "baz", "number[]")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -589,12 +597,14 @@ let InferDeclare () =
   let result =
     result {
       let src = "declare let [x, y]: [number, string, boolean];"
-      let! _, env = inferScript src
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "string")
     }
 
-  printfn "result = %A" result
 
   Assert.False(Result.isError result)
 
@@ -614,14 +624,15 @@ let InferTemplateLiteralType () =
         let w: Baz = "ABCBC";
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "Foo")
       Assert.Value(env, "y", "Bar")
       Assert.Value(env, "z", "Baz")
       Assert.Value(env, "w", "Baz")
     }
 
-  printfn "result = %A" result
 
   Assert.False(Result.isError result)
 
@@ -639,7 +650,9 @@ let InferTemplateLiteralTypeWithUnions () =
         let d: Dir = "bottom-left";
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "Dir")
       Assert.Value(env, "b", "Dir")
       Assert.Value(env, "c", "Dir")
@@ -721,7 +734,9 @@ let InferUnaryOperations () =
         let w = +x;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "-5")
       Assert.Value(env, "z", "!5")
@@ -744,7 +759,9 @@ let InferEnum () =
         let value = MyEnum.Foo(5, "hello", true);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Type(
         env,
@@ -773,7 +790,9 @@ let InferEnumVariantIsSubtypeOfEnum () =
         let value: MyEnum = MyEnum.Foo(5, "hello", true);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Type(
         env,
@@ -800,8 +819,9 @@ let InferGenericEnum () =
         let value = MyEnum.Foo(5);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
 
       // TODO: how do we include `MyEnum.` in the type?
@@ -830,8 +850,9 @@ let InferGenericEnumWithSubtyping () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
       Assert.Value(env, "value", "MyEnum<number, string, boolean>")
       Assert.Value(env, "x", "number | string | boolean")
@@ -933,8 +954,9 @@ let InferIfLetWithShadowing () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       // TODO: fix this shadowing issue
       Assert.Value(env, "y", "t3:number + 1 | 0")
     }
@@ -1029,7 +1051,6 @@ let InferLetElseEarlyReturn () =
       Assert.Value(env, "foo", "fn (x: number | undefined) -> number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

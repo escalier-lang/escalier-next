@@ -20,7 +20,9 @@ let BasicPatternMatching () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -47,7 +49,9 @@ let BasicPatternMatchingInferExpr () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -82,7 +86,9 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -128,8 +134,9 @@ let PatternMatchingObjects () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       // TODO: Simplify all binary type in a type
       // {x: number / 2, y: number / 2} -> {x: number, y: number}
       // TODO: figure out how to have a type alias subsume a type that's the
@@ -173,8 +180,9 @@ let PatternMatchingObjectsWithBlockBody () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       // The `number / 2` was simplified to `number` in this case because
       // it's assigned to a variable before being used in the object
       Assert.Value(env, "centroid", "Point | {x: number, y: number}")
@@ -198,12 +206,12 @@ let PatternMatchingArrays () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -222,8 +230,9 @@ let PatternMatchingPrimitiveAssertions () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number | string | true")
     }
 
@@ -242,8 +251,9 @@ let PartialPatternMatchingObject () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number | string")
     }
 
@@ -266,12 +276,12 @@ let PatternMatchingImmutableTypes () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 

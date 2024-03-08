@@ -20,8 +20,9 @@ let InfersAsyncFunc () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn () -> Promise<5, never>")
       Assert.Value(env, "bar", "fn () -> Promise<15, never>")
     }
@@ -37,7 +38,9 @@ let InfersAsyncError () =
         let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -61,7 +64,9 @@ let InfersPropagateAsyncError () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -94,7 +99,9 @@ let InfersTryCatchAsync () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -109,5 +116,4 @@ let InfersTryCatchAsync () =
       )
     }
 
-  printfn "res: %A" res
   Assert.False(Result.isError res)

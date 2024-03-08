@@ -58,8 +58,9 @@ let InfersTypeofWellknownSymbol () =
         let iterator: typeof Symbol.iterator = Symbol.iterator;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "iterator", "symbol()")
     }
 

@@ -1088,6 +1088,15 @@ module rec Infer =
           match expr.InferredType with
           | Some(t) -> return t
           | None -> return undefined
+        | StmtKind.Return _ ->
+          // If there's a return in the block then the type of the block
+          // is `never` because the code using the value of the block will
+          // never be reached.
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          return never
         | _ -> return undefined
       | _ -> return undefined
     }
@@ -2373,6 +2382,8 @@ module rec Infer =
         | None -> do! unify ctx newEnv invariantPaths initType patType
       | Some elseClause ->
         // TODO: handle elseClause
+        // TODO: udpate inferBlockOrExpr to return `never` if the block contains
+        // a return statement
 
         let initType =
           match (prune initType).Kind with
@@ -2399,15 +2410,12 @@ module rec Infer =
           // assuming initType is a union type.
           do! unify ctx newEnv invariantPaths patType initType
 
-      return patBindings
+        // Ensure that the `else` clause matches the type of the variable
+        // being initialized.
+        let! elseTy = inferBlockOrExpr ctx env (elseClause |> BlockOrExpr.Block)
+        do! unify ctx env invariantPaths elseTy patType
 
-    // let bindings =
-    //   if generalize then
-    //     generalizeBindings patBindings
-    //   else
-    //     patBindings
-    //
-    // return env.AddBindings bindings
+      return patBindings
     }
 
   let generalizeBindings

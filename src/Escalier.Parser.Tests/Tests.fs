@@ -811,3 +811,79 @@ let ParseGenericStructPattern () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseIfLet () =
+  let src =
+    """
+    if let Option.Some(x) = maybe {
+      print(x);
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseIfLetElse () =
+  let src =
+    """
+    let y = if let x = value {
+      x + 1;
+    } else {
+      0;
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseIfLetChaining () =
+  let src =
+    """
+    if let x = maybe1?.x {
+      print(x);
+    } else if let Result.Ok(y) = result {
+      print(y);
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseLetElse () =
+  let src =
+    """
+    let Foo {x, y} = foo else {
+      print("foo is not a Foo");
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBlockError () =
+  // Without the `;` after the `x` it thinks that `cond { x }` is a struct
+  // TODO: remove struct parsing after support for classes has been added
+  let src =
+    """
+    if cond {
+      x;
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

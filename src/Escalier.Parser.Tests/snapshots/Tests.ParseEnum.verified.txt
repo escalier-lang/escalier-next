@@ -108,7 +108,8 @@ output: Ok
                             Throws = None }
                        Span = { Start = (Ln: 7, Col: 17)
                                 Stop = (Ln: 7, Col: 45) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 7, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }
           Span = { Start = (Ln: 7, Col: 5)

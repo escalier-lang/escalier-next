@@ -302,19 +302,27 @@ module Parser =
 
   let ifElse, ifElseRef = createParserForwardedToRef<Expr, unit> ()
 
-  ifElseRef.Value <-
-    pipe5
-      getPosition
-      ((strWs "if") >>. expr)
+  let elseClause =
+    strWs "else"
+    >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e)))
+         <|> (block |>> BlockOrExpr.Block))
+
+  let ifLet: Parser<ExprKind, unit> =
+    pipe3
+      ((strWs "let") >>. pattern .>>. (strWs "=" >>. expr))
       block
-      (opt (
-        strWs "else"
-        >>. ((ifElse |>> (fun e -> BlockOrExpr.Expr(e)))
-             <|> (block |>> BlockOrExpr.Block))
-      ))
-      getPosition
-    <| fun start cond then_ else_ stop ->
-      { Kind = ExprKind.IfElse(cond, then_, else_)
+      (opt elseClause)
+    <| fun (pattern, expr) then_ else_ ->
+      ExprKind.IfLet(pattern, expr, then_, else_)
+
+  let ifCond: Parser<ExprKind, unit> =
+    pipe3 expr block (opt elseClause)
+    <| fun cond then_ else_ -> ExprKind.IfElse(cond, then_, else_)
+
+  ifElseRef.Value <-
+    pipe3 getPosition ((strWs "if") >>. choice [ ifLet; ifCond ]) getPosition
+    <| fun start kind stop ->
+      { Kind = kind
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
@@ -710,20 +718,21 @@ module Parser =
       { Stmt.Kind = StmtKind.Decl d
         Span = span }
 
-  // `let <expr> = <expr>`
   let private varDecl: Parser<Decl, unit> =
     withSpan (
-      tuple3
+      tuple4
         (strWs "let" >>. pattern)
         (opt (strWs ":" >>. ws >>. typeAnn))
-        (strWs "=" >>. expr .>> (strWs ";"))
+        (strWs "=" >>. expr)
+        ((opt (strWs "else" >>. block)) .>> (strWs ";"))
     )
-    |>> fun ((pat, typeAnn, init), span) ->
+    |>> fun ((pat, typeAnn, init, elseClause), span) ->
       { Kind =
           DeclKind.VarDecl
             { Pattern = pat
               Init = init
-              TypeAnn = typeAnn }
+              TypeAnn = typeAnn
+              Else = elseClause }
         Span = span }
 
   let private typeDecl: Parser<Decl, unit> =

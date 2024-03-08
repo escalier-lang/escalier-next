@@ -200,6 +200,55 @@ module rec Infer =
             | None ->
               { Kind = TypeKind.Literal(Literal.Undefined)
                 Provenance = None }
+        | ExprKind.IfLet(pattern, init, thenBranch, elseBranch) ->
+          // treat pattern/target the as a let binding
+          let! invariantPaths =
+            checkMutability
+              (getPatBindingPaths pattern)
+              (getExprBindingPaths env init)
+
+          let! patBindings, patType = inferPattern ctx env pattern
+          let mutable newEnv = env
+
+          for KeyValue(name, binding) in patBindings do
+            newEnv <- newEnv.AddValue name binding
+
+          let! initType = inferExpr ctx newEnv init
+
+          // We expand the type here so that we can filter out any
+          // `undefined` types from the union if the expanded type
+          // is a union type.
+          let! initType = expandType ctx env None Map.empty initType
+
+          let initType =
+            match (prune initType).Kind with
+            | TypeKind.Union types ->
+              let types =
+                types
+                |> List.filter (fun t ->
+                  t.Kind <> TypeKind.Literal(Literal.Undefined))
+
+              union types
+            | _ -> initType
+
+          // NOTE: the order is reversed here from what it normally is when
+          // inferring a variable declaration. This is because the variable
+          // being initialized only need to match one of the types in the union,
+          // assuming initType is a union type.
+          do! unify ctx newEnv invariantPaths patType initType
+
+          let! thenBranchTy =
+            inferBlockOrExpr ctx newEnv (thenBranch |> BlockOrExpr.Block)
+
+          let! elseBranchTy =
+            Option.traverseResult (inferBlockOrExpr ctx env) elseBranch
+
+          return
+            match elseBranchTy with
+            | Some(elseBranchTy) -> union [ thenBranchTy; elseBranchTy ]
+            | None ->
+              { Kind = TypeKind.Literal(Literal.Undefined)
+                Provenance = None }
         | ExprKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable spreadTypes = []
 
@@ -1649,6 +1698,9 @@ module rec Infer =
 
       let mutable newExprTypes: list<Type> = []
 
+      // TODO: check mutability when unifying by computing invariant paths
+      // using checkMutability
+
       // Unify all pattern types with `exprType`
       if hasTypeVars exprType then
         for patternType in patternTypes do
@@ -2293,7 +2345,8 @@ module rec Infer =
 
     let { Pattern = pattern
           Init = init
-          TypeAnn = typeAnn } =
+          TypeAnn = typeAnn
+          Else = elseClause } =
       varDecl
 
     result {
@@ -2310,12 +2363,41 @@ module rec Infer =
 
       let! initType = inferExpr ctx newEnv init
 
-      match typeAnn with
-      | Some(typeAnn) ->
-        let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
-        do! unify ctx newEnv invariantPaths initType typeAnnType
-        do! unify ctx newEnv None typeAnnType patType
-      | None -> do! unify ctx newEnv invariantPaths initType patType
+      match elseClause with
+      | None ->
+        match typeAnn with
+        | Some typeAnn ->
+          let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+          do! unify ctx newEnv invariantPaths initType typeAnnType
+          do! unify ctx newEnv None typeAnnType patType
+        | None -> do! unify ctx newEnv invariantPaths initType patType
+      | Some elseClause ->
+        // TODO: handle elseClause
+
+        let initType =
+          match (prune initType).Kind with
+          | TypeKind.Union types ->
+            let types =
+              types
+              |> List.filter (fun t ->
+                t.Kind <> TypeKind.Literal(Literal.Undefined))
+
+            union types
+          | _ -> initType
+
+        match typeAnn with
+        | Some typeAnn ->
+          let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+          // NOTE: the order is reversed here because the variable being
+          // initialized only need to match one of the types in the union,
+          // assuming initType is a union type.
+          do! unify ctx newEnv invariantPaths typeAnnType initType
+          do! unify ctx newEnv None typeAnnType patType
+        | None ->
+          // NOTE: the order is reverse here because the variable being
+          // initialized only need to match one of the types in the union,
+          // assuming initType is a union type.
+          do! unify ctx newEnv invariantPaths patType initType
 
       return patBindings
 

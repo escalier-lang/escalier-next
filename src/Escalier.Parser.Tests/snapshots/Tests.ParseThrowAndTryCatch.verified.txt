@@ -121,7 +121,8 @@ output: Ok
                                               Stop = (Ln: 7, Col: 5) } }] } }
                        Span = { Start = (Ln: 2, Col: 15)
                                 Stop = (Ln: 7, Col: 6) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -271,7 +272,8 @@ output: Ok
                                                   Span =
                                                    { Start = (Ln: 9, Col: 20)
                                                      Stop = (Ln: 13, Col: 8) }
-                                                  InferredType = None } }
+                                                  InferredType = None }
+                                               Else = None }
                                           Span = { Start = (Ln: 9, Col: 7)
                                                    Stop = (Ln: 14, Col: 7) } }
                                      Span = { Start = (Ln: 9, Col: 7)
@@ -287,7 +289,8 @@ output: Ok
                                               Stop = (Ln: 15, Col: 5) } }] } }
                        Span = { Start = (Ln: 8, Col: 15)
                                 Stop = (Ln: 15, Col: 6) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 8, Col: 5)
                         Stop = (Ln: 16, Col: 5) } }
           Span = { Start = (Ln: 8, Col: 5)

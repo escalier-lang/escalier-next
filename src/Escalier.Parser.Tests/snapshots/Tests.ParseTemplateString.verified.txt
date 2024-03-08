@@ -31,7 +31,8 @@ output: Ok
                                 InferredType = None }] }
                        Span = { Start = (Ln: 1, Col: 11)
                                 Stop = (Ln: 1, Col: 32) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 33) } }
           Span = { Start = (Ln: 1, Col: 1)

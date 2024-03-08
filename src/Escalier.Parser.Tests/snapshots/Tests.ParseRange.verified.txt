@@ -50,7 +50,8 @@ output: Ok
                                               InferredType = None } }
                        Span = { Start = (Ln: 3, Col: 17)
                                 Stop = (Ln: 3, Col: 22) }
-                       InferredType = None } }
+                       InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
           Span = { Start = (Ln: 3, Col: 5)

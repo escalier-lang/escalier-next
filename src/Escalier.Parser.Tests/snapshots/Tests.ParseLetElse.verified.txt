@@ -1,0 +1,70 @@
+﻿input: 
+    let Foo {x, y} = foo else {
+      print("foo is not a Foo");
+    };
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Pattern =
+                     { Kind =
+                        Struct
+                          { TypeRef = { Ident = Ident "Foo"
+                                        TypeArgs = None }
+                            Elems =
+                             [ShorthandPat { Span = { Start = (Ln: 2, Col: 14)
+                                                      Stop = (Ln: 2, Col: 15) }
+                                             Name = "x"
+                                             IsMut = false
+                                             Default = None
+                                             Assertion = None };
+                              ShorthandPat { Span = { Start = (Ln: 2, Col: 17)
+                                                      Stop = (Ln: 2, Col: 18) }
+                                             Name = "y"
+                                             IsMut = false
+                                             Default = None
+                                             Assertion = None }] }
+                       Span = { Start = (Ln: 2, Col: 9)
+                                Stop = (Ln: 2, Col: 20) }
+                       InferredType = None }
+                    TypeAnn = None
+                    Init = { Kind = Identifier "foo"
+                             Span = { Start = (Ln: 2, Col: 22)
+                                      Stop = (Ln: 2, Col: 26) }
+                             InferredType = None }
+                    Else =
+                     Some
+                       { Span = { Start = (Ln: 2, Col: 31)
+                                  Stop = (Ln: 4, Col: 6) }
+                         Stmts =
+                          [{ Kind =
+                              Expr
+                                { Kind =
+                                   Call
+                                     { Callee =
+                                        { Kind = Identifier "print"
+                                          Span = { Start = (Ln: 3, Col: 7)
+                                                   Stop = (Ln: 3, Col: 12) }
+                                          InferredType = None }
+                                       TypeArgs = None
+                                       Args =
+                                        [{ Kind =
+                                            Literal (String "foo is not a Foo")
+                                           Span = { Start = (Ln: 3, Col: 13)
+                                                    Stop = (Ln: 3, Col: 31) }
+                                           InferredType = None }]
+                                       OptChain = false
+                                       Throws = None }
+                                  Span = { Start = (Ln: 3, Col: 7)
+                                           Stop = (Ln: 3, Col: 32) }
+                                  InferredType = None }
+                             Span = { Start = (Ln: 3, Col: 7)
+                                      Stop = (Ln: 3, Col: 32) } }] } }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 5, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 5, Col: 5) } }] }

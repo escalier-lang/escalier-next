@@ -995,9 +995,8 @@ let InferLetElse () =
       let src =
         """
         declare let value: number | undefined;
-        declare let print: fn (msg: string) -> undefined;
         let x = value else {
-          print("value is undefined");
+          0;
         };
         let y = x + 1;
         """
@@ -1011,6 +1010,29 @@ let InferLetElse () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferLetElseEarlyReturn () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (x: number | undefined) {
+          let y = x else {
+            return 0;
+          };
+          return y + 1;
+        };
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn (x: number | undefined) -> number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferLetElseWithDestructuring () =
   let result =
     result {
@@ -1021,7 +1043,7 @@ let InferLetElseWithDestructuring () =
         declare let value: Point | Line | undefined;
         declare let print: fn (msg: string) -> undefined;
         let {x, y} = value else {
-          print("value is not a point");
+          {x: 0, y: 0};
         };
         let sum = x + y;
         """
@@ -1043,7 +1065,7 @@ let InferLetElseIsPattern () =
         declare let value: number | string | undefined;
         declare let print: fn (msg: string) -> undefined;
         let x is number = value else {
-          print("value is not a number");
+          0;
         };
         """
 
@@ -1064,7 +1086,7 @@ let InferLetElseWithTypeAnnotation () =
         declare let value: number | string | undefined;
         declare let print: fn (msg: string) -> undefined;
         let x: number = value else {
-          print("value is not a number");
+          0;
         };
         """
 

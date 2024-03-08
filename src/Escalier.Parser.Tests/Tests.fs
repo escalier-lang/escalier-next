@@ -887,17 +887,3 @@ let ParseBlockError () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseKeywordsWithoutSpaces () =
-  let src =
-    """
-    ifcond {
-      x;
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

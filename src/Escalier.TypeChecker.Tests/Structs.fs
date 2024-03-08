@@ -15,8 +15,9 @@ let InferBasicStruct () =
         let point = Point {x: 5, y: 10};
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "point", "Point")
     }
 
@@ -48,8 +49,9 @@ let InferGenericStruct () =
         let point = Point<number> {x: 5, y: 10};
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "point", "Point<number>")
     }
 
@@ -65,8 +67,9 @@ let StructsAreSubtypesOfObjects () =
         let point: {x: number, y: number} = Point {x: 5, y: 10};
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "point", "{x: number, y: number}")
     }
 
@@ -83,8 +86,9 @@ let PropertyAccessOnStructs () =
         let x = point.x;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
     }
 
@@ -138,12 +142,12 @@ let PropertyAccessOnPrivateStructs () =
         let x = point.x;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact(Skip = "update getPropType to return an Result")>]
@@ -177,8 +181,9 @@ let ObjectDestructuringOfStructs () =
         let {x, y} = point;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
     }
 
@@ -195,8 +200,9 @@ let StructDestructuring () =
         let Point {x, y} = point;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
     }
 
@@ -228,8 +234,9 @@ let BasicStructAndImpl () =
         let baz = foo.baz();
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "string")
       Assert.Value(env, "bar", "number")
@@ -263,8 +270,9 @@ let CallingMethodInPreviousImpl () =
         let baz = foo.baz();
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "number")
       Assert.Value(env, "baz", "number")
     }
@@ -293,12 +301,12 @@ let GetterSetterImpl () =
         foo.baz = "world";
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -324,8 +332,9 @@ let CallingMethodInSameImpl () =
         let baz = foo.baz();
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "number")
       Assert.Value(env, "baz", "number")
     }
@@ -350,13 +359,13 @@ let InferGenericImpls () =
         let bar = point.bar();
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "point", "Point<number>")
       Assert.Value(env, "bar", "number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -387,13 +396,13 @@ let InferGenericImplsWithParams () =
         let qux = foo.qux; 
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "Foo<number>")
       Assert.Value(env, "qux", "number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -409,11 +418,12 @@ let InferGenericRecursiveStruct () =
         }
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Node", "<T>(Node)")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact(Skip = "TODO: Stack overflow")>]
@@ -440,12 +450,12 @@ let InferRecursiveStructType () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "node", "Node<number>")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact(Skip = "TODO: Stack overflow")>]
@@ -471,11 +481,10 @@ let InferGenericRecursiveStructWithImpls () =
         }
         """
 
-      let! _, env = inferScript src
+      let! _ = inferScript src
       ()
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -501,8 +510,9 @@ let RecursiveMethodsCanBeInferred () =
         let fact = foo.fact;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "res", "number")
       Assert.Value(env, "fact", "fn (self: Self, n: number) -> number")
     }
@@ -534,7 +544,9 @@ let MutMethodsCanCallOtherMutMethods () =
         let baz = foo.baz;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "fn (mut self: Self, x: number) -> number")
       Assert.Value(env, "baz", "fn (mut self: Self, x: number) -> number")
     }
@@ -616,12 +628,13 @@ let StaticMethods () =
         let {x, y} = p;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "p", "Self") // TODO: should be Point
       Assert.Value(env, "q", "Point")
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)

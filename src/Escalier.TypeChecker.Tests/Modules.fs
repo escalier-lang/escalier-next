@@ -17,8 +17,9 @@ let InferBasicModule () =
         let sub = fn(a, b) => a - b;
         """
 
-      let! _, env = inferModule src
+      let! ctx, env = inferModule src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "add", "fn <A: number, B: number>(a: A, b: B) -> A + B")
       Assert.Value(env, "sub", "fn <A: number, B: number>(a: A, b: B) -> A - B")
     }
@@ -35,13 +36,13 @@ let InferMutuallyRecursiveFunctions () =
         let bar = fn() => foo() - 1;
         """
 
-      let! _, env = inferModule src
+      let! ctx, env = inferModule src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn () -> number")
       Assert.Value(env, "bar", "fn () -> number")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -63,13 +64,13 @@ let InferMutualRecursion () =
         };
         """
 
-      let! _, env = inferModule src
+      let! ctx, env = inferModule src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "even", "fn (x: number) -> true | !boolean")
       Assert.Value(env, "odd", "fn (x: number) -> true | !(true | !boolean)")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -82,13 +83,13 @@ let InferMutuallyRecursiveTypes () =
         type Bar<T> = {foo: Foo<T>};
         """
 
-      let! _, env = inferModule src
+      let! ctx, env = inferModule src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Foo", "<T>({bar: Bar<T>})")
       Assert.Type(env, "Bar", "<T>({foo: Foo<T>})")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -101,10 +102,10 @@ let InferImports () =
       files.Add("/foo.esc", MockFileData("let foo = 5;"))
       let mockFileSystem = MockFileSystem(files, "/")
 
-      let! _, env = inferModules mockFileSystem src
+      let! ctx, env = inferModules mockFileSystem src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "5")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)

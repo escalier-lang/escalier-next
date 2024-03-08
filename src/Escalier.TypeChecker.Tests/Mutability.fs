@@ -106,7 +106,9 @@ let InferFnWithMutableParam () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -131,7 +133,9 @@ let MutableParamsAreInvariant () =
         foo(numbers);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -264,7 +268,9 @@ let ImmutableParamsAreCovariant () =
         foo(numbers);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -297,7 +303,6 @@ let MutableObjectPartialInitialization () =
       ()
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -322,7 +327,6 @@ let MutableArrayPartialInitialization () =
       ()
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -407,5 +411,4 @@ let MutableArrayPartialInitializationError () =
       ()
     }
 
-  printfn "result = %A" result
   Assert.True(Result.isError result)

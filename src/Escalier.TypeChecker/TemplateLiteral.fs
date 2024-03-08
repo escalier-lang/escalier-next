@@ -85,7 +85,5 @@ module TemplateLiteral =
       parser <- (pstring firstPart |>> ignore) .>> parser
 
     match run parser s with
-    | Success((), _, pos) ->
-      printfn "pos = %A" pos
-      true
+    | Success((), _, pos) -> true
     | Failure _ -> false

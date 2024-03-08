@@ -19,7 +19,9 @@ let InfersExplicitThrow () =
         };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -28,7 +30,6 @@ let InfersExplicitThrow () =
       )
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -41,7 +42,9 @@ let InfersThrowExpression () =
           if x < 0 { throw "RangeError" } else { x };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -61,8 +64,9 @@ let InfersJustThrowExpression () =
         let foo = fn <T: string>(exc: T) => throw exc;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn <T: string>(exc: T) -> never throws T")
     }
 
@@ -78,7 +82,9 @@ let InfersThrowingMultipleExpressions () =
           if x < 0 { throw "RangeError" } else { throw "BoundsError" };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -101,7 +107,9 @@ let InfersThrowsFromCall () =
         let bar = fn (x) => foo(x);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -135,8 +143,9 @@ let InferCatchesException () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "fn <A: number>(x: A) -> A | 0")
     }
 
@@ -160,12 +169,12 @@ let InferCatchesMultipleExceptions () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "fn <A: number>(x: A) -> 0")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -185,7 +194,9 @@ let InferCatchesOneOfManyExceptions () =
           };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -194,7 +205,6 @@ let InferCatchesOneOfManyExceptions () =
       )
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -216,6 +226,8 @@ let InferTryFinally () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -248,8 +260,8 @@ let InferTryCatchFinally () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "bar", "fn <A: number>(x: A) -> A | 0")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)

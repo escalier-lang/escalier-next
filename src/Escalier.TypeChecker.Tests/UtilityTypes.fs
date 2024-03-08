@@ -69,7 +69,6 @@ let InferSimpleConditionalType () =
       Assert.Equal("\"other\"", c.ToString())
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -94,6 +93,8 @@ let InferNestedConditionalTypes () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+
       let! a =
         expandScheme ctx env None (Map.find "A" env.Schemes) Map.empty None
         |> Result.mapError CompileError.TypeError
@@ -113,7 +114,6 @@ let InferNestedConditionalTypes () =
       Assert.Equal("\"other\"", c.ToString())
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -127,6 +127,8 @@ let InferExclude () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       let! result =
         expandScheme ctx env None (Map.find "Result" env.Schemes) Map.empty None
@@ -149,6 +151,8 @@ let InferExtract () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       let! result =
         expandScheme ctx env None (Map.find "Result" env.Schemes) Map.empty None
@@ -180,6 +184,8 @@ let InferCartesianProdType () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+
       let! result =
         expandScheme ctx env None (Map.find "Cells" env.Schemes) Map.empty None
         |> Result.mapError CompileError.TypeError
@@ -208,6 +214,8 @@ let InfersPickUnionOfKey () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+
       let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
         |> Result.mapError CompileError.TypeError
@@ -233,6 +241,8 @@ let InfersPickSingleKey () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+
       let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
         |> Result.mapError CompileError.TypeError
@@ -257,6 +267,8 @@ let InfersPickWrongKeyType () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
@@ -287,6 +299,8 @@ let InfersOmit () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+
       let! result =
         expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
         |> Result.mapError CompileError.TypeError
@@ -315,7 +329,6 @@ let InfersRecord () =
       Assert.Value(env, "p", "Point")
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -330,6 +343,8 @@ let InfersNestedConditionals () =
 
       let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
+
       let! result =
         expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
         |> Result.mapError CompileError.TypeError
@@ -337,7 +352,6 @@ let InfersNestedConditionals () =
       Assert.Equal("5 | 3", result.ToString())
     }
 
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -352,6 +366,8 @@ let InfersReturnType () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       let! result =
         expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
@@ -380,6 +396,8 @@ let InfersParameters () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       let! result =
         expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None

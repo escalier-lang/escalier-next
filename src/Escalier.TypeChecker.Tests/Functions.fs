@@ -18,7 +18,7 @@ let InferCallFuncWithSingleWrongArg () =
 
       let! ctx, env = inferScript src
 
-      printDiagnostics ctx.Diagnostics
+      Assert.Equal(ctx.Diagnostics.Length, 2) // can't pass strings to function expecting numbers
       // TODO: simplify all binary types inside a complex type
       Assert.Value(env, "sum", "{value: number + number}")
     }
@@ -37,7 +37,7 @@ let InferCallFuncWithWrongArgs () =
 
       let! ctx, env = inferScript src
 
-      printDiagnostics ctx.Diagnostics
+      Assert.Equal(ctx.Diagnostics.Length, 2) // can't add strings with `+`
       Assert.Value(env, "sum", "number")
     }
 
@@ -55,7 +55,7 @@ let InferCallGenericFuncWithWrongArg () =
 
       let! ctx, env = inferScript src
 
-      printDiagnostics ctx.Diagnostics
+      Assert.Equal(ctx.Diagnostics.Length, 1) // foo("bar") is an error
       Assert.Value(env, "bar", "number")
     }
 
@@ -73,7 +73,7 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
 
       let! ctx, env = inferScript src
 
-      printDiagnostics ctx.Diagnostics
+      Assert.Equal(ctx.Diagnostics.Length, 1) // foo("hello") is an error
       Assert.Value(env, "bar", "{value: number}")
     }
 
@@ -92,7 +92,7 @@ let InferFuncTypeAnnotation () =
 
       let! ctx, env = inferScript src
 
-      printDiagnostics ctx.Diagnostics
+      Assert.Equal(ctx.Diagnostics.Length, 1) // foo("hello") is an error
       Assert.Value(env, "foo", "fn <T: number>(x: T) -> T")
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "number")
@@ -110,8 +110,9 @@ let PassingTooManyArgsIsOkay () =
         let sum = add(5, 10, "hello");
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "sum", "15")
     }
 
@@ -132,9 +133,7 @@ let PassingTooFewArgsIsAnError () =
       ()
     }
 
-  printfn "result = %A" result
   Assert.True(Result.isError result)
-
 
 [<Fact>]
 let InferBasicFunction () =
@@ -145,8 +144,9 @@ let InferBasicFunction () =
         let add = fn (a, b) => a + b;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "add", "fn <A: number, B: number>(a: A, b: B) -> A + B")
     }
 
@@ -163,8 +163,9 @@ let InferFunctionWithOptionalParms () =
         let b = foo(10, "hello");
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "number")
     }
@@ -184,10 +185,9 @@ let CheckOptionalParmsErrorsWithIncorrectType () =
 
       let! ctx, env = inferScript src
 
+      Assert.Equal(ctx.Diagnostics.Length, 1)
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "number")
-
-      Assert.Equal(ctx.Diagnostics.Length, 1)
     }
 
   Assert.False(Result.isError res)
@@ -204,8 +204,9 @@ let InferFunctionWithRestParms () =
         let c = foo(10, "hello", "world");
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "number")
       Assert.Value(env, "c", "number")
@@ -235,14 +236,13 @@ let InferFuncGeneralization () =
     result {
       let src = "let fst = fn (x, y) => x;"
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
-
 
 [<Fact>]
 let InferFactorial () =
@@ -255,13 +255,13 @@ let InferFactorial () =
           if (n == 0) { 1 } else { n * factorial(n - 1) };
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       // TODO: figure out how to get the param name back
       Assert.Value(env, "factorial", "fn (arg0: number) -> 1 | number")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -274,13 +274,12 @@ let InferRecursiveFunc () =
         let rec = fn () => rec();
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
-      // TODO: figure out how to get the param name back
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "rec", "fn <A>() -> A")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -293,13 +292,12 @@ let InferRecursiveSequence () =
         let seq = fn () => seq() + 1;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
-      // TODO: figure out how to get the param name back
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "seq", "fn () -> number")
     }
 
-  printf "result = %A" result
   Assert.False(Result.isError result)
 
 
@@ -323,15 +321,15 @@ let InferTypeAliasOfTypeParam () =
         """
 
       // let w: number = z
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
-      Assert.Value(env, "foo", "fn <A>(x: A) -> B")
+      Assert.Empty(ctx.Diagnostics)
       // TODO: This should be inferred as `fn <A>(x: A) -> A`
+      Assert.Value(env, "foo", "fn <A>(x: A) -> B")
       Assert.Value(env, "bar", "fn <A>(x: A) -> A")
       Assert.Value(env, "z", "B")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 
@@ -341,8 +339,9 @@ let InferLambda () =
     result {
       let src = "let add = fn (x, y) => x + y;"
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
     }
 
@@ -359,7 +358,9 @@ let InferSKK () =
           let I = S(K)(K);
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -391,7 +392,9 @@ let InferFuncParams () =
           let frMsg = addStrs(greeting, "monde!");
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -431,7 +434,9 @@ let InferBinaryOpStressTest () =
           let qux = double(baz);
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
 
       Assert.Value(
         env,
@@ -445,7 +450,6 @@ let InferBinaryOpStressTest () =
       Assert.Value(env, "qux", "number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -462,13 +466,13 @@ let InferFuncParamsWithTypeAnns () =
           };
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "addNums", "fn (x: number, y: number) -> number")
       Assert.Value(env, "addStrs", "fn (x: string, y: string) -> string")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -486,13 +490,13 @@ let InferFuncWithMultipleReturns () =
           let bar = foo(5, "hello");
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn <A: number>(x: A, y: string) -> string | A")
       Assert.Value(env, "bar", "string | 5")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -508,8 +512,9 @@ let InferFuncGenericFunc () =
           let baz = foo("hello");
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn <A>(x: A) -> A")
       Assert.Value(env, "bar", "5")
       Assert.Value(env, "baz", "\"hello\"")
@@ -529,8 +534,9 @@ let ApplyGenericTypeArgWithoutCallingFunction () =
         let bar = foo<number>;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn <A>(x: A) -> A")
       Assert.Value(env, "bar", "fn (x: number) -> number")
     }
@@ -548,13 +554,13 @@ let ApplyGenericTypeArgWithoutCallingFunctionWithTypeAlias () =
         let bar = foo<number>;
         """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "Identity")
       Assert.Value(env, "bar", "fn (x: number) -> number")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -570,14 +576,14 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
           let baz = foo("hello");
           """
 
-      let! _, env = inferScript src
+      let! ctx, env = inferScript src
 
+      Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "fn <T>(x: T) -> T")
       Assert.Value(env, "bar", "5")
       Assert.Value(env, "baz", "\"hello\"")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 

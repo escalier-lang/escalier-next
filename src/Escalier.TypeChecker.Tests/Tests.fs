@@ -12,6 +12,7 @@ open Escalier.Parser
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.Unify
 
 open TestUtils
 
@@ -1117,4 +1118,43 @@ let InferLetElseWithTypeAnnotation () =
       Assert.Value(env, "x", "number")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferClassWithMethods () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          fn bar(self) {
+            return self.msg;
+          }
+          fn baz(mut self, msg: string) {
+            self.msg = msg;
+          }
+        };
+        let foo = new Foo();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "foo", "Self")
+
+      let fooType, _ = Map.find "foo" env.Values
+
+      let! fooType =
+        expandType ctx env None Map.empty fooType
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string}",
+        fooType.ToString()
+      )
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)

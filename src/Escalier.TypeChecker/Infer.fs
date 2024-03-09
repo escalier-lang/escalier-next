@@ -380,6 +380,229 @@ module rec Infer =
             return!
               Error(TypeError.SemanticError $"Expected Struct type, got {t}")
 
+        | ExprKind.Class { Name = name
+                           TypeParams = typeParams
+                           Elems = elems } ->
+
+          let mutable newEnv = env
+
+          let! placeholderTypeParams =
+            match typeParams with
+            | None -> ResultOption.ofOption None
+            | Some typeParams ->
+              List.traverseResultM (inferTypeParam ctx newEnv) typeParams
+              |> ResultOption.ofResult
+
+          // TODO: add support for constraints on type params to aliases
+          let placeholder =
+            { TypeParams = placeholderTypeParams
+              Type = ctx.FreshTypeVar None
+              IsTypeParam = false }
+
+          // Handles self-recursive types
+          newEnv <- newEnv.AddScheme "Self" placeholder
+
+          let! typeParams =
+            match typeParams with
+            | None -> ResultOption.ofOption None
+            | Some typeParams ->
+              List.traverseResultM
+                (fun (typeParam: Syntax.TypeParam) ->
+                  result {
+                    let unknown =
+                      { Kind = TypeKind.Keyword Keyword.Unknown
+                        Provenance = None }
+
+                    let scheme =
+                      { TypeParams = None
+                        Type = unknown
+                        IsTypeParam = false }
+
+                    newEnv <- newEnv.AddScheme typeParam.Name scheme
+                    return! inferTypeParam ctx env typeParam
+                  })
+                typeParams
+              |> ResultOption.ofResult
+
+          let mutable instanceMethods
+            : list<ObjTypeElem * FuncSig<TypeAnn option> * BlockOrExpr> =
+            []
+
+          let mutable staticMethods
+            : list<ObjTypeElem * FuncSig<TypeAnn option> * BlockOrExpr> =
+            []
+
+          let mutable instanceElems: list<ObjTypeElem> = []
+          let mutable staticElems: list<ObjTypeElem> = []
+
+          for elem in elems do
+            match elem with
+            | ClassElem.Property(span, name, typeAnn) ->
+              let name =
+                match name with
+                | Syntax.Ident s -> PropName.String s
+                | Syntax.String s -> PropName.String s
+                | Syntax.Number n -> PropName.Number n
+                | Computed expr ->
+                  let t = inferExpr ctx newEnv expr
+                  // TODO: check if `t` is a valid type for a PropName
+                  failwith "TODO: inferStmt - Computed prop name"
+
+              let! t = inferTypeAnn ctx newEnv typeAnn
+
+              let prop =
+                ObjTypeElem.Property
+                  { Name = name
+                    Optional = false // TODO
+                    Readonly = false // TODO
+                    Type = t }
+
+              instanceElems <- prop :: instanceElems
+            | ClassElem.Method { Name = name
+                                 Sig = fnSig
+                                 Body = body } ->
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              match fnSig.Self with
+              | None ->
+                staticMethods <-
+                  (ObjTypeElem.Method(PropName.String name, placeholderFn),
+                   fnSig,
+                   body)
+                  :: staticMethods
+              | Some _ ->
+                instanceMethods <-
+                  (ObjTypeElem.Method(PropName.String name, placeholderFn),
+                   fnSig,
+                   body)
+                  :: instanceMethods
+            | ClassElem.Getter { Name = name
+                                 Self = self
+                                 ReturnType = retType
+                                 Body = body } ->
+              // TODO: handle static getters
+              let fnSig: FuncSig<option<TypeAnn>> =
+                { TypeParams = None
+                  Self = Some self
+                  ParamList = []
+                  ReturnType = retType
+                  Throws = None
+                  IsAsync = false }
+
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              instanceMethods <-
+                (ObjTypeElem.Getter(PropName.String name, placeholderFn),
+                 fnSig,
+                 body)
+                :: instanceMethods
+            | ClassElem.Setter { Name = name
+                                 Self = self
+                                 Param = param
+                                 Body = body } ->
+              // TODO: handle static setters
+              let fnSig: FuncSig<option<TypeAnn>> =
+                { TypeParams = None
+                  Self = Some self
+                  ParamList = [ param ]
+                  ReturnType = None
+                  Throws = None
+                  IsAsync = false }
+
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              instanceMethods <-
+                (ObjTypeElem.Setter(PropName.String name, placeholderFn),
+                 fnSig,
+                 body)
+                :: instanceMethods
+
+          for elem, _, _ in instanceMethods do
+            match elem with
+            | Method(name, placeholderFn) ->
+              instanceElems <-
+                ObjTypeElem.Method(name, placeholderFn) :: instanceElems
+            | Getter(name, placeholderFn) ->
+              instanceElems <-
+                ObjTypeElem.Getter(name, placeholderFn) :: instanceElems
+            | Setter(name, placeholderFn) ->
+              instanceElems <-
+                ObjTypeElem.Setter(name, placeholderFn) :: instanceElems
+
+          for elem, _, _ in staticMethods do
+            match elem with
+            | Method(name, placeholderFn) ->
+              staticElems <-
+                ObjTypeElem.Method(name, placeholderFn) :: staticElems
+            | Getter(name, placeholderFn) ->
+              staticElems <-
+                ObjTypeElem.Getter(name, placeholderFn) :: staticElems
+            | Setter(name, placeholderFn) ->
+              staticElems <-
+                ObjTypeElem.Setter(name, placeholderFn) :: staticElems
+
+          let objType =
+            { Kind =
+                TypeKind.Object
+                  { Elems = instanceElems
+                    Immutable = false }
+              Provenance = None }
+
+          let scheme =
+            { TypeParams = typeParams
+              Type = objType
+              IsTypeParam = false }
+
+          placeholder.Type <- scheme.Type
+
+          // Infer the bodies of each method body
+          for elem, fnSig, body in instanceMethods do
+            let placeholderFn =
+              match elem with
+              | Method(_, placeholderFn) -> placeholderFn
+              | Getter(_, placeholderFn) -> placeholderFn
+              | Setter(_, placeholderFn) -> placeholderFn
+
+            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+            ()
+
+          let returnType =
+            { Kind =
+                TypeKind.TypeRef
+                  { Name = QualifiedIdent.Ident "Self"
+                    TypeArgs = None // TODO: handle type params
+                    Scheme = Some scheme }
+              Provenance = None }
+
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          let constructor =
+            { TypeParams = None // TODO: handle type params
+              Self = None
+              ParamList = []
+              Return = returnType
+              Throws = never }
+
+          staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
+
+          let staticObjType =
+            { Kind =
+                TypeKind.Object
+                  { Elems = staticElems
+                    Immutable = false }
+              Provenance = None }
+
+          // Question:
+          // - how do we deal with adding the instance type to the environment's
+          //   Schemes?
+          //   - we can do this by grabbing the instance type from the return type
+          //     of the constructor
+          //  - we'll need to do this check when assigning the static object to
+          //    a variable
+
+          return staticObjType
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj
           let propKey = PropName.String(prop)

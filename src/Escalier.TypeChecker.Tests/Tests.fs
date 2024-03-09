@@ -1142,7 +1142,7 @@ let InferClassWithMethods () =
 
       Assert.Empty(ctx.Diagnostics)
 
-      Assert.Value(env, "foo", "Self")
+      Assert.Value(env, "foo", "AnonymousClass")
 
       let fooType, _ = Map.find "foo" env.Values
 
@@ -1156,5 +1156,39 @@ let InferClassWithMethods () =
       )
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferClassWithTypeParams () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class<T> {
+          bar: T;
+          fn map<U>(self, callback: fn (bar: T) -> U) {
+            return callback(self.bar);
+          }
+        };
+        let foo = new Foo<string>();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "foo", "AnonymousClass<string>")
+
+      let fooType, _ = Map.find "foo" env.Values
+
+      let! fooType =
+        expandType ctx env None Map.empty fooType
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "{map fn <U>(self: Self, callback: fn (bar: string) -> U) -> U, bar: string}",
+        fooType.ToString()
+      )
+    }
+
   Assert.False(Result.isError result)

@@ -145,11 +145,12 @@ module rec Infer =
 
             // TODO: update unifyCall so that it can handle calling an object
             // type with constructor signatures directly
-            let! result, throws = unifyCall ctx env None args typeArgs callee
+            let! returnType, throws =
+              unifyCall ctx env None args typeArgs callee
 
             call.Throws <- Some(throws)
 
-            return result
+            return returnType
           | _ ->
             return!
               Error(TypeError.SemanticError "Callee is not a constructor type")
@@ -384,6 +385,9 @@ module rec Infer =
                            TypeParams = typeParams
                            Elems = elems } ->
 
+          // TODO: get the real name of the class
+          // If there is no name we can synthesize one using a unique ID
+          let className = "AnonymousClass"
           let mutable newEnv = env
 
           let! placeholderTypeParams =
@@ -399,8 +403,35 @@ module rec Infer =
               Type = ctx.FreshTypeVar None
               IsTypeParam = false }
 
+          newEnv <- newEnv.AddScheme className placeholder
+
+          let typeArgs =
+            typeParams
+            |> Option.map (fun typeParams ->
+              typeParams
+              |> List.map (fun typeParam ->
+                { Kind =
+                    TypeKind.TypeRef
+                      { Name = QualifiedIdent.Ident typeParam.Name
+                        TypeArgs = None
+                        Scheme = None }
+                  Provenance = None }))
+
+          let selfType =
+            { Kind =
+                TypeKind.TypeRef
+                  { Name = QualifiedIdent.Ident className
+                    TypeArgs = typeArgs
+                    Scheme = Some placeholder }
+              Provenance = None }
+
+          let selfScheme =
+            { TypeParams = None
+              Type = selfType
+              IsTypeParam = false }
+
           // Handles self-recursive types
-          newEnv <- newEnv.AddScheme "Self" placeholder
+          newEnv <- newEnv.AddScheme "Self" selfScheme
 
           let! typeParams =
             match typeParams with
@@ -548,12 +579,7 @@ module rec Infer =
                     Immutable = false }
               Provenance = None }
 
-          let scheme =
-            { TypeParams = typeParams
-              Type = objType
-              IsTypeParam = false }
-
-          placeholder.Type <- scheme.Type
+          placeholder.Type <- objType
 
           // Infer the bodies of each method body
           for elem, fnSig, body in instanceMethods do
@@ -571,7 +597,7 @@ module rec Infer =
                 TypeKind.TypeRef
                   { Name = QualifiedIdent.Ident "Self"
                     TypeArgs = None // TODO: handle type params
-                    Scheme = Some scheme }
+                    Scheme = Some selfScheme }
               Provenance = None }
 
           let never =
@@ -579,7 +605,7 @@ module rec Infer =
               Provenance = None }
 
           let constructor =
-            { TypeParams = None // TODO: handle type params
+            { TypeParams = typeParams
               Self = None
               ParamList = []
               Return = returnType
@@ -3346,6 +3372,10 @@ module rec Infer =
     (callee: Function)
     : Result<Type * Type, TypeError> =
 
+    // Save the original type params so that we can expand `Self` if it's
+    // used in the return type of a function like a constructor.
+    let originalTypeParams = callee.TypeParams
+
     result {
       let! callee =
         result {
@@ -3474,5 +3504,43 @@ module rec Infer =
         do! unify ctx env ips tuple param.Type
       | _ -> ()
 
-      return (callee.Return, callee.Throws)
+      let returnType = callee.Return
+
+      // If the return type is `Self`, replace it with the actual
+      // type.
+      let returnType =
+        match returnType.Kind with
+        | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Self"
+                             TypeArgs = None
+                             Scheme = Some scheme } ->
+
+          let mapping =
+            match typeArgs, originalTypeParams with
+            | Some typeArgs, Some typeParams ->
+
+              let typeParams =
+                List.map (fun (p: TypeParam) -> p.Name) typeParams
+
+              let mapping = Map.ofList (List.zip typeParams typeArgs)
+              mapping
+            | None, None -> Map.empty
+            | _ -> failwith "Mismatch between type args and type params"
+
+          let fold =
+            fun t ->
+              let result =
+                match t.Kind with
+                | TypeKind.TypeRef { Name = QualifiedIdent.Ident name } ->
+                  match Map.tryFind name mapping with
+                  | Some typeArg -> typeArg
+                  | None -> t
+                | _ -> t
+
+              Some(result)
+
+          Folder.foldType fold scheme.Type
+
+        | _ -> returnType
+
+      return (returnType, callee.Throws)
     }

@@ -569,7 +569,7 @@ module Type =
   ///An n-ary type constructor which builds a new type from old
   [<CustomEquality; NoComparison>]
   type TypeRef =
-    { Name: Common.QualifiedIdent
+    { mutable Name: Common.QualifiedIdent
       TypeArgs: option<list<Type>>
       Scheme: option<Scheme> }
 

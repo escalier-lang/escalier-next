@@ -2075,12 +2075,17 @@ module rec Infer =
     result {
       match decl.Kind with
       | DeclKind.VarDecl varDecl ->
-        let! bindings = inferVarDecl ctx env varDecl
+        let! bindings, schemes = inferVarDecl ctx env varDecl
 
         let bindings =
           if generalize then generalizeBindings bindings else bindings
 
-        return env.AddBindings bindings
+        let mutable newEnv = env
+
+        for KeyValue(name, scheme) in schemes do
+          newEnv <- newEnv.AddScheme name scheme
+
+        return newEnv.AddBindings bindings
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams
                             Variants = variants } ->
@@ -2599,7 +2604,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (varDecl: VarDecl)
-    : Result<Map<string, Binding>, TypeError> =
+    : Result<Map<string, Binding> * Map<string, Scheme>, TypeError> =
 
     let { Pattern = pattern
           Init = init
@@ -2664,7 +2669,42 @@ module rec Infer =
         let! elseTy = inferBlockOrExpr ctx env (elseClause |> BlockOrExpr.Block)
         do! unify ctx env invariantPaths elseTy patType
 
-      return patBindings
+      let mutable schemes: Map<string, Scheme> = Map.empty
+
+      for KeyValue(name, binding) in patBindings do
+        let t, _ = binding
+
+        match (prune t).Kind with
+        | TypeKind.Object { Elems = elems } ->
+          // TODO: modify the constructors so they return `Foo<T>` instead
+          // of `Self`.  Right now unifyFuncCall is responsible for this,
+          // but that doesn't seem like the best place for it.
+          let constructors =
+            elems
+            |> List.choose (fun elem ->
+              match elem with
+              | ObjTypeElem.Constructor fn -> Some fn
+              | _ -> None)
+
+          if constructors.Length > 0 then
+            let constructor = constructors[0]
+            let returnType = constructor.Return
+
+            match returnType.Kind with
+            | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Self"
+                                 Scheme = Some scheme } ->
+              match scheme.Type.Kind with
+              | TypeKind.TypeRef typeRef ->
+                typeRef.Name <- QualifiedIdent.Ident name
+
+                match typeRef.Scheme with
+                | Some scheme -> schemes <- schemes.Add(name, scheme)
+                | _ -> () // This hsould probably be an error
+              | _ -> ()
+            | _ -> ()
+        | _ -> ()
+
+      return (patBindings, schemes)
     }
 
   let generalizeBindings
@@ -2914,8 +2954,11 @@ module rec Infer =
             // NOTE: We explicitly don't generalize here because we want other
             // declarations to be able to unify with any free type variables
             // from this declaration.  We generalize things below.
-            let! newBindings = inferVarDecl ctx newEnv varDecl
+            let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
             bindings <- FSharpPlus.Map.union bindings newBindings
+
+            for KeyValue(name, scheme) in newSchemes do
+              newEnv <- newEnv.AddScheme name scheme
           | TypeDecl { Name = name; TypeAnn = typeAnn } ->
             let scheme =
               match typeDecls.TryFind name with

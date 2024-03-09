@@ -1142,7 +1142,13 @@ let InferClassWithMethods () =
 
       Assert.Empty(ctx.Diagnostics)
 
-      Assert.Value(env, "foo", "AnonymousClass")
+      Assert.Type(
+        env,
+        "Foo",
+        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string}"
+      )
+
+      Assert.Value(env, "foo", "Foo")
 
       let fooType, _ = Map.find "foo" env.Values
 
@@ -1177,7 +1183,13 @@ let InferClassWithTypeParams () =
 
       Assert.Empty(ctx.Diagnostics)
 
-      Assert.Value(env, "foo", "AnonymousClass<string>")
+      Assert.Type(
+        env,
+        "Foo",
+        "<T>({map fn <U>(self: Self, callback: fn (bar: T) -> U) -> U, bar: T})"
+      )
+
+      Assert.Value(env, "foo", "Foo<string>")
 
       let fooType, _ = Map.find "foo" env.Values
 

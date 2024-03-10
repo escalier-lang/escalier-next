@@ -325,12 +325,19 @@ let InferClassMethodsThatTakeOtherSelf () =
         let Point = class {
           x: number;
           y: number;
-          fn add(self, other: Self) {
-            return {x: self.x + other.x, y: self.y + other.y};
+          new (mut self, x, y) {
+            self.x = x;
+            self.y = y;
+          }
+          fn makePoint(x, y) {
+            return new Self(x, y);
+          }
+          fn add(self, other: Self) -> Self {
+            return Self.makePoint(self.x + other.x, self.y + other.y);
           }
         };
-        let p1 = new Point();
-        let p2 = new Point();
+        let p1 = new Point(1, 0);
+        let p2 = new Point(0, 1);
         let p3 = p1.add(p2);
         """
 
@@ -340,7 +347,13 @@ let InferClassMethodsThatTakeOtherSelf () =
 
       Assert.Value(env, "p1", "Point")
       Assert.Value(env, "p2", "Point")
-      Assert.Value(env, "p3", "{x: number, y: number}")
+      Assert.Value(env, "p3", "Point")
+
+      Assert.Type(
+        env,
+        "Point",
+        "{add fn (self: Self, other: Self) -> Self, y: number, x: number}"
+      )
     }
 
   Assert.False(Result.isError result)

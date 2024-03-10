@@ -30,12 +30,13 @@ output: Ok
                             TypeParams = None
                             Elems =
                              [Property
-                                ({ Start = (Ln: 3, Col: 7)
-                                   Stop = (Ln: 3, Col: 18) }, String "msg",
-                                 { Kind = Keyword String
-                                   Span = { Start = (Ln: 3, Col: 12)
-                                            Stop = (Ln: 3, Col: 18) }
-                                   InferredType = None });
+                                { Name = String "msg"
+                                  TypeAnn = { Kind = Keyword String
+                                              Span = { Start = (Ln: 3, Col: 12)
+                                                       Stop = (Ln: 3, Col: 18) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false };
                               Method
                                 { Name = "bar"
                                   Sig =

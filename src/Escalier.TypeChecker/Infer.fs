@@ -651,7 +651,23 @@ module rec Infer =
             | Setter(_, placeholderFn) ->
               let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
               ()
-            | Constructor _ -> ()
+            | Constructor placeholderFn ->
+              // Constructors are special. When calling a constructor, an
+              // instance of the class is created and returned. This is
+              // done automatically by the language, so we don't need an
+              // explicit `return` statement in the constructor body. We
+              // set the return type of `placeholderFn` to be `undefined`
+              // before inferring the body so to avoid needing the `return`
+              // statement.
+              let placeholderFn =
+                { placeholderFn with
+                    Return =
+                      { Kind = TypeKind.Literal(Literal.Undefined)
+                        Provenance = None } }
+
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+
+              ()
             | _ -> printfn "elem = %A" elem
 
           return staticObjType

@@ -59,7 +59,7 @@ let InferClassWithConstructor () =
         """
         let Foo = class {
           msg: string;
-          new (self, msg: string) {
+          new (mut self, msg: string) {
             self.msg = msg;
           }
         };
@@ -76,6 +76,57 @@ let InferClassWithConstructor () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let DisallowCallingMethodsFromConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          new (mut self, msg: string) {
+            self.msg = self.bar();
+          }
+          fn bar(self) {
+            return self.msg;
+          }
+        };
+        let foo = new Foo("hello");
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "Foo")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let RequireThatAllPropertiesBeAssigned () =
+  let result =
+    result {
+      let src =
+        """
+        let Point = class {
+          x: number;
+          y: number;
+          new (mut  self, x, y) {
+            self.x = x;
+          }
+        };
+        let p = new Point(5, 10);
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "p", "Point")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferClassWithTypeParamAndConstructor () =
   let result =
     result {
@@ -83,7 +134,7 @@ let InferClassWithTypeParamAndConstructor () =
         """
         let Foo = class<T> {
           msg: T;
-          new (self, msg: T) {
+          new (mut self, msg: T) {
             self.msg = msg;
           }
         };
@@ -96,9 +147,7 @@ let InferClassWithTypeParamAndConstructor () =
       Assert.Value(env, "foo", "Foo<string>")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
-
 
 [<Fact>]
 let InferClassWithTypeParams () =

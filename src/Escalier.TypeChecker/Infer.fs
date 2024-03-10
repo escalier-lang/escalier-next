@@ -635,8 +635,10 @@ module rec Infer =
 
           let! t = getPropType ctx env objType propKey optChain
 
+          let mutable t = t
+
           match t.Kind with
-          | TypeKind.Function { Self = Some(self) } ->
+          | TypeKind.Function({ Self = Some(self) } as fn) ->
             match self.Pattern with
             | Identifier identPat ->
               let! isObjMut = getIsMut ctx env obj
@@ -648,8 +650,37 @@ module rec Infer =
                       "Can't call a mutable method on a immutable object"
                   )
             | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+
+            // Replaces `Self` with `objType`
+            let fold =
+              fun t ->
+                let result =
+                  match t.Kind with
+                  | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Self" } ->
+                    objType
+                  | _ -> t
+
+                Some(result)
+
+            let returnType = Folder.foldType fold fn.Return
+
+            let paramList =
+              fn.ParamList
+              |> List.map (fun p ->
+                { p with
+                    Type = Folder.foldType fold p.Type })
+
+            t <-
+              { t with
+                  Kind =
+                    TypeKind.Function
+                      { fn with
+                          Return = returnType
+                          ParamList = paramList } }
+
           | _ -> ()
 
+          // TODO: remove `self` from the type of the function
           return t
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env await.Value
@@ -856,11 +887,13 @@ module rec Infer =
           | Some { Pattern = pattern } ->
             match pattern.Kind with
             | PatternKind.Ident identPat ->
+              let scheme = env.Schemes.TryFind "Self"
+
               let t =
                 { Kind =
                     TypeKind.TypeRef
                       { Name = QualifiedIdent.Ident "Self"
-                        Scheme = None
+                        Scheme = scheme
                         TypeArgs = None }
                   Provenance = None }
 
@@ -1023,22 +1056,22 @@ module rec Infer =
       do! unify ctx newEnv None retType sigRetType
       let retType = sigRetType
 
-      let self: option<FuncParam> =
-        match fnSig.Self with
-        | Some self ->
-          let Self: Type =
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = QualifiedIdent.Ident "Self"
-                    TypeArgs = None
-                    Scheme = None }
-              Provenance = None }
-
-          Some
-            { Pattern = patternToPattern self.Pattern
-              Type = Self
-              Optional = false }
-        | None -> None
+      // let self: option<FuncParam> =
+      //   match fnSig.Self with
+      //   | Some self ->
+      //     let Self: Type =
+      //       { Kind =
+      //           TypeKind.TypeRef
+      //             { Name = QualifiedIdent.Ident "Self"
+      //               TypeArgs = None
+      //               Scheme = None }
+      //         Provenance = None }
+      //
+      //     Some
+      //       { Pattern = patternToPattern self.Pattern
+      //         Type = Self
+      //         Optional = false }
+      //   | None -> None
 
       return makeFunction typeParams self paramList retType throwsType
 
@@ -1286,6 +1319,9 @@ module rec Infer =
           Some(union [ p.Type; undefined ])
         | false -> Some p.Type
       | Method(_, fn) ->
+        // TODO: replace `Self` with the object type
+
+
         // TODO: check if the receiver is mutable or not
         let t =
           { Kind = TypeKind.Function fn
@@ -1484,6 +1520,8 @@ module rec Infer =
                   Scheme = scheme }
                 |> TypeKind.TypeRef
           | Error errorValue ->
+            printfn "Can't find 'Self' in env"
+
             match name with
             | QualifiedIdent.Ident "_" -> return TypeKind.Wildcard
             | _ ->
@@ -3549,6 +3587,7 @@ module rec Infer =
 
       let returnType = callee.Return
 
+      // TODO: move this to where we infer `ExprKind.New`
       // If the return type is `Self`, replace it with the actual
       // type.
       let returnType =

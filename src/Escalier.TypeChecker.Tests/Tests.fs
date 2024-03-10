@@ -1204,3 +1204,166 @@ let InferClassWithTypeParams () =
     }
 
   Assert.False(Result.isError result)
+
+
+[<Fact>]
+let InferClassWithFluentMethods () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          fn bar(self) -> Self {
+            return self;
+          }
+        };
+        let foo = new Foo();
+        let bar = foo.bar();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string}")
+      Assert.Value(env, "foo", "Foo")
+      Assert.Value(env, "bar", "Foo")
+
+      // let barType, _ = Map.find "bar" env.Values
+      //
+      // printfn "barType = %A" barType
+
+      let fooType, _ = Map.find "foo" env.Values
+
+      let! fooType =
+        expandType ctx env None Map.empty fooType
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "{bar fn (self: Self) -> Self, msg: string}",
+        fooType.ToString()
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferClassWithFluentMethodsWithoutTypeAnn () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          fn bar(self) {
+            return self;
+          }
+        };
+        let foo = new Foo();
+        let bar = foo.bar();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string}")
+      Assert.Value(env, "foo", "Foo")
+      Assert.Value(env, "bar", "Foo")
+
+      // let barType, _ = Map.find "bar" env.Values
+      //
+      // printfn "barType = %A" barType
+
+      let fooType, _ = Map.find "foo" env.Values
+
+      let! fooType =
+        expandType ctx env None Map.empty fooType
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "{bar fn (self: Self) -> Self, msg: string}",
+        fooType.ToString()
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class<T> {
+          msg: T;
+          fn bar(self) {
+            return self;
+          }
+        };
+        let foo = new Foo<string>();
+        let bar = foo.bar();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Type(env, "Foo", "<T>({bar fn (self: Self) -> Self, msg: T})")
+      Assert.Value(env, "foo", "Foo<string>")
+      Assert.Value(env, "bar", "Foo<string>")
+
+      // let barType, _ = Map.find "bar" env.Values
+      //
+      // printfn "barType = %A" barType
+
+      let fooType, _ = Map.find "foo" env.Values
+
+      let! fooType =
+        expandType ctx env None Map.empty fooType
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "{bar fn (self: Self) -> Self, msg: string}",
+        fooType.ToString()
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
+let InferClassMethodsThatTakeOtherSelf () =
+  let result =
+    result {
+      let src =
+        """
+        let Point = class {
+          x: number;
+          y: number;
+          fn add(self, other: Self) {
+            return {x: self.x + other.x, y: self.y + other.y};
+          }
+        };
+        let p1 = new Point();
+        let p2 = new Point();
+        let p3 = p1.add(p2);
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "p1", "Point")
+      Assert.Value(env, "p2", "Point")
+      Assert.Value(env, "p3", "{x: number, y: number}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+// TODO: handle constructors

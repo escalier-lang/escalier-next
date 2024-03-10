@@ -1,7 +1,7 @@
 ﻿input: 
     let Foo = class {
       msg: string;
-      fn constructor(msg: string) {
+      new (self, msg: string) {
         self.msg = msg;
       }
     };
@@ -34,24 +34,33 @@ output: Ok
                                               InferredType = None }
                                   Optional = false
                                   Readonly = false };
-                              Method
-                                { Name = "constructor"
-                                  Sig =
+                              Constructor
+                                { Sig =
                                    { TypeParams = None
-                                     Self = None
+                                     Self =
+                                      Some
+                                        { Pattern =
+                                           { Kind = Ident { Name = "self"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 4, Col: 12)
+                                                      Stop = (Ln: 4, Col: 16) }
+                                             InferredType = None }
+                                          TypeAnn = None
+                                          Optional = false }
                                      ParamList =
                                       [{ Pattern =
                                           { Kind = Ident { Name = "msg"
                                                            IsMut = false
                                                            Assertion = None }
-                                            Span = { Start = (Ln: 4, Col: 22)
-                                                     Stop = (Ln: 4, Col: 25) }
+                                            Span = { Start = (Ln: 4, Col: 18)
+                                                     Stop = (Ln: 4, Col: 21) }
                                             InferredType = None }
                                          TypeAnn =
                                           Some
                                             { Kind = Keyword String
-                                              Span = { Start = (Ln: 4, Col: 27)
-                                                       Stop = (Ln: 4, Col: 33) }
+                                              Span = { Start = (Ln: 4, Col: 23)
+                                                       Stop = (Ln: 4, Col: 29) }
                                               InferredType = None }
                                          Optional = false }]
                                      ReturnType = None
@@ -59,7 +68,7 @@ output: Ok
                                      IsAsync = false }
                                   Body =
                                    Block
-                                     { Span = { Start = (Ln: 4, Col: 35)
+                                     { Span = { Start = (Ln: 4, Col: 31)
                                                 Stop = (Ln: 7, Col: 5) }
                                        Stmts =
                                         [{ Kind =

@@ -162,6 +162,10 @@ module Syntax =
     { Sig: FuncSig<option<TypeAnn>>
       Body: BlockOrExpr }
 
+  type Constructor =
+    { Sig: FuncSig<option<TypeAnn>>
+      Body: BlockOrExpr }
+
   type Method =
     { Name: string
       Sig: FuncSig<option<TypeAnn>>
@@ -202,6 +206,7 @@ module Syntax =
 
   type ClassElem =
     | Property of Property
+    | Constructor of Constructor
     | Method of Method
     | Getter of Getter
     | Setter of Setter

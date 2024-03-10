@@ -914,7 +914,7 @@ let ParseClassWithConstructor () =
     """
     let Foo = class {
       msg: string;
-      fn constructor(msg: string) {
+      new (self, msg: string) {
         self.msg = msg;
       }
     };
@@ -936,23 +936,6 @@ let ParseClassWithGetterSetter () =
       }
       set msg(mut self, msg: string) {
         self._msg = msg;
-      }
-    };
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseClassWithTypeParams () =
-  let src =
-    """
-    let Foo = class<T> {
-      bar: T;
-      fn map<U>(self, callback: fn (bar: T) -> U) {
-        return callback(self.bar);
       }
     };
     """

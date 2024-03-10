@@ -380,6 +380,26 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
+  let private constructor: Parser<Constructor, unit> =
+    pipe4
+      (keyword "new")
+      ((opt typeParams) .>>. (paramList opt))
+      (opt (ws .>> keyword "throws" >>. typeAnn))
+      block
+    <| fun _ (typeParams, paramList) throws body ->
+      let funcSig: FuncSig<option<TypeAnn>> =
+        match paramList with
+        | { Pattern = { Kind = PatternKind.Ident { Name = "self" } } } as self :: paramList ->
+          { TypeParams = typeParams
+            Self = Some(self)
+            ParamList = paramList
+            ReturnType = None
+            Throws = throws
+            IsAsync = false }
+        | _ -> failwith "Expected `self` parameter"
+
+      { Sig = funcSig
+        Body = BlockOrExpr.Block body }
 
   let private method: Parser<Method, unit> =
     pipe5
@@ -478,6 +498,7 @@ module Parser =
   let classElem: Parser<ClassElem, unit> =
     choice
       [ attempt (classProperty .>> strWs ";")
+        constructor |>> ClassElem.Constructor
         method |>> ClassElem.Method
         getter |>> ClassElem.Getter
         setter |>> ClassElem.Setter ]

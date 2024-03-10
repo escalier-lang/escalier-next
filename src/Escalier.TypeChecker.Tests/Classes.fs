@@ -52,6 +52,103 @@ let InferClassWithMethods () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferClassWithConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          new (mut self, msg: string) {
+            self.msg = msg;
+          }
+        };
+        let foo = new Foo("hello");
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "Foo")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let DisallowCallingMethodsFromConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          new (mut self, msg: string) {
+            self.msg = self.bar();
+          }
+          fn bar(self) {
+            return self.msg;
+          }
+        };
+        let foo = new Foo("hello");
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Value(env, "foo", "Foo")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let RequireThatAllPropertiesBeAssigned () =
+  let result =
+    result {
+      let src =
+        """
+        let Point = class {
+          x: number;
+          y: number;
+          new (mut self, x, y) {
+            self.x = x;
+          }
+        };
+        let p = new Point(5, 10);
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Value(env, "p", "Point")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferClassWithTypeParamAndConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class<T> {
+          msg: T;
+          new (mut self, msg: T) {
+            self.msg = msg;
+          }
+        };
+        let foo = new Foo<string>("hello");
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "Foo<string>")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferClassWithTypeParams () =
   let result =
     result {
@@ -76,6 +173,7 @@ let InferClassWithTypeParams () =
         "<T>({map fn <U>(self: Self, callback: fn (bar: T) -> U) -> U, bar: T})"
       )
 
+      Assert.Value(env, "Foo", "{new fn <T>() -> Foo<T>}")
       Assert.Value(env, "foo", "Foo<string>")
 
       let fooType, _ = Map.find "foo" env.Values

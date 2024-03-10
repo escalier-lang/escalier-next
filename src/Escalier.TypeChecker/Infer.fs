@@ -440,6 +440,7 @@ module rec Infer =
               List.traverseResultM
                 (fun (typeParam: Syntax.TypeParam) ->
                   result {
+                    // TODO: support constraints on type params
                     let unknown =
                       { Kind = TypeKind.Keyword Keyword.Unknown
                         Provenance = None }
@@ -492,6 +493,17 @@ module rec Infer =
                     Type = t }
 
               instanceElems <- prop :: instanceElems
+            | ClassElem.Constructor { Sig = fnSig; Body = body } ->
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              let placeholderFn =
+                { placeholderFn with
+                    Return = selfType
+                    TypeParams = typeParams }
+
+              staticMethods <-
+                (ObjTypeElem.Constructor placeholderFn, fnSig, body)
+                :: staticMethods
             | ClassElem.Method { Name = name
                                  Sig = fnSig
                                  Body = body } ->
@@ -563,8 +575,15 @@ module rec Infer =
               instanceElems <-
                 ObjTypeElem.Setter(name, placeholderFn) :: instanceElems
 
+          let mutable hasConstructor = false
+
           for elem, _, _ in staticMethods do
             match elem with
+            | Constructor(placeholderFn) ->
+              hasConstructor <- true
+
+              staticElems <-
+                ObjTypeElem.Constructor(placeholderFn) :: staticElems
             | Method(name, placeholderFn) ->
               staticElems <-
                 ObjTypeElem.Method(name, placeholderFn) :: staticElems
@@ -584,18 +603,19 @@ module rec Infer =
 
           placeholder.Type <- objType
 
-          let never =
-            { Kind = TypeKind.Keyword Keyword.Never
-              Provenance = None }
+          if not hasConstructor then
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
 
-          let constructor =
-            { TypeParams = typeParams
-              Self = None
-              ParamList = []
-              Return = selfType
-              Throws = never }
+            let constructor =
+              { TypeParams = typeParams
+                Self = None
+                ParamList = []
+                Return = selfType
+                Throws = never }
 
-          staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
+            staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
 
           // TODO: This static object should be added to the environment
           // sooner so that methods can construct new objects of this type.
@@ -631,7 +651,89 @@ module rec Infer =
             | Setter(_, placeholderFn) ->
               let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
               ()
-            | Constructor _ -> ()
+            | Constructor placeholderFn ->
+              // Constructors are special. When calling a constructor, an
+              // instance of the class is created and returned. This is
+              // done automatically by the language, so we don't need an
+              // explicit `return` statement in the constructor body. We
+              // set the return type of `placeholderFn` to be `undefined`
+              // before inferring the body so to avoid needing the `return`
+              // statement.
+              let placeholderFn =
+                { placeholderFn with
+                    Return =
+                      { Kind = TypeKind.Literal(Literal.Undefined)
+                        Provenance = None } }
+
+              // TODO: find all assignment expressions in the body and
+              // ensure that they're all assignments to `self` properties
+
+              let mutable assignedProps: list<string> = []
+              let mutable methodsCalled: list<string> = []
+
+              let visitor: SyntaxVisitor =
+                { VisitExpr =
+                    fun (expr: Expr) ->
+                      match expr.Kind with
+                      | ExprKind.Assign(_, left, _) ->
+                        match left.Kind with
+                        | ExprKind.Member(obj, prop, _) ->
+                          match obj.Kind with
+                          | ExprKind.Identifier "self" ->
+                            assignedProps <- prop :: assignedProps
+                            true
+                          | _ -> true
+                        | _ -> true
+                      | ExprKind.Call { Callee = callee } ->
+                        match callee.Kind with
+                        | ExprKind.Member(obj, prop, _) ->
+                          match obj.Kind with
+                          | ExprKind.Identifier "self" ->
+                            methodsCalled <- prop :: methodsCalled
+                            true
+                          | _ -> true
+                        | _ -> true
+                      | _ -> true
+
+                  VisitStmt = fun _ -> true
+                  VisitPattern = fun _ -> false
+                  VisitTypeAnn = fun _ -> false }
+
+              match body with
+              | BlockOrExpr.Block block ->
+                List.iter (walkStmt visitor) block.Stmts
+              | BlockOrExpr.Expr expr -> failwith "TODO"
+
+              if not methodsCalled.IsEmpty then
+                ctx.AddDiagnostic(
+                  { Description =
+                      $"Methods called in constructor: {methodsCalled}"
+                    Reasons = [] }
+                )
+
+              let instanceProps =
+                instanceElems
+                |> List.choose (function
+                  | Property { Name = PropName.String name } -> Some name
+                  | _ -> None)
+
+              let unassignedProps =
+                instanceProps
+                |> List.filter (fun p -> not (List.contains p assignedProps))
+
+              if not unassignedProps.IsEmpty then
+                ctx.AddDiagnostic(
+                  { Description =
+                      $"Unassigned properties in constructor: {unassignedProps}"
+                    Reasons = [] }
+                )
+
+              // TODO: Check that we aren't using any properties before
+              // they've been assigned.
+
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+
+              ()
             | _ -> printfn "elem = %A" elem
 
           return staticObjType

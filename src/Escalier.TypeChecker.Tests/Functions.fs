@@ -586,14 +586,14 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: allow calling methods using optional chaining")>]
+[<Fact(Skip = "TODO(#176): Handle calling methods with optional chaining")>]
 let InferCallFuncOnOptionalField () =
   let result =
     result {
       let src =
         """
-        type Foo = { bar?: fn () -> number };
-        declare let foo: Foo;
+        type Foo = { bar: fn () -> number };
+        declare let foo: Foo | undefined;
         let bar = foo?.bar();
         """
 

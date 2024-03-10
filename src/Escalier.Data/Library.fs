@@ -201,7 +201,7 @@ module Syntax =
       | Computed expr -> $"[{expr}]"
 
   type ClassElem =
-    | Property of span: Span * name: PropName * value: TypeAnn
+    | Property of Property
     | Method of Method
     | Getter of Getter
     | Setter of Setter

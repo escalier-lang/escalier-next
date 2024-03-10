@@ -468,7 +468,10 @@ module rec Infer =
 
           for elem in elems do
             match elem with
-            | ClassElem.Property(span, name, typeAnn) ->
+            | ClassElem.Property { Name = name
+                                   TypeAnn = typeAnn
+                                   Optional = optional
+                                   Readonly = readonly } ->
               let name =
                 match name with
                 | Syntax.Ident s -> PropName.String s
@@ -484,8 +487,8 @@ module rec Infer =
               let prop =
                 ObjTypeElem.Property
                   { Name = name
-                    Optional = false // TODO
-                    Readonly = false // TODO
+                    Optional = optional
+                    Readonly = readonly
                     Type = t }
 
               instanceElems <- prop :: instanceElems

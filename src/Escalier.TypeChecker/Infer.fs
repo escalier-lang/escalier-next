@@ -581,17 +581,6 @@ module rec Infer =
 
           placeholder.Type <- objType
 
-          // Infer the bodies of each method body
-          for elem, fnSig, body in instanceMethods do
-            let placeholderFn =
-              match elem with
-              | Method(_, placeholderFn) -> placeholderFn
-              | Getter(_, placeholderFn) -> placeholderFn
-              | Setter(_, placeholderFn) -> placeholderFn
-
-            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
-            ()
-
           let never =
             { Kind = TypeKind.Keyword Keyword.Never
               Provenance = None }
@@ -613,6 +602,34 @@ module rec Infer =
                   { Elems = staticElems
                     Immutable = false }
               Provenance = None }
+
+          newEnv <- newEnv.AddValue "Self" (staticObjType, false)
+
+          // Infer the bodies of each instance method body
+          for elem, fnSig, body in instanceMethods do
+            let placeholderFn =
+              match elem with
+              | Method(_, placeholderFn) -> placeholderFn
+              | Getter(_, placeholderFn) -> placeholderFn
+              | Setter(_, placeholderFn) -> placeholderFn
+
+            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+            ()
+
+          // Infer the bodies of each static method body
+          for elem, fnSig, body in staticMethods do
+            match elem with
+            | Method(_, placeholderFn) ->
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+              ()
+            | Getter(_, placeholderFn) ->
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+              ()
+            | Setter(_, placeholderFn) ->
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+              ()
+            | Constructor _ -> ()
+            | _ -> printfn "elem = %A" elem
 
           return staticObjType
         | ExprKind.Member(obj, prop, optChain) ->

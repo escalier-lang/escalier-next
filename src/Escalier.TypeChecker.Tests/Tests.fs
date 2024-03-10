@@ -1205,7 +1205,6 @@ let InferClassWithTypeParams () =
 
   Assert.False(Result.isError result)
 
-
 [<Fact>]
 let InferClassWithFluentMethods () =
   let result =
@@ -1246,7 +1245,6 @@ let InferClassWithFluentMethods () =
       )
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1289,7 +1287,6 @@ let InferClassWithFluentMethodsWithoutTypeAnn () =
       )
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1332,9 +1329,7 @@ let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
       )
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
-
 
 [<Fact>]
 let InferClassMethodsThatTakeOtherSelf () =
@@ -1363,7 +1358,32 @@ let InferClassMethodsThatTakeOtherSelf () =
       Assert.Value(env, "p3", "{x: number, y: number}")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
-// TODO: handle constructors
+[<Fact>]
+let InferClassMethodsThatCallsTheConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Point = class {
+          x: number;
+          y: number;
+          fn makePoint() {
+            let p = new Self();
+            return p;
+          }
+        };
+        let p = Point.makePoint();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "p", "Point")
+    }
+
+  Assert.False(Result.isError result)
+
+// TODO: handle explicit constructors

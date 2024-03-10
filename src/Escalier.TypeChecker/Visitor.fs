@@ -24,6 +24,10 @@ module rec ExprVisitor =
         | ExprKind.Call call ->
           walk call.Callee
           List.iter walk call.Args
+        | ExprKind.New { Callee = callee; Args = args } ->
+          walk callee
+          // TODO: make args required
+          Option.iter (List.iter walk) args
         | ExprKind.Tuple { Elems = elems } -> List.iter walk elems
         | ExprKind.Index(target, index, _optChain) ->
           walk target

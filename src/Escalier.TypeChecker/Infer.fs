@@ -717,7 +717,6 @@ module rec Infer =
                   | Property { Name = PropName.String name } -> Some name
                   | _ -> None)
 
-              // compute the difference between `assignedProps` and `instanceProps`
               let unassignedProps =
                 instanceProps
                 |> List.filter (fun p -> not (List.contains p assignedProps))
@@ -728,6 +727,9 @@ module rec Infer =
                       $"Unassigned properties in constructor: {unassignedProps}"
                     Reasons = [] }
                 )
+
+              // TODO: Check that we aren't using any properties before
+              // they've been assigned.
 
               let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
 

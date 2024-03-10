@@ -592,14 +592,6 @@ module rec Infer =
             let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
             ()
 
-          let returnType =
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = QualifiedIdent.Ident "Self"
-                    TypeArgs = None // TODO: handle type params
-                    Scheme = Some selfScheme }
-              Provenance = None }
-
           let never =
             { Kind = TypeKind.Keyword Keyword.Never
               Provenance = None }
@@ -608,25 +600,19 @@ module rec Infer =
             { TypeParams = typeParams
               Self = None
               ParamList = []
-              Return = returnType
+              Return = selfType
               Throws = never }
 
           staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
 
+          // TODO: This static object should be added to the environment
+          // sooner so that methods can construct new objects of this type.
           let staticObjType =
             { Kind =
                 TypeKind.Object
                   { Elems = staticElems
                     Immutable = false }
               Provenance = None }
-
-          // Question:
-          // - how do we deal with adding the instance type to the environment's
-          //   Schemes?
-          //   - we can do this by grabbing the instance type from the return type
-          //     of the constructor
-          //  - we'll need to do this check when assigning the static object to
-          //    a variable
 
           return staticObjType
         | ExprKind.Member(obj, prop, optChain) ->
@@ -2729,16 +2715,12 @@ module rec Infer =
             let returnType = constructor.Return
 
             match returnType.Kind with
-            | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Self"
-                                 Scheme = Some scheme } ->
-              match scheme.Type.Kind with
-              | TypeKind.TypeRef typeRef ->
-                typeRef.Name <- QualifiedIdent.Ident name
+            | TypeKind.TypeRef typeRef ->
+              typeRef.Name <- QualifiedIdent.Ident name
 
-                match typeRef.Scheme with
-                | Some scheme -> schemes <- schemes.Add(name, scheme)
-                | _ -> () // This hsould probably be an error
-              | _ -> ()
+              match typeRef.Scheme with
+              | Some scheme -> schemes <- schemes.Add(name, scheme)
+              | _ -> () // This hsould probably be an error
             | _ -> ()
         | _ -> ()
 
@@ -3394,7 +3376,7 @@ module rec Infer =
 
         for t in types do
           match t.Kind with
-          | TypeKind.Function func ->
+          | TypeKind.Function _ ->
             match unifyCall ctx env ips args typeArgs t with
             | Result.Ok value ->
               match result with
@@ -3428,14 +3410,15 @@ module rec Infer =
         let retType = ctx.FreshTypeVar None
         let throwsType = ctx.FreshTypeVar None
 
+        let fn =
+          { ParamList = paramList
+            Self = None // TODO: pass in the receiver if this is a method call
+            Return = retType
+            Throws = throwsType
+            TypeParams = None } // TODO
+
         let callType =
-          { Type.Kind =
-              TypeKind.Function
-                { ParamList = paramList
-                  Self = None // TODO: pass in the receiver if this is a method call
-                  Return = retType
-                  Throws = throwsType
-                  TypeParams = None } // TODO
+          { Type.Kind = TypeKind.Function fn
             Provenance = None }
 
         match bind ctx env ips callee callType with
@@ -3452,10 +3435,6 @@ module rec Infer =
     (typeArgs: option<list<Type>>)
     (callee: Function)
     : Result<Type * Type, TypeError> =
-
-    // Save the original type params so that we can expand `Self` if it's
-    // used in the return type of a function like a constructor.
-    let originalTypeParams = callee.TypeParams
 
     result {
       let! callee =
@@ -3585,44 +3564,5 @@ module rec Infer =
         do! unify ctx env ips tuple param.Type
       | _ -> ()
 
-      let returnType = callee.Return
-
-      // TODO: move this to where we infer `ExprKind.New`
-      // If the return type is `Self`, replace it with the actual
-      // type.
-      let returnType =
-        match returnType.Kind with
-        | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Self"
-                             TypeArgs = None
-                             Scheme = Some scheme } ->
-
-          let mapping =
-            match typeArgs, originalTypeParams with
-            | Some typeArgs, Some typeParams ->
-
-              let typeParams =
-                List.map (fun (p: TypeParam) -> p.Name) typeParams
-
-              let mapping = Map.ofList (List.zip typeParams typeArgs)
-              mapping
-            | None, None -> Map.empty
-            | _ -> failwith "Mismatch between type args and type params"
-
-          let fold =
-            fun t ->
-              let result =
-                match t.Kind with
-                | TypeKind.TypeRef { Name = QualifiedIdent.Ident name } ->
-                  match Map.tryFind name mapping with
-                  | Some typeArg -> typeArg
-                  | None -> t
-                | _ -> t
-
-              Some(result)
-
-          Folder.foldType fold scheme.Type
-
-        | _ -> returnType
-
-      return (returnType, callee.Throws)
+      return (callee.Return, callee.Throws)
     }

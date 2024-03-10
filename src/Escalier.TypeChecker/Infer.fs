@@ -665,6 +665,70 @@ module rec Infer =
                       { Kind = TypeKind.Literal(Literal.Undefined)
                         Provenance = None } }
 
+              // TODO: find all assignment expressions in the body and
+              // ensure that they're all assignments to `self` properties
+
+              let mutable assignedProps: list<string> = []
+              let mutable methodsCalled: list<string> = []
+
+              let visitor: SyntaxVisitor =
+                { VisitExpr =
+                    fun (expr: Expr) ->
+                      match expr.Kind with
+                      | ExprKind.Assign(_, left, _) ->
+                        match left.Kind with
+                        | ExprKind.Member(obj, prop, _) ->
+                          match obj.Kind with
+                          | ExprKind.Identifier "self" ->
+                            assignedProps <- prop :: assignedProps
+                            true
+                          | _ -> true
+                        | _ -> true
+                      | ExprKind.Call { Callee = callee } ->
+                        match callee.Kind with
+                        | ExprKind.Member(obj, prop, _) ->
+                          match obj.Kind with
+                          | ExprKind.Identifier "self" ->
+                            methodsCalled <- prop :: methodsCalled
+                            true
+                          | _ -> true
+                        | _ -> true
+                      | _ -> true
+
+                  VisitStmt = fun _ -> true
+                  VisitPattern = fun _ -> false
+                  VisitTypeAnn = fun _ -> false }
+
+              match body with
+              | BlockOrExpr.Block block ->
+                List.iter (walkStmt visitor) block.Stmts
+              | BlockOrExpr.Expr expr -> failwith "TODO"
+
+              if not methodsCalled.IsEmpty then
+                ctx.AddDiagnostic(
+                  { Description =
+                      $"Methods called in constructor: {methodsCalled}"
+                    Reasons = [] }
+                )
+
+              let instanceProps =
+                instanceElems
+                |> List.choose (function
+                  | Property { Name = PropName.String name } -> Some name
+                  | _ -> None)
+
+              // compute the difference between `assignedProps` and `instanceProps`
+              let unassignedProps =
+                instanceProps
+                |> List.filter (fun p -> not (List.contains p assignedProps))
+
+              if not unassignedProps.IsEmpty then
+                ctx.AddDiagnostic(
+                  { Description =
+                      $"Unassigned properties in constructor: {unassignedProps}"
+                    Reasons = [] }
+                )
+
               let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
 
               ()

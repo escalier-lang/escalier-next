@@ -95,7 +95,7 @@ let DisallowCallingMethodsFromConstructor () =
 
       let! ctx, env = inferScript src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Equal(ctx.Diagnostics.Length, 1)
       Assert.Value(env, "foo", "Foo")
     }
 
@@ -110,7 +110,7 @@ let RequireThatAllPropertiesBeAssigned () =
         let Point = class {
           x: number;
           y: number;
-          new (mut  self, x, y) {
+          new (mut self, x, y) {
             self.x = x;
           }
         };
@@ -119,11 +119,10 @@ let RequireThatAllPropertiesBeAssigned () =
 
       let! ctx, env = inferScript src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Equal(ctx.Diagnostics.Length, 1)
       Assert.Value(env, "p", "Point")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

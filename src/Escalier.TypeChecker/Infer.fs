@@ -440,6 +440,7 @@ module rec Infer =
               List.traverseResultM
                 (fun (typeParam: Syntax.TypeParam) ->
                   result {
+                    // TODO: support constraints on type params
                     let unknown =
                       { Kind = TypeKind.Keyword Keyword.Unknown
                         Provenance = None }
@@ -492,6 +493,17 @@ module rec Infer =
                     Type = t }
 
               instanceElems <- prop :: instanceElems
+            | ClassElem.Constructor { Sig = fnSig; Body = body } ->
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              let placeholderFn =
+                { placeholderFn with
+                    Return = selfType
+                    TypeParams = typeParams }
+
+              staticMethods <-
+                (ObjTypeElem.Constructor placeholderFn, fnSig, body)
+                :: staticMethods
             | ClassElem.Method { Name = name
                                  Sig = fnSig
                                  Body = body } ->
@@ -563,8 +575,15 @@ module rec Infer =
               instanceElems <-
                 ObjTypeElem.Setter(name, placeholderFn) :: instanceElems
 
+          let mutable hasConstructor = false
+
           for elem, _, _ in staticMethods do
             match elem with
+            | Constructor(placeholderFn) ->
+              hasConstructor <- true
+
+              staticElems <-
+                ObjTypeElem.Constructor(placeholderFn) :: staticElems
             | Method(name, placeholderFn) ->
               staticElems <-
                 ObjTypeElem.Method(name, placeholderFn) :: staticElems
@@ -584,18 +603,19 @@ module rec Infer =
 
           placeholder.Type <- objType
 
-          let never =
-            { Kind = TypeKind.Keyword Keyword.Never
-              Provenance = None }
+          if not hasConstructor then
+            let never =
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
 
-          let constructor =
-            { TypeParams = typeParams
-              Self = None
-              ParamList = []
-              Return = selfType
-              Throws = never }
+            let constructor =
+              { TypeParams = typeParams
+                Self = None
+                ParamList = []
+                Return = selfType
+                Throws = never }
 
-          staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
+            staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
 
           // TODO: This static object should be added to the environment
           // sooner so that methods can construct new objects of this type.

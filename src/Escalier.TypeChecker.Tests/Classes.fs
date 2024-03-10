@@ -52,6 +52,55 @@ let InferClassWithMethods () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferClassWithConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          new (self, msg: string) {
+            self.msg = msg;
+          }
+        };
+        let foo = new Foo("hello");
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "Foo")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferClassWithTypeParamAndConstructor () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class<T> {
+          msg: T;
+          new (self, msg: T) {
+            self.msg = msg;
+          }
+        };
+        let foo = new Foo<string>("hello");
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "Foo<string>")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
 let InferClassWithTypeParams () =
   let result =
     result {
@@ -76,6 +125,7 @@ let InferClassWithTypeParams () =
         "<T>({map fn <U>(self: Self, callback: fn (bar: T) -> U) -> U, bar: T})"
       )
 
+      Assert.Value(env, "Foo", "{new fn <T>() -> Foo<T>}")
       Assert.Value(env, "foo", "Foo<string>")
 
       let fooType, _ = Map.find "foo" env.Values

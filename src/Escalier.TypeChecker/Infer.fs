@@ -145,11 +145,12 @@ module rec Infer =
 
             // TODO: update unifyCall so that it can handle calling an object
             // type with constructor signatures directly
-            let! result, throws = unifyCall ctx env None args typeArgs callee
+            let! returnType, throws =
+              unifyCall ctx env None args typeArgs callee
 
             call.Throws <- Some(throws)
 
-            return result
+            return returnType
           | _ ->
             return!
               Error(TypeError.SemanticError "Callee is not a constructor type")
@@ -380,14 +381,270 @@ module rec Infer =
             return!
               Error(TypeError.SemanticError $"Expected Struct type, got {t}")
 
+        | ExprKind.Class { Name = name
+                           TypeParams = typeParams
+                           Elems = elems } ->
+
+          // TODO: get the real name of the class
+          // If there is no name we can synthesize one using a unique ID
+          let className = "AnonymousClass"
+          let mutable newEnv = env
+
+          let! placeholderTypeParams =
+            match typeParams with
+            | None -> ResultOption.ofOption None
+            | Some typeParams ->
+              List.traverseResultM (inferTypeParam ctx newEnv) typeParams
+              |> ResultOption.ofResult
+
+          // TODO: add support for constraints on type params to aliases
+          let placeholder =
+            { TypeParams = placeholderTypeParams
+              Type = ctx.FreshTypeVar None
+              IsTypeParam = false }
+
+          newEnv <- newEnv.AddScheme className placeholder
+
+          let typeArgs =
+            typeParams
+            |> Option.map (fun typeParams ->
+              typeParams
+              |> List.map (fun typeParam ->
+                { Kind =
+                    TypeKind.TypeRef
+                      { Name = QualifiedIdent.Ident typeParam.Name
+                        TypeArgs = None
+                        Scheme = None }
+                  Provenance = None }))
+
+          let selfType =
+            { Kind =
+                TypeKind.TypeRef
+                  { Name = QualifiedIdent.Ident className
+                    TypeArgs = typeArgs
+                    Scheme = Some placeholder }
+              Provenance = None }
+
+          let selfScheme =
+            { TypeParams = None
+              Type = selfType
+              IsTypeParam = false }
+
+          // Handles self-recursive types
+          newEnv <- newEnv.AddScheme "Self" selfScheme
+
+          let! typeParams =
+            match typeParams with
+            | None -> ResultOption.ofOption None
+            | Some typeParams ->
+              List.traverseResultM
+                (fun (typeParam: Syntax.TypeParam) ->
+                  result {
+                    let unknown =
+                      { Kind = TypeKind.Keyword Keyword.Unknown
+                        Provenance = None }
+
+                    let scheme =
+                      { TypeParams = None
+                        Type = unknown
+                        IsTypeParam = false }
+
+                    newEnv <- newEnv.AddScheme typeParam.Name scheme
+                    return! inferTypeParam ctx env typeParam
+                  })
+                typeParams
+              |> ResultOption.ofResult
+
+          let mutable instanceMethods
+            : list<ObjTypeElem * FuncSig<TypeAnn option> * BlockOrExpr> =
+            []
+
+          let mutable staticMethods
+            : list<ObjTypeElem * FuncSig<TypeAnn option> * BlockOrExpr> =
+            []
+
+          let mutable instanceElems: list<ObjTypeElem> = []
+          let mutable staticElems: list<ObjTypeElem> = []
+
+          for elem in elems do
+            match elem with
+            | ClassElem.Property { Name = name
+                                   TypeAnn = typeAnn
+                                   Optional = optional
+                                   Readonly = readonly } ->
+              let name =
+                match name with
+                | Syntax.Ident s -> PropName.String s
+                | Syntax.String s -> PropName.String s
+                | Syntax.Number n -> PropName.Number n
+                | Computed expr ->
+                  let t = inferExpr ctx newEnv expr
+                  // TODO: check if `t` is a valid type for a PropName
+                  failwith "TODO: inferStmt - Computed prop name"
+
+              let! t = inferTypeAnn ctx newEnv typeAnn
+
+              let prop =
+                ObjTypeElem.Property
+                  { Name = name
+                    Optional = optional
+                    Readonly = readonly
+                    Type = t }
+
+              instanceElems <- prop :: instanceElems
+            | ClassElem.Method { Name = name
+                                 Sig = fnSig
+                                 Body = body } ->
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              match fnSig.Self with
+              | None ->
+                staticMethods <-
+                  (ObjTypeElem.Method(PropName.String name, placeholderFn),
+                   fnSig,
+                   body)
+                  :: staticMethods
+              | Some _ ->
+                instanceMethods <-
+                  (ObjTypeElem.Method(PropName.String name, placeholderFn),
+                   fnSig,
+                   body)
+                  :: instanceMethods
+            | ClassElem.Getter { Name = name
+                                 Self = self
+                                 ReturnType = retType
+                                 Body = body } ->
+              // TODO: handle static getters
+              let fnSig: FuncSig<option<TypeAnn>> =
+                { TypeParams = None
+                  Self = Some self
+                  ParamList = []
+                  ReturnType = retType
+                  Throws = None
+                  IsAsync = false }
+
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              instanceMethods <-
+                (ObjTypeElem.Getter(PropName.String name, placeholderFn),
+                 fnSig,
+                 body)
+                :: instanceMethods
+            | ClassElem.Setter { Name = name
+                                 Self = self
+                                 Param = param
+                                 Body = body } ->
+              // TODO: handle static setters
+              let fnSig: FuncSig<option<TypeAnn>> =
+                { TypeParams = None
+                  Self = Some self
+                  ParamList = [ param ]
+                  ReturnType = None
+                  Throws = None
+                  IsAsync = false }
+
+              let! placeholderFn = inferFuncSig ctx newEnv fnSig
+
+              instanceMethods <-
+                (ObjTypeElem.Setter(PropName.String name, placeholderFn),
+                 fnSig,
+                 body)
+                :: instanceMethods
+
+          for elem, _, _ in instanceMethods do
+            match elem with
+            | Method(name, placeholderFn) ->
+              instanceElems <-
+                ObjTypeElem.Method(name, placeholderFn) :: instanceElems
+            | Getter(name, placeholderFn) ->
+              instanceElems <-
+                ObjTypeElem.Getter(name, placeholderFn) :: instanceElems
+            | Setter(name, placeholderFn) ->
+              instanceElems <-
+                ObjTypeElem.Setter(name, placeholderFn) :: instanceElems
+
+          for elem, _, _ in staticMethods do
+            match elem with
+            | Method(name, placeholderFn) ->
+              staticElems <-
+                ObjTypeElem.Method(name, placeholderFn) :: staticElems
+            | Getter(name, placeholderFn) ->
+              staticElems <-
+                ObjTypeElem.Getter(name, placeholderFn) :: staticElems
+            | Setter(name, placeholderFn) ->
+              staticElems <-
+                ObjTypeElem.Setter(name, placeholderFn) :: staticElems
+
+          let objType =
+            { Kind =
+                TypeKind.Object
+                  { Elems = instanceElems
+                    Immutable = false }
+              Provenance = None }
+
+          placeholder.Type <- objType
+
+          let never =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+          let constructor =
+            { TypeParams = typeParams
+              Self = None
+              ParamList = []
+              Return = selfType
+              Throws = never }
+
+          staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
+
+          // TODO: This static object should be added to the environment
+          // sooner so that methods can construct new objects of this type.
+          let staticObjType =
+            { Kind =
+                TypeKind.Object
+                  { Elems = staticElems
+                    Immutable = false }
+              Provenance = None }
+
+          newEnv <- newEnv.AddValue "Self" (staticObjType, false)
+
+          // Infer the bodies of each instance method body
+          for elem, fnSig, body in instanceMethods do
+            let placeholderFn =
+              match elem with
+              | Method(_, placeholderFn) -> placeholderFn
+              | Getter(_, placeholderFn) -> placeholderFn
+              | Setter(_, placeholderFn) -> placeholderFn
+
+            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+            ()
+
+          // Infer the bodies of each static method body
+          for elem, fnSig, body in staticMethods do
+            match elem with
+            | Method(_, placeholderFn) ->
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+              ()
+            | Getter(_, placeholderFn) ->
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+              ()
+            | Setter(_, placeholderFn) ->
+              let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
+              ()
+            | Constructor _ -> ()
+            | _ -> printfn "elem = %A" elem
+
+          return staticObjType
         | ExprKind.Member(obj, prop, optChain) ->
           let! objType = inferExpr ctx env obj
           let propKey = PropName.String(prop)
 
           let! t = getPropType ctx env objType propKey optChain
 
+          let mutable t = t
+
           match t.Kind with
-          | TypeKind.Function { Self = Some(self) } ->
+          | TypeKind.Function({ Self = Some(self) } as fn) ->
             match self.Pattern with
             | Identifier identPat ->
               let! isObjMut = getIsMut ctx env obj
@@ -399,8 +656,37 @@ module rec Infer =
                       "Can't call a mutable method on a immutable object"
                   )
             | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
+
+            // Replaces `Self` with `objType`
+            let fold =
+              fun t ->
+                let result =
+                  match t.Kind with
+                  | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Self" } ->
+                    objType
+                  | _ -> t
+
+                Some(result)
+
+            let returnType = Folder.foldType fold fn.Return
+
+            let paramList =
+              fn.ParamList
+              |> List.map (fun p ->
+                { p with
+                    Type = Folder.foldType fold p.Type })
+
+            t <-
+              { t with
+                  Kind =
+                    TypeKind.Function
+                      { fn with
+                          Return = returnType
+                          ParamList = paramList } }
+
           | _ -> ()
 
+          // TODO: remove `self` from the type of the function
           return t
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env await.Value
@@ -607,11 +893,13 @@ module rec Infer =
           | Some { Pattern = pattern } ->
             match pattern.Kind with
             | PatternKind.Ident identPat ->
+              let scheme = env.Schemes.TryFind "Self"
+
               let t =
                 { Kind =
                     TypeKind.TypeRef
                       { Name = QualifiedIdent.Ident "Self"
-                        Scheme = None
+                        Scheme = scheme
                         TypeArgs = None }
                   Provenance = None }
 
@@ -774,22 +1062,22 @@ module rec Infer =
       do! unify ctx newEnv None retType sigRetType
       let retType = sigRetType
 
-      let self: option<FuncParam> =
-        match fnSig.Self with
-        | Some self ->
-          let Self: Type =
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = QualifiedIdent.Ident "Self"
-                    TypeArgs = None
-                    Scheme = None }
-              Provenance = None }
-
-          Some
-            { Pattern = patternToPattern self.Pattern
-              Type = Self
-              Optional = false }
-        | None -> None
+      // let self: option<FuncParam> =
+      //   match fnSig.Self with
+      //   | Some self ->
+      //     let Self: Type =
+      //       { Kind =
+      //           TypeKind.TypeRef
+      //             { Name = QualifiedIdent.Ident "Self"
+      //               TypeArgs = None
+      //               Scheme = None }
+      //         Provenance = None }
+      //
+      //     Some
+      //       { Pattern = patternToPattern self.Pattern
+      //         Type = Self
+      //         Optional = false }
+      //   | None -> None
 
       return makeFunction typeParams self paramList retType throwsType
 
@@ -1037,6 +1325,9 @@ module rec Infer =
           Some(union [ p.Type; undefined ])
         | false -> Some p.Type
       | Method(_, fn) ->
+        // TODO: replace `Self` with the object type
+
+
         // TODO: check if the receiver is mutable or not
         let t =
           { Kind = TypeKind.Function fn
@@ -1235,6 +1526,8 @@ module rec Infer =
                   Scheme = scheme }
                 |> TypeKind.TypeRef
           | Error errorValue ->
+            printfn "Can't find 'Self' in env"
+
             match name with
             | QualifiedIdent.Ident "_" -> return TypeKind.Wildcard
             | _ ->
@@ -1826,12 +2119,17 @@ module rec Infer =
     result {
       match decl.Kind with
       | DeclKind.VarDecl varDecl ->
-        let! bindings = inferVarDecl ctx env varDecl
+        let! bindings, schemes = inferVarDecl ctx env varDecl
 
         let bindings =
           if generalize then generalizeBindings bindings else bindings
 
-        return env.AddBindings bindings
+        let mutable newEnv = env
+
+        for KeyValue(name, scheme) in schemes do
+          newEnv <- newEnv.AddScheme name scheme
+
+        return newEnv.AddBindings bindings
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams
                             Variants = variants } ->
@@ -2350,7 +2648,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (varDecl: VarDecl)
-    : Result<Map<string, Binding>, TypeError> =
+    : Result<Map<string, Binding> * Map<string, Scheme>, TypeError> =
 
     let { Pattern = pattern
           Init = init
@@ -2415,7 +2713,38 @@ module rec Infer =
         let! elseTy = inferBlockOrExpr ctx env (elseClause |> BlockOrExpr.Block)
         do! unify ctx env invariantPaths elseTy patType
 
-      return patBindings
+      let mutable schemes: Map<string, Scheme> = Map.empty
+
+      for KeyValue(name, binding) in patBindings do
+        let t, _ = binding
+
+        match (prune t).Kind with
+        | TypeKind.Object { Elems = elems } ->
+          // TODO: modify the constructors so they return `Foo<T>` instead
+          // of `Self`.  Right now unifyFuncCall is responsible for this,
+          // but that doesn't seem like the best place for it.
+          let constructors =
+            elems
+            |> List.choose (fun elem ->
+              match elem with
+              | ObjTypeElem.Constructor fn -> Some fn
+              | _ -> None)
+
+          if constructors.Length > 0 then
+            let constructor = constructors[0]
+            let returnType = constructor.Return
+
+            match returnType.Kind with
+            | TypeKind.TypeRef typeRef ->
+              typeRef.Name <- QualifiedIdent.Ident name
+
+              match typeRef.Scheme with
+              | Some scheme -> schemes <- schemes.Add(name, scheme)
+              | _ -> () // This hsould probably be an error
+            | _ -> ()
+        | _ -> ()
+
+      return (patBindings, schemes)
     }
 
   let generalizeBindings
@@ -2665,8 +2994,11 @@ module rec Infer =
             // NOTE: We explicitly don't generalize here because we want other
             // declarations to be able to unify with any free type variables
             // from this declaration.  We generalize things below.
-            let! newBindings = inferVarDecl ctx newEnv varDecl
+            let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
             bindings <- FSharpPlus.Map.union bindings newBindings
+
+            for KeyValue(name, scheme) in newSchemes do
+              newEnv <- newEnv.AddScheme name scheme
           | TypeDecl { Name = name; TypeAnn = typeAnn } ->
             let scheme =
               match typeDecls.TryFind name with
@@ -3064,7 +3396,7 @@ module rec Infer =
 
         for t in types do
           match t.Kind with
-          | TypeKind.Function func ->
+          | TypeKind.Function _ ->
             match unifyCall ctx env ips args typeArgs t with
             | Result.Ok value ->
               match result with
@@ -3098,14 +3430,15 @@ module rec Infer =
         let retType = ctx.FreshTypeVar None
         let throwsType = ctx.FreshTypeVar None
 
+        let fn =
+          { ParamList = paramList
+            Self = None // TODO: pass in the receiver if this is a method call
+            Return = retType
+            Throws = throwsType
+            TypeParams = None } // TODO
+
         let callType =
-          { Type.Kind =
-              TypeKind.Function
-                { ParamList = paramList
-                  Self = None // TODO: pass in the receiver if this is a method call
-                  Return = retType
-                  Throws = throwsType
-                  TypeParams = None } // TODO
+          { Type.Kind = TypeKind.Function fn
             Provenance = None }
 
         match bind ctx env ips callee callType with

@@ -586,6 +586,26 @@ let InferFuncGenericFuncWithExplicitTypeParams () =
 
   Assert.False(Result.isError result)
 
+[<Fact(Skip = "TODO: allow calling methods using optional chaining")>]
+let InferCallFuncOnOptionalField () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = { bar?: fn () -> number };
+        declare let foo: Foo;
+        let bar = foo?.bar();
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "bar", "number | undefined")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
 
 // TODO:
 // - write tests for functions with optional params

@@ -67,24 +67,6 @@ module Folder =
 
           { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
             Provenance = None }
-        | TypeKind.Struct { TypeRef = typeRef
-                            Elems = elems
-                            Impls = impls } ->
-          let typeArgs = Option.map (List.map fold) typeRef.TypeArgs
-          let elems = List.map foldObjElem elems
-
-          let impls: list<Impl> =
-            impls
-            |> List.map (fun impl ->
-              { impl with
-                  Elems = List.map foldObjElem impl.Elems })
-
-          { Kind =
-              TypeKind.Struct
-                { TypeRef = { typeRef with TypeArgs = typeArgs }
-                  Elems = elems
-                  Impls = impls }
-            Provenance = None }
         | TypeKind.EnumVariant variant ->
           let types = List.map fold variant.Types
 

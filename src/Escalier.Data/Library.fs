@@ -244,8 +244,6 @@ module Syntax =
     { Value: Expr
       mutable Throws: option<Type.Type> }
 
-  type Struct<'T> = { TypeRef: TypeRef; Elems: list<'T> }
-
   type Class =
     { Name: option<string>
       TypeParams: option<list<TypeParam>>
@@ -260,7 +258,6 @@ module Syntax =
     | New of New
     | ExprWithTypeArgs of target: Expr * typeArgs: list<TypeAnn>
     | Object of Common.Object<ObjElem>
-    | Struct of Struct<ObjElem>
     | Class of Class
     | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
@@ -349,7 +346,6 @@ module Syntax =
   type PatternKind =
     | Ident of IdentPat
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
-    | Struct of Struct<ObjPatElem> // TODO: rest patterns
     | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
     | Enum of EnumVariantPattern
     | Wildcard of WildcardPattern
@@ -367,21 +363,6 @@ module Syntax =
       mutable InferredType: option<Type.Type> }
 
     override this.ToString() = this.Kind.ToString()
-
-  type StructDecl =
-    { Name: string
-      TypeParams: option<list<TypeParam>>
-      Elems: list<Property> }
-
-  type ImplElem =
-    | Method of Method // replace with (string, Function)
-    | Getter of Getter // replace with (string, Function)
-    | Setter of Setter // replace with (string, Function)
-
-  type Impl =
-    { TypeParams: option<list<TypeParam>>
-      Self: string
-      Elems: list<ImplElem> }
 
   type VarDecl =
     { Pattern: Pattern
@@ -407,7 +388,6 @@ module Syntax =
     | VarDecl of VarDecl
     | TypeDecl of TypeDecl
     | EnumDecl of EnumDecl
-    | StructDecl of StructDecl
 
   type Decl = { Kind: DeclKind; Span: Span }
 
@@ -416,7 +396,6 @@ module Syntax =
     | For of left: Pattern * right: Expr * body: Block
     | Return of option<Expr>
     | Decl of Decl
-    | Impl of Impl
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
@@ -620,14 +599,6 @@ module Type =
       | Unknown -> "unknown"
       | Never -> "never"
 
-  // TODO: include `Provenance` on Impl
-  type Impl = Common.Object<ObjTypeElem>
-
-  type Struct<'T> =
-    { TypeRef: TypeRef
-      Elems: list<'T>
-      Impls: list<Impl> }
-
   type Class<'T> =
     { Name: option<string>
       Elems: list<'T> }
@@ -657,7 +628,6 @@ module Type =
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
-    | Struct of Struct<ObjPatElem>
     | Tuple of Common.Tuple<option<Pattern>>
     | Enum of EnumVariantPat // isn't being used and we may not need it
     | Literal of Common.Literal
@@ -823,7 +793,6 @@ module Type =
     | Keyword of Keyword
     | Function of Function
     | Object of Common.Object<ObjTypeElem>
-    | Struct of Struct<ObjTypeElem>
     | Tuple of Common.Tuple<Type>
     | Array of Array
     | EnumVariant of EnumVariant
@@ -900,7 +869,6 @@ module Type =
     | TypeKind.Keyword _ -> 100
     | TypeKind.Function _ -> 100
     | TypeKind.Object _ -> 100
-    | TypeKind.Struct _ -> 100
     | TypeKind.Tuple _ -> 100
     | TypeKind.Array _ -> 17
     | TypeKind.EnumVariant _ -> 100
@@ -975,7 +943,6 @@ module Type =
       | TypeKind.Keyword keyword -> keyword.ToString()
       | TypeKind.Function f -> printFunction ctx f
       | TypeKind.Object obj -> printObject ctx obj
-      | TypeKind.Struct s -> printStruct ctx s
       | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
         let ctx = { Precedence = 0 }
         let elems = List.map (printType ctx) elems |> String.concat ", "
@@ -1059,13 +1026,6 @@ module Type =
     match obj.Immutable with
     | true -> $"#{{{elems}}}"
     | false -> $"{{{elems}}}"
-
-  let printStruct (ctx: PrintCtx) (s: Struct<ObjTypeElem>) : string =
-    match s.TypeRef.TypeArgs with
-    | Some typeArgs ->
-      let typeArgs = List.map (printType ctx) typeArgs |> String.concat ", "
-      $"{s.TypeRef.Name}<{typeArgs}>"
-    | None -> $"{s.TypeRef.Name}"
 
   let printFunction (ctx: PrintCtx) (f: Function) : string =
     let paramList =

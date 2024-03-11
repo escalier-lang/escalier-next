@@ -1,6 +1,6 @@
 ﻿input: 
     if cond {
-      x;
+      x
     }
     
 output: Ok
@@ -18,10 +18,10 @@ output: Ok
                               Stop = (Ln: 5, Col: 5) }
                      Stmts = [{ Kind = Expr { Kind = Identifier "x"
                                               Span = { Start = (Ln: 3, Col: 7)
-                                                       Stop = (Ln: 3, Col: 8) }
+                                                       Stop = (Ln: 4, Col: 5) }
                                               InferredType = None }
                                 Span = { Start = (Ln: 3, Col: 7)
-                                         Stop = (Ln: 3, Col: 8) } }] }, None)
+                                         Stop = (Ln: 4, Col: 5) } }] }, None)
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 5, Col: 5) }
                InferredType = None }

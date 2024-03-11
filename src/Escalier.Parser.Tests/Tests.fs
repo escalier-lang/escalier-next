@@ -669,150 +669,6 @@ let ParseTypeof () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseStruct () =
-  let src =
-    """
-    struct Point {
-      x: number,
-      y: number,
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseGenericStruct () =
-  let src =
-    """
-    struct Point<T> {
-      x: T,
-      y: T,
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseBasicImpl () =
-  let src =
-    """
-    impl Foo {
-      fn bar(self) {
-        return self.x;
-      }
-      fn baz(mut self, x: number) {
-        self.x = x;
-      }
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseImplWithStaticMethods () =
-  let src =
-    """
-    impl Point {
-      fn new(x, y) {
-        return Point { x, y };
-      }
-      fn default() {
-        return Point { x: 0, y: 0 };
-      }
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseGenericImpl () =
-  let src =
-    """
-    impl Foo<T> {
-      fn bar(self) {
-        return self.x;
-      }
-      fn baz(mut self, x: T) {
-        self.x = x;
-      }
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseGetterSetterImpl () =
-  let src =
-    """
-    impl Foo {
-      get bar(self) {
-        return self.x;
-      }
-      set bar(mut self, x: number) {
-        self.x = x;
-      }
-    }
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-
-[<Fact>]
-let ParseStructExprs () =
-  let src =
-    """
-    let foo = Foo { a: 5, b: "hello" };
-    let bar = Bar<number> { a: 5, b: "hello" };
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseBasicStructPattern () =
-  let src =
-    """
-    let Point {x, y} = point;
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseGenericStructPattern () =
-  let src =
-    """
-    let Point<number> {x, y} = point;
-    """
-
-  let ast = Parser.parseScript src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
 let ParseIfLet () =
   let src =
     """
@@ -862,8 +718,8 @@ let ParseIfLetChaining () =
 let ParseLetElse () =
   let src =
     """
-    let Foo {x, y} = foo else {
-      print("foo is not a Foo");
+    let {x, y} = point else {
+      print("point is not a Point");
     };
     """
 
@@ -874,12 +730,10 @@ let ParseLetElse () =
 
 [<Fact>]
 let ParseBlockError () =
-  // Without the `;` after the `x` it thinks that `cond { x }` is a struct
-  // TODO: remove struct parsing after support for classes has been added
   let src =
     """
     if cond {
-      x;
+      x
     }
     """
 

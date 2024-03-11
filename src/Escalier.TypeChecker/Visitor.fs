@@ -67,9 +67,6 @@ module rec ExprVisitor =
         | ExprKind.Object elems ->
           // TODO:
           ()
-        | ExprKind.Struct { Elems = elems; TypeRef = typeRef } ->
-          // TODO:
-          ()
         | ExprKind.Try { Body = body
                          Catch = catch
                          Finally = fin } ->
@@ -115,22 +112,6 @@ module rec ExprVisitor =
         | StmtKind.Decl({ Kind = DeclKind.TypeDecl { TypeAnn = typeAnn } }) ->
           // TODO: walk type params
           walkTypeAnn visitor typeAnn
-        | StmtKind.Decl({ Kind = DeclKind.StructDecl { Elems = elems
-                                                       TypeParams = typeParams } }) ->
-          match typeParams with
-          | Some typeParams ->
-            for param in typeParams do
-              match param.Constraint with
-              | Some c -> walkTypeAnn visitor c
-              | None -> ()
-
-              match param.Default with
-              | Some d -> walkTypeAnn visitor d
-              | None -> ()
-          | None -> ()
-
-          for prop in elems do
-            walkTypeAnn visitor prop.TypeAnn
         | StmtKind.Return exprOption ->
           Option.iter (walkExpr visitor) exprOption
 
@@ -142,18 +123,6 @@ module rec ExprVisitor =
         match pat.Kind with
         | PatternKind.Ident _ -> ()
         | PatternKind.Object { Elems = elems } ->
-          List.iter
-            (fun (elem: ObjPatElem) ->
-              match elem with
-              | ObjPatElem.KeyValuePat { Value = value; Default = init } ->
-                walk value
-                Option.iter (walkExpr visitor) init
-              | ObjPatElem.ShorthandPat { Default = init } ->
-                Option.iter (walkExpr visitor) init
-              | ObjPatElem.RestPat { Target = target } -> walk target)
-            elems
-        | PatternKind.Struct { Elems = elems } ->
-          // TODO: walk typeArgs
           List.iter
             (fun (elem: ObjPatElem) ->
               match elem with
@@ -256,7 +225,6 @@ module rec TypeVisitor =
               failwith "TODO: walkType - ObjTypeElem")
           elems
 
-      | TypeKind.Struct _ -> ()
       | TypeKind.Rest t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types

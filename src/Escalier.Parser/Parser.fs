@@ -363,23 +363,6 @@ module Parser =
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
-  let structExpr: Parser<Expr, unit> =
-    pipe5
-      getPosition
-      qualifiedIdent
-      (opt (between (strWs "<") (strWs ">") (sepEndBy typeAnn (strWs ","))))
-      (between (strWs "{") (strWs "}") (sepEndBy objElem (strWs ",")))
-      getPosition
-    <| fun start ident typeArgs elems stop ->
-      let kind =
-        ExprKind.Struct
-          { TypeRef = { Ident = ident; TypeArgs = typeArgs }
-            Elems = elems }
-
-      { Kind = kind
-        Span = { Start = start; Stop = stop }
-        InferredType = None }
-
   let private constructor: Parser<Constructor, unit> =
     pipe4
       (keyword "new")
@@ -568,7 +551,6 @@ module Parser =
         attempt throwExpr // conflicts with identExpr
         attempt tryExpr // conflicts with identExpr
         attempt matchExpr // conflicts with identExpr
-        attempt structExpr // conflicts with identExpr
         attempt classExpr // conflicts with identExpr
         tupleExpr
         objectExpr
@@ -955,117 +937,6 @@ module Parser =
         Optional = optional.IsSome
         Readonly = false }
 
-  let private structDecl: Parser<Decl, unit> =
-    pipe5
-      getPosition
-      (keyword "struct" >>. ident)
-      (opt (between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))))
-      (between (strWs "{") (strWs "}") (sepEndBy propertyTypeAnn (strWs ",")))
-      getPosition
-    <| fun start name typeParams elems stop ->
-      let span = { Start = start; Stop = stop }
-
-      { Kind =
-          StructDecl
-            { Name = name
-              TypeParams = typeParams
-              Elems = elems }
-        Span = span }
-
-  // let private method: Parser<ImplElem, unit> =
-  //   pipe5
-  //     (opt (keyword "async"))
-  //     (keyword "fn" >>. ident)
-  //     ((opt typeParams) .>>. (paramList opt))
-  //     ((opt (strWs "->" >>. typeAnn))
-  //      .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
-  //     block
-  //   <| fun async name (typeParams, paramList) (retType, throws) body ->
-  //     let funcSig: FuncSig<option<TypeAnn>> =
-  //       match paramList with
-  //       | [] ->
-  //         { TypeParams = typeParams
-  //           Self = None
-  //           ParamList = paramList
-  //           ReturnType = retType
-  //           Throws = throws
-  //           IsAsync = async.IsSome }
-  //       | { Pattern = { Kind = PatternKind.Ident { Name = "self" } } } as self :: paramList ->
-  //         { TypeParams = typeParams
-  //           Self = Some(self)
-  //           ParamList = paramList
-  //           ReturnType = retType
-  //           Throws = throws
-  //           IsAsync = async.IsSome }
-  //       | paramList ->
-  //         { TypeParams = typeParams
-  //           Self = None
-  //           ParamList = paramList
-  //           ReturnType = retType
-  //           Throws = throws
-  //           IsAsync = async.IsSome }
-  //
-  //     { Name = name
-  //       Sig = funcSig
-  //       Body = BlockOrExpr.Block body }
-  //     |> ImplElem.Method
-  //
-  // let private getter: Parser<ImplElem, unit> =
-  //   pipe5
-  //     (opt (keyword "async"))
-  //     (keyword "get" >>. ident)
-  //     (between (strWs "(") (strWs ")") (funcParam opt))
-  //     ((opt (strWs "->" >>. typeAnn))
-  //      .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
-  //     block
-  //   <| fun async name self (retType, throws) body ->
-  //     { Getter.Name = name
-  //       Self = self
-  //       Body = BlockOrExpr.Block body
-  //       ReturnType = retType
-  //       Throws = throws }
-  //     |> ImplElem.Getter
-  //
-  // // TODO: generic setters
-  // let private setter: Parser<ImplElem, unit> =
-  //   pipe5
-  //     (opt (keyword "async"))
-  //     (keyword "set" >>. ident)
-  //     (between
-  //       (strWs "(")
-  //       (strWs ")")
-  //       ((funcParam opt) .>>. (strWs "," >>. (funcParam opt))))
-  //     (opt (ws .>> keyword "throws" >>. typeAnn))
-  //     block
-  //   <| fun async name (self, param) throws body ->
-  //     { Setter.Name = name
-  //       Self = self
-  //       Param = param
-  //       Body = BlockOrExpr.Block body
-  //       Throws = throws }
-  //     |> ImplElem.Setter
-
-  let private implElem =
-    choice
-      [ method |>> ImplElem.Method
-        getter |>> ImplElem.Getter
-        setter |>> ImplElem.Setter ]
-
-  let private implStmt =
-    pipe5
-      getPosition
-      (keyword "impl" >>. ident)
-      (opt typeParams)
-      (between (strWs "{") (strWs "}") (many implElem))
-      getPosition
-    <| fun start name typeParams elems stop ->
-      { Stmt.Kind =
-          Impl
-            { TypeParams = typeParams
-              Self = name
-              Elems = elems }
-        Span = { Start = start; Stop = stop } }
-
   let _stmt =
     choice
       [
@@ -1073,9 +944,7 @@ module Parser =
         // identifier like `lettuce` that conflicts with `let <ident> = <expr>`
         varDecl |> declStmt
         typeDecl |> declStmt
-        structDecl |> declStmt
         enumDecl |> declStmt
-        implStmt
         returnStmt
         forLoop
 
@@ -1179,23 +1048,6 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private structPattern =
-    withSpan (
-      tuple3
-        qualifiedIdent
-        (opt (between (strWs "<") (strWs ">") (sepEndBy typeAnn (strWs ","))))
-        (between (strWs "{") (strWs "}") (sepEndBy objPatElem (strWs ",")))
-    )
-    |>> fun ((ident, typeArgs, elems), span) ->
-      let kind =
-        PatternKind.Struct
-          { TypeRef = { Ident = ident; TypeArgs = typeArgs }
-            Elems = elems }
-
-      { Pattern.Kind = kind
-        Span = span
-        InferredType = None }
-
   let private imObjectPattern =
     withSpan (
       between (strWs "#{") (strWs "}") (sepEndBy objPatElem (strWs ","))
@@ -1229,8 +1081,7 @@ module Parser =
 
   patternRef.Value <-
     choice
-      [ attempt structPattern
-        attempt enumVariantPattern
+      [ attempt enumVariantPattern
         identPattern
         literalPattern
         wildcardPattern
@@ -1706,8 +1557,7 @@ module Parser =
     >>. choice
       [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
 
-  let decl: Parser<Decl, unit> =
-    choice [ varDecl; typeDecl; structDecl; enumDecl ]
+  let decl: Parser<Decl, unit> = choice [ varDecl; typeDecl; enumDecl ]
 
   let private moduleItem: Parser<ModuleItem, unit> =
     ws >>. choice [ import |>> ModuleItem.Import; decl |>> ModuleItem.Decl ]

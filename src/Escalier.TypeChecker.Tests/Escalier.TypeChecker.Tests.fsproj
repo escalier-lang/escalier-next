@@ -20,7 +20,6 @@
         <Compile Include="Symbol.fs"/>
         <Compile Include="ArrayTuple.fs"/>
         <Compile Include="PatternMatching.fs"/>
-        <Compile Include="Structs.fs"/>
         <Compile Include="Classes.fs"/>
         <Compile Include="Modules.fs"/>
         <Compile Include="Program.fs"/>

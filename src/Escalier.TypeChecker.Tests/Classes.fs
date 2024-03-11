@@ -354,8 +354,15 @@ let InferClassMethodsThatTakeOtherSelf () =
         "Point",
         "{add fn (self: Self, other: Self) -> Self, y: number, x: number}"
       )
+
+      Assert.Value(
+        env,
+        "Point",
+        "{new fn (mut self: Self, x: number, y: number) -> Point, makePoint fn (x: number, y: number) -> Self}"
+      )
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

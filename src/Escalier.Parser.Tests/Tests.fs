@@ -798,3 +798,15 @@ let ParseClassWithGetterSetter () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBasicJsx () =
+  let src =
+    """
+    let elem = <Foo bar={baz}>Hello, {name}</Foo>;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

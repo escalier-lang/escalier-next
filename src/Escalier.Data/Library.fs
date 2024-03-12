@@ -249,6 +249,49 @@ module Syntax =
       TypeParams: option<list<TypeParam>>
       Elems: list<ClassElem> }
 
+  type JSXElement =
+    { Opening: JSXElementOpening
+      Children: list<JSXElementChild>
+      Closing: option<JSXElementClosing> }
+
+  type JSXElementOpening =
+    { Name: Common.QualifiedIdent
+      Attrs: list<JSXAttr>
+      Span: Span }
+
+  type JSXElementClosing =
+    { Name: Common.QualifiedIdent
+      Span: Span }
+
+  type JSXAttr =
+    { Name: string
+      Value: option<JSXAttrValue>
+      Span: Span }
+
+  type JSXAttrValue =
+    | Str of Common.Literal
+    | JSXExprContainer of JSXExprContainer
+    | JSXElement of JSXElement
+    | JSXFragment of JSXFragment
+
+  type JSXExprContainer = { Expr: Expr; Span: Span }
+
+  type JSXElementChild =
+    | JSXText of JSXText
+    | JSXExprContainer of JSXExprContainer
+    | JSXElement of JSXElement
+    | JSXFragment of JSXFragment
+
+  type JSXText = { Text: string; Span: Span }
+
+  type JSXFragment =
+    { Opening: JSXFragmentOpening
+      Children: list<JSXElementChild>
+      Closing: JSXFragmentClosing }
+
+  type JSXFragmentOpening = { Span: Span }
+  type JSXFragmentClosing = { Span: Span }
+
   [<RequireQualifiedAccess>]
   type ExprKind =
     | Identifier of name: string // TODO: Make an Ident struct
@@ -285,6 +328,7 @@ module Syntax =
       tag: Expr *
       template: Common.TemplateLiteral<Expr> *
       throws: option<Type.Type>
+    | JSXElement of JSXElement
 
   [<CustomEquality; NoComparison>]
   type Expr =

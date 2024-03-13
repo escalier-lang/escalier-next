@@ -450,6 +450,7 @@ let InferBinaryOpStressTest () =
       Assert.Value(env, "qux", "number")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

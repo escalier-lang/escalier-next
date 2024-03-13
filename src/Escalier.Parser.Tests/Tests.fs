@@ -798,3 +798,51 @@ let ParseClassWithGetterSetter () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseBasicJsx () =
+  let src =
+    """
+    let elem = <Foo bar={bar} baz="baz">Hello, {name}</Foo>;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseNestedJsx () =
+  let src =
+    """
+    let elem = <Foo bar={<Bar>Hello</Bar>}><Baz>world</Baz></Foo>;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseSelfClosingTag () =
+  let src =
+    """
+    let elem = <Foo bar={baz} />;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseFragment () =
+  let src =
+    """
+    let frag = <><Foo>Hello, world</Foo></>;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

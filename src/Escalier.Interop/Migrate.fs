@@ -60,8 +60,8 @@ module Migrate =
     let span: Syntax.Span = { Start = start; Stop = stop }
 
     let expr: Syntax.Expr =
-      { Syntax.Expr.Kind = kind
-        Syntax.Expr.Span = span
-        Syntax.InferredType = None }
+      { Kind = kind
+        Span = span
+        InferredType = None }
 
     expr

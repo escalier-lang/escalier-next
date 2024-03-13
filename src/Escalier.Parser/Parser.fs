@@ -254,7 +254,7 @@ module Parser =
         InferredType = None }
 
   let doExpr: Parser<Expr, unit> =
-    withSpan (strWs "do" >>. block)
+    withSpan (keyword "do" >>. block)
     |>> fun (body, span) ->
       { Kind = ExprKind.Do(body)
         Span = span
@@ -542,24 +542,126 @@ module Parser =
         Span = span
         InferredType = None }
 
+  let jsxElem, jsxElemRef = createParserForwardedToRef<JSXElement, unit> ()
+  let jsxFrag, jsxFragRef = createParserForwardedToRef<JSXFragment, unit> ()
+
+  let jsxExpr: Parser<JSXExprContainer, unit> =
+    withSpan (between (strWs "{") (strWs "}") expr)
+    |>> fun (expr, span) -> { Expr = expr; Span = span }
+
+  let jsxAttrValue: Parser<JSXAttrValue, unit> =
+    choice
+      [ string |>> JSXAttrValue.Str
+        jsxExpr |>> JSXAttrValue.JSXExprContainer
+        jsxElem |>> JSXAttrValue.JSXElement ]
+
+  let jsxAttr: Parser<JSXAttr, unit> =
+    pipe4 getPosition ident (opt (strWs "=" >>. jsxAttrValue)) getPosition
+    <| fun start name value stop ->
+      { Name = name
+        Value = value
+        Span = { Start = start; Stop = stop } }
+
+  // TODO: handle self-closing elements
+  let jsxElemOpen: Parser<JSXElementOpening, unit> =
+    pipe4
+      getPosition
+      (strWs "<" >>. qualifiedIdent)
+      (many (jsxAttr .>> ws) .>> strWs ">")
+      getPosition
+    <| fun start name attrs stop ->
+      { Name = name
+        Attrs = attrs
+        Span = { Start = start; Stop = stop } }
+
+  let jsxElemClose: Parser<JSXElementClosing, unit> =
+    pipe3 getPosition (strWs "</" >>. qualifiedIdent .>> strWs ">") getPosition
+    <| fun start name stop ->
+      { Name = name
+        Span = { Start = start; Stop = stop } }
+
+  let jsxText: Parser<JSXText, unit> =
+    pipe3 getPosition (many1Satisfy (fun c -> c <> '<' && c <> '{')) getPosition
+    <| fun start text stop ->
+      { Text = text
+        Span = { Start = start; Stop = stop } }
+
+  let jsxFragOpen: Parser<JSXFragmentOpening, unit> =
+    withSpan (strWs "<>") |>> fun (_, span) -> { Span = span }
+
+  let jsxFragClose: Parser<JSXFragmentClosing, unit> =
+    withSpan (strWs "</>") |>> fun (_, span) -> { Span = span }
+
+  let jsxElemChild: Parser<JSXElementChild, unit> =
+    choice
+      [ attempt (jsxFrag |>> JSXFragment)
+        attempt (jsxElem |>> JSXElement)
+        jsxExpr |>> JSXExprContainer
+        jsxText |>> JSXText ]
+
+  jsxFragRef.Value <-
+    pipe3 jsxFragOpen (many jsxElemChild) jsxFragClose
+    <| fun opening children closing ->
+      { Opening = opening
+        Children = children
+        Closing = closing }
+
+  let _jsxElement: Parser<JSXElement, unit> =
+    pipe3 jsxElemOpen (many jsxElemChild) (opt jsxElemClose)
+    <| fun opening children closing ->
+      { Opening = opening
+        Children = children
+        Closing = closing }
+
+  let selfClosingJSXElement: Parser<JSXElement, unit> =
+    pipe4
+      getPosition
+      (strWs "<" >>. qualifiedIdent)
+      (many (jsxAttr .>> ws) .>> strWs "/>")
+      getPosition
+    <| fun start name attrs stop ->
+      let opening =
+        { Name = name
+          Attrs = attrs
+          Span = { Start = start; Stop = stop } }
+
+      { Opening = opening
+        Children = []
+        Closing = None }
+
+  jsxElemRef.Value <- choice [ attempt selfClosingJSXElement; _jsxElement ]
+
+  let jsxElemExpr: Parser<Expr, unit> =
+    withSpan jsxElem
+    |>> fun (elem, span) ->
+      { Kind = ExprKind.JSXElement(elem)
+        Span = span
+        InferredType = None }
+
+  let jsxFragExpr: Parser<Expr, unit> =
+    withSpan jsxFrag
+    |>> fun (frag, span) ->
+      { Kind = ExprKind.JSXFragment(frag)
+        Span = span
+        InferredType = None }
+
   let atom =
     choice
       [ literalExpr
-        attempt funcExpr // conflicts with identExpr
-        attempt doExpr // conflicts with identExpr, e.g. 'double' starts with 'do'
-        attempt ifElse // conflicts with identExpr
-        attempt throwExpr // conflicts with identExpr
-        attempt tryExpr // conflicts with identExpr
-        attempt matchExpr // conflicts with identExpr
-        attempt classExpr // conflicts with identExpr
+        attempt funcExpr
+        attempt doExpr
+        attempt ifElse
+        attempt throwExpr
+        attempt tryExpr
+        attempt matchExpr
+        attempt classExpr
         tupleExpr
         objectExpr
         imTupleExpr
         imRecordExpr
         templateStringLiteral
-        // TODO: have a combinator that wraps `identExpr` and checks if the
-        // ident if `fn`, `do`, `if`, `throw`, `try`, match`, etc. and then
-        // continue parsing the appropriate expression
+        jsxFragExpr
+        jsxElemExpr
         identExpr ]
 
   let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)

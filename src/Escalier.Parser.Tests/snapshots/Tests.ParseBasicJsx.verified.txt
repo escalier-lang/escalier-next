@@ -1,0 +1,65 @@
+﻿input: 
+    let elem = <Foo bar={bar} baz="baz">Hello, {name}</Foo>;
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Pattern = { Kind = Ident { Name = "elem"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 2, Col: 9)
+                                         Stop = (Ln: 2, Col: 14) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     { Kind =
+                        JSXElement
+                          { Opening =
+                             { Name = Ident "Foo"
+                               Attrs =
+                                [{ Name = "bar"
+                                   Value =
+                                    Some
+                                      (JSXExprContainer
+                                         { Expr =
+                                            { Kind = Identifier "bar"
+                                              Span = { Start = (Ln: 2, Col: 26)
+                                                       Stop = (Ln: 2, Col: 29) }
+                                              InferredType = None }
+                                           Span = { Start = (Ln: 2, Col: 25)
+                                                    Stop = (Ln: 2, Col: 31) } })
+                                   Span = { Start = (Ln: 2, Col: 21)
+                                            Stop = (Ln: 2, Col: 31) } };
+                                 { Name = "baz"
+                                   Value = Some (Str (String "baz"))
+                                   Span = { Start = (Ln: 2, Col: 31)
+                                            Stop = (Ln: 2, Col: 40) } }]
+                               Span = { Start = (Ln: 2, Col: 16)
+                                        Stop = (Ln: 2, Col: 41) } }
+                            Children =
+                             [JSXText { Text = "Hello, "
+                                        Span = { Start = (Ln: 2, Col: 41)
+                                                 Stop = (Ln: 2, Col: 48) } };
+                              JSXExprContainer
+                                { Expr = { Kind = Identifier "name"
+                                           Span = { Start = (Ln: 2, Col: 49)
+                                                    Stop = (Ln: 2, Col: 53) }
+                                           InferredType = None }
+                                  Span = { Start = (Ln: 2, Col: 48)
+                                           Stop = (Ln: 2, Col: 54) } }]
+                            Closing =
+                             Some { Name = Ident "Foo"
+                                    Span = { Start = (Ln: 2, Col: 54)
+                                             Stop = (Ln: 2, Col: 60) } } }
+                       Span = { Start = (Ln: 2, Col: 16)
+                                Stop = (Ln: 2, Col: 60) }
+                       InferredType = None }
+                    Else = None }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } }] }

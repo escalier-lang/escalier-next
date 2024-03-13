@@ -254,7 +254,7 @@ module Parser =
         InferredType = None }
 
   let doExpr: Parser<Expr, unit> =
-    withSpan (strWs "do" >>. block)
+    withSpan (keyword "do" >>. block)
     |>> fun (body, span) ->
       { Kind = ExprKind.Do(body)
         Span = span
@@ -648,13 +648,13 @@ module Parser =
   let atom =
     choice
       [ literalExpr
-        funcExpr
-        doExpr
-        ifElse
-        throwExpr
-        tryExpr
-        matchExpr
-        classExpr
+        attempt funcExpr
+        attempt doExpr
+        attempt ifElse
+        attempt throwExpr
+        attempt tryExpr
+        attempt matchExpr
+        attempt classExpr
         tupleExpr
         objectExpr
         imTupleExpr

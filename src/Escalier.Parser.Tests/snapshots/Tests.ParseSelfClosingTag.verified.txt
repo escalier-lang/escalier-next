@@ -1,5 +1,5 @@
 ﻿input: 
-    let elem = <Foo bar={bar} baz="baz">Hello, {name}</Foo>;
+    let elem = <Foo bar={baz} />;
     
 output: Ok
   { Items =
@@ -26,37 +26,20 @@ output: Ok
                                     Some
                                       (JSXExprContainer
                                          { Expr =
-                                            { Kind = Identifier "bar"
+                                            { Kind = Identifier "baz"
                                               Span = { Start = (Ln: 2, Col: 26)
                                                        Stop = (Ln: 2, Col: 29) }
                                               InferredType = None }
                                            Span = { Start = (Ln: 2, Col: 25)
                                                     Stop = (Ln: 2, Col: 31) } })
                                    Span = { Start = (Ln: 2, Col: 21)
-                                            Stop = (Ln: 2, Col: 31) } };
-                                 { Name = "baz"
-                                   Value = Some (Str (String "baz"))
-                                   Span = { Start = (Ln: 2, Col: 31)
-                                            Stop = (Ln: 2, Col: 40) } }]
+                                            Stop = (Ln: 2, Col: 31) } }]
                                Span = { Start = (Ln: 2, Col: 16)
-                                        Stop = (Ln: 2, Col: 41) } }
-                            Children =
-                             [JSXText { Text = "Hello, "
-                                        Span = { Start = (Ln: 2, Col: 41)
-                                                 Stop = (Ln: 2, Col: 48) } };
-                              JSXExprContainer
-                                { Expr = { Kind = Identifier "name"
-                                           Span = { Start = (Ln: 2, Col: 49)
-                                                    Stop = (Ln: 2, Col: 53) }
-                                           InferredType = None }
-                                  Span = { Start = (Ln: 2, Col: 48)
-                                           Stop = (Ln: 2, Col: 54) } }]
-                            Closing =
-                             Some { Name = Ident "Foo"
-                                    Span = { Start = (Ln: 2, Col: 54)
-                                             Stop = (Ln: 2, Col: 60) } } }
+                                        Stop = (Ln: 2, Col: 33) } }
+                            Children = []
+                            Closing = None }
                        Span = { Start = (Ln: 2, Col: 16)
-                                Stop = (Ln: 2, Col: 60) }
+                                Stop = (Ln: 2, Col: 33) }
                        InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 2, Col: 5)

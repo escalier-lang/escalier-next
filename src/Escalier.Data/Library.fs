@@ -329,6 +329,7 @@ module Syntax =
       template: Common.TemplateLiteral<Expr> *
       throws: option<Type.Type>
     | JSXElement of JSXElement
+    | JSXFragment of JSXFragment
 
   [<CustomEquality; NoComparison>]
   type Expr =

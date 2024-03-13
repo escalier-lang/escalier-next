@@ -594,8 +594,8 @@ module Parser =
 
   let jsxElemChild: Parser<JSXElementChild, unit> =
     choice
-      [ attempt (jsxElem |>> JSXElement)
-        attempt (jsxFrag |>> JSXFragment)
+      [ attempt (jsxFrag |>> JSXFragment)
+        attempt (jsxElem |>> JSXElement)
         jsxExpr |>> JSXExprContainer
         jsxText |>> JSXText ]
 
@@ -606,17 +606,42 @@ module Parser =
         Children = children
         Closing = closing }
 
-  jsxElemRef.Value <-
+  let _jsxElement: Parser<JSXElement, unit> =
     pipe3 jsxElemOpen (many jsxElemChild) (opt jsxElemClose)
     <| fun opening children closing ->
       { Opening = opening
         Children = children
         Closing = closing }
 
+  let selfClosingJSXElement: Parser<JSXElement, unit> =
+    pipe4
+      getPosition
+      (strWs "<" >>. qualifiedIdent)
+      (many (jsxAttr .>> ws) .>> strWs "/>")
+      getPosition
+    <| fun start name attrs stop ->
+      let opening =
+        { Name = name
+          Attrs = attrs
+          Span = { Start = start; Stop = stop } }
+
+      { Opening = opening
+        Children = []
+        Closing = None }
+
+  jsxElemRef.Value <- choice [ attempt selfClosingJSXElement; _jsxElement ]
+
   let jsxElemExpr: Parser<Expr, unit> =
     withSpan jsxElem
     |>> fun (elem, span) ->
       { Kind = ExprKind.JSXElement(elem)
+        Span = span
+        InferredType = None }
+
+  let jsxFragExpr: Parser<Expr, unit> =
+    withSpan jsxFrag
+    |>> fun (frag, span) ->
+      { Kind = ExprKind.JSXFragment(frag)
         Span = span
         InferredType = None }
 
@@ -635,6 +660,7 @@ module Parser =
         imTupleExpr
         imRecordExpr
         templateStringLiteral
+        attempt jsxFragExpr
         jsxElemExpr
         // TODO: have a combinator that wraps `identExpr` and checks if the
         // ident if `fn`, `do`, `if`, `throw`, `try`, match`, etc. and then

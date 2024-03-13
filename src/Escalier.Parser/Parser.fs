@@ -648,23 +648,20 @@ module Parser =
   let atom =
     choice
       [ literalExpr
-        attempt funcExpr // conflicts with identExpr
-        attempt doExpr // conflicts with identExpr, e.g. 'double' starts with 'do'
-        attempt ifElse // conflicts with identExpr
-        attempt throwExpr // conflicts with identExpr
-        attempt tryExpr // conflicts with identExpr
-        attempt matchExpr // conflicts with identExpr
-        attempt classExpr // conflicts with identExpr
+        funcExpr
+        doExpr
+        ifElse
+        throwExpr
+        tryExpr
+        matchExpr
+        classExpr
         tupleExpr
         objectExpr
         imTupleExpr
         imRecordExpr
         templateStringLiteral
-        attempt jsxFragExpr
+        jsxFragExpr
         jsxElemExpr
-        // TODO: have a combinator that wraps `identExpr` and checks if the
-        // ident if `fn`, `do`, `if`, `throw`, `try`, match`, etc. and then
-        // continue parsing the appropriate expression
         identExpr ]
 
   let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)

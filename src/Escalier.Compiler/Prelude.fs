@@ -394,6 +394,8 @@ module Prelude =
       let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.proxy.d.ts"
       // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.reflect.d.ts"
 
+      let! env = inferLib ctx env "Escalier.Compiler.lib.dom.generated.d.ts"
+
       let mutable newEnv = env
 
       // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and

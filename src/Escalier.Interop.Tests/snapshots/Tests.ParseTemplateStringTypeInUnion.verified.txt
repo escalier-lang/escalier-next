@@ -1,0 +1,52 @@
+﻿input: 
+    type OptionalPostfixToken<T extends string> = ` ${T}` | "";
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = false
+              Id = { Name = "OptionalPostfixToken"
+                     Loc = None }
+              TypeParams =
+               Some
+                 { Params =
+                    [{ Name = { Name = "T"
+                                Loc = None }
+                       IsIn = false
+                       IsOut = false
+                       IsConst = false
+                       Constraint = Some (TsKeywordType { Kind = TsStringKeyword
+                                                          Loc = None })
+                       Default = None
+                       Loc = None }]
+                   Loc = None }
+              TypeAnn =
+               TsUnionOrIntersectionType
+                 (TsUnionType
+                    { Types =
+                       [TsLitType
+                          { Lit =
+                             Tpl
+                               { Types =
+                                  [TsTypeRef
+                                     { Loc = None
+                                       TypeName = Identifier { Name = "T"
+                                                               Loc = None }
+                                       TypeParams = None }]
+                                 Quasis = [{ Tail = false
+                                             Cooked = Some " "
+                                             Raw = " "
+                                             Loc = None }; { Tail = false
+                                                             Cooked = Some ""
+                                                             Raw = ""
+                                                             Loc = None }]
+                                 Loc = None }
+                            Loc = None }; TsLitType { Lit = Str { Value = ""
+                                                                  Raw = None
+                                                                  Loc = None }
+                                                      Loc = None }]
+                      Loc = None })
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

@@ -1,0 +1,45 @@
+﻿input: 
+    interface HashChangeEventInit extends EventInit {
+      newURL?: string;
+      oldURL?: string;
+    }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (TsInterface
+            { Id = { Name = "HashChangeEventInit"
+                     Loc = None }
+              Declare = false
+              TypeParams = None
+              Extends = Some [{ Expr = Ident { Name = "EventInit"
+                                               Loc = None }
+                                TypeArgs = None }]
+              Body =
+               { Body =
+                  [TsPropertySignature
+                     { Readonly = false
+                       Key = Ident { Name = "newURL"
+                                     Loc = None }
+                       Computed = false
+                       Optional = true
+                       TypeAnn =
+                        { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                    Loc = None }
+                          Loc = None }
+                       Loc = None };
+                   TsPropertySignature
+                     { Readonly = false
+                       Key = Ident { Name = "oldURL"
+                                     Loc = None }
+                       Computed = false
+                       Optional = true
+                       TypeAnn =
+                        { TypeAnn = TsKeywordType { Kind = TsStringKeyword
+                                                    Loc = None }
+                          Loc = None }
+                       Loc = None }]
+                 Loc = None }
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

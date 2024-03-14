@@ -255,6 +255,10 @@ module rec TypeVisitor =
       | TypeKind.UniqueNumber _ -> ()
       | TypeKind.UniqueSymbol _ -> ()
       | TypeKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
+      | TypeKind.Typeof _ -> ()
+      | kind ->
+        printfn "kind = %A" kind
+        failwith "TODO: walkType"
 
       f t
 

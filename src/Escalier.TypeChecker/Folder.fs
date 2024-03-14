@@ -116,6 +116,12 @@ module Folder =
         | TypeKind.Range { Min = min; Max = max } ->
           { Kind = TypeKind.Range { Min = fold min; Max = fold max }
             Provenance = None }
+        | TypeKind.TemplateLiteral { Exprs = exprs; Parts = parts } ->
+          { Kind =
+              TypeKind.TemplateLiteral
+                { Exprs = List.map fold exprs
+                  Parts = parts }
+            Provenance = None }
         | _ -> failwith $"TODO: foldType - {t.Kind}"
 
       match f t with

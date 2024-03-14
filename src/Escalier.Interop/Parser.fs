@@ -1,6 +1,7 @@
 namespace Escalier.Interop
 
 open FParsec
+open System.Text
 
 open Escalier.Data
 open Escalier.Interop.TypeScript
@@ -20,9 +21,13 @@ module Parser =
 
   let strWs s = pstring s .>> ws
 
+  let isIdentifierChar c = isLetter c || isDigit c || c = '_'
+
+  let keyword s =
+    pstring s .>> notFollowedBy (satisfy isIdentifierChar) .>> ws
+
   let ident: Parser<Ident, unit> =
     let isIdentifierFirstChar c = isLetter c || c = '_'
-    let isIdentifierChar c = isLetter c || isDigit c || c = '_'
 
     many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
     |>> fun name -> { Name = name; Loc = None }
@@ -187,7 +192,7 @@ module Parser =
   let constructorType: Parser<TsConstructorType, unit> =
     pipe4
       (opt (strWs "abstract"))
-      (strWs "new" >>. (opt typeParams))
+      (keyword "new" >>. (opt typeParams))
       tsFnParams
       (strWs "=>" >>. tsTypeAnn)
     <| fun abs type_params param_list return_type ->
@@ -269,7 +274,7 @@ module Parser =
 
   let constructorSigDecl: Parser<TsTypeElement, unit> =
     pipe3
-      (strWs "new" >>. (opt typeParams))
+      (keyword "new" >>. (opt typeParams))
       tsFnParams
       (opt (strWs ":" >>. tsTypeAnn))
     <| fun typeParams ps typeAnn ->
@@ -365,7 +370,7 @@ module Parser =
   let typeMember: Parser<TsTypeElement, unit> =
     choice
       [ callSigDecl
-        constructorSigDecl
+        attempt constructorSigDecl
         attempt indexSig // can conflict with propSig when parsing computed properties
         attempt propSig
         attempt getterSig
@@ -481,6 +486,69 @@ module Parser =
     choice [ num |>> TsLit.Number; str |>> TsLit.Str; bool ]
     |>> fun lit -> { Lit = lit; Loc = None }
 
+  let tmplLitType: Parser<TsType, unit> =
+    fun stream ->
+      let sb = StringBuilder()
+      let mutable parts: list<string> = []
+      let mutable exprs: list<TsType> = []
+      let mutable reply: voption<Reply<TsType>> = ValueNone
+
+      if stream.Peek() = '`' then
+        let start = stream.Position
+        stream.Skip() // '`'
+
+        while stream.Peek() <> '`' && reply = ValueNone do
+          if stream.PeekString(2) = "${" then
+            stream.Skip(2) // '${'
+            parts <- sb.ToString() :: parts
+            sb.Clear() |> ignore
+            let expr = tsType stream
+
+            if expr.Status = ReplyStatus.Ok then
+              if stream.Peek() = '}' then
+                stream.Skip()
+                exprs <- expr.Result :: exprs
+              else
+                reply <- ValueSome(Reply(Error, messageError "Expected '}'"))
+            else
+              reply <- ValueSome(expr)
+          else
+            sb.Append(stream.Read()) |> ignore
+
+        match reply with
+        | ValueNone ->
+          stream.Skip() // '`'
+          let stop = stream.Position
+          parts <- sb.ToString() :: parts
+
+          let quasis: list<TplElement> =
+            parts
+            |> List.map (fun value ->
+              { Tail = false // TODO
+                Cooked = Some value
+                Raw = value
+                Loc = None })
+
+          let lit: TsLit =
+            TsLit.Tpl
+              { Types = List.rev exprs
+                Quasis = List.rev quasis
+                Loc = None }
+
+          let result: TsType = TsType.TsLitType { Lit = lit; Loc = None }
+
+          Reply(result)
+        | ValueSome(value) -> value
+      else
+        Reply(Error, messageError "Expected '`'")
+
+  let typeof: Parser<TsTypeQuery, unit> =
+    pipe3 (keyword "typeof") entityName (opt typeArgs)
+    <| fun _ name typeArgs ->
+      { ExprName = TsTypeQueryExpr.TsEntityName name
+        TypeArgs = typeArgs
+        Loc = None }
+
   let primaryType =
     choice
       [ keywordType |>> TsType.TsKeywordType
@@ -505,7 +573,11 @@ module Parser =
         // typePredicate conflicts with both typeRef and thisType
         attempt (typePredicate |>> TsType.TsTypePredicate)
         thisType |>> TsType.TsThisType
-        typeRef |>> TsType.TsTypeRef ]
+        typeof |>> TsType.TsTypeQuery
+
+        typeRef |>> TsType.TsTypeRef
+
+        tmplLitType .>> ws ]
 
   let arrayTypeSuffix: Parser<TsType -> TsType, unit> =
     (strWs "[" >>. strWs "]")

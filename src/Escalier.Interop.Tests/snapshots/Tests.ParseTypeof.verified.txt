@@ -1,0 +1,24 @@
+﻿input: declare var SVGMatrix: typeof DOMMatrix;
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id = Ident { Id = { Name = "SVGMatrix"
+                                      Loc = None }
+                               Loc = None }
+                  TypeAnn =
+                   Some
+                     { TypeAnn =
+                        TsTypeQuery
+                          { ExprName =
+                             TsEntityName (Identifier { Name = "DOMMatrix"
+                                                        Loc = None })
+                            TypeArgs = None
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Var }))]
+  Shebang = None
+  Loc = None }

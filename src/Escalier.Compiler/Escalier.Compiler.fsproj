@@ -39,4 +39,8 @@
         <EmbeddedResource Include="lib\es2015.symbol.wellknown.d.ts"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="lib\dom.generated.d.ts"/>
+    </ItemGroup>
+
 </Project>

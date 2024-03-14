@@ -185,6 +185,42 @@ let ParseInterfaceWithComputedPropertyAndComputedMethod () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseDomInterface () =
+  let input =
+    """
+    interface HashChangeEventInit extends EventInit {
+      newURL?: string;
+      oldURL?: string;
+    }
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTypeof () =
+  let input = "declare var SVGMatrix: typeof DOMMatrix;"
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTemplateStringTypeInUnion () =
+  let input =
+    """
+    type OptionalPostfixToken<T extends string> = ` ${T}` | "";
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseMappedType () =
   let input =
     """

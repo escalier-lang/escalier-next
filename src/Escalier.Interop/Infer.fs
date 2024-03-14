@@ -25,11 +25,11 @@ module rec Infer =
       Provenance = None }
 
   // TODO: replace this with a function that outputs a QualifiedIdent
-  let rec printTsEntityName (name: TsEntityName) : string =
+  let rec printTsEntityName (name: TsEntityName) : QualifiedIdent =
     match name with
-    | TsEntityName.Identifier id -> id.Name
+    | TsEntityName.Identifier id -> QualifiedIdent.Ident id.Name
     | TsEntityName.TsQualifiedName { Left = left; Right = right } ->
-      sprintf "%s.%s" (printTsEntityName left) right.Name
+      QualifiedIdent.Member(printTsEntityName left, right.Name)
 
   let inferFnParam (ctx: Ctx) (env: Env) (param: TsFnParam) : FuncParam =
     let typeAnn =
@@ -369,14 +369,18 @@ module rec Infer =
             typeParams |> List.map (fun t -> inferTsType ctx env t))
 
         let kind =
-          { Name = QualifiedIdent.Ident(printTsEntityName tsTypeRef.TypeName)
+          { Name = printTsEntityName tsTypeRef.TypeName
             TypeArgs = typeArgs
             Scheme = None }
           |> TypeKind.TypeRef
 
         kind
-      | TsType.TsTypeQuery tsTypeQuery ->
-        failwith "TODO: inferTsType - TsTypeQuery"
+      | TsType.TsTypeQuery { ExprName = exprName; TypeArgs = _ } ->
+        match exprName with
+        | TsEntityName tsEntityName ->
+          // TODO: update TypeKind.Typeof to support type args
+          TypeKind.Typeof(printTsEntityName tsEntityName)
+        | Import _ -> failwith "TODO: typeof import"
       | TsType.TsTypeLit tsTypeLit ->
         let elems = tsTypeLit.Members |> List.map (inferTypeElement ctx env)
         TypeKind.Object { Elems = elems; Immutable = false }
@@ -468,14 +472,14 @@ module rec Infer =
 
         TypeKind.Object { Elems = [ elem ]; Immutable = false }
       | TsType.TsLitType tsLitType ->
-        let lit =
-          match tsLitType.Lit with
-          | Number num -> Literal.Number num.Value
-          | Str str -> Literal.String str.Value
-          | Bool bool -> Literal.Boolean bool.Value
-          | Tpl tsTplLitType -> failwith "TODO: inferTsType - TsTplLitType"
-
-        TypeKind.Literal lit
+        match tsLitType.Lit with
+        | Number num -> Literal.Number num.Value |> TypeKind.Literal
+        | Str str -> Literal.String str.Value |> TypeKind.Literal
+        | Bool bool -> Literal.Boolean bool.Value |> TypeKind.Literal
+        | Tpl { Types = types; Quasis = quasis } ->
+          let exprs = List.map (inferTsType ctx env) types
+          let parts: list<string> = List.map (_.Raw) quasis
+          TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }
       | TsType.TsTypePredicate tsTypePredicate ->
         // TODO: add proper support for type predicates
         boolType.Kind
@@ -722,7 +726,11 @@ module rec Infer =
                 match decl with
                 | Decl.Class _classDecl ->
                   failwith "TODO: inferDecl - classDecl"
-                | Decl.Fn _fnDecl -> failwith "TODO: inferDecl - fnDecl"
+                | Decl.Fn fnDecl ->
+                  let t = inferFunction ctx env fnDecl.Fn
+                  let name = fnDecl.Id.Name
+                  let isMut = false
+                  newEnv <- env.AddValue name (t, isMut)
                 | Decl.Var { Decls = decls } ->
                   for decl in decls do
                     let names = findBindingNames decl.Id
@@ -735,8 +743,17 @@ module rec Infer =
                 | Decl.TsInterface { Id = ident } ->
                   let! scheme = nsEnv.GetScheme(QualifiedIdent.Ident ident.Name)
                   ns <- ns.AddScheme ident.Name scheme
-                | Decl.TsTypeAlias _tsTypeAliasDecl ->
-                  failwith "TODO: inferModuleBlock - TsTypeAlias"
+                | Decl.TsTypeAlias decl ->
+                  let typeParams = None
+                  let t = inferTsType ctx env decl.TypeAnn
+
+                  let scheme =
+                    { TypeParams = typeParams
+                      Type = t
+                      IsTypeParam = false }
+
+                  // TODO: if decl.Global is true, add to the global env
+                  newEnv <- env.AddScheme decl.Id.Name scheme
                 | Decl.TsEnum _tsEnumDecl ->
                   failwith "TODO: inferModuleBlock - TsEnum"
                 | Decl.TsModule _tsModuleDecl ->

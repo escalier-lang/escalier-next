@@ -849,6 +849,7 @@ module Type =
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
     | KeyOf of Type
+    | Typeof of Common.QualifiedIdent
     | Index of target: Type * index: Type
     | Condition of Condition
     | Infer of name: string

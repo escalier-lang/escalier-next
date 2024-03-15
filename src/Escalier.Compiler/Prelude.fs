@@ -4,7 +4,6 @@ open FParsec.Error
 open FsToolkit.ErrorHandling
 open System.IO
 open System.IO.Abstractions
-open System.Reflection
 
 open Escalier.Data
 open Escalier.Data.Common
@@ -343,16 +342,14 @@ module Prelude =
   let private inferLib
     (ctx: Ctx)
     (env: Env)
-    (libName: string)
+    (rootDir: string)
+    (libPath: string)
     : Result<Env, CompileError> =
 
     result {
-      let assembly = Assembly.GetExecutingAssembly()
-
-      let stream = assembly.GetManifestResourceStream(libName)
-
-      let reader = new StreamReader(stream)
-      let input = reader.ReadToEnd()
+      let nodeModulesDir = Path.Combine(rootDir, "node_modules")
+      let fullPath = Path.Combine(nodeModulesDir, libPath)
+      let input = File.ReadAllText(fullPath)
 
       let! ast =
         match Parser.parseModule input with
@@ -366,6 +363,19 @@ module Prelude =
       return env
     }
 
+  let rec findNearestAncestorWithNodeModules (currentDir: string) =
+    let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+
+    if Directory.Exists(nodeModulesDir) then
+      currentDir
+    else
+      let parentDir = Directory.GetParent(currentDir)
+
+      match parentDir with
+      | null ->
+        failwith "node_modules directory not found in any ancestor directory."
+      | _ -> findNearestAncestorWithNodeModules parentDir.FullName
+
   // TODO: add memoization
   // This is hard to memoize without reusing the filesystem
   let getEnvAndCtxWithES5
@@ -373,28 +383,40 @@ module Prelude =
     (baseDir: string)
     : Result<Ctx * Env, CompileError> =
 
+    let dir = Directory.GetCurrentDirectory()
+    let rootDir = findNearestAncestorWithNodeModules dir
+
     result {
       let env = getGlobalEnvMemoized ()
       let! ctx = getCtx filesystem baseDir env
 
-      let! env = inferLib ctx env "Escalier.Compiler.lib.lib.es5.d.ts"
-      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.core.d.ts"
+      let! env = inferLib ctx env rootDir "typescript/lib/lib.es5.d.ts"
+
+      let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.core.d.ts"
       // NOTE: lib.es5.symbol.d.ts and lib.es5.symbol.wellknown.d.ts must be
       // inferred before other .d.ts files since they define `Symbol` which is
       // used by the other .d.ts files.
-      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.symbol.d.ts"
+      let! env =
+        inferLib ctx env rootDir "typescript/lib/lib.es2015.symbol.d.ts"
 
       let! env =
-        inferLib ctx env "Escalier.Compiler.lib.es2015.symbol.wellknown.d.ts"
+        inferLib
+          ctx
+          env
+          rootDir
+          "typescript/lib/lib.es2015.symbol.wellknown.d.ts"
 
-      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.iterable.d.ts"
-      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.generator.d.ts"
+      let! env =
+        inferLib ctx env rootDir "typescript/lib/lib.es2015.iterable.d.ts"
+
+      let! env =
+        inferLib ctx env rootDir "typescript/lib/lib.es2015.generator.d.ts"
       // TODO: modify Promise types to include type param for rejections
-      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.promise.d.ts"
-      let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.proxy.d.ts"
-      // let! env = inferLib ctx env "Escalier.Compiler.lib.es2015.reflect.d.ts"
+      // let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.promise.d.ts"
+      let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.proxy.d.ts"
+      // let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.reflect.d.ts"
 
-      let! env = inferLib ctx env "Escalier.Compiler.lib.dom.generated.d.ts"
+      let! env = inferLib ctx env rootDir "typescript/lib/lib.dom.d.ts"
 
       let mutable newEnv = env
 

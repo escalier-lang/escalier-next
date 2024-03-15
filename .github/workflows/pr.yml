@@ -15,6 +15,13 @@ jobs:
           dotnet-version: "8.x"
       - name: Install tools
         run: dotnet tool restore
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
       - name: Build
         run: dotnet build
       - name: Test

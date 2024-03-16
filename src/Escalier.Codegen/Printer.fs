@@ -43,6 +43,8 @@ module rec Printer =
     | Lit.Null _ -> "null"
     | Lit.JSXText jsxText -> failwith "todo"
 
+  let printIdent (ident: Ident) : string = ident.Name
+
   let rec printExpr (ctx: PrintCtx) (e: TypeScript.Expr) : string =
 
     match e with
@@ -498,7 +500,38 @@ module rec Printer =
 
   let printModuleDecl (ctx: PrintCtx) (decl: ModuleDecl) : string =
     match decl with
-    | ModuleDecl.Import importDecl -> failwith "TODO: printModuleDecl - Import"
+    | ModuleDecl.Import importDecl ->
+      let mutable hasNamedSpecifiers = false
+
+      let specifiers =
+        importDecl.Specifiers
+        |> List.map (fun spec ->
+          match spec with
+          | ImportSpecifier.Named { Local = local; Imported = imported } ->
+            hasNamedSpecifiers <- true
+            let local = printIdent local
+
+            match imported with
+            | None -> $"{local}"
+            | Some imported ->
+              let imported =
+                match imported with
+                | ModuleExportName.Ident ident -> printIdent ident
+                | ModuleExportName.Str str -> str.Value
+
+              $"{imported} as {local}"
+          | ImportSpecifier.Default importDefaultSpecifier ->
+            failwith "todo - default import"
+          | ImportSpecifier.Namespace { Local = local } ->
+            let local = printIdent local
+            $"* as {local}")
+        |> String.concat ", "
+
+      let source = importDecl.Src.Value
+
+      match hasNamedSpecifiers with
+      | true -> $"import {{{specifiers}}} from \"{source}\""
+      | false -> $"import {specifiers} from \"{source}\""
     | ModuleDecl.ExportDecl { Decl = decl; Loc = loc } ->
       $"export {printDecl ctx decl}"
     | ModuleDecl.ExportNamed namedExport ->

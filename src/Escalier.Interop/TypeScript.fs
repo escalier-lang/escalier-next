@@ -332,7 +332,7 @@ module rec TypeScript =
     { Specifiers: list<ImportSpecifier>
       Src: Str
       IsTypeOnly: bool
-      With: Option<ObjectLit>
+      With: option<ObjectLit>
       Loc: option<SourceLocation> }
 
   type ImportSpecifier =
@@ -342,7 +342,7 @@ module rec TypeScript =
 
   type ImportNamedSpecifier =
     { Local: Ident
-      Imported: Option<ModuleExportName>
+      Imported: option<ModuleExportName>
       IsTypeOnly: bool
       Loc: option<SourceLocation> }
 
@@ -494,6 +494,7 @@ module rec TypeScript =
     | Get
     | Set
 
+  // TODO: add support for shorthand properties and spread properties
   type Property =
     { Key: PropertyKey
       Value: Expr

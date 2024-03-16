@@ -23,8 +23,6 @@ type Output =
     dts: string option }
 
 let projectRoot = __SOURCE_DIRECTORY__
-// TODO: iterate over all subdirectories of `fixtures` instead of hardcoding basics
-let fixtureDir = Path.Combine("fixtures", "basics")
 
 let fixturePaths: obj[] seq =
   Directory.GetDirectories(Path.Join(projectRoot, "fixtures"))

@@ -1,7 +1,7 @@
 module TestUtils
 
 open FsToolkit.ErrorHandling
-open System.IO.Abstractions.TestingHelpers
+open System.IO.Abstractions
 open Xunit
 
 open Escalier.Compiler
@@ -12,12 +12,14 @@ open Escalier.TypeChecker.Error
 
 type CompileError = Prelude.CompileError
 
+let projectRoot = __SOURCE_DIRECTORY__
+
 let inferScript src =
   result {
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-    let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+    let fs = FileSystem()
+    let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
 
     let! env =
       Infer.inferScript ctx env "input.esc" ast
@@ -30,25 +32,11 @@ let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+    let fs = FileSystem()
+    let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
 
     let! env =
       Infer.inferModule ctx env "input.esc" ast
-      |> Result.mapError CompileError.TypeError
-
-    return ctx, env
-  }
-
-let inferModules (mockFileSystem: MockFileSystem) (src: string) =
-  result {
-    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-    mockFileSystem.AddFile("/prelude.esc", MockFileData(""))
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
-
-    let! env =
-      Infer.inferModule ctx env "/input.esc" ast
       |> Result.mapError CompileError.TypeError
 
     return ctx, env

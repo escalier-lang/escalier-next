@@ -2,7 +2,7 @@ module Tests
 
 open FParsec
 open FsToolkit.ErrorHandling
-open System.IO.Abstractions.TestingHelpers
+open System.IO.Abstractions
 open Xunit
 
 open Escalier.Compiler
@@ -23,8 +23,9 @@ let infer src =
       | Failure(_s, parserError, _unit) ->
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-    let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+    let fs = FileSystem()
+    let projectRoot = __SOURCE_DIRECTORY__
+    let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
 
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 

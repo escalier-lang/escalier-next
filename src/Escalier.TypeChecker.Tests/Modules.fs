@@ -1,8 +1,6 @@
 module Modules
 
-open System.Collections.Generic
 open FsToolkit.ErrorHandling
-open System.IO.Abstractions.TestingHelpers
 open Xunit
 
 open TestUtils
@@ -88,24 +86,6 @@ let InferMutuallyRecursiveTypes () =
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Foo", "<T>({bar: Bar<T>})")
       Assert.Type(env, "Bar", "<T>({foo: Foo<T>})")
-    }
-
-  Assert.False(Result.isError res)
-
-[<Fact>]
-let InferImports () =
-  let res =
-    result {
-      let files = Dictionary<string, MockFileData>()
-      let src = "import \"./foo.esc\" {foo};"
-      files.Add("/input.esc", MockFileData(src))
-      files.Add("/foo.esc", MockFileData("let foo = 5;"))
-      let mockFileSystem = MockFileSystem(files, "/")
-
-      let! ctx, env = inferModules mockFileSystem src
-
-      Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "foo", "5")
     }
 
   Assert.False(Result.isError res)

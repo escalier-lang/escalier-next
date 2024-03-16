@@ -4,7 +4,7 @@ open Elmish
 open FsToolkit.ErrorHandling
 open Bolero
 open Bolero.Html
-open System.IO.Abstractions.TestingHelpers
+open System.IO.Abstractions
 
 open Escalier.Compiler
 open Escalier.TypeChecker
@@ -36,8 +36,9 @@ let compile (src: string) : Result<CompilerOutput, CompileError> =
     let js =
       block.Body |> List.map (Printer.printStmt printCtx) |> String.concat "\n"
 
-    let mockFileSystem = MockFileSystem()
-    let! tcCtx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+    let fs = FileSystem()
+    let projectRoot = __SOURCE_DIRECTORY__
+    let! tcCtx, env = Prelude.getEnvAndCtx fs projectRoot
 
     let! env =
       Infer.inferScript tcCtx env "input.esc" ast

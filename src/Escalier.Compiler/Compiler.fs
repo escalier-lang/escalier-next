@@ -2,7 +2,6 @@
 
 open FsToolkit.ErrorHandling
 open System.IO
-open System.IO.Abstractions
 
 open Escalier.Codegen
 open Escalier.Parser
@@ -46,21 +45,15 @@ module Compiler =
   /// <summary>
   /// Compiles the source code located at the specified base directory.
   /// </summary>
-  /// <param name="filesystem">The filesystem to use.</param>
   /// <param name="textwriter">The text writer to use for diagnostics.</param>
   /// <param name="baseDir">The base directory where the source code is located.</param>
   /// <param name="srcFile">The name of the source code file.</param>
   /// <returns>The compiled code.</returns>
-  let compileFile
-    (filesystem: IFileSystem)
-    (textwriter: TextWriter)
-    (baseDir: string)
-    (srcFile: string)
-    =
+  let compileFile (textwriter: TextWriter) (baseDir: string) (srcFile: string) =
     result {
       let filename = srcFile
-      let contents = filesystem.File.ReadAllText filename
-      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir
+      let contents = File.ReadAllText filename
+      let! ctx, env = Prelude.getEnvAndCtx baseDir
 
       let! ast =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError
@@ -84,23 +77,21 @@ module Compiler =
         |> String.concat "\n"
 
       let outJsName = Path.ChangeExtension(filename, ".js")
-      filesystem.File.WriteAllText(outJsName, js)
+      File.WriteAllText(outJsName, js)
 
       let outDtsName = Path.ChangeExtension(filename, ".d.ts")
-      filesystem.File.WriteAllText(outDtsName, dts)
+      File.WriteAllText(outDtsName, dts)
 
       return ()
     }
 
   let compileFiles
-    (filesystem: IFileSystem)
-    (textwriter: TextWriter)
     (baseDir: string) // e.g. src/ or fixtures/basics/test1/
     (entry: string)
     =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir
-      let contents = filesystem.File.ReadAllText(entry)
+      let! ctx, env = Prelude.getEnvAndCtx baseDir
+      let contents = File.ReadAllText(entry)
 
       let! m =
         Parser.parseScript contents |> Result.mapError CompileError.ParseError

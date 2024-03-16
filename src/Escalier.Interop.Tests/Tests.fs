@@ -1,7 +1,6 @@
 [<VerifyXunit.UsesVerify>]
 module Tests
 
-open System.IO.Abstractions
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
 open System.IO
@@ -35,9 +34,8 @@ let inferScript src =
     printfn $"projectRoot = {projectRoot}"
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-    let filesystem = FileSystem()
     let filename = Path.Combine(projectRoot, "input.src")
-    let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem projectRoot
+    let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
 
     let! env =
       Infer.inferScript ctx env filename ast
@@ -303,8 +301,7 @@ let InferBasicVarDecls () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let filesystem = FileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx filesystem projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -339,8 +336,7 @@ let InferTypeDecls () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let filesystem = FileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx filesystem projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -358,8 +354,7 @@ let InferTypeDecls () =
 let InferLibES5 () =
   let result =
     result {
-      let filesystem = FileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem "/"
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
       // let! newEnv = prelude.loadTypeDefinitions ctx env
 
       // printfn "---- Schemes ----"
@@ -381,8 +376,7 @@ let InferLibES5 () =
 let InferArrayPrototype () =
   let result =
     result {
-      let filesystem = FileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem projectRoot
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
 
       let scheme = Map.find "Array" env.Schemes
       // printfn $"Array = {scheme}"
@@ -399,8 +393,7 @@ let InferArrayPrototype () =
 let InferInt8ArrayPrototype () =
   let result =
     result {
-      let filesystem = FileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem projectRoot
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
 
       let scheme = Map.find "Int8Array" env.Schemes
 

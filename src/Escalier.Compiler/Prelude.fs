@@ -4,7 +4,6 @@ open FParsec.Error
 open FsToolkit.ErrorHandling
 open System
 open System.IO
-open System.IO.Abstractions
 
 open Escalier.Data
 open Escalier.Data.Common
@@ -270,7 +269,6 @@ module Prelude =
       env
 
   let getCtx
-    (filesystem: IFileSystem)
     (projectRoot: string)
     (globalEnv: Env)
     : Result<Ctx, CompileError> =
@@ -285,7 +283,7 @@ module Prelude =
                 ".esc"
               )
 
-            let contents = filesystem.File.ReadAllText(resolvedImportPath)
+            let contents = File.ReadAllText(resolvedImportPath)
 
             let m =
               match Parser.parseScript contents with
@@ -329,14 +327,11 @@ module Prelude =
 
   // TODO: add memoization
   // This is hard to memoize without reusing the filesystem
-  let getEnvAndCtx
-    (filesystem: IFileSystem)
-    (baseDir: string)
-    : Result<Ctx * Env, CompileError> =
+  let getEnvAndCtx (baseDir: string) : Result<Ctx * Env, CompileError> =
 
     result {
       let env = getGlobalEnvMemoized ()
-      let! ctx = getCtx filesystem baseDir env
+      let! ctx = getCtx baseDir env
 
       return ctx, env
     }
@@ -380,10 +375,7 @@ module Prelude =
 
   // TODO: add memoization
   // This is hard to memoize without reusing the filesystem
-  let getEnvAndCtxWithES5
-    (filesystem: IFileSystem)
-    (baseDir: string)
-    : Result<Ctx * Env, CompileError> =
+  let getEnvAndCtxWithES5 (baseDir: string) : Result<Ctx * Env, CompileError> =
 
     let dir = Directory.GetCurrentDirectory()
     let rootDir = findNearestAncestorWithNodeModules dir
@@ -391,7 +383,7 @@ module Prelude =
 
     result {
       let env = getGlobalEnvMemoized ()
-      let! ctx = getCtx filesystem baseDir env
+      let! ctx = getCtx baseDir env
 
       let! env = inferLib ctx env rootDir "typescript/lib/lib.es5.d.ts"
 

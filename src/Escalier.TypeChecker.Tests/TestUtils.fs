@@ -1,7 +1,6 @@
 module TestUtils
 
 open FsToolkit.ErrorHandling
-open System.IO.Abstractions
 open Xunit
 
 open Escalier.Compiler
@@ -18,8 +17,7 @@ let inferScript src =
   result {
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-    let fs = FileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
       Infer.inferScript ctx env "input.esc" ast
@@ -32,8 +30,7 @@ let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let fs = FileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
       Infer.inferModule ctx env "input.esc" ast

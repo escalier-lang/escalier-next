@@ -13,7 +13,6 @@
         <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.*"/>
         <PackageReference Include="System.Net.Http.Json" Version="7.0.*"/>
-        <PackageReference Include="TestableIO.System.IO.Abstractions.TestingHelpers" Version="20.0.4"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Codegen\Escalier.Codegen.fsproj"/>

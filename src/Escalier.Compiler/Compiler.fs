@@ -58,7 +58,7 @@ module Compiler =
     (srcFile: string)
     =
     result {
-      let filename = Path.GetFullPath(Path.Join(baseDir, srcFile))
+      let filename = srcFile
       let contents = filesystem.File.ReadAllText filename
       let! ctx, env = Prelude.getEnvAndCtx filesystem baseDir
 

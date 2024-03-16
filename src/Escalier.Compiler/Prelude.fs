@@ -2,6 +2,7 @@ namespace Escalier.Compiler
 
 open FParsec.Error
 open FsToolkit.ErrorHandling
+open System
 open System.IO
 open System.IO.Abstractions
 
@@ -30,12 +31,12 @@ module Prelude =
       | TypeError err -> $"TypeError: {err}"
 
   let private resolvePath
-    (baseDir: string)
+    (projectRoot: string)
     (currentPath: string)
     (importPath: string)
     : string =
     if importPath.StartsWith "~" then
-      Path.GetFullPath(Path.Join(baseDir, importPath.Substring(1)))
+      Path.GetFullPath(Path.Join(projectRoot, importPath.Substring(1)))
     else if importPath.StartsWith "." then
       Path.GetFullPath(
         Path.Join(Path.GetDirectoryName(currentPath), importPath)
@@ -270,7 +271,7 @@ module Prelude =
 
   let getCtx
     (filesystem: IFileSystem)
-    (baseDir: string)
+    (projectRoot: string)
     (globalEnv: Env)
     : Result<Ctx, CompileError> =
 
@@ -280,7 +281,7 @@ module Prelude =
           (fun ctx filename import ->
             let resolvedImportPath =
               Path.ChangeExtension(
-                resolvePath baseDir filename import.Path,
+                resolvePath projectRoot filename import.Path,
                 ".esc"
               )
 
@@ -319,7 +320,8 @@ module Prelude =
               | _ -> ()
 
             newEnv),
-          (fun ctx filename import -> resolvePath baseDir filename import.Path)
+          (fun ctx filename import ->
+            resolvePath projectRoot filename import.Path)
         )
 
       return ctx
@@ -385,6 +387,7 @@ module Prelude =
 
     let dir = Directory.GetCurrentDirectory()
     let rootDir = findNearestAncestorWithNodeModules dir
+    let cwd = Environment.CurrentDirectory
 
     result {
       let env = getGlobalEnvMemoized ()

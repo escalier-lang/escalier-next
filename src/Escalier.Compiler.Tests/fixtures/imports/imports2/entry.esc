@@ -1,5 +1,5 @@
-import "~/imports2/math" as math;
-import "./point" as point;
+import "~/math/math" as math;
+import "./point/point" as point;
 
 let p = point.makePoint(5, 10);
 let q: point.Point = {x: 20, y: 30};

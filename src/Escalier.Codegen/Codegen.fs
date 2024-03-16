@@ -194,6 +194,67 @@ module rec Codegen =
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
+    | ExprKind.Member(target, name, opt_chain) ->
+
+      // TODO: support outputting optional chaining
+      let object, objStmts = buildExpr ctx target
+      let property = Expr.Ident { Name = name; Loc = None }
+
+      let expr =
+        Expr.Member
+          { Object = object
+            Property = property
+            Computed = false
+            Loc = None }
+
+      let stmts = objStmts
+
+      (expr, stmts)
+    | ExprKind.Object { Elems = elems; Immutable = immutable } ->
+      let mutable stmts: list<TS.Stmt> = []
+
+      let properties: list<TS.Property> =
+        elems
+        |> List.map (fun elem ->
+          match elem with
+          | ObjElem.Property(span, name, value) ->
+            let (value, valueStmts) = buildExpr ctx value
+            stmts <- stmts @ valueStmts
+
+            let key =
+              match name with
+              | Syntax.PropName.Ident name ->
+                PropertyKey.Ident { Name = name; Loc = None }
+              | Syntax.PropName.String value ->
+                PropertyKey.Lit(
+                  Lit.Str
+                    { Value = value
+                      Raw = None
+                      Loc = None }
+                )
+              | Syntax.PropName.Number value ->
+                PropertyKey.Lit(
+                  Lit.Num
+                    { Value = value
+                      Raw = None
+                      Loc = None }
+                )
+              | Syntax.PropName.Computed expr ->
+                failwith "TODO: Computed property names"
+
+            { Key = key
+              Value = value
+              Kind = PropertyKind.Init
+              Loc = None }
+          | ObjElem.Shorthand(span, name) ->
+            failwith "TODO - ObjElem.Shorthand"
+          | ObjElem.Spread(span, value) -> failwith "TODO - ObjElem.Spread")
+
+      let obj: TS.ObjectLit = { Properties = properties; Loc = None }
+
+      let expr = Expr.Object obj
+
+      (expr, [])
     | _ -> failwith (sprintf "TODO: buildExpr - %A" expr)
 
   let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
@@ -278,7 +339,46 @@ module rec Codegen =
 
     for item in m.Items do
       match item with
-      | ScriptItem.Import _ -> failwith "TODO: buildModuleTypes - Import"
+      | ScriptItem.Import { Path = path; Specifiers = specifiers } ->
+        let specifiers =
+          specifiers
+          |> List.map (fun spec ->
+
+            match spec with
+            | ImportSpecifier.Named(name, alias) ->
+              match alias with
+              | None ->
+                let local: TS.Ident = { Name = name; Loc = None }
+
+                TS.ImportSpecifier.Named
+                  { Local = local
+                    Imported = None
+                    IsTypeOnly = false
+                    Loc = None }
+              | Some value ->
+                let local: TS.Ident = { Name = value; Loc = None }
+                let imported: TS.Ident = { Name = name; Loc = None }
+
+                TS.ImportSpecifier.Named
+                  { Local = local
+                    Imported = Some(ModuleExportName.Ident imported)
+                    IsTypeOnly = false
+                    Loc = None }
+
+            | ImportSpecifier.ModuleAlias(alias) ->
+              let local: TS.Ident = { Name = alias; Loc = None }
+              TS.ImportSpecifier.Namespace { Local = local; Loc = None })
+
+        let decl =
+          ModuleDecl.Import
+            { Specifiers = specifiers
+              Src = { Value = path; Raw = None; Loc = None }
+              IsTypeOnly = false
+              With = None
+              Loc = None }
+
+        let item = ModuleItem.ModuleDecl(decl)
+        items <- item :: items
       | Stmt stmt ->
         match stmt.Kind with
         | StmtKind.Decl decl ->

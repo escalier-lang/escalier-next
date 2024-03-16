@@ -1,5 +1,5 @@
-import "~/imports1/math" {add};
-import "./point" {makePoint, Point};
+import "~/math/math" {add};
+import "./point/point" {makePoint, Point};
 
 let p = makePoint(5, 10);
 let q: Point = {x: 20, y: 30};

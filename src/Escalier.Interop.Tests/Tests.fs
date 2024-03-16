@@ -1,9 +1,10 @@
 [<VerifyXunit.UsesVerify>]
 module Tests
 
+open System.IO.Abstractions
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
-open System.IO.Abstractions.TestingHelpers
+open System.IO
 open VerifyTests
 open VerifyXunit
 open Xunit
@@ -27,15 +28,19 @@ type Assert with
 
 type CompileError = Prelude.CompileError
 
+let projectRoot = __SOURCE_DIRECTORY__
+
 let inferScript src =
   result {
+    printfn $"projectRoot = {projectRoot}"
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-    let mockFileSystem = MockFileSystem()
-    let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+    let filesystem = FileSystem()
+    let filename = Path.Combine(projectRoot, "input.src")
+    let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem projectRoot
 
     let! env =
-      Infer.inferScript ctx env "input.esc" ast
+      Infer.inferScript ctx env filename ast
       |> Result.mapError CompileError.TypeError
 
     return ctx, env
@@ -298,8 +303,8 @@ let InferBasicVarDecls () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+      let filesystem = FileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx filesystem projectRoot
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -334,8 +339,8 @@ let InferTypeDecls () =
         | Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtx mockFileSystem "/"
+      let filesystem = FileSystem()
+      let! ctx, env = Prelude.getEnvAndCtx filesystem projectRoot
 
       let! newEnv =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
@@ -353,8 +358,8 @@ let InferTypeDecls () =
 let InferLibES5 () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+      let filesystem = FileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem "/"
       // let! newEnv = prelude.loadTypeDefinitions ctx env
 
       // printfn "---- Schemes ----"
@@ -376,8 +381,8 @@ let InferLibES5 () =
 let InferArrayPrototype () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+      let filesystem = FileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem projectRoot
 
       let scheme = Map.find "Array" env.Schemes
       // printfn $"Array = {scheme}"
@@ -394,8 +399,8 @@ let InferArrayPrototype () =
 let InferInt8ArrayPrototype () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
+      let filesystem = FileSystem()
+      let! ctx, env = Prelude.getEnvAndCtxWithES5 filesystem projectRoot
 
       let scheme = Map.find "Int8Array" env.Schemes
 
@@ -410,9 +415,6 @@ let InferInt8ArrayPrototype () =
 let CanCallMutableMethodsOnMutableArray () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let mut a: number[] = [3, 2, 1];
@@ -420,12 +422,7 @@ let CanCallMutableMethodsOnMutableArray () =
         let b = a.map(fn (x) => x * 2);
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       Assert.Value(env, "b", "number[]")
     }
@@ -436,9 +433,6 @@ let CanCallMutableMethodsOnMutableArray () =
 let CanIndexOnArrays () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let mut a: number[] = [3, 2, 1];
@@ -448,12 +442,7 @@ let CanIndexOnArrays () =
         len1 = len2;
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       Assert.Value(env, "b", "number | undefined")
       Assert.Value(env, "len1", "unique number")
@@ -466,9 +455,6 @@ let CanIndexOnArrays () =
 let CannotCallMutableMethodsOnNonMutableArray () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let a: number[] = [3, 2, 1];
@@ -476,13 +462,7 @@ let CannotCallMutableMethodsOnNonMutableArray () =
         let b = a.map(fn (x) => x * 2);
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! _ =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferScript src
       ()
     }
 
@@ -493,46 +473,31 @@ let CannotCallMutableMethodsOnNonMutableArray () =
 let CallArrayConstructor () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let mut a: number[] = new Array();
         a.push(5);
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       Assert.Value(env, "a", "number[]")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
 let CallArrayConstructorWithTypeArgs () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let mut a = new Array<number>();
         a.push(5);
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       Assert.Value(env, "a", "number[]")
     }
@@ -543,21 +508,13 @@ let CallArrayConstructorWithTypeArgs () =
 let CallArrayConstructorWithNoTypeAnnotations () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let mut a = new Array();
         a.push(5);
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       Assert.Value(env, "a", "5[]")
     }
@@ -568,20 +525,12 @@ let CallArrayConstructorWithNoTypeAnnotations () =
 let AcessNamespaceType () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         type NumFmt = Intl.NumberFormat;
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       Assert.Type(env, "NumFmt", "Intl.NumberFormat")
     }
@@ -592,21 +541,13 @@ let AcessNamespaceType () =
 let AcessNamespaceValue () =
   let result =
     result {
-      let mockFileSystem = MockFileSystem()
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 mockFileSystem "/"
-
       let src =
         """
         let fmt = new Intl.NumberFormat("en-CA");
         fmt.format(1.23);
         """
 
-      let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-      let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferScript src
 
       // TODO: the type should include the namespace, i.e. Intl.NumberFormat
       Assert.Value(env, "fmt", "Intl.NumberFormat")

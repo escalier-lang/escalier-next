@@ -5,7 +5,6 @@ open Xunit
 open VerifyXunit
 open VerifyTests
 open FsToolkit.ErrorHandling
-open System.IO.Abstractions
 
 open Escalier.Compiler
 open Escalier.Data
@@ -272,9 +271,8 @@ let CodegenDtsBasics () =
       let! escAst =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-      let fs = FileSystem()
       let projectRoot = __SOURCE_DIRECTORY__
-      let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
         Infer.inferScript ctx env "input.esc" escAst
@@ -305,9 +303,8 @@ let CodegenDtsGeneric () =
       let! ast =
         Parser.parseScript src |> Result.mapError CompileError.ParseError
 
-      let fs = FileSystem()
       let projectRoot = __SOURCE_DIRECTORY__
-      let! ctx, env = Prelude.getEnvAndCtx fs projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       // TODO: as part of generalization, we need to update the function's
       // inferred type

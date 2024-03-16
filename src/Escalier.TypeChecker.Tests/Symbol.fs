@@ -1,7 +1,6 @@
 module Symbol
 
 open FsToolkit.ErrorHandling
-open System.IO.Abstractions
 open Xunit
 
 open Escalier.Compiler
@@ -23,9 +22,8 @@ type CompileError = Prelude.CompileError
 
 let inferScript src =
   result {
-    let fs = FileSystem()
     let projectRoot = __SOURCE_DIRECTORY__
-    let! ctx, env = Prelude.getEnvAndCtxWithES5 fs projectRoot
+    let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
 
     let prelude =
       """

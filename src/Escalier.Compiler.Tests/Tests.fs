@@ -3,7 +3,6 @@ module Tests
 open FsToolkit.ErrorHandling
 open Xunit
 open System.IO
-open System.IO.Abstractions
 
 open Escalier.Compiler
 open Escalier.TypeChecker.Env
@@ -83,10 +82,8 @@ let BasicsTests (fixtureDir: string) =
           Some(content)
         | false -> None
 
-
-      let filesystem = FileSystem()
       let mockWriter = new StringWriter()
-      do! Compiler.compileFile filesystem mockWriter fixtureDir entryPath
+      do! Compiler.compileFile mockWriter fixtureDir entryPath
 
       let mutable actual: Map<string, Output> = Map.empty
 

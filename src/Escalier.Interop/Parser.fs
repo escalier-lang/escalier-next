@@ -395,17 +395,6 @@ module Parser =
   let restType: Parser<TsRestType, unit> =
     strWs "..." >>. tsType |>> fun t -> { TypeAnn = t; Loc = None }
 
-  // TODO: handle precedence
-  let unionType: Parser<TsUnionType, unit> =
-    sepBy tsType (strWs "|") |>> fun types -> { Types = types; Loc = None }
-
-  let intersectionType: Parser<TsIntersectionType, unit> =
-    sepBy tsType (strWs "&") |>> fun types -> { Types = types; Loc = None }
-
-  let unionOrIntersectionType: Parser<TsUnionOrIntersectionType, unit> =
-    choice [ unionType |>> TsUnionOrIntersectionType.TsUnionType ]
-  // intersectionType |>> TsUnionOrIntersectionType.TsIntersectionType ]
-
   let conditionalType: Parser<TsConditionalType, unit> =
     pipe4
       tsType
@@ -629,7 +618,7 @@ module Parser =
         TsType.TsUnionOrIntersectionType intersection
 
   let unionOrIntersectionOrPrimaryType: Parser<TsType, unit> =
-    sepBy1 intersectionOrPrimaryType (strWs "|")
+    (opt (strWs "|")) >>. (sepBy1 intersectionOrPrimaryType (strWs "|"))
     |>> fun typeAnns ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
@@ -756,21 +745,47 @@ module Parser =
         Loc = None }
       |> Decl.TsModule
 
-  let declare: Parser<Decl, unit> =
+  let decl: Parser<Decl, unit> =
     pipe2
-      (opt (strWs "declare"))
+      (opt (keyword "declare"))
       (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl; moduleDecl ])
     <| fun declare decl -> decl declare.IsSome
 
-  let decl = declare
+  let namedExportSpecifier: Parser<ExportSpecifier, unit> =
+    pipe2 ident (opt (strWs "as" >>. ident))
+    <| fun local exported ->
+      ExportSpecifier.Named
+        { Orig = ModuleExportName.Ident local
+          Exported = Option.map ModuleExportName.Ident exported
+          IsTypeOnly = false
+          Loc = None }
+
+  let namedExport: Parser<NamedExport, unit> =
+    (strWs "{" >>. sepBy namedExportSpecifier (strWs ",") .>> strWs "}")
+    |>> fun specifiers ->
+      { Specifiers = specifiers
+        Src = None
+        IsTypeOnly = false
+        With = None
+        Loc = None }
+
+  let exportDecl: Parser<ExportDecl, unit> =
+    decl |>> fun decl -> { Decl = decl; Loc = None }
+
+  let export: Parser<ModuleDecl, unit> =
+    pipe2
+      (keyword "export")
+      (choice
+        [ exportDecl |>> ModuleDecl.ExportDecl
+          namedExport |>> ModuleDecl.ExportNamed ])
+    <| fun _ modDecl -> modDecl
 
   moduleItemRef.Value <-
-    pipe2 (ws >>. opt (strWs "export")) (decl .>> (opt (strWs ";")))
-    <| fun export decl ->
-      match export with
-      | Some _ ->
-        ModuleItem.ModuleDecl(ModuleDecl.ExportDecl { Decl = decl; Loc = None })
-      | None -> ModuleItem.Stmt(Stmt.Decl decl)
+    ws
+    >>. choice
+      [ export |>> ModuleItem.ModuleDecl
+        decl |>> Stmt.Decl |>> ModuleItem.Stmt ]
+    .>> (opt (strWs ";"))
 
   let mod': Parser<Module, unit> =
     many moduleItem .>> eof

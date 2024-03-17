@@ -548,3 +548,38 @@ let AcessNamespaceValue () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: update `inferLib` to also output just the new symbols")>]
+let LoadingThirdPartyModules () =
+  let result =
+    result {
+      let src =
+        """
+        import "csstype" as csstype;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Type(env, "BoxSizing", "fn (string, string) -> string")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let LoadingNodeModules () =
+  let result =
+    result {
+      let src =
+        """
+        import * as path from "node:path";
+       
+        let join = path.join;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Value(env, "join", "fn (string, string) -> string")
+    }
+
+  Assert.False(Result.isError result)

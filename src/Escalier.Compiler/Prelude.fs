@@ -324,18 +324,6 @@ module Prelude =
       return ctx
     }
 
-  // TODO: add memoization
-  // This is hard to memoize without reusing the filesystem
-  let getEnvAndCtx (baseDir: string) : Result<Ctx * Env, CompileError> =
-
-    result {
-      let env = getGlobalEnvMemoized ()
-      let! ctx = getCtx baseDir env
-
-      return ctx, env
-    }
-
-
   let mutable memoizedNodeModulesDir: Map<string, string> = Map.empty
 
   let rec findNearestAncestorWithNodeModules (currentDir: string) =
@@ -384,7 +372,7 @@ module Prelude =
   let mutable memoizedEnvAndCtx: Map<string, Result<Ctx * Env, CompileError>> =
     Map.empty
 
-  let getEnvAndCtxWithES5 (baseDir: string) : Result<Ctx * Env, CompileError> =
+  let getEnvAndCtx (baseDir: string) : Result<Ctx * Env, CompileError> =
     result {
       match memoizedEnvAndCtx.TryFind baseDir with
       | Some(result) ->

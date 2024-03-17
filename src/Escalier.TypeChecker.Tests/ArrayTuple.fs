@@ -23,7 +23,7 @@ type CompileError = Prelude.CompileError
 let inferScript src =
   result {
     let projectRoot = __SOURCE_DIRECTORY__
-    let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let prelude =
       """

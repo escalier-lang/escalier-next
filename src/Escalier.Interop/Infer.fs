@@ -720,8 +720,11 @@ module rec Infer =
 
             for item in tsModuleBlock.Body do
               match item with
-              | ModuleDecl _moduleDecl ->
-                failwith "TODO: inferDecl - ModuleDecl"
+              | ModuleDecl moduleDecl ->
+                let! newNsEnv = inferModuleDecl ctx nsEnv moduleDecl
+
+                // TODO: merge newNsEnv into nsEnv
+                ()
               | Stmt(Stmt.Decl decl) ->
                 match decl with
                 | Decl.Class _classDecl ->
@@ -774,29 +777,62 @@ module rec Infer =
       | _ -> return env // .d.ts files shouldn't have any other statement kinds
     }
 
-  let inferModuleDecl (env: Env) (decl: ModuleDecl) : Result<Env, TypeError> =
+  let inferModuleDecl
+    (ctx: Ctx)
+    (env: Env)
+    (decl: ModuleDecl)
+    : Result<Env, TypeError> =
     result {
       match decl with
       | ModuleDecl.Import importDecl ->
-        failwith "TODO: inferModuleDecl - importDecl"
-      | ModuleDecl.ExportDecl exportDecl ->
-        failwith "TODO: inferModuleDecl - exportDecl"
+        return!
+          Error(TypeError.NotImplemented "TODO: inferModuleDecl - importDecl")
+      | ModuleDecl.ExportDecl { Decl = decl } -> return! inferDecl ctx env decl
+      // TODO: add visibility modifiers to module decls so that we can
+      // hide decls that haven't been exported from .d.ts modules.
       | ModuleDecl.ExportNamed namedExport ->
-        failwith "TODO: inferModuleDecl - namedExport"
-      | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
-        failwith "TODO: inferModuleDecl - exportDefaultDecl"
-      | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
-        failwith "TODO: inferModuleDecl - exportDefaultExpr"
-      | ModuleDecl.ExportAll exportAll ->
-        failwith "TODO: inferModuleDecl - exportAll"
-      | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
-        failwith "TODO: inferModuleDecl - tsImportEqualsDecl"
-      | ModuleDecl.TsExportAssignment tsExportAssignment ->
-        failwith "TODO: inferModuleDecl - tsExportAssignment"
-      | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
-        failwith "TODO: inferModuleDecl - tsNamespaceExportDecl"
+        for specifier in namedExport.Specifiers do
+          match specifier with
+          | Namespace exportNamespaceSpecifier ->
+            failwith "TODO: inferModuleItem - exportNamespaceSpecifier"
+          | Default exportDefaultSpecifier ->
+            failwith "TODO: inferModuleItem - exportDefaultSpecifier"
+          | Named exportNamedSpecifier ->
+            // TODO: handle named exports
+            ()
 
-      return env
+        return env
+      | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+        return!
+          Error(
+            TypeError.NotImplemented "TODO: inferModuleDecl - exportDefaultDecl"
+          )
+      | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+        return!
+          Error(
+            TypeError.NotImplemented "TODO: inferModuleDecl - exportDefaultExpr"
+          )
+      | ModuleDecl.ExportAll exportAll ->
+        return!
+          Error(TypeError.NotImplemented "TODO: inferModuleDecl - exportAll")
+      | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+        return!
+          Error(
+            TypeError.NotImplemented
+              "TODO: inferModuleDecl - tsImportEqualsDecl"
+          )
+      | ModuleDecl.TsExportAssignment tsExportAssignment ->
+        return!
+          Error(
+            TypeError.NotImplemented
+              "TODO: inferModuleDecl - tsExportAssignment"
+          )
+      | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+        return!
+          Error(
+            TypeError.NotImplemented
+              "TODO: inferModuleDecl - tsNamespaceExportDecl"
+          )
     }
 
   let inferModuleItem
@@ -807,7 +843,7 @@ module rec Infer =
     result {
       match item with
       | ModuleItem.Stmt stmt -> return! inferStmt ctx env stmt
-      | ModuleItem.ModuleDecl decl -> return env
+      | ModuleItem.ModuleDecl decl -> return! inferModuleDecl ctx env decl
     }
 
   let mergeType (imutType: Type) (mutType: Type) : Type =

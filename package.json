@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/escalier-lang/escalier-next#readme",
   "dependencies": {
+    "@types/node": "^20.11.28",
     "@types/prop-types": "^15.7.11",
     "@types/react": "^18.2.66",
     "@types/scheduler": "^0.16.8",

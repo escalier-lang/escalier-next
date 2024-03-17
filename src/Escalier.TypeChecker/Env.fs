@@ -51,6 +51,7 @@ module rec Env =
 
     member this.Diagnostics = diagnostics
     member this.GetExports = getExports this
+    // Used by `inferImport` in Escalier.TypeChecerk/Infer.fs
     member this.ResolvePath = resolvePath this
 
     member this.Clone =

@@ -2,6 +2,7 @@ namespace Escalier.Compiler
 
 open FParsec.Error
 open FsToolkit.ErrorHandling
+open FSharp.Data
 open System.IO
 
 open Escalier.Data
@@ -28,6 +29,24 @@ module Prelude =
       | ParseError err -> $"ParseError: {err}"
       | TypeError err -> $"TypeError: {err}"
 
+  let mutable memoizedNodeModulesDir: Map<string, string> = Map.empty
+
+  let rec findNearestAncestorWithNodeModules (currentDir: string) =
+    match memoizedNodeModulesDir.TryFind currentDir with
+    | Some(nodeModulesDir) -> nodeModulesDir
+    | None ->
+      let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+
+      if Directory.Exists(nodeModulesDir) then
+        currentDir
+      else
+        let parentDir = Directory.GetParent(currentDir)
+
+        match parentDir with
+        | null ->
+          failwith "node_modules directory not found in any ancestor directory."
+        | _ -> findNearestAncestorWithNodeModules parentDir.FullName
+
   let private resolvePath
     (projectRoot: string)
     (currentPath: string)
@@ -40,7 +59,27 @@ module Prelude =
         Path.Join(Path.GetDirectoryName(currentPath), importPath)
       )
     else
-      importPath
+      // TODO: once this is implemented, move it over to Escalier.Interop
+      let rootDir = findNearestAncestorWithNodeModules projectRoot
+      let nodeModulesDir = Path.Combine(rootDir, "node_modules")
+      printfn "nodeModulesDir = %A" nodeModulesDir
+
+      let pkgJsonPath = Path.Combine(nodeModulesDir, importPath, "package.json")
+      printfn "pkgJson = %A" pkgJsonPath
+
+      // read package.json and parse it
+      let pkgJson = File.ReadAllText(pkgJsonPath)
+      let pkgJsonObj = JsonValue.Parse(pkgJson)
+
+      match pkgJsonObj.TryGetProperty("types") with
+      | None -> failwith "Invalid package.json: missing `types` field."
+      | Some value ->
+        let types = value.InnerText()
+
+        let fullPath = Path.Combine(nodeModulesDir, importPath, types)
+        printfn $"types = '{types}'"
+        printfn $"fullPath = '{fullPath}'"
+        fullPath
 
   // TODO: dedupe with Escalier.Interop.Infer
   let findBindingNames (p: Syntax.Pattern) : list<string> =
@@ -257,6 +296,27 @@ module Prelude =
 
     env
 
+  let private inferLib
+    (ctx: Ctx)
+    (env: Env)
+    (fullPath: string)
+    : Result<Env, CompileError> =
+
+    result {
+      let input = File.ReadAllText(fullPath)
+
+      let! ast =
+        match Parser.parseModule input with
+        | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
+        | FParsec.CharParsers.Failure(_, parserError, _) ->
+          Result.mapError CompileError.ParseError (Result.Error(parserError))
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      return env
+    }
+
   let mutable envMemoized: Env option = None
 
   let getGlobalEnvMemoized () =
@@ -276,97 +336,80 @@ module Prelude =
       let ctx =
         Ctx(
           (fun ctx filename import ->
-            let resolvedImportPath =
-              Path.ChangeExtension(
-                resolvePath projectRoot filename import.Path,
-                ".esc"
-              )
+            let resolvedPath = resolvePath projectRoot filename import.Path
 
-            let contents = File.ReadAllText(resolvedImportPath)
+            let exportEnv =
+              if resolvedPath.EndsWith(".d.ts") then
+                let exportEnv =
+                  // TODO: update `inferLib` to also output just the new symbols
+                  match inferLib ctx globalEnv resolvedPath with
+                  | Ok value -> value
+                  | Error err ->
+                    printfn "err = %A" err
+                    failwith $"failed to infer {resolvedPath}"
 
-            let m =
-              match Parser.parseScript contents with
-              | Ok value -> value
-              | Error _ -> failwith $"failed to parse {resolvedImportPath}"
+                let scheme =
+                  match exportEnv.Schemes.TryFind "Globals" with
+                  | Some(scheme) -> scheme
+                  | None -> failwith "Globals scheme not found"
 
-            // scriptEnv
-            let env =
-              match Infer.inferScript ctx globalEnv filename m with
-              | Ok value -> value
-              | Error err ->
-                printfn "err = %A" err
-                failwith $"failed to infer {resolvedImportPath}"
+                printfn $"scheme = {scheme}"
 
-            // exportEnv
-            let mutable newEnv = Env.Env.empty
+                failwith "TODO: inferLib"
+              else
+                // TODO: extract into a separate function
+                let resolvedImportPath =
+                  Path.ChangeExtension(
+                    resolvePath projectRoot filename import.Path,
+                    ".esc"
+                  )
 
-            let bindings = findModuleBindingNames m
+                let contents = File.ReadAllText(resolvedImportPath)
 
-            for name in bindings do
-              match env.Values.TryFind(name) with
-              // NOTE: exports are immutable
-              | Some(t, isMut) -> newEnv <- newEnv.AddValue name (t, false)
-              | None -> failwith $"binding {name} not found"
+                let m =
+                  match Parser.parseScript contents with
+                  | Ok value -> value
+                  | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
-            for item in m.Items do
-              match item with
-              | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
-                match env.Schemes.TryFind(name) with
-                | Some(scheme) -> newEnv <- newEnv.AddScheme name scheme
-                | None -> failwith $"scheme {name} not found"
-              | _ -> ()
+                // TODO: we should probably be using `inferModule` here
+                // TODO: update `inferScript to also return just the new symbols
+                // scriptEnv
+                let scriptEnv =
+                  match Infer.inferScript ctx globalEnv filename m with
+                  | Ok value -> value
+                  | Error err ->
+                    printfn "err = %A" err
+                    failwith $"failed to infer {resolvedImportPath}"
 
-            newEnv),
+                // exportEnv
+                let mutable exportEnv = Env.Env.empty
+
+                let bindings = findModuleBindingNames m
+
+                for name in bindings do
+                  match scriptEnv.Values.TryFind(name) with
+                  // NOTE: exports are immutable
+                  | Some(t, isMut) ->
+                    exportEnv <- exportEnv.AddValue name (t, false)
+                  | None -> failwith $"binding {name} not found"
+
+                for item in m.Items do
+                  match item with
+                  | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
+                    match scriptEnv.Schemes.TryFind(name) with
+                    | Some(scheme) ->
+                      exportEnv <- exportEnv.AddScheme name scheme
+                    | None -> failwith $"scheme {name} not found"
+                  | _ -> ()
+
+                exportEnv
+
+            exportEnv),
           (fun ctx filename import ->
             resolvePath projectRoot filename import.Path)
         )
 
       return ctx
-    }
-
-  let mutable memoizedNodeModulesDir: Map<string, string> = Map.empty
-
-  let rec findNearestAncestorWithNodeModules (currentDir: string) =
-    match memoizedNodeModulesDir.TryFind currentDir with
-    | Some(nodeModulesDir) -> nodeModulesDir
-    | None ->
-      let nodeModulesDir = Path.Combine(currentDir, "node_modules")
-
-      if Directory.Exists(nodeModulesDir) then
-        currentDir
-      else
-        let parentDir = Directory.GetParent(currentDir)
-
-        match parentDir with
-        | null ->
-          failwith "node_modules directory not found in any ancestor directory."
-        | _ -> findNearestAncestorWithNodeModules parentDir.FullName
-
-  let private inferLib
-    (ctx: Ctx)
-    (env: Env)
-    (libPath: string)
-    : Result<Env, CompileError> =
-
-    // TODO: use the directory of the file we're importing the lib from
-    let dir = Directory.GetCurrentDirectory()
-    let rootDir = findNearestAncestorWithNodeModules dir
-    let nodeModulesDir = Path.Combine(rootDir, "node_modules")
-
-    result {
-      let fullPath = Path.Combine(nodeModulesDir, libPath)
-      let input = File.ReadAllText(fullPath)
-
-      let! ast =
-        match Parser.parseModule input with
-        | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
-        | FParsec.CharParsers.Failure(_, parserError, _) ->
-          Result.mapError CompileError.ParseError (Result.Error(parserError))
-
-      let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
-
-      return env
     }
 
   let mutable memoizedEnvAndCtx: Map<string, Result<Ctx * Env, CompileError>> =
@@ -383,25 +426,29 @@ module Prelude =
         let env = getGlobalEnvMemoized ()
         let! ctx = getCtx baseDir env
 
-        let! env = inferLib ctx env "typescript/lib/lib.es5.d.ts"
-        let! env = inferLib ctx env "typescript/lib/lib.es2015.core.d.ts"
-        // NOTE: lib.es5.symbol.d.ts and lib.es5.symbol.wellknown.d.ts must be
-        // inferred before other .d.ts files since they define `Symbol` which is
-        // used by the other .d.ts files.
-        let! env = inferLib ctx env "typescript/lib/lib.es2015.symbol.d.ts"
-
-        let! env =
-          inferLib ctx env "typescript/lib/lib.es2015.symbol.wellknown.d.ts"
-
-        let! env = inferLib ctx env "typescript/lib/lib.es2015.iterable.d.ts"
-        let! env = inferLib ctx env "typescript/lib/lib.es2015.generator.d.ts"
-        // TODO: modify Promise types to include type param for rejections
-        // let! env = inferLib ctx env "typescript/lib/lib.es2015.promise.d.ts"
-        let! env = inferLib ctx env "typescript/lib/lib.es2015.proxy.d.ts"
-        // let! env = inferLib ctx env  "typescript/lib/lib.es2015.reflect.d.ts"
-        let! env = inferLib ctx env "typescript/lib/lib.dom.d.ts"
+        let libs =
+          [ "lib.es5.d.ts"
+            "lib.es2015.core.d.ts"
+            "lib.es2015.symbol.d.ts"
+            "lib.es2015.symbol.wellknown.d.ts"
+            "lib.es2015.iterable.d.ts"
+            "lib.es2015.generator.d.ts"
+            // TODO: modify Promise types to include type param for rejections
+            // "lib.es2015.promise.d.ts"
+            "lib.es2015.proxy.d.ts"
+            // "lib.es2015.reflect.d.ts"
+            "lib.dom.d.ts" ]
 
         let mutable newEnv = env
+
+        let packageRoot = findNearestAncestorWithNodeModules baseDir
+        let nodeModulesDir = Path.Combine(packageRoot, "node_modules")
+        let tsLibDir = Path.Combine(nodeModulesDir, "typescript/lib")
+
+        for lib in libs do
+          let fullPath = Path.Combine(tsLibDir, lib)
+          let! env = inferLib ctx newEnv fullPath
+          newEnv <- env
 
         // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
         // future versions of the JavaScript standard library type defs

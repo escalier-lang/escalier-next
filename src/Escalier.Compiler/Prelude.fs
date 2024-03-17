@@ -2,7 +2,6 @@ namespace Escalier.Compiler
 
 open FParsec.Error
 open FsToolkit.ErrorHandling
-open System
 open System.IO
 
 open Escalier.Data
@@ -336,15 +335,37 @@ module Prelude =
       return ctx, env
     }
 
+
+  let mutable memoizedNodeModulesDir: Map<string, string> = Map.empty
+
+  let rec findNearestAncestorWithNodeModules (currentDir: string) =
+    match memoizedNodeModulesDir.TryFind currentDir with
+    | Some(nodeModulesDir) -> nodeModulesDir
+    | None ->
+      let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+
+      if Directory.Exists(nodeModulesDir) then
+        currentDir
+      else
+        let parentDir = Directory.GetParent(currentDir)
+
+        match parentDir with
+        | null ->
+          failwith "node_modules directory not found in any ancestor directory."
+        | _ -> findNearestAncestorWithNodeModules parentDir.FullName
+
   let private inferLib
     (ctx: Ctx)
     (env: Env)
-    (rootDir: string)
     (libPath: string)
     : Result<Env, CompileError> =
 
+    // TODO: use the directory of the file we're importing the lib from
+    let dir = Directory.GetCurrentDirectory()
+    let rootDir = findNearestAncestorWithNodeModules dir
+    let nodeModulesDir = Path.Combine(rootDir, "node_modules")
+
     result {
-      let nodeModulesDir = Path.Combine(rootDir, "node_modules")
       let fullPath = Path.Combine(nodeModulesDir, libPath)
       let input = File.ReadAllText(fullPath)
 
@@ -360,77 +381,59 @@ module Prelude =
       return env
     }
 
-  let rec findNearestAncestorWithNodeModules (currentDir: string) =
-    let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+  let mutable memoizedEnvAndCtx: Map<string, Result<Ctx * Env, CompileError>> =
+    Map.empty
 
-    if Directory.Exists(nodeModulesDir) then
-      currentDir
-    else
-      let parentDir = Directory.GetParent(currentDir)
-
-      match parentDir with
-      | null ->
-        failwith "node_modules directory not found in any ancestor directory."
-      | _ -> findNearestAncestorWithNodeModules parentDir.FullName
-
-  // TODO: add memoization
-  // This is hard to memoize without reusing the filesystem
   let getEnvAndCtxWithES5 (baseDir: string) : Result<Ctx * Env, CompileError> =
-
-    let dir = Directory.GetCurrentDirectory()
-    let rootDir = findNearestAncestorWithNodeModules dir
-    let cwd = Environment.CurrentDirectory
-
     result {
-      let env = getGlobalEnvMemoized ()
-      let! ctx = getCtx baseDir env
+      match memoizedEnvAndCtx.TryFind baseDir with
+      | Some(result) ->
+        let! ctx, env = result
+        let ctx = ctx.Clone
+        return ctx, env
+      | None ->
+        let env = getGlobalEnvMemoized ()
+        let! ctx = getCtx baseDir env
 
-      let! env = inferLib ctx env rootDir "typescript/lib/lib.es5.d.ts"
+        let! env = inferLib ctx env "typescript/lib/lib.es5.d.ts"
+        let! env = inferLib ctx env "typescript/lib/lib.es2015.core.d.ts"
+        // NOTE: lib.es5.symbol.d.ts and lib.es5.symbol.wellknown.d.ts must be
+        // inferred before other .d.ts files since they define `Symbol` which is
+        // used by the other .d.ts files.
+        let! env = inferLib ctx env "typescript/lib/lib.es2015.symbol.d.ts"
 
-      let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.core.d.ts"
-      // NOTE: lib.es5.symbol.d.ts and lib.es5.symbol.wellknown.d.ts must be
-      // inferred before other .d.ts files since they define `Symbol` which is
-      // used by the other .d.ts files.
-      let! env =
-        inferLib ctx env rootDir "typescript/lib/lib.es2015.symbol.d.ts"
+        let! env =
+          inferLib ctx env "typescript/lib/lib.es2015.symbol.wellknown.d.ts"
 
-      let! env =
-        inferLib
-          ctx
-          env
-          rootDir
-          "typescript/lib/lib.es2015.symbol.wellknown.d.ts"
+        let! env = inferLib ctx env "typescript/lib/lib.es2015.iterable.d.ts"
+        let! env = inferLib ctx env "typescript/lib/lib.es2015.generator.d.ts"
+        // TODO: modify Promise types to include type param for rejections
+        // let! env = inferLib ctx env "typescript/lib/lib.es2015.promise.d.ts"
+        let! env = inferLib ctx env "typescript/lib/lib.es2015.proxy.d.ts"
+        // let! env = inferLib ctx env  "typescript/lib/lib.es2015.reflect.d.ts"
+        let! env = inferLib ctx env "typescript/lib/lib.dom.d.ts"
 
-      let! env =
-        inferLib ctx env rootDir "typescript/lib/lib.es2015.iterable.d.ts"
+        let mutable newEnv = env
 
-      let! env =
-        inferLib ctx env rootDir "typescript/lib/lib.es2015.generator.d.ts"
-      // TODO: modify Promise types to include type param for rejections
-      // let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.promise.d.ts"
-      let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.proxy.d.ts"
-      // let! env = inferLib ctx env rootDir "typescript/lib/lib.es2015.reflect.d.ts"
+        // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
+        // future versions of the JavaScript standard library type defs
+        match
+          newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
+        with
+        | Some(readonlyArray), Some(array) ->
+          let merged = Infer.mergeType readonlyArray.Type array.Type
+          newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
 
-      let! env = inferLib ctx env rootDir "typescript/lib/lib.dom.d.ts"
+          // TODO: for type definitions using Array and ReadonlyArray we need to
+          // make sure that params are marked with `mut` appropriately and all
+          // references to ReadonlyArray must be replaced with Array
+          newEnv <-
+            { newEnv with
+                Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
+        | _ -> ()
 
-      let mutable newEnv = env
+        let result = Result.Ok(ctx, newEnv)
+        memoizedEnvAndCtx <- memoizedEnvAndCtx.Add(baseDir, result)
 
-      // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
-      // future versions of the JavaScript standard library type defs
-      match
-        newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
-      with
-      | Some(readonlyArray), Some(array) ->
-        let merged = Infer.mergeType readonlyArray.Type array.Type
-        newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
-
-        // TODO: for type definitions using Array and ReadonlyArray we need to
-        // make sure that params are marked with `mut` appropriately and all
-        // references to ReadonlyArray must be replaced with Array
-        newEnv <-
-          { newEnv with
-              Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
-      | _ -> ()
-
-      return ctx, newEnv
+        return! result
     }

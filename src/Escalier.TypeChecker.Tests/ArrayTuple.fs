@@ -11,11 +11,11 @@ open Escalier.TypeChecker
 type Assert with
 
   static member inline Value(env: Env, name: string, expected: string) =
-    let t, _ = Map.find name env.Values
+    let t, _ = env.FindValue name
     Assert.Equal(expected, t.ToString())
 
   static member inline Type(env: Env, name: string, expected: string) =
-    let scheme = Map.find name env.Schemes
+    let scheme = env.FindScheme name
     Assert.Equal(expected, scheme.ToString())
 
 type CompileError = Prelude.CompileError

@@ -3,7 +3,6 @@ module UtilityTypes
 open FsToolkit.ErrorHandling
 open Xunit
 
-open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Unify
 
 open TestUtils
@@ -51,19 +50,19 @@ let InferSimpleConditionalType () =
       let! ctx, env = inferScript src
 
       let! a =
-        expandScheme ctx env None (Map.find "A" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "A") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"string\"", a.ToString())
 
       let! b =
-        expandScheme ctx env None (Map.find "B" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "B") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"number\"", b.ToString())
 
       let! c =
-        expandScheme ctx env None (Map.find "C" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "C") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"other\"", c.ToString())
@@ -96,19 +95,19 @@ let InferNestedConditionalTypes () =
       Assert.Empty(ctx.Diagnostics)
 
       let! a =
-        expandScheme ctx env None (Map.find "A" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "A") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"string\"", a.ToString())
 
       let! b =
-        expandScheme ctx env None (Map.find "B" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "B") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"number\"", b.ToString())
 
       let! c =
-        expandScheme ctx env None (Map.find "C" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "C") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"other\"", c.ToString())
@@ -131,7 +130,7 @@ let InferExclude () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Result" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Result") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("\"b\" | \"c\" | \"d\"", result.ToString())
@@ -155,7 +154,7 @@ let InferExtract () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Result" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Result") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{x: 5, y: 10}", result.ToString())
@@ -187,7 +186,7 @@ let InferCartesianProdType () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Cells" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Cells") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
@@ -217,7 +216,7 @@ let InfersPickUnionOfKey () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
@@ -244,7 +243,7 @@ let InfersPickSingleKey () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
@@ -271,7 +270,7 @@ let InfersPickWrongKeyType () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
@@ -302,7 +301,7 @@ let InfersOmit () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("{a: number, c: boolean}", result.ToString())
@@ -346,7 +345,7 @@ let InfersNestedConditionals () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("5 | 3", result.ToString())
@@ -370,13 +369,13 @@ let InfersReturnType () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("number", result.ToString())
 
       let! result =
-        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("number", result.ToString())
@@ -400,13 +399,13 @@ let InfersParameters () =
       Assert.Empty(ctx.Diagnostics)
 
       let! result =
-        expandScheme ctx env None (Map.find "Foo" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("[]", result.ToString())
 
       let! result =
-        expandScheme ctx env None (Map.find "Bar" env.Schemes) Map.empty None
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("[string, boolean]", result.ToString())

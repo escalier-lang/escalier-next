@@ -406,7 +406,7 @@ module rec Codegen =
               let n: string = name
 
               let t =
-                match env.GetType name with
+                match env.GetValue name with
                 | Ok(t) -> t
                 | Error(e) -> failwith $"Couldn't find symbol: {name}"
 

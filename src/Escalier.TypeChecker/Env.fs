@@ -180,6 +180,10 @@ module rec Env =
 
   type Namespace with
 
+    member this.AddNamespace (name: string) (ns: Namespace) =
+      { this with
+          Namespaces = Map.add name ns this.Namespaces }
+
     member this.AddScheme (name: string) (scheme: Scheme) =
       { this with
           Schemes = Map.add name scheme this.Schemes }
@@ -243,21 +247,27 @@ module rec Env =
           return! ns.GetBinding name
       }
 
+    member this.Merge(other: Namespace) =
+      { this with
+          Values = FSharpPlus.Map.union this.Values other.Values
+          Namespaces = FSharpPlus.Map.union this.Namespaces other.Namespaces
+          Schemes = FSharpPlus.Map.union this.Schemes other.Schemes }
+
   type Env =
-    { BinaryOps: Map<string, Binding>
+    { Namespace: Namespace
+      BinaryOps: Map<string, Binding>
       UnaryOps: Map<string, Binding>
-      Values: Map<string, Binding>
-      Schemes: Map<string, Scheme>
-      Namespaces: Map<string, Namespace>
       IsAsync: bool
       IsPatternMatching: bool }
 
     static member empty =
-      { BinaryOps = Map.empty
+      { Namespace =
+          { Name = "<root>"
+            Values = Map.empty
+            Schemes = Map.empty
+            Namespaces = Map.empty }
+        BinaryOps = Map.empty
         UnaryOps = Map.empty
-        Values = Map.empty
-        Schemes = Map.empty
-        Namespaces = Map.empty
         IsAsync = false
         IsPatternMatching = false }
 
@@ -265,7 +275,7 @@ module rec Env =
     // TODO: don't curry this function
     member this.AddValue (name: string) (binding: Binding) =
       { this with
-          Values = Map.add name binding this.Values }
+          Namespace = this.Namespace.AddBinding name binding }
 
     member this.AddBindings(bindings: Map<string, Binding>) =
       let mutable newEnv = this
@@ -279,26 +289,11 @@ module rec Env =
     // TODO: don't curry this function
     member this.AddScheme (name: string) (s: Scheme) =
       { this with
-          Schemes = Map.add name s this.Schemes }
+          Namespace = this.Namespace.AddScheme name s }
 
     member this.AddNamespace (name: string) (ns: Namespace) =
       { this with
-          Namespaces = Map.add name ns this.Namespaces }
-
-    // TODO: Rename to `GetBinding`
-    // Get the type of identifier name from the type environment env
-    member this.GetType(name: string) : Result<Type, TypeError> =
-      match this.Values |> Map.tryFind name with
-      | Some(var) ->
-        // TODO: check `isMut` and return an immutable type if necessary
-        let (t, isMut) = var
-        Ok(t)
-      | None ->
-        // TODO: why do we need to check if it's an integer literal?
-        if isIntegerLiteral name then
-          Ok(numType)
-        else
-          Error(TypeError.SemanticError $"Undefined symbol {name}")
+          Namespace = this.Namespace.AddNamespace name ns }
 
     member this.GetBinaryOp(name: string) : Result<Type, TypeError> =
       match this.BinaryOps |> Map.tryFind name with
@@ -312,11 +307,25 @@ module rec Env =
       | None ->
         Error(TypeError.SemanticError $"Undefined unary operator {name}")
 
+    // Get the type of identifier name from the type environment env
+    member this.GetValue(name: string) : Result<Type, TypeError> =
+      match this.TryFindValue name with
+      | Some(var) ->
+        // TODO: check `isMut` and return an immutable type if necessary
+        let (t, isMut) = var
+        Ok(t)
+      | None ->
+        // TODO: why do we need to check if it's an integer literal?
+        if isIntegerLiteral name then
+          Ok(numType)
+        else
+          Error(TypeError.SemanticError $"Undefined symbol {name}")
+
     member this.GetScheme(ident: QualifiedIdent) : Result<Scheme, TypeError> =
       result {
         match ident with
         | Ident name ->
-          match this.Schemes |> Map.tryFind name with
+          match this.TryFindScheme name with
           | Some(s) -> return s
           | None ->
             return! Error(TypeError.SemanticError $"Undefined symbol {ident}")
@@ -326,7 +335,7 @@ module rec Env =
       }
 
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
-      match this.Values |> Map.tryFind name with
+      match this.Namespace.Values |> Map.tryFind name with
       | Some(var) -> Ok var
       | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
 
@@ -336,7 +345,7 @@ module rec Env =
       result {
         match ident with
         | Ident name ->
-          match this.Namespaces |> Map.tryFind name with
+          match this.Namespace.Namespaces |> Map.tryFind name with
           | Some(ns) -> return ns
           | None ->
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
@@ -368,8 +377,20 @@ module rec Env =
       result {
         match expr.Kind with
         | Syntax.ExprKind.Identifier ident ->
-          match this.Namespaces.TryFind ident with
+          match this.Namespace.Namespaces.TryFind ident with
           | None -> return None
           | Some ns -> return Some(ns, None)
         | _ -> return None
       }
+
+    member this.FindValue(name: string) : Binding =
+      Map.find name this.Namespace.Values
+
+    member this.TryFindValue(name: string) : option<Binding> =
+      Map.tryFind name this.Namespace.Values
+
+    member this.FindScheme(name: string) : Scheme =
+      Map.find name this.Namespace.Schemes
+
+    member this.TryFindScheme(name: string) : option<Scheme> =
+      Map.tryFind name this.Namespace.Schemes

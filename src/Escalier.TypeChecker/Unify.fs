@@ -1019,7 +1019,7 @@ module rec Unify =
                 | Some scheme ->
                   expandScheme ctx env ips scheme mapping typeArgs
                 | None ->
-                  match env.Schemes.TryFind name with
+                  match env.TryFindScheme name with
                   | Some scheme ->
                     expandScheme ctx env ips scheme mapping typeArgs
                   | None ->

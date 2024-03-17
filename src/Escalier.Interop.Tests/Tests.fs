@@ -35,7 +35,7 @@ let inferScript src =
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
     let filename = Path.Combine(projectRoot, "input.src")
-    let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
       Infer.inferScript ctx env filename ast
@@ -354,7 +354,7 @@ let InferTypeDecls () =
 let InferLibES5 () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
       // let! newEnv = prelude.loadTypeDefinitions ctx env
 
       // printfn "---- Schemes ----"
@@ -376,7 +376,7 @@ let InferLibES5 () =
 let InferArrayPrototype () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let scheme = Map.find "Array" env.Schemes
       // printfn $"Array = {scheme}"
@@ -393,7 +393,7 @@ let InferArrayPrototype () =
 let InferInt8ArrayPrototype () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtxWithES5 projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let scheme = Map.find "Int8Array" env.Schemes
 

@@ -2,6 +2,7 @@
 [<Xunit.Collection("Sequential")>]
 module NoParseTests
 
+open Escalier.Data.Type
 open Xunit
 open FParsec
 open FsToolkit.ErrorHandling
@@ -35,11 +36,13 @@ let getEnv () =
            never,
           false)) ]
 
-  { BinaryOps = Map.empty
+  { Namespace =
+      { Name = "<root>"
+        Values = values
+        Schemes = Map.empty
+        Namespaces = Map.empty }
+    BinaryOps = Map.empty
     UnaryOps = Map.empty
-    Values = values
-    Schemes = Map.empty
-    Namespaces = Map.empty
     IsAsync = false
     IsPatternMatching = false }
 
@@ -231,7 +234,7 @@ let InferFactorial () =
     let! stmtEnv = inferStmt ctx env ast false
     env <- stmtEnv
 
-    let! t = env.GetType "factorial"
+    let! t = env.GetValue "factorial"
 
     // It's fine that `throws` is `t5` since we don't call `generalizeFunc` in
     // this test.
@@ -295,8 +298,8 @@ let InferPair () =
 
     let! newEnv = inferScript ctx env "input.esc" ast
 
-    let! f = newEnv.GetType "f"
-    let! pair = newEnv.GetType "pair"
+    let! f = newEnv.GetValue "f"
+    let! pair = newEnv.GetValue "pair"
 
     Assert.Equal("fn <A>(x: A) -> A", f.ToString())
     Assert.Equal("[4, true]", pair.ToString())
@@ -347,7 +350,7 @@ let InferGenericAndNonGeneric () =
 
     let! newEnv = inferScript ctx env "input.esc" ast
 
-    let! t = newEnv.GetType "foo"
+    let! t = newEnv.GetValue "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
     Assert.Equal("fn <A>(g: A) -> [A, A]", t.ToString())
   }
@@ -377,7 +380,7 @@ let InferFuncComposition () =
 
     let! newEnv = inferScript ctx env "input.esc" ast
 
-    let! t = newEnv.GetType "foo"
+    let! t = newEnv.GetValue "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
     Assert.Equal(
       "fn <A, C, B>(f: fn (arg0: A) -> B) -> fn (g: fn (arg0: B) -> C) -> fn (arg: A) -> C",
@@ -428,15 +431,15 @@ let InferScriptSKK () =
 
     let! newEnv = inferScript ctx env "input.esc" script
 
-    let! t = newEnv.GetType "S"
+    let! t = newEnv.GetValue "S"
 
     Assert.Equal(
       "fn <A, B, C>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C",
       t.ToString()
     )
 
-    let! t = newEnv.GetType "K"
+    let! t = newEnv.GetValue "K"
     Assert.Equal("fn <A, B>(x: A) -> fn (y: B) -> A", t.ToString())
-    let! t = newEnv.GetType "I"
+    let! t = newEnv.GetValue "I"
     Assert.Equal("fn <A>(x: A) -> A", t.ToString())
   }

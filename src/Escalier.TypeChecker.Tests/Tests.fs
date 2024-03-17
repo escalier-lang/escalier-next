@@ -142,11 +142,13 @@ let InferIdentifier () =
       Provenance = None }
 
   let env =
-    { BinaryOps = Map.empty
+    { Namespace =
+        { Name = "<root>"
+          Values = Map([ ("foo", (t, false)) ])
+          Schemes = Map.empty
+          Namespaces = Map.empty }
+      BinaryOps = Map.empty
       UnaryOps = Map.empty
-      Values = Map([ ("foo", (t, false)) ])
-      Schemes = Map.empty
-      Namespaces = Map.empty
       IsAsync = false
       IsPatternMatching = false }
 

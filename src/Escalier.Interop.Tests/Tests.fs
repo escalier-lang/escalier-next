@@ -18,11 +18,11 @@ open Escalier.TypeChecker.Env
 type Assert with
 
   static member inline Value(env: Env, name: string, expected: string) =
-    let t, _ = Map.find name env.Values
+    let t, _ = env.FindValue name
     Assert.Equal(expected, t.ToString())
 
   static member inline Type(env: Env, name: string, expected: string) =
-    let scheme = Map.find name env.Schemes
+    let scheme = env.FindScheme name
     Assert.Equal(expected, scheme.ToString())
 
 type CompileError = Prelude.CompileError
@@ -378,10 +378,10 @@ let InferArrayPrototype () =
     result {
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let scheme = Map.find "Array" env.Schemes
+      let scheme = env.FindScheme "Array"
       // printfn $"Array = {scheme}"
 
-      let scheme = Map.find "ArrayConstructor" env.Schemes
+      let scheme = env.FindScheme "ArrayConstructor"
       // printfn $"ArrayConstructor = {scheme}"
 
       return env
@@ -395,7 +395,7 @@ let InferInt8ArrayPrototype () =
     result {
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let scheme = Map.find "Int8Array" env.Schemes
+      let scheme = env.FindScheme "Int8Array"
 
       // printfn $"Int8Array = {scheme}"
 

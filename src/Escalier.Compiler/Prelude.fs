@@ -349,7 +349,7 @@ module Prelude =
                     failwith $"failed to infer {resolvedPath}"
 
                 let scheme =
-                  match exportEnv.Schemes.TryFind "Globals" with
+                  match exportEnv.TryFindScheme "Globals" with
                   | Some(scheme) -> scheme
                   | None -> failwith "Globals scheme not found"
 
@@ -387,7 +387,7 @@ module Prelude =
                 let bindings = findModuleBindingNames m
 
                 for name in bindings do
-                  match scriptEnv.Values.TryFind(name) with
+                  match scriptEnv.TryFindValue name with
                   // NOTE: exports are immutable
                   | Some(t, isMut) ->
                     exportEnv <- exportEnv.AddValue name (t, false)
@@ -396,7 +396,7 @@ module Prelude =
                 for item in m.Items do
                   match item with
                   | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
-                    match scriptEnv.Schemes.TryFind(name) with
+                    match scriptEnv.TryFindScheme name with
                     | Some(scheme) ->
                       exportEnv <- exportEnv.AddScheme name scheme
                     | None -> failwith $"scheme {name} not found"
@@ -453,7 +453,7 @@ module Prelude =
         // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
         // future versions of the JavaScript standard library type defs
         match
-          newEnv.Schemes.TryFind "ReadonlyArray", newEnv.Schemes.TryFind "Array"
+          newEnv.TryFindScheme "ReadonlyArray", newEnv.TryFindScheme "Array"
         with
         | Some(readonlyArray), Some(array) ->
           let merged = Infer.mergeType readonlyArray.Type array.Type
@@ -464,7 +464,9 @@ module Prelude =
           // references to ReadonlyArray must be replaced with Array
           newEnv <-
             { newEnv with
-                Schemes = newEnv.Schemes.Remove "ReadonlyArray" }
+                Namespace =
+                  { newEnv.Namespace with
+                      Schemes = newEnv.Namespace.Schemes.Remove "ReadonlyArray" } }
         | _ -> ()
 
         let result = Result.Ok(ctx, newEnv)

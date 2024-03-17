@@ -89,8 +89,8 @@ module rec Infer =
         match expr.Kind with
         | ExprKind.Identifier(name) ->
 
-          match env.Namespaces.TryFind name with
-          | None -> return! env.GetType name
+          match env.Namespace.Namespaces.TryFind name with
+          | None -> return! env.GetValue name
           | Some value ->
             let kind = TypeKind.Namespace value
             return { Kind = kind; Provenance = None }
@@ -271,7 +271,7 @@ module rec Infer =
                             Type = t }
                       )
                   | ObjElem.Shorthand(_span, key) ->
-                    let! value = env.GetType key
+                    let! value = env.GetValue key
 
                     return
                       Some(
@@ -832,7 +832,7 @@ module rec Infer =
           let! min = inferExpr ctx env min
           let! max = inferExpr ctx env max
 
-          let scheme = env.Schemes.TryFind "RangeIterator"
+          let scheme = env.TryFindScheme "RangeIterator"
 
           return
             { Kind =
@@ -914,7 +914,7 @@ module rec Infer =
           | Some { Pattern = pattern } ->
             match pattern.Kind with
             | PatternKind.Ident identPat ->
-              let scheme = env.Schemes.TryFind "Self"
+              let scheme = env.TryFindScheme "Self"
 
               let t =
                 { Kind =
@@ -1250,7 +1250,7 @@ module rec Infer =
                   Provenance = None }
         | _ ->
           let arrayScheme =
-            match env.Schemes.TryFind "Array" with
+            match env.TryFindScheme "Array" with
             | Some scheme -> scheme
             | None -> failwith "Array not in scope"
           // TODO: lookup keys in array prototype
@@ -1275,7 +1275,7 @@ module rec Infer =
           // a single Array type where methods are marked appropriately with
           // `self` and `mut self`.
           let arrayScheme =
-            match env.Schemes.TryFind "Array" with
+            match env.TryFindScheme "Array" with
             | Some scheme -> scheme
             | None -> failwith "Array not in scope"
 
@@ -2146,7 +2146,7 @@ module rec Infer =
         let! rightType = inferExpr ctx env right
 
         let symbol =
-          match env.Values.TryFind "Symbol" with
+          match env.TryFindValue "Symbol" with
           | Some scheme -> fst scheme
           | None -> failwith "Symbol not in scope"
 
@@ -2155,7 +2155,7 @@ module rec Infer =
 
         // TODO: only lookup Symbol.iterator on Array for arrays and tuples
         let arrayScheme =
-          match env.Schemes.TryFind "Array" with
+          match env.TryFindScheme "Array" with
           | Some scheme -> scheme
           | None -> failwith "Array not in scope"
 
@@ -2427,14 +2427,14 @@ module rec Infer =
             | None -> source
 
           let valueLookup =
-            match Map.tryFind source exports.Values with
+            match exports.TryFindValue source with
             | Some(binding) ->
               imports <- imports.AddValue target binding
               Ok(())
             | None -> Error("not found")
 
           let schemeLookup =
-            match Map.tryFind source exports.Schemes with
+            match exports.TryFindScheme source with
             | Some(scheme) ->
               imports <- imports.AddScheme target scheme
               Ok(())
@@ -2453,19 +2453,13 @@ module rec Infer =
               )
           | _, _ -> ()
         | ModuleAlias name ->
-          let ns: Namespace =
-            { Name = name
-              Values = exports.Values
-              Schemes = exports.Schemes
-              Namespaces = exports.Namespaces }
+          let ns: Namespace = { exports.Namespace with Name = name }
 
           imports <- imports.AddNamespace name ns
 
       return
         { env with
-            Values = FSharpPlus.Map.union env.Values imports.Values
-            Schemes = FSharpPlus.Map.union env.Schemes imports.Schemes
-            Namespaces = FSharpPlus.Map.union env.Namespaces imports.Namespaces }
+            Namespace = env.Namespace.Merge imports.Namespace }
     }
 
   let inferScriptItem
@@ -2886,7 +2880,7 @@ module rec Infer =
 
   let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =
     match ident with
-    | QualifiedIdent.Ident name -> env.GetType name
+    | QualifiedIdent.Ident name -> env.GetValue name
     | QualifiedIdent.Member(left, right) ->
       result {
         let! left = getQualifiedIdentType ctx env left

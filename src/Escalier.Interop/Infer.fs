@@ -662,7 +662,7 @@ module rec Infer =
             Type = t
             IsTypeParam = false }
 
-        match env.Schemes |> Map.tryFind tsInterfaceDecl.Id.Name with
+        match env.TryFindScheme tsInterfaceDecl.Id.Name with
         | Some existingScheme ->
           // TODO: check that the type params are the same
           match existingScheme.Type.Kind, newScheme.Type.Kind with

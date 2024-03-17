@@ -16,11 +16,13 @@ module rec Env =
       getExports: Ctx -> string -> Syntax.Import -> Env,
       resolvePath: Ctx -> string -> Syntax.Import -> string
     ) =
-    // let baseDir = baseDir
-    // let filesystem = filesystem
+
     let mutable nextTypeVarId = 0
     let mutable nextUniqueId = 0
     let mutable diagnostics: list<Diagnostic> = []
+
+    member val NextTypeVarId = nextTypeVarId with get, set
+    member val NextUniqueId = nextUniqueId with get, set
 
     member this.FreshTypeVar(bound: option<Type>) =
       let newVar =
@@ -50,6 +52,12 @@ module rec Env =
     member this.Diagnostics = diagnostics
     member this.GetExports = getExports this
     member this.ResolvePath = resolvePath this
+
+    member this.Clone =
+      let clone = Ctx(getExports, resolvePath)
+      clone.NextTypeVarId <- this.NextTypeVarId
+      clone.NextUniqueId <- this.NextUniqueId
+      clone
 
   let makeTypeRefKind name =
     { Name = name

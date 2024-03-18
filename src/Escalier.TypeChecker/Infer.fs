@@ -2440,10 +2440,17 @@ module rec Infer =
               Ok(())
             | None -> Error("not found")
 
-          match valueLookup, schemeLookup with
+          let namespaceLookup =
+            match exports.Namespace.Namespaces.TryFind source with
+            | Some(ns) ->
+              imports <- imports.AddNamespace target ns
+              Ok(())
+            | None -> Error("not found")
+
+          match valueLookup, schemeLookup, namespaceLookup with
           // If we can't find the symbol in either the values or schemes
           // we report an error
-          | Error _, Error _ ->
+          | Error _, Error _, Error _ ->
             let resolvedPath = ctx.ResolvePath filename import
 
             return!
@@ -2451,7 +2458,7 @@ module rec Infer =
                 TypeError.SemanticError
                   $"{resolvedPath} doesn't export '{name}'"
               )
-          | _, _ -> ()
+          | _, _, _ -> ()
         | ModuleAlias name ->
           let ns: Namespace = { exports.Namespace with Name = name }
 

@@ -106,7 +106,7 @@ module Prelude =
     List.rev names
 
   // TODO: dedupe with Escalier.Interop.Infer
-  let private findModuleBindingNames (m: Syntax.Script) : list<string> =
+  let private findScriptBindingNames (m: Syntax.Script) : list<string> =
     let mutable names: list<string> = []
 
     for item in m.Items do
@@ -300,7 +300,7 @@ module Prelude =
     (ctx: Ctx)
     (env: Env)
     (fullPath: string)
-    : Result<Env, CompileError> =
+    : Result<Env * TypeScript.Module, CompileError> =
 
     result {
       let input = File.ReadAllText(fullPath)
@@ -314,7 +314,7 @@ module Prelude =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      return env
+      return env, ast
     }
 
   let mutable envMemoized: Env option = None
@@ -340,22 +340,23 @@ module Prelude =
 
             let exportEnv =
               if resolvedPath.EndsWith(".d.ts") then
-                let exportEnv =
-                  // TODO: update `inferLib` to also output just the new symbols
+                let modEnv, modAst =
                   match inferLib ctx globalEnv resolvedPath with
                   | Ok value -> value
                   | Error err ->
                     printfn "err = %A" err
                     failwith $"failed to infer {resolvedPath}"
 
-                let scheme =
-                  match exportEnv.TryFindScheme "Globals" with
-                  | Some(scheme) -> scheme
-                  | None -> failwith "Globals scheme not found"
+                let ns =
+                  match
+                    Infer.getExports ctx modEnv "<exports>" modAst.Body
+                  with
+                  | Ok value -> value
+                  | Error err ->
+                    printfn "err = %A" err
+                    failwith $"failed to get exports from {resolvedPath}"
 
-                printfn $"scheme = {scheme}"
-
-                failwith "TODO: inferLib"
+                { Env.empty with Namespace = ns }
               else
                 // TODO: extract into a separate function
                 let resolvedImportPath =
@@ -384,7 +385,7 @@ module Prelude =
                 // exportEnv
                 let mutable exportEnv = Env.Env.empty
 
-                let bindings = findModuleBindingNames m
+                let bindings = findScriptBindingNames m
 
                 for name in bindings do
                   match scriptEnv.TryFindValue name with
@@ -447,7 +448,7 @@ module Prelude =
 
         for lib in libs do
           let fullPath = Path.Combine(tsLibDir, lib)
-          let! env = inferLib ctx newEnv fullPath
+          let! env, _ = inferLib ctx newEnv fullPath
           newEnv <- env
 
         // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and

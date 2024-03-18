@@ -31,7 +31,6 @@ let projectRoot = __SOURCE_DIRECTORY__
 
 let inferScript src =
   result {
-    printfn $"projectRoot = {projectRoot}"
     let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
 
     let filename = Path.Combine(projectRoot, "input.src")
@@ -549,18 +548,38 @@ let AcessNamespaceValue () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: update `inferLib` to also output just the new symbols")>]
+[<Fact>]
 let LoadingThirdPartyModules () =
   let result =
     result {
       let src =
         """
-        import "csstype" as csstype;
+        import "csstype" {Globals, Property};
+        
+        type AccentColor = Property.AccentColor;
         """
 
       let! ctx, env = inferScript src
 
-      Assert.Type(env, "BoxSizing", "fn (string, string) -> string")
+      Assert.Type(
+        env,
+        "Globals",
+        "\"-moz-initial\" | \"inherit\" | \"initial\" | \"revert\" | \"revert-layer\" | \"unset\""
+      )
+
+      Assert.Type(env, "AccentColor", "Property.AccentColor")
+
+      let! result =
+        Unify.expandScheme
+          ctx
+          env
+          None
+          (env.FindScheme "AccentColor")
+          Map.empty
+          None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("Globals | DataType.Color | \"auto\"", result.ToString())
     }
 
   printfn "result = %A" result

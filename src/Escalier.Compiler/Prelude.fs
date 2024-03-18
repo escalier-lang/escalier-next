@@ -1,5 +1,6 @@
 namespace Escalier.Compiler
 
+open Escalier.Interop.TypeScript
 open FParsec.Error
 open FsToolkit.ErrorHandling
 open FSharp.Data
@@ -106,7 +107,7 @@ module Prelude =
     List.rev names
 
   // TODO: dedupe with Escalier.Interop.Infer
-  let private findModuleBindingNames (m: Syntax.Script) : list<string> =
+  let private findScriptBindingNames (m: Syntax.Script) : list<string> =
     let mutable names: list<string> = []
 
     for item in m.Items do
@@ -300,7 +301,7 @@ module Prelude =
     (ctx: Ctx)
     (env: Env)
     (fullPath: string)
-    : Result<Env, CompileError> =
+    : Result<Env * TypeScript.Module, CompileError> =
 
     result {
       let input = File.ReadAllText(fullPath)
@@ -314,7 +315,74 @@ module Prelude =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      return env
+      return env, ast
+    }
+
+  let private getExports
+    (env: Env)
+    (ast: TypeScript.Module)
+    : Result<Namespace, TypeError> =
+    let mutable ns =
+      { Name = "<exports>"
+        Values = Map.empty
+        Schemes = Map.empty
+        Namespaces = Map.empty }
+
+    result {
+      for item in ast.Body do
+        match item with
+        | ModuleDecl decl ->
+          match decl with
+          | ModuleDecl.Import importDecl ->
+            failwith "TODO: getExports - importDecl"
+          | ModuleDecl.ExportDecl { Decl = decl } ->
+            match decl with
+            | Decl.Class classDecl -> failwith "TODO: getExports - classDecl"
+            | Decl.Fn fnDecl -> failwith "TODO: getExports - fnDecl"
+            | Decl.Var varDecl -> failwith "TODO: getExports - varDecl"
+            | Decl.Using usingDecl -> failwith "TODO: getExports - usingDecl"
+            | Decl.TsInterface { Id = ident } ->
+              let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
+              ns <- ns.AddScheme ident.Name scheme
+            | Decl.TsTypeAlias { Id = ident } ->
+              let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
+              ns <- ns.AddScheme ident.Name scheme
+            | Decl.TsEnum tsEnumDecl -> failwith "TODO: getExports - tsEnumDecl"
+            | Decl.TsModule { Id = ident } ->
+              let name = ident.ToString
+
+              match env.Namespace.Namespaces.TryFind name with
+              | Some value -> ns <- ns.AddNamespace name value
+              | None -> failwith $"Couldn't find namespace: '{name}'"
+          | ModuleDecl.ExportNamed namedExport ->
+            for specifier in namedExport.Specifiers do
+              match specifier with
+              | Namespace exportNamespaceSpecifier -> failwith "todo"
+              | Default exportDefaultSpecifier -> failwith "todo"
+              | Named { Orig = orig
+                        Exported = exported
+                        IsTypeOnly = isTypeOnly } ->
+                let! binding = env.GetBinding orig.ToString
+
+                ns <-
+                  match exported with
+                  | None -> ns.AddBinding orig.ToString binding
+                  | Some value -> ns.AddBinding value.ToString binding
+          | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+            failwith "TODO: getExports - exportDefaultDecl"
+          | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+            failwith "TODO: getExports - exportDefaultExpr"
+          | ModuleDecl.ExportAll exportAll ->
+            failwith "TODO: getExports - exportAll"
+          | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+            failwith "TODO: getExports - tsImportEqualsDecl"
+          | ModuleDecl.TsExportAssignment tsExportAssignment ->
+            failwith "TODO: getExports - tsExportAssignment"
+          | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+            failwith "TODO: getExports - tsNamespaceExportDecl"
+        | Stmt stmt -> failwith "TODO: getExports - stmt"
+
+      return ns
     }
 
   let mutable envMemoized: Env option = None
@@ -340,22 +408,21 @@ module Prelude =
 
             let exportEnv =
               if resolvedPath.EndsWith(".d.ts") then
-                let exportEnv =
-                  // TODO: update `inferLib` to also output just the new symbols
+                let modEnv, modAst =
                   match inferLib ctx globalEnv resolvedPath with
                   | Ok value -> value
                   | Error err ->
                     printfn "err = %A" err
                     failwith $"failed to infer {resolvedPath}"
 
-                let scheme =
-                  match exportEnv.TryFindScheme "Globals" with
-                  | Some(scheme) -> scheme
-                  | None -> failwith "Globals scheme not found"
+                let ns =
+                  match getExports modEnv modAst with
+                  | Ok value -> value
+                  | Error err ->
+                    printfn "err = %A" err
+                    failwith $"failed to get exports from {resolvedPath}"
 
-                printfn $"scheme = {scheme}"
-
-                failwith "TODO: inferLib"
+                { Env.empty with Namespace = ns }
               else
                 // TODO: extract into a separate function
                 let resolvedImportPath =
@@ -384,7 +451,7 @@ module Prelude =
                 // exportEnv
                 let mutable exportEnv = Env.Env.empty
 
-                let bindings = findModuleBindingNames m
+                let bindings = findScriptBindingNames m
 
                 for name in bindings do
                   match scriptEnv.TryFindValue name with
@@ -447,7 +514,7 @@ module Prelude =
 
         for lib in libs do
           let fullPath = Path.Combine(tsLibDir, lib)
-          let! env = inferLib ctx newEnv fullPath
+          let! env, _ = inferLib ctx newEnv fullPath
           newEnv <- env
 
         // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and

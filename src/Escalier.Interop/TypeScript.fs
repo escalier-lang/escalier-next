@@ -298,6 +298,11 @@ module rec TypeScript =
     | Ident of Ident
     | Str of Str
 
+    member this.ToString =
+      match this with
+      | Ident id -> id.Name
+      | Str str -> str.Value
+
   type TsNamespaceBody =
     | TsModuleBlock of TsModuleBlock
     | TsNamespaceDecl of TsNamespaceDecl
@@ -349,6 +354,11 @@ module rec TypeScript =
   type ModuleExportName =
     | Ident of Ident
     | Str of Str
+
+    member this.ToString =
+      match this with
+      | Ident id -> id.Name
+      | Str str -> str.Value
 
   type ImportDefaultSpecifier =
     { Local: Ident

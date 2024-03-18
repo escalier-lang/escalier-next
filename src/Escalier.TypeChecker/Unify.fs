@@ -1022,11 +1022,11 @@ module rec Unify =
                   match env.TryFindScheme name with
                   | Some scheme ->
                     expandScheme ctx env ips scheme mapping typeArgs
-                  | None ->
-                    printfn $"t = {t}"
-                    printfn $"scheme = {scheme}"
-                    failwith $"{name} is not in scope"
-            | Member(left, right) -> failwith "TODO: expand qualified ident"
+                  | None -> failwith $"{name} is not in scope"
+            | Member _ ->
+              match env.GetScheme name with
+              | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
+              | Error errorValue -> failwith $"{name} is not in scope"
 
           return! expand mapping t
         | _ ->

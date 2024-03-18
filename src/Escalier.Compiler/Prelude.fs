@@ -1,6 +1,5 @@
 namespace Escalier.Compiler
 
-open Escalier.Interop.TypeScript
 open FParsec.Error
 open FsToolkit.ErrorHandling
 open FSharp.Data
@@ -318,73 +317,6 @@ module Prelude =
       return env, ast
     }
 
-  let private getExports
-    (env: Env)
-    (ast: TypeScript.Module)
-    : Result<Namespace, TypeError> =
-    let mutable ns =
-      { Name = "<exports>"
-        Values = Map.empty
-        Schemes = Map.empty
-        Namespaces = Map.empty }
-
-    result {
-      for item in ast.Body do
-        match item with
-        | ModuleDecl decl ->
-          match decl with
-          | ModuleDecl.Import importDecl ->
-            failwith "TODO: getExports - importDecl"
-          | ModuleDecl.ExportDecl { Decl = decl } ->
-            match decl with
-            | Decl.Class classDecl -> failwith "TODO: getExports - classDecl"
-            | Decl.Fn fnDecl -> failwith "TODO: getExports - fnDecl"
-            | Decl.Var varDecl -> failwith "TODO: getExports - varDecl"
-            | Decl.Using usingDecl -> failwith "TODO: getExports - usingDecl"
-            | Decl.TsInterface { Id = ident } ->
-              let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
-              ns <- ns.AddScheme ident.Name scheme
-            | Decl.TsTypeAlias { Id = ident } ->
-              let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
-              ns <- ns.AddScheme ident.Name scheme
-            | Decl.TsEnum tsEnumDecl -> failwith "TODO: getExports - tsEnumDecl"
-            | Decl.TsModule { Id = ident } ->
-              let name = ident.ToString
-
-              match env.Namespace.Namespaces.TryFind name with
-              | Some value -> ns <- ns.AddNamespace name value
-              | None -> failwith $"Couldn't find namespace: '{name}'"
-          | ModuleDecl.ExportNamed namedExport ->
-            for specifier in namedExport.Specifiers do
-              match specifier with
-              | Namespace exportNamespaceSpecifier -> failwith "todo"
-              | Default exportDefaultSpecifier -> failwith "todo"
-              | Named { Orig = orig
-                        Exported = exported
-                        IsTypeOnly = isTypeOnly } ->
-                let! binding = env.GetBinding orig.ToString
-
-                ns <-
-                  match exported with
-                  | None -> ns.AddBinding orig.ToString binding
-                  | Some value -> ns.AddBinding value.ToString binding
-          | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
-            failwith "TODO: getExports - exportDefaultDecl"
-          | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
-            failwith "TODO: getExports - exportDefaultExpr"
-          | ModuleDecl.ExportAll exportAll ->
-            failwith "TODO: getExports - exportAll"
-          | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
-            failwith "TODO: getExports - tsImportEqualsDecl"
-          | ModuleDecl.TsExportAssignment tsExportAssignment ->
-            failwith "TODO: getExports - tsExportAssignment"
-          | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
-            failwith "TODO: getExports - tsNamespaceExportDecl"
-        | Stmt stmt -> failwith "TODO: getExports - stmt"
-
-      return ns
-    }
-
   let mutable envMemoized: Env option = None
 
   let getGlobalEnvMemoized () =
@@ -416,7 +348,9 @@ module Prelude =
                     failwith $"failed to infer {resolvedPath}"
 
                 let ns =
-                  match getExports modEnv modAst with
+                  match
+                    Infer.getExports ctx modEnv "<exports>" modAst.Body
+                  with
                   | Ok value -> value
                   | Error err ->
                     printfn "err = %A" err

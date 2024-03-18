@@ -705,121 +705,125 @@ module rec Infer =
           | TsModuleName.Ident ident -> ident.Name
           | TsModuleName.Str str -> str.Value
 
-        let mutable ns: Namespace =
-          { Name = name
-            Values = Map.empty
-            Schemes = Map.empty
-            Namespaces = Map.empty }
-
         match body with
         | None -> ()
         | Some body ->
           match body with
           | TsModuleBlock tsModuleBlock ->
             let! nsEnv = inferModuleBlock ctx env tsModuleBlock
-
-            // TODO: dedupe with getExports from Prelude.fs
-            for item in tsModuleBlock.Body do
-              match item with
-              | ModuleDecl decl ->
-                match decl with
-                | ModuleDecl.Import importDecl ->
-                  failwith "TODO: getExports - importDecl"
-                | ModuleDecl.ExportDecl { Decl = decl } ->
-                  match decl with
-                  | Decl.Class classDecl ->
-                    failwith "TODO: getExports - classDecl"
-                  | Decl.Fn fnDecl -> failwith "TODO: getExports - fnDecl"
-                  | Decl.Var varDecl -> failwith "TODO: getExports - varDecl"
-                  | Decl.Using usingDecl ->
-                    failwith "TODO: getExports - usingDecl"
-                  | Decl.TsInterface { Id = ident } ->
-                    let! scheme =
-                      nsEnv.GetScheme(QualifiedIdent.Ident ident.Name)
-
-                    ns <- ns.AddScheme ident.Name scheme
-                  | Decl.TsTypeAlias { Id = ident } ->
-                    let! scheme =
-                      nsEnv.GetScheme(QualifiedIdent.Ident ident.Name)
-
-                    ns <- ns.AddScheme ident.Name scheme
-                  | Decl.TsEnum tsEnumDecl ->
-                    failwith "TODO: getExports - tsEnumDecl"
-                  | Decl.TsModule { Id = ident } ->
-                    let name = ident.ToString
-
-                    match nsEnv.Namespace.Namespaces.TryFind name with
-                    | Some value -> ns <- ns.AddNamespace name value
-                    | None -> failwith $"Couldn't find namespace: '{name}'"
-                | ModuleDecl.ExportNamed namedExport ->
-                  for specifier in namedExport.Specifiers do
-                    match specifier with
-                    | Namespace exportNamespaceSpecifier -> failwith "todo"
-                    | Default exportDefaultSpecifier -> failwith "todo"
-                    | Named { Orig = orig
-                              Exported = exported
-                              IsTypeOnly = isTypeOnly } ->
-                      let! binding = env.GetBinding orig.ToString
-
-                      ns <-
-                        match exported with
-                        | None -> ns.AddBinding orig.ToString binding
-                        | Some value -> ns.AddBinding value.ToString binding
-                | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
-                  failwith "TODO: getExports - exportDefaultDecl"
-                | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
-                  failwith "TODO: getExports - exportDefaultExpr"
-                | ModuleDecl.ExportAll exportAll ->
-                  failwith "TODO: getExports - exportAll"
-                | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
-                  failwith "TODO: getExports - tsImportEqualsDecl"
-                | ModuleDecl.TsExportAssignment tsExportAssignment ->
-                  failwith "TODO: getExports - tsExportAssignment"
-                | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
-                  failwith "TODO: getExports - tsNamespaceExportDecl"
-              | Stmt(Stmt.Decl decl) ->
-                match decl with
-                | Decl.Class _classDecl ->
-                  failwith "TODO: inferDecl - classDecl"
-                | Decl.Fn fnDecl ->
-                  let t = inferFunction ctx env fnDecl.Fn
-                  let name = fnDecl.Id.Name
-                  let isMut = false
-                  ns <- ns.AddBinding name (t, isMut)
-                | Decl.Var { Decls = decls } ->
-                  for decl in decls do
-                    let names = findBindingNames decl.Id
-
-                    for name in names do
-                      let! binding = nsEnv.GetBinding name
-                      ns <- ns.AddBinding name binding
-                | Decl.Using _usingDecl ->
-                  failwith "TODO: inferModuleBlock - usingDecl"
-                | Decl.TsInterface { Id = ident } ->
-                  let! scheme = nsEnv.GetScheme(QualifiedIdent.Ident ident.Name)
-                  ns <- ns.AddScheme ident.Name scheme
-                | Decl.TsTypeAlias decl ->
-                  let typeParams = None
-                  let t = inferTsType ctx env decl.TypeAnn
-
-                  let scheme =
-                    { TypeParams = typeParams
-                      Type = t
-                      IsTypeParam = false }
-
-                  // TODO: if decl.Global is true, add to the global env
-                  ns <- ns.AddScheme decl.Id.Name scheme
-                | Decl.TsEnum _tsEnumDecl ->
-                  failwith "TODO: inferModuleBlock - TsEnum"
-                | Decl.TsModule _tsModuleDecl ->
-                  failwith "TODO: inferModuleBlock - TsModule"
-              | _ -> failwith "item must be a decl"
+            let! ns = getExports ctx nsEnv name tsModuleBlock.Body
+            newEnv <- newEnv.AddNamespace name ns
           | TsNamespaceDecl _tsNamespaceDecl ->
             failwith "TODO: inferModuleBlock- TsNamespaceDecl"
 
-        newEnv <- newEnv.AddNamespace name ns
-
       return newEnv
+    }
+
+  let getExports
+    (ctx: Ctx)
+    (env: Env)
+    (name: string)
+    (items: list<ModuleItem>)
+    : Result<Namespace, TypeError> =
+
+    result {
+      let mutable ns: Namespace =
+        { Name = name
+          Values = Map.empty
+          Schemes = Map.empty
+          Namespaces = Map.empty }
+
+      for item in items do
+        match item with
+        | ModuleDecl decl ->
+          match decl with
+          | ModuleDecl.Import importDecl ->
+            failwith "TODO: getExports - importDecl"
+          | ModuleDecl.ExportDecl { Decl = decl } ->
+            match decl with
+            | Decl.Class classDecl -> failwith "TODO: getExports - classDecl"
+            | Decl.Fn fnDecl -> failwith "TODO: getExports - fnDecl"
+            | Decl.Var varDecl -> failwith "TODO: getExports - varDecl"
+            | Decl.Using usingDecl -> failwith "TODO: getExports - usingDecl"
+            | Decl.TsInterface { Id = ident } ->
+              let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
+
+              ns <- ns.AddScheme ident.Name scheme
+            | Decl.TsTypeAlias { Id = ident } ->
+              let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
+
+              ns <- ns.AddScheme ident.Name scheme
+            | Decl.TsEnum tsEnumDecl -> failwith "TODO: getExports - tsEnumDecl"
+            | Decl.TsModule { Id = ident } ->
+              let name = ident.ToString
+
+              match env.Namespace.Namespaces.TryFind name with
+              | Some value -> ns <- ns.AddNamespace name value
+              | None -> failwith $"Couldn't find namespace: '{name}'"
+          | ModuleDecl.ExportNamed namedExport ->
+            for specifier in namedExport.Specifiers do
+              match specifier with
+              | Namespace exportNamespaceSpecifier -> failwith "todo"
+              | Default exportDefaultSpecifier -> failwith "todo"
+              | Named { Orig = orig
+                        Exported = exported
+                        IsTypeOnly = isTypeOnly } ->
+                let! binding = env.GetBinding orig.ToString
+
+                ns <-
+                  match exported with
+                  | None -> ns.AddBinding orig.ToString binding
+                  | Some value -> ns.AddBinding value.ToString binding
+          | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+            failwith "TODO: getExports - exportDefaultDecl"
+          | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+            failwith "TODO: getExports - exportDefaultExpr"
+          | ModuleDecl.ExportAll exportAll ->
+            failwith "TODO: getExports - exportAll"
+          | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+            failwith "TODO: getExports - tsImportEqualsDecl"
+          | ModuleDecl.TsExportAssignment tsExportAssignment ->
+            failwith "TODO: getExports - tsExportAssignment"
+          | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+            failwith "TODO: getExports - tsNamespaceExportDecl"
+        | Stmt(Stmt.Decl decl) ->
+          match decl with
+          | Decl.Class _classDecl -> failwith "TODO: inferDecl - classDecl"
+          | Decl.Fn fnDecl ->
+            let t = inferFunction ctx env fnDecl.Fn
+            let name = fnDecl.Id.Name
+            let isMut = false
+            ns <- ns.AddBinding name (t, isMut)
+          | Decl.Var { Decls = decls } ->
+            for decl in decls do
+              let names = findBindingNames decl.Id
+
+              for name in names do
+                let! binding = env.GetBinding name
+                ns <- ns.AddBinding name binding
+          | Decl.Using _usingDecl ->
+            failwith "TODO: inferModuleBlock - usingDecl"
+          | Decl.TsInterface { Id = ident } ->
+            let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)
+            ns <- ns.AddScheme ident.Name scheme
+          | Decl.TsTypeAlias decl ->
+            let typeParams = None
+            let t = inferTsType ctx env decl.TypeAnn
+
+            let scheme =
+              { TypeParams = typeParams
+                Type = t
+                IsTypeParam = false }
+
+            // TODO: if decl.Global is true, add to the global env
+            ns <- ns.AddScheme decl.Id.Name scheme
+          | Decl.TsEnum _tsEnumDecl ->
+            failwith "TODO: inferModuleBlock - TsEnum"
+          | Decl.TsModule _tsModuleDecl ->
+            failwith "TODO: inferModuleBlock - TsModule"
+        | _ -> failwith "item must be a decl"
+
+      return ns
     }
 
   let inferStmt (ctx: Ctx) (env: Env) (stmt: Stmt) : Result<Env, TypeError> =

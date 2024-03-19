@@ -1,0 +1,13 @@
+﻿input: 
+    export = React;
+    export as namespace React;
+    
+output: Success: { Body =
+   [ModuleDecl (TsExportAssignment { Expr = Ident { Name = "React"
+                                                    Loc = None }
+                                     Loc = None });
+    ModuleDecl (TsNamespaceExport { Id = { Name = "React"
+                                           Loc = None }
+                                    Loc = None })]
+  Shebang = None
+  Loc = None }

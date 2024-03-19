@@ -1,0 +1,73 @@
+﻿input: 
+    function isValidElement<P>(object: {} | null | undefined): object is ReactElement<P>;
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Fn
+            { Id = { Name = "isValidElement"
+                     Loc = None }
+              Declare = false
+              Fn =
+               { Params =
+                  [{ Pat = Ident { Id = { Name = "object"
+                                          Loc = None }
+                                   Loc = None }
+                     TypeAnn =
+                      Some
+                        { TypeAnn =
+                           TsUnionOrIntersectionType
+                             (TsUnionType
+                                { Types =
+                                   [TsTypeLit { Members = []
+                                                Loc = None };
+                                    TsKeywordType { Kind = TsNullKeyword
+                                                    Loc = None };
+                                    TsKeywordType { Kind = TsUndefinedKeyword
+                                                    Loc = None }]
+                                  Loc = None })
+                          Loc = None }
+                     Loc = None }]
+                 Body = None
+                 IsGenerator = false
+                 IsAsync = false
+                 TypeParams = Some { Params = [{ Name = { Name = "P"
+                                                          Loc = None }
+                                                 IsIn = false
+                                                 IsOut = false
+                                                 IsConst = false
+                                                 Constraint = None
+                                                 Default = None
+                                                 Loc = None }]
+                                     Loc = None }
+                 ReturnType =
+                  Some
+                    { TypeAnn =
+                       TsTypePredicate
+                         { Asserts = false
+                           ParamName = Ident { Name = "object"
+                                               Loc = None }
+                           Typeann =
+                            Some
+                              { TypeAnn =
+                                 TsTypeRef
+                                   { Loc = None
+                                     TypeName =
+                                      Identifier { Name = "ReactElement"
+                                                   Loc = None }
+                                     TypeParams =
+                                      Some
+                                        { Params =
+                                           [TsTypeRef
+                                              { Loc = None
+                                                TypeName =
+                                                 Identifier { Name = "P"
+                                                              Loc = None }
+                                                TypeParams = None }]
+                                          Loc = None } }
+                                Loc = None }
+                           Loc = None }
+                      Loc = None }
+                 Loc = None } }))]
+  Shebang = None
+  Loc = None }

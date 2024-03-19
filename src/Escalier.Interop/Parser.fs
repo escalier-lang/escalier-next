@@ -21,13 +21,14 @@ module Parser =
 
   let strWs s = pstring s .>> ws
 
-  let isIdentifierChar c = isLetter c || isDigit c || c = '_'
+  let isIdentifierChar c =
+    isLetter c || isDigit c || c = '_' || c = '$'
 
   let keyword s =
     pstring s .>> notFollowedBy (satisfy isIdentifierChar) .>> ws
 
   let ident: Parser<Ident, unit> =
-    let isIdentifierFirstChar c = isLetter c || c = '_'
+    let isIdentifierFirstChar c = isLetter c || c = '_' || c = '$'
 
     many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
     |>> fun name -> { Name = name; Loc = None }
@@ -589,7 +590,11 @@ module Parser =
 
   let primaryType =
     choice
-      [ keywordType |>> TsType.TsKeywordType
+      [ // `typePredicate` goes first to handle `object` being used
+        // as an identifier in a type predicate in React's index.d.ts
+        attempt (typePredicate |>> TsType.TsTypePredicate)
+
+        keywordType |>> TsType.TsKeywordType
         tupleType |>> TsType.TsTupleType
         restType |>> TsType.TsRestType
         inferType |>> TsType.TsInferType
@@ -608,8 +613,6 @@ module Parser =
         attempt parenthesizedType |>> TsType.TsParenthesizedType
         fnOrConstructorType |>> TsType.TsFnOrConstructorType
 
-        // typePredicate conflicts with both typeRef and thisType
-        attempt (typePredicate |>> TsType.TsTypePredicate)
         thisType |>> TsType.TsThisType
         typeof |>> TsType.TsTypeQuery
 
@@ -821,18 +824,66 @@ module Parser =
   let exportDecl: Parser<ExportDecl, unit> =
     decl |>> fun decl -> { Decl = decl; Loc = None }
 
+  let tsExportAssignment: Parser<TsExportAssignment, unit> =
+    (strWs "=" >>. expr) |>> fun expr -> { Expr = expr; Loc = None }
+
+  let tsNamespaceExport: Parser<TsNamespaceExportDecl, unit> =
+    (keyword "as" >>. (keyword "namespace") >>. ident)
+    |>> fun id -> { Id = id; Loc = None }
+
   let export: Parser<ModuleDecl, unit> =
     pipe2
       (keyword "export")
       (choice
         [ exportDecl |>> ModuleDecl.ExportDecl
-          namedExport |>> ModuleDecl.ExportNamed ])
+          namedExport |>> ModuleDecl.ExportNamed
+          tsExportAssignment |>> ModuleDecl.TsExportAssignment
+          tsNamespaceExport |>> ModuleDecl.TsNamespaceExport ])
     <| fun _ modDecl -> modDecl
+
+  let namedImportSpecifier: Parser<ImportSpecifier, unit> =
+    pipe2 ident (opt (strWs "as" >>. ident))
+    <| fun local imported ->
+      ImportSpecifier.Named
+        { Local = local
+          Imported = Option.map ModuleExportName.Ident imported
+          IsTypeOnly = false // TODO
+          Loc = None }
+
+  let namedImports: Parser<list<ImportSpecifier>, unit> =
+    (strWs "{" >>. sepEndBy namedImportSpecifier (strWs ",") .>> strWs "}")
+
+  let namespaceImport: Parser<ImportSpecifier, unit> =
+    pipe2 (strWs "*") (strWs "as" >>. ident)
+    <| fun _ local -> ImportSpecifier.Namespace { Local = local; Loc = None }
+
+  let defaultImport: Parser<ImportSpecifier, unit> =
+    ident |>> fun local -> ImportSpecifier.Default { Local = local; Loc = None }
+
+  let importSpecifiers: Parser<list<ImportSpecifier>, unit> =
+    choice
+      [ namespaceImport |>> fun ns -> [ ns ]
+        (pipe2 defaultImport (opt (strWs "," >>. namedImports))
+         <| fun def namedImport -> def :: Option.defaultValue [] namedImport)
+        namedImports ]
+
+  let import: Parser<ModuleDecl, unit> =
+    pipe2 (keyword "import" >>. importSpecifiers) (keyword "from" >>. str)
+    <| fun specifiers src ->
+      let decl: ImportDecl =
+        { Specifiers = specifiers
+          Src = src
+          IsTypeOnly = false
+          With = None
+          Loc = None }
+
+      ModuleDecl.Import decl
 
   moduleItemRef.Value <-
     ws
     >>. choice
-      [ export |>> ModuleItem.ModuleDecl
+      [ import |>> ModuleItem.ModuleDecl
+        export |>> ModuleItem.ModuleDecl
         decl |>> Stmt.Decl |>> ModuleItem.Stmt ]
     .>> (opt (strWs ";"))
 

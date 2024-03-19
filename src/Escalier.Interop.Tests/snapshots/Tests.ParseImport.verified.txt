@@ -1,0 +1,31 @@
+﻿input: 
+    import * as PropTypes from "prop-types";
+    import { Interaction as SchedulerInteraction } from "scheduler/tracing";
+    
+output: Success: { Body =
+   [ModuleDecl (Import { Specifiers = [Namespace { Local = { Name = "PropTypes"
+                                                             Loc = None }
+                                                   Loc = None }]
+                         Src = { Value = "prop-types"
+                                 Raw = None
+                                 Loc = None }
+                         IsTypeOnly = false
+                         With = None
+                         Loc = None });
+    ModuleDecl
+      (Import
+         { Specifiers =
+            [Named { Local = { Name = "Interaction"
+                               Loc = None }
+                     Imported = Some (Ident { Name = "SchedulerInteraction"
+                                              Loc = None })
+                     IsTypeOnly = false
+                     Loc = None }]
+           Src = { Value = "scheduler/tracing"
+                   Raw = None
+                   Loc = None }
+           IsTypeOnly = false
+           With = None
+           Loc = None })]
+  Shebang = None
+  Loc = None }

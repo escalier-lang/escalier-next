@@ -262,6 +262,43 @@ let TestMyPfloat () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+[<Fact>]
+let ParseImport () =
+  let input =
+    """
+    import * as PropTypes from "prop-types";
+    import { Interaction as SchedulerInteraction } from "scheduler/tracing";
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTsExports () =
+  let input =
+    """
+    export = React;
+    export as namespace React;
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTypePredicate () =
+  let input =
+    """
+    function isValidElement<P>(object: {} | null | undefined): object is ReactElement<P>;
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
 let ParseConditionalType () =
@@ -575,7 +612,7 @@ let AcessNamespaceValue () =
   Assert.False(Result.isError result)
 
 [<Fact>]
-let LoadingThirdPartyModules () =
+let ImportThirdPartyModules () =
   let result =
     result {
       let src =
@@ -614,6 +651,23 @@ let LoadingThirdPartyModules () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("Globals | DataType.Color | \"auto\"", result.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let ImportReact () =
+  let result =
+    result {
+      let src =
+        """
+        import "react" as React;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Type(env, "React", "React")
     }
 
   printfn "result = %A" result

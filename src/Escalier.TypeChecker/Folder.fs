@@ -26,7 +26,11 @@ module Folder =
         | Setter(name, fn) -> Setter(name, foldFn fn)
         | Constructor fn -> Constructor(foldFn fn)
         | Callable fn -> Callable(foldFn fn)
-        | _ -> failwith "TODO: foldType - ObjTypeElem"
+        | Mapped mapped ->
+          Mapped
+            { mapped with
+                TypeAnn = fold mapped.TypeAnn
+                NameType = Option.map fold mapped.NameType }
 
       let t =
         match t.Kind with

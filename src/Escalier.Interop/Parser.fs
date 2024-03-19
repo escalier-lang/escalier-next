@@ -41,6 +41,55 @@ module Parser =
     createParserForwardedToRef<ModuleItem, unit> ()
 
   // Literals
+  // The default float format allows 'Inf' and 'NaN' to be used as literals.
+  // We should allow `NaN` and `Infinity` as literals in TypeScript, but we
+  // need to make sure that there's no trailing alphanumerics.
+  let numberFormat =
+    NumberLiteralOptions.DefaultFloat ^^^ NumberLiteralOptions.AllowInfinity
+
+  let pfloat: Parser<float, 'u> =
+    fun stream ->
+      let reply = (numberLiteral numberFormat "number") stream
+
+      if reply.Status = Ok then
+        let nl = reply.Result
+
+        try
+          let d =
+            if nl.IsDecimal then
+              System.Double.Parse(
+                nl.String,
+                System.Globalization.CultureInfo.InvariantCulture
+              )
+            elif nl.IsHexadecimal then
+              floatOfHexString nl.String
+            elif nl.IsInfinity then
+              if nl.HasMinusSign then
+                System.Double.NegativeInfinity
+              else
+                System.Double.PositiveInfinity
+            else
+              System.Double.NaN
+
+          Reply(d)
+        with
+        | :? System.OverflowException ->
+          Reply(
+            if nl.HasMinusSign then
+              System.Double.NegativeInfinity
+            else
+              System.Double.PositiveInfinity
+          )
+        | :? System.FormatException ->
+          stream.Skip(-nl.String.Length)
+
+          Reply(
+            FatalError,
+            messageError
+              "The floating-point number has an invalid format (this error is unexpected, please report this error message to fparsec@quanttec.com)."
+          )
+      else
+        Reply(reply.Status, reply.Error)
 
   let num: Parser<Number, unit> =
     pfloat .>> ws
@@ -159,7 +208,7 @@ module Parser =
         Loc = None }
 
   let typeParams: Parser<TsTypeParamDecl, unit> =
-    between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))
+    between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))
     |>> fun typeParams -> { Params = typeParams; Loc = None }
 
   let funcParam: Parser<TsFnParam, unit> =
@@ -179,7 +228,7 @@ module Parser =
         Loc = None }
 
   let tsFnParams: Parser<list<TsFnParam>, unit> =
-    between (strWs "(") (strWs ")") (sepBy funcParam (strWs ","))
+    between (strWs "(") (strWs ")") (sepEndBy funcParam (strWs ","))
 
   let fnType: Parser<TsFnType, unit> =
     pipe3 (opt typeParams) tsFnParams (strWs "=>" >>. tsTypeAnn)
@@ -411,7 +460,7 @@ module Parser =
 
   let inferType: Parser<TsInferType, unit> =
     // TODO: require at least one whitepsace character after `infer`
-    strWs "infer" >>. typeParam
+    keyword "infer" >>. typeParam
     |>> fun typeParam -> { TypeParam = typeParam; Loc = None }
 
   let parenthesizedType: Parser<TsParenthesizedType, unit> =
@@ -606,7 +655,7 @@ module Parser =
       List.fold (fun x suffix -> suffix x) typeAnn suffixes
 
   let intersectionOrPrimaryType: Parser<TsType, unit> =
-    sepBy1 primaryTypeWithSuffix (strWs "&")
+    (opt (strWs "&")) >>. sepBy1 primaryTypeWithSuffix (strWs "&")
     |>> fun typeAnns ->
       match typeAnns with
       | [ typeAnn ] -> typeAnn
@@ -669,7 +718,7 @@ module Parser =
         Loc = None }
 
   let fnParams: Parser<list<Param>, unit> =
-    between (strWs "(") (strWs ")") (sepBy param (strWs ","))
+    between (strWs "(") (strWs ")") (sepEndBy param (strWs ","))
 
   let fnDecl: Parser<bool -> Decl, unit> =
     pipe5

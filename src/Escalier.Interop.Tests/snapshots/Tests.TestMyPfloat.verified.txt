@@ -1,0 +1,44 @@
+﻿input: 
+    export type MozForceBrokenImageIcon = Globals | 0 | (string & {}) | 1;
+    
+output: Success: { Body =
+   [ModuleDecl
+      (ExportDecl
+         { Decl =
+            TsTypeAlias
+              { Declare = false
+                Id = { Name = "MozForceBrokenImageIcon"
+                       Loc = None }
+                TypeParams = None
+                TypeAnn =
+                 TsUnionOrIntersectionType
+                   (TsUnionType
+                      { Types =
+                         [TsTypeRef { Loc = None
+                                      TypeName = Identifier { Name = "Globals"
+                                                              Loc = None }
+                                      TypeParams = None };
+                          TsLitType { Lit = Number { Value = Float 0.0
+                                                     Raw = None
+                                                     Loc = None }
+                                      Loc = None };
+                          TsParenthesizedType
+                            { TypeAnn =
+                               TsUnionOrIntersectionType
+                                 (TsIntersectionType
+                                    { Types =
+                                       [TsKeywordType { Kind = TsStringKeyword
+                                                        Loc = None };
+                                        TsTypeLit { Members = []
+                                                    Loc = None }]
+                                      Loc = None })
+                              Loc = None };
+                          TsLitType { Lit = Number { Value = Float 1.0
+                                                     Raw = None
+                                                     Loc = None }
+                                      Loc = None }]
+                        Loc = None })
+                Loc = None }
+           Loc = None })]
+  Shebang = None
+  Loc = None }

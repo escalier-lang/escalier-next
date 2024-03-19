@@ -236,6 +236,32 @@ let ParseMappedType () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+[<Fact>]
+let ParseMappedTypeWithoutSemi () =
+  let input =
+    """
+    export type InferPropsInner<V> = {
+      [K in keyof V]-?: InferType<V[K]>;
+    };
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let TestMyPfloat () =
+  let input =
+    """
+    export type MozForceBrokenImageIcon = Globals | 0 | (string & {}) | 1;
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
 
 [<Fact>]
 let ParseConditionalType () =
@@ -555,6 +581,8 @@ let LoadingThirdPartyModules () =
       let src =
         """
         import "csstype" {Globals, Property};
+        import "prop-types" as PropTypes;
+        import "scheduler/tracing" {Interaction as SchedulerInteraction};
         
         type AccentColor = Property.AccentColor;
         """
@@ -565,6 +593,12 @@ let LoadingThirdPartyModules () =
         env,
         "Globals",
         "\"-moz-initial\" | \"inherit\" | \"initial\" | \"revert\" | \"revert-layer\" | \"unset\""
+      )
+
+      Assert.Type(
+        env,
+        "SchedulerInteraction",
+        "{__count: number, id: number, name: string, timestamp: number}"
       )
 
       Assert.Type(env, "AccentColor", "Property.AccentColor")

@@ -742,8 +742,19 @@ module rec Infer =
           | ModuleDecl.ExportDecl { Decl = decl } ->
             match decl with
             | Decl.Class classDecl -> failwith "TODO: getExports - classDecl"
-            | Decl.Fn fnDecl -> failwith "TODO: getExports - fnDecl"
-            | Decl.Var varDecl -> failwith "TODO: getExports - varDecl"
+            | Decl.Fn fnDecl ->
+              let name = fnDecl.Id.Name
+              let! t = env.GetValue name
+              let isMut = false
+              ns <- ns.AddBinding name (t, isMut)
+            | Decl.Var varDecl ->
+              for varDecl in varDecl.Decls do
+                let names = findBindingNames varDecl.Id
+
+                for name in names do
+                  let! t = env.GetValue name
+                  let isMut = false
+                  ns <- ns.AddBinding name (t, isMut)
             | Decl.Using usingDecl -> failwith "TODO: getExports - usingDecl"
             | Decl.TsInterface { Id = ident } ->
               let! scheme = env.GetScheme(QualifiedIdent.Ident ident.Name)

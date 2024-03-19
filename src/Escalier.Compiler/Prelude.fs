@@ -62,24 +62,33 @@ module Prelude =
       // TODO: once this is implemented, move it over to Escalier.Interop
       let rootDir = findNearestAncestorWithNodeModules projectRoot
       let nodeModulesDir = Path.Combine(rootDir, "node_modules")
-      printfn "nodeModulesDir = %A" nodeModulesDir
 
-      let pkgJsonPath = Path.Combine(nodeModulesDir, importPath, "package.json")
-      printfn "pkgJson = %A" pkgJsonPath
+      let pkgJsonPath =
+        Path.Combine(rootDir, "node_modules", importPath, "package.json")
 
-      // read package.json and parse it
-      let pkgJson = File.ReadAllText(pkgJsonPath)
-      let pkgJsonObj = JsonValue.Parse(pkgJson)
+      if File.Exists pkgJsonPath then
+        // read package.json and parse it
+        let pkgJson = File.ReadAllText(pkgJsonPath)
+        let pkgJsonObj = JsonValue.Parse(pkgJson)
 
-      match pkgJsonObj.TryGetProperty("types") with
-      | None -> failwith "Invalid package.json: missing `types` field."
-      | Some value ->
-        let types = value.InnerText()
+        match pkgJsonObj.TryGetProperty("types") with
+        | None -> failwith "Invalid package.json: missing `types` field."
+        | Some value ->
+          let types = value.InnerText()
+          Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+      else
+        let pkgJsonPath =
+          Path.Combine(nodeModulesDir, "@types", importPath, "package.json")
 
-        let fullPath = Path.Combine(nodeModulesDir, importPath, types)
-        printfn $"types = '{types}'"
-        printfn $"fullPath = '{fullPath}'"
-        fullPath
+        // read package.json and parse it
+        let pkgJson = File.ReadAllText(pkgJsonPath)
+        let pkgJsonObj = JsonValue.Parse(pkgJson)
+
+        match pkgJsonObj.TryGetProperty("types") with
+        | None -> failwith "Invalid package.json: missing `types` field."
+        | Some value ->
+          let types = value.InnerText()
+          Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
 
   // TODO: dedupe with Escalier.Interop.Infer
   let findBindingNames (p: Syntax.Pattern) : list<string> =

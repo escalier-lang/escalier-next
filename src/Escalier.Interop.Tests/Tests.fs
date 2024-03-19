@@ -582,6 +582,7 @@ let LoadingThirdPartyModules () =
         """
         import "csstype" {Globals, Property};
         import "prop-types" as PropTypes;
+        import "scheduler/tracing" {Interaction as SchedulerInteraction};
         
         type AccentColor = Property.AccentColor;
         """
@@ -592,6 +593,12 @@ let LoadingThirdPartyModules () =
         env,
         "Globals",
         "\"-moz-initial\" | \"inherit\" | \"initial\" | \"revert\" | \"revert-layer\" | \"unset\""
+      )
+
+      Assert.Type(
+        env,
+        "SchedulerInteraction",
+        "{__count: number, id: number, name: string, timestamp: number}"
       )
 
       Assert.Type(env, "AccentColor", "Property.AccentColor")

@@ -60,35 +60,50 @@ module Prelude =
       )
     else
       // TODO: once this is implemented, move it over to Escalier.Interop
+      // TODO: check if there's `/` in the import path, if so, the first
+      // part before the `/` is the name of the module and the rost is a
+      // path to a .d.ts file within the module.
+
+      // determine if importPath contains a '/' and split on it
+      // if it does, the first part is the module name and the second part is
+      // the path to the .d.ts file within the module
+
+      let moduleName, subpath =
+        match importPath.Split('/') |> List.ofArray with
+        | [] -> failwith "This should never happen."
+        | [ name ] -> name, None
+        | name :: path -> name, Some(String.concat "/" path)
+
       let rootDir = findNearestAncestorWithNodeModules projectRoot
       let nodeModulesDir = Path.Combine(rootDir, "node_modules")
 
+      let pkgJsonPath1 =
+        Path.Combine(nodeModulesDir, moduleName, "package.json")
+
+      let pkgJsonPath2 =
+        Path.Combine(nodeModulesDir, "@types", moduleName, "package.json")
+
       let pkgJsonPath =
-        Path.Combine(rootDir, "node_modules", importPath, "package.json")
+        if File.Exists pkgJsonPath1 then
+          pkgJsonPath1
+        elif File.Exists pkgJsonPath2 then
+          pkgJsonPath2
+        else
+          failwith $"package.json not found for module {moduleName}"
 
-      if File.Exists pkgJsonPath then
-        // read package.json and parse it
-        let pkgJson = File.ReadAllText(pkgJsonPath)
-        let pkgJsonObj = JsonValue.Parse(pkgJson)
+      // read package.json and parse it
+      let pkgJson = File.ReadAllText(pkgJsonPath)
+      let pkgJsonObj = JsonValue.Parse(pkgJson)
 
+      match subpath with
+      | None ->
         match pkgJsonObj.TryGetProperty("types") with
         | None -> failwith "Invalid package.json: missing `types` field."
         | Some value ->
           let types = value.InnerText()
           Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
-      else
-        let pkgJsonPath =
-          Path.Combine(nodeModulesDir, "@types", importPath, "package.json")
-
-        // read package.json and parse it
-        let pkgJson = File.ReadAllText(pkgJsonPath)
-        let pkgJsonObj = JsonValue.Parse(pkgJson)
-
-        match pkgJsonObj.TryGetProperty("types") with
-        | None -> failwith "Invalid package.json: missing `types` field."
-        | Some value ->
-          let types = value.InnerText()
-          Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+      | Some value ->
+        Path.Combine(Path.GetDirectoryName(pkgJsonPath), $"{value}.d.ts")
 
   // TODO: dedupe with Escalier.Interop.Infer
   let findBindingNames (p: Syntax.Pattern) : list<string> =

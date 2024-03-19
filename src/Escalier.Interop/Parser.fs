@@ -208,7 +208,7 @@ module Parser =
         Loc = None }
 
   let typeParams: Parser<TsTypeParamDecl, unit> =
-    between (strWs "<") (strWs ">") (sepBy typeParam (strWs ","))
+    between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))
     |>> fun typeParams -> { Params = typeParams; Loc = None }
 
   let funcParam: Parser<TsFnParam, unit> =

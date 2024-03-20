@@ -1,0 +1,35 @@
+﻿input: 
+    class Foo<T> extends Bar<T> {}
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Class
+            { Ident = { Name = "Foo"
+                        Loc = None }
+              Declare = false
+              Class =
+               { Body = []
+                 SuperClass = Some (Ident { Name = "Bar"
+                                            Loc = None })
+                 IsAbstract = false
+                 TypeParams = Some { Params = [{ Name = { Name = "T"
+                                                          Loc = None }
+                                                 IsIn = false
+                                                 IsOut = false
+                                                 IsConst = false
+                                                 Constraint = None
+                                                 Default = None
+                                                 Loc = None }]
+                                     Loc = None }
+                 SuperTypeParams =
+                  Some
+                    { Params = [TsTypeRef { Loc = None
+                                            TypeName = Identifier { Name = "T"
+                                                                    Loc = None }
+                                            TypeParams = None }]
+                      Loc = None }
+                 Implements = []
+                 Loc = None } }))]
+  Shebang = None
+  Loc = None }

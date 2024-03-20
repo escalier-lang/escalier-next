@@ -692,10 +692,8 @@ module Parser =
     |>> fun members -> { Body = members; Loc = None }
 
   let extend: Parser<TsExprWithTypeArgs, unit> =
-    pipe2 ident (opt typeArgs)
-    <| fun ident typeArgs ->
-      { Expr = Expr.Ident ident
-        TypeArgs = typeArgs }
+    pipe2 expr (opt typeArgs)
+    <| fun cls typeArgs -> { Expr = cls; TypeArgs = typeArgs }
 
   let interfaceDecl: Parser<bool -> Decl, unit> =
     pipe4
@@ -745,6 +743,108 @@ module Parser =
           Declare = declare
           Fn = fn }
         |> Decl.Fn
+
+  let constructor: Parser<Constructor, unit> =
+    keyword "constructor" >>. fnParams
+    |>> fun ps ->
+      { Params = List.map ParamOrTsParamProp.Param ps
+        Body = None
+        Accessibility = None
+        IsOptional = false
+        Loc = None }
+
+  let classMethod: Parser<ClassMethod, unit> =
+    pipe5
+      (tuple2 (opt (strWs "static")) (opt (strWs "async")))
+      ident
+      (opt typeParams)
+      fnParams
+      (opt ((strWs ":") >>. tsTypeAnn))
+    <| fun (isStatic, isAsync) id typeParams ps typeAnn ->
+      let fn: Function =
+        { Params = ps
+          Body = None
+          IsGenerator = false // TODO
+          IsAsync = isAsync.IsSome
+          TypeParams = typeParams
+          ReturnType = typeAnn
+          Loc = None }
+
+      { Key = PropName.Ident id
+        Function = fn
+        Kind = MethodKind.Method // TODO: handle getters and setters
+        IsStatic = isStatic.IsSome
+        Accessibility = None
+        IsAbstract = false
+        IsOptional = false
+        IsOverride = false
+        Loc = None }
+
+  let classProp: Parser<ClassProp, unit> =
+    pipe5
+      (opt (keyword "static"))
+      (opt (keyword "readonly"))
+      ident
+      (opt (pstring "?"))
+      (opt (strWs ":" >>. tsTypeAnn))
+    <| fun isStatic isReadonly name optional typeAnn ->
+
+      let prop: ClassProp =
+        { Key = PropName.Ident name
+          Value = None
+          TypeAnn = typeAnn
+          IsStatic = isStatic.IsSome
+          // TODO=Decorators
+          // decorators=list<Decorator>
+          Accessibility = None
+          IsAbstract = false
+          IsOptional = optional.IsSome
+          IsOverride = false
+          Readonly = isReadonly.IsSome
+          Declare = false // what is this?
+          Definite = false // what is this?
+          Loc = None }
+
+      prop
+
+  let classMember: Parser<ClassMember, unit> =
+    choice
+      [ constructor |>> ClassMember.Constructor
+        attempt classMethod |>> ClassMember.Method
+        attempt classProp |>> ClassMember.ClassProp ]
+    .>> (opt (pstring ";"))
+    .>> ws
+
+  let extends: Parser<Expr * option<TsTypeParamInstantiation>, unit> =
+    pipe2 (keyword "extends" >>. expr) (opt typeArgs)
+    <| fun superCls typeArgs -> superCls, typeArgs
+
+  let classDecl: Parser<bool -> Decl, unit> =
+    pipe4
+      (keyword "class" >>. ident)
+      (opt typeParams)
+      (opt extends)
+      (between (strWs "{") (strWs "}") (many classMember))
+    <| fun id typeParams extends members ->
+      let superCls, superTypeParams =
+        match extends with
+        | None -> None, None
+        | Some(superCls, typeParams) -> Some(superCls), typeParams
+
+      let cls: Class =
+        { Body = members
+          SuperClass = superCls
+          IsAbstract = false
+          TypeParams = typeParams
+          SuperTypeParams = superTypeParams
+          Implements = []
+          Loc = None }
+
+      fun declare ->
+        { Ident = id
+          Declare = declare
+          Class = cls }
+        |> Decl.Class
 
   let typeAliasDecl: Parser<bool -> Decl, unit> =
     pipe3 ((strWs "type") >>. ident) (opt typeParams) ((strWs "=") >>. tsType)
@@ -800,7 +900,8 @@ module Parser =
   let decl: Parser<Decl, unit> =
     pipe2
       (opt (keyword "declare"))
-      (choice [ typeAliasDecl; varDecl; fnDecl; interfaceDecl; moduleDecl ])
+      (choice
+        [ typeAliasDecl; varDecl; fnDecl; interfaceDecl; classDecl; moduleDecl ])
     <| fun declare decl -> decl declare.IsSome
 
   let namedExportSpecifier: Parser<ExportSpecifier, unit> =

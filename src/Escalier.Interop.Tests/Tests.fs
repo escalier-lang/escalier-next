@@ -343,6 +343,50 @@ let ParseLineComments () =
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
+[<Fact>]
+let ParseClass () =
+  let input =
+    """
+    class Foo {
+      bar: number;
+      constructor(bar: number);
+      baz(): void;
+    }
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseGenericClass () =
+  let input =
+    """
+    class Foo<T> {
+      bar: T;
+      constructor(bar: T);
+      baz<U>(): void;
+    }
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseClassExtends () =
+  let input =
+    """
+    class Foo<T> extends Bar<T> {}
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
 
 [<Fact>]
 let InferBasicVarDecls () =
@@ -656,7 +700,7 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ImportReact () =
   let result =
     result {

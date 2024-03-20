@@ -1,0 +1,102 @@
+﻿input: 
+    class Foo<T> {
+      bar: T;
+      constructor(bar: T);
+      baz<U>(): void;
+    }
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Class
+            { Ident = { Name = "Foo"
+                        Loc = None }
+              Declare = false
+              Class =
+               { Body =
+                  [ClassProp
+                     { Key = Ident { Name = "bar"
+                                     Loc = None }
+                       Value = None
+                       TypeAnn =
+                        Some
+                          { TypeAnn =
+                             TsTypeRef { Loc = None
+                                         TypeName = Identifier { Name = "T"
+                                                                 Loc = None }
+                                         TypeParams = None }
+                            Loc = None }
+                       IsStatic = false
+                       Accessibility = None
+                       IsAbstract = false
+                       IsOptional = false
+                       IsOverride = false
+                       Readonly = false
+                       Declare = false
+                       Definite = false
+                       Loc = None };
+                   Constructor
+                     { Params =
+                        [Param
+                           { Pat = Ident { Id = { Name = "bar"
+                                                  Loc = None }
+                                           Loc = None }
+                             TypeAnn =
+                              Some
+                                { TypeAnn =
+                                   TsTypeRef
+                                     { Loc = None
+                                       TypeName = Identifier { Name = "T"
+                                                               Loc = None }
+                                       TypeParams = None }
+                                  Loc = None }
+                             Loc = None }]
+                       Body = None
+                       Accessibility = None
+                       IsOptional = false
+                       Loc = None };
+                   Method
+                     { Key = Ident { Name = "baz"
+                                     Loc = None }
+                       Function =
+                        { Params = []
+                          Body = None
+                          IsGenerator = false
+                          IsAsync = false
+                          TypeParams = Some { Params = [{ Name = { Name = "U"
+                                                                   Loc = None }
+                                                          IsIn = false
+                                                          IsOut = false
+                                                          IsConst = false
+                                                          Constraint = None
+                                                          Default = None
+                                                          Loc = None }]
+                                              Loc = None }
+                          ReturnType =
+                           Some { TypeAnn = TsKeywordType { Kind = TsVoidKeyword
+                                                            Loc = None }
+                                  Loc = None }
+                          Loc = None }
+                       Kind = Method
+                       IsStatic = false
+                       Accessibility = None
+                       IsAbstract = false
+                       IsOptional = false
+                       IsOverride = false
+                       Loc = None }]
+                 SuperClass = None
+                 IsAbstract = false
+                 TypeParams = Some { Params = [{ Name = { Name = "T"
+                                                          Loc = None }
+                                                 IsIn = false
+                                                 IsOut = false
+                                                 IsConst = false
+                                                 Constraint = None
+                                                 Default = None
+                                                 Loc = None }]
+                                     Loc = None }
+                 SuperTypeParams = None
+                 Implements = []
+                 Loc = None } }))]
+  Shebang = None
+  Loc = None }

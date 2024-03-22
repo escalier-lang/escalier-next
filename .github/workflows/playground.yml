@@ -15,12 +15,12 @@ jobs:
       - name: Install tools
         run: dotnet tool restore
       - name: Publish
-        working-directory: ./src/Escalier.Playground
+        working-directory: ./src/Escalier.BoleroPlayground
         run: dotnet publish -c Release --self-contained -o out
       - name: Upload Page Artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: ./src/Escalier.Playground/out/wwwroot/
+          path: ./src/Escalier.BoleroPlayground/out/wwwroot/
     
   deploy:
     needs: build

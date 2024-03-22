@@ -21,7 +21,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Codegen", "src\Esc
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Codegen.Tests", "src\Escalier.Codegen.Tests\Escalier.Codegen.Tests.fsproj", "{50C20403-EB03-4D2B-941B-55320C1EB970}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Playground", "src\Escalier.Playground\Escalier.Playground.fsproj", "{9B740BF6-B515-48AB-BB44-3C87761F1D10}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.BoleroPlayground", "src\Escalier.BoleroPlayground\Escalier.BoleroPlayground.fsproj", "{9B740BF6-B515-48AB-BB44-3C87761F1D10}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Escalier.Interop", "src\Escalier.Interop\Escalier.Interop.fsproj", "{4E47927A-D593-49B9-8A15-25093E115573}"
 EndProject

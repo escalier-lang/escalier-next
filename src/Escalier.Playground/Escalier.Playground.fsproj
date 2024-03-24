@@ -19,6 +19,11 @@
 
     <ItemGroup>
         <PackageReference Include="Extism.Pdk" Version="1.0.2"/>
+        <PackageReference Include="FSharp.Data" Version="6.4.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
     </ItemGroup>
 
 </Project>

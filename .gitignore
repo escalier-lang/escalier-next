@@ -10,3 +10,4 @@ coverage.opencover.xml
 *.DotSettings.user
 *.received.txt
 .DS_Store
+dist

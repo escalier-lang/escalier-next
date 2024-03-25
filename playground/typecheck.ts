@@ -1,4 +1,4 @@
-import createPlugin, {Plugin} from '@extism/extism';
+import createPlugin, {Plugin} from './extism/mod';
 import { File, PreopenDirectory, Directory } from "@bjorn3/browser_wasi_shim";
 
 export async function greet () {

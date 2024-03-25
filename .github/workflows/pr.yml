@@ -23,7 +23,6 @@ jobs:
           export WASI_VERSION_FULL=${WASI_VERSION}.0
           wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz
           tar xvf wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz
-          export WASI_SDK_PATH=`pwd`/wasi-sdk-${WASI_VERSION_FULL}
       - name: Use Node.js 18.x
         uses: actions/setup-node@v4
         with:
@@ -32,7 +31,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: dotnet build
+        run: |
+          export WASI_SDK_PATH=`pwd`/wasi-sdk-${WASI_VERSION_FULL}
+          dotnet build
       - name: Test
         run: dotnet test --collect:"XPlat Code Coverage;Format=json,lcov,cobertura"
       - name: Upload coverage reports to Codecov

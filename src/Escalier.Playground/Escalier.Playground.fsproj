@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <RuntimeIdentifier>wasi-wasm</RuntimeIdentifier>
+        <OutputType>Exe</OutputType>
+        <PublishTrimmed>true</PublishTrimmed>
+
+        <NoWarn>202</NoWarn>
+
+        <!-- Make sure we create a standalone wasm file for our plugin -->
+        <WasmSingleFileBundle>true</WasmSingleFileBundle>
+        <WasmBuildNative>true</WasmBuildNative>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Program.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Extism.Pdk" Version="1.0.2"/>
+        <PackageReference Include="FSharp.Data" Version="6.4.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
+    </ItemGroup>
+
+</Project>

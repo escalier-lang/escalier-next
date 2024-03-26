@@ -37,6 +37,8 @@ jobs:
           dotnet build -c Release
       - name: Build
         run: npm run build:prod
+      - name: List files
+        run: ls -R dist
       - name: Upload Page Artifact
         uses: actions/upload-pages-artifact@v2
         with:

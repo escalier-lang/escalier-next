@@ -3,12 +3,12 @@ import { File, PreopenDirectory, Directory } from "@bjorn3/browser_wasi_shim";
 
 // @ts-expect-error: TypeScript doesn't know about import.meta
 const base = import.meta.env.BASE_URL;
+const url = new URL(`${location.protocol}/${location.host}${base}Escalier.Playground.wasm`);
 
 export async function greet () {
     const inputTxt = await fetch(`${base}input.txt`);
     const inputBuffer = await inputTxt.arrayBuffer();
 
-    const url = new URL(`${location.protocol}/${location.host}${base}Escalier.Playground.wasm`);
     const options = {
         useWasi: true,
         enableWasiOutput: true,
@@ -39,7 +39,6 @@ export async function loadPlugin(): Promise<Plugin> {
         dom: await fetch(`${base}node_modules/typescript/lib/lib.dom.d.ts`).then((res) => res.arrayBuffer()),
     };
 
-    const url = new URL(`${location.protocol}/${location.host}/Escalier.Playground.wasm`);
     const options = {
         useWasi: true,
         enableWasiOutput: true,

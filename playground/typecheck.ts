@@ -1,11 +1,14 @@
 import createPlugin, {Plugin} from './extism/mod';
 import { File, PreopenDirectory, Directory } from "@bjorn3/browser_wasi_shim";
 
+// @ts-expect-error: TypeScript doesn't know about import.meta
+const base = import.meta.env.BASE_URL;
+
 export async function greet () {
-    const inputTxt = await fetch("/input.txt");
+    const inputTxt = await fetch(`${base}input.txt`);
     const inputBuffer = await inputTxt.arrayBuffer();
 
-    const url = new URL(`${location.protocol}/${location.host}/Escalier.Playground.wasm`);
+    const url = new URL(`${location.protocol}/${location.host}${base}Escalier.Playground.wasm`);
     const options = {
         useWasi: true,
         enableWasiOutput: true,
@@ -26,14 +29,14 @@ export async function greet () {
 
 export async function loadPlugin(): Promise<Plugin> {
     const libs = {
-        es5: await fetch(`/node_modules/typescript/lib/lib.es5.d.ts`).then((res) => res.arrayBuffer()),
-        es2015Core: await fetch(`/node_modules/typescript/lib/lib.es2015.core.d.ts`).then((res) => res.arrayBuffer()),
-        es2015Symbol: await fetch(`/node_modules/typescript/lib/lib.es2015.symbol.d.ts`).then((res) => res.arrayBuffer()),
-        es2015SymbolWellknown: await fetch(`/node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts`).then((res) => res.arrayBuffer()),
-        es2015Iterable: await fetch(`/node_modules/typescript/lib/lib.es2015.iterable.d.ts`).then((res) => res.arrayBuffer()),
-        es2015Generator: await fetch(`/node_modules/typescript/lib/lib.es2015.generator.d.ts`).then((res) => res.arrayBuffer()),
-        es2015Proxy: await fetch(`/node_modules/typescript/lib/lib.es2015.proxy.d.ts`).then((res) => res.arrayBuffer()),
-        dom: await fetch(`/node_modules/typescript/lib/lib.dom.d.ts`).then((res) => res.arrayBuffer()),
+        es5: await fetch(`${base}node_modules/typescript/lib/lib.es5.d.ts`).then((res) => res.arrayBuffer()),
+        es2015Core: await fetch(`${base}node_modules/typescript/lib/lib.es2015.core.d.ts`).then((res) => res.arrayBuffer()),
+        es2015Symbol: await fetch(`${base}node_modules/typescript/lib/lib.es2015.symbol.d.ts`).then((res) => res.arrayBuffer()),
+        es2015SymbolWellknown: await fetch(`${base}node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts`).then((res) => res.arrayBuffer()),
+        es2015Iterable: await fetch(`${base}node_modules/typescript/lib/lib.es2015.iterable.d.ts`).then((res) => res.arrayBuffer()),
+        es2015Generator: await fetch(`${base}node_modules/typescript/lib/lib.es2015.generator.d.ts`).then((res) => res.arrayBuffer()),
+        es2015Proxy: await fetch(`${base}node_modules/typescript/lib/lib.es2015.proxy.d.ts`).then((res) => res.arrayBuffer()),
+        dom: await fetch(`${base}node_modules/typescript/lib/lib.dom.d.ts`).then((res) => res.arrayBuffer()),
     };
 
     const url = new URL(`${location.protocol}/${location.host}/Escalier.Playground.wasm`);

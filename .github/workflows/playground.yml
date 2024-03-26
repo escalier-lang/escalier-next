@@ -37,6 +37,10 @@ jobs:
           dotnet build -c Release
       - name: Build
         run: npm run build:prod
+      - name: Copy .d.ts files
+        run: |
+          mkdir -p dist/node_modules/typescript/lib
+          cp node_modules/typescript/lib/*.d.ts dist/node_modules/typescript/lib
       - name: List files
         run: ls -R dist
       - name: Upload Page Artifact

@@ -5,9 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "start": "http-server .",
+    "dev": "APP_ENV=dev vite",
+    "build:dev": "tsc && APP_ENV=dev vite build",
+    "build:prod": "tsc && APP_ENV=prod vite build",
+    "start": "http-server dist",
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc"
   },

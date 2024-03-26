@@ -2,12 +2,10 @@ import createPlugin, {Plugin} from './extism/mod';
 import { File, PreopenDirectory, Directory } from "@bjorn3/browser_wasi_shim";
 
 export async function greet () {
-    const inputTxt = await fetch(`/input.txt`);
+    const inputTxt = await fetch("/input.txt");
     const inputBuffer = await inputTxt.arrayBuffer();
 
-    const pkgName = "Escalier.Playground";
-    const build: "Debug" | "Release" = "Release";
-    const url = new URL(`${location.protocol}/${location.host}/src/${pkgName}/bin/${build}/net8.0/wasi-wasm/AppBundle/${pkgName}.wasm`);
+    const url = new URL(`${location.protocol}/${location.host}/Escalier.Playground.wasm`);
     const options = {
         useWasi: true,
         enableWasiOutput: true,
@@ -38,9 +36,7 @@ export async function loadPlugin(): Promise<Plugin> {
         dom: await fetch(`/node_modules/typescript/lib/lib.dom.d.ts`).then((res) => res.arrayBuffer()),
     };
 
-    const pkgName = "Escalier.Playground";
-    const build: "Debug" | "Release" = "Release";
-    const url = new URL(`${location.protocol}/${location.host}/src/${pkgName}/bin/${build}/net8.0/wasi-wasm/AppBundle/${pkgName}.wasm`);
+    const url = new URL(`${location.protocol}/${location.host}/Escalier.Playground.wasm`);
     const options = {
         useWasi: true,
         enableWasiOutput: true,

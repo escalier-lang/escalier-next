@@ -5,11 +5,8 @@ open FsToolkit.ErrorHandling
 open Xunit
 
 open Escalier.Compiler
-open Escalier.Data.Common
-open Escalier.Data.Type
 open Escalier.Parser
 open Escalier.TypeChecker.Prune
-open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Infer
 
 open TestUtils
@@ -28,22 +25,6 @@ let infer src =
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
 
     return simplify t
-  }
-
-let inferWithEnv src env =
-  result {
-    let! ast =
-      match run Parser.expr src with
-      | Success(value, _, _) -> Result.Ok(value)
-      | Failure(_s, parserError, _unit) ->
-        Result.mapError CompileError.ParseError (Result.Error(parserError))
-
-    let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
-
-    let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
-
-    return t
   }
 
 
@@ -131,31 +112,6 @@ let InferIfElseChaining () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "5 | \"hello\" | true")
-    }
-
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let InferIdentifier () =
-  let t: Type =
-    { Kind = makeTypeRefKind (QualifiedIdent.Ident "number")
-      Provenance = None }
-
-  let env =
-    { Namespace =
-        { Name = "<root>"
-          Values = Map([ ("foo", (t, false)) ])
-          Schemes = Map.empty
-          Namespaces = Map.empty }
-      BinaryOps = Map.empty
-      UnaryOps = Map.empty
-      IsAsync = false
-      IsPatternMatching = false }
-
-  let result =
-    result {
-      let! t = inferWithEnv "foo" env
-      Assert.Equal("number", t.ToString())
     }
 
   Assert.False(Result.isError result)

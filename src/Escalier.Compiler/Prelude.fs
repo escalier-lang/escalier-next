@@ -325,9 +325,12 @@ module Prelude =
           ("!", unaryLogic "!") ]
 
     let mutable env =
-      { Env.empty with
-          Env.BinaryOps = binaryOps
-          Env.UnaryOps = unaryOps }
+      { Filename = "<empty>"
+        Namespace = Namespace.empty
+        BinaryOps = binaryOps
+        UnaryOps = unaryOps
+        IsAsync = false
+        IsPatternMatching = false }
 
     env
 
@@ -373,7 +376,7 @@ module Prelude =
           (fun ctx filename import ->
             let resolvedPath = resolvePath projectRoot filename import.Path
 
-            let exportEnv =
+            let exportNs =
               if resolvedPath.EndsWith(".d.ts") then
                 let modEnv, modAst =
                   match inferLib ctx globalEnv resolvedPath with
@@ -391,7 +394,7 @@ module Prelude =
                     printfn "err = %A" err
                     failwith $"failed to get exports from {resolvedPath}"
 
-                { Env.empty with Namespace = ns }
+                ns
               else
                 // TODO: extract into a separate function
                 let resolvedImportPath =
@@ -418,7 +421,7 @@ module Prelude =
                     failwith $"failed to infer {resolvedImportPath}"
 
                 // exportEnv
-                let mutable exportEnv = Env.Env.empty
+                let mutable exports = Namespace.empty
 
                 let bindings = findScriptBindingNames m
 
@@ -426,21 +429,20 @@ module Prelude =
                   match scriptEnv.TryFindValue name with
                   // NOTE: exports are immutable
                   | Some(t, isMut) ->
-                    exportEnv <- exportEnv.AddValue name (t, false)
+                    exports <- exports.AddBinding name (t, false)
                   | None -> failwith $"binding {name} not found"
 
                 for item in m.Items do
                   match item with
                   | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
                     match scriptEnv.TryFindScheme name with
-                    | Some(scheme) ->
-                      exportEnv <- exportEnv.AddScheme name scheme
+                    | Some(scheme) -> exports <- exports.AddScheme name scheme
                     | None -> failwith $"scheme {name} not found"
                   | _ -> ()
 
-                exportEnv
+                exports
 
-            exportEnv),
+            exportNs),
           (fun ctx filename import ->
             resolvePath projectRoot filename import.Path)
         )

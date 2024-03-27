@@ -36,7 +36,8 @@ let getEnv () =
            never,
           false)) ]
 
-  { Namespace =
+  { Filename = "<empty>"
+    Namespace =
       { Name = "<root>"
         Values = values
         Schemes = Map.empty
@@ -229,7 +230,10 @@ let InferFactorial () =
     let mutable env = getEnv ()
 
     let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      Ctx(
+        (fun ctx filename import -> env.Namespace),
+        (fun ctx filename import -> "")
+      )
 
     let! stmtEnv = inferStmt ctx env ast false
     env <- stmtEnv
@@ -256,7 +260,10 @@ let UnificationFailure () =
   let env = getEnv ()
 
   let ctx =
-    Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    Ctx(
+      (fun ctx filename import -> env.Namespace),
+      (fun ctx filename import -> "")
+    )
 
   try
     inferExpr ctx env ast |> ignore
@@ -269,7 +276,10 @@ let UndefinedSymbol () =
   let env = getEnv ()
 
   let ctx =
-    Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    Ctx(
+      (fun ctx filename import -> env.Namespace),
+      (fun ctx filename import -> "")
+    )
 
   try
     inferExpr ctx env ast |> ignore
@@ -294,7 +304,10 @@ let InferPair () =
     let env = getEnv ()
 
     let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      Ctx(
+        (fun ctx filename import -> env.Namespace),
+        (fun ctx filename import -> "")
+      )
 
     let! newEnv = inferScript ctx env "input.esc" ast
 
@@ -314,7 +327,10 @@ let RecursiveUnification () =
   let env = getEnv ()
 
   let ctx =
-    Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+    Ctx(
+      (fun ctx filename import -> env.Namespace),
+      (fun ctx filename import -> "")
+    )
 
   try
     inferExpr ctx env ast |> ignore
@@ -346,7 +362,10 @@ let InferGenericAndNonGeneric () =
     let env = getEnv ()
 
     let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      Ctx(
+        (fun ctx filename import -> env.Namespace),
+        (fun ctx filename import -> "")
+      )
 
     let! newEnv = inferScript ctx env "input.esc" ast
 
@@ -376,7 +395,10 @@ let InferFuncComposition () =
     let env = getEnv ()
 
     let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      Ctx(
+        (fun ctx filename import -> env.Namespace),
+        (fun ctx filename import -> "")
+      )
 
     let! newEnv = inferScript ctx env "input.esc" ast
 
@@ -427,7 +449,10 @@ let InferScriptSKK () =
             varDecl ("I", i) |> ScriptItem.Stmt ] }
 
     let ctx =
-      Ctx((fun ctx filename import -> env), (fun ctx filename import -> ""))
+      Ctx(
+        (fun ctx filename import -> env.Namespace),
+        (fun ctx filename import -> "")
+      )
 
     let! newEnv = inferScript ctx env "input.esc" script
 

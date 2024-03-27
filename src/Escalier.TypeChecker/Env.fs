@@ -253,6 +253,7 @@ module rec Env =
           Namespaces = FSharpPlus.Map.union this.Namespaces other.Namespaces
           Schemes = FSharpPlus.Map.union this.Schemes other.Schemes }
 
+  // TODO: include the name of the file currently being inferred
   type Env =
     { Namespace: Namespace
       BinaryOps: Map<string, Binding>

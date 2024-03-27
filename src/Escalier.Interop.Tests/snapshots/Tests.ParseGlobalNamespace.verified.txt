@@ -1,0 +1,11 @@
+﻿input: declare global { }
+output: Success: { Body = [Stmt (Decl (TsModule { Declare = true
+                                 Global = true
+                                 Id = Str { Value = "global"
+                                            Raw = None
+                                            Loc = None }
+                                 Body = Some (TsModuleBlock { Body = []
+                                                              Loc = None })
+                                 Loc = None }))]
+  Shebang = None
+  Loc = None }

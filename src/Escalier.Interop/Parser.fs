@@ -897,11 +897,31 @@ module Parser =
         Loc = None }
       |> Decl.TsModule
 
+  let globalDecl: Parser<bool -> Decl, unit> =
+    keyword "global" >>. moduleBlock
+    |>> fun body declare ->
+      { Declare = declare
+        Global = true
+        Id =
+          TsModuleName.Str
+            { Value = "global"
+              Raw = None
+              Loc = None }
+        Body = Some(body)
+        Loc = None }
+      |> Decl.TsModule
+
   let decl: Parser<Decl, unit> =
     pipe2
       (opt (keyword "declare"))
       (choice
-        [ typeAliasDecl; varDecl; fnDecl; interfaceDecl; classDecl; moduleDecl ])
+        [ typeAliasDecl
+          varDecl
+          fnDecl
+          interfaceDecl
+          classDecl
+          moduleDecl
+          globalDecl ])
     <| fun declare decl -> decl declare.IsSome
 
   let namedExportSpecifier: Parser<ExportSpecifier, unit> =

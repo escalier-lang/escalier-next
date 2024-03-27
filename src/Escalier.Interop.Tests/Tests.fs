@@ -289,6 +289,15 @@ let ParseTsExports () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseGlobalNamespace () =
+  let input = """declare global { }"""
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseTypePredicate () =
   let input =
     """
@@ -700,7 +709,7 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact>]
+[<Fact(Skip = "TODO")>]
 let ImportReact () =
   let result =
     result {

@@ -47,6 +47,17 @@ module Prelude =
           failwith "node_modules directory not found in any ancestor directory."
         | _ -> findNearestAncestorWithNodeModules parentDir.FullName
 
+  let private packageJsonHasTypes (packageJsonPath: string) : bool =
+    if File.Exists packageJsonPath then
+      let packageJson = File.ReadAllText(packageJsonPath)
+      let packageJsonObj = JsonValue.Parse(packageJson)
+
+      match packageJsonObj.TryGetProperty("types") with
+      | None -> false
+      | Some _ -> true
+    else
+      false
+
   let private resolvePath
     (projectRoot: string)
     (currentPath: string)
@@ -84,9 +95,9 @@ module Prelude =
         Path.Combine(nodeModulesDir, "@types", moduleName, "package.json")
 
       let pkgJsonPath =
-        if File.Exists pkgJsonPath1 then
+        if packageJsonHasTypes pkgJsonPath1 then
           pkgJsonPath1
-        elif File.Exists pkgJsonPath2 then
+        elif packageJsonHasTypes pkgJsonPath2 then
           pkgJsonPath2
         else
           failwith $"package.json not found for module {moduleName}"

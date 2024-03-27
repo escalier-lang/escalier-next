@@ -103,6 +103,38 @@ module Compiler =
       return (ctx, env)
     }
 
+  let compileString
+    (textwriter: TextWriter)
+    (baseDir: string)
+    (srcCode: string)
+    : Result<string * string, CompileError> =
+    result {
+      let! ctx, env = Prelude.getEnvAndCtx baseDir
+
+      let! ast =
+        Parser.parseScript srcCode |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferScript ctx env "./entry.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      printDiagnostics textwriter ctx.Diagnostics
+
+      let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
+
+      let mod' = Codegen.buildModuleTypes env { NextTempId = 0 } ast
+      let dts = Printer.printModule printCtx mod'
+
+      let block = Codegen.buildScript { NextTempId = 0 } ast
+
+      let js =
+        block.Body
+        |> List.map (Printer.printStmt printCtx)
+        |> String.concat "\n"
+
+      return (js, dts)
+    }
+
 // TODO:
 // typecheckFile
 // typecheckFiles

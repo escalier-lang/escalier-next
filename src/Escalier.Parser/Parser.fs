@@ -13,7 +13,18 @@ module Parser =
   let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()
   let typeAnn, typeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
 
-  let ws = spaces
+  let blockComment: Parser<unit, unit> =
+    between
+      (pstring "/*")
+      (pstring "*/")
+      (charsTillString "*/" false System.Int32.MaxValue)
+    |>> ignore
+
+  let lineComment: Parser<unit, unit> = (pstring "//") >>. (skipRestOfLine true)
+
+  let ws =
+    between spaces spaces (many ((blockComment <|> lineComment) >>. spaces))
+
   let strWs s = pstring s .>> ws
 
   let withSpan p =

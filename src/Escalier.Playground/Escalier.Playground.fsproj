@@ -1,23 +1,29 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
+        <RuntimeIdentifier>wasi-wasm</RuntimeIdentifier>
+        <OutputType>Exe</OutputType>
+        <PublishTrimmed>true</PublishTrimmed>
+
+        <NoWarn>202</NoWarn>
+
+        <!-- Make sure we create a standalone wasm file for our plugin -->
+        <WasmSingleFileBundle>true</WasmSingleFileBundle>
+        <WasmBuildNative>true</WasmBuildNative>
     </PropertyGroup>
+
     <ItemGroup>
-        <Compile Include="Main.fs"/>
-        <Compile Include="Startup.fs"/>
+        <Compile Include="Program.fs"/>
     </ItemGroup>
+
     <ItemGroup>
-        <PackageReference Include="Bolero" Version="0.*"/>
-        <PackageReference Include="Bolero.Build" Version="0.*"/>
-        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.*"/>
-        <PackageReference Include="System.Net.Http.Json" Version="7.0.*"/>
+        <PackageReference Include="Extism.Pdk" Version="1.0.2"/>
+        <PackageReference Include="FSharp.Data" Version="6.4.0"/>
     </ItemGroup>
+
     <ItemGroup>
-        <ProjectReference Include="..\Escalier.Codegen\Escalier.Codegen.fsproj"/>
         <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
-        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
-        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
     </ItemGroup>
+
 </Project>

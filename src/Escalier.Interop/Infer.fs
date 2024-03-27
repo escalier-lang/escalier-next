@@ -852,6 +852,9 @@ module rec Infer =
     result {
       match decl with
       | ModuleDecl.Import importDecl ->
+        // TODO: convert the TS import to an Escalier import
+        // let exports = ctx.GetExports filename import
+
         return!
           Error(TypeError.NotImplemented "TODO: inferModuleDecl - importDecl")
       | ModuleDecl.ExportDecl { Decl = decl } -> return! inferDecl ctx env decl

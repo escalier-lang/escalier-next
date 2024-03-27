@@ -721,8 +721,7 @@ module rec TypeScript =
     | AutoAccessor of AutoAccessor
 
   type Constructor =
-    { Key: PropName
-      Params: list<ParamOrTsParamProp>
+    { Params: list<ParamOrTsParamProp>
       Body: Option<BlockStmt>
       Accessibility: Option<Accessibility>
       IsOptional: bool

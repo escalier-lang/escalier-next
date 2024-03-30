@@ -607,6 +607,24 @@ let InferCallFuncOnOptionalField () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
+[<Fact>]
+let InferFuncDecl () =
+  let result =
+    result {
+      let src =
+        """
+        fn fst (x, y) {
+          return x;
+        }
+        """
+
+      let! _, env = inferScript src
+
+      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+    }
+
+  Assert.False(Result.isError result)
+
 
 // TODO:
 // - write tests for functions with optional params

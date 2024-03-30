@@ -976,6 +976,42 @@ module Parser =
               Else = elseClause }
         Span = span }
 
+  let private retTypeAnn: Parser<option<TypeAnn> * option<TypeAnn>, unit> =
+    tuple2
+      (opt (strWs "->" >>. typeAnn))
+      (opt (ws .>> keyword "throws" >>. typeAnn))
+
+  let private fnDecl: Parser<Decl, unit> =
+    withSpan (
+      tuple5
+        (opt (keyword "async"))
+        (keyword "fn" >>. ident)
+        ((opt typeParams) .>>. (paramList opt))
+        ((opt (strWs "->" >>. typeAnn))
+         .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
+        block
+    )
+    |>> fun (d, span) ->
+      let isAsync, name, (typeParams, fnParams), (ret, throws), body = d
+
+      let kind =
+        DeclKind.FnDecl
+          { Name = name
+            Sig =
+              { TypeParams = typeParams
+                Self = None
+                ParamList = fnParams
+                ReturnType = ret
+                Throws = throws
+                IsAsync = isAsync.IsSome }
+            Body = BlockOrExpr.Block body }
+
+      { Kind = kind; Span = span }
+
+  // let private classDecl: Parser<Decl, unit> =
+  //
+  //   failwith "TODO: classDecl"
+
   let private typeDecl: Parser<Decl, unit> =
     pipe5
       getPosition
@@ -1052,10 +1088,9 @@ module Parser =
 
   let _stmt =
     choice
-      [
-        // TODO: these should all use `attempt` since you could have an
-        // identifier like `lettuce` that conflicts with `let <ident> = <expr>`
-        varDecl |> declStmt
+      [ varDecl |> declStmt
+        attempt fnDecl |> declStmt
+        // classDecl |> declStmt
         typeDecl |> declStmt
         enumDecl |> declStmt
         returnStmt
@@ -1670,7 +1705,8 @@ module Parser =
     >>. choice
       [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
 
-  let decl: Parser<Decl, unit> = choice [ varDecl; typeDecl; enumDecl ]
+  let decl: Parser<Decl, unit> =
+    choice [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl ]
 
   let private moduleItem: Parser<ModuleItem, unit> =
     ws >>. choice [ import |>> ModuleItem.Import; decl |>> ModuleItem.Decl ]

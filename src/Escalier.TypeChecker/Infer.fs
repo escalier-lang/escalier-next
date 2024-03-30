@@ -2033,6 +2033,15 @@ module rec Infer =
           newEnv <- newEnv.AddScheme name scheme
 
         return newEnv.AddBindings bindings
+      | DeclKind.FnDecl fnDecl ->
+        let! f = inferFunction ctx env fnDecl.Sig fnDecl.Body
+        let f = if generalize then generalizeFunc f else f
+
+        let t =
+          { Kind = TypeKind.Function f
+            Provenance = None }
+
+        return env.AddValue fnDecl.Name (t, false)
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams
                             Variants = variants } ->

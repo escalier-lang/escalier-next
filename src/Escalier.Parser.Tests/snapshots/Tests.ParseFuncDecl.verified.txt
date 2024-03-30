@@ -1,0 +1,64 @@
+﻿input: fn fst<T>(x: T, y: T) -> T { return x; }
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                FnDecl
+                  { Name = "fst"
+                    Sig =
+                     { TypeParams = Some [{ Span = { Start = (Ln: 1, Col: 8)
+                                                     Stop = (Ln: 1, Col: 9) }
+                                            Name = "T"
+                                            Constraint = None
+                                            Default = None }]
+                       Self = None
+                       ParamList =
+                        [{ Pattern = { Kind = Ident { Name = "x"
+                                                      IsMut = false
+                                                      Assertion = None }
+                                       Span = { Start = (Ln: 1, Col: 11)
+                                                Stop = (Ln: 1, Col: 12) }
+                                       InferredType = None }
+                           TypeAnn = Some { Kind = TypeRef { Ident = Ident "T"
+                                                             TypeArgs = None }
+                                            Span = { Start = (Ln: 1, Col: 14)
+                                                     Stop = (Ln: 1, Col: 15) }
+                                            InferredType = None }
+                           Optional = false };
+                         { Pattern = { Kind = Ident { Name = "y"
+                                                      IsMut = false
+                                                      Assertion = None }
+                                       Span = { Start = (Ln: 1, Col: 17)
+                                                Stop = (Ln: 1, Col: 18) }
+                                       InferredType = None }
+                           TypeAnn = Some { Kind = TypeRef { Ident = Ident "T"
+                                                             TypeArgs = None }
+                                            Span = { Start = (Ln: 1, Col: 20)
+                                                     Stop = (Ln: 1, Col: 21) }
+                                            InferredType = None }
+                           Optional = false }]
+                       ReturnType = Some { Kind = TypeRef { Ident = Ident "T"
+                                                            TypeArgs = None }
+                                           Span = { Start = (Ln: 1, Col: 26)
+                                                    Stop = (Ln: 1, Col: 28) }
+                                           InferredType = None }
+                       Throws = None
+                       IsAsync = false }
+                    Body =
+                     Block
+                       { Span = { Start = (Ln: 1, Col: 28)
+                                  Stop = (Ln: 1, Col: 41) }
+                         Stmts =
+                          [{ Kind =
+                              Return (Some { Kind = Identifier "x"
+                                             Span = { Start = (Ln: 1, Col: 37)
+                                                      Stop = (Ln: 1, Col: 38) }
+                                             InferredType = None })
+                             Span = { Start = (Ln: 1, Col: 30)
+                                      Stop = (Ln: 1, Col: 40) } }] } }
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 41) } }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 41) } }] }

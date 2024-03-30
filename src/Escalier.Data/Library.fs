@@ -415,6 +415,13 @@ module Syntax =
       Init: Expr
       Else: option<Block> }
 
+  type FnDecl =
+    { Name: string
+      Sig: FuncSig<option<TypeAnn>>
+      Body: BlockOrExpr }
+
+  type ClassDecl = { Name: string; Class: Class }
+
   type TypeDecl =
     { Name: string
       TypeAnn: TypeAnn
@@ -431,6 +438,8 @@ module Syntax =
 
   type DeclKind =
     | VarDecl of VarDecl
+    | FnDecl of FnDecl
+    | ClassDecl of ClassDecl
     | TypeDecl of TypeDecl
     | EnumDecl of EnumDecl
 

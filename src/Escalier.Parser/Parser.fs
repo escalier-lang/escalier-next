@@ -1709,19 +1709,19 @@ module Parser =
 
       kind
 
-  // let declareFn: Parser<DeclKind, unit> =
-  //   fnDeclSig
-  //   |>> fun (name, fnSig) ->
-  //     DeclKind.FnDecl
-  //       { Declare = true
-  //         Name = name
-  //         Sig = fnSig
-  //         Body = None }
+  let declareFn: Parser<DeclKind, unit> =
+    fnDeclSig
+    |>> fun (name, fnSig) ->
+      DeclKind.FnDecl
+        { Declare = true
+          Name = name
+          Sig = fnSig
+          Body = None }
 
   let declare: Parser<Stmt, unit> =
     pipe3
       getPosition
-      (keyword "declare" >>. declareLet .>> (strWs ";"))
+      (keyword "declare" >>. (choice [ declareLet; declareFn ]) .>> (strWs ";"))
       getPosition
     <| fun start kind stop ->
       let span = { Start = start; Stop = stop }
@@ -1740,8 +1740,19 @@ module Parser =
   let decl: Parser<Decl, unit> =
     choice [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl ]
 
+  let ambient: Parser<Decl, unit> =
+    withSpan (
+      (keyword "declare") >>. choice [ declareLet; declareFn ] .>> (strWs ";")
+    )
+    |>> fun (kind, span) -> { Kind = kind; Span = span }
+
+  // TODO: update to support ambient declarations
   let private moduleItem: Parser<ModuleItem, unit> =
-    ws >>. choice [ import |>> ModuleItem.Import; decl |>> ModuleItem.Decl ]
+    ws
+    >>. choice
+      [ import |>> ModuleItem.Import
+        ambient |>> ModuleItem.Decl
+        decl |>> ModuleItem.Decl ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =

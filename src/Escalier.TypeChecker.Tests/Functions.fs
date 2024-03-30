@@ -616,13 +616,16 @@ let InferFuncDecl () =
         fn fst (x, y) {
           return x;
         }
+        declare fn snd<A, B>(x: A, y: B) -> B;
         """
 
       let! _, env = inferScript src
 
       Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+      Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -634,13 +637,16 @@ let InferFuncDeclInModule () =
         fn fst (x, y) {
           return x;
         }
+        declare fn snd<A, B>(x: A, y: B) -> B;
         """
 
       let! _, env = inferModule src
 
       Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+      Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 

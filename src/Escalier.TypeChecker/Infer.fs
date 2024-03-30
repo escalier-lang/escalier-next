@@ -2033,11 +2033,38 @@ module rec Infer =
           newEnv <- newEnv.AddScheme name scheme
 
         return newEnv.AddBindings bindings
-      | DeclKind.FnDecl { Name = name
+      | DeclKind.FnDecl { Declare = false
+                          Name = name
                           Sig = fnSig
                           Body = Some body } ->
         let! f = inferFunction ctx env fnSig body
         let f = if generalize then generalizeFunc f else f
+
+        let t =
+          { Kind = TypeKind.Function f
+            Provenance = None }
+
+        return env.AddValue name (t, false)
+      | DeclKind.FnDecl { Declare = true
+                          Name = name
+                          Sig = fnSig
+                          Body = None } ->
+        // TODO: dedupe with `inferModule`
+        // TODO: capture these errors as diagnostics and infer the missing
+        // types as `never`
+        for p in fnSig.ParamList do
+          if p.TypeAnn.IsNone then
+            failwith "Ambient function declarations must be fully typed"
+
+        if fnSig.ReturnType.IsNone then
+          failwith "Ambient function declarations must be fully typed"
+
+        let! f = inferFuncSig ctx env fnSig
+
+        if fnSig.Throws.IsNone then
+          f.Throws <-
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
 
         let t =
           { Kind = TypeKind.Function f
@@ -2558,8 +2585,35 @@ module rec Infer =
             for KeyValue(name, binding) in bindings do
               prebindings <- prebindings.Add(name, binding)
               newEnv <- newEnv.AddValue name binding
-          | FnDecl { Sig = fnSig; Name = name } ->
+          | FnDecl { Declare = false
+                     Sig = fnSig
+                     Name = name } ->
             let! f = inferFuncSig ctx newEnv fnSig
+
+            let t =
+              { Kind = TypeKind.Function f
+                Provenance = None }
+
+            newEnv <- newEnv.AddValue name (t, false)
+          | FnDecl { Declare = true
+                     Sig = fnSig
+                     Name = name } ->
+            // TODO: dedupe with `inferDecl`
+            // TODO: capture these errors as diagnostics and infer the missing
+            // types as `never`
+            for p in fnSig.ParamList do
+              if p.TypeAnn.IsNone then
+                failwith "Ambient function declarations must be fully typed"
+
+            if fnSig.ReturnType.IsNone then
+              failwith "Ambient function declarations must be fully typed"
+
+            let! f = inferFuncSig ctx newEnv fnSig
+
+            if fnSig.Throws.IsNone then
+              f.Throws <-
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
 
             let t =
               { Kind = TypeKind.Function f
@@ -2593,7 +2647,8 @@ module rec Infer =
 
             for KeyValue(name, scheme) in newSchemes do
               newEnv <- newEnv.AddScheme name scheme
-          | FnDecl { Name = name
+          | FnDecl { Declare = false
+                     Name = name
                      Sig = fnSig
                      Body = Some body } ->
             // NOTE: We explicitly don't generalize here because we want other
@@ -2606,6 +2661,10 @@ module rec Infer =
                 Provenance = None }
 
             bindings <- bindings.Add(name, (t, false))
+          | FnDecl { Declare = true } ->
+            // Nothing to do since ambient function declarations don't have
+            // function bodies.
+            ()
           | TypeDecl { Name = name; TypeAnn = typeAnn } ->
             let! scheme =
               match typeDecls.TryFind name with

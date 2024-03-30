@@ -768,7 +768,8 @@ module Type =
       Self: option<FuncParam>
       ParamList: list<FuncParam>
       Return: Type
-      Throws: Type }
+      // used to set throws to `never` on ambient function decls
+      mutable Throws: Type }
 
     override this.ToString() = printFunction { Precedence = 0 } this
 

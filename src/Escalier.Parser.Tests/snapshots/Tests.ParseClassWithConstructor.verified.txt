@@ -13,7 +13,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "Foo"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "Foo"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 2, Col: 9)
@@ -21,91 +22,99 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        Class
-                          { Name = None
-                            TypeParams = None
-                            Elems =
-                             [Property
-                                { Name = String "msg"
-                                  TypeAnn = { Kind = Keyword String
-                                              Span = { Start = (Ln: 3, Col: 12)
-                                                       Stop = (Ln: 3, Col: 18) }
+                     Some
+                       { Kind =
+                          Class
+                            { Name = None
+                              TypeParams = None
+                              Elems =
+                               [Property
+                                  { Name = String "msg"
+                                    TypeAnn =
+                                     { Kind = Keyword String
+                                       Span = { Start = (Ln: 3, Col: 12)
+                                                Stop = (Ln: 3, Col: 18) }
+                                       InferredType = None }
+                                    Optional = false
+                                    Readonly = false };
+                                Constructor
+                                  { Sig =
+                                     { TypeParams = None
+                                       Self =
+                                        Some
+                                          { Pattern =
+                                             { Kind = Ident { Name = "self"
+                                                              IsMut = false
+                                                              Assertion = None }
+                                               Span =
+                                                { Start = (Ln: 4, Col: 12)
+                                                  Stop = (Ln: 4, Col: 16) }
+                                               InferredType = None }
+                                            TypeAnn = None
+                                            Optional = false }
+                                       ParamList =
+                                        [{ Pattern =
+                                            { Kind = Ident { Name = "msg"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 4, Col: 18)
+                                                       Stop = (Ln: 4, Col: 21) }
                                               InferredType = None }
-                                  Optional = false
-                                  Readonly = false };
-                              Constructor
-                                { Sig =
-                                   { TypeParams = None
-                                     Self =
-                                      Some
-                                        { Pattern =
-                                           { Kind = Ident { Name = "self"
-                                                            IsMut = false
-                                                            Assertion = None }
-                                             Span = { Start = (Ln: 4, Col: 12)
-                                                      Stop = (Ln: 4, Col: 16) }
-                                             InferredType = None }
-                                          TypeAnn = None
-                                          Optional = false }
-                                     ParamList =
-                                      [{ Pattern =
-                                          { Kind = Ident { Name = "msg"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 4, Col: 18)
-                                                     Stop = (Ln: 4, Col: 21) }
-                                            InferredType = None }
-                                         TypeAnn =
-                                          Some
-                                            { Kind = Keyword String
-                                              Span = { Start = (Ln: 4, Col: 23)
-                                                       Stop = (Ln: 4, Col: 29) }
-                                              InferredType = None }
-                                         Optional = false }]
-                                     ReturnType = None
-                                     Throws = None
-                                     IsAsync = false }
-                                  Body =
-                                   Block
-                                     { Span = { Start = (Ln: 4, Col: 31)
-                                                Stop = (Ln: 7, Col: 5) }
-                                       Stmts =
-                                        [{ Kind =
-                                            Expr
-                                              { Kind =
-                                                 Assign
-                                                   ("=",
-                                                    { Kind =
-                                                       Member
-                                                         ({ Kind =
-                                                             Identifier "self"
-                                                            Span =
-                                                             { Start =
-                                                                (Ln: 5, Col: 9)
-                                                               Stop =
-                                                                (Ln: 5, Col: 13) }
-                                                            InferredType = None },
-                                                          "msg", false)
-                                                      Span =
-                                                       { Start = (Ln: 5, Col: 9)
-                                                         Stop = (Ln: 5, Col: 18) }
-                                                      InferredType = None },
-                                                    { Kind = Identifier "msg"
-                                                      Span =
-                                                       { Start =
-                                                          (Ln: 5, Col: 20)
-                                                         Stop = (Ln: 5, Col: 23) }
-                                                      InferredType = None })
+                                           TypeAnn =
+                                            Some
+                                              { Kind = Keyword String
                                                 Span =
-                                                 { Start = (Ln: 5, Col: 9)
-                                                   Stop = (Ln: 5, Col: 23) }
+                                                 { Start = (Ln: 4, Col: 23)
+                                                   Stop = (Ln: 4, Col: 29) }
                                                 InferredType = None }
-                                           Span = { Start = (Ln: 5, Col: 9)
-                                                    Stop = (Ln: 5, Col: 23) } }] } }] }
-                       Span = { Start = (Ln: 2, Col: 15)
-                                Stop = (Ln: 7, Col: 6) }
-                       InferredType = None }
+                                           Optional = false }]
+                                       ReturnType = None
+                                       Throws = None
+                                       IsAsync = false }
+                                    Body =
+                                     Block
+                                       { Span = { Start = (Ln: 4, Col: 31)
+                                                  Stop = (Ln: 7, Col: 5) }
+                                         Stmts =
+                                          [{ Kind =
+                                              Expr
+                                                { Kind =
+                                                   Assign
+                                                     ("=",
+                                                      { Kind =
+                                                         Member
+                                                           ({ Kind =
+                                                               Identifier "self"
+                                                              Span =
+                                                               { Start =
+                                                                  (Ln: 5, Col: 9)
+                                                                 Stop =
+                                                                  (Ln: 5, Col: 13) }
+                                                              InferredType =
+                                                               None }, "msg",
+                                                            false)
+                                                        Span =
+                                                         { Start =
+                                                            (Ln: 5, Col: 9)
+                                                           Stop =
+                                                            (Ln: 5, Col: 18) }
+                                                        InferredType = None },
+                                                      { Kind = Identifier "msg"
+                                                        Span =
+                                                         { Start =
+                                                            (Ln: 5, Col: 20)
+                                                           Stop =
+                                                            (Ln: 5, Col: 23) }
+                                                        InferredType = None })
+                                                  Span =
+                                                   { Start = (Ln: 5, Col: 9)
+                                                     Stop = (Ln: 5, Col: 23) }
+                                                  InferredType = None }
+                                             Span = { Start = (Ln: 5, Col: 9)
+                                                      Stop = (Ln: 5, Col: 23) } }] } }] }
+                         Span = { Start = (Ln: 2, Col: 15)
+                                  Stop = (Ln: 7, Col: 6) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }

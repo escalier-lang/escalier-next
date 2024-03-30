@@ -8,7 +8,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "frag"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "frag"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 2, Col: 9)
@@ -16,31 +17,32 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        JSXFragment
-                          { Opening = { Span = { Start = (Ln: 2, Col: 16)
-                                                 Stop = (Ln: 2, Col: 18) } }
-                            Children =
-                             [JSXElement
-                                { Opening =
-                                   { Name = Ident "Foo"
-                                     Attrs = []
-                                     Span = { Start = (Ln: 2, Col: 18)
-                                              Stop = (Ln: 2, Col: 23) } }
-                                  Children =
-                                   [JSXText
-                                      { Text = "Hello, world"
-                                        Span = { Start = (Ln: 2, Col: 23)
-                                                 Stop = (Ln: 2, Col: 35) } }]
-                                  Closing =
-                                   Some { Name = Ident "Foo"
-                                          Span = { Start = (Ln: 2, Col: 35)
-                                                   Stop = (Ln: 2, Col: 41) } } }]
-                            Closing = { Span = { Start = (Ln: 2, Col: 41)
-                                                 Stop = (Ln: 2, Col: 44) } } }
-                       Span = { Start = (Ln: 2, Col: 16)
-                                Stop = (Ln: 2, Col: 44) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          JSXFragment
+                            { Opening = { Span = { Start = (Ln: 2, Col: 16)
+                                                   Stop = (Ln: 2, Col: 18) } }
+                              Children =
+                               [JSXElement
+                                  { Opening =
+                                     { Name = Ident "Foo"
+                                       Attrs = []
+                                       Span = { Start = (Ln: 2, Col: 18)
+                                                Stop = (Ln: 2, Col: 23) } }
+                                    Children =
+                                     [JSXText
+                                        { Text = "Hello, world"
+                                          Span = { Start = (Ln: 2, Col: 23)
+                                                   Stop = (Ln: 2, Col: 35) } }]
+                                    Closing =
+                                     Some { Name = Ident "Foo"
+                                            Span = { Start = (Ln: 2, Col: 35)
+                                                     Stop = (Ln: 2, Col: 41) } } }]
+                              Closing = { Span = { Start = (Ln: 2, Col: 41)
+                                                   Stop = (Ln: 2, Col: 44) } } }
+                         Span = { Start = (Ln: 2, Col: 16)
+                                  Stop = (Ln: 2, Col: 44) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }

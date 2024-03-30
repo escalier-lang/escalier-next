@@ -7,17 +7,18 @@ output: Ok
      [Stmt
         { Kind =
            Decl
-             { Kind = VarDecl { Pattern = { Kind = Ident { Name = "a"
+             { Kind = VarDecl { Declare = false
+                                Pattern = { Kind = Ident { Name = "a"
                                                            IsMut = false
                                                            Assertion = None }
                                             Span = { Start = (Ln: 2, Col: 9)
                                                      Stop = (Ln: 2, Col: 11) }
                                             InferredType = None }
                                 TypeAnn = None
-                                Init = { Kind = Literal Undefined
-                                         Span = { Start = (Ln: 2, Col: 13)
-                                                  Stop = (Ln: 2, Col: 22) }
-                                         InferredType = None }
+                                Init = Some { Kind = Literal Undefined
+                                              Span = { Start = (Ln: 2, Col: 13)
+                                                       Stop = (Ln: 2, Col: 22) }
+                                              InferredType = None }
                                 Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
@@ -26,17 +27,18 @@ output: Ok
       Stmt
         { Kind =
            Decl
-             { Kind = VarDecl { Pattern = { Kind = Ident { Name = "b"
+             { Kind = VarDecl { Declare = false
+                                Pattern = { Kind = Ident { Name = "b"
                                                            IsMut = false
                                                            Assertion = None }
                                             Span = { Start = (Ln: 3, Col: 9)
                                                      Stop = (Ln: 3, Col: 11) }
                                             InferredType = None }
                                 TypeAnn = None
-                                Init = { Kind = Literal Null
-                                         Span = { Start = (Ln: 3, Col: 13)
-                                                  Stop = (Ln: 3, Col: 17) }
-                                         InferredType = None }
+                                Init = Some { Kind = Literal Null
+                                              Span = { Start = (Ln: 3, Col: 13)
+                                                       Stop = (Ln: 3, Col: 17) }
+                                              InferredType = None }
                                 Else = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }

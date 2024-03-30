@@ -6,7 +6,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "fst"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "fst"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 1, Col: 5)
@@ -14,40 +15,41 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        Function
-                          { Sig =
-                             { TypeParams = None
-                               Self = None
-                               ParamList =
-                                [{ Pattern =
-                                    { Kind = Ident { Name = "x"
-                                                     IsMut = false
-                                                     Assertion = None }
-                                      Span = { Start = (Ln: 1, Col: 15)
-                                               Stop = (Ln: 1, Col: 16) }
-                                      InferredType = None }
-                                   TypeAnn = None
-                                   Optional = false };
-                                 { Pattern =
-                                    { Kind = Ident { Name = "y"
-                                                     IsMut = false
-                                                     Assertion = None }
-                                      Span = { Start = (Ln: 1, Col: 18)
-                                               Stop = (Ln: 1, Col: 19) }
-                                      InferredType = None }
-                                   TypeAnn = None
-                                   Optional = false }]
-                               ReturnType = None
-                               Throws = None
-                               IsAsync = false }
-                            Body = Expr { Kind = Identifier "x"
-                                          Span = { Start = (Ln: 1, Col: 24)
-                                                   Stop = (Ln: 1, Col: 25) }
-                                          InferredType = None } }
-                       Span = { Start = (Ln: 1, Col: 11)
-                                Stop = (Ln: 1, Col: 25) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          Function
+                            { Sig =
+                               { TypeParams = None
+                                 Self = None
+                                 ParamList =
+                                  [{ Pattern =
+                                      { Kind = Ident { Name = "x"
+                                                       IsMut = false
+                                                       Assertion = None }
+                                        Span = { Start = (Ln: 1, Col: 15)
+                                                 Stop = (Ln: 1, Col: 16) }
+                                        InferredType = None }
+                                     TypeAnn = None
+                                     Optional = false };
+                                   { Pattern =
+                                      { Kind = Ident { Name = "y"
+                                                       IsMut = false
+                                                       Assertion = None }
+                                        Span = { Start = (Ln: 1, Col: 18)
+                                                 Stop = (Ln: 1, Col: 19) }
+                                        InferredType = None }
+                                     TypeAnn = None
+                                     Optional = false }]
+                                 ReturnType = None
+                                 Throws = None
+                                 IsAsync = false }
+                              Body = Expr { Kind = Identifier "x"
+                                            Span = { Start = (Ln: 1, Col: 24)
+                                                     Stop = (Ln: 1, Col: 25) }
+                                            InferredType = None } }
+                         Span = { Start = (Ln: 1, Col: 11)
+                                  Stop = (Ln: 1, Col: 25) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 26) } }

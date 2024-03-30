@@ -6,7 +6,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "fmt"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "fmt"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 1, Col: 5)
@@ -14,28 +15,29 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        New
-                          { Callee =
-                             { Kind =
-                                Member
-                                  ({ Kind = Identifier "Intl"
-                                     Span = { Start = (Ln: 1, Col: 15)
-                                              Stop = (Ln: 1, Col: 19) }
-                                     InferredType = None }, "NumberFormat",
-                                   false)
-                               Span = { Start = (Ln: 1, Col: 15)
-                                        Stop = (Ln: 1, Col: 32) }
-                               InferredType = None }
-                            TypeArgs = None
-                            Args = Some [{ Kind = Literal (String "en-CA")
-                                           Span = { Start = (Ln: 1, Col: 33)
-                                                    Stop = (Ln: 1, Col: 40) }
-                                           InferredType = None }]
-                            Throws = None }
-                       Span = { Start = (Ln: 1, Col: 15)
-                                Stop = (Ln: 1, Col: 41) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          New
+                            { Callee =
+                               { Kind =
+                                  Member
+                                    ({ Kind = Identifier "Intl"
+                                       Span = { Start = (Ln: 1, Col: 15)
+                                                Stop = (Ln: 1, Col: 19) }
+                                       InferredType = None }, "NumberFormat",
+                                     false)
+                                 Span = { Start = (Ln: 1, Col: 15)
+                                          Stop = (Ln: 1, Col: 32) }
+                                 InferredType = None }
+                              TypeArgs = None
+                              Args = Some [{ Kind = Literal (String "en-CA")
+                                             Span = { Start = (Ln: 1, Col: 33)
+                                                      Stop = (Ln: 1, Col: 40) }
+                                             InferredType = None }]
+                              Throws = None }
+                         Span = { Start = (Ln: 1, Col: 15)
+                                  Stop = (Ln: 1, Col: 41) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 42) } }

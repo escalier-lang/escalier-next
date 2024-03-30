@@ -970,8 +970,9 @@ module Parser =
     |>> fun ((pat, typeAnn, init, elseClause), span) ->
       { Kind =
           DeclKind.VarDecl
-            { Pattern = pat
-              Init = init
+            { Declare = false
+              Pattern = pat
+              Init = Some init
               TypeAnn = typeAnn
               Else = elseClause }
         Span = span }
@@ -1692,18 +1693,33 @@ module Parser =
       { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
-  let declare: Parser<ScriptItem, unit> =
+  let declare: Parser<Stmt, unit> =
     pipe4
       getPosition
       (keyword "declare" >>. keyword "let" >>. pattern)
       (strWs ":" >>. ws >>. typeAnn .>> (strWs ";"))
       getPosition
-    <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)
+    <| fun start pattern typeAnn stop ->
+      let kind =
+        DeclKind.VarDecl
+          { Declare = true
+            Pattern = pattern
+            TypeAnn = Some typeAnn
+            Init = None
+            Else = None }
+
+      let span = { Start = start; Stop = stop }
+      let decl: Decl = { Kind = kind; Span = span }
+
+      { Stmt.Kind = StmtKind.Decl decl
+        Span = span }
 
   let private scriptItems: Parser<ScriptItem, unit> =
     ws
     >>. choice
-      [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
+      [ import |>> ScriptItem.Import
+        declare |>> ScriptItem.Stmt
+        _stmt |>> ScriptItem.Stmt ]
 
   let decl: Parser<Decl, unit> =
     choice [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl ]

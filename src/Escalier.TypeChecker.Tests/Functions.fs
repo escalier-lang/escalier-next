@@ -625,6 +625,24 @@ let InferFuncDecl () =
 
   Assert.False(Result.isError result)
 
+[<Fact>]
+let InferFuncDeclInModule () =
+  let result =
+    result {
+      let src =
+        """
+        fn fst (x, y) {
+          return x;
+        }
+        """
+
+      let! _, env = inferModule src
+
+      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+    }
+
+  Assert.False(Result.isError result)
+
 
 // TODO:
 // - write tests for functions with optional params

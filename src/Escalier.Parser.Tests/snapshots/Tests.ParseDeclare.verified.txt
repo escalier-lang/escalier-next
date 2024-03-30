@@ -4,21 +4,45 @@
     
 output: Ok
   { Items =
-     [DeclareLet ({ Kind = Ident { Name = "foo"
-                                   IsMut = false
-                                   Assertion = None }
-                    Span = { Start = (Ln: 2, Col: 17)
-                             Stop = (Ln: 2, Col: 20) }
-                    InferredType = None }, { Kind = Keyword Number
-                                             Span = { Start = (Ln: 2, Col: 22)
-                                                      Stop = (Ln: 2, Col: 28) }
-                                             InferredType = None });
-      DeclareLet ({ Kind = Ident { Name = "bar"
-                                   IsMut = false
-                                   Assertion = None }
-                    Span = { Start = (Ln: 3, Col: 17)
-                             Stop = (Ln: 3, Col: 20) }
-                    InferredType = None }, { Kind = Keyword String
-                                             Span = { Start = (Ln: 3, Col: 22)
-                                                      Stop = (Ln: 3, Col: 28) }
-                                             InferredType = None })] }
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl { Declare = true
+                          Pattern = { Kind = Ident { Name = "foo"
+                                                     IsMut = false
+                                                     Assertion = None }
+                                      Span = { Start = (Ln: 2, Col: 17)
+                                               Stop = (Ln: 2, Col: 20) }
+                                      InferredType = None }
+                          TypeAnn = Some { Kind = Keyword Number
+                                           Span = { Start = (Ln: 2, Col: 22)
+                                                    Stop = (Ln: 2, Col: 28) }
+                                           InferredType = None }
+                          Init = None
+                          Else = None }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 3, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl { Declare = true
+                          Pattern = { Kind = Ident { Name = "bar"
+                                                     IsMut = false
+                                                     Assertion = None }
+                                      Span = { Start = (Ln: 3, Col: 17)
+                                               Stop = (Ln: 3, Col: 20) }
+                                      InferredType = None }
+                          TypeAnn = Some { Kind = Keyword String
+                                           Span = { Start = (Ln: 3, Col: 22)
+                                                    Stop = (Ln: 3, Col: 28) }
+                                           InferredType = None }
+                          Init = None
+                          Else = None }
+               Span = { Start = (Ln: 3, Col: 5)
+                        Stop = (Ln: 4, Col: 5) } }
+          Span = { Start = (Ln: 3, Col: 5)
+                   Stop = (Ln: 4, Col: 5) } }] }

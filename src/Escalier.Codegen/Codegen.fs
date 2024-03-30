@@ -276,7 +276,7 @@ module rec Codegen =
             stmts
         | StmtKind.Decl decl ->
           match decl.Kind with
-          | VarDecl { Pattern = pattern; Init = init } ->
+          | VarDecl { Pattern = pattern; Init = Some init } ->
             let pattern = buildPattern ctx pattern
             let initExpr, initStmts = buildExpr ctx init
 

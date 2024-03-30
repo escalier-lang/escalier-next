@@ -71,7 +71,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "value"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "value"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 7, Col: 9)
@@ -79,36 +80,37 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        Call
-                          { Callee =
-                             { Kind =
-                                Member ({ Kind = Identifier "MyEnum"
-                                          Span = { Start = (Ln: 7, Col: 17)
-                                                   Stop = (Ln: 7, Col: 23) }
-                                          InferredType = None }, "Foo", false)
-                               Span = { Start = (Ln: 7, Col: 17)
-                                        Stop = (Ln: 7, Col: 27) }
-                               InferredType = None }
-                            TypeArgs = None
-                            Args =
-                             [{ Kind = Literal (Number (Int 5))
-                                Span = { Start = (Ln: 7, Col: 28)
-                                         Stop = (Ln: 7, Col: 29) }
-                                InferredType = None };
-                              { Kind = Literal (String "hello")
-                                Span = { Start = (Ln: 7, Col: 31)
-                                         Stop = (Ln: 7, Col: 38) }
-                                InferredType = None };
-                              { Kind = Literal (Boolean true)
-                                Span = { Start = (Ln: 7, Col: 40)
-                                         Stop = (Ln: 7, Col: 44) }
-                                InferredType = None }]
-                            OptChain = false
-                            Throws = None }
-                       Span = { Start = (Ln: 7, Col: 17)
-                                Stop = (Ln: 7, Col: 45) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          Call
+                            { Callee =
+                               { Kind =
+                                  Member ({ Kind = Identifier "MyEnum"
+                                            Span = { Start = (Ln: 7, Col: 17)
+                                                     Stop = (Ln: 7, Col: 23) }
+                                            InferredType = None }, "Foo", false)
+                                 Span = { Start = (Ln: 7, Col: 17)
+                                          Stop = (Ln: 7, Col: 27) }
+                                 InferredType = None }
+                              TypeArgs = None
+                              Args =
+                               [{ Kind = Literal (Number (Int 5))
+                                  Span = { Start = (Ln: 7, Col: 28)
+                                           Stop = (Ln: 7, Col: 29) }
+                                  InferredType = None };
+                                { Kind = Literal (String "hello")
+                                  Span = { Start = (Ln: 7, Col: 31)
+                                           Stop = (Ln: 7, Col: 38) }
+                                  InferredType = None };
+                                { Kind = Literal (Boolean true)
+                                  Span = { Start = (Ln: 7, Col: 40)
+                                           Stop = (Ln: 7, Col: 44) }
+                                  InferredType = None }]
+                              OptChain = false
+                              Throws = None }
+                         Span = { Start = (Ln: 7, Col: 17)
+                                  Stop = (Ln: 7, Col: 45) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 7, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }

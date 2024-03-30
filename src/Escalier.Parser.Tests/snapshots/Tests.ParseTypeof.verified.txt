@@ -8,7 +8,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "iterator"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "iterator"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 2, Col: 9)
@@ -20,14 +21,15 @@ output: Ok
                                      Stop = (Ln: 2, Col: 42) }
                             InferredType = None }
                     Init =
-                     { Kind =
-                        Member ({ Kind = Identifier "Symbol"
-                                  Span = { Start = (Ln: 2, Col: 44)
-                                           Stop = (Ln: 2, Col: 50) }
-                                  InferredType = None }, "iterator", false)
-                       Span = { Start = (Ln: 2, Col: 44)
-                                Stop = (Ln: 2, Col: 59) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          Member ({ Kind = Identifier "Symbol"
+                                    Span = { Start = (Ln: 2, Col: 44)
+                                             Stop = (Ln: 2, Col: 50) }
+                                    InferredType = None }, "iterator", false)
+                         Span = { Start = (Ln: 2, Col: 44)
+                                  Stop = (Ln: 2, Col: 59) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }

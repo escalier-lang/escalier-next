@@ -410,9 +410,10 @@ module Syntax =
     override this.ToString() = this.Kind.ToString()
 
   type VarDecl =
-    { Pattern: Pattern
+    { Declare: bool
+      Pattern: Pattern
       TypeAnn: option<TypeAnn>
-      Init: Expr
+      Init: option<Expr>
       Else: option<Block> }
 
   type FnDecl =
@@ -564,14 +565,12 @@ module Syntax =
 
   type ScriptItem =
     | Import of Import
-    | DeclareLet of name: Pattern * typeAnn: TypeAnn
     | Stmt of Stmt // contains decls along with other statements
 
   type Script = { Items: list<ScriptItem> }
 
   type ModuleItem =
     | Import of Import
-    | DeclareLet of name: Pattern * typeAnn: TypeAnn
     | Decl of Decl
 
   type Module = { Items: list<ModuleItem> }

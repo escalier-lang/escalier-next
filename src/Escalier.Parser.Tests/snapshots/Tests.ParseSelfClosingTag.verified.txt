@@ -8,7 +8,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "elem"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "elem"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 2, Col: 9)
@@ -16,31 +17,33 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        JSXElement
-                          { Opening =
-                             { Name = Ident "Foo"
-                               Attrs =
-                                [{ Name = "bar"
-                                   Value =
-                                    Some
-                                      (JSXExprContainer
-                                         { Expr =
-                                            { Kind = Identifier "baz"
-                                              Span = { Start = (Ln: 2, Col: 26)
-                                                       Stop = (Ln: 2, Col: 29) }
-                                              InferredType = None }
-                                           Span = { Start = (Ln: 2, Col: 25)
-                                                    Stop = (Ln: 2, Col: 31) } })
-                                   Span = { Start = (Ln: 2, Col: 21)
-                                            Stop = (Ln: 2, Col: 31) } }]
-                               Span = { Start = (Ln: 2, Col: 16)
-                                        Stop = (Ln: 2, Col: 33) } }
-                            Children = []
-                            Closing = None }
-                       Span = { Start = (Ln: 2, Col: 16)
-                                Stop = (Ln: 2, Col: 33) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          JSXElement
+                            { Opening =
+                               { Name = Ident "Foo"
+                                 Attrs =
+                                  [{ Name = "bar"
+                                     Value =
+                                      Some
+                                        (JSXExprContainer
+                                           { Expr =
+                                              { Kind = Identifier "baz"
+                                                Span =
+                                                 { Start = (Ln: 2, Col: 26)
+                                                   Stop = (Ln: 2, Col: 29) }
+                                                InferredType = None }
+                                             Span = { Start = (Ln: 2, Col: 25)
+                                                      Stop = (Ln: 2, Col: 31) } })
+                                     Span = { Start = (Ln: 2, Col: 21)
+                                              Stop = (Ln: 2, Col: 31) } }]
+                                 Span = { Start = (Ln: 2, Col: 16)
+                                          Stop = (Ln: 2, Col: 33) } }
+                              Children = []
+                              Closing = None }
+                         Span = { Start = (Ln: 2, Col: 16)
+                                  Stop = (Ln: 2, Col: 33) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }

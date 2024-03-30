@@ -482,13 +482,13 @@ module Parser =
         Loc = None }
 
   let mappedTypeParam: Parser<TsTypeParam, unit> =
-    pipe2 ident (opt (strWs "in" >>. tsType))
+    pipe2 ident (strWs "in" >>. tsType)
     <| fun name c ->
       { Name = name
         IsIn = true
         IsOut = false
         IsConst = false
-        Constraint = c
+        Constraint = Some(c)
         Default = None
         Loc = None }
 

@@ -1,0 +1,67 @@
+﻿input: 
+    declare const UNDEFINED_VOID_ONLY: unique symbol;
+    type Destructor = () => void | { [UNDEFINED_VOID_ONLY]: never };
+    
+output: Success: { Body =
+   [Stmt
+      (Decl
+         (Var
+            { Decls =
+               [{ Id = Ident { Id = { Name = "UNDEFINED_VOID_ONLY"
+                                      Loc = None }
+                               Loc = None }
+                  TypeAnn =
+                   Some
+                     { TypeAnn =
+                        TsTypeOperator
+                          { Op = Unique
+                            TypeAnn = TsKeywordType { Kind = TsSymbolKeyword
+                                                      Loc = None }
+                            Loc = None }
+                       Loc = None }
+                  Init = None }]
+              Declare = true
+              Kind = Const }));
+    Stmt
+      (Decl
+         (TsTypeAlias
+            { Declare = false
+              Id = { Name = "Destructor"
+                     Loc = None }
+              TypeParams = None
+              TypeAnn =
+               TsFnOrConstructorType
+                 (TsFnType
+                    { Params = []
+                      TypeParams = None
+                      TypeAnn =
+                       { TypeAnn =
+                          TsUnionOrIntersectionType
+                            (TsUnionType
+                               { Types =
+                                  [TsKeywordType { Kind = TsVoidKeyword
+                                                   Loc = None };
+                                   TsTypeLit
+                                     { Members =
+                                        [TsPropertySignature
+                                           { Readonly = false
+                                             Key =
+                                              Ident
+                                                { Name = "UNDEFINED_VOID_ONLY"
+                                                  Loc = None }
+                                             Computed = true
+                                             Optional = false
+                                             TypeAnn =
+                                              { TypeAnn =
+                                                 TsKeywordType
+                                                   { Kind = TsNeverKeyword
+                                                     Loc = None }
+                                                Loc = None }
+                                             Loc = None }]
+                                       Loc = None }]
+                                 Loc = None })
+                         Loc = None }
+                      Loc = None })
+              Loc = None }))]
+  Shebang = None
+  Loc = None }

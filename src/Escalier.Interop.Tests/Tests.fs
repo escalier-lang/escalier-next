@@ -251,6 +251,19 @@ let ParseMappedTypeWithoutSemi () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseIndexedType () =
+  let input =
+    """
+    declare const UNDEFINED_VOID_ONLY: unique symbol;
+    type Destructor = () => void | { [UNDEFINED_VOID_ONLY]: never };
+    """
+
+  let ast = parseModule input
+  let result = $"input: %s{input}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let TestMyPfloat () =
   let input =
     """

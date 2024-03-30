@@ -2407,14 +2407,13 @@ module rec Infer =
   let inferImport
     (ctx: Ctx)
     (env: Env)
-    (filename: string)
     (import: Import)
     : Result<Env, TypeError> =
 
     result {
-      let exports = ctx.GetExports filename import
+      let exports = ctx.GetExports env.Filename import
 
-      let mutable imports = Env.empty
+      let mutable imports = Namespace.empty
 
       for specifier in import.Specifiers do
         match specifier with
@@ -2427,21 +2426,21 @@ module rec Infer =
             | None -> source
 
           let valueLookup =
-            match exports.TryFindValue source with
+            match exports.Values.TryFind source with
             | Some(binding) ->
-              imports <- imports.AddValue target binding
+              imports <- imports.AddBinding target binding
               Ok(())
             | None -> Error("not found")
 
           let schemeLookup =
-            match exports.TryFindScheme source with
+            match exports.Schemes.TryFind source with
             | Some(scheme) ->
               imports <- imports.AddScheme target scheme
               Ok(())
             | None -> Error("not found")
 
           let namespaceLookup =
-            match exports.Namespace.Namespaces.TryFind source with
+            match exports.Namespaces.TryFind source with
             | Some(ns) ->
               imports <- imports.AddNamespace target ns
               Ok(())
@@ -2451,7 +2450,7 @@ module rec Infer =
           // If we can't find the symbol in either the values or schemes
           // we report an error
           | Error _, Error _, Error _ ->
-            let resolvedPath = ctx.ResolvePath filename import
+            let resolvedPath = ctx.ResolvePath env.Filename import
 
             return!
               Error(
@@ -2460,26 +2459,25 @@ module rec Infer =
               )
           | _, _, _ -> ()
         | ModuleAlias name ->
-          let ns: Namespace = { exports.Namespace with Name = name }
+          let ns: Namespace = { exports with Name = name }
 
           imports <- imports.AddNamespace name ns
 
       return
         { env with
-            Namespace = env.Namespace.Merge imports.Namespace }
+            Namespace = env.Namespace.Merge imports }
     }
 
   let inferScriptItem
     (ctx: Ctx)
     (env: Env)
-    (filename: string)
     (item: ScriptItem)
     (generalize: bool)
     : Result<Env, TypeError> =
 
     result {
       match item with
-      | ScriptItem.Import import -> return! inferImport ctx env filename import
+      | ScriptItem.Import import -> return! inferImport ctx env import
       | ScriptItem.DeclareLet(name, typeAnn) ->
         let! typeAnnType = inferTypeAnn ctx env typeAnn
         let! assump, patType = inferPattern ctx env name
@@ -2495,7 +2493,6 @@ module rec Infer =
       | Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 
-  // TODO: Create an `InferModule` that treats all decls as mutually recursive
   let inferScript
     (ctx: Ctx)
     (env: Env)
@@ -2503,13 +2500,13 @@ module rec Infer =
     (m: Script)
     : Result<Env, TypeError> =
     result {
-      let mutable newEnv = env
+      let mutable newEnv = { env with Filename = filename }
 
       let! _ =
         List.traverseResultM
           (fun item ->
             result {
-              let! itemEnv = inferScriptItem ctx newEnv filename item true
+              let! itemEnv = inferScriptItem ctx newEnv item true
               newEnv <- itemEnv
             })
           m.Items
@@ -2524,14 +2521,14 @@ module rec Infer =
     (m: Module)
     : Result<Env, TypeError> =
     result {
-      let mutable newEnv = env
+      let mutable newEnv = { env with Filename = filename }
       let mutable prebindings: Map<string, Binding> = Map.empty
       let mutable typeDecls: Map<string, Scheme> = Map.empty
 
       for item in m.Items do
         match item with
         | Import import ->
-          let! importEnv = inferImport ctx newEnv filename import
+          let! importEnv = inferImport ctx newEnv import
           newEnv <- importEnv
         | DeclareLet(name, typeAnn) -> failwith "todo"
         | Decl { Kind = kind } ->

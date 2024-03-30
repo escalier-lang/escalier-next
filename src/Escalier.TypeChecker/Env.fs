@@ -13,7 +13,7 @@ open Prune
 module rec Env =
   type Ctx
     (
-      getExports: Ctx -> string -> Syntax.Import -> Env,
+      getExports: Ctx -> string -> Syntax.Import -> Namespace,
       resolvePath: Ctx -> string -> Syntax.Import -> string
     ) =
 
@@ -253,24 +253,13 @@ module rec Env =
           Namespaces = FSharpPlus.Map.union this.Namespaces other.Namespaces
           Schemes = FSharpPlus.Map.union this.Schemes other.Schemes }
 
-  // TODO: include the name of the file currently being inferred
   type Env =
-    { Namespace: Namespace
+    { Filename: string
+      Namespace: Namespace
       BinaryOps: Map<string, Binding>
       UnaryOps: Map<string, Binding>
       IsAsync: bool
       IsPatternMatching: bool }
-
-    static member empty =
-      { Namespace =
-          { Name = "<root>"
-            Values = Map.empty
-            Schemes = Map.empty
-            Namespaces = Map.empty }
-        BinaryOps = Map.empty
-        UnaryOps = Map.empty
-        IsAsync = false
-        IsPatternMatching = false }
 
     // TODO: Rename to AddBinding
     // TODO: don't curry this function

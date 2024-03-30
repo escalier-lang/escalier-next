@@ -895,6 +895,12 @@ module Type =
       Schemes: Map<string, Scheme>
       Namespaces: Map<string, Namespace> }
 
+    static member empty =
+      { Name = "<root>"
+        Values = Map.empty
+        Schemes = Map.empty
+        Namespaces = Map.empty }
+
   // TODO: Figure out how to share this code with TypeChecker.Prune
   let rec prune (t: Type) : Type =
     match t.Kind with

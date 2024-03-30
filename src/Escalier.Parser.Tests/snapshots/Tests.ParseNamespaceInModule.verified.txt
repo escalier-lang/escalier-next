@@ -13,11 +13,11 @@ output: Ok
         { Kind =
            NamespaceDecl
              { Name = "Foo"
-               Decls =
+               Body =
                 [{ Kind =
                     NamespaceDecl
                       { Name = "Bar"
-                        Decls =
+                        Body =
                          [{ Kind =
                              VarDecl
                                { Declare = false

@@ -349,10 +349,13 @@ module Prelude =
         | FParsec.CharParsers.Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
-      let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      let newEnv = { env with Filename = fullPath }
 
-      return env, ast
+      let! outEnv =
+        Infer.inferModule ctx newEnv ast
+        |> Result.mapError CompileError.TypeError
+
+      return outEnv, ast
     }
 
   let mutable envMemoized: Env option = None

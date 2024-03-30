@@ -459,6 +459,8 @@ module rec Infer =
               match tsMappedType.TypeParam.Constraint with
               | Some(c) -> inferTsType ctx env c
               | None ->
+                printfn $"Error in {env.Filename}"
+                printfn "tsMappedType = %A" tsMappedType
                 failwith "TODO: Mapped type's type param must have a constraint" }
 
         let mapped =
@@ -853,10 +855,42 @@ module rec Infer =
       match decl with
       | ModuleDecl.Import importDecl ->
         // TODO: convert the TS import to an Escalier import
-        // let exports = ctx.GetExports filename import
+        let specifiers: list<Syntax.ImportSpecifier> =
+          importDecl.Specifiers
+          |> List.map (fun specifier ->
+            match specifier with
+            | ImportSpecifier.Named { Local = local; Imported = imported } ->
+              let imported =
+                imported
+                |> Option.map (fun imported ->
+                  match imported with
+                  | ModuleExportName.Ident ident -> ident.Name
+                  | ModuleExportName.Str str -> str.Value)
 
-        return!
-          Error(TypeError.NotImplemented "TODO: inferModuleDecl - importDecl")
+              Syntax.ImportSpecifier.Named(local.Name, imported)
+            | ImportSpecifier.Default { Local = local } ->
+              Syntax.ImportSpecifier.Named(local.Name, Some("default"))
+            | ImportSpecifier.Namespace { Local = local } ->
+              Syntax.ImportSpecifier.ModuleAlias local.Name)
+
+        let import: Syntax.Import =
+          { Path = importDecl.Src.Value
+            Specifiers = specifiers }
+
+        // TODO: do the same mapping between exports and imports we do
+        // based on specifiers that we do in inferImport in
+        // Escalier.TypeChecker/Infer.fs
+        let exports = ctx.GetExports env.Filename import
+
+        for entry in exports.Values do
+          printfn $"value: {entry.Key}"
+
+        for entry in exports.Schemes do
+          printfn $"value: {entry.Key}"
+
+        return
+          { env with
+              Namespace = env.Namespace.Merge exports }
       | ModuleDecl.ExportDecl { Decl = decl } -> return! inferDecl ctx env decl
       // TODO: add visibility modifiers to module decls so that we can
       // hide decls that haven't been exported from .d.ts modules.
@@ -892,6 +926,11 @@ module rec Infer =
               "TODO: inferModuleDecl - tsImportEqualsDecl"
           )
       | ModuleDecl.TsExportAssignment tsExportAssignment ->
+        printfn "tsExportAssignment %A" tsExportAssignment
+
+        for entry in env.Namespace.Namespaces do
+          printfn $"value: {entry.Key}"
+
         return!
           Error(
             TypeError.NotImplemented
@@ -916,106 +955,8 @@ module rec Infer =
       | ModuleItem.ModuleDecl decl -> return! inferModuleDecl ctx env decl
     }
 
-  let mergeType (imutType: Type) (mutType: Type) : Type =
-    // If a method exists on both `imutType` and `mutType` then it's a mutable method
-    // If it only exists on `imutType` then it's an immutable method
-    // There should never be a method that only exists on `mutType`
-
-    match imutType.Kind, mutType.Kind with
-    | TypeKind.Object imutElems, TypeKind.Object mutElems ->
-      // TODO: figure out how to handle overloaded methods
-      let mutable imutNamedElems: Map<Type.PropName, ObjTypeElem> =
-        imutElems.Elems
-        |> List.choose (fun elem ->
-          match elem with
-          | ObjTypeElem.Property p ->
-            match p.Name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | ObjTypeElem.Method(name, fn) ->
-            match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | ObjTypeElem.Getter(name, fn) ->
-            match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | ObjTypeElem.Setter(name, fn) ->
-            match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | _ -> None)
-        |> Map.ofSeq
-
-      let mutable unnamedElems: list<ObjTypeElem> = []
-
-      let mutable mutNamedElems: Map<Type.PropName, ObjTypeElem> =
-        mutElems.Elems
-        |> List.choose (fun elem ->
-          match elem with
-          | ObjTypeElem.Property p ->
-            match p.Name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | ObjTypeElem.Method(name, fn) ->
-            match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | ObjTypeElem.Getter(name, fn) ->
-            match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | ObjTypeElem.Setter(name, fn) ->
-            match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
-          | elem ->
-            // This assumes that indexed/mapped signatures are on both the
-            // readonly and non-readonly interfaces.  We ignore the readonly
-            // one because the signature isn't responsible for preventing
-            // mutation of the object in this way.  Instead we have a special
-            // check for this.
-            unnamedElems <- elem :: unnamedElems
-            None)
-        |> Map.ofSeq
-
-      let elems =
-        mutNamedElems
-        |> Map.toSeq
-        |> Seq.map (fun (key, value) ->
-          match imutNamedElems.TryFind key with
-          | Some(imutValue) -> imutValue
-          | None ->
-            match value with
-            | ObjTypeElem.Method(name, fn) ->
-              let self =
-                match fn.Self with
-                | None -> None
-                | Some self ->
-                  Some
-                    { self with
-                        Pattern =
-                          Pattern.Identifier { Name = "self"; IsMut = true } }
-
-              ObjTypeElem.Method(name, { fn with Self = self })
-            | elem -> elem)
-
-      let kind =
-        TypeKind.Object
-          { Elems = List.ofSeq elems @ unnamedElems
-            Immutable = false }
-
-      { Kind = kind; Provenance = None }
-    | _ -> failwith "both types must be objects to merge them"
-
+  // TODO: do the same pre-pass for module items as we do in TypeChecker/Infer.fs'
+  // implementation of `inferModule`
   let inferModule (ctx: Ctx) (env: Env) (m: Module) : Result<Env, TypeError> =
     result {
       let mutable newEnv = env
@@ -1127,3 +1068,103 @@ module rec Infer =
     walkPat visitor p
 
     List.rev names
+
+  let mergeType (imutType: Type) (mutType: Type) : Type =
+    // If a method exists on both `imutType` and `mutType` then it's a mutable method
+    // If it only exists on `imutType` then it's an immutable method
+    // There should never be a method that only exists on `mutType`
+
+    match imutType.Kind, mutType.Kind with
+    | TypeKind.Object imutElems, TypeKind.Object mutElems ->
+      // TODO: figure out how to handle overloaded methods
+      let mutable imutNamedElems: Map<Type.PropName, ObjTypeElem> =
+        imutElems.Elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Property p ->
+            match p.Name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Method(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | _ -> None)
+        |> Map.ofSeq
+
+      let mutable unnamedElems: list<ObjTypeElem> = []
+
+      let mutable mutNamedElems: Map<Type.PropName, ObjTypeElem> =
+        mutElems.Elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Property p ->
+            match p.Name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Method(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | elem ->
+            // This assumes that indexed/mapped signatures are on both the
+            // readonly and non-readonly interfaces.  We ignore the readonly
+            // one because the signature isn't responsible for preventing
+            // mutation of the object in this way.  Instead we have a special
+            // check for this.
+            unnamedElems <- elem :: unnamedElems
+            None)
+        |> Map.ofSeq
+
+      let elems =
+        mutNamedElems
+        |> Map.toSeq
+        |> Seq.map (fun (key, value) ->
+          match imutNamedElems.TryFind key with
+          | Some(imutValue) -> imutValue
+          | None ->
+            match value with
+            | ObjTypeElem.Method(name, fn) ->
+              let self =
+                match fn.Self with
+                | None -> None
+                | Some self ->
+                  Some
+                    { self with
+                        Pattern =
+                          Pattern.Identifier { Name = "self"; IsMut = true } }
+
+              ObjTypeElem.Method(name, { fn with Self = self })
+            | elem -> elem)
+
+      let kind =
+        TypeKind.Object
+          { Elems = List.ofSeq elems @ unnamedElems
+            Immutable = false }
+
+      { Kind = kind; Provenance = None }
+    | _ -> failwith "both types must be objects to merge them"

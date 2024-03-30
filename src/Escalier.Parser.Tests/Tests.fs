@@ -157,7 +157,7 @@ let ParseObjPropWithOptChain () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseFuncDef () =
+let ParseFuncExpr () =
   let src = "fn (x, y) { x };"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
@@ -165,7 +165,7 @@ let ParseFuncDef () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseFuncDefWithTypes () =
+let ParseFuncExprWithTypes () =
   let src = "fn (x: number) -> number throws \"RangeError\" { x };"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
@@ -173,8 +173,16 @@ let ParseFuncDefWithTypes () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseFuncDefWithTypeParams () =
+let ParseFuncExprWithTypeParams () =
   let src = "fn <T: Foo = Bar>(x: T) -> T { x };"
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseFuncDecl () =
+  let src = "fn fst<T>(x: T, y: T) -> T { return x; }"
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 

@@ -2033,6 +2033,44 @@ module rec Infer =
           newEnv <- newEnv.AddScheme name scheme
 
         return newEnv.AddBindings bindings
+      | DeclKind.FnDecl { Declare = false
+                          Name = name
+                          Sig = fnSig
+                          Body = Some body } ->
+        let! f = inferFunction ctx env fnSig body
+        let f = if generalize then generalizeFunc f else f
+
+        let t =
+          { Kind = TypeKind.Function f
+            Provenance = None }
+
+        return env.AddValue name (t, false)
+      | DeclKind.FnDecl { Declare = true
+                          Name = name
+                          Sig = fnSig
+                          Body = None } ->
+        // TODO: dedupe with `inferModule`
+        // TODO: capture these errors as diagnostics and infer the missing
+        // types as `never`
+        for p in fnSig.ParamList do
+          if p.TypeAnn.IsNone then
+            failwith "Ambient function declarations must be fully typed"
+
+        if fnSig.ReturnType.IsNone then
+          failwith "Ambient function declarations must be fully typed"
+
+        let! f = inferFuncSig ctx env fnSig
+
+        if fnSig.Throws.IsNone then
+          f.Throws <-
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+
+        let t =
+          { Kind = TypeKind.Function f
+            Provenance = None }
+
+        return env.AddValue name (t, false)
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams
                             Variants = variants } ->
@@ -2225,102 +2263,121 @@ module rec Infer =
     (varDecl: VarDecl)
     : Result<Map<string, Binding> * Map<string, Scheme>, TypeError> =
 
-    let { Pattern = pattern
-          Init = init
-          TypeAnn = typeAnn
-          Else = elseClause } =
-      varDecl
+    // TODO: handle case when `init` is None and `Declare` is `true`
+    match varDecl with
+    | { Declare = false
+        Pattern = pattern
+        Init = Some init
+        TypeAnn = typeAnn
+        Else = elseClause } ->
+      result {
+        let! invariantPaths =
+          checkMutability
+            (getPatBindingPaths pattern)
+            (getExprBindingPaths env init)
 
-    result {
-      let! invariantPaths =
-        checkMutability
-          (getPatBindingPaths pattern)
-          (getExprBindingPaths env init)
+        let! patBindings, patType = inferPattern ctx env pattern
+        let mutable newEnv = env
 
-      let! patBindings, patType = inferPattern ctx env pattern
-      let mutable newEnv = env
+        for KeyValue(name, binding) in patBindings do
+          newEnv <- newEnv.AddValue name binding
 
-      for KeyValue(name, binding) in patBindings do
-        newEnv <- newEnv.AddValue name binding
+        let! initType = inferExpr ctx newEnv init
 
-      let! initType = inferExpr ctx newEnv init
-
-      match elseClause with
-      | None ->
-        match typeAnn with
-        | Some typeAnn ->
-          let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
-          do! unify ctx newEnv invariantPaths initType typeAnnType
-          do! unify ctx newEnv None typeAnnType patType
-        | None -> do! unify ctx newEnv invariantPaths initType patType
-      | Some elseClause ->
-        // TODO: handle elseClause
-        // TODO: udpate inferBlockOrExpr to return `never` if the block contains
-        // a return statement
-
-        let initType =
-          match (prune initType).Kind with
-          | TypeKind.Union types ->
-            let types =
-              types
-              |> List.filter (fun t ->
-                t.Kind <> TypeKind.Literal(Literal.Undefined))
-
-            union types
-          | _ -> initType
-
-        match typeAnn with
-        | Some typeAnn ->
-          let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
-          // NOTE: the order is reversed here because the variable being
-          // initialized only need to match one of the types in the union,
-          // assuming initType is a union type.
-          do! unify ctx newEnv invariantPaths typeAnnType initType
-          do! unify ctx newEnv None typeAnnType patType
+        match elseClause with
         | None ->
-          // NOTE: the order is reverse here because the variable being
-          // initialized only need to match one of the types in the union,
-          // assuming initType is a union type.
-          do! unify ctx newEnv invariantPaths patType initType
+          match typeAnn with
+          | Some typeAnn ->
+            let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+            do! unify ctx newEnv invariantPaths initType typeAnnType
+            do! unify ctx newEnv None typeAnnType patType
+          | None -> do! unify ctx newEnv invariantPaths initType patType
+        | Some elseClause ->
+          // TODO: handle elseClause
+          // TODO: udpate inferBlockOrExpr to return `never` if the block contains
+          // a return statement
 
-        // Ensure that the `else` clause matches the type of the variable
-        // being initialized.
-        let! elseTy = inferBlockOrExpr ctx env (elseClause |> BlockOrExpr.Block)
-        do! unify ctx env invariantPaths elseTy patType
+          let initType =
+            match (prune initType).Kind with
+            | TypeKind.Union types ->
+              let types =
+                types
+                |> List.filter (fun t ->
+                  t.Kind <> TypeKind.Literal(Literal.Undefined))
 
-      let mutable schemes: Map<string, Scheme> = Map.empty
+              union types
+            | _ -> initType
 
-      for KeyValue(name, binding) in patBindings do
-        let t, _ = binding
+          match typeAnn with
+          | Some typeAnn ->
+            let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+            // NOTE: the order is reversed here because the variable being
+            // initialized only need to match one of the types in the union,
+            // assuming initType is a union type.
+            do! unify ctx newEnv invariantPaths typeAnnType initType
+            do! unify ctx newEnv None typeAnnType patType
+          | None ->
+            // NOTE: the order is reverse here because the variable being
+            // initialized only need to match one of the types in the union,
+            // assuming initType is a union type.
+            do! unify ctx newEnv invariantPaths patType initType
 
-        match (prune t).Kind with
-        | TypeKind.Object { Elems = elems } ->
-          // TODO: modify the constructors so they return `Foo<T>` instead
-          // of `Self`.  Right now unifyFuncCall is responsible for this,
-          // but that doesn't seem like the best place for it.
-          let constructors =
-            elems
-            |> List.choose (fun elem ->
-              match elem with
-              | ObjTypeElem.Constructor fn -> Some fn
-              | _ -> None)
+          // Ensure that the `else` clause matches the type of the variable
+          // being initialized.
+          let! elseTy =
+            inferBlockOrExpr ctx env (elseClause |> BlockOrExpr.Block)
 
-          if constructors.Length > 0 then
-            let constructor = constructors[0]
-            let returnType = constructor.Return
+          do! unify ctx env invariantPaths elseTy patType
 
-            match returnType.Kind with
-            | TypeKind.TypeRef typeRef ->
-              typeRef.Name <- QualifiedIdent.Ident name
+        let mutable schemes: Map<string, Scheme> = Map.empty
 
-              match typeRef.Scheme with
-              | Some scheme -> schemes <- schemes.Add(name, scheme)
-              | _ -> () // This hsould probably be an error
-            | _ -> ()
-        | _ -> ()
+        for KeyValue(name, binding) in patBindings do
+          let t, _ = binding
 
-      return (patBindings, schemes)
-    }
+          match (prune t).Kind with
+          | TypeKind.Object { Elems = elems } ->
+            // TODO: modify the constructors so they return `Foo<T>` instead
+            // of `Self`.  Right now unifyFuncCall is responsible for this,
+            // but that doesn't seem like the best place for it.
+            let constructors =
+              elems
+              |> List.choose (fun elem ->
+                match elem with
+                | ObjTypeElem.Constructor fn -> Some fn
+                | _ -> None)
+
+            if constructors.Length > 0 then
+              let constructor = constructors[0]
+              let returnType = constructor.Return
+
+              match returnType.Kind with
+              | TypeKind.TypeRef typeRef ->
+                typeRef.Name <- QualifiedIdent.Ident name
+
+                match typeRef.Scheme with
+                | Some scheme -> schemes <- schemes.Add(name, scheme)
+                | _ -> () // This hsould probably be an error
+              | _ -> ()
+          | _ -> ()
+
+        return (patBindings, schemes)
+      }
+    | { Declare = true
+        Pattern = pattern
+        Init = None
+        TypeAnn = Some typeAnn
+        Else = None } ->
+
+      result {
+        let! patBindings, patType = inferPattern ctx env pattern
+        let mutable newEnv = env
+
+        let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+        do! unify ctx newEnv None typeAnnType patType
+
+        return (patBindings, Map.empty)
+      }
+    | _ -> Error(TypeError.SemanticError "Invalid var decl")
 
   let generalizeBindings
     (bindings: Map<string, Binding>)
@@ -2478,18 +2535,6 @@ module rec Infer =
     result {
       match item with
       | ScriptItem.Import import -> return! inferImport ctx env import
-      | ScriptItem.DeclareLet(name, typeAnn) ->
-        let! typeAnnType = inferTypeAnn ctx env typeAnn
-        let! assump, patType = inferPattern ctx env name
-
-        do! unify ctx env None typeAnnType patType
-
-        let mutable newEnv = env
-
-        for binding in assump do
-          newEnv <- newEnv.AddValue binding.Key binding.Value
-
-        return newEnv
       | Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 
@@ -2530,17 +2575,51 @@ module rec Infer =
         | Import import ->
           let! importEnv = inferImport ctx newEnv import
           newEnv <- importEnv
-        | DeclareLet(name, typeAnn) -> failwith "todo"
         | Decl { Kind = kind } ->
           match kind with
           | VarDecl { Pattern = pattern
-                      Init = init
+                      Init = _
                       TypeAnn = typeAnn } ->
             let! bindings, _ = inferPattern ctx env pattern
 
             for KeyValue(name, binding) in bindings do
               prebindings <- prebindings.Add(name, binding)
               newEnv <- newEnv.AddValue name binding
+          | FnDecl { Declare = false
+                     Sig = fnSig
+                     Name = name } ->
+            let! f = inferFuncSig ctx newEnv fnSig
+
+            let t =
+              { Kind = TypeKind.Function f
+                Provenance = None }
+
+            newEnv <- newEnv.AddValue name (t, false)
+          | FnDecl { Declare = true
+                     Sig = fnSig
+                     Name = name } ->
+            // TODO: dedupe with `inferDecl`
+            // TODO: capture these errors as diagnostics and infer the missing
+            // types as `never`
+            for p in fnSig.ParamList do
+              if p.TypeAnn.IsNone then
+                failwith "Ambient function declarations must be fully typed"
+
+            if fnSig.ReturnType.IsNone then
+              failwith "Ambient function declarations must be fully typed"
+
+            let! f = inferFuncSig ctx newEnv fnSig
+
+            if fnSig.Throws.IsNone then
+              f.Throws <-
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
+
+            let t =
+              { Kind = TypeKind.Function f
+                Provenance = None }
+
+            newEnv <- newEnv.AddValue name (t, false)
           | TypeDecl typeDecl ->
             // TODO: replace placeholders, with a reference the actual definition
             // once we've inferred the definition
@@ -2552,14 +2631,11 @@ module rec Infer =
             // types.
             newEnv <- newEnv.AddScheme typeDecl.Name placeholder
 
-      // TODO: add pre-bindings to the environment before inferring the initializers
-
       let mutable bindings: Map<string, Binding> = Map.empty
 
       for item in m.Items do
         match item with
         | Import _ -> () // handled in the first pass
-        | DeclareLet(name, typeAnn) -> failwith "todo"
         | Decl { Kind = kind } ->
           match kind with
           | VarDecl varDecl ->
@@ -2571,11 +2647,30 @@ module rec Infer =
 
             for KeyValue(name, scheme) in newSchemes do
               newEnv <- newEnv.AddScheme name scheme
+          | FnDecl { Declare = false
+                     Name = name
+                     Sig = fnSig
+                     Body = Some body } ->
+            // NOTE: We explicitly don't generalize here because we want other
+            // declarations to be able to unify with any free type variables
+            // from this declaration.  We generalize things below.
+            let! f = inferFunction ctx newEnv fnSig body
+
+            let t =
+              { Kind = TypeKind.Function f
+                Provenance = None }
+
+            bindings <- bindings.Add(name, (t, false))
+          | FnDecl { Declare = true } ->
+            // Nothing to do since ambient function declarations don't have
+            // function bodies.
+            ()
           | TypeDecl { Name = name; TypeAnn = typeAnn } ->
-            let scheme =
+            let! scheme =
               match typeDecls.TryFind name with
-              | None -> failwith "todo"
-              | Some value -> value
+              | None ->
+                Error(TypeError.SemanticError $"Type '{name}' not found")
+              | Some value -> Ok value
 
             // Handles self-recursive types
             newEnv <- newEnv.AddScheme name scheme

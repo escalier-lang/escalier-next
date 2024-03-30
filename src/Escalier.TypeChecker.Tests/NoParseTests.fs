@@ -185,7 +185,8 @@ let varDecl (name, expr) =
       StmtKind.Decl(
         { Kind =
             DeclKind.VarDecl
-              { Pattern = pattern
+              { Declare = false
+                Pattern = pattern
                 Init = expr
                 TypeAnn = None
                 Else = None }
@@ -206,25 +207,27 @@ let InferFactorial () =
     let ast =
       varDecl (
         "factorial",
-        fatArrow
-          [ "n" ] (* fn n => *)
-          (ifelse (
-            call (ident "zero", [ ident "n" ]),
-            { Stmts = [ ident "1" |> StmtKind.Expr |> stmt ]
-              Span = dummySpan },
-            Some(
-              BlockOrExpr.Expr(
-                binary (
-                  "times", // op
-                  ident "n",
-                  call (
-                    ident "factorial",
-                    [ call (ident "pred", [ ident "n" ]) ]
+        Some(
+          fatArrow
+            [ "n" ] (* fn n => *)
+            (ifelse (
+              call (ident "zero", [ ident "n" ]),
+              { Stmts = [ ident "1" |> StmtKind.Expr |> stmt ]
+                Span = dummySpan },
+              Some(
+                BlockOrExpr.Expr(
+                  binary (
+                    "times", // op
+                    ident "n",
+                    call (
+                      ident "factorial",
+                      [ call (ident "pred", [ ident "n" ]) ]
+                    )
                   )
                 )
               )
-            )
-          ))
+            ))
+        )
       )
 
     let mutable env = getEnv ()
@@ -292,12 +295,14 @@ let InferPair () =
     (* letrec f = (fn x => x) in [f 4, f true] *)
     let ast: Script =
       { Items =
-          [ varDecl ("f", fatArrow [ "x" ] (ident "x")) |> ScriptItem.Stmt
+          [ varDecl ("f", Some(fatArrow [ "x" ] (ident "x"))) |> ScriptItem.Stmt
             varDecl (
               "pair",
-              tuple
-                [ call (ident "f", [ number (Number.Int 4) ])
-                  call (ident "f", [ boolean true ]) ]
+              Some(
+                tuple
+                  [ call (ident "f", [ number (Number.Int 4) ])
+                    call (ident "f", [ boolean true ]) ]
+              )
             )
             |> ScriptItem.Stmt ] }
 
@@ -344,18 +349,20 @@ let InferGenericAndNonGeneric () =
       { Items =
           [ varDecl (
               "foo",
-              func
-                [ "g" ]
-                [ (varDecl ("f", fatArrow [ "x" ] (ident "g")))
-                  stmt (
-                    StmtKind.Return(
-                      Some(
-                        tuple
-                          [ call (ident "f", [ number (Number.Int 3) ])
-                            call (ident "f", [ boolean true ]) ]
+              Some(
+                func
+                  [ "g" ]
+                  [ (varDecl ("f", Some(fatArrow [ "x" ] (ident "g"))))
+                    stmt (
+                      StmtKind.Return(
+                        Some(
+                          tuple
+                            [ call (ident "f", [ number (Number.Int 3) ])
+                              call (ident "f", [ boolean true ]) ]
+                        )
                       )
-                    )
-                  ) ]
+                    ) ]
+              )
             )
             |> ScriptItem.Stmt ] }
 
@@ -381,13 +388,15 @@ let InferFuncComposition () =
       { Items =
           [ varDecl (
               "foo",
-              fatArrow
-                [ "f" ]
-                (fatArrow
-                  [ "g" ]
+              Some(
+                fatArrow
+                  [ "f" ]
                   (fatArrow
-                    [ "arg" ]
-                    (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+                    [ "g" ]
+                    (fatArrow
+                      [ "arg" ]
+                      (call (ident "g", [ call (ident "f", [ ident "arg" ]) ]))))
+              )
 
             )
             |> ScriptItem.Stmt ] }
@@ -444,9 +453,9 @@ let InferScriptSKK () =
 
     let script: Script =
       { Items =
-          [ varDecl ("S", s) |> ScriptItem.Stmt
-            varDecl ("K", k) |> ScriptItem.Stmt
-            varDecl ("I", i) |> ScriptItem.Stmt ] }
+          [ varDecl ("S", Some s) |> ScriptItem.Stmt
+            varDecl ("K", Some k) |> ScriptItem.Stmt
+            varDecl ("I", Some i) |> ScriptItem.Stmt ] }
 
     let ctx =
       Ctx(

@@ -12,7 +12,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "y"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "y"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 2, Col: 9)
@@ -20,54 +21,56 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        IfLet
-                          ({ Kind = Ident { Name = "x"
-                                            IsMut = false
-                                            Assertion = None }
-                             Span = { Start = (Ln: 2, Col: 20)
-                                      Stop = (Ln: 2, Col: 22) }
-                             InferredType = None },
-                           { Kind = Identifier "value"
-                             Span = { Start = (Ln: 2, Col: 24)
-                                      Stop = (Ln: 2, Col: 30) }
-                             InferredType = None },
-                           { Span = { Start = (Ln: 2, Col: 30)
-                                      Stop = (Ln: 4, Col: 7) }
-                             Stmts =
-                              [{ Kind =
-                                  Expr
-                                    { Kind =
-                                       Binary
-                                         ("+",
-                                          { Kind = Identifier "x"
-                                            Span = { Start = (Ln: 3, Col: 7)
-                                                     Stop = (Ln: 3, Col: 9) }
-                                            InferredType = None },
-                                          { Kind = Literal (Number (Int 1))
-                                            Span = { Start = (Ln: 3, Col: 11)
-                                                     Stop = (Ln: 3, Col: 12) }
-                                            InferredType = None })
-                                      Span = { Start = (Ln: 3, Col: 7)
-                                               Stop = (Ln: 3, Col: 12) }
-                                      InferredType = None }
-                                 Span = { Start = (Ln: 3, Col: 7)
-                                          Stop = (Ln: 3, Col: 12) } }] },
-                           Some
-                             (Block
-                                { Span = { Start = (Ln: 4, Col: 12)
-                                           Stop = (Ln: 6, Col: 6) }
-                                  Stmts =
-                                   [{ Kind =
-                                       Expr { Kind = Literal (Number (Int 0))
-                                              Span = { Start = (Ln: 5, Col: 7)
-                                                       Stop = (Ln: 5, Col: 8) }
-                                              InferredType = None }
-                                      Span = { Start = (Ln: 5, Col: 7)
-                                               Stop = (Ln: 5, Col: 8) } }] }))
-                       Span = { Start = (Ln: 2, Col: 13)
-                                Stop = (Ln: 6, Col: 6) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          IfLet
+                            ({ Kind = Ident { Name = "x"
+                                              IsMut = false
+                                              Assertion = None }
+                               Span = { Start = (Ln: 2, Col: 20)
+                                        Stop = (Ln: 2, Col: 22) }
+                               InferredType = None },
+                             { Kind = Identifier "value"
+                               Span = { Start = (Ln: 2, Col: 24)
+                                        Stop = (Ln: 2, Col: 30) }
+                               InferredType = None },
+                             { Span = { Start = (Ln: 2, Col: 30)
+                                        Stop = (Ln: 4, Col: 7) }
+                               Stmts =
+                                [{ Kind =
+                                    Expr
+                                      { Kind =
+                                         Binary
+                                           ("+",
+                                            { Kind = Identifier "x"
+                                              Span = { Start = (Ln: 3, Col: 7)
+                                                       Stop = (Ln: 3, Col: 9) }
+                                              InferredType = None },
+                                            { Kind = Literal (Number (Int 1))
+                                              Span = { Start = (Ln: 3, Col: 11)
+                                                       Stop = (Ln: 3, Col: 12) }
+                                              InferredType = None })
+                                        Span = { Start = (Ln: 3, Col: 7)
+                                                 Stop = (Ln: 3, Col: 12) }
+                                        InferredType = None }
+                                   Span = { Start = (Ln: 3, Col: 7)
+                                            Stop = (Ln: 3, Col: 12) } }] },
+                             Some
+                               (Block
+                                  { Span = { Start = (Ln: 4, Col: 12)
+                                             Stop = (Ln: 6, Col: 6) }
+                                    Stmts =
+                                     [{ Kind =
+                                         Expr
+                                           { Kind = Literal (Number (Int 0))
+                                             Span = { Start = (Ln: 5, Col: 7)
+                                                      Stop = (Ln: 5, Col: 8) }
+                                             InferredType = None }
+                                        Span = { Start = (Ln: 5, Col: 7)
+                                                 Stop = (Ln: 5, Col: 8) } }] }))
+                         Span = { Start = (Ln: 2, Col: 13)
+                                  Stop = (Ln: 6, Col: 6) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }

@@ -410,10 +410,19 @@ module Syntax =
     override this.ToString() = this.Kind.ToString()
 
   type VarDecl =
-    { Pattern: Pattern
+    { Declare: bool
+      Pattern: Pattern
       TypeAnn: option<TypeAnn>
-      Init: Expr
+      Init: option<Expr>
       Else: option<Block> }
+
+  type FnDecl =
+    { Declare: bool
+      Name: string
+      Sig: FuncSig<option<TypeAnn>>
+      Body: option<BlockOrExpr> }
+
+  type ClassDecl = { Name: string; Class: Class }
 
   type TypeDecl =
     { Name: string
@@ -431,6 +440,8 @@ module Syntax =
 
   type DeclKind =
     | VarDecl of VarDecl
+    | FnDecl of FnDecl
+    | ClassDecl of ClassDecl
     | TypeDecl of TypeDecl
     | EnumDecl of EnumDecl
 
@@ -555,14 +566,12 @@ module Syntax =
 
   type ScriptItem =
     | Import of Import
-    | DeclareLet of name: Pattern * typeAnn: TypeAnn
     | Stmt of Stmt // contains decls along with other statements
 
   type Script = { Items: list<ScriptItem> }
 
   type ModuleItem =
     | Import of Import
-    | DeclareLet of name: Pattern * typeAnn: TypeAnn
     | Decl of Decl
 
   type Module = { Items: list<ModuleItem> }
@@ -759,7 +768,8 @@ module Type =
       Self: option<FuncParam>
       ParamList: list<FuncParam>
       Return: Type
-      Throws: Type }
+      // used to set throws to `never` on ambient function decls
+      mutable Throws: Type }
 
     override this.ToString() = printFunction { Precedence = 0 } this
 

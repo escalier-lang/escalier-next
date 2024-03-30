@@ -6,7 +6,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "msg"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "msg"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 1, Col: 5)
@@ -14,24 +15,25 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind =
-                        TemplateLiteral
-                          { Parts = ["foo "; ""]
-                            Exprs =
-                             [{ Kind =
-                                 TemplateLiteral
-                                   { Parts = ["bar "; ""]
-                                     Exprs =
-                                      [{ Kind = Identifier "baz"
-                                         Span = { Start = (Ln: 1, Col: 25)
-                                                  Stop = (Ln: 1, Col: 28) }
-                                         InferredType = None }] }
-                                Span = { Start = (Ln: 1, Col: 18)
-                                         Stop = (Ln: 1, Col: 30) }
-                                InferredType = None }] }
-                       Span = { Start = (Ln: 1, Col: 11)
-                                Stop = (Ln: 1, Col: 32) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          TemplateLiteral
+                            { Parts = ["foo "; ""]
+                              Exprs =
+                               [{ Kind =
+                                   TemplateLiteral
+                                     { Parts = ["bar "; ""]
+                                       Exprs =
+                                        [{ Kind = Identifier "baz"
+                                           Span = { Start = (Ln: 1, Col: 25)
+                                                    Stop = (Ln: 1, Col: 28) }
+                                           InferredType = None }] }
+                                  Span = { Start = (Ln: 1, Col: 18)
+                                           Stop = (Ln: 1, Col: 30) }
+                                  InferredType = None }] }
+                         Span = { Start = (Ln: 1, Col: 11)
+                                  Stop = (Ln: 1, Col: 32) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 33) } }

@@ -82,23 +82,35 @@ output: Ok
                         Stop = (Ln: 4, Col: 5) } }
           Span = { Start = (Ln: 3, Col: 5)
                    Stop = (Ln: 4, Col: 5) } };
-      DeclareLet
-        ({ Kind = Ident { Name = "line"
-                          IsMut = false
-                          Assertion = None }
-           Span = { Start = (Ln: 4, Col: 17)
-                    Stop = (Ln: 4, Col: 21) }
-           InferredType = None }, { Kind = TypeRef { Ident = Ident "Line"
-                                                     TypeArgs = None }
-                                    Span = { Start = (Ln: 4, Col: 23)
-                                             Stop = (Ln: 4, Col: 27) }
-                                    InferredType = None });
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl { Declare = true
+                          Pattern = { Kind = Ident { Name = "line"
+                                                     IsMut = false
+                                                     Assertion = None }
+                                      Span = { Start = (Ln: 4, Col: 17)
+                                               Stop = (Ln: 4, Col: 21) }
+                                      InferredType = None }
+                          TypeAnn = Some { Kind = TypeRef { Ident = Ident "Line"
+                                                            TypeArgs = None }
+                                           Span = { Start = (Ln: 4, Col: 23)
+                                                    Stop = (Ln: 4, Col: 27) }
+                                           InferredType = None }
+                          Init = None
+                          Else = None }
+               Span = { Start = (Ln: 4, Col: 5)
+                        Stop = (Ln: 6, Col: 5) } }
+          Span = { Start = (Ln: 4, Col: 5)
+                   Stop = (Ln: 6, Col: 5) } };
       Stmt
         { Kind =
            Decl
              { Kind =
                 VarDecl
-                  { Pattern =
+                  { Declare = false
+                    Pattern =
                      { Kind =
                         Object
                           { Elems =
@@ -124,10 +136,10 @@ output: Ok
                                 Stop = (Ln: 6, Col: 29) }
                        InferredType = None }
                     TypeAnn = None
-                    Init = { Kind = Identifier "line"
-                             Span = { Start = (Ln: 6, Col: 31)
-                                      Stop = (Ln: 6, Col: 35) }
-                             InferredType = None }
+                    Init = Some { Kind = Identifier "line"
+                                  Span = { Start = (Ln: 6, Col: 31)
+                                           Stop = (Ln: 6, Col: 35) }
+                                  InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 6, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }
@@ -136,17 +148,18 @@ output: Ok
       Stmt
         { Kind =
            Decl
-             { Kind = VarDecl { Pattern = { Kind = Ident { Name = "r"
+             { Kind = VarDecl { Declare = false
+                                Pattern = { Kind = Ident { Name = "r"
                                                            IsMut = true
                                                            Assertion = None }
                                             Span = { Start = (Ln: 7, Col: 9)
                                                      Stop = (Ln: 7, Col: 15) }
                                             InferredType = None }
                                 TypeAnn = None
-                                Init = { Kind = Identifier "q"
-                                         Span = { Start = (Ln: 7, Col: 17)
-                                                  Stop = (Ln: 7, Col: 18) }
-                                         InferredType = None }
+                                Init = Some { Kind = Identifier "q"
+                                              Span = { Start = (Ln: 7, Col: 17)
+                                                       Stop = (Ln: 7, Col: 18) }
+                                              InferredType = None }
                                 Else = None }
                Span = { Start = (Ln: 7, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }

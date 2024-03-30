@@ -106,7 +106,7 @@ module rec ExprVisitor =
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | StmtKind.Decl({ Kind = DeclKind.VarDecl { Init = init } }) ->
+        | StmtKind.Decl({ Kind = DeclKind.VarDecl { Init = Some init } }) ->
           // TODO: walk typeAnn
           walkExpr visitor init
         | StmtKind.Decl({ Kind = DeclKind.TypeDecl { TypeAnn = typeAnn } }) ->

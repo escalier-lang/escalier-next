@@ -10,7 +10,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern =
+                  { Declare = false
+                    Pattern =
                      { Kind =
                         Object
                           { Elems =
@@ -31,10 +32,10 @@ output: Ok
                                 Stop = (Ln: 2, Col: 16) }
                        InferredType = None }
                     TypeAnn = None
-                    Init = { Kind = Identifier "point"
-                             Span = { Start = (Ln: 2, Col: 18)
-                                      Stop = (Ln: 2, Col: 24) }
-                             InferredType = None }
+                    Init = Some { Kind = Identifier "point"
+                                  Span = { Start = (Ln: 2, Col: 18)
+                                           Stop = (Ln: 2, Col: 24) }
+                                  InferredType = None }
                     Else =
                      Some
                        { Span = { Start = (Ln: 2, Col: 29)

@@ -970,11 +970,51 @@ module Parser =
     |>> fun ((pat, typeAnn, init, elseClause), span) ->
       { Kind =
           DeclKind.VarDecl
-            { Pattern = pat
-              Init = init
+            { Declare = false
+              Pattern = pat
+              Init = Some init
               TypeAnn = typeAnn
               Else = elseClause }
         Span = span }
+
+  let private retTypeAnn: Parser<option<TypeAnn> * option<TypeAnn>, unit> =
+    tuple2
+      (opt (strWs "->" >>. typeAnn))
+      (opt (ws .>> keyword "throws" >>. typeAnn))
+
+  let private fnDeclSig: Parser<string * FuncSig<option<TypeAnn>>, unit> =
+    pipe4
+      (opt (keyword "async"))
+      (keyword "fn" >>. ident)
+      ((opt typeParams) .>>. (paramList opt))
+      ((opt (strWs "->" >>. typeAnn))
+       .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
+    <| fun async name (typeParams, paramList) (retType, throws) ->
+      let funcSig: FuncSig<option<TypeAnn>> =
+        { TypeParams = typeParams
+          Self = None
+          ParamList = paramList
+          ReturnType = retType
+          Throws = throws
+          IsAsync = async.IsSome }
+
+      (name, funcSig)
+
+  let private fnDecl: Parser<Decl, unit> =
+    withSpan (fnDeclSig .>>. block)
+    |>> fun (((name, fnSig), body), span) ->
+      let kind =
+        DeclKind.FnDecl
+          { Declare = false
+            Name = name
+            Sig = fnSig
+            Body = Some(BlockOrExpr.Block body) }
+
+      { Kind = kind; Span = span }
+
+  // let private classDecl: Parser<Decl, unit> =
+  //
+  //   failwith "TODO: classDecl"
 
   let private typeDecl: Parser<Decl, unit> =
     pipe5
@@ -1052,10 +1092,9 @@ module Parser =
 
   let _stmt =
     choice
-      [
-        // TODO: these should all use `attempt` since you could have an
-        // identifier like `lettuce` that conflicts with `let <ident> = <expr>`
-        varDecl |> declStmt
+      [ varDecl |> declStmt
+        attempt fnDecl |> declStmt
+        // classDecl |> declStmt
         typeDecl |> declStmt
         enumDecl |> declStmt
         returnStmt
@@ -1657,23 +1696,63 @@ module Parser =
       { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
-  let declare: Parser<ScriptItem, unit> =
-    pipe4
+  let declareLet: Parser<DeclKind, unit> =
+    pipe2 (keyword "let" >>. pattern) (strWs ":" >>. ws >>. typeAnn)
+    <| fun pattern typeAnn ->
+      let kind =
+        DeclKind.VarDecl
+          { Declare = true
+            Pattern = pattern
+            TypeAnn = Some typeAnn
+            Init = None
+            Else = None }
+
+      kind
+
+  let declareFn: Parser<DeclKind, unit> =
+    fnDeclSig
+    |>> fun (name, fnSig) ->
+      DeclKind.FnDecl
+        { Declare = true
+          Name = name
+          Sig = fnSig
+          Body = None }
+
+  let declare: Parser<Stmt, unit> =
+    pipe3
       getPosition
-      (keyword "declare" >>. keyword "let" >>. pattern)
-      (strWs ":" >>. ws >>. typeAnn .>> (strWs ";"))
+      (keyword "declare" >>. (choice [ declareLet; declareFn ]) .>> (strWs ";"))
       getPosition
-    <| fun start pattern typeAnn stop -> ScriptItem.DeclareLet(pattern, typeAnn)
+    <| fun start kind stop ->
+      let span = { Start = start; Stop = stop }
+      let decl: Decl = { Kind = kind; Span = span }
+
+      { Stmt.Kind = StmtKind.Decl decl
+        Span = span }
 
   let private scriptItems: Parser<ScriptItem, unit> =
     ws
     >>. choice
-      [ import |>> ScriptItem.Import; declare; _stmt |>> ScriptItem.Stmt ]
+      [ import |>> ScriptItem.Import
+        declare |>> ScriptItem.Stmt
+        _stmt |>> ScriptItem.Stmt ]
 
-  let decl: Parser<Decl, unit> = choice [ varDecl; typeDecl; enumDecl ]
+  let decl: Parser<Decl, unit> =
+    choice [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl ]
 
+  let ambient: Parser<Decl, unit> =
+    withSpan (
+      (keyword "declare") >>. choice [ declareLet; declareFn ] .>> (strWs ";")
+    )
+    |>> fun (kind, span) -> { Kind = kind; Span = span }
+
+  // TODO: update to support ambient declarations
   let private moduleItem: Parser<ModuleItem, unit> =
-    ws >>. choice [ import |>> ModuleItem.Import; decl |>> ModuleItem.Decl ]
+    ws
+    >>. choice
+      [ import |>> ModuleItem.Import
+        ambient |>> ModuleItem.Decl
+        decl |>> ModuleItem.Decl ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =

@@ -5,19 +5,21 @@ output: Ok
         { Kind =
            Decl
              { Kind =
-                VarDecl { Pattern = { Kind = Ident { Name = "msg"
-                                                     IsMut = false
-                                                     Assertion = None }
-                                      Span = { Start = (Ln: 1, Col: 5)
-                                               Stop = (Ln: 1, Col: 9) }
-                                      InferredType = None }
-                          TypeAnn = None
-                          Init = { Kind = Literal (String "Hello,
+                VarDecl
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "msg"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 1, Col: 5)
+                                         Stop = (Ln: 1, Col: 9) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init = Some { Kind = Literal (String "Hello,
 	"world!"")
-                                   Span = { Start = (Ln: 1, Col: 11)
-                                            Stop = (Ln: 1, Col: 33) }
-                                   InferredType = None }
-                          Else = None }
+                                  Span = { Start = (Ln: 1, Col: 11)
+                                           Stop = (Ln: 1, Col: 33) }
+                                  InferredType = None }
+                    Else = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 34) } }
           Span = { Start = (Ln: 1, Col: 1)

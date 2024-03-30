@@ -32,7 +32,8 @@ output: Ok
            Decl
              { Kind =
                 VarDecl
-                  { Pattern = { Kind = Ident { Name = "range"
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "range"
                                                IsMut = false
                                                Assertion = None }
                                 Span = { Start = (Ln: 3, Col: 9)
@@ -40,17 +41,19 @@ output: Ok
                                 InferredType = None }
                     TypeAnn = None
                     Init =
-                     { Kind = Range { Min = { Kind = Literal (Number (Int 0))
-                                              Span = { Start = (Ln: 3, Col: 17)
-                                                       Stop = (Ln: 3, Col: 18) }
-                                              InferredType = None }
-                                      Max = { Kind = Literal (Number (Int 10))
-                                              Span = { Start = (Ln: 3, Col: 20)
-                                                       Stop = (Ln: 3, Col: 22) }
-                                              InferredType = None } }
-                       Span = { Start = (Ln: 3, Col: 17)
-                                Stop = (Ln: 3, Col: 22) }
-                       InferredType = None }
+                     Some
+                       { Kind =
+                          Range { Min = { Kind = Literal (Number (Int 0))
+                                          Span = { Start = (Ln: 3, Col: 17)
+                                                   Stop = (Ln: 3, Col: 18) }
+                                          InferredType = None }
+                                  Max = { Kind = Literal (Number (Int 10))
+                                          Span = { Start = (Ln: 3, Col: 20)
+                                                   Stop = (Ln: 3, Col: 22) }
+                                          InferredType = None } }
+                         Span = { Start = (Ln: 3, Col: 17)
+                                  Stop = (Ln: 3, Col: 22) }
+                         InferredType = None }
                     Else = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }

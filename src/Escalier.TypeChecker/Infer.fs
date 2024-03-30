@@ -2165,6 +2165,61 @@ module rec Infer =
         placeholder.Type <- scheme.Type
 
         return newEnv.AddScheme typeDecl.Name scheme
+      | DeclKind.NamespaceDecl nsDecl ->
+        let mutable nsEnv = env
+
+        let! _ =
+          List.traverseResultM
+            (fun (decl: Decl) ->
+              result {
+                let! declEnv = inferDecl ctx nsEnv decl true
+                nsEnv <- declEnv
+              })
+            nsDecl.Body
+
+        let! ns = getNamespaceExports ctx nsEnv nsDecl
+        return env.AddNamespace nsDecl.Name ns
+    }
+
+  let getNamespaceExports
+    (ctx: Ctx)
+    (env: Env)
+    (nsDecl: NamespaceDecl)
+    : Result<Namespace, TypeError> =
+
+    result {
+      let mutable ns: Namespace =
+        { Name = nsDecl.Name
+          Values = Map.empty
+          Schemes = Map.empty
+          Namespaces = Map.empty }
+
+      for decl in nsDecl.Body do
+        match decl.Kind with
+        | VarDecl { Pattern = pattern } ->
+          for name in findBindingNames pattern do
+            let! t = env.GetValue name
+            let isMut = false
+            ns <- ns.AddBinding name (t, isMut)
+        | FnDecl { Name = name } ->
+          let! t = env.GetValue name
+          ns <- ns.AddBinding name (t, false) // isMut = false
+        | ClassDecl classDecl ->
+          failwith "TODO: getNamespaceExports - ClassDecl"
+        | TypeDecl { Name = name } ->
+          let! scheme = env.GetScheme(QualifiedIdent.Ident name)
+          ns <- ns.AddScheme name scheme
+        | EnumDecl { Name = name } ->
+          let! scheme = env.GetScheme(QualifiedIdent.Ident name)
+          ns <- ns.AddScheme name scheme
+          let! t = env.GetValue name
+          ns <- ns.AddBinding name (t, false) // isMut = false
+        | NamespaceDecl { Name = name } ->
+          match env.Namespace.Namespaces.TryFind name with
+          | Some value -> ns <- ns.AddNamespace name value
+          | None -> failwith $"Couldn't find namespace: '{name}'"
+
+      return ns
     }
 
   // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
@@ -2535,7 +2590,7 @@ module rec Infer =
     result {
       match item with
       | ScriptItem.Import import -> return! inferImport ctx env import
-      | Stmt stmt -> return! inferStmt ctx env stmt generalize
+      | ScriptItem.Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 
   let inferScript

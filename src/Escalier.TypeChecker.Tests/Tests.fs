@@ -8,6 +8,7 @@ open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.Unify
 
 open TestUtils
 
@@ -1069,6 +1070,61 @@ let InferLetElseWithTypeAnnotation () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferNamespaceInScript () =
+  let result =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = 10;
+          type Baz = string;
+        }
+        let x = Foo.Bar.x;
+        type Baz = Foo.Baz;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Type(env, "Baz", "Foo.Baz")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "string")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let InferNamespaceInModule () =
+  let result =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = 10;
+          type Baz = number;
+        }
+        """
+
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "number")

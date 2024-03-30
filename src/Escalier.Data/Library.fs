@@ -417,9 +417,10 @@ module Syntax =
       Else: option<Block> }
 
   type FnDecl =
-    { Name: string
+    { Declare: bool
+      Name: string
       Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
+      Body: option<BlockOrExpr> }
 
   type ClassDecl = { Name: string; Class: Class }
 

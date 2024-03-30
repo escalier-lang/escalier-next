@@ -6,7 +6,8 @@ output: Ok
            Decl
              { Kind =
                 FnDecl
-                  { Name = "fst"
+                  { Declare = false
+                    Name = "fst"
                     Sig =
                      { TypeParams = Some [{ Span = { Start = (Ln: 1, Col: 8)
                                                      Stop = (Ln: 1, Col: 9) }
@@ -47,17 +48,19 @@ output: Ok
                        Throws = None
                        IsAsync = false }
                     Body =
-                     Block
-                       { Span = { Start = (Ln: 1, Col: 28)
-                                  Stop = (Ln: 1, Col: 41) }
-                         Stmts =
-                          [{ Kind =
-                              Return (Some { Kind = Identifier "x"
-                                             Span = { Start = (Ln: 1, Col: 37)
-                                                      Stop = (Ln: 1, Col: 38) }
-                                             InferredType = None })
-                             Span = { Start = (Ln: 1, Col: 30)
-                                      Stop = (Ln: 1, Col: 40) } }] } }
+                     Some
+                       (Block
+                          { Span = { Start = (Ln: 1, Col: 28)
+                                     Stop = (Ln: 1, Col: 41) }
+                            Stmts =
+                             [{ Kind =
+                                 Return
+                                   (Some { Kind = Identifier "x"
+                                           Span = { Start = (Ln: 1, Col: 37)
+                                                    Stop = (Ln: 1, Col: 38) }
+                                           InferredType = None })
+                                Span = { Start = (Ln: 1, Col: 30)
+                                         Stop = (Ln: 1, Col: 40) } }] }) }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 41) } }
           Span = { Start = (Ln: 1, Col: 1)

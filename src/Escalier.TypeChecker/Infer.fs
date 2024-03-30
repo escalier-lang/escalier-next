@@ -2033,15 +2033,17 @@ module rec Infer =
           newEnv <- newEnv.AddScheme name scheme
 
         return newEnv.AddBindings bindings
-      | DeclKind.FnDecl fnDecl ->
-        let! f = inferFunction ctx env fnDecl.Sig fnDecl.Body
+      | DeclKind.FnDecl { Name = name
+                          Sig = fnSig
+                          Body = Some body } ->
+        let! f = inferFunction ctx env fnSig body
         let f = if generalize then generalizeFunc f else f
 
         let t =
           { Kind = TypeKind.Function f
             Provenance = None }
 
-        return env.AddValue fnDecl.Name (t, false)
+        return env.AddValue name (t, false)
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams
                             Variants = variants } ->
@@ -2591,17 +2593,19 @@ module rec Infer =
 
             for KeyValue(name, scheme) in newSchemes do
               newEnv <- newEnv.AddScheme name scheme
-          | FnDecl fnDecl ->
+          | FnDecl { Name = name
+                     Sig = fnSig
+                     Body = Some body } ->
             // NOTE: We explicitly don't generalize here because we want other
             // declarations to be able to unify with any free type variables
             // from this declaration.  We generalize things below.
-            let! f = inferFunction ctx newEnv fnDecl.Sig fnDecl.Body
+            let! f = inferFunction ctx newEnv fnSig body
 
             let t =
               { Kind = TypeKind.Function f
                 Provenance = None }
 
-            bindings <- bindings.Add(fnDecl.Name, (t, false))
+            bindings <- bindings.Add(name, (t, false))
           | TypeDecl { Name = name; TypeAnn = typeAnn } ->
             let! scheme =
               match typeDecls.TryFind name with

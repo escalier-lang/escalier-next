@@ -982,30 +982,33 @@ module Parser =
       (opt (strWs "->" >>. typeAnn))
       (opt (ws .>> keyword "throws" >>. typeAnn))
 
-  let private fnDecl: Parser<Decl, unit> =
-    withSpan (
-      tuple5
-        (opt (keyword "async"))
-        (keyword "fn" >>. ident)
-        ((opt typeParams) .>>. (paramList opt))
-        ((opt (strWs "->" >>. typeAnn))
-         .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
-        block
-    )
-    |>> fun (d, span) ->
-      let isAsync, name, (typeParams, fnParams), (ret, throws), body = d
+  let private fnDeclSig: Parser<string * FuncSig<option<TypeAnn>>, unit> =
+    pipe4
+      (opt (keyword "async"))
+      (keyword "fn" >>. ident)
+      ((opt typeParams) .>>. (paramList opt))
+      ((opt (strWs "->" >>. typeAnn))
+       .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
+    <| fun async name (typeParams, paramList) (retType, throws) ->
+      let funcSig: FuncSig<option<TypeAnn>> =
+        { TypeParams = typeParams
+          Self = None
+          ParamList = paramList
+          ReturnType = retType
+          Throws = throws
+          IsAsync = async.IsSome }
 
+      (name, funcSig)
+
+  let private fnDecl: Parser<Decl, unit> =
+    withSpan (fnDeclSig .>>. block)
+    |>> fun (((name, fnSig), body), span) ->
       let kind =
         DeclKind.FnDecl
-          { Name = name
-            Sig =
-              { TypeParams = typeParams
-                Self = None
-                ParamList = fnParams
-                ReturnType = ret
-                Throws = throws
-                IsAsync = isAsync.IsSome }
-            Body = BlockOrExpr.Block body }
+          { Declare = false
+            Name = name
+            Sig = fnSig
+            Body = Some(BlockOrExpr.Block body) }
 
       { Kind = kind; Span = span }
 
@@ -1693,13 +1696,9 @@ module Parser =
       { Path = source
         Specifiers = Option.defaultValue [] specifiers }
 
-  let declare: Parser<Stmt, unit> =
-    pipe4
-      getPosition
-      (keyword "declare" >>. keyword "let" >>. pattern)
-      (strWs ":" >>. ws >>. typeAnn .>> (strWs ";"))
-      getPosition
-    <| fun start pattern typeAnn stop ->
+  let declareLet: Parser<DeclKind, unit> =
+    pipe2 (keyword "let" >>. pattern) (strWs ":" >>. ws >>. typeAnn)
+    <| fun pattern typeAnn ->
       let kind =
         DeclKind.VarDecl
           { Declare = true
@@ -1708,6 +1707,23 @@ module Parser =
             Init = None
             Else = None }
 
+      kind
+
+  // let declareFn: Parser<DeclKind, unit> =
+  //   fnDeclSig
+  //   |>> fun (name, fnSig) ->
+  //     DeclKind.FnDecl
+  //       { Declare = true
+  //         Name = name
+  //         Sig = fnSig
+  //         Body = None }
+
+  let declare: Parser<Stmt, unit> =
+    pipe3
+      getPosition
+      (keyword "declare" >>. declareLet .>> (strWs ";"))
+      getPosition
+    <| fun start kind stop ->
       let span = { Start = start; Stop = stop }
       let decl: Decl = { Kind = kind; Span = span }
 

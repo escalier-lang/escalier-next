@@ -1122,10 +1122,11 @@ let InferNamespaceInScript () =
           namespace Bar {
             let x = 5;
           }
-          let y = 10;
+          let y = Bar.x;
           type Baz = string;
         }
         let x = Foo.Bar.x;
+        let y = Foo.y;
         type Baz = Foo.Baz;
         """
 
@@ -1133,6 +1134,7 @@ let InferNamespaceInScript () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
       Assert.Type(env, "Baz", "Foo.Baz")
 
       let! t =
@@ -1151,12 +1153,13 @@ let InferNamespaceInModule () =
       let src =
         """
         let x = Foo.Bar.x;
+        let y = Foo.y;
         type Baz = Foo.Baz;
         namespace Foo {
+          let y = Bar.x;
           namespace Bar {
             let x = 5;
           }
-          let y = 10;
           type Baz = string;
         }
         """
@@ -1165,6 +1168,7 @@ let InferNamespaceInModule () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
       Assert.Type(env, "Baz", "Foo.Baz")
 
       let! t =

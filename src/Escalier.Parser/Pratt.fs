@@ -207,6 +207,7 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
             | ReplyStatus.FatalError ->
               // We can't recover from a fatal error so just return it
               reply
+            | _ -> failwith "parse_parselets - unreachable"
           else
             // It's fine to return `left` here since the rest of the parselets
             // will have a precedence that's strictly less than the current

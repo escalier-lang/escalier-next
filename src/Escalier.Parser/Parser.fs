@@ -111,15 +111,15 @@ module Parser =
       (opt (ws .>> keyword "throws" >>. typeAnn))
     <| fun async type_params paramList return_type throws ->
       if self then
-        // TODO: handle the case where `self` is true but `paramList` is []
-        let self :: paramList = paramList
-
-        { TypeParams = type_params
-          Self = Some(self)
-          ParamList = paramList
-          ReturnType = return_type
-          Throws = throws
-          IsAsync = async.IsSome }
+        match paramList with
+        | [] -> failwith "Expected `self` parameter"
+        | self :: paramList ->
+          { TypeParams = type_params
+            Self = Some(self)
+            ParamList = paramList
+            ReturnType = return_type
+            Throws = throws
+            IsAsync = async.IsSome }
       else
         { TypeParams = type_params
           Self = None

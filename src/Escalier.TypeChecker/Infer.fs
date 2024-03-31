@@ -559,6 +559,7 @@ module rec Infer =
               | Method(_, placeholderFn) -> placeholderFn
               | Getter(_, placeholderFn) -> placeholderFn
               | Setter(_, placeholderFn) -> placeholderFn
+              | _ -> failwith "instanceMethods should only contain methods"
 
             let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
             ()

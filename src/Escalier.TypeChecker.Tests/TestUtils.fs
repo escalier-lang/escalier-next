@@ -70,6 +70,7 @@ let printDiagnostic (d: Diagnostic) =
     | RecursiveUnification(t1, t2) ->
       printf "- Recursive unification: {t1} and {t2}\n"
     | WrongNumberOfTypeArgs -> printf "- Wrong number of type arguments\n"
+    | PropertyMissing propName -> printf $"- Property missing: {propName}\n"
 
   printf "ERROR: %s\n" d.Description
 

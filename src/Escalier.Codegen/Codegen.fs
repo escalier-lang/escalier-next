@@ -291,9 +291,17 @@ module rec Codegen =
             let declStmt = Stmt.Decl(Decl.Var decl)
 
             initStmts @ [ declStmt ]
-          | TypeDecl _ -> [] // Ignore types when generating JS code
-        | StmtKind.Return expr -> failwith "TODO"
-        | StmtKind.For(left, right, body) -> failwith "todo"
+          | TypeDecl _ -> []
+          | VarDecl(_) -> failwith "TODO: buildBlock - VarDecl"
+          | FnDecl(_) -> failwith "TODO: buildBlock - FnDecl"
+          // Ignore types when generating JS code
+          | ClassDecl(_) -> failwith "TODO: buildBlock - ClassDecl"
+          // Ignore types when generating JS code
+          | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
+          // Ignore types when generating JS code
+          | NamespaceDecl(_) -> failwith "TODO: buildBlock - NamespaceDecl"
+        | StmtKind.Return expr -> failwith "TODO: buildBlock - Return"
+        | StmtKind.For(left, right, body) -> failwith "TODO: buildBlock - For"
 
       stmts <- stmts @ stmts'
 
@@ -430,6 +438,11 @@ module rec Codegen =
                 )
 
               items <- item :: items
+          | FnDecl(_) -> failwith "TODO: buildModuleTypes - FnDecl"
+          | ClassDecl(_) -> failwith "TODO: buildModuleTypes - ClassDecl"
+          | EnumDecl(_) -> failwith "TODO: buildModuleTypes - EnumDecl"
+          | NamespaceDecl(_) ->
+            failwith "TODO: buildModuleTypes - NamespaceDecl"
         | _ -> ()
 
     { Body = List.rev items
@@ -472,6 +485,7 @@ module rec Codegen =
         | Number -> TsKeywordTypeKind.TsNumberKeyword
         | String -> TsKeywordTypeKind.TsStringKeyword
         | Symbol -> TsKeywordTypeKind.TsSymbolKeyword
+        | BigInt -> TsKeywordTypeKind.TsBigIntKeyword
 
       TsType.TsKeywordType { Kind = kind; Loc = None }
     | TypeKind.Keyword keyword ->
@@ -628,6 +642,15 @@ module rec Codegen =
     | TypeKind.Wildcard ->
       // TODO: Use `any`?
       failwith "TODO: buildType - Wildcard"
+    | TypeKind.Namespace(_) -> failwith "TODO: buildType - Namespace"
+    | TypeKind.EnumVariant(_) -> failwith "TODO: buildType - EnumVariant"
+    | TypeKind.Range(_) -> failwith "TODO: buildType - Range"
+    | TypeKind.UniqueSymbol(id) -> failwith "TODO: buildType - UniqueSymbol"
+    | TypeKind.UniqueNumber(id) -> failwith "TODO: buildType - UniqueNumber"
+    | TypeKind.Typeof(_) -> failwith "TODO: buildType - Typeof"
+    | TypeKind.Unary(op, arg) -> failwith "TODO: buildType - Unary"
+    | TypeKind.TemplateLiteral(_) ->
+      failwith "TODO: buildType - TemplateLiteral"
 
   let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
     match elem with
@@ -678,6 +701,8 @@ module rec Codegen =
       | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
+      | PatternKind.Enum(_) -> failwith "TODO: findBinding - Enum"
+      | PatternKind.Rest(_) -> failwith "TODO: findBinding - Rest"
 
     walk pat
 

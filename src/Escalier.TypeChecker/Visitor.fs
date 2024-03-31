@@ -94,24 +94,51 @@ module rec ExprVisitor =
         | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
         | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
           List.iter walk template.Exprs
+        | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
+          failwith "TODO: walkExpr - ExprWithTypeArgs"
+        | ExprKind.Class(_) -> failwith "TOOD: walkExpr - Class"
+        | ExprKind.Range(_) -> failwith "TODO: walkExpr - Range"
+        | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
+          failwith "TODO: walkExpr - IfLet"
+        | ExprKind.JSXElement(_) -> failwith "TODO: walkExpr - JSXElement"
+        | ExprKind.JSXFragment(_) -> failwith "TODO: walkExpr - JSXFragment"
 
     walk expr
 
   let walkDecl (visitor: SyntaxVisitor) (decl: Decl) : unit =
     match decl.Kind with
-    | DeclKind.VarDecl { Init = Some init } ->
-      // TODO: walk typeAnn
-      walkExpr visitor init
-    | DeclKind.FnDecl { Body = Some(BlockOrExpr.Block block) } ->
-      List.iter (walkStmt visitor) block.Stmts
+    | DeclKind.VarDecl { Pattern = pattern
+                         TypeAnn = typeAnn
+                         Init = init } ->
+      walkPattern visitor pattern
+      Option.iter (walkTypeAnn visitor) typeAnn
+      Option.iter (walkExpr visitor) init
+    | DeclKind.FnDecl { Sig = fnSig; Body = body } ->
+      // TODO: walk type params
+      List.iter
+        (fun (param: FuncParam<option<TypeAnn>>) ->
+          Option.iter (walkTypeAnn visitor) param.TypeAnn)
+        fnSig.ParamList
+
+      Option.iter
+        (fun body ->
+          match body with
+          | BlockOrExpr.Expr expr -> walkExpr visitor expr
+          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts)
+        body
+
+      Option.iter (walkTypeAnn visitor) fnSig.ReturnType
     | DeclKind.TypeDecl { TypeAnn = typeAnn } ->
       // TODO: walk type params
       walkTypeAnn visitor typeAnn
-    | DeclKind.EnumDecl _ ->
-      // TODO: walk enum variants
-      ()
+    | DeclKind.EnumDecl { Variants = variants } ->
+      List.iter
+        (fun (variant: EnumVariant) ->
+          List.iter (walkTypeAnn visitor) variant.TypeAnns)
+        variants
     | DeclKind.NamespaceDecl { Body = body } ->
       List.iter (walkDecl visitor) body
+    | DeclKind.ClassDecl(_) -> failwith "TODO: walkDecl - ClassDecl"
 
   let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
     let rec walk (stmt: Stmt) : unit =
@@ -148,6 +175,7 @@ module rec ExprVisitor =
         | PatternKind.Wildcard _ -> ()
         | PatternKind.Literal _ -> ()
         | PatternKind.Rest arg -> walk arg
+        | PatternKind.Enum { Args = args } -> Option.iter (List.iter walk) args
 
     walk pat
 
@@ -188,6 +216,10 @@ module rec ExprVisitor =
         | TypeAnnKind.Binary(left, op, right) ->
           walk left
           walk right
+        | TypeAnnKind.Range { Min = min; Max = max } ->
+          walk min
+          walk max
+        | TypeAnnKind.TemplateLiteral { Exprs = expr } -> List.iter walk expr
 
     walk typeAnn
 

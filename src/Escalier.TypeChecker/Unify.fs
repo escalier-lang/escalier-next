@@ -618,6 +618,7 @@ module rec Unify =
                   | "!" ->
                     { Kind = TypeKind.Primitive Primitive.Boolean
                       Provenance = None }
+                  | _ -> failwith $"Invalid unary operator {op}"
                 | _ -> t)
 
             match types with
@@ -643,6 +644,7 @@ module rec Unify =
               | "!" ->
                 { Kind = TypeKind.Primitive Primitive.Boolean
                   Provenance = None }
+              | _ -> failwith $"Invalid unary operator {op}"
 
             let! _ = bind ctx env ips t1 t
             return ()

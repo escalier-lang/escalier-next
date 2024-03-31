@@ -737,6 +737,7 @@ module Type =
       | Wildcard -> "_"
       | Literal lit -> lit.ToString()
       | Rest(target) -> $"...{target}"
+      | Enum(_) -> failwith "TODO: toString - Pattern.Enum"
 
   type FuncParam =
     { Pattern: Pattern
@@ -967,13 +968,16 @@ module Type =
       | "!==" -> 9
       | "||" -> 6
       | "&&" -> 5
+      | _ -> failwith $"Invalid binary operator '{op}'"
     | TypeKind.Unary(op, arg) ->
       match op with
       | "+"
       | "-"
       | "!" -> 14
+      | _ -> failwith $"Invalid unary operator '{op}'"
     | TypeKind.Wildcard -> 100
     | TypeKind.TemplateLiteral _ -> 100
+    | TypeKind.Typeof(_) -> failwith "TODO: getPrecedence - TypeKind.Typeof"
 
   let rec printType (ctx: PrintCtx) (t: Type) : string =
     let outerPrec = ctx.Precedence
@@ -1049,6 +1053,7 @@ module Type =
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         failwith "TODO: printType - TypeKind.TemplateLiteral"
+      | TypeKind.Typeof(qualifiedIdent) -> $"typeof {qualifiedIdent}"
 
     if innerPrec < outerPrec then $"({result})" else result
 

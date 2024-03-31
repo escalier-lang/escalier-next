@@ -454,6 +454,41 @@ let InferRecursiveGenericObjectType () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferRecursiveGenericObjectTypeInModule () =
+  let result =
+    result {
+      let src =
+        """
+        type Node<T> = {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>
+        };
+
+        let node: Node<number> = {
+          value: 5,
+          left: {
+            value: 10
+          },
+          right: {
+            value: 15,
+            left: {
+              value: 20
+            }
+          }
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "node", "Node<number>")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let ReturnRecursivePrivateGenericObjectType () =
   let result =
     result {

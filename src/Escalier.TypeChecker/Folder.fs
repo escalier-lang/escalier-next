@@ -69,7 +69,11 @@ module Folder =
         | TypeKind.Object { Elems = elems; Immutable = immutable } ->
           let elems = List.map foldObjElem elems
 
-          { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+          { Kind =
+              TypeKind.Object
+                { Elems = elems
+                  Immutable = immutable
+                  Interface = false }
             Provenance = None }
         | TypeKind.EnumVariant variant ->
           let types = List.map fold variant.Types

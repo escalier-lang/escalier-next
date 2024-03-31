@@ -48,7 +48,8 @@ module rec Infer =
                   // TODO: isMut
                   ObjPatElem.RestPat(patternToPattern target))
               elems
-          Immutable = immutable }
+          Immutable = immutable
+          Interface = false }
     | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
       Pattern.Tuple
         { Elems = List.map (patternToPattern >> Some) elems
@@ -292,7 +293,11 @@ module rec Infer =
           let elems = elems |> List.choose id
 
           let objType =
-            { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+            { Kind =
+                TypeKind.Object
+                  { Elems = elems
+                    Immutable = immutable
+                    Interface = false }
               Provenance = None }
 
           match spreadTypes with
@@ -522,7 +527,8 @@ module rec Infer =
             { Kind =
                 TypeKind.Object
                   { Elems = instanceElems
-                    Immutable = false }
+                    Immutable = false
+                    Interface = false }
               Provenance = None }
 
           placeholder.Type <- objType
@@ -547,7 +553,8 @@ module rec Infer =
             { Kind =
                 TypeKind.Object
                   { Elems = staticElems
-                    Immutable = false }
+                    Immutable = false
+                    Interface = false }
               Provenance = None }
 
           newEnv <- newEnv.AddValue "Self" (staticObjType, false)
@@ -1503,7 +1510,11 @@ module rec Infer =
                 })
               elems
 
-          return TypeKind.Object { Elems = elems; Immutable = immutable }
+          return
+            TypeKind.Object
+              { Elems = elems
+                Immutable = immutable
+                Interface = false }
         | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferTypeAnn ctx env) elems
           return TypeKind.Tuple { Elems = elems; Immutable = immutable }
@@ -1784,7 +1795,11 @@ module rec Infer =
             elems
 
         let objType =
-          { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+          { Kind =
+              TypeKind.Object
+                { Elems = elems
+                  Immutable = immutable
+                  Interface = false }
             Provenance = None }
 
         match restType with
@@ -2152,7 +2167,11 @@ module rec Infer =
             ))
 
         let value =
-          { Type.Kind = TypeKind.Object { Elems = elems; Immutable = false }
+          { Type.Kind =
+              TypeKind.Object
+                { Elems = elems
+                  Immutable = false
+                  Interface = false }
             Provenance = None }
 
         let mutable newEnv = env
@@ -3138,7 +3157,8 @@ module rec Infer =
           { Kind =
               TypeKind.Object
                 { Elems = objTypeElems
-                  Immutable = false }
+                  Immutable = false
+                  Interface = false }
             Provenance = None }
 
         union (objType :: otherTypes)

@@ -101,7 +101,10 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  type Object<'E> = { Elems: list<'E>; Immutable: bool }
+  type Object<'E> =
+    { Elems: list<'E>
+      Immutable: bool
+      Interface: bool }
 
   type Tuple<'T> = { Elems: list<'T>; Immutable: bool }
 

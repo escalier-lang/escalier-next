@@ -359,7 +359,8 @@ module rec Unify =
               TypeKind.Object
                 { Elems = combinedElems
                   // TODO: figure out what do do with `Immutable`
-                  Immutable = false }
+                  Immutable = false
+                  Interface = false }
             Provenance = None }
 
         match restTypes with
@@ -378,14 +379,22 @@ module rec Unify =
 
           let newObjType =
             // TODO: figure out what do do with `Immutable`
-            { Kind = TypeKind.Object { Elems = objElems; Immutable = false }
+            { Kind =
+                TypeKind.Object
+                  { Elems = objElems
+                    Immutable = false
+                    Interface = false }
               Provenance = None }
 
           do! unify ctx env ips newObjType objType
 
           let newRestType =
             // TODO: figure out what do do with `Immutable`
-            { Kind = TypeKind.Object { Elems = restElems; Immutable = false }
+            { Kind =
+                TypeKind.Object
+                  { Elems = restElems
+                    Immutable = false
+                    Interface = false }
               Provenance = None }
 
           do! unify ctx env ips newRestType restType
@@ -407,7 +416,8 @@ module rec Unify =
               TypeKind.Object
                 { Elems = combinedElems
                   // TODO: figure out what do do with `Immutable`
-                  Immutable = false }
+                  Immutable = false
+                  Interface = false }
             Provenance = None }
 
         match restTypes with
@@ -426,14 +436,22 @@ module rec Unify =
 
           let newObjType =
             // TODO: figure out what do do with `Immutable`
-            { Kind = TypeKind.Object { Elems = objElems; Immutable = false }
+            { Kind =
+                TypeKind.Object
+                  { Elems = objElems
+                    Immutable = false
+                    Interface = false }
               Provenance = None }
 
           do! unify ctx env ips objType newObjType
 
           let newRestType =
             // TODO: figure out what do do with `Immutable`
-            { Kind = TypeKind.Object { Elems = restElems; Immutable = false }
+            { Kind =
+                TypeKind.Object
+                  { Elems = restElems
+                    Immutable = false
+                    Interface = false }
               Provenance = None }
 
           do! unify ctx env ips restType newRestType
@@ -992,7 +1010,11 @@ module rec Unify =
           let elems = List.collect id elems
 
           let t =
-            { Kind = TypeKind.Object { Elems = elems; Immutable = immutable }
+            { Kind =
+                TypeKind.Object
+                  { Elems = elems
+                    Immutable = immutable
+                    Interface = false }
               Provenance = None // TODO: set provenance
             }
 

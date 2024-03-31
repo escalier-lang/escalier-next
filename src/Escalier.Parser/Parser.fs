@@ -312,7 +312,11 @@ module Parser =
   let objectExpr: Parser<Expr, unit> =
     withSpan (between (strWs "{") (strWs "}") (sepEndBy objElem (strWs ",")))
     |>> fun (objElems, span) ->
-      { Kind = ExprKind.Object { Elems = objElems; Immutable = false }
+      { Kind =
+          ExprKind.Object
+            { Elems = objElems
+              Immutable = false
+              Interface = false }
         Span = span
         InferredType = None }
 
@@ -550,7 +554,11 @@ module Parser =
   let imRecordExpr: Parser<Expr, unit> =
     withSpan (between (strWs "#{") (strWs "}") (sepEndBy objElem (strWs ",")))
     |>> fun (objElems, span) ->
-      { Kind = ExprKind.Object { Elems = objElems; Immutable = true }
+      { Kind =
+          ExprKind.Object
+            { Elems = objElems
+              Immutable = true
+              Interface = false }
         Span = span
         InferredType = None }
 
@@ -1205,7 +1213,11 @@ module Parser =
     withSpan (between (strWs "{") (strWs "}") (sepEndBy objPatElem (strWs ",")))
     |>> fun (elems, span) ->
       // TODO: handle immutable object patterns
-      { Pattern.Kind = PatternKind.Object { Elems = elems; Immutable = false }
+      { Pattern.Kind =
+          PatternKind.Object
+            { Elems = elems
+              Immutable = false
+              Interface = false }
         Span = span
         InferredType = None }
 
@@ -1215,7 +1227,11 @@ module Parser =
     )
     |>> fun (elems, span) ->
       // TODO: handle immutable object patterns
-      { Pattern.Kind = PatternKind.Object { Elems = elems; Immutable = true }
+      { Pattern.Kind =
+          PatternKind.Object
+            { Elems = elems
+              Immutable = true
+              Interface = false }
         Span = span
         InferredType = None }
 
@@ -1385,7 +1401,10 @@ module Parser =
     )
     |>> fun (objElems, span) ->
       { TypeAnn.Kind =
-          TypeAnnKind.Object { Elems = objElems; Immutable = false }
+          TypeAnnKind.Object
+            { Elems = objElems
+              Immutable = false
+              Interface = false }
         Span = span
         InferredType = None }
 
@@ -1394,7 +1413,11 @@ module Parser =
       between (strWs "#{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
     )
     |>> fun (objElems, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Object { Elems = objElems; Immutable = true }
+      { TypeAnn.Kind =
+          TypeAnnKind.Object
+            { Elems = objElems
+              Immutable = true
+              Interface = false }
         Span = span
         InferredType = None }
 

@@ -383,7 +383,11 @@ module rec Infer =
         | Import _ -> failwith "TODO: typeof import"
       | TsType.TsTypeLit tsTypeLit ->
         let elems = tsTypeLit.Members |> List.map (inferTypeElement ctx env)
-        TypeKind.Object { Elems = elems; Immutable = false }
+
+        TypeKind.Object
+          { Elems = elems
+            Immutable = false
+            Interface = false }
       | TsType.TsArrayType tsArrayType ->
         let id = ctx.FreshUniqueId()
 
@@ -472,7 +476,10 @@ module rec Infer =
 
         let elem = ObjTypeElem.Mapped mapped
 
-        TypeKind.Object { Elems = [ elem ]; Immutable = false }
+        TypeKind.Object
+          { Elems = [ elem ]
+            Immutable = false
+            Interface = false }
       | TsType.TsLitType tsLitType ->
         match tsLitType.Lit with
         | Number num -> Literal.Number num.Value |> TypeKind.Literal
@@ -556,7 +563,10 @@ module rec Infer =
           | ObjectPatProp.Rest { Arg = arg } ->
             patToPattern env arg |> ObjPatElem.RestPat)
 
-      Pattern.Object { Elems = elems; Immutable = false }
+      Pattern.Object
+        { Elems = elems
+          Immutable = false
+          Interface = false }
     // TODO: add assign patterns to Escalier's AST
     | Pat.Assign assignPat -> failwith "TODO: patToPattern - Assign"
     | Pat.Invalid invalid -> failwith "TODO: patToPattern - Invalid"
@@ -656,7 +666,11 @@ module rec Infer =
             | _ -> elem)
 
         let t =
-          { Kind = TypeKind.Object { Elems = elems; Immutable = false }
+          { Kind =
+              TypeKind.Object
+                { Elems = elems
+                  Immutable = false
+                  Interface = false }
             Provenance = None }
 
         let newScheme =
@@ -675,7 +689,8 @@ module rec Infer =
             let kind =
               TypeKind.Object
                 { Elems = mergedElems
-                  Immutable = false }
+                  Immutable = false
+                  Interface = false }
 
             let t = { Kind = kind; Provenance = None }
 
@@ -1164,7 +1179,8 @@ module rec Infer =
       let kind =
         TypeKind.Object
           { Elems = List.ofSeq elems @ unnamedElems
-            Immutable = false }
+            Immutable = false
+            Interface = false }
 
       { Kind = kind; Provenance = None }
     | _ -> failwith "both types must be objects to merge them"

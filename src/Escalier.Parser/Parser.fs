@@ -32,6 +32,8 @@ module Parser =
     pipe3 getPosition p getPosition
     <| fun start value stop -> (value, { Start = start; Stop = stop })
 
+  let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
+
   let isIdentifierChar c = isLetter c || isDigit c || c = '_'
 
   let keyword s =
@@ -82,6 +84,7 @@ module Parser =
 
   let typeParams: Parser<list<TypeParam>, unit> =
     between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))
+
 
   let funcParam<'A>
     (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
@@ -188,7 +191,455 @@ module Parser =
   litRef.Value <-
     choice [ number |>> Literal.Number; string; boolean; otherLiterals ]
 
-  let mergeSpans (x: Span) (y: Span) = { Start = x.Start; Stop = y.Stop }
+  let private litTypeAnn =
+    withSpan lit
+    |>> fun (lit, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Literal(lit)
+        Span = span
+        InferredType = None }
+
+  let private keywordTypeAnn =
+    let keyword =
+      choice
+        [ (keyword "object" |>> fun _ -> KeywordTypeAnn.Object)
+          (keyword "never" |>> fun _ -> Never)
+          (keyword "unknown" |>> fun _ -> Unknown)
+          (keyword "boolean" |>> fun _ -> Boolean)
+          (keyword "number" |>> fun _ -> Number)
+          (keyword "string" |>> fun _ -> String)
+          (keyword "symbol" |>> fun _ -> Symbol)
+          (keyword "null" |>> fun _ -> Null)
+          (keyword "undefined" |>> fun _ -> Undefined) ]
+
+    withSpan keyword
+    |>> fun (keyword, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyword(keyword)
+        Span = span
+        InferredType = None }
+
+  // unique symbols are similar to schemes.  The type annotation is like
+  // the scheme and when we infer the type annotation, we instantiate it
+  // and create an id for it at that time.
+  // in particular, when calling `new Symbol()` we need to create a new id
+  // at that point in time.  maybe all `unique symbol`s that appear in a
+  // function signature should get their own type variable (or whatever the
+  // symbol equivalent of that is)
+  let private uniqueSymbolTypeAnn =
+    withSpan (keyword "unique" >>. keyword "symbol")
+    |>> fun (_, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
+        Span = span
+        InferredType = None }
+
+  let private uniqueNumberTypeAnn =
+    withSpan (keyword "unique" >>. keyword "number")
+    |>> fun (_, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueNumber
+        Span = span
+        InferredType = None }
+
+  let private tupleTypeAnn =
+    between (strWs "[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
+    |>> fun (typeAnns, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  let private imTupleTypeAnn =
+    between (strWs "#[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
+    |>> fun (typeAnns, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = true }
+        Span = span
+        InferredType = None }
+
+  let private funcTypeAnn =
+    funcSig id false |> withSpan
+    |>> fun (f, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Function(f)
+        Span = span
+        InferredType = None }
+
+  let private readonlyModifier =
+    pipe2 (opt (strWs "+" <|> strWs "-")) (keyword "readonly")
+    <| fun pm _ ->
+      match pm with
+      | Some("+") -> MappedModifier.Add
+      | Some("-") -> MappedModifier.Remove
+      | _ -> MappedModifier.Add
+
+  let private optionalModifier =
+    pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "?")
+    <| fun pm _ ->
+      match pm with
+      | Some("+") -> MappedModifier.Add
+      | Some("-") -> MappedModifier.Remove
+      | _ -> MappedModifier.Add
+
+  let private mappedTypeParam =
+    pipe2 (keyword "for" >>. ident) (keyword "in" >>. typeAnn)
+    <| fun name c -> { Name = name; Constraint = c }
+
+  let private mappedTypeAnn =
+    pipe5
+      (opt readonlyModifier)
+      (between (strWs "[") (strWs "]") typeAnn)
+      (opt optionalModifier)
+      (strWs ":" >>. typeAnn)
+      mappedTypeParam
+    <| fun readonly name optional typeAnn typeParam ->
+
+      let name =
+        match name.Kind with
+        | TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } when
+          name = typeParam.Name
+          ->
+          None
+        | _ -> Some(name)
+
+      ObjTypeAnnElem.Mapped
+        { TypeParam = typeParam
+          Name = name
+          TypeAnn = typeAnn
+          Readonly = readonly
+          Optional = optional }
+
+  let private callableSignature =
+    pipe4 getPosition (opt (keyword "new")) (funcSig id false) getPosition
+    <| fun start newable funcSig stop ->
+      match newable with
+      | Some _ -> ObjTypeAnnElem.Constructor(funcSig)
+      | None -> ObjTypeAnnElem.Callable(funcSig)
+
+  let private propName =
+    choice
+      [ ident |>> PropName.String
+        number .>> ws |>> PropName.Number
+        _string .>> ws |>> PropName.String
+        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
+
+  let private propertyTypeAnn: Parser<Property, unit> =
+    pipe5
+      getPosition
+      propName
+      (opt (strWs "?"))
+      (strWs ":" >>. typeAnn)
+      getPosition
+    <| fun p1 name optional typeAnn p2 ->
+      // TODO: add location information
+      let span = { Start = p1; Stop = p2 }
+
+      { Name = name
+        TypeAnn = typeAnn
+        Optional = optional.IsSome
+        Readonly = false }
+
+  // TODO: add support for methods, getters, and setters
+  let private objTypeAnnElem =
+    choice
+      [ attempt callableSignature
+        // mappedTypeAnn must come before propertyTypeAnn because computed
+        // properties conflicts with mapped types
+        attempt mappedTypeAnn
+        attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property) ]
+
+  let private objectTypeAnn =
+    withSpan (
+      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
+    )
+    |>> fun (objElems, span) ->
+      { TypeAnn.Kind =
+          TypeAnnKind.Object { Elems = objElems; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  let private imObjectTypeAnn =
+    withSpan (
+      between (strWs "#{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
+    )
+    |>> fun (objElems, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Object { Elems = objElems; Immutable = true }
+        Span = span
+        InferredType = None }
+
+  // TODO: don't include strWs in the span
+  let private keyofTypeAnn =
+    withSpan (keyword "keyof" >>. typeAnn)
+    |>> fun (typeAnn, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Keyof(typeAnn)
+        Span = span
+        InferredType = None }
+
+  // TODO: don't include strWs in the span
+  let private restTypeAnn =
+    withSpan (strWs "..." >>. typeAnn)
+    |>> fun (typeAnn, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Rest(typeAnn)
+        Span = span
+        InferredType = None }
+
+  // TODO: don't include strWs in the span
+  let private typeofTypeAnn =
+    withSpan (keyword "typeof" >>. qualifiedIdent)
+    |>> fun (e, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Typeof e
+        Span = span
+        InferredType = None }
+
+  let condTypeAnn, condTypeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
+
+  // TODO: add support for chaining conditional types
+  condTypeAnnRef.Value <-
+    pipe5
+      getPosition
+      (keyword "if"
+       >>. (pipe2 typeAnn (strWs ":" >>. typeAnn)
+            <| fun check extends -> (check, extends)))
+      (strWs "{" >>. typeAnn .>> strWs "}")
+      (keyword "else"
+       >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
+      getPosition
+    <| fun start (check, extends) trueType falseType stop ->
+      { TypeAnn.Kind =
+          TypeAnnKind.Condition
+            { Check = check
+              Extends = extends
+              TrueType = trueType
+              FalseType = falseType }
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
+  let private typeRef =
+    pipe4
+      getPosition
+      ident
+      (opt (between (strWs "<") (strWs ">") (sepEndBy typeAnn (strWs ","))))
+      getPosition
+    <| fun start ident typeArgs stop ->
+      { TypeAnn.Kind =
+          TypeAnnKind.TypeRef
+            { Ident = QualifiedIdent.Ident ident
+              TypeArgs = typeArgs }
+        Span = { Start = start; Stop = stop }
+        InferredType = None }
+
+  // TODO: dedupe with templateStringLiteral
+  let tmplLitType: Parser<TypeAnn, unit> =
+    fun stream ->
+      let sb = StringBuilder()
+      let mutable parts: list<string> = []
+      let mutable exprs: list<TypeAnn> = []
+      let mutable reply: voption<Reply<TypeAnn>> = ValueNone
+
+      if stream.Peek() = '`' then
+        let start = stream.Position
+        stream.Skip() // '`'
+
+        while stream.Peek() <> '`' && reply = ValueNone do
+          if stream.PeekString(2) = "${" then
+            stream.Skip(2) // '${'
+            parts <- sb.ToString() :: parts
+            sb.Clear() |> ignore
+            let expr = typeAnn stream
+
+            if expr.Status = ReplyStatus.Ok then
+              if stream.Peek() = '}' then
+                stream.Skip()
+                exprs <- expr.Result :: exprs
+              else
+                reply <- ValueSome(Reply(Error, messageError "Expected '}'"))
+            else
+              reply <- ValueSome(expr)
+          else
+            sb.Append(stream.Read()) |> ignore
+
+        match reply with
+        | ValueNone ->
+          stream.Skip() // '`'
+          let stop = stream.Position
+          parts <- sb.ToString() :: parts
+
+          let result: TypeAnn =
+            { Kind =
+                TypeAnnKind.TemplateLiteral(
+                  { Parts = List.rev parts
+                    Exprs = List.rev exprs }
+                )
+              Span = { Start = start; Stop = stop }
+              InferredType = None }
+
+          Reply(result)
+        | ValueSome(value) -> value
+      else
+        Reply(Error, messageError "Expected '`'")
+
+  // TODO: add support for type constraints on the inferred type
+  let private inferType =
+    withSpan (strWs "infer" >>. ident)
+    |>> fun (name, span) ->
+      { TypeAnn.Kind = TypeAnnKind.Infer(name)
+        Span = span
+        InferredType = None }
+
+  let primaryType =
+    choice
+      [ litTypeAnn
+        keywordTypeAnn // aka PredefinedType
+        uniqueSymbolTypeAnn
+        uniqueNumberTypeAnn
+        tupleTypeAnn
+        imTupleTypeAnn
+        funcTypeAnn
+        typeofTypeAnn // aka TypeQuery
+        keyofTypeAnn
+        inferType
+        restTypeAnn
+        objectTypeAnn
+        imObjectTypeAnn
+        condTypeAnn
+        tmplLitType
+        // TODO: thisTypeAnn
+        // NOTE: should come last since any identifier can be a type reference
+        typeRef ]
+    .>> ws
+
+  let infixTypeAnnParselet
+    (precedence: int)
+    // TODO: update callback to return a Reply<TypeAnn>
+    (callback: TypeAnn -> TypeAnn -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = parser.Parse precedence stream
+
+          match right.Status with
+          | Ok -> Reply(callback left right.Result)
+          | _ -> right
+      Precedence = precedence }
+
+  let typeAnnParser = Pratt.PrattParser<TypeAnn>(primaryType)
+
+  let groupingTypeAnnParselet
+    (precedence: int)
+    : Pratt.PrefixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, operator) ->
+          (typeAnnParser.Parse 0 .>> strWs ")") stream
+      Precedence = precedence }
+
+  typeAnnParser.RegisterPrefix("(", groupingTypeAnnParselet 18)
+
+  typeAnnParser.RegisterInfix(
+    ".",
+    infixTypeAnnParselet 17 (fun left right ->
+      match left.Kind, right.Kind with
+      | TypeAnnKind.TypeRef { Ident = qualifier },
+        TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } ->
+        let kind =
+          TypeAnnKind.TypeRef
+            { Ident = QualifiedIdent.Member(qualifier, name)
+              TypeArgs = None }
+
+        { TypeAnn.Kind = kind
+          Span = mergeSpans left.Span right.Span
+          InferredType = None }
+      // TODO: return a Reply for this error case
+      | _ -> failwith "TODO")
+  )
+
+  let indexTypeAnnParselet (precedence: int) : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let index = parser.Parse 0
+          let reply = (index .>> (strWs "]")) stream
+
+          match reply.Status with
+          | Ok ->
+            Reply(
+              { TypeAnn.Kind = TypeAnnKind.Index(left, reply.Result)
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+            )
+          | _ -> Reply(reply.Status, reply.Error)
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix("[", indexTypeAnnParselet 17)
+
+  let postfixTypeAnnParselet
+    (precedence: int)
+    (callback: TypeAnn * Position -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          Reply(callback (left, stream.Position))
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "[]",
+    postfixTypeAnnParselet 17 (fun (target, position) ->
+      { TypeAnn.Kind = Array(target)
+        Span =
+          { Start = target.Span.Start
+            Stop = position }
+        InferredType = None })
+  )
+
+  let naryTypeAnnParselet
+    (precedence: int)
+    (callback: list<TypeAnn> -> TypeAnn)
+    : Pratt.InfixParselet<TypeAnn> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let right = parser.Parse precedence stream
+
+          let rec led (acc: list<TypeAnn>) (left: Reply<TypeAnn>) =
+            match parser.NextInfixOperator(stream) with
+            | Some(nextOperator, parselet) ->
+              if operator = nextOperator then
+                stream.Skip(nextOperator.Length)
+                ws stream |> ignore // always succeeds
+                led (left.Result :: acc) (parser.Parse precedence stream)
+              else
+                left.Result :: acc
+            | None -> left.Result :: acc
+
+          let operands = led [ left ] right
+
+          Reply(callback (List.rev operands))
+      Precedence = precedence }
+
+  typeAnnParser.RegisterInfix(
+    "&",
+    naryTypeAnnParselet 4 (fun typeAnns ->
+      let first = typeAnns[0]
+      let last = typeAnns[typeAnns.Length - 1]
+
+      { TypeAnn.Kind = TypeAnnKind.Intersection(typeAnns)
+        Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  typeAnnParser.RegisterInfix(
+    "|",
+    naryTypeAnnParselet 3 (fun typeAnns ->
+      let first = typeAnns[0]
+      let last = typeAnns[typeAnns.Length - 1]
+
+      { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
+        Span = mergeSpans first.Span last.Span
+        InferredType = None })
+  )
+
+  typeAnnParser.RegisterInfix(
+    "..",
+    infixTypeAnnParselet 2 (fun min max ->
+      { TypeAnn.Kind = TypeAnnKind.Range { Min = min; Max = max }
+        Span = mergeSpans min.Span max.Span
+        InferredType = None })
+  )
+
+  typeAnnRef.Value <- typeAnnParser.Parse(0)
 
   let identExpr: Parser<Expr, unit> =
     withSpan ident
@@ -312,11 +763,7 @@ module Parser =
   let objectExpr: Parser<Expr, unit> =
     withSpan (between (strWs "{") (strWs "}") (sepEndBy objElem (strWs ",")))
     |>> fun (objElems, span) ->
-      { Kind =
-          ExprKind.Object
-            { Elems = objElems
-              Immutable = false
-              Interface = false }
+      { Kind = ExprKind.Object { Elems = objElems; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -470,13 +917,6 @@ module Parser =
         Body = BlockOrExpr.Block body
         Throws = throws }
 
-  let private propName =
-    choice
-      [ ident |>> PropName.String
-        number .>> ws |>> PropName.Number
-        _string .>> ws |>> PropName.String
-        between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
-
   let classProperty: Parser<ClassElem, unit> =
     pipe5
       getPosition
@@ -554,11 +994,7 @@ module Parser =
   let imRecordExpr: Parser<Expr, unit> =
     withSpan (between (strWs "#{") (strWs "}") (sepEndBy objElem (strWs ",")))
     |>> fun (objElems, span) ->
-      { Kind =
-          ExprKind.Object
-            { Elems = objElems
-              Immutable = true
-              Interface = false }
+      { Kind = ExprKind.Object { Elems = objElems; Immutable = true }
         Span = span
         InferredType = None }
 
@@ -962,6 +1398,8 @@ module Parser =
     withSpan (keyword "return" >>. opt expr .>> (strWs ";"))
     |>> fun (e, span) -> { Stmt.Kind = Return(e); Span = span }
 
+  // TODO: disallow namespaces anywhere except at the top level or within other
+  // namespaces
   let private declStmt (decl: Parser<Decl, unit>) : Parser<Stmt, unit> =
     withSpan decl
     |>> fun (d, span) ->
@@ -1042,6 +1480,23 @@ module Parser =
               TypeParams = typeParams }
         Span = span }
 
+  let private interfaceDecl: Parser<Decl, unit> =
+    pipe5
+      getPosition
+      (keyword "interface" >>. ident)
+      (opt typeParams)
+      (between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ",")))
+      getPosition
+    <| fun start name typeParams objTypeElems stop ->
+      let span = { Start = start; Stop = stop }
+
+      { Kind =
+          InterfaceDecl
+            { Name = name
+              TypeParams = typeParams
+              Elems = objTypeElems }
+        Span = span }
+
   let private enumVariant: Parser<EnumVariant, unit> =
     pipe4
       getPosition
@@ -1094,22 +1549,6 @@ module Parser =
     <| fun start pattern expr body stop ->
       { Stmt.Kind = For(pattern, expr, body)
         Span = { Start = start; Stop = stop } }
-
-  let private propertyTypeAnn: Parser<Property, unit> =
-    pipe5
-      getPosition
-      propName
-      (opt (strWs "?"))
-      (strWs ":" >>. typeAnn)
-      getPosition
-    <| fun p1 name optional typeAnn p2 ->
-      // TODO: add location information
-      let span = { Start = p1; Stop = p2 }
-
-      { Name = name
-        TypeAnn = typeAnn
-        Optional = optional.IsSome
-        Readonly = false }
 
   let _stmt =
     choice
@@ -1213,11 +1652,7 @@ module Parser =
     withSpan (between (strWs "{") (strWs "}") (sepEndBy objPatElem (strWs ",")))
     |>> fun (elems, span) ->
       // TODO: handle immutable object patterns
-      { Pattern.Kind =
-          PatternKind.Object
-            { Elems = elems
-              Immutable = false
-              Interface = false }
+      { Pattern.Kind = PatternKind.Object { Elems = elems; Immutable = false }
         Span = span
         InferredType = None }
 
@@ -1227,11 +1662,7 @@ module Parser =
     )
     |>> fun (elems, span) ->
       // TODO: handle immutable object patterns
-      { Pattern.Kind =
-          PatternKind.Object
-            { Elems = elems
-              Immutable = true
-              Interface = false }
+      { Pattern.Kind = PatternKind.Object { Elems = elems; Immutable = true }
         Span = span
         InferredType = None }
 
@@ -1267,439 +1698,6 @@ module Parser =
         tuplePattern
         imTuplePattern
         restPattern ]
-
-  let private litTypeAnn =
-    withSpan lit
-    |>> fun (lit, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Literal(lit)
-        Span = span
-        InferredType = None }
-
-  let private keywordTypeAnn =
-    let keyword =
-      choice
-        [ (keyword "object" |>> fun _ -> KeywordTypeAnn.Object)
-          (keyword "never" |>> fun _ -> Never)
-          (keyword "unknown" |>> fun _ -> Unknown)
-          (keyword "boolean" |>> fun _ -> Boolean)
-          (keyword "number" |>> fun _ -> Number)
-          (keyword "string" |>> fun _ -> String)
-          (keyword "symbol" |>> fun _ -> Symbol)
-          (keyword "null" |>> fun _ -> Null)
-          (keyword "undefined" |>> fun _ -> Undefined) ]
-
-    withSpan keyword
-    |>> fun (keyword, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Keyword(keyword)
-        Span = span
-        InferredType = None }
-
-  // unique symbols are similar to schemes.  The type annotation is like
-  // the scheme and when we infer the type annotation, we instantiate it
-  // and create an id for it at that time.
-  // in particular, when calling `new Symbol()` we need to create a new id
-  // at that point in time.  maybe all `unique symbol`s that appear in a
-  // function signature should get their own type variable (or whatever the
-  // symbol equivalent of that is)
-  let private uniqueSymbolTypeAnn =
-    withSpan (keyword "unique" >>. keyword "symbol")
-    |>> fun (_, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
-        Span = span
-        InferredType = None }
-
-  let private uniqueNumberTypeAnn =
-    withSpan (keyword "unique" >>. keyword "number")
-    |>> fun (_, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueNumber
-        Span = span
-        InferredType = None }
-
-  let private tupleTypeAnn =
-    between (strWs "[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
-    |>> fun (typeAnns, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
-        Span = span
-        InferredType = None }
-
-  let private imTupleTypeAnn =
-    between (strWs "#[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
-    |>> fun (typeAnns, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = true }
-        Span = span
-        InferredType = None }
-
-  let private funcTypeAnn =
-    funcSig id false |> withSpan
-    |>> fun (f, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Function(f)
-        Span = span
-        InferredType = None }
-
-  let private readonlyModifier =
-    pipe2 (opt (strWs "+" <|> strWs "-")) (keyword "readonly")
-    <| fun pm _ ->
-      match pm with
-      | Some("+") -> MappedModifier.Add
-      | Some("-") -> MappedModifier.Remove
-      | _ -> MappedModifier.Add
-
-  let private optionalModifier =
-    pipe2 (opt (strWs "+" <|> strWs "-")) (strWs "?")
-    <| fun pm _ ->
-      match pm with
-      | Some("+") -> MappedModifier.Add
-      | Some("-") -> MappedModifier.Remove
-      | _ -> MappedModifier.Add
-
-  let private mappedTypeParam =
-    pipe2 (keyword "for" >>. ident) (keyword "in" >>. typeAnn)
-    <| fun name c -> { Name = name; Constraint = c }
-
-  let private mappedTypeAnn =
-    pipe5
-      (opt readonlyModifier)
-      (between (strWs "[") (strWs "]") typeAnn)
-      (opt optionalModifier)
-      (strWs ":" >>. typeAnn)
-      mappedTypeParam
-    <| fun readonly name optional typeAnn typeParam ->
-
-      let name =
-        match name.Kind with
-        | TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } when
-          name = typeParam.Name
-          ->
-          None
-        | _ -> Some(name)
-
-      ObjTypeAnnElem.Mapped
-        { TypeParam = typeParam
-          Name = name
-          TypeAnn = typeAnn
-          Readonly = readonly
-          Optional = optional }
-
-  let private callableSignature =
-    pipe4 getPosition (opt (keyword "new")) (funcSig id false) getPosition
-    <| fun start newable funcSig stop ->
-      match newable with
-      | Some _ -> ObjTypeAnnElem.Constructor(funcSig)
-      | None -> ObjTypeAnnElem.Callable(funcSig)
-
-  let private objTypeAnnElem =
-    choice
-      [ attempt callableSignature
-        // mappedTypeAnn must come before propertyTypeAnn because computed
-        // properties conflicts with mapped types
-        attempt mappedTypeAnn
-        attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property) ]
-
-  let private objectTypeAnn =
-    withSpan (
-      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
-    )
-    |>> fun (objElems, span) ->
-      { TypeAnn.Kind =
-          TypeAnnKind.Object
-            { Elems = objElems
-              Immutable = false
-              Interface = false }
-        Span = span
-        InferredType = None }
-
-  let private imObjectTypeAnn =
-    withSpan (
-      between (strWs "#{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
-    )
-    |>> fun (objElems, span) ->
-      { TypeAnn.Kind =
-          TypeAnnKind.Object
-            { Elems = objElems
-              Immutable = true
-              Interface = false }
-        Span = span
-        InferredType = None }
-
-  // TODO: don't include strWs in the span
-  let private keyofTypeAnn =
-    withSpan (keyword "keyof" >>. typeAnn)
-    |>> fun (typeAnn, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Keyof(typeAnn)
-        Span = span
-        InferredType = None }
-
-  // TODO: don't include strWs in the span
-  let private restTypeAnn =
-    withSpan (strWs "..." >>. typeAnn)
-    |>> fun (typeAnn, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Rest(typeAnn)
-        Span = span
-        InferredType = None }
-
-  // TODO: don't include strWs in the span
-  let private typeofTypeAnn =
-    withSpan (keyword "typeof" >>. qualifiedIdent)
-    |>> fun (e, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Typeof e
-        Span = span
-        InferredType = None }
-
-  let condTypeAnn, condTypeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
-
-  // TODO: add support for chaining conditional types
-  condTypeAnnRef.Value <-
-    pipe5
-      getPosition
-      (keyword "if"
-       >>. (pipe2 typeAnn (strWs ":" >>. typeAnn)
-            <| fun check extends -> (check, extends)))
-      (strWs "{" >>. typeAnn .>> strWs "}")
-      (keyword "else"
-       >>. (condTypeAnn <|> (strWs "{" >>. typeAnn .>> strWs "}")))
-      getPosition
-    <| fun start (check, extends) trueType falseType stop ->
-      { TypeAnn.Kind =
-          TypeAnnKind.Condition
-            { Check = check
-              Extends = extends
-              TrueType = trueType
-              FalseType = falseType }
-        Span = { Start = start; Stop = stop }
-        InferredType = None }
-
-  let private typeRef =
-    pipe4
-      getPosition
-      ident
-      (opt (between (strWs "<") (strWs ">") (sepEndBy typeAnn (strWs ","))))
-      getPosition
-    <| fun start ident typeArgs stop ->
-      { TypeAnn.Kind =
-          TypeAnnKind.TypeRef
-            { Ident = QualifiedIdent.Ident ident
-              TypeArgs = typeArgs }
-        Span = { Start = start; Stop = stop }
-        InferredType = None }
-
-  // TODO: dedupe with templateStringLiteral
-  let tmplLitType: Parser<TypeAnn, unit> =
-    fun stream ->
-      let sb = StringBuilder()
-      let mutable parts: list<string> = []
-      let mutable exprs: list<TypeAnn> = []
-      let mutable reply: voption<Reply<TypeAnn>> = ValueNone
-
-      if stream.Peek() = '`' then
-        let start = stream.Position
-        stream.Skip() // '`'
-
-        while stream.Peek() <> '`' && reply = ValueNone do
-          if stream.PeekString(2) = "${" then
-            stream.Skip(2) // '${'
-            parts <- sb.ToString() :: parts
-            sb.Clear() |> ignore
-            let expr = typeAnn stream
-
-            if expr.Status = ReplyStatus.Ok then
-              if stream.Peek() = '}' then
-                stream.Skip()
-                exprs <- expr.Result :: exprs
-              else
-                reply <- ValueSome(Reply(Error, messageError "Expected '}'"))
-            else
-              reply <- ValueSome(expr)
-          else
-            sb.Append(stream.Read()) |> ignore
-
-        match reply with
-        | ValueNone ->
-          stream.Skip() // '`'
-          let stop = stream.Position
-          parts <- sb.ToString() :: parts
-
-          let result: TypeAnn =
-            { Kind =
-                TypeAnnKind.TemplateLiteral(
-                  { Parts = List.rev parts
-                    Exprs = List.rev exprs }
-                )
-              Span = { Start = start; Stop = stop }
-              InferredType = None }
-
-          Reply(result)
-        | ValueSome(value) -> value
-      else
-        Reply(Error, messageError "Expected '`'")
-
-  // TODO: add support for type constraints on the inferred type
-  let private inferType =
-    withSpan (strWs "infer" >>. ident)
-    |>> fun (name, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Infer(name)
-        Span = span
-        InferredType = None }
-
-  let primaryType =
-    choice
-      [ litTypeAnn
-        keywordTypeAnn // aka PredefinedType
-        uniqueSymbolTypeAnn
-        uniqueNumberTypeAnn
-        tupleTypeAnn
-        imTupleTypeAnn
-        funcTypeAnn
-        typeofTypeAnn // aka TypeQuery
-        keyofTypeAnn
-        inferType
-        restTypeAnn
-        objectTypeAnn
-        imObjectTypeAnn
-        condTypeAnn
-        tmplLitType
-        // TODO: thisTypeAnn
-        // NOTE: should come last since any identifier can be a type reference
-        typeRef ]
-    .>> ws
-
-  let infixTypeAnnParselet
-    (precedence: int)
-    // TODO: update callback to return a Reply<TypeAnn>
-    (callback: TypeAnn -> TypeAnn -> TypeAnn)
-    : Pratt.InfixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          let right = parser.Parse precedence stream
-
-          match right.Status with
-          | Ok -> Reply(callback left right.Result)
-          | _ -> right
-      Precedence = precedence }
-
-  let typeAnnParser = Pratt.PrattParser<TypeAnn>(primaryType)
-
-  let groupingTypeAnnParselet
-    (precedence: int)
-    : Pratt.PrefixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, operator) ->
-          (typeAnnParser.Parse 0 .>> strWs ")") stream
-      Precedence = precedence }
-
-  typeAnnParser.RegisterPrefix("(", groupingTypeAnnParselet 18)
-
-  typeAnnParser.RegisterInfix(
-    ".",
-    infixTypeAnnParselet 17 (fun left right ->
-      match left.Kind, right.Kind with
-      | TypeAnnKind.TypeRef { Ident = qualifier },
-        TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } ->
-        let kind =
-          TypeAnnKind.TypeRef
-            { Ident = QualifiedIdent.Member(qualifier, name)
-              TypeArgs = None }
-
-        { TypeAnn.Kind = kind
-          Span = mergeSpans left.Span right.Span
-          InferredType = None }
-      // TODO: return a Reply for this error case
-      | _ -> failwith "TODO")
-  )
-
-  let indexTypeAnnParselet (precedence: int) : Pratt.InfixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          let index = parser.Parse 0
-          let reply = (index .>> (strWs "]")) stream
-
-          match reply.Status with
-          | Ok ->
-            Reply(
-              { TypeAnn.Kind = TypeAnnKind.Index(left, reply.Result)
-                Span =
-                  { Start = left.Span.Start
-                    Stop = stream.Position }
-                InferredType = None }
-            )
-          | _ -> Reply(reply.Status, reply.Error)
-      Precedence = precedence }
-
-  typeAnnParser.RegisterInfix("[", indexTypeAnnParselet 17)
-
-  let postfixTypeAnnParselet
-    (precedence: int)
-    (callback: TypeAnn * Position -> TypeAnn)
-    : Pratt.InfixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          Reply(callback (left, stream.Position))
-      Precedence = precedence }
-
-  typeAnnParser.RegisterInfix(
-    "[]",
-    postfixTypeAnnParselet 17 (fun (target, position) ->
-      { TypeAnn.Kind = Array(target)
-        Span =
-          { Start = target.Span.Start
-            Stop = position }
-        InferredType = None })
-  )
-
-  let naryTypeAnnParselet
-    (precedence: int)
-    (callback: list<TypeAnn> -> TypeAnn)
-    : Pratt.InfixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          let right = parser.Parse precedence stream
-
-          let rec led (acc: list<TypeAnn>) (left: Reply<TypeAnn>) =
-            match parser.NextInfixOperator(stream) with
-            | Some(nextOperator, parselet) ->
-              if operator = nextOperator then
-                stream.Skip(nextOperator.Length)
-                ws stream |> ignore // always succeeds
-                led (left.Result :: acc) (parser.Parse precedence stream)
-              else
-                left.Result :: acc
-            | None -> left.Result :: acc
-
-          let operands = led [ left ] right
-
-          Reply(callback (List.rev operands))
-      Precedence = precedence }
-
-  typeAnnParser.RegisterInfix(
-    "&",
-    naryTypeAnnParselet 4 (fun typeAnns ->
-      let first = typeAnns[0]
-      let last = typeAnns[typeAnns.Length - 1]
-
-      { TypeAnn.Kind = TypeAnnKind.Intersection(typeAnns)
-        Span = mergeSpans first.Span last.Span
-        InferredType = None })
-  )
-
-  typeAnnParser.RegisterInfix(
-    "|",
-    naryTypeAnnParselet 3 (fun typeAnns ->
-      let first = typeAnns[0]
-      let last = typeAnns[typeAnns.Length - 1]
-
-      { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
-        Span = mergeSpans first.Span last.Span
-        InferredType = None })
-  )
-
-  typeAnnParser.RegisterInfix(
-    "..",
-    infixTypeAnnParselet 2 (fun min max ->
-      { TypeAnn.Kind = TypeAnnKind.Range { Min = min; Max = max }
-        Span = mergeSpans min.Span max.Span
-        InferredType = None })
-  )
-
-  typeAnnRef.Value <- typeAnnParser.Parse(0)
 
   let namedSpecifier: Parser<ImportSpecifier, unit> =
     pipe4 getPosition ident (opt (keyword "as" >>. ident)) getPosition
@@ -1771,7 +1769,13 @@ module Parser =
 
   declRef.Value <-
     choice
-      [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl; namespaceDecl ]
+      [ varDecl
+        fnDecl
+        // classDecl
+        typeDecl
+        interfaceDecl
+        enumDecl
+        namespaceDecl ]
 
   let ambient: Parser<Decl, unit> =
     withSpan (

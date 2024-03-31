@@ -563,10 +563,7 @@ module rec Infer =
           | ObjectPatProp.Rest { Arg = arg } ->
             patToPattern env arg |> ObjPatElem.RestPat)
 
-      Pattern.Object
-        { Elems = elems
-          Immutable = false
-          Interface = false }
+      Pattern.Object { Elems = elems; Immutable = false }
     // TODO: add assign patterns to Escalier's AST
     | Pat.Assign assignPat -> failwith "TODO: patToPattern - Assign"
     | Pat.Invalid invalid -> failwith "TODO: patToPattern - Invalid"

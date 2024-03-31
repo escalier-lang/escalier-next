@@ -48,8 +48,7 @@ module rec Infer =
                   // TODO: isMut
                   ObjPatElem.RestPat(patternToPattern target))
               elems
-          Immutable = immutable
-          Interface = false }
+          Immutable = immutable }
     | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
       Pattern.Tuple
         { Elems = List.map (patternToPattern >> Some) elems
@@ -2209,6 +2208,9 @@ module rec Infer =
 
         let! ns = getNamespaceExports ctx nsEnv nsDecl
         return env.AddNamespace nsDecl.Name ns
+      | DeclKind.InterfaceDecl(_) ->
+        return!
+          Error(TypeError.NotImplemented "TODO: inferDecl - InterfaceDecl")
     }
 
   let getNamespaceExports
@@ -2247,6 +2249,8 @@ module rec Infer =
           match env.Namespace.Namespaces.TryFind name with
           | Some value -> ns <- ns.AddNamespace name value
           | None -> failwith $"Couldn't find namespace: '{name}'"
+        | InterfaceDecl(_) ->
+          failwith "TODO: getNamespaceExports - InterfaceDecl"
 
       return ns
     }
@@ -2726,6 +2730,8 @@ module rec Infer =
           let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
           placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
           newEnv <- newEnv.AddNamespace nsDecl.Name ns
+        | InterfaceDecl(_) ->
+          failwith "TODO: inferDeclPlaceholders - InterfaceDecl"
 
       return newEnv, placeholderNS
     }
@@ -2815,6 +2821,8 @@ module rec Infer =
 
           let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
           inferredNS <- inferredNS.AddNamespace name ns
+        | InterfaceDecl(_) ->
+          failwith "TODO: inferDeclDefinitions - InterfaceDecl"
 
       return newEnv, inferredNS
     }

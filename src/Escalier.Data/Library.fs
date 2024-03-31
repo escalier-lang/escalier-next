@@ -101,10 +101,7 @@ module Common =
       | Null -> "null"
       | Undefined -> "undefined"
 
-  type Object<'E> =
-    { Elems: list<'E>
-      Immutable: bool
-      Interface: bool }
+  type Object<'E> = { Elems: list<'E>; Immutable: bool }
 
   type Tuple<'T> = { Elems: list<'T>; Immutable: bool }
 
@@ -432,6 +429,11 @@ module Syntax =
       TypeAnn: TypeAnn
       TypeParams: option<list<TypeParam>> }
 
+  type InterfaceDecl =
+    { Name: string
+      TypeParams: option<list<TypeParam>>
+      Elems: list<ObjTypeAnnElem> }
+
   type EnumVariant =
     { Name: string
       TypeAnns: list<TypeAnn> }
@@ -448,6 +450,7 @@ module Syntax =
     | FnDecl of FnDecl
     | ClassDecl of ClassDecl
     | TypeDecl of TypeDecl
+    | InterfaceDecl of InterfaceDecl
     | EnumDecl of EnumDecl
     | NamespaceDecl of NamespaceDecl
 
@@ -827,6 +830,11 @@ module Type =
 
         $"{readonly}{name}{optional}: {type_}"
 
+  type Object =
+    { Elems: list<ObjTypeElem>
+      Immutable: bool
+      Interface: bool }
+
   type Array =
     { Elem: Type
       mutable Length: Type } // either `number` or `unique number`
@@ -854,7 +862,7 @@ module Type =
     | Primitive of Primitive
     | Keyword of Keyword
     | Function of Function
-    | Object of Common.Object<ObjTypeElem>
+    | Object of Object
     | Tuple of Common.Tuple<Type>
     | Array of Array
     | EnumVariant of EnumVariant
@@ -1073,7 +1081,7 @@ module Type =
 
     $"{typeParam.Name}{c}{d}"
 
-  let printObject (ctx: PrintCtx) (obj: Common.Object<ObjTypeElem>) : string =
+  let printObject (ctx: PrintCtx) (obj: Object) : string =
     let elems =
       List.map
         (fun (elem: ObjTypeElem) ->

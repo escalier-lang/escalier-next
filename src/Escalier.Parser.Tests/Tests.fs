@@ -890,3 +890,35 @@ let ParseNamespaceInModule () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseInterface () =
+  let src =
+    """
+    interface Point {
+      x: number,
+    }
+    interface Point {
+      y: number,
+    }
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseInterfaceWithTypeParam () =
+  let src =
+    """
+    interface Array<T> {
+      [K]: T for K in number,
+    }
+    """
+  // fn map<T>(callback: fn(x: T) -> U) -> Array<U>,
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

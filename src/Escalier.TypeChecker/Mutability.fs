@@ -43,6 +43,7 @@ module Mutability =
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
         printfn "TODO: getPatBindingPaths - Rest"
+      | PatternKind.Enum(_) -> failwith "TODO: getPatBindingPaths - Enum"
 
     walkPattern pat []
     result
@@ -80,6 +81,7 @@ module Mutability =
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
         printfn "TODO: getPatBindingPaths - Rest"
+      | Pattern.Enum(_) -> failwith "TODO: getPatBindingPaths - Enum"
 
     walkPattern pat []
     result

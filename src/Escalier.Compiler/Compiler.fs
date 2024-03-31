@@ -30,6 +30,8 @@ module Compiler =
         fprintf writer "- Recursive unification: {t1} and {t2}\n"
       | WrongNumberOfTypeArgs ->
         fprintf writer "- Wrong number of type arguments\n"
+      | PropertyMissing propName -> 
+        fprintf writer $"- Property missing: {propName}\n"
 
     fprintf writer "ERROR: %s\n" d.Description
 

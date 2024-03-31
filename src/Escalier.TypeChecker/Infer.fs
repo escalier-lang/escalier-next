@@ -39,12 +39,12 @@ module rec Infer =
                 | Syntax.ObjPatElem.ShorthandPat { Name = name
                                                    Default = init
                                                    IsMut = mut
-                                                   Assertion = assertion } ->
+                                                   Assertion = _ } ->
                   ObjPatElem.ShorthandPat
                     { Name = name
                       Init = init
                       IsMut = mut }
-                | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
+                | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
                   // TODO: isMut
                   ObjPatElem.RestPat(patternToPattern target))
               elems
@@ -53,9 +53,10 @@ module rec Infer =
       Pattern.Tuple
         { Elems = List.map (patternToPattern >> Some) elems
           Immutable = immutable }
-    | PatternKind.Wildcard { Assertion = assertion } -> Pattern.Wildcard
+    | PatternKind.Wildcard { Assertion = _ } -> Pattern.Wildcard
     | PatternKind.Literal lit -> Pattern.Literal lit
     | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
+    | PatternKind.Enum _ -> failwith "TODO: patternToPattern - PatternKind.Enum"
 
   let inferPropName
     (ctx: Ctx)
@@ -157,7 +158,7 @@ module rec Infer =
         | ExprKind.Binary(op, left, right) ->
           let! funTy = env.GetBinaryOp op
 
-          let! result, throws =
+          let! result, _throws =
             unifyCall ctx env None [ left; right ] None funTy
 
           // TODO: handle throws
@@ -167,7 +168,7 @@ module rec Infer =
         | ExprKind.Unary(op, arg) ->
           let! funTy = env.GetUnaryOp op
 
-          let! result, throws = unifyCall ctx env None [ arg ] None funTy
+          let! result, _throws = unifyCall ctx env None [ arg ] None funTy
 
           // TODO: handle throws
 
@@ -281,7 +282,7 @@ module rec Infer =
                             Readonly = false
                             Type = value }
                       )
-                  | ObjElem.Spread(span, value) ->
+                  | ObjElem.Spread(_span, value) ->
                     let! t = inferExpr ctx env value
                     spreadTypes <- t :: spreadTypes
                     return None
@@ -304,9 +305,11 @@ module rec Infer =
                            TypeParams = typeParams
                            Elems = elems } ->
 
-          // TODO: get the real name of the class
-          // If there is no name we can synthesize one using a unique ID
-          let className = "AnonymousClass"
+          let className =
+            match name with
+            | Some name -> name
+            | None -> "AnonymousClass" // TODO: make this unique
+
           let mutable newEnv = env
 
           let! placeholderTypeParams =
@@ -394,11 +397,11 @@ module rec Infer =
                                    Readonly = readonly } ->
               let name =
                 match name with
-                | Syntax.Ident s -> PropName.String s
-                | Syntax.String s -> PropName.String s
-                | Syntax.Number n -> PropName.Number n
-                | Computed expr ->
-                  let t = inferExpr ctx newEnv expr
+                | Syntax.PropName.Ident s -> PropName.String s
+                | Syntax.PropName.String s -> PropName.String s
+                | Syntax.PropName.Number n -> PropName.Number n
+                | Syntax.PropName.Computed expr ->
+                  let _t = inferExpr ctx newEnv expr
                   // TODO: check if `t` is a valid type for a PropName
                   failwith "TODO: inferStmt - Computed prop name"
 
@@ -493,6 +496,7 @@ module rec Infer =
             | Setter(name, placeholderFn) ->
               instanceElems <-
                 ObjTypeElem.Setter(name, placeholderFn) :: instanceElems
+            | _ -> ()
 
           let mutable hasConstructor = false
 
@@ -512,6 +516,7 @@ module rec Infer =
             | Setter(name, placeholderFn) ->
               staticElems <-
                 ObjTypeElem.Setter(name, placeholderFn) :: staticElems
+            | _ -> ()
 
           let objType =
             { Kind =
@@ -621,7 +626,7 @@ module rec Infer =
               match body with
               | BlockOrExpr.Block block ->
                 List.iter (walkStmt visitor) block.Stmts
-              | BlockOrExpr.Expr expr -> failwith "TODO"
+              | BlockOrExpr.Expr _expr -> failwith "TODO"
 
               if not methodsCalled.IsEmpty then
                 ctx.AddDiagnostic(
@@ -790,11 +795,7 @@ module rec Infer =
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
           let! exprType = inferExpr ctx env expr
-          // TODO: pass the `exprType` to match against
-          let! patternTypes, bodyTypes = inferMatchCases ctx env exprType cases
-          // All of the patterns we're matching against `expr` must be sub-types
-          // of its type.
-          // do! unify ctx env (union patternTypes) exprType
+          let! _, bodyTypes = inferMatchCases ctx env exprType cases
           return (union bodyTypes)
         | ExprKind.Index(target, index, optChain) ->
           let! target = inferExpr ctx env target
@@ -804,7 +805,7 @@ module rec Infer =
           let index = prune index
 
           match index.Kind with
-          | TypeKind.Range { Min = min; Max = max } ->
+          | TypeKind.Range { Min = _; Max = max } ->
             match target.Kind with
             | TypeKind.Array { Elem = elem; Length = length } ->
               do! unify ctx env None max length
@@ -841,7 +842,8 @@ module rec Infer =
                     TypeArgs = Some([ min; max ])
                     Scheme = scheme }
               Provenance = None }
-        | ExprKind.Assign(operation, left, right) ->
+        | ExprKind.Assign(_operation, left, right) ->
+          // TODO: handle update assign operations
           let! rightType = inferExpr ctx env right
 
           let! t, isMut = getLvalue ctx env left
@@ -950,7 +952,8 @@ module rec Infer =
 
               // TODO: figure out a way to avoid having to call inferPattern twice
               // per method (the other call is `inferFuncBody`)
-              let! assumps, patternType = inferPattern ctx newEnv param.Pattern
+              let! _assumps, patternType =
+                inferPattern ctx newEnv param.Pattern
 
               do! unify ctx newEnv None patternType paramType
 
@@ -1237,19 +1240,19 @@ module rec Infer =
               Provenance = None }
         | PropName.Number number ->
           match number with
-          | Float f ->
+          | Float _ ->
             return!
               Error(TypeError.SemanticError "numeric indexes can't be floats")
           | Int i ->
             if i >= 0 && i < elems.Length then
-              return elems.[int i]
+              return elems[int i]
             else
               // TODO: report a diagnost about the index being out of range
               return
                 { Kind = TypeKind.Literal(Literal.Undefined)
                   Provenance = None }
         | _ ->
-          let arrayScheme =
+          let _arrayScheme =
             match env.TryFindScheme "Array" with
             | Some scheme -> scheme
             | None -> failwith "Array not in scope"
@@ -1339,15 +1342,15 @@ module rec Infer =
             Provenance = None }
 
         Some t
-      | Getter(name, fn) ->
+      | Getter(_name, fn) ->
         // TODO: check if it's an lvalue
         // TODO: handle throws
         Some fn.Return
-      | Setter(name, fn) ->
+      | Setter(_name, fn) ->
         // TODO: check if it's an rvalue
         // TODO: handle throws
         Some fn.ParamList[0].Type
-      | Mapped mapped -> failwith "TODO: inferMemberAccess - mapped"
+      | Mapped _mapped -> failwith "TODO: inferMemberAccess - mapped"
       | Callable _ -> failwith "Callable signatures don't have a name"
       | Constructor _ -> failwith "Constructor signatures don't have a name"
     | None -> None
@@ -1428,6 +1431,12 @@ module rec Infer =
           | KeywordTypeAnn.Unknown -> return TypeKind.Keyword Keyword.Unknown
           | KeywordTypeAnn.Never -> return TypeKind.Keyword Keyword.Never
           | KeywordTypeAnn.Object -> return TypeKind.Keyword Keyword.Object
+          | _ ->
+            return!
+              Error(
+                TypeError.NotImplemented
+                  $"TODO: unhandled keyword type - {keyword}"
+              )
         | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
           let! elems =
             List.traverseResultM
@@ -1453,15 +1462,13 @@ module rec Infer =
                   | ObjTypeAnnElem.Constructor functionType ->
                     let! f = inferFunctionType ctx env functionType
                     return Constructor f
-                  | ObjTypeAnnElem.Method { Name = name; Type = t } ->
+                  | ObjTypeAnnElem.Method { Name = _; Type = _ } ->
                     return! Error(TypeError.NotImplemented "todo")
-                  | ObjTypeAnnElem.Getter { Name = name
-                                            ReturnType = returnType
-                                            Throws = throws } ->
+                  | ObjTypeAnnElem.Getter { Name = _
+                                            ReturnType = _
+                                            Throws = _ } ->
                     return! Error(TypeError.NotImplemented "todo")
-                  | ObjTypeAnnElem.Setter { Name = name
-                                            Param = param
-                                            Throws = throws } ->
+                  | ObjTypeAnnElem.Setter { Name = _; Param = _; Throws = _ } ->
                     return! Error(TypeError.NotImplemented "todo")
                   | ObjTypeAnnElem.Mapped mapped ->
                     let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint
@@ -1530,7 +1537,7 @@ module rec Infer =
                   TypeArgs = None
                   Scheme = scheme }
                 |> TypeKind.TypeRef
-          | Error errorValue ->
+          | Error _ ->
             printfn "Can't find 'Self' in env"
 
             match name with
@@ -1612,7 +1619,7 @@ module rec Infer =
                 Extends = extends
                 TrueType = trueType
                 FalseType = falseType }
-        | TypeAnnKind.Match matchType ->
+        | TypeAnnKind.Match _ ->
           return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
         | TypeAnnKind.Infer name -> return TypeKind.Infer name
         | TypeAnnKind.Wildcard -> return TypeKind.Wildcard
@@ -1645,7 +1652,7 @@ module rec Infer =
   let inferFunctionType
     (ctx: Ctx)
     (env: Env)
-    (functionType: Syntax.FunctionType)
+    (functionType: FunctionType)
     : Result<Function, TypeError> =
     result {
       let! typeParams, newEnv = inferTypeParams ctx env functionType.TypeParams
@@ -1725,7 +1732,7 @@ module rec Infer =
               match elem with
               | Syntax.ObjPatElem.KeyValuePat { Key = key
                                                 Value = value
-                                                Default = init } ->
+                                                Default = _ } ->
                 let t = infer_pattern_rec value
 
                 Some(
@@ -1765,7 +1772,7 @@ module rec Infer =
                       Type = t }
                 )
 
-              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = isMut } ->
+              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
                 restType <-
                   Some(
                     { Kind = infer_pattern_rec target |> TypeKind.Rest
@@ -1807,7 +1814,7 @@ module rec Infer =
           let t =
             match t with
             | Ok t -> t
-            | Error errorValue -> failwith "Failed to instantiate enum scheme"
+            | Error _ -> failwith "Failed to instantiate enum scheme"
 
           match t.Kind with
           | TypeKind.Union types ->
@@ -1828,15 +1835,14 @@ module rec Infer =
                   let result = unify ctx env None t1 t2
 
                   match result with
-                  | Ok resultValue -> ()
-                  | Error errorValue ->
-                    failwith $"Failed to unify {t1} and {t2}"
+                  | Ok _ -> ()
+                  | Error _ -> failwith $"Failed to unify {t1} and {t2}"
               | _ -> failwith "Can't find variant type in enum"
 
               t
             | None -> failwith "Can't find variant type in enum"
           | _ -> failwith "enum scheme type is not a union type"
-        | Error errorValue -> failwith $"Can't find scheme for {variant.Ident}"
+        | Error _ -> failwith $"Can't find scheme for {variant.Ident}"
 
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
@@ -2071,6 +2077,10 @@ module rec Infer =
             Provenance = None }
 
         return env.AddValue name (t, false)
+      | DeclKind.FnDecl _ ->
+        return! Error(TypeError.SemanticError "Inavlid function declarations")
+      | DeclKind.ClassDecl _ ->
+        return! Error(TypeError.NotImplemented "TODO: inferDecl - ClassDecl")
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams
                             Variants = variants } ->
@@ -2182,7 +2192,7 @@ module rec Infer =
     }
 
   let getNamespaceExports
-    (ctx: Ctx)
+    (_: Ctx)
     (env: Env)
     (nsDecl: NamespaceDecl)
     : Result<Namespace, TypeError> =
@@ -2204,8 +2214,7 @@ module rec Infer =
         | FnDecl { Name = name } ->
           let! t = env.GetValue name
           ns <- ns.AddBinding name (t, false) // isMut = false
-        | ClassDecl classDecl ->
-          failwith "TODO: getNamespaceExports - ClassDecl"
+        | ClassDecl _ -> failwith "TODO: getNamespaceExports - ClassDecl"
         | TypeDecl { Name = name } ->
           let! scheme = env.GetScheme(QualifiedIdent.Ident name)
           ns <- ns.AddScheme name scheme
@@ -2266,7 +2275,7 @@ module rec Infer =
         let! elemType =
           result {
             match expandedRightType.Kind with
-            | TypeKind.Array { Elem = elem; Length = length } -> return elem
+            | TypeKind.Array { Elem = elem; Length = _ } -> return elem
             | TypeKind.Tuple { Elems = elems } -> return union elems
             | TypeKind.Range _ -> return expandedRightType
             | TypeKind.Object _ ->
@@ -2460,8 +2469,8 @@ module rec Infer =
     (typeDecl: TypeDecl)
     : Result<Scheme, TypeError> =
 
-    let { Name = name
-          TypeAnn = typeAnn
+    let { Name = _
+          TypeAnn = _
           TypeParams = typeParams } =
       typeDecl
 
@@ -2631,7 +2640,7 @@ module rec Infer =
         match decl.Kind with
         | VarDecl { Pattern = pattern
                     Init = _
-                    TypeAnn = typeAnn } ->
+                    TypeAnn = _ } ->
           let! bindings, _ = inferPattern ctx env pattern
 
           for KeyValue(name, binding) in bindings do
@@ -2674,6 +2683,16 @@ module rec Infer =
 
           placeholderNS <- placeholderNS.AddBinding name (t, false)
           newEnv <- newEnv.AddValue name (t, false)
+        | ClassDecl _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: inferDeclPlaceholders - ClassDecl"
+            )
+        | EnumDecl _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: inferDeclPlaceholders - EnumDecl"
+            )
         | TypeDecl typeDecl ->
           // TODO: replace placeholders, with a reference the actual definition
           // once we've inferred the definition
@@ -2734,6 +2753,18 @@ module rec Infer =
           // Nothing to do since ambient function declarations don't have
           // function bodies.
           ()
+        | FnDecl _ ->
+          return! Error(TypeError.SemanticError "Invalid function declaration")
+        | ClassDecl _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: inferDeclDefinitions - ClassDecl"
+            )
+        | EnumDecl _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
+            )
         | TypeDecl { Name = name; TypeAnn = typeAnn } ->
           let! placeholder = placeholderNS.GetScheme name
 
@@ -2876,10 +2907,6 @@ module rec Infer =
     match t.Kind with
     | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise" } -> t
     | _ ->
-      let never =
-        { Kind = TypeKind.Keyword Keyword.Never
-          Provenance = None }
-
       { Kind =
           TypeKind.TypeRef
             { Name = QualifiedIdent.Ident "Promise"
@@ -3074,12 +3101,12 @@ module rec Infer =
         // TODO: handle other object element types
         for objType in objTypes do
           match objType.Kind with
-          | TypeKind.Object { Elems = elems; Immutable = immutable } ->
+          | TypeKind.Object { Elems = elems; Immutable = _ } ->
             for elem in elems do
               match elem with
               | ObjTypeElem.Property { Name = PropName.String name
-                                       Optional = optional
-                                       Readonly = readonly
+                                       Optional = _
+                                       Readonly = _
                                        Type = t } ->
 
                 let types =
@@ -3092,7 +3119,7 @@ module rec Infer =
           | _ -> ()
 
         // Simplify each list of types
-        let namedTypes = namedTypes |> Map.map (fun name types -> union types)
+        let namedTypes = namedTypes |> Map.map (fun _name types -> union types)
 
         // Create a new object type from the simplified named properties
         let objTypeElems =
@@ -3134,7 +3161,7 @@ module rec Infer =
     result {
       match expr.Kind with
       | ExprKind.Identifier name -> return! env.GetBinding name
-      | ExprKind.Index(target, index, optChain) ->
+      | ExprKind.Index(target, index, _optChain) ->
         // TODO: disallow optChain in lvalues
         let! target, isMut = getLvalue ctx env target
         let! index = inferExpr ctx env index
@@ -3150,7 +3177,7 @@ module rec Infer =
 
         let! t = getPropType ctx env target key false
         return t, isMut
-      | ExprKind.Member(target, name, optChain) ->
+      | ExprKind.Member(target, name, _optChain) ->
         // TODO: check if `target` is a namespace
         // If the target is either an Identifier or another Member, we
         // can try to look look for a namespace for it.
@@ -3173,9 +3200,9 @@ module rec Infer =
       | ExprKind.Identifier name ->
         let! _, isMut = env.GetBinding name
         return isMut
-      | ExprKind.Index(target, index, optChain) ->
+      | ExprKind.Index(target, _index, _optChain) ->
         return! getIsMut ctx env target
-      | ExprKind.Member(target, name, optChain) ->
+      | ExprKind.Member(target, _name, _optChain) ->
         return! getIsMut ctx env target
       | _ ->
         return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
@@ -3189,7 +3216,7 @@ module rec Infer =
     (args: list<Syntax.Expr>)
     (typeArgs: option<list<Type>>)
     (callee: Type)
-    : Result<(Type * Type), TypeError> =
+    : Result<Type * Type, TypeError> =
 
     result {
       let callee = prune callee
@@ -3381,7 +3408,7 @@ module rec Infer =
 
       match restArgs, restParam with
       | Some args, Some param ->
-        let args = List.map (fun (arg, argType) -> argType) args
+        let args = List.map (fun (_arg, argType) -> argType) args
 
         let tuple =
           { Kind = TypeKind.Tuple { Elems = args; Immutable = false }

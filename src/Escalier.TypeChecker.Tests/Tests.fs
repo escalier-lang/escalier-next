@@ -1144,25 +1144,35 @@ let InferNamespaceInScript () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let InferNamespaceInModule () =
   let result =
     result {
       let src =
         """
+        let x = Foo.Bar.x;
+        type Baz = Foo.Baz;
         namespace Foo {
           namespace Bar {
             let x = 5;
           }
           let y = 10;
-          type Baz = number;
+          type Baz = string;
         }
         """
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "x", "number")
+      Assert.Value(env, "x", "5")
+      Assert.Type(env, "Baz", "Foo.Baz")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "string")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)

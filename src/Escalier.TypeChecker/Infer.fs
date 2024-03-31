@@ -2683,6 +2683,10 @@ module rec Infer =
           // return an error if the name already exists since we can't redefine
           // types.
           newEnv <- newEnv.AddScheme typeDecl.Name placeholder
+        | NamespaceDecl nsDecl ->
+          let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
+          placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
+          newEnv <- newEnv.AddNamespace nsDecl.Name ns
 
       return newEnv, placeholderNS
     }
@@ -2744,8 +2748,49 @@ module rec Infer =
           placeholder.Type <- scheme.Type
 
           newEnv <- newEnv.AddScheme name scheme
+        | NamespaceDecl { Name = name; Body = decls } ->
+          let! placeholderNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let mutable nsEnv = newEnv
+
+          nsEnv <- nsEnv.AddBindings placeholderNS.Values
+
+          for KeyValue(name, ns) in placeholderNS.Namespaces do
+            nsEnv <- nsEnv.AddNamespace name ns
+
+          for KeyValue(name, scheme) in placeholderNS.Schemes do
+            nsEnv <- nsEnv.AddScheme name scheme
+
+          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
+          inferredNS <- inferredNS.AddNamespace name ns
 
       return newEnv, inferredNS
+    }
+
+  let unifyPlaceholdersAndInferredTypes
+    (ctx: Ctx)
+    (env: Env)
+    (placeholderNS: Namespace)
+    (inferredNS: Namespace)
+    : Result<unit, TypeError> =
+    result {
+      for KeyValue(name, inferredBinding) in inferredNS.Values do
+        let! placeholderBinding = placeholderNS.GetBinding name
+        // Checks that the inferredType can be assigned to the placeholderType
+        let placeholderType, _ = placeholderBinding
+        let inferredType, _ = inferredBinding
+        do! unify ctx env None placeholderType inferredType
+
+      // Recurse into each namespace
+      for KeyValue(name, inferredNS) in inferredNS.Namespaces do
+        let! placeholderNS =
+          match placeholderNS.Namespaces.TryFind name with
+          | None ->
+            Error(TypeError.SemanticError $"Namespace '{name}' not found")
+          | Some value -> Ok value
+
+        do! unifyPlaceholdersAndInferredTypes ctx env placeholderNS inferredNS
     }
 
   let inferModule
@@ -2782,13 +2827,7 @@ module rec Infer =
       let! newEnv, inferredNS =
         inferDeclDefinitions ctx newEnv placeholderNS decls
 
-      // Unify each binding with its prebinding
-      for KeyValue(name, inferredBinding) in inferredNS.Values do
-        let! placeholderBinding = placeholderNS.GetBinding name
-        // Checks that the inferredType can be assigned to the placeholderType
-        let placeholderType, _ = placeholderBinding
-        let inferredType, _ = inferredBinding
-        do! unify ctx newEnv None placeholderType inferredType
+      do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
 
       // Prune any functions before generalizing, this avoids
       // issues with mutually recursive functions being generalized

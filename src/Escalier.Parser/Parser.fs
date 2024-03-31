@@ -12,6 +12,7 @@ module Parser =
   let stmt, stmtRef = createParserForwardedToRef<Stmt, unit> ()
   let pattern, patternRef = createParserForwardedToRef<Pattern, unit> ()
   let typeAnn, typeAnnRef = createParserForwardedToRef<TypeAnn, unit> ()
+  let decl, declRef = createParserForwardedToRef<Decl, unit> ()
 
   let blockComment: Parser<unit, unit> =
     between
@@ -1063,6 +1064,18 @@ module Parser =
               Variants = variants }
         Span = span }
 
+  let private namespaceDecl: Parser<Decl, unit> =
+    pipe4
+      getPosition
+      (keyword "namespace" >>. ident)
+      (between (strWs "{") (strWs "}") (many decl))
+      getPosition
+    <| fun star name decls stop ->
+      let kind = NamespaceDecl { Name = name; Body = decls }
+      let span = { Start = star; Stop = stop }
+
+      { Kind = kind; Span = span }
+
   let private forLoop =
     pipe5
       getPosition
@@ -1092,11 +1105,7 @@ module Parser =
 
   let _stmt =
     choice
-      [ varDecl |> declStmt
-        attempt fnDecl |> declStmt
-        // classDecl |> declStmt
-        typeDecl |> declStmt
-        enumDecl |> declStmt
+      [ attempt decl |> declStmt
         returnStmt
         forLoop
 
@@ -1737,8 +1746,9 @@ module Parser =
         declare |>> ScriptItem.Stmt
         _stmt |>> ScriptItem.Stmt ]
 
-  let decl: Parser<Decl, unit> =
-    choice [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl ]
+  declRef.Value <-
+    choice
+      [ varDecl; fnDecl (* classDecl; *) ; typeDecl; enumDecl; namespaceDecl ]
 
   let ambient: Parser<Decl, unit> =
     withSpan (

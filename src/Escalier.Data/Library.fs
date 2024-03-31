@@ -438,12 +438,15 @@ module Syntax =
       TypeParams: option<list<TypeParam>>
       Variants: list<EnumVariant> }
 
+  type NamespaceDecl = { Name: string; Body: list<Decl> }
+
   type DeclKind =
     | VarDecl of VarDecl
     | FnDecl of FnDecl
     | ClassDecl of ClassDecl
     | TypeDecl of TypeDecl
     | EnumDecl of EnumDecl
+    | NamespaceDecl of NamespaceDecl
 
   type Decl = { Kind: DeclKind; Span: Span }
 

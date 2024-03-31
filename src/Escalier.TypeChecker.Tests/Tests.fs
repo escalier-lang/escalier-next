@@ -8,6 +8,7 @@ open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.Unify
 
 open TestUtils
 
@@ -450,6 +451,41 @@ let InferRecursiveGenericObjectType () =
       Assert.Value(env, "node", "Node<number>")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferRecursiveGenericObjectTypeInModule () =
+  let result =
+    result {
+      let src =
+        """
+        type Node<T> = {
+          value: T,
+          left?: Node<T>,
+          right?: Node<T>
+        };
+
+        let node: Node<number> = {
+          value: 5,
+          left: {
+            value: 10
+          },
+          right: {
+            value: 15,
+            left: {
+              value: 20
+            }
+          }
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "node", "Node<number>")
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1074,4 +1110,73 @@ let InferLetElseWithTypeAnnotation () =
       Assert.Value(env, "x", "number")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferNamespaceInScript () =
+  let result =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = Bar.x;
+          type Baz = string;
+        }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        type Baz = Foo.Baz;
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+      Assert.Type(env, "Baz", "Foo.Baz")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "string")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferNamespaceInModule () =
+  let result =
+    result {
+      let src =
+        """
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        type Baz = Foo.Baz;
+        namespace Foo {
+          let y = Bar.x;
+          namespace Bar {
+            let x = 5;
+          }
+          type Baz = string;
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+      Assert.Type(env, "Baz", "Foo.Baz")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "string")
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)

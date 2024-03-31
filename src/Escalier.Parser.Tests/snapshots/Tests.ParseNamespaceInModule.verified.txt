@@ -1,0 +1,67 @@
+﻿input: 
+    namespace Foo {
+      namespace Bar {
+        let x = 5;
+      }
+      let y = 10;
+      type Baz = number;
+    }
+    
+output: Ok
+  { Items =
+     [Decl
+        { Kind =
+           NamespaceDecl
+             { Name = "Foo"
+               Body =
+                [{ Kind =
+                    NamespaceDecl
+                      { Name = "Bar"
+                        Body =
+                         [{ Kind =
+                             VarDecl
+                               { Declare = false
+                                 Pattern = { Kind = Ident { Name = "x"
+                                                            IsMut = false
+                                                            Assertion = None }
+                                             Span = { Start = (Ln: 4, Col: 13)
+                                                      Stop = (Ln: 4, Col: 15) }
+                                             InferredType = None }
+                                 TypeAnn = None
+                                 Init =
+                                  Some { Kind = Literal (Number (Int 5))
+                                         Span = { Start = (Ln: 4, Col: 17)
+                                                  Stop = (Ln: 4, Col: 18) }
+                                         InferredType = None }
+                                 Else = None }
+                            Span = { Start = (Ln: 4, Col: 9)
+                                     Stop = (Ln: 5, Col: 7) } }] }
+                   Span = { Start = (Ln: 3, Col: 7)
+                            Stop = (Ln: 6, Col: 7) } };
+                 { Kind =
+                    VarDecl { Declare = false
+                              Pattern = { Kind = Ident { Name = "y"
+                                                         IsMut = false
+                                                         Assertion = None }
+                                          Span = { Start = (Ln: 6, Col: 11)
+                                                   Stop = (Ln: 6, Col: 13) }
+                                          InferredType = None }
+                              TypeAnn = None
+                              Init = Some { Kind = Literal (Number (Int 10))
+                                            Span = { Start = (Ln: 6, Col: 15)
+                                                     Stop = (Ln: 6, Col: 17) }
+                                            InferredType = None }
+                              Else = None }
+                   Span = { Start = (Ln: 6, Col: 7)
+                            Stop = (Ln: 7, Col: 7) } };
+                 { Kind =
+                    TypeDecl { Name = "Baz"
+                               TypeAnn = { Kind = Keyword Number
+                                           Span = { Start = (Ln: 7, Col: 18)
+                                                    Stop = (Ln: 7, Col: 24) }
+                                           InferredType = None }
+                               TypeParams = None }
+                   Span = { Start = (Ln: 7, Col: 7)
+                            Stop = (Ln: 8, Col: 5) } }] }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 9, Col: 5) } }] }

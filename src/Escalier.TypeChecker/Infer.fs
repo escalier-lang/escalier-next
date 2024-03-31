@@ -2165,6 +2165,61 @@ module rec Infer =
         placeholder.Type <- scheme.Type
 
         return newEnv.AddScheme typeDecl.Name scheme
+      | DeclKind.NamespaceDecl nsDecl ->
+        let mutable nsEnv = env
+
+        let! _ =
+          List.traverseResultM
+            (fun (decl: Decl) ->
+              result {
+                let! declEnv = inferDecl ctx nsEnv decl true
+                nsEnv <- declEnv
+              })
+            nsDecl.Body
+
+        let! ns = getNamespaceExports ctx nsEnv nsDecl
+        return env.AddNamespace nsDecl.Name ns
+    }
+
+  let getNamespaceExports
+    (ctx: Ctx)
+    (env: Env)
+    (nsDecl: NamespaceDecl)
+    : Result<Namespace, TypeError> =
+
+    result {
+      let mutable ns: Namespace =
+        { Name = nsDecl.Name
+          Values = Map.empty
+          Schemes = Map.empty
+          Namespaces = Map.empty }
+
+      for decl in nsDecl.Body do
+        match decl.Kind with
+        | VarDecl { Pattern = pattern } ->
+          for name in findBindingNames pattern do
+            let! t = env.GetValue name
+            let isMut = false
+            ns <- ns.AddBinding name (t, isMut)
+        | FnDecl { Name = name } ->
+          let! t = env.GetValue name
+          ns <- ns.AddBinding name (t, false) // isMut = false
+        | ClassDecl classDecl ->
+          failwith "TODO: getNamespaceExports - ClassDecl"
+        | TypeDecl { Name = name } ->
+          let! scheme = env.GetScheme(QualifiedIdent.Ident name)
+          ns <- ns.AddScheme name scheme
+        | EnumDecl { Name = name } ->
+          let! scheme = env.GetScheme(QualifiedIdent.Ident name)
+          ns <- ns.AddScheme name scheme
+          let! t = env.GetValue name
+          ns <- ns.AddBinding name (t, false) // isMut = false
+        | NamespaceDecl { Name = name } ->
+          match env.Namespace.Namespaces.TryFind name with
+          | Some value -> ns <- ns.AddNamespace name value
+          | None -> failwith $"Couldn't find namespace: '{name}'"
+
+      return ns
     }
 
   // TODO: Return an updated `Env` instead of requiring `InferScript` to do the updates
@@ -2396,6 +2451,9 @@ module rec Infer =
 
     newBindings
 
+  // Infers a placeholder scheme from a type declaration
+  // It has the proper type params but the type definition itself is a
+  // fresh type variable.
   let inferTypeDeclScheme
     (ctx: Ctx)
     (env: Env)
@@ -2535,7 +2593,7 @@ module rec Infer =
     result {
       match item with
       | ScriptItem.Import import -> return! inferImport ctx env import
-      | Stmt stmt -> return! inferStmt ctx env stmt generalize
+      | ScriptItem.Stmt stmt -> return! inferStmt ctx env stmt generalize
     }
 
   let inferScript
@@ -2559,6 +2617,182 @@ module rec Infer =
       return newEnv
     }
 
+  let inferDeclPlaceholders
+    (ctx: Ctx)
+    (env: Env)
+    (decls: list<Decl>)
+    : Result<Env * Namespace, TypeError> =
+
+    result {
+      let mutable newEnv = env
+      let mutable placeholderNS = Namespace.empty
+
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl { Pattern = pattern
+                    Init = _
+                    TypeAnn = typeAnn } ->
+          let! bindings, _ = inferPattern ctx env pattern
+
+          for KeyValue(name, binding) in bindings do
+            placeholderNS <- placeholderNS.AddBinding name binding
+            newEnv <- newEnv.AddValue name binding
+        | FnDecl { Declare = false
+                   Sig = fnSig
+                   Name = name } ->
+          let! f = inferFuncSig ctx newEnv fnSig
+
+          let t =
+            { Kind = TypeKind.Function f
+              Provenance = None }
+
+          placeholderNS <- placeholderNS.AddBinding name (t, false)
+          newEnv <- newEnv.AddValue name (t, false)
+        | FnDecl { Declare = true
+                   Sig = fnSig
+                   Name = name } ->
+          // TODO: dedupe with `inferDecl`
+          // TODO: capture these errors as diagnostics and infer the missing
+          // types as `never`
+          for p in fnSig.ParamList do
+            if p.TypeAnn.IsNone then
+              failwith "Ambient function declarations must be fully typed"
+
+          if fnSig.ReturnType.IsNone then
+            failwith "Ambient function declarations must be fully typed"
+
+          let! f = inferFuncSig ctx newEnv fnSig
+
+          if fnSig.Throws.IsNone then
+            f.Throws <-
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
+
+          let t =
+            { Kind = TypeKind.Function f
+              Provenance = None }
+
+          placeholderNS <- placeholderNS.AddBinding name (t, false)
+          newEnv <- newEnv.AddValue name (t, false)
+        | TypeDecl typeDecl ->
+          // TODO: replace placeholders, with a reference the actual definition
+          // once we've inferred the definition
+          let! placeholder = inferTypeDeclScheme ctx env typeDecl
+          placeholderNS <- placeholderNS.AddScheme typeDecl.Name placeholder
+          // TODO: update AddScheme to return a Result<Env, TypeError> and
+          // return an error if the name already exists since we can't redefine
+          // types.
+          newEnv <- newEnv.AddScheme typeDecl.Name placeholder
+        | NamespaceDecl nsDecl ->
+          let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
+          placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
+          newEnv <- newEnv.AddNamespace nsDecl.Name ns
+
+      return newEnv, placeholderNS
+    }
+
+  let inferDeclDefinitions
+    (ctx: Ctx)
+    (env: Env)
+    (placeholderNS: Namespace)
+    (decls: list<Decl>)
+    : Result<Env * Namespace, TypeError> =
+
+    result {
+      let mutable newEnv = env
+      let mutable inferredNS = Namespace.empty
+
+      // TODO: dedupe wtih `inferDecl`
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl varDecl ->
+          // NOTE: We explicitly don't generalize here because we want other
+          // declarations to be able to unify with any free type variables
+          // from this declaration.  We generalize things below.
+          let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
+
+          for binding in newBindings do
+            inferredNS <- inferredNS.AddBinding binding.Key binding.Value
+
+          for KeyValue(name, scheme) in newSchemes do
+            newEnv <- newEnv.AddScheme name scheme
+        | FnDecl { Declare = false
+                   Name = name
+                   Sig = fnSig
+                   Body = Some body } ->
+          // NOTE: We explicitly don't generalize here because we want other
+          // declarations to be able to unify with any free type variables
+          // from this declaration.  We generalize things below.
+          let! f = inferFunction ctx newEnv fnSig body
+
+          let t =
+            { Kind = TypeKind.Function f
+              Provenance = None }
+
+          inferredNS <- inferredNS.AddBinding name (t, false)
+        | FnDecl { Declare = true } ->
+          // Nothing to do since ambient function declarations don't have
+          // function bodies.
+          ()
+        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+          let! placeholder = placeholderNS.GetScheme name
+
+          // Handles self-recursive types
+          newEnv <- newEnv.AddScheme name placeholder
+
+          let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeAnn
+
+          // Replace the placeholder's type with the actual type.
+          // NOTE: This is a bit hacky and we may want to change this later to use
+          // `foldType` to replace any uses of the placeholder with the actual type.
+          placeholder.Type <- scheme.Type
+
+          newEnv <- newEnv.AddScheme name scheme
+        | NamespaceDecl { Name = name; Body = decls } ->
+          let! placeholderNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let mutable nsEnv = newEnv
+
+          nsEnv <- nsEnv.AddBindings placeholderNS.Values
+
+          for KeyValue(name, ns) in placeholderNS.Namespaces do
+            nsEnv <- nsEnv.AddNamespace name ns
+
+          for KeyValue(name, scheme) in placeholderNS.Schemes do
+            nsEnv <- nsEnv.AddScheme name scheme
+
+          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
+          inferredNS <- inferredNS.AddNamespace name ns
+
+      return newEnv, inferredNS
+    }
+
+  let unifyPlaceholdersAndInferredTypes
+    (ctx: Ctx)
+    (env: Env)
+    (placeholderNS: Namespace)
+    (inferredNS: Namespace)
+    : Result<unit, TypeError> =
+    result {
+      for KeyValue(name, inferredBinding) in inferredNS.Values do
+        let! placeholderBinding = placeholderNS.GetBinding name
+        // Checks that the inferredType can be assigned to the placeholderType
+        let placeholderType, _ = placeholderBinding
+        let inferredType, _ = inferredBinding
+        do! unify ctx env None placeholderType inferredType
+
+      // Recurse into each namespace
+      for KeyValue(name, inferredNS) in inferredNS.Namespaces do
+        let! placeholderNS =
+          match placeholderNS.Namespaces.TryFind name with
+          | None ->
+            Error(TypeError.SemanticError $"Namespace '{name}' not found")
+          | Some value -> Ok value
+
+        do! unifyPlaceholdersAndInferredTypes ctx env placeholderNS inferredNS
+    }
+
   let inferModule
     (ctx: Ctx)
     (env: Env)
@@ -2567,127 +2801,33 @@ module rec Infer =
     : Result<Env, TypeError> =
     result {
       let mutable newEnv = { env with Filename = filename }
-      let mutable prebindings: Map<string, Binding> = Map.empty
-      let mutable typeDecls: Map<string, Scheme> = Map.empty
 
-      for item in m.Items do
-        match item with
-        | Import import ->
-          let! importEnv = inferImport ctx newEnv import
-          newEnv <- importEnv
-        | Decl { Kind = kind } ->
-          match kind with
-          | VarDecl { Pattern = pattern
-                      Init = _
-                      TypeAnn = typeAnn } ->
-            let! bindings, _ = inferPattern ctx env pattern
+      let imports =
+        List.choose
+          (fun item ->
+            match item with
+            | Import import -> Some import
+            | _ -> None)
+          m.Items
 
-            for KeyValue(name, binding) in bindings do
-              prebindings <- prebindings.Add(name, binding)
-              newEnv <- newEnv.AddValue name binding
-          | FnDecl { Declare = false
-                     Sig = fnSig
-                     Name = name } ->
-            let! f = inferFuncSig ctx newEnv fnSig
+      for import in imports do
+        let! importEnv = inferImport ctx newEnv import
+        newEnv <- importEnv
 
-            let t =
-              { Kind = TypeKind.Function f
-                Provenance = None }
+      let decls =
+        List.choose
+          (fun item ->
+            match item with
+            | Decl decl -> Some decl
+            | _ -> None)
+          m.Items
 
-            newEnv <- newEnv.AddValue name (t, false)
-          | FnDecl { Declare = true
-                     Sig = fnSig
-                     Name = name } ->
-            // TODO: dedupe with `inferDecl`
-            // TODO: capture these errors as diagnostics and infer the missing
-            // types as `never`
-            for p in fnSig.ParamList do
-              if p.TypeAnn.IsNone then
-                failwith "Ambient function declarations must be fully typed"
+      let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
-            if fnSig.ReturnType.IsNone then
-              failwith "Ambient function declarations must be fully typed"
+      let! newEnv, inferredNS =
+        inferDeclDefinitions ctx newEnv placeholderNS decls
 
-            let! f = inferFuncSig ctx newEnv fnSig
-
-            if fnSig.Throws.IsNone then
-              f.Throws <-
-                { Kind = TypeKind.Keyword Keyword.Never
-                  Provenance = None }
-
-            let t =
-              { Kind = TypeKind.Function f
-                Provenance = None }
-
-            newEnv <- newEnv.AddValue name (t, false)
-          | TypeDecl typeDecl ->
-            // TODO: replace placeholders, with a reference the actual definition
-            // once we've inferred the definition
-            let! placeholder = inferTypeDeclScheme ctx env typeDecl
-            typeDecls <- typeDecls.Add(typeDecl.Name, placeholder)
-
-            // TODO: update AddScheme to return a Result<Env, TypeError> and
-            // return an error if the name already exists since we can't redefine
-            // types.
-            newEnv <- newEnv.AddScheme typeDecl.Name placeholder
-
-      let mutable bindings: Map<string, Binding> = Map.empty
-
-      for item in m.Items do
-        match item with
-        | Import _ -> () // handled in the first pass
-        | Decl { Kind = kind } ->
-          match kind with
-          | VarDecl varDecl ->
-            // NOTE: We explicitly don't generalize here because we want other
-            // declarations to be able to unify with any free type variables
-            // from this declaration.  We generalize things below.
-            let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
-            bindings <- FSharpPlus.Map.union bindings newBindings
-
-            for KeyValue(name, scheme) in newSchemes do
-              newEnv <- newEnv.AddScheme name scheme
-          | FnDecl { Declare = false
-                     Name = name
-                     Sig = fnSig
-                     Body = Some body } ->
-            // NOTE: We explicitly don't generalize here because we want other
-            // declarations to be able to unify with any free type variables
-            // from this declaration.  We generalize things below.
-            let! f = inferFunction ctx newEnv fnSig body
-
-            let t =
-              { Kind = TypeKind.Function f
-                Provenance = None }
-
-            bindings <- bindings.Add(name, (t, false))
-          | FnDecl { Declare = true } ->
-            // Nothing to do since ambient function declarations don't have
-            // function bodies.
-            ()
-          | TypeDecl { Name = name; TypeAnn = typeAnn } ->
-            let! scheme =
-              match typeDecls.TryFind name with
-              | None ->
-                Error(TypeError.SemanticError $"Type '{name}' not found")
-              | Some value -> Ok value
-
-            // Handles self-recursive types
-            newEnv <- newEnv.AddScheme name scheme
-
-            let! scheme = inferTypeDeclDefn ctx newEnv scheme typeAnn
-            newEnv <- newEnv.AddScheme name scheme
-
-      // Unify each binding with its prebinding
-      for KeyValue(name, binding) in bindings do
-
-        match prebindings.TryFind(name) with
-        | Some prebinding ->
-          // QUESTION: Which direction should we unify in?
-          let (t1, _) = prebinding
-          let (t2, _) = binding
-          do! unify ctx newEnv None t1 t2
-        | None -> ()
+      do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
 
       // Prune any functions before generalizing, this avoids
       // issues with mutually recursive functions being generalized
@@ -2698,7 +2838,7 @@ module rec Infer =
       // }
 
       // Generalize any functions.
-      let bindings = generalizeBindings bindings
+      let bindings = generalizeBindings inferredNS.Values
       return newEnv.AddBindings bindings
     }
 

@@ -854,3 +854,39 @@ let ParseFragment () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseNamespaceInScript () =
+  let src =
+    """
+    namespace Foo {
+      namespace Bar {
+        let x = 5;
+      }
+      let y = 10;
+      type Baz = number;
+    }
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseNamespaceInModule () =
+  let src =
+    """
+    namespace Foo {
+      namespace Bar {
+        let x = 5;
+      }
+      let y = 10;
+      type Baz = number;
+    }
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

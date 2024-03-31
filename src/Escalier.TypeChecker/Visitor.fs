@@ -97,6 +97,22 @@ module rec ExprVisitor =
 
     walk expr
 
+  let walkDecl (visitor: SyntaxVisitor) (decl: Decl) : unit =
+    match decl.Kind with
+    | DeclKind.VarDecl { Init = Some init } ->
+      // TODO: walk typeAnn
+      walkExpr visitor init
+    | DeclKind.FnDecl { Body = Some(BlockOrExpr.Block block) } ->
+      List.iter (walkStmt visitor) block.Stmts
+    | DeclKind.TypeDecl { TypeAnn = typeAnn } ->
+      // TODO: walk type params
+      walkTypeAnn visitor typeAnn
+    | DeclKind.EnumDecl _ ->
+      // TODO: walk enum variants
+      ()
+    | DeclKind.NamespaceDecl { Body = body } ->
+      List.iter (walkDecl visitor) body
+
   let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
     let rec walk (stmt: Stmt) : unit =
       if visitor.VisitStmt stmt then
@@ -106,12 +122,7 @@ module rec ExprVisitor =
           walkPattern visitor left
           walkExpr visitor right
           List.iter walk body.Stmts
-        | StmtKind.Decl({ Kind = DeclKind.VarDecl { Init = Some init } }) ->
-          // TODO: walk typeAnn
-          walkExpr visitor init
-        | StmtKind.Decl({ Kind = DeclKind.TypeDecl { TypeAnn = typeAnn } }) ->
-          // TODO: walk type params
-          walkTypeAnn visitor typeAnn
+        | StmtKind.Decl decl -> walkDecl visitor decl
         | StmtKind.Return exprOption ->
           Option.iter (walkExpr visitor) exprOption
 

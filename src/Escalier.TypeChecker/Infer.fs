@@ -2625,7 +2625,7 @@ module rec Infer =
 
     result {
       let mutable newEnv = env
-      let mutable placeholderNS: Namespace = Namespace.empty
+      let mutable placeholderNS = Namespace.empty
 
       for decl in decls do
         match decl.Kind with
@@ -2687,6 +2687,67 @@ module rec Infer =
       return newEnv, placeholderNS
     }
 
+  let inferDeclDefinitions
+    (ctx: Ctx)
+    (env: Env)
+    (placeholderNS: Namespace)
+    (decls: list<Decl>)
+    : Result<Env * Namespace, TypeError> =
+
+    result {
+      let mutable newEnv = env
+      let mutable inferredNS = Namespace.empty
+
+      // TODO: dedupe wtih `inferDecl`
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl varDecl ->
+          // NOTE: We explicitly don't generalize here because we want other
+          // declarations to be able to unify with any free type variables
+          // from this declaration.  We generalize things below.
+          let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
+
+          for binding in newBindings do
+            inferredNS <- inferredNS.AddBinding binding.Key binding.Value
+
+          for KeyValue(name, scheme) in newSchemes do
+            newEnv <- newEnv.AddScheme name scheme
+        | FnDecl { Declare = false
+                   Name = name
+                   Sig = fnSig
+                   Body = Some body } ->
+          // NOTE: We explicitly don't generalize here because we want other
+          // declarations to be able to unify with any free type variables
+          // from this declaration.  We generalize things below.
+          let! f = inferFunction ctx newEnv fnSig body
+
+          let t =
+            { Kind = TypeKind.Function f
+              Provenance = None }
+
+          inferredNS <- inferredNS.AddBinding name (t, false)
+        | FnDecl { Declare = true } ->
+          // Nothing to do since ambient function declarations don't have
+          // function bodies.
+          ()
+        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+          let! placeholder = placeholderNS.GetScheme name
+
+          // Handles self-recursive types
+          newEnv <- newEnv.AddScheme name placeholder
+
+          let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeAnn
+
+          // Replace the placeholder's type with the actual type.
+          // NOTE: This is a bit hacky and we may want to change this later to use
+          // `foldType` to replace any uses of the placeholder with the actual type.
+          placeholder.Type <- scheme.Type
+
+          newEnv <- newEnv.AddScheme name scheme
+
+      return newEnv, inferredNS
+    }
+
   let inferModule
     (ctx: Ctx)
     (env: Env)
@@ -2718,69 +2779,16 @@ module rec Infer =
 
       let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
-      let mutable newEnv = newEnv
-      let mutable bindings: Map<string, Binding> = Map.empty
-
-      let decls =
-        List.choose
-          (fun item ->
-            match item with
-            | Decl decl -> Some decl
-            | _ -> None)
-          m.Items
-
-      // TODO: dedupe wtih `inferDecl`
-      for decl in decls do
-        match decl.Kind with
-        | VarDecl varDecl ->
-          // NOTE: We explicitly don't generalize here because we want other
-          // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things below.
-          let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
-          bindings <- FSharpPlus.Map.union bindings newBindings
-
-          for KeyValue(name, scheme) in newSchemes do
-            newEnv <- newEnv.AddScheme name scheme
-        | FnDecl { Declare = false
-                   Name = name
-                   Sig = fnSig
-                   Body = Some body } ->
-          // NOTE: We explicitly don't generalize here because we want other
-          // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things below.
-          let! f = inferFunction ctx newEnv fnSig body
-
-          let t =
-            { Kind = TypeKind.Function f
-              Provenance = None }
-
-          bindings <- bindings.Add(name, (t, false))
-        | FnDecl { Declare = true } ->
-          // Nothing to do since ambient function declarations don't have
-          // function bodies.
-          ()
-        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
-          let! placeholder = placeholderNS.GetScheme name
-
-          // Handles self-recursive types
-          newEnv <- newEnv.AddScheme name placeholder
-
-          let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeAnn
-
-          // Replace the placeholder's type with the actual type.
-          // NOTE: This is a bit hacky and we may want to change this later to use
-          // `foldType` to replace any uses of the placeholder with the actual type.
-          placeholder.Type <- scheme.Type
-
-          newEnv <- newEnv.AddScheme name scheme
+      let! newEnv, inferredNS =
+        inferDeclDefinitions ctx newEnv placeholderNS decls
 
       // Unify each binding with its prebinding
-      for KeyValue(name, binding) in bindings do
-        let! prebinding = placeholderNS.GetBinding name
-        // QUESTION: Which direction should we unify in?
-        let t1, _ = prebinding
-        let t2, _ = binding
-        do! unify ctx newEnv None t1 t2
+      for KeyValue(name, inferredBinding) in inferredNS.Values do
+        let! placeholderBinding = placeholderNS.GetBinding name
+        // Checks that the inferredType can be assigned to the placeholderType
+        let placeholderType, _ = placeholderBinding
+        let inferredType, _ = inferredBinding
+        do! unify ctx newEnv None placeholderType inferredType
 
       // Prune any functions before generalizing, this avoids
       // issues with mutually recursive functions being generalized
@@ -2791,7 +2799,7 @@ module rec Infer =
       // }
 
       // Generalize any functions.
-      let bindings = generalizeBindings bindings
+      let bindings = generalizeBindings inferredNS.Values
       return newEnv.AddBindings bindings
     }
 

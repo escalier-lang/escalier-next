@@ -1,0 +1,34 @@
+﻿input: 
+    interface Array<T> {
+      [K]: T for K in number,
+    }
+    
+output: Ok
+  { Items =
+     [Decl
+        { Kind =
+           InterfaceDecl
+             { Name = "Array"
+               TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 21)
+                                             Stop = (Ln: 2, Col: 22) }
+                                    Name = "T"
+                                    Constraint = None
+                                    Default = None }]
+               Elems =
+                [Mapped
+                   { TypeParam =
+                      { Name = "K"
+                        Constraint = { Kind = Keyword Number
+                                       Span = { Start = (Ln: 3, Col: 23)
+                                                Stop = (Ln: 3, Col: 29) }
+                                       InferredType = None } }
+                     Name = None
+                     TypeAnn = { Kind = TypeRef { Ident = Ident "T"
+                                                  TypeArgs = None }
+                                 Span = { Start = (Ln: 3, Col: 12)
+                                          Stop = (Ln: 3, Col: 14) }
+                                 InferredType = None }
+                     Optional = None
+                     Readonly = None }] }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 5, Col: 5) } }] }

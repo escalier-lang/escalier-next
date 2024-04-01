@@ -300,6 +300,7 @@ module rec Codegen =
           | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
           // Ignore types when generating JS code
           | NamespaceDecl(_) -> failwith "TODO: buildBlock - NamespaceDecl"
+          | InterfaceDecl(_) -> failwith "TODO: buildBlock - InterfaceDecl"
         | StmtKind.Return expr -> failwith "TODO: buildBlock - Return"
         | StmtKind.For(left, right, body) -> failwith "TODO: buildBlock - For"
 
@@ -443,6 +444,8 @@ module rec Codegen =
           | EnumDecl(_) -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl(_) ->
             failwith "TODO: buildModuleTypes - NamespaceDecl"
+          | InterfaceDecl(_) ->
+            failwith "TODO: buildModuleTypes - InterfaceDecl"
         | _ -> ()
 
     { Body = List.rev items

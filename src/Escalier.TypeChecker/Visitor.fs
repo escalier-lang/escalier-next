@@ -139,6 +139,7 @@ module rec ExprVisitor =
     | DeclKind.NamespaceDecl { Body = body } ->
       List.iter (walkDecl visitor) body
     | DeclKind.ClassDecl(_) -> failwith "TODO: walkDecl - ClassDecl"
+    | DeclKind.InterfaceDecl(_) -> failwith "TODO: walkDecl - InterfaceDecl"
 
   let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
     let rec walk (stmt: Stmt) : unit =

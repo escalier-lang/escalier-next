@@ -1508,7 +1508,6 @@ module rec Infer =
                   $"TODO: unhandled keyword type - {keyword}"
               )
         | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
-          // TODO: dedupe with inferDecl
           let! elems = List.traverseResultM (inferObjElem ctx env) elems
 
           return
@@ -2231,7 +2230,6 @@ module rec Infer =
 
         let getType (env: Env) : Result<Type, TypeError> =
           result {
-            // TODO: dedupe with inferTypeAnn
             let! elems = List.traverseResultM (inferObjElem ctx env) elems
 
             let kind =
@@ -2905,7 +2903,6 @@ module rec Infer =
 
           let getType (env: Env) : Result<Type, TypeError> =
             result {
-              // TODO: dedupe with inferTypeAnn
               let! elems = List.traverseResultM (inferObjElem ctx env) elems
 
               let kind =

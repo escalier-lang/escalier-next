@@ -1445,6 +1445,7 @@ module rec Infer =
                   $"TODO: unhandled keyword type - {keyword}"
               )
         | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
+          // TODO: dedupe with inferDecl
           let! elems =
             List.traverseResultM
               (fun (elem: ObjTypeAnnElem) ->
@@ -2180,13 +2181,17 @@ module rec Infer =
 
         return newEnv
       | DeclKind.TypeDecl typeDecl ->
-        let! placeholder = inferTypeDeclScheme ctx env typeDecl
+        let! placeholder =
+          inferTypeDeclPlaceholderScheme ctx env typeDecl.TypeParams
+
         let mutable newEnv = env
 
         // Handles self-recursive types
         newEnv <- newEnv.AddScheme typeDecl.Name placeholder
 
-        let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeDecl.TypeAnn
+        let! scheme =
+          inferTypeDeclDefn ctx newEnv placeholder (fun env ->
+            inferTypeAnn ctx env typeDecl.TypeAnn)
 
         // Replace the placeholder's type with the actual type.
         // NOTE: This is a bit hacky and we may want to change this later to use
@@ -2208,9 +2213,134 @@ module rec Infer =
 
         let! ns = getNamespaceExports ctx nsEnv nsDecl
         return env.AddNamespace nsDecl.Name ns
-      | DeclKind.InterfaceDecl(_) ->
-        return!
-          Error(TypeError.NotImplemented "TODO: inferDecl - InterfaceDecl")
+      | DeclKind.InterfaceDecl { Name = name
+                                 TypeParams = typeParams
+                                 Elems = elems } ->
+        let! placeholder = inferTypeDeclPlaceholderScheme ctx env typeParams
+
+        let mutable newEnv = env
+
+        let existingScheme =
+          match env.GetScheme(QualifiedIdent.Ident name) with
+          | Ok scheme -> Some scheme
+          | Error _ -> None
+
+        // Handles self-recursive types
+        newEnv <- newEnv.AddScheme name placeholder
+
+        let getType (env: Env) : Result<Type, TypeError> =
+          result {
+            // TODO: dedupe with inferTypeAnn
+            let! elems =
+              List.traverseResultM
+                (fun (elem: ObjTypeAnnElem) ->
+                  result {
+                    match elem with
+                    | ObjTypeAnnElem.Property { Name = name
+                                                TypeAnn = typeAnn
+                                                Optional = optional
+                                                Readonly = readonly } ->
+                      let! t = inferTypeAnn ctx env typeAnn
+                      let! name = inferPropName ctx env name
+
+                      return
+                        Property
+                          { Name = name
+                            Type = t
+                            Optional = optional
+                            Readonly = readonly }
+                    | ObjTypeAnnElem.Callable functionType ->
+                      let! f = inferFunctionType ctx env functionType
+                      return Callable f
+                    | ObjTypeAnnElem.Constructor functionType ->
+                      let! f = inferFunctionType ctx env functionType
+                      return Constructor f
+                    | ObjTypeAnnElem.Method { Name = _; Type = _ } ->
+                      return! Error(TypeError.NotImplemented "todo")
+                    | ObjTypeAnnElem.Getter { Name = _
+                                              ReturnType = _
+                                              Throws = _ } ->
+                      return! Error(TypeError.NotImplemented "todo")
+                    | ObjTypeAnnElem.Setter { Name = _; Param = _; Throws = _ } ->
+                      return! Error(TypeError.NotImplemented "todo")
+                    | ObjTypeAnnElem.Mapped mapped ->
+                      let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint
+
+                      let param =
+                        { Name = mapped.TypeParam.Name
+                          Constraint = c }
+
+                      let newEnv =
+                        env.AddScheme
+                          param.Name
+                          { TypeParams = None
+                            Type = c
+                            IsTypeParam = true }
+
+                      let! typeAnn = inferTypeAnn ctx newEnv mapped.TypeAnn
+
+                      let! nameType =
+                        match mapped.Name with
+                        | Some(name) ->
+                          inferTypeAnn ctx newEnv name |> Result.map Some
+                        | None -> Ok None
+
+                      return
+                        Mapped
+                          { TypeParam = param
+                            NameType = nameType
+                            TypeAnn = typeAnn
+                            Optional = mapped.Optional
+                            Readonly = mapped.Readonly }
+                  })
+                elems
+
+            let kind =
+              TypeKind.Object
+                { Elems = elems
+                  Immutable = false
+                  Interface = true }
+
+            return { Kind = kind; Provenance = None }
+          }
+
+        let! newScheme = inferTypeDeclDefn ctx newEnv placeholder getType
+
+        let mergedScheme =
+          match existingScheme with
+          | Some existingScheme ->
+            match existingScheme.Type.Kind, newScheme.Type.Kind with
+            | TypeKind.Object { Elems = existingElems },
+              TypeKind.Object { Elems = newElems } ->
+              let mergedElems = existingElems @ newElems
+
+              let kind =
+                TypeKind.Object
+                  { Elems = mergedElems
+                    Immutable = false
+                    Interface = false }
+
+              // TODO: suport multiple provenances
+              let t = { Kind = kind; Provenance = None }
+
+              // We modify the existing scheme in place so that existing values
+              // with this type are updated.
+              existingScheme.Type <- t
+            | _ ->
+              printfn $"Name = {name}"
+              printfn $"existingScheme: {existingScheme}"
+              printfn $"scheme: {newScheme}"
+              failwith "SemanticError: merge interface types"
+
+            existingScheme
+          | None -> newScheme
+
+        // Replace the placeholder's type with the actual type.
+        // NOTE: This is a bit hacky and we may want to change this later to use
+        // `foldType` to replace any uses of the placeholder with the actual type.
+        placeholder.Type <- mergedScheme.Type
+
+        return newEnv.AddScheme name mergedScheme
     }
 
   let getNamespaceExports
@@ -2487,16 +2617,11 @@ module rec Infer =
   // Infers a placeholder scheme from a type declaration
   // It has the proper type params but the type definition itself is a
   // fresh type variable.
-  let inferTypeDeclScheme
+  let inferTypeDeclPlaceholderScheme
     (ctx: Ctx)
     (env: Env)
-    (typeDecl: TypeDecl)
+    (typeParams: option<list<Syntax.TypeParam>>)
     : Result<Scheme, TypeError> =
-
-    let { Name = _
-          TypeAnn = _
-          TypeParams = typeParams } =
-      typeDecl
 
     result {
       let! typeParams, _ = inferTypeParams ctx env typeParams
@@ -2513,7 +2638,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (scheme: Scheme)
-    (typeAnn: TypeAnn)
+    (getType: Env -> Result<Type, TypeError>)
     : Result<Scheme, TypeError> =
 
     result {
@@ -2534,7 +2659,7 @@ module rec Infer =
                 Type = unknown
                 IsTypeParam = true }
 
-      let! t = inferTypeAnn ctx newEnv typeAnn
+      let! t = getType newEnv
       return { scheme with Type = t }
     }
 
@@ -2720,7 +2845,9 @@ module rec Infer =
         | TypeDecl typeDecl ->
           // TODO: replace placeholders, with a reference the actual definition
           // once we've inferred the definition
-          let! placeholder = inferTypeDeclScheme ctx env typeDecl
+          let! placeholder =
+            inferTypeDeclPlaceholderScheme ctx env typeDecl.TypeParams
+
           placeholderNS <- placeholderNS.AddScheme typeDecl.Name placeholder
           // TODO: update AddScheme to return a Result<Env, TypeError> and
           // return an error if the name already exists since we can't redefine
@@ -2797,7 +2924,9 @@ module rec Infer =
           // Handles self-recursive types
           newEnv <- newEnv.AddScheme name placeholder
 
-          let! scheme = inferTypeDeclDefn ctx newEnv placeholder typeAnn
+          let! scheme =
+            inferTypeDeclDefn ctx newEnv placeholder (fun env ->
+              inferTypeAnn ctx env typeAnn)
 
           // Replace the placeholder's type with the actual type.
           // NOTE: This is a bit hacky and we may want to change this later to use

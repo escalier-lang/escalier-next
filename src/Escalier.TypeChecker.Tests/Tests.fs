@@ -1181,7 +1181,6 @@ let InferNamespaceInModule () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-
 [<Fact>]
 let InferInterfaceInScript () =
   let result =
@@ -1197,6 +1196,29 @@ let InferInterfaceInScript () =
         """
 
       let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Point", "{x: number, y: number}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferInterfaceInModule () =
+  let result =
+    result {
+      let src =
+        """
+        interface Point {
+          x: number,
+        }
+        interface Point {
+          y: number,
+        }
+        """
+
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")

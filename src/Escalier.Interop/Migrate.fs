@@ -68,6 +68,134 @@ module rec Migrate =
 
     expr
 
+  let makeSelfFuncParam () : FuncParam<TypeAnn> =
+    let ident =
+      { Name = "self"
+        IsMut = false
+        Assertion = None }
+
+    let pattern: Syntax.Pattern =
+      { Kind = PatternKind.Ident ident
+        Span = DUMMY_SPAN
+        InferredType = None }
+
+    let kind =
+      { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
+        TypeRef.TypeArgs = None }
+      |> TypeRef
+
+    let selfTypeAnn =
+      { Kind = kind
+        Span = DUMMY_SPAN
+        InferredType = None }
+
+    let self: Syntax.FuncParam<TypeAnn> =
+      { Pattern = pattern
+        TypeAnn = selfTypeAnn
+        Optional = false }
+
+    self
+
+  let migrateTypeElement (elem: TsTypeElement) : Syntax.ObjTypeAnnElem =
+    match elem with
+    | TsCallSignatureDecl _ -> failwith "TODO: call signature"
+    | TsConstructSignatureDecl _ -> failwith "TODO: construct signature"
+    | TsPropertySignature { Key = key
+                            TypeAnn = typeAnn
+                            Optional = optional
+                            Readonly = readonly
+                            Computed = _computed } ->
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Property
+        { Name = name
+          TypeAnn = migrateTypeAnn typeAnn
+          Optional = optional
+          Readonly = readonly }
+    | TsMethodSignature { Key = key
+                          TypeParams = typeParams
+                          Params = fnParams
+                          TypeAnn = retType
+                          Optional = _optional
+                          Computed = _computed } ->
+
+      let typeParams =
+        Option.map
+          (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+          typeParams
+
+      let retType =
+        match retType with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all method signatures must have a return type"
+
+      let f: FunctionType =
+        { TypeParams = typeParams
+          Self = Some(makeSelfFuncParam ())
+          ParamList = List.map migrateFnParam fnParams
+          ReturnType = retType
+          Throws = None
+          IsAsync = false }
+
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Method { Name = name; Type = f }
+    | TsIndexSignature _ -> failwith "TODO: index signature"
+    | TsGetterSignature { Key = key
+                          TypeAnn = retType
+                          Optional = _optional
+                          Computed = _computed } ->
+      let retType =
+        match retType with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all method signatures must have a return type"
+
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Getter
+        { Name = name
+          Self = makeSelfFuncParam ()
+          ReturnType = retType
+          Throws = None }
+    | TsSetterSignature { Key = key
+                          Param = fnParam
+                          Optional = _optional
+                          Computed = _computed } ->
+      let fnParam = migrateFnParam fnParam
+
+      let undefined: Syntax.TypeAnn =
+        { Kind = Syntax.Keyword KeywordTypeAnn.Undefined
+          Span = DUMMY_SPAN
+          InferredType = None }
+
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Setter
+        { Name = name
+          Self = makeSelfFuncParam ()
+          Param = fnParam
+          Throws = None }
+
   let migrateTypeAnn (typeAnn: TypeScript.TsTypeAnn) : Syntax.TypeAnn =
     migrateType typeAnn.TypeAnn
 
@@ -140,38 +268,7 @@ module rec Migrate =
 
         TypeAnnKind.Typeof name
       | TsType.TsTypeLit { Members = members } ->
-        let elems: list<ObjTypeAnnElem> =
-          List.map
-            (fun (m: TsTypeElement) ->
-              match m with
-              | TsCallSignatureDecl _ -> failwith "TODO: call signature"
-              | TsConstructSignatureDecl _ ->
-                failwith "TODO: construct signature"
-              | TsPropertySignature { Key = key
-                                      TypeAnn = typeAnn
-                                      Optional = optional
-                                      Readonly = readonly
-                                      Computed = _computed } ->
-                let name =
-                  match key with
-                  | Expr.Ident id -> PropName.String id.Name
-                  | Expr.Lit(Lit.Str str) -> PropName.String str.Value
-                  | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-                  | expr -> failwith "TODO: handle computed property name"
-
-                ObjTypeAnnElem.Property
-                  { Name = name
-                    TypeAnn = migrateTypeAnn typeAnn
-                    Optional = optional
-                    Readonly = readonly }
-              | TsMethodSignature _ -> failwith "TODO: method signature"
-              | TsIndexSignature _ -> failwith "TODO: index signature"
-              | TsGetterSignature _ -> failwith "TODO: getter signature"
-              | TsSetterSignature _ -> failwith "TODO: setter signature"
-
-            )
-            members
-
+        let elems: list<ObjTypeAnnElem> = List.map migrateTypeElement members
         TypeAnnKind.Object { Elems = elems; Immutable = false }
       | TsType.TsArrayType { ElemType = elem } ->
         TypeAnnKind.Array(migrateType elem)
@@ -437,7 +534,25 @@ module rec Migrate =
       | Decl.Var { Declare = declare; Decls = decls } ->
         List.map migrateDeclarator decls
       | Decl.Using _ -> failwith "TODO: migrate using"
-      | Decl.TsInterface _ -> failwith "TODO: migrate interface"
+      | Decl.TsInterface { Declare = _declare
+                           Id = ident
+                           TypeParams = typeParams
+                           Extends = _extends
+                           Body = body } ->
+        let typeParams =
+          Option.map
+            (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+            typeParams
+
+        let elems = List.map migrateTypeElement body.Body
+
+        let decl: InterfaceDecl =
+          { Name = ident.Name
+            TypeParams = typeParams
+            Elems = elems }
+
+        let kind = DeclKind.InterfaceDecl decl
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.TsTypeAlias { Declare = _declare
                            Id = ident
                            TypeParams = typeParams

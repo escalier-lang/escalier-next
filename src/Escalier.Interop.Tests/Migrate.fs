@@ -95,3 +95,41 @@ let ParseAndInferTypeAliases () =
     }
 
   Assert.True(Result.isOk res)
+
+[<Fact>]
+let ParseAndInferInterface () =
+  let res =
+    result {
+
+      let input =
+        """
+        interface Foo {
+          bar(): number;
+          baz(x: string): boolean;
+          get qux(): string;
+          set qux(x: string);
+        }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(
+        env,
+        "Foo",
+        "{bar fn (self: Self) -> number, baz fn (self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn () -> undefined}"
+      )
+    }
+
+  printfn "%A" res
+  Assert.True(Result.isOk res)

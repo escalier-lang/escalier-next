@@ -1407,6 +1407,10 @@ module rec Infer =
       | _ -> return undefined
     }
 
+  let start = FParsec.Position("", 0, 1, 1)
+  let stop = FParsec.Position("", 0, 1, 1)
+  let DUMMY_SPAN: Syntax.Span = { Start = start; Stop = stop }
+
   let inferObjElem
     (ctx: Ctx)
     (env: Env)
@@ -1434,12 +1438,44 @@ module rec Infer =
       | ObjTypeAnnElem.Constructor functionType ->
         let! f = inferFunctionType ctx env functionType
         return Constructor f
-      | ObjTypeAnnElem.Method { Name = _; Type = _ } ->
-        return! Error(TypeError.NotImplemented "todo")
-      | ObjTypeAnnElem.Getter { Name = _; ReturnType = _; Throws = _ } ->
-        return! Error(TypeError.NotImplemented "todo")
-      | ObjTypeAnnElem.Setter { Name = _; Param = _; Throws = _ } ->
-        return! Error(TypeError.NotImplemented "todo")
+      | ObjTypeAnnElem.Method { Name = name; Type = methodType } ->
+        let! f = inferFunctionType ctx env methodType
+        let! name = inferPropName ctx env name
+        return Method(name, f)
+      | ObjTypeAnnElem.Getter { Name = name
+                                ReturnType = retType
+                                Throws = throws } ->
+        let f: FunctionType =
+          { TypeParams = None
+            Self = None
+            ParamList = []
+            ReturnType = retType
+            Throws = throws
+            IsAsync = false }
+
+        let! f = inferFunctionType ctx env f
+        let! name = inferPropName ctx env name
+        return Getter(name, f)
+      | ObjTypeAnnElem.Setter { Name = name
+                                Param = fnParam
+                                Throws = throws } ->
+
+        let undefined =
+          { Kind = Keyword KeywordTypeAnn.Undefined
+            Span = DUMMY_SPAN
+            InferredType = None }
+
+        let f: FunctionType =
+          { TypeParams = None
+            Self = None
+            ParamList = []
+            ReturnType = undefined
+            Throws = throws
+            IsAsync = false }
+
+        let! f = inferFunctionType ctx env f
+        let! name = inferPropName ctx env name
+        return Setter(name, f)
       | ObjTypeAnnElem.Mapped mapped ->
         let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint
 
@@ -1670,6 +1706,22 @@ module rec Infer =
       let! typeParams, newEnv = inferTypeParams ctx env functionType.TypeParams
       let! returnType = inferTypeAnn ctx newEnv functionType.ReturnType
 
+      // TODO: add `Self` to environment when inferring interfaces and object types
+      let! self =
+        match functionType.Self with
+        | Some(self) ->
+          result {
+            let! t = inferTypeAnn ctx newEnv self.TypeAnn
+
+            let param =
+              { Pattern = patternToPattern self.Pattern
+                Type = t
+                Optional = false }
+
+            return Some(param)
+          }
+        | None -> Result.Ok None
+
       let! throws =
         match functionType.Throws with
         | Some(throws) -> inferTypeAnn ctx newEnv throws
@@ -1695,7 +1747,7 @@ module rec Infer =
 
       let f =
         { TypeParams = typeParams
-          Self = None
+          Self = self
           ParamList = paramList
           Return = returnType
           Throws = throws }
@@ -2595,6 +2647,8 @@ module rec Infer =
               { TypeParams = None
                 Type = unknown
                 IsTypeParam = true }
+
+      newEnv <- newEnv.AddScheme "Self" scheme
 
       let! t = getType newEnv
       return { scheme with Type = t }

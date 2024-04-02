@@ -1193,12 +1193,14 @@ let InferInterfaceInScript () =
         interface Point {
           y: number,
         }
+        let p: Point = {x: 5, y: 10};
         """
 
       let! ctx, env = inferScript src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")
+      Assert.Value(env, "p", "Point")
     }
 
   printfn "result = %A" result
@@ -1210,6 +1212,7 @@ let InferInterfaceInModule () =
     result {
       let src =
         """
+        let p: Point = {x: 5, y: 10};
         interface Point {
           x: number,
         }
@@ -1222,6 +1225,7 @@ let InferInterfaceInModule () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")
+      Assert.Value(env, "p", "Point")
     }
 
   printfn "result = %A" result

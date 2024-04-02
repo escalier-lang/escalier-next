@@ -501,6 +501,7 @@ module Syntax =
     | Unknown
     | Never
     | Object
+    | BigInt
 
   type FunctionType = FuncSig<TypeAnn>
 

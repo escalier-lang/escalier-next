@@ -261,6 +261,7 @@ module Parser =
   let keywordType: Parser<TsKeywordType, unit> =
     choice
       [ (strWs "any") |>> fun _ -> TsKeywordTypeKind.TsAnyKeyword
+        (strWs "intrinsic") |>> fun _ -> TsKeywordTypeKind.TsIntrinsicKeyword
         (strWs "boolean") |>> fun _ -> TsKeywordTypeKind.TsBooleanKeyword
         (strWs "bigint") |>> fun _ -> TsKeywordTypeKind.TsBigIntKeyword
         (strWs "never") |>> fun _ -> TsKeywordTypeKind.TsNeverKeyword

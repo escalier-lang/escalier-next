@@ -31,6 +31,20 @@ type CompileError = Prelude.CompileError
 
 let projectRoot = __SOURCE_DIRECTORY__
 
+let rec findNearestAncestorWithNodeModules (currentDir: string) =
+  let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+
+  if Directory.Exists(nodeModulesDir) then
+    currentDir
+  else
+    let parentDir = Directory.GetParent(currentDir)
+
+    match parentDir with
+    | null ->
+      failwith "node_modules directory not found in any ancestor directory."
+    | _ -> findNearestAncestorWithNodeModules parentDir.FullName
+
+
 [<Fact>]
 let ParseAndInferBasicDecls () =
   let res =
@@ -132,4 +146,98 @@ let ParseAndInferInterface () =
     }
 
   printfn "%A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ParseAndInferMappedType () =
+  let res =
+    result {
+      let input =
+        """
+        type Partial<T> = {
+            [P in keyof T]?: T[P];
+        };
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T})")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ParseAndInferUnorderedTypeParams () =
+  let res =
+    result {
+      let input =
+        """
+        interface ObjectConstructor {
+            freeze<T extends { [idx: string]: U | null | undefined | object; }, U extends string | bigint | number | boolean | symbol>(o: T): Readonly<T>;
+        }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(
+        env,
+        "ObjectConstructor",
+        "{freeze fn <T: {[idx]+?: U | null | undefined | object for idx in string}, U: string | bigint | number | boolean | symbol>(self: Self, mut o: T) -> Readonly<T>}"
+      )
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ParseAndInferLibEs5 () =
+  let res =
+    result {
+      let projecRoot = findNearestAncestorWithNodeModules __SOURCE_DIRECTORY__
+      let nodeModulesDir = Path.Combine(projecRoot, "node_modules")
+
+      let es5LibPath =
+        Path.Combine(nodeModulesDir, "typescript", "lib", "lib.es5.d.ts")
+
+      let input = File.ReadAllText(es5LibPath)
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(true, true)
+    }
+
+  printfn "res = %A" res
   Assert.True(Result.isOk res)

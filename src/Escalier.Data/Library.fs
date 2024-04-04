@@ -502,6 +502,7 @@ module Syntax =
     | Never
     | Object
     | BigInt
+    | Any // only used by .d.ts files
 
   type FunctionType = FuncSig<TypeAnn>
 

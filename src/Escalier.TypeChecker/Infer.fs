@@ -1528,6 +1528,7 @@ module rec Infer =
           | KeywordTypeAnn.Boolean ->
             return TypeKind.Primitive Primitive.Boolean
           | KeywordTypeAnn.Number -> return TypeKind.Primitive Primitive.Number
+          | KeywordTypeAnn.BigInt -> return TypeKind.Primitive Primitive.BigInt
           | KeywordTypeAnn.String -> return TypeKind.Primitive Primitive.String
           | KeywordTypeAnn.Symbol -> return TypeKind.Primitive Primitive.Symbol
           | KeywordTypeAnn.UniqueSymbol -> return ctx.FreshSymbol().Kind
@@ -1537,6 +1538,9 @@ module rec Infer =
           | KeywordTypeAnn.Unknown -> return TypeKind.Keyword Keyword.Unknown
           | KeywordTypeAnn.Never -> return TypeKind.Keyword Keyword.Never
           | KeywordTypeAnn.Object -> return TypeKind.Keyword Keyword.Object
+          | KeywordTypeAnn.Any ->
+            let t = ctx.FreshTypeVar None
+            return t.Kind
           | _ ->
             return!
               Error(
@@ -1544,7 +1548,19 @@ module rec Infer =
                   $"TODO: unhandled keyword type - {keyword}"
               )
         | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
-          let! elems = List.traverseResultM (inferObjElem ctx env) elems
+          let mutable newEnv = env
+
+          match newEnv.Namespace.Schemes.TryFind "Self" with
+          | Some _ -> ()
+          | None ->
+            let scheme =
+              { TypeParams = None
+                Type = ctx.FreshTypeVar None
+                IsTypeParam = false }
+
+            newEnv <- newEnv.AddScheme "Self" scheme
+
+          let! elems = List.traverseResultM (inferObjElem ctx newEnv) elems
 
           return
             TypeKind.Object
@@ -2060,6 +2076,14 @@ module rec Infer =
       let! typeParams =
         match typeParams with
         | Some(typeParams) ->
+          for { Name = name } in typeParams do
+            let scheme =
+              { TypeParams = None
+                Type = ctx.FreshTypeVar None // placeholder
+                IsTypeParam = true }
+
+            newEnv <- newEnv.AddScheme name scheme
+
           List.traverseResultM
             (fun typeParam ->
               result {
@@ -2075,6 +2099,8 @@ module rec Infer =
                           Provenance = None }
                     IsTypeParam = true }
 
+                // QUESTION: Should we updating the existing schemes or should
+                // we be updating their Type field instead?
                 newEnv <- newEnv.AddScheme typeParam.Name scheme
 
                 return typeParam

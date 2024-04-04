@@ -98,8 +98,50 @@ module rec Migrate =
 
   let migrateTypeElement (elem: TsTypeElement) : Syntax.ObjTypeAnnElem =
     match elem with
-    | TsCallSignatureDecl _ -> failwith "TODO: call signature"
-    | TsConstructSignatureDecl _ -> failwith "TODO: construct signature"
+    | TsCallSignatureDecl { Params = fnParams
+                            TypeAnn = typeAnn
+                            TypeParams = typeParams } ->
+      let typeParams =
+        Option.map
+          (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+          typeParams
+
+      let retType =
+        match typeAnn with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all callable signatures must have a return type"
+
+      let f: FunctionType =
+        { TypeParams = typeParams
+          Self = Some(makeSelfFuncParam ())
+          ParamList = List.map migrateFnParam fnParams
+          ReturnType = retType
+          Throws = None
+          IsAsync = false }
+
+      ObjTypeAnnElem.Callable f
+    | TsConstructSignatureDecl { Params = fnParams
+                                 TypeAnn = typeAnn
+                                 TypeParams = typeParams } ->
+      let typeParams =
+        Option.map
+          (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+          typeParams
+
+      let retType =
+        match typeAnn with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all constructor signatures must have a return type"
+
+      let f: FunctionType =
+        { TypeParams = typeParams
+          Self = Some(makeSelfFuncParam ())
+          ParamList = List.map migrateFnParam fnParams
+          ReturnType = retType
+          Throws = None
+          IsAsync = false }
+
+      ObjTypeAnnElem.Constructor f
     | TsPropertySignature { Key = key
                             TypeAnn = typeAnn
                             Optional = optional
@@ -150,7 +192,28 @@ module rec Migrate =
         | expr -> failwith "TODO: handle computed property name"
 
       ObjTypeAnnElem.Method { Name = name; Type = f }
-    | TsIndexSignature _ -> failwith "TODO: index signature"
+    | TsIndexSignature { Readonly = readonly
+                         Param = typeParam
+                         TypeAnn = typeAnn } ->
+      let readonly =
+        match readonly with
+        | true -> Some Common.MappedModifier.Add
+        | false -> None // Some(MappedModifier.Remove)
+
+      let c = migrateType typeParam.Constraint
+
+      let typeParam: IndexParam =
+        { Name = typeParam.Name.Name
+          Constraint = c }
+
+      let mapped: Mapped =
+        { TypeParam = typeParam
+          Name = None // TODO: handle renaming
+          Optional = Some Common.MappedModifier.Add
+          Readonly = readonly
+          TypeAnn = migrateTypeAnn typeAnn }
+
+      ObjTypeAnnElem.Mapped mapped
     | TsGetterSignature { Key = key
                           TypeAnn = retType
                           Optional = _optional
@@ -206,7 +269,7 @@ module rec Migrate =
         match t.Kind with
         // TODO: introduce an `any` type kind that can only be used when
         // migrating .d.ts files.
-        | TsAnyKeyword -> failwith "TODO: any"
+        | TsAnyKeyword -> Keyword KeywordTypeAnn.Any
         | TsUnknownKeyword -> Keyword KeywordTypeAnn.Unknown
         | TsNumberKeyword -> Keyword KeywordTypeAnn.Number
         | TsObjectKeyword -> Keyword KeywordTypeAnn.Object
@@ -229,6 +292,7 @@ module rec Migrate =
       | TsType.TsFnOrConstructorType tsFnOrConstructorType ->
         match tsFnOrConstructorType with
         | TsFnType f ->
+          // TsFnType is shorthand for an object with only a callable signature
           let typeParams =
             Option.map
               (fun (tpd: TsTypeParamDecl) ->
@@ -247,7 +311,26 @@ module rec Migrate =
               IsAsync = false }
 
           TypeAnnKind.Function fnType
-        | TsConstructorType c -> failwith "TODO: migrate constructor type"
+        | TsConstructorType f ->
+          // TsConstructorType is shorthand for an object with only a newable signature
+          let typeParams =
+            Option.map
+              (fun (tpd: TsTypeParamDecl) ->
+                List.map migrateTypeParam tpd.Params)
+              f.TypeParams
+
+          let paramList: list<FuncParam<TypeAnn>> =
+            List.map migrateFnParam f.Params
+
+          let fnType: FunctionType =
+            { TypeParams = typeParams
+              Self = None // TODO: check if first parameter has type `Self`
+              ParamList = paramList
+              ReturnType = migrateTypeAnn f.TypeAnn
+              Throws = None
+              IsAsync = false }
+
+          TypeAnnKind.Function fnType
       | TsType.TsTypeRef { TypeName = typeName
                            TypeParams = typeParams } ->
         let typeArgs =
@@ -286,8 +369,18 @@ module rec Migrate =
         | TsIntersectionType { Types = types } ->
           let typeAnnList = List.map migrateType types
           TypeAnnKind.Intersection typeAnnList
-      | TsType.TsConditionalType _ -> failwith "Not Implemented"
-      | TsType.TsInferType _ -> failwith "Not Implemented"
+      | TsType.TsConditionalType { CheckType = check
+                                   ExtendsType = extens
+                                   TrueType = trueType
+                                   FalseType = falseType } ->
+        TypeAnnKind.Condition
+          { Check = migrateType check
+            Extends = migrateType extens
+            TrueType = migrateType trueType
+            FalseType = migrateType falseType }
+      | TsType.TsInferType { TypeParam = typeParam } ->
+        let name = typeParam.Name.Name
+        TypeAnnKind.Infer name
       | TsType.TsParenthesizedType { TypeAnn = typeAnn } ->
         let t = migrateType typeAnn
         t.Kind
@@ -299,7 +392,10 @@ module rec Migrate =
           | TsType.TsKeywordType { Kind = TsKeywordTypeKind.TsSymbolKeyword } ->
             TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
           | _ -> failwith "TODO: 'unique' is only valid with 'symbol' types"
-        | TsTypeOperatorOp.Readonly -> failwith "TODO: handle readonly types"
+        | TsTypeOperatorOp.Readonly ->
+          // TODO: handle readonly types properly
+          let t = migrateType typeAnn
+          t.Kind
       | TsType.TsIndexedAccessType { ObjType = objType
                                      IndexType = indexType
                                      Readonly = _readonly } ->
@@ -329,7 +425,9 @@ module rec Migrate =
           | None ->
             failwith "mapped types must have a constraint on the key's type"
 
-        let typeParam: IndexParam = { Name = ""; Constraint = c }
+        let typeParam: IndexParam =
+          { Name = typeParam.Name.Name
+            Constraint = c }
 
         let mapped: Mapped =
           { TypeParam = typeParam
@@ -355,8 +453,10 @@ module rec Migrate =
           let exprs: List<TypeAnn> = List.map migrateType types
 
           TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs }
-      | TsType.TsTypePredicate _ -> failwith "Not Implemented"
-      | TsType.TsImportType _ -> failwith "Not Implemented"
+      | TsType.TsTypePredicate _ ->
+        // TODO: add proper support for type predicates
+        TypeAnnKind.Keyword KeywordTypeAnn.Boolean
+      | TsType.TsImportType _ -> failwith "TODO: migrateType - TsImportType"
 
     { Kind = kind
       Span = DUMMY_SPAN
@@ -530,7 +630,44 @@ module rec Migrate =
     | Stmt.Decl decl ->
       match decl with
       | Decl.Class _ -> failwith "TODO: migrate class"
-      | Decl.Fn _ -> failwith "TODO: migrate function"
+      | Decl.Fn { Declare = _declare
+                  Id = ident
+                  Fn = f } ->
+
+        let typeParams =
+          Option.map
+            (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+            f.TypeParams
+
+        let paramList: list<FuncParam<option<TypeAnn>>> =
+          List.map
+            (fun (p: Param) ->
+              { Pattern = migratePat p.Pat
+                TypeAnn = Option.map migrateTypeAnn p.TypeAnn
+                Optional = false })
+            f.Params
+
+        let retType =
+          match f.ReturnType with
+          | Some t -> migrateTypeAnn t
+          | None -> failwith "all functions must have a return type"
+
+        let fnSig: FuncSig<option<TypeAnn>> =
+          { TypeParams = typeParams
+            Self = None
+            ParamList = paramList
+            ReturnType = Some retType
+            Throws = None
+            IsAsync = false }
+
+        let kind =
+          DeclKind.FnDecl
+            { Declare = _declare
+              Name = ident.Name
+              Sig = fnSig
+              Body = None }
+
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.Var { Declare = declare; Decls = decls } ->
         List.map migrateDeclarator decls
       | Decl.Using _ -> failwith "TODO: migrate using"
@@ -571,7 +708,32 @@ module rec Migrate =
         let kind = DeclKind.TypeDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.TsEnum _ -> failwith "TODO: migrate enum"
-      | Decl.TsModule _ -> failwith "TODO: migrate module"
+      | Decl.TsModule { Declare = _declare
+                        Global = _global
+                        Id = name
+                        Body = body } ->
+        let name: string =
+          match name with
+          | TsModuleName.Ident ident -> ident.Name
+          | TsModuleName.Str str -> str.Value
+
+        let body: list<Syntax.Decl> =
+          match body with
+          | None -> []
+          | Some body ->
+            match body with
+            | TsModuleBlock { Body = items } ->
+              List.collect
+                (fun (item: ModuleItem) ->
+                  match item with
+                  | ModuleItem.ModuleDecl decl -> [] // TODO
+                  | ModuleItem.Stmt stmt -> migrateStmt stmt)
+                items
+            | TsNamespaceDecl _tsNamespaceDecl ->
+              failwith "TODO: inferModuleBlock- TsNamespaceDecl"
+
+        let kind = DeclKind.NamespaceDecl { Name = name; Body = body }
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
 
     | _ -> failwith "only declarations are supported for now"
 
@@ -579,10 +741,15 @@ module rec Migrate =
     let items: list<Syntax.ModuleItem> =
       List.collect
         (fun (item: ModuleItem) ->
-          match item with
-          | ModuleItem.ModuleDecl decl -> [ migrateModuleDecl decl ]
-          | ModuleItem.Stmt stmt ->
-            List.map Syntax.ModuleItem.Decl (migrateStmt stmt))
+          try
+            match item with
+            | ModuleItem.ModuleDecl decl -> [ migrateModuleDecl decl ]
+            | ModuleItem.Stmt stmt ->
+              List.map Syntax.ModuleItem.Decl (migrateStmt stmt)
+          with ex ->
+            // TODO: fix all of the error messages
+            printfn $"Error migrating module item: {ex.Message}"
+            [])
         m.Body
 
     { Items = items }

@@ -238,7 +238,7 @@ let ParseAndInferFuncDecl () =
 
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ParseAndInferClassDecl () =
   let res =
     result {
@@ -263,10 +263,16 @@ let ParseAndInferClassDecl () =
         Infer.inferModule ctx env "input.esc" ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "Foo", "fn (mut x: number, mut y: string) -> boolean")
-      Assert.Type(env, "Foo", "fn (mut x: number, mut y: string) -> boolean")
+      Assert.Value(env, "Foo", "{new fn () -> Foo}")
+
+      Assert.Type(
+        env,
+        "Foo",
+        "{bar fn (self: Self, mut x: number, mut y: string) -> boolean, baz: string}"
+      )
     }
 
+  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 [<Fact>]

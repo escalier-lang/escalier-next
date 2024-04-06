@@ -422,7 +422,10 @@ module Syntax =
       Sig: FuncSig<option<TypeAnn>>
       Body: option<BlockOrExpr> }
 
-  type ClassDecl = { Name: string; Class: Class }
+  type ClassDecl =
+    { Declare: bool
+      Name: string
+      Class: Class }
 
   type TypeDecl =
     { Name: string
@@ -464,6 +467,7 @@ module Syntax =
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
+  // TODO: add support for static properties
   type Property =
     { Name: PropName
       TypeAnn: TypeAnn

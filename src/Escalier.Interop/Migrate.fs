@@ -96,6 +96,34 @@ module rec Migrate =
 
     self
 
+  let makeSelfFuncParamWithOptionalTypeann () : FuncParam<option<TypeAnn>> =
+    let ident =
+      { Name = "self"
+        IsMut = false
+        Assertion = None }
+
+    let pattern: Syntax.Pattern =
+      { Kind = PatternKind.Ident ident
+        Span = DUMMY_SPAN
+        InferredType = None }
+
+    let kind =
+      { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
+        TypeRef.TypeArgs = None }
+      |> TypeRef
+
+    let selfTypeAnn =
+      { Kind = kind
+        Span = DUMMY_SPAN
+        InferredType = None }
+
+    let self: Syntax.FuncParam<option<TypeAnn>> =
+      { Pattern = pattern
+        TypeAnn = Some selfTypeAnn
+        Optional = false }
+
+    self
+
   let migrateTypeElement (elem: TsTypeElement) : Syntax.ObjTypeAnnElem =
     match elem with
     | TsCallSignatureDecl { Params = fnParams
@@ -665,15 +693,130 @@ module rec Migrate =
 
     { Kind = kind; Span = DUMMY_SPAN }
 
+  let migrateParam (param: Param) : Syntax.FuncParam<option<TypeAnn>> =
+    { Pattern = migratePat param.Pat
+      TypeAnn = Option.map migrateTypeAnn param.TypeAnn
+      Optional = false }
+
+  let migrateClassDecl (decl: ClassDecl) : Syntax.ClassDecl =
+    let { Declare = declare
+          Ident = { Name = name }
+          Class = { TypeParams = typeParams
+                    SuperClass = superClass
+                    SuperTypeParams = superTypeParams
+                    Body = body } } =
+      decl
+
+    let elems: list<Syntax.ClassElem> =
+      List.map
+        (fun (elem: ClassMember) ->
+          match elem with
+          | ClassMember.Constructor _ ->
+            failwith "TODO: migrateClassDecl - Constructor"
+          | ClassMember.Method { Key = key
+                                 Function = f
+                                 Kind = methodKind
+                                 Accessibility = _
+                                 IsAbstract = _
+                                 IsOptional = _
+                                 IsOverride = _ } ->
+            let name =
+              match key with
+              | PropName.Ident id -> id.Name
+              | PropName.Str str -> str.Value
+              | PropName.Num num -> num.Value |> string
+              | PropName.Computed computedPropName ->
+                // TODO: update `key` to handle `unique symbol`s as well
+                failwith "TODO: computed property name"
+
+            let typeParams =
+              Option.map
+                (fun (tpd: TsTypeParamDecl) ->
+                  List.map migrateTypeParam tpd.Params)
+                f.TypeParams
+
+            let retType =
+              match f.ReturnType with
+              | Some t -> migrateTypeAnn t
+              | None ->
+                failwith "all callable signatures must have a return type"
+
+            let fnSig: FuncSig<option<TypeAnn>> =
+              { TypeParams = typeParams
+                Self = Some(makeSelfFuncParamWithOptionalTypeann ())
+                ParamList = List.map migrateParam f.Params
+                ReturnType = Some retType
+                Throws = None
+                IsAsync = false }
+
+            ClassElem.Method
+              { Name = name
+                Sig = fnSig
+                Body = None }
+          | ClassMember.PrivateMethod(_) ->
+            failwith "TODO: migrateClassDecl - PrivateMethod"
+          | ClassMember.ClassProp { Key = key
+                                    Value = _
+                                    TypeAnn = typeAnn
+                                    IsStatic = isStatic
+                                    Accessibility = _
+                                    IsAbstract = _
+                                    IsOptional = optional
+                                    IsOverride = _
+                                    Readonly = readonly
+                                    Declare = _
+                                    Definite = _ } ->
+            let name =
+              match key with
+              | PropName.Ident id -> Syntax.PropName.Ident id.Name
+              | PropName.Str str -> Syntax.PropName.String str.Value
+              | PropName.Num num -> Syntax.PropName.Number num.Value
+              | PropName.Computed computedPropName ->
+                // TODO: update `key` to handle `unique symbol`s as well
+                failwith "TODO: computed property name"
+
+            let typeAnn =
+              match typeAnn with
+              | Some t -> migrateTypeAnn t
+              | None ->
+                failwith "all class properties must have a type annotation"
+
+            ClassElem.Property
+              { Name = name
+                TypeAnn = typeAnn
+                Optional = optional
+                Readonly = readonly }
+          | ClassMember.PrivateProp(_) ->
+            failwith "TODO: migrateClassDecl - PrivateProp"
+          | ClassMember.TsIndexSignature(_) ->
+            failwith "TODO: migrateClassDecl - TsIndexSignature"
+          | ClassMember.Empty(_) -> failwith "TODO: migrateClassDecl - Empty"
+          | ClassMember.StaticBlock(_) ->
+            failwith "TODO: migrateClassDecl - StaticBlock"
+          | ClassMember.AutoAccessor(_) ->
+            failwith "TODO: migrateClassDecl - AutoAccessor")
+        body
+
+    let cls: Syntax.Class =
+      { Name = Some name
+        TypeParams = None
+        Elems = elems }
+
+    { Declare = declare
+      Name = name
+      Class = cls }
+
   // This function returns a list of declarations because a single TypeScript
   // variable declaration can declare multiple variables.
   let migrateStmt (stmt: Stmt) : list<Syntax.Decl> =
     match stmt with
     | Stmt.Decl decl ->
       match decl with
-      | Decl.Class _ ->
-        // TODO:
-        failwith "TODO: migrate class"
+      | Decl.Class decl ->
+        let decl = migrateClassDecl decl
+
+        [ { Kind = DeclKind.ClassDecl decl
+            Span = DUMMY_SPAN } ]
       | Decl.Fn { Declare = _declare
                   Id = ident
                   Fn = f } ->

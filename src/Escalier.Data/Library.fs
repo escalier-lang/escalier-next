@@ -612,14 +612,14 @@ module Type =
     | TypeAnn of Syntax.TypeAnn
     | Pattern of Syntax.Pattern
 
-  ///A type variable standing for an arbitrary type.
-  ///All type variables have a unique id, but names are only assigned lazily, when required.
+  // A type variable standing for an arbitrary type.
+  // All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
     { Id: int
       mutable Bound: option<Type>
       mutable Instance: option<Type> }
 
-  ///An n-ary type constructor which builds a new type from old
+  // An n-ary type constructor which builds a new type from old
   [<CustomEquality; NoComparison>]
   type TypeRef =
     { mutable Name: Common.QualifiedIdent

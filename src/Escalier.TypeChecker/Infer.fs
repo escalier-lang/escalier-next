@@ -340,6 +340,8 @@ module rec Infer =
                 Interface = false }
           Provenance = None }
 
+      // TODO: Make Type.Kind mutable so that we can modify the type after its
+      // been created.
       newEnv <- newEnv.AddValue "Self" (staticObjType, false)
 
       // Infer the bodies of each instance method body
@@ -472,6 +474,24 @@ module rec Infer =
             ()
           | _ -> () // TODO: handle other cases correctly
         | _ -> printfn "elem = %A" elem
+
+      let instanceElems =
+        List.map
+          (fun elem ->
+            match elem with
+            | Method(name, f) -> ObjTypeElem.Method(name, generalizeFunc f)
+            | _ -> elem)
+          instanceElems
+
+      let objType =
+        { Kind =
+            TypeKind.Object
+              { Elems = instanceElems
+                Immutable = false
+                Interface = false }
+          Provenance = None }
+
+      placeholder.Type <- objType
 
       return staticObjType, placeholder
     }

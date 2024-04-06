@@ -472,6 +472,9 @@ let InferGenericInstanceMethod () =
           fn fst(self, a, b) {
             return a;
           }
+          fn snd(a, b) {
+            return b;
+          }
         };
         """
 
@@ -479,7 +482,12 @@ let InferGenericInstanceMethod () =
 
       Assert.Empty(ctx.Diagnostics)
 
-      Assert.Type(env, "Foo", "{fst fn (self: Self, a: t7, b: t4) -> t7}")
+      // Assert.Value(
+      //   env,
+      //   "Foo",
+      //   "{new fn () -> Foo, snd fn <B, A>(a: A, b: B) -> B}"
+      // )
+      Assert.Type(env, "Foo", "{fst fn <B, A>(self: Self, a: A, b: B) -> A}")
     }
 
   Assert.False(Result.isError res)

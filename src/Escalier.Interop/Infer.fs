@@ -974,8 +974,12 @@ module rec Infer =
       let mutable newEnv = env
 
       for item in m.Body do
-        let! env = inferModuleItem ctx newEnv item
-        newEnv <- env
+        try
+          let! env = inferModuleItem ctx newEnv item
+          newEnv <- env
+        with ex ->
+          // TODO: fix all of the error messages
+          printfn $"Error migrating module item: {ex.Message}"
 
       return newEnv
     }

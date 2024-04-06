@@ -731,6 +731,7 @@ module rec TypeScript =
     | Param of Param
     | TsParamProp of TsParamProp
 
+  // TODO: replace this with TsFnParam
   type Param =
     {
       // TODO: Decorators

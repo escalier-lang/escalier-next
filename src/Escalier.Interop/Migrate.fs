@@ -1,10 +1,16 @@
 namespace Escalier.Interop
 
 open Escalier.Data
-open Escalier.Interop.TypeScript
+open Escalier.Data.Syntax
 
-module Migrate =
-  let rec migrateExpr (expr: TypeScript.Expr) : Syntax.Expr =
+open TypeScript
+
+module rec Migrate =
+  let start = FParsec.Position("", 0, 1, 1)
+  let stop = FParsec.Position("", 0, 1, 1)
+  let DUMMY_SPAN: Syntax.Span = { Start = start; Stop = stop }
+
+  let migrateExpr (expr: TypeScript.Expr) : Syntax.Expr =
 
     let kind =
       match expr with
@@ -55,13 +61,739 @@ module Migrate =
       | Expr.OptChain optChainExpr -> failwith "todo"
       | Expr.Invalid invalid -> failwith "todo"
 
-    let start = FParsec.Position("", 0, 1, 1)
-    let stop = FParsec.Position("", 0, 1, 1)
-    let span: Syntax.Span = { Start = start; Stop = stop }
-
     let expr: Syntax.Expr =
       { Kind = kind
-        Span = span
+        Span = DUMMY_SPAN
         InferredType = None }
 
     expr
+
+  let makeSelfFuncParam () : FuncParam<TypeAnn> =
+    let ident =
+      { Name = "self"
+        IsMut = false
+        Assertion = None }
+
+    let pattern: Syntax.Pattern =
+      { Kind = PatternKind.Ident ident
+        Span = DUMMY_SPAN
+        InferredType = None }
+
+    let kind =
+      { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
+        TypeRef.TypeArgs = None }
+      |> TypeRef
+
+    let selfTypeAnn =
+      { Kind = kind
+        Span = DUMMY_SPAN
+        InferredType = None }
+
+    let self: Syntax.FuncParam<TypeAnn> =
+      { Pattern = pattern
+        TypeAnn = selfTypeAnn
+        Optional = false }
+
+    self
+
+  let migrateTypeElement (elem: TsTypeElement) : Syntax.ObjTypeAnnElem =
+    match elem with
+    | TsCallSignatureDecl { Params = fnParams
+                            TypeAnn = typeAnn
+                            TypeParams = typeParams } ->
+      let typeParams =
+        Option.map
+          (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+          typeParams
+
+      let retType =
+        match typeAnn with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all callable signatures must have a return type"
+
+      let f: FunctionType =
+        { TypeParams = typeParams
+          Self = Some(makeSelfFuncParam ())
+          ParamList = List.map migrateFnParam fnParams
+          ReturnType = retType
+          Throws = None
+          IsAsync = false }
+
+      ObjTypeAnnElem.Callable f
+    | TsConstructSignatureDecl { Params = fnParams
+                                 TypeAnn = typeAnn
+                                 TypeParams = typeParams } ->
+      let typeParams =
+        Option.map
+          (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+          typeParams
+
+      let retType =
+        match typeAnn with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all constructor signatures must have a return type"
+
+      let f: FunctionType =
+        { TypeParams = typeParams
+          Self = Some(makeSelfFuncParam ())
+          ParamList = List.map migrateFnParam fnParams
+          ReturnType = retType
+          Throws = None
+          IsAsync = false }
+
+      ObjTypeAnnElem.Constructor f
+    | TsPropertySignature { Key = key
+                            TypeAnn = typeAnn
+                            Optional = optional
+                            Readonly = readonly
+                            Computed = _computed } ->
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Property
+        { Name = name
+          TypeAnn = migrateTypeAnn typeAnn
+          Optional = optional
+          Readonly = readonly }
+    | TsMethodSignature { Key = key
+                          TypeParams = typeParams
+                          Params = fnParams
+                          TypeAnn = retType
+                          Optional = _optional
+                          Computed = _computed } ->
+
+      let typeParams =
+        Option.map
+          (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+          typeParams
+
+      let retType =
+        match retType with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all method signatures must have a return type"
+
+      let f: FunctionType =
+        { TypeParams = typeParams
+          Self = Some(makeSelfFuncParam ())
+          ParamList = List.map migrateFnParam fnParams
+          ReturnType = retType
+          Throws = None
+          IsAsync = false }
+
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Method { Name = name; Type = f }
+    | TsIndexSignature { Readonly = readonly
+                         Param = typeParam
+                         TypeAnn = typeAnn } ->
+      let readonly =
+        match readonly with
+        | true -> Some Common.MappedModifier.Add
+        | false -> None // Some(MappedModifier.Remove)
+
+      let c = migrateType typeParam.Constraint
+
+      let typeParam: IndexParam =
+        { Name = typeParam.Name.Name
+          Constraint = c }
+
+      let mapped: Mapped =
+        { TypeParam = typeParam
+          Name = None // TODO: handle renaming
+          Optional = Some Common.MappedModifier.Add
+          Readonly = readonly
+          TypeAnn = migrateTypeAnn typeAnn }
+
+      ObjTypeAnnElem.Mapped mapped
+    | TsGetterSignature { Key = key
+                          TypeAnn = retType
+                          Optional = _optional
+                          Computed = _computed } ->
+      let retType =
+        match retType with
+        | Some t -> migrateTypeAnn t
+        | None -> failwith "all method signatures must have a return type"
+
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Getter
+        { Name = name
+          Self = makeSelfFuncParam ()
+          ReturnType = retType
+          Throws = None }
+    | TsSetterSignature { Key = key
+                          Param = fnParam
+                          Optional = _optional
+                          Computed = _computed } ->
+      let fnParam = migrateFnParam fnParam
+
+      let undefined: Syntax.TypeAnn =
+        { Kind = Syntax.Keyword KeywordTypeAnn.Undefined
+          Span = DUMMY_SPAN
+          InferredType = None }
+
+      let name =
+        match key with
+        | Expr.Ident id -> PropName.String id.Name
+        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
+        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
+        | expr -> failwith "TODO: handle computed property name"
+
+      ObjTypeAnnElem.Setter
+        { Name = name
+          Self = makeSelfFuncParam ()
+          Param = fnParam
+          Throws = None }
+
+  let migrateTypeAnn (typeAnn: TypeScript.TsTypeAnn) : Syntax.TypeAnn =
+    migrateType typeAnn.TypeAnn
+
+  let migrateType (t: TypeScript.TsType) : TypeAnn =
+    let kind: TypeAnnKind =
+      match t with
+      | TsType.TsKeywordType t ->
+        match t.Kind with
+        // TODO: introduce an `any` type kind that can only be used when
+        // migrating .d.ts files.
+        | TsAnyKeyword -> Keyword KeywordTypeAnn.Any
+        | TsUnknownKeyword -> Keyword KeywordTypeAnn.Unknown
+        | TsNumberKeyword -> Keyword KeywordTypeAnn.Number
+        | TsObjectKeyword -> Keyword KeywordTypeAnn.Object
+        | TsBooleanKeyword -> Keyword KeywordTypeAnn.Boolean
+        | TsBigIntKeyword -> Keyword KeywordTypeAnn.BigInt
+        | TsStringKeyword -> Keyword KeywordTypeAnn.String
+        | TsSymbolKeyword -> Keyword KeywordTypeAnn.Symbol
+        // Converting `void` to `undefined` is fine for .d.ts files but
+        // won't work if we want to convert .ts files.
+        | TsVoidKeyword -> Keyword KeywordTypeAnn.Undefined
+        | TsUndefinedKeyword -> Keyword KeywordTypeAnn.Undefined
+        | TsNullKeyword -> Keyword KeywordTypeAnn.Null
+        | TsNeverKeyword -> Keyword KeywordTypeAnn.Never
+        | TsIntrinsicKeyword -> failwith "TODO: handle intrinsic types"
+
+      | TsType.TsThisType _ ->
+        { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
+          TypeRef.TypeArgs = None }
+        |> TypeRef
+      | TsType.TsFnOrConstructorType tsFnOrConstructorType ->
+        match tsFnOrConstructorType with
+        | TsFnType f ->
+          // TsFnType is shorthand for an object with only a callable signature
+          let typeParams =
+            Option.map
+              (fun (tpd: TsTypeParamDecl) ->
+                List.map migrateTypeParam tpd.Params)
+              f.TypeParams
+
+          let paramList: list<FuncParam<TypeAnn>> =
+            List.map migrateFnParam f.Params
+
+          let fnType: FunctionType =
+            { TypeParams = typeParams
+              Self = None // TODO: check if first parameter has type `Self`
+              ParamList = paramList
+              ReturnType = migrateTypeAnn f.TypeAnn
+              Throws = None
+              IsAsync = false }
+
+          TypeAnnKind.Function fnType
+        | TsConstructorType f ->
+          // TsConstructorType is shorthand for an object with only a newable signature
+          let typeParams =
+            Option.map
+              (fun (tpd: TsTypeParamDecl) ->
+                List.map migrateTypeParam tpd.Params)
+              f.TypeParams
+
+          let paramList: list<FuncParam<TypeAnn>> =
+            List.map migrateFnParam f.Params
+
+          let fnType: FunctionType =
+            { TypeParams = typeParams
+              Self = None // TODO: check if first parameter has type `Self`
+              ParamList = paramList
+              ReturnType = migrateTypeAnn f.TypeAnn
+              Throws = None
+              IsAsync = false }
+
+          TypeAnnKind.Function fnType
+      | TsType.TsTypeRef { TypeName = typeName
+                           TypeParams = typeParams } ->
+        let typeArgs =
+          Option.map
+            (fun (tpi: TsTypeParamInstantiation) ->
+              List.map migrateType tpi.Params)
+            typeParams
+
+        { TypeRef.Ident = entityNameToQualifiedIdent typeName
+          TypeRef.TypeArgs = typeArgs }
+        |> TypeRef
+      | TsType.TsTypeQuery { ExprName = exprName
+                             TypeArgs = _typeArgs } ->
+        let name =
+          match exprName with
+          | TsEntityName entityName -> entityNameToQualifiedIdent entityName
+          | Import _ -> failwith "TODO: handle typeof import"
+
+        TypeAnnKind.Typeof name
+      | TsType.TsTypeLit { Members = members } ->
+        let elems: list<ObjTypeAnnElem> = List.map migrateTypeElement members
+        TypeAnnKind.Object { Elems = elems; Immutable = false }
+      | TsType.TsArrayType { ElemType = elem } ->
+        TypeAnnKind.Array(migrateType elem)
+      | TsType.TsTupleType { ElemTypes = elems } ->
+        let elemTypes = List.map (fun e -> migrateType e.Type) elems
+        TypeAnnKind.Tuple { Elems = elemTypes; Immutable = false }
+      | TsType.TsOptionalType _ -> failwith "TODO: migrate optional type"
+      | TsType.TsRestType { TypeAnn = typeAnn } ->
+        TypeAnnKind.Rest(migrateType typeAnn)
+      | TsType.TsUnionOrIntersectionType unionOrIntersection ->
+        match unionOrIntersection with
+        | TsUnionType { Types = types } ->
+          let typeAnnList = List.map migrateType types
+          TypeAnnKind.Union typeAnnList
+        | TsIntersectionType { Types = types } ->
+          let typeAnnList = List.map migrateType types
+          TypeAnnKind.Intersection typeAnnList
+      | TsType.TsConditionalType { CheckType = check
+                                   ExtendsType = extens
+                                   TrueType = trueType
+                                   FalseType = falseType } ->
+        TypeAnnKind.Condition
+          { Check = migrateType check
+            Extends = migrateType extens
+            TrueType = migrateType trueType
+            FalseType = migrateType falseType }
+      | TsType.TsInferType { TypeParam = typeParam } ->
+        let name = typeParam.Name.Name
+        TypeAnnKind.Infer name
+      | TsType.TsParenthesizedType { TypeAnn = typeAnn } ->
+        let t = migrateType typeAnn
+        t.Kind
+      | TsType.TsTypeOperator { Op = op; TypeAnn = typeAnn } ->
+        match op with
+        | TsTypeOperatorOp.KeyOf -> TypeAnnKind.Keyof(migrateType typeAnn)
+        | TsTypeOperatorOp.Unique ->
+          match typeAnn with
+          | TsType.TsKeywordType { Kind = TsKeywordTypeKind.TsSymbolKeyword } ->
+            TypeAnnKind.Keyword KeywordTypeAnn.UniqueSymbol
+          | _ -> failwith "TODO: 'unique' is only valid with 'symbol' types"
+        | TsTypeOperatorOp.Readonly ->
+          // TODO: handle readonly types properly
+          let t = migrateType typeAnn
+          t.Kind
+      | TsType.TsIndexedAccessType { ObjType = objType
+                                     IndexType = indexType
+                                     Readonly = _readonly } ->
+        TypeAnnKind.Index(migrateType objType, migrateType indexType)
+      | TsType.TsMappedType { Readonly = readonly
+                              TypeParam = typeParam
+                              NameType = nameType
+                              Optional = optional
+                              TypeAnn = typeAnn } ->
+        let optional =
+          match optional with
+          | Some TruePlusMinus.True -> Some Common.MappedModifier.Add
+          | Some TruePlusMinus.Plus -> Some Common.MappedModifier.Add
+          | Some TruePlusMinus.Minus -> Some Common.MappedModifier.Remove
+          | None -> None
+
+        let readonly =
+          match readonly with
+          | Some TruePlusMinus.True -> Some Common.MappedModifier.Add
+          | Some TruePlusMinus.Plus -> Some Common.MappedModifier.Add
+          | Some TruePlusMinus.Minus -> Some Common.MappedModifier.Remove
+          | None -> None
+
+        let c =
+          match typeParam.Constraint with
+          | Some c -> migrateType c
+          | None ->
+            failwith "mapped types must have a constraint on the key's type"
+
+        let typeParam: IndexParam =
+          { Name = typeParam.Name.Name
+            Constraint = c }
+
+        let mapped: Mapped =
+          { TypeParam = typeParam
+            Name = None // TODO: handle renaming
+            Optional = optional
+            Readonly = readonly
+            TypeAnn = migrateType typeAnn }
+
+        let elem: ObjTypeAnnElem = ObjTypeAnnElem.Mapped mapped
+        TypeAnnKind.Object { Elems = [ elem ]; Immutable = false }
+      | TsType.TsLitType { Lit = lit } ->
+        match lit with
+        | TsLit.Number { Value = value } ->
+          Common.Literal.Number value |> TypeAnnKind.Literal
+        | TsLit.Str { Value = value } ->
+          Common.Literal.String value |> TypeAnnKind.Literal
+        | TsLit.Bool { Value = value } ->
+          Common.Literal.Boolean value |> TypeAnnKind.Literal
+        | TsLit.Tpl { Types = types; Quasis = quasis } ->
+          let parts: List<string> =
+            List.map (fun (q: TplElement) -> q.Raw) quasis
+
+          let exprs: List<TypeAnn> = List.map migrateType types
+
+          TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs }
+      | TsType.TsTypePredicate _ ->
+        // TODO: add proper support for type predicates
+        TypeAnnKind.Keyword KeywordTypeAnn.Boolean
+      | TsType.TsImportType _ -> failwith "TODO: migrateType - TsImportType"
+
+    { Kind = kind
+      Span = DUMMY_SPAN
+      InferredType = None }
+
+  let entityNameToQualifiedIdent (name: TsEntityName) : Common.QualifiedIdent =
+    match name with
+    | TsEntityName.Identifier id -> Common.QualifiedIdent.Ident id.Name
+    | TsEntityName.TsQualifiedName { Left = left; Right = right } ->
+      Common.QualifiedIdent.Member(entityNameToQualifiedIdent left, right.Name)
+
+  let migrateTypeParam (typeParam: TypeScript.TsTypeParam) : Syntax.TypeParam =
+    { Name = typeParam.Name.Name
+      Constraint = Option.map migrateType typeParam.Constraint
+      Default = Option.map migrateType typeParam.Default
+      Span = DUMMY_SPAN }
+
+  let migrateFnParam
+    (fnParam: TypeScript.TsFnParam)
+    : Syntax.FuncParam<TypeAnn> =
+    { Pattern = migrateFnParamPattern fnParam.Pat
+      TypeAnn =
+        match fnParam.TypeAnn with
+        | Some typeAnn -> migrateTypeAnn typeAnn
+        | None -> failwith "all function parameters must have a type annotation"
+      Optional = fnParam.Optional }
+
+  let migrateFnParamPattern (pat: TypeScript.TsFnParamPat) : Pattern =
+    let kind =
+      match pat with
+      | TsFnParamPat.Ident { Id = ident } ->
+        PatternKind.Ident
+          { Name = ident.Name
+            IsMut = true
+            Assertion = None }
+      | TsFnParamPat.Object { Props = props } ->
+        let elems: list<ObjPatElem> =
+          List.map
+            (fun (prop: TypeScript.ObjectPatProp) ->
+              match prop with
+              | KeyValue { Key = key; Value = value } ->
+                let key =
+                  match key with
+                  | PropName.Ident id -> id.Name
+                  | PropName.Str str -> str.Value
+                  | PropName.Num num -> num.Value |> string
+                  | PropName.Computed computedPropName ->
+                    // TODO: update `key` to handle `unique symbol`s as well
+                    failwith "TODO: computed property name"
+
+                KeyValuePat
+                  { Key = key
+                    Value = migratePat value
+                    Default = None // TODO
+                    Span = DUMMY_SPAN }
+              | Assign { Key = key; Value = value } ->
+                ShorthandPat
+                  { Name = key.Name
+                    IsMut = true
+                    Assertion = None
+                    Default = None // TODO
+                    Span = DUMMY_SPAN }
+              | Rest { Arg = arg } ->
+                RestPat
+                  { Target = migratePat arg
+                    IsMut = true
+                    Span = DUMMY_SPAN })
+            props
+
+        PatternKind.Object { Elems = elems; Immutable = false }
+      | TsFnParamPat.Array { Elems = elems } ->
+        let elems =
+          List.map
+            (fun (elem) ->
+              match elem with
+              | Some pat -> migratePat pat
+              | None -> failwith "TODO: handle sparse array patterns")
+            elems
+
+        PatternKind.Tuple { Elems = elems; Immutable = false }
+      | TsFnParamPat.Rest restPat -> PatternKind.Rest(migratePat restPat.Arg)
+
+    { Kind = kind
+      Span = DUMMY_SPAN
+      InferredType = None }
+
+  let migratePat (pat: TypeScript.Pat) : Pattern =
+    let kind: PatternKind =
+      match pat with
+      | Pat.Ident { Id = ident } ->
+        PatternKind.Ident
+          { Name = ident.Name
+            IsMut = true
+            Assertion = None }
+      | Pat.Array { Elems = elems } ->
+        let elems =
+          List.map
+            (fun (elem) ->
+              match elem with
+              | Some pat -> migratePat pat
+              | None -> failwith "TODO: handle sparse array patterns")
+            elems
+
+        PatternKind.Tuple { Elems = elems; Immutable = false }
+      | Pat.Rest { Arg = arg } -> PatternKind.Rest(migratePat arg)
+      | Pat.Object { Props = props } ->
+        let elems: list<ObjPatElem> =
+          List.map
+            (fun (prop: TypeScript.ObjectPatProp) ->
+              match prop with
+              | KeyValue { Key = key; Value = value } ->
+                let key =
+                  match key with
+                  | PropName.Ident id -> id.Name
+                  | PropName.Str str -> str.Value
+                  | PropName.Num num -> num.Value |> string
+                  | PropName.Computed computedPropName ->
+                    // TODO: update `key` to handle `unique symbol`s as well
+                    failwith "TODO: computed property name"
+
+                KeyValuePat
+                  { Key = key
+                    Value = migratePat value
+                    Default = None // TODO
+                    Span = DUMMY_SPAN }
+              | Assign { Key = key; Value = value } ->
+                ShorthandPat
+                  { Name = key.Name
+                    IsMut = true
+                    Assertion = None
+                    Default = None // TODO
+                    Span = DUMMY_SPAN }
+              | Rest { Arg = arg } ->
+                RestPat
+                  { Target = migratePat arg
+                    IsMut = true
+                    Span = DUMMY_SPAN })
+            props
+
+        PatternKind.Object { Elems = elems; Immutable = false }
+      | Pat.Assign(_) -> failwith "TODO: handle assignment patterns"
+      | Pat.Invalid(_) -> failwith "TODO: handle invalid patterns"
+
+    { Kind = kind
+      Span = DUMMY_SPAN
+      InferredType = None }
+
+  let migrateModuleDecl (decl: ModuleDecl) : Syntax.ModuleItem =
+    match decl with
+    | ModuleDecl.Import { Specifiers = specifiers
+                          Src = src
+                          IsTypeOnly = _
+                          With = _ } ->
+      let specifiers =
+        List.map
+          (fun (specifier: ImportSpecifier) ->
+            match specifier with
+            | ImportSpecifier.Default { Local = local } ->
+              Syntax.ImportSpecifier.Named("default", Some local.Name)
+            | ImportSpecifier.Named { Local = local; Imported = imported } ->
+              match imported with
+              | Some imported ->
+                let name =
+                  match imported with
+                  | ModuleExportName.Ident id -> id.Name
+                  | ModuleExportName.Str str -> str.Value
+
+                Syntax.ImportSpecifier.Named(local.Name, Some name)
+              | None -> Syntax.ImportSpecifier.Named(local.Name, None)
+            | ImportSpecifier.Namespace { Local = local } ->
+              Syntax.ImportSpecifier.ModuleAlias local.Name)
+          specifiers
+
+      ModuleItem.Import
+        { Path = src.Value
+          Specifiers = specifiers }
+    | ModuleDecl.ExportDecl(_) ->
+      failwith "TODO: migrateModuleDecl - exportDecl"
+    | ModuleDecl.ExportNamed(_) ->
+      failwith "TODO: migrateModuleDecl - exportNamed"
+    | ModuleDecl.ExportDefaultDecl(_) ->
+      failwith "TODO: migrateModuleDecl - exportDefaultDecl"
+    | ModuleDecl.ExportDefaultExpr(_) ->
+      failwith "TODO: migrateModuleDecl - exportDefaultExpr"
+    | ModuleDecl.ExportAll(_) -> failwith "TODO: migrateModuleDecl - exportAll"
+    | ModuleDecl.TsImportEquals(_) ->
+      failwith "TODO: migrateModuleDecl - tsImportEquals"
+    | ModuleDecl.TsExportAssignment(_) ->
+      failwith "TODO: migrateModuleDecl - tsExportAssignment"
+    | ModuleDecl.TsNamespaceExport(_) ->
+      failwith "TODO: migrateModuleDecl - tsNamespaceExport"
+
+  let migrateDeclarator (decl: VarDeclarator) : Syntax.Decl =
+    let init =
+      match decl.Init with
+      | Some _expr -> failwith "TODO: variable declarator initializer"
+      | None -> None
+
+    let kind =
+      DeclKind.VarDecl
+        { Declare = true
+          Pattern = migratePat decl.Id
+          TypeAnn = Option.map migrateTypeAnn decl.TypeAnn
+          Init = init
+          Else = None }
+
+    { Kind = kind; Span = DUMMY_SPAN }
+
+  // This function returns a list of declarations because a single TypeScript
+  // variable declaration can declare multiple variables.
+  let migrateStmt (stmt: Stmt) : list<Syntax.Decl> =
+    match stmt with
+    | Stmt.Decl decl ->
+      match decl with
+      | Decl.Class _ ->
+        // TODO:
+        failwith "TODO: migrate class"
+      | Decl.Fn { Declare = _declare
+                  Id = ident
+                  Fn = f } ->
+
+        let typeParams =
+          Option.map
+            (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+            f.TypeParams
+
+        let paramList: list<FuncParam<option<TypeAnn>>> =
+          List.map
+            (fun (p: Param) ->
+              { Pattern = migratePat p.Pat
+                TypeAnn = Option.map migrateTypeAnn p.TypeAnn
+                Optional = false })
+            f.Params
+
+        let retType =
+          match f.ReturnType with
+          | Some t -> migrateTypeAnn t
+          | None -> failwith "all functions must have a return type"
+
+        let fnSig: FuncSig<option<TypeAnn>> =
+          { TypeParams = typeParams
+            Self = None
+            ParamList = paramList
+            ReturnType = Some retType
+            Throws = None
+            IsAsync = false }
+
+        let kind =
+          DeclKind.FnDecl
+            { Declare = _declare
+              Name = ident.Name
+              Sig = fnSig
+              Body = None }
+
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
+      | Decl.Var { Declare = declare; Decls = decls } ->
+        List.map migrateDeclarator decls
+      | Decl.Using _ -> failwith "TODO: migrate using"
+      | Decl.TsInterface { Declare = _declare
+                           Id = ident
+                           TypeParams = typeParams
+                           Extends = _extends
+                           Body = body } ->
+        let typeParams =
+          Option.map
+            (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+            typeParams
+
+        let elems = List.map migrateTypeElement body.Body
+
+        let decl: InterfaceDecl =
+          { Name = ident.Name
+            TypeParams = typeParams
+            Elems = elems }
+
+        let kind = DeclKind.InterfaceDecl decl
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
+      | Decl.TsTypeAlias { Declare = _declare
+                           Id = ident
+                           TypeParams = typeParams
+                           TypeAnn = typeAnn } ->
+
+        let typeParams =
+          Option.map
+            (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+            typeParams
+
+        let decl: TypeDecl =
+          { Name = ident.Name
+            TypeParams = typeParams
+            TypeAnn = migrateType typeAnn }
+
+        let kind = DeclKind.TypeDecl decl
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
+      | Decl.TsEnum _ -> failwith "TODO: migrate enum"
+      | Decl.TsModule { Declare = _declare
+                        Global = _global
+                        Id = name
+                        Body = body } ->
+        let name: string =
+          match name with
+          | TsModuleName.Ident ident -> ident.Name
+          | TsModuleName.Str str -> str.Value
+
+        let body: list<Syntax.Decl> =
+          match body with
+          | None -> []
+          | Some body ->
+            match body with
+            | TsModuleBlock { Body = items } ->
+              List.collect
+                (fun (item: ModuleItem) ->
+                  match item with
+                  | ModuleItem.ModuleDecl decl -> [] // TODO
+                  | ModuleItem.Stmt stmt -> migrateStmt stmt)
+                items
+            | TsNamespaceDecl _tsNamespaceDecl ->
+              failwith "TODO: inferModuleBlock- TsNamespaceDecl"
+
+        let kind = DeclKind.NamespaceDecl { Name = name; Body = body }
+        [ { Kind = kind; Span = DUMMY_SPAN } ]
+
+    | _ -> failwith "only declarations are supported for now"
+
+  let migrateModule (m: TypeScript.Module) : Syntax.Module =
+    let items: list<Syntax.ModuleItem> =
+      List.collect
+        (fun (item: ModuleItem) ->
+          try
+            match item with
+            | ModuleItem.ModuleDecl decl -> [ migrateModuleDecl decl ]
+            | ModuleItem.Stmt stmt ->
+              List.map Syntax.ModuleItem.Decl (migrateStmt stmt)
+          with ex ->
+            // TODO: fix all of the error messages
+            printfn $"Error migrating module item: {ex.Message}"
+            [])
+        m.Body
+
+    { Items = items }

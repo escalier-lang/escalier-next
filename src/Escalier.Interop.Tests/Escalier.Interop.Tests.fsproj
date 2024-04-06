@@ -1,78 +1,72 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-
-        <IsPackable>false</IsPackable>
-        <GenerateProgramFile>false</GenerateProgramFile>
-        <IsTestProject>true</IsTestProject>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <Content Include="..\..\node_modules\typescript\lib\tr\diagnosticMessages.generated.json">
-            <Link>lib\tr\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\es\diagnosticMessages.generated.json">
-            <Link>lib\es\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\fr\diagnosticMessages.generated.json">
-            <Link>lib\fr\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\ko\diagnosticMessages.generated.json">
-            <Link>lib\ko\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\de\diagnosticMessages.generated.json">
-            <Link>lib\de\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\pt-br\diagnosticMessages.generated.json">
-            <Link>lib\pt-br\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\zh-tw\diagnosticMessages.generated.json">
-            <Link>lib\zh-tw\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\zh-cn\diagnosticMessages.generated.json">
-            <Link>lib\zh-cn\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\ru\diagnosticMessages.generated.json">
-            <Link>lib\ru\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\cs\diagnosticMessages.generated.json">
-            <Link>lib\cs\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\it\diagnosticMessages.generated.json">
-            <Link>lib\it\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\ja\diagnosticMessages.generated.json">
-            <Link>lib\ja\diagnosticMessages.generated.json</Link>
-        </Content>
-        <Content Include="..\..\node_modules\typescript\lib\pl\diagnosticMessages.generated.json">
-            <Link>lib\pl\diagnosticMessages.generated.json</Link>
-        </Content>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0"/>
-        <PackageReference Include="Verify.Xunit" Version="22.1.4"/>
-        <PackageReference Include="xunit" Version="2.5.2"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="coverlet.collector" Version="6.0.0">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
-        <ProjectReference Include="..\Escalier.Interop\Escalier.Interop.fsproj"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <Compile Include="Tests.fs"/>
-        <Compile Include="Program.fs"/>
-    </ItemGroup>
-
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Migrate.fs" />
+    <Content Include="..\..\node_modules\typescript\lib\tr\diagnosticMessages.generated.json">
+      <Link>lib\tr\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\es\diagnosticMessages.generated.json">
+      <Link>lib\es\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\fr\diagnosticMessages.generated.json">
+      <Link>lib\fr\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\ko\diagnosticMessages.generated.json">
+      <Link>lib\ko\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\de\diagnosticMessages.generated.json">
+      <Link>lib\de\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\pt-br\diagnosticMessages.generated.json">
+      <Link>lib\pt-br\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\zh-tw\diagnosticMessages.generated.json">
+      <Link>lib\zh-tw\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\zh-cn\diagnosticMessages.generated.json">
+      <Link>lib\zh-cn\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\ru\diagnosticMessages.generated.json">
+      <Link>lib\ru\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\cs\diagnosticMessages.generated.json">
+      <Link>lib\cs\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\it\diagnosticMessages.generated.json">
+      <Link>lib\it\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\ja\diagnosticMessages.generated.json">
+      <Link>lib\ja\diagnosticMessages.generated.json</Link>
+    </Content>
+    <Content Include="..\..\node_modules\typescript\lib\pl\diagnosticMessages.generated.json">
+      <Link>lib\pl\diagnosticMessages.generated.json</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
+    <PackageReference Include="Verify.Xunit" Version="22.1.4" />
+    <PackageReference Include="xunit" Version="2.5.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj" />
+    <ProjectReference Include="..\Escalier.Interop\Escalier.Interop.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Tests.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
 </Project>

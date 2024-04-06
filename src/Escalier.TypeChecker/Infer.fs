@@ -419,7 +419,10 @@ module rec Infer =
                     Type = t }
 
               instanceElems <- prop :: instanceElems
-            | ClassElem.Constructor { Sig = fnSig; Body = body } ->
+            | ClassElem.Constructor { Body = None } ->
+              return!
+                Error(TypeError.SemanticError "Constructors must have a body")
+            | ClassElem.Constructor { Sig = fnSig; Body = Some body } ->
               let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
               let placeholderFn =
@@ -430,9 +433,11 @@ module rec Infer =
               staticMethods <-
                 (ObjTypeElem.Constructor placeholderFn, fnSig, body)
                 :: staticMethods
+            | ClassElem.Method { Body = None } ->
+              return! Error(TypeError.SemanticError "Methods must have a body")
             | ClassElem.Method { Name = name
                                  Sig = fnSig
-                                 Body = body } ->
+                                 Body = Some body } ->
               let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
               match fnSig.Self with
@@ -448,10 +453,12 @@ module rec Infer =
                    fnSig,
                    body)
                   :: instanceMethods
+            | ClassElem.Getter { Body = None } ->
+              return! Error(TypeError.SemanticError "Getters must have a body")
             | ClassElem.Getter { Name = name
                                  Self = self
                                  ReturnType = retType
-                                 Body = body } ->
+                                 Body = Some body } ->
               // TODO: handle static getters
               let fnSig: FuncSig<option<TypeAnn>> =
                 { TypeParams = None
@@ -468,10 +475,12 @@ module rec Infer =
                  fnSig,
                  body)
                 :: instanceMethods
+            | ClassElem.Setter { Body = None } ->
+              return! Error(TypeError.SemanticError "Setters must have a body")
             | ClassElem.Setter { Name = name
                                  Self = self
                                  Param = param
-                                 Body = body } ->
+                                 Body = Some body } ->
               // TODO: handle static setters
               let fnSig: FuncSig<option<TypeAnn>> =
                 { TypeParams = None

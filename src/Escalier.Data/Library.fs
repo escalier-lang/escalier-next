@@ -164,17 +164,17 @@ module Syntax =
 
   type Constructor =
     { Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
+      Body: option<BlockOrExpr> }
 
   type Method =
     { Name: string
       Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
+      Body: option<BlockOrExpr> }
 
   type Getter =
     { Name: string
       Self: FuncParam<option<TypeAnn>>
-      Body: BlockOrExpr
+      Body: option<BlockOrExpr>
       ReturnType: option<TypeAnn>
       Throws: option<TypeAnn> }
 
@@ -182,7 +182,7 @@ module Syntax =
     { Name: string
       Self: FuncParam<option<TypeAnn>>
       Param: FuncParam<option<TypeAnn>>
-      Body: BlockOrExpr
+      Body: option<BlockOrExpr>
       Throws: option<TypeAnn> }
 
   type MatchCase =

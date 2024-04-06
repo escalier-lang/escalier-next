@@ -212,6 +212,120 @@ let ParseAndInferUnorderedTypeParams () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let ParseAndInferFuncDecl () =
+  let res =
+    result {
+      let input =
+        """
+        declare function foo(x: number, y: string): boolean;
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "foo", "fn (mut x: number, mut y: string) -> boolean")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact(Skip = "TODO")>]
+let ParseAndInferClassDecl () =
+  let res =
+    result {
+      let input =
+        """
+        declare class Foo {
+          bar(x: number, y: string): boolean;
+          baz: string;
+        }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "Foo", "fn (mut x: number, mut y: string) -> boolean")
+      Assert.Type(env, "Foo", "fn (mut x: number, mut y: string) -> boolean")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ImportThirdPartyModules () =
+  let result =
+    result {
+      let input =
+        """
+        import {Globals, Property} from "csstype";
+        import * as PropTypes from "prop-types";
+        import {Interaction as SchedulerInteraction} from "scheduler/tracing";
+        
+        type AccentColor = Property.AccentColor;
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(
+        env,
+        "Globals",
+        "\"-moz-initial\" | \"inherit\" | \"initial\" | \"revert\" | \"revert-layer\" | \"unset\""
+      )
+
+      Assert.Type(
+        env,
+        "SchedulerInteraction",
+        "{__count: number, id: number, name: string, timestamp: number}"
+      )
+
+      Assert.Type(env, "AccentColor", "Property.AccentColor")
+
+      let! result =
+        Unify.expandScheme
+          ctx
+          env
+          None
+          (env.FindScheme "AccentColor")
+          Map.empty
+          None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("Globals | DataType.Color | \"auto\"", result.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let ParseAndInferLibEs5 () =
   let res =
     result {

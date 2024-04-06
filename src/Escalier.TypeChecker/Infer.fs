@@ -2174,6 +2174,7 @@ module rec Infer =
       | DeclKind.FnDecl _ ->
         return! Error(TypeError.SemanticError "Inavlid function declarations")
       | DeclKind.ClassDecl _ ->
+        // TODO:
         return! Error(TypeError.NotImplemented "TODO: inferDecl - ClassDecl")
       | DeclKind.EnumDecl { Name = name
                             TypeParams = typeParams

@@ -605,7 +605,49 @@ module rec Migrate =
       InferredType = None }
 
   let migrateModuleDecl (decl: ModuleDecl) : Syntax.ModuleItem =
-    failwith "TODO: migrateModuleDecl"
+    match decl with
+    | ModuleDecl.Import { Specifiers = specifiers
+                          Src = src
+                          IsTypeOnly = _
+                          With = _ } ->
+      let specifiers =
+        List.map
+          (fun (specifier: ImportSpecifier) ->
+            match specifier with
+            | ImportSpecifier.Default { Local = local } ->
+              Syntax.ImportSpecifier.Named("default", Some local.Name)
+            | ImportSpecifier.Named { Local = local; Imported = imported } ->
+              match imported with
+              | Some imported ->
+                let name =
+                  match imported with
+                  | ModuleExportName.Ident id -> id.Name
+                  | ModuleExportName.Str str -> str.Value
+
+                Syntax.ImportSpecifier.Named(local.Name, Some name)
+              | None -> Syntax.ImportSpecifier.Named(local.Name, None)
+            | ImportSpecifier.Namespace { Local = local } ->
+              Syntax.ImportSpecifier.ModuleAlias local.Name)
+          specifiers
+
+      ModuleItem.Import
+        { Path = src.Value
+          Specifiers = specifiers }
+    | ModuleDecl.ExportDecl(_) ->
+      failwith "TODO: migrateModuleDecl - exportDecl"
+    | ModuleDecl.ExportNamed(_) ->
+      failwith "TODO: migrateModuleDecl - exportNamed"
+    | ModuleDecl.ExportDefaultDecl(_) ->
+      failwith "TODO: migrateModuleDecl - exportDefaultDecl"
+    | ModuleDecl.ExportDefaultExpr(_) ->
+      failwith "TODO: migrateModuleDecl - exportDefaultExpr"
+    | ModuleDecl.ExportAll(_) -> failwith "TODO: migrateModuleDecl - exportAll"
+    | ModuleDecl.TsImportEquals(_) ->
+      failwith "TODO: migrateModuleDecl - tsImportEquals"
+    | ModuleDecl.TsExportAssignment(_) ->
+      failwith "TODO: migrateModuleDecl - tsExportAssignment"
+    | ModuleDecl.TsNamespaceExport(_) ->
+      failwith "TODO: migrateModuleDecl - tsNamespaceExport"
 
   let migrateDeclarator (decl: VarDeclarator) : Syntax.Decl =
     let init =
@@ -629,7 +671,9 @@ module rec Migrate =
     match stmt with
     | Stmt.Decl decl ->
       match decl with
-      | Decl.Class _ -> failwith "TODO: migrate class"
+      | Decl.Class _ ->
+        // TODO:
+        failwith "TODO: migrate class"
       | Decl.Fn { Declare = _declare
                   Id = ident
                   Fn = f } ->

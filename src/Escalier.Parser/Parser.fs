@@ -845,7 +845,7 @@ module Parser =
         | _ -> failwith "Expected `self` parameter"
 
       { Sig = funcSig
-        Body = BlockOrExpr.Block body }
+        Body = Some(BlockOrExpr.Block body) }
 
   let private method: Parser<Method, unit> =
     pipe5
@@ -882,7 +882,7 @@ module Parser =
 
       { Name = name
         Sig = funcSig
-        Body = BlockOrExpr.Block body }
+        Body = Some(BlockOrExpr.Block body) }
 
   let private getter: Parser<Getter, unit> =
     pipe5
@@ -895,7 +895,7 @@ module Parser =
     <| fun async name self (retType, throws) body ->
       { Getter.Name = name
         Self = self
-        Body = BlockOrExpr.Block body
+        Body = Some(BlockOrExpr.Block body)
         ReturnType = retType
         Throws = throws }
 
@@ -914,7 +914,7 @@ module Parser =
       { Setter.Name = name
         Self = self
         Param = param
-        Body = BlockOrExpr.Block body
+        Body = Some(BlockOrExpr.Block body)
         Throws = throws }
 
   let classProperty: Parser<ClassElem, unit> =

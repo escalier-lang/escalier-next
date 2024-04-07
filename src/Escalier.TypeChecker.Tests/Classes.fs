@@ -51,6 +51,51 @@ let InferClassWithMethods () =
 
   Assert.False(Result.isError result)
 
+[<Fact(Skip = "TODO")>]
+let InferClassWithMethodsInModule () =
+  let result =
+    result {
+      let src =
+        """
+        let Foo = class {
+          msg: string;
+          fn bar(self) {
+            return self.msg;
+          }
+          fn baz(mut self, msg: string) {
+            self.msg = msg;
+          }
+        };
+        let foo = new Foo();
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Type(
+        env,
+        "Foo",
+        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string}"
+      )
+
+      Assert.Value(env, "foo", "Foo")
+
+      let fooType, _ = env.FindValue "foo"
+
+      let! fooType =
+        expandType ctx env None Map.empty fooType
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string}",
+        fooType.ToString()
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
 [<Fact>]
 let InferClassWithConstructor () =
   let result =
@@ -413,6 +458,37 @@ let InferGenericRecursiveClass () =
 
       let! _ = inferScript src
       ()
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferGenericMethods () =
+  let res =
+    result {
+      let src =
+        """
+        let Foo = class {
+          fn fst(self, a, b) {
+            return a;
+          }
+          fn snd(a, b) {
+            return b;
+          }
+        };
+        """
+
+      let! ctx, env = inferScript src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(
+        env,
+        "Foo",
+        "{new fn () -> Foo, snd fn <A, B>(a: A, b: B) -> B}"
+      )
+
+      Assert.Type(env, "Foo", "{fst fn <B, A>(self: Self, a: A, b: B) -> A}")
     }
 
   Assert.False(Result.isError res)

@@ -164,17 +164,17 @@ module Syntax =
 
   type Constructor =
     { Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
+      Body: option<BlockOrExpr> }
 
   type Method =
     { Name: string
       Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
+      Body: option<BlockOrExpr> }
 
   type Getter =
     { Name: string
       Self: FuncParam<option<TypeAnn>>
-      Body: BlockOrExpr
+      Body: option<BlockOrExpr>
       ReturnType: option<TypeAnn>
       Throws: option<TypeAnn> }
 
@@ -182,7 +182,7 @@ module Syntax =
     { Name: string
       Self: FuncParam<option<TypeAnn>>
       Param: FuncParam<option<TypeAnn>>
-      Body: BlockOrExpr
+      Body: option<BlockOrExpr>
       Throws: option<TypeAnn> }
 
   type MatchCase =
@@ -422,7 +422,10 @@ module Syntax =
       Sig: FuncSig<option<TypeAnn>>
       Body: option<BlockOrExpr> }
 
-  type ClassDecl = { Name: string; Class: Class }
+  type ClassDecl =
+    { Declare: bool
+      Name: string
+      Class: Class }
 
   type TypeDecl =
     { Name: string
@@ -464,6 +467,7 @@ module Syntax =
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
+  // TODO: add support for static properties
   type Property =
     { Name: PropName
       TypeAnn: TypeAnn
@@ -608,14 +612,14 @@ module Type =
     | TypeAnn of Syntax.TypeAnn
     | Pattern of Syntax.Pattern
 
-  ///A type variable standing for an arbitrary type.
-  ///All type variables have a unique id, but names are only assigned lazily, when required.
+  // A type variable standing for an arbitrary type.
+  // All type variables have a unique id, but names are only assigned lazily, when required.
   type TypeVar =
     { Id: int
       mutable Bound: option<Type>
       mutable Instance: option<Type> }
 
-  ///An n-ary type constructor which builds a new type from old
+  // An n-ary type constructor which builds a new type from old
   [<CustomEquality; NoComparison>]
   type TypeRef =
     { mutable Name: Common.QualifiedIdent
@@ -887,7 +891,7 @@ module Type =
 
   [<CustomEquality; NoComparison>]
   type Type =
-    { Kind: TypeKind
+    { mutable Kind: TypeKind // Used to rename AnonymousClass to the class name
       mutable Provenance: option<Provenance> }
 
     override this.Equals other =

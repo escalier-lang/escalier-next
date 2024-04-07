@@ -891,7 +891,7 @@ module Type =
 
   [<CustomEquality; NoComparison>]
   type Type =
-    { Kind: TypeKind
+    { mutable Kind: TypeKind // Used to rename AnonymousClass to the class name
       mutable Provenance: option<Provenance> }
 
     override this.Equals other =

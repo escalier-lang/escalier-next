@@ -463,7 +463,7 @@ let InferGenericRecursiveClass () =
   Assert.False(Result.isError res)
 
 [<Fact>]
-let InferGenericInstanceMethod () =
+let InferGenericMethods () =
   let res =
     result {
       let src =
@@ -482,11 +482,12 @@ let InferGenericInstanceMethod () =
 
       Assert.Empty(ctx.Diagnostics)
 
-      // Assert.Value(
-      //   env,
-      //   "Foo",
-      //   "{new fn () -> Foo, snd fn <B, A>(a: A, b: B) -> B}"
-      // )
+      Assert.Value(
+        env,
+        "Foo",
+        "{new fn () -> Foo, snd fn <A, B>(a: A, b: B) -> B}"
+      )
+
       Assert.Type(env, "Foo", "{fst fn <B, A>(self: Self, a: A, b: B) -> A}")
     }
 

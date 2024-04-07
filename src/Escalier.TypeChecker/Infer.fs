@@ -493,6 +493,20 @@ module rec Infer =
 
       placeholder.Type <- objType
 
+      let staticElems =
+        List.map
+          (fun elem ->
+            match elem with
+            | Method(name, f) -> ObjTypeElem.Method(name, generalizeFunc f)
+            | _ -> elem)
+          staticElems
+
+      staticObjType.Kind <-
+        TypeKind.Object
+          { Elems = staticElems
+            Immutable = false
+            Interface = false }
+
       return staticObjType, placeholder
     }
 
@@ -2631,24 +2645,28 @@ module rec Infer =
             // TODO: modify the constructors so they return `Foo<T>` instead
             // of `Self`.  Right now unifyFuncCall is responsible for this,
             // but that doesn't seem like the best place for it.
-            let constructors =
+            let fns =
               elems
               |> List.choose (fun elem ->
                 match elem with
                 | ObjTypeElem.Constructor fn -> Some fn
+                | ObjTypeElem.Method(_, fn) -> Some fn
                 | _ -> None)
 
-            if constructors.Length > 0 then
-              let constructor = constructors[0]
-              let returnType = constructor.Return
+            for fn in fns do
+              // TODO: replace other references to AnonymousClass with the
+              // actual class name
+              let returnType = fn.Return
 
               match returnType.Kind with
-              | TypeKind.TypeRef typeRef ->
+              | TypeKind.TypeRef typeRef when
+                typeRef.Name = QualifiedIdent.Ident "AnonymousClass"
+                ->
                 typeRef.Name <- QualifiedIdent.Ident name
 
                 match typeRef.Scheme with
                 | Some scheme -> schemes <- schemes.Add(name, scheme)
-                | _ -> () // This hsould probably be an error
+                | _ -> () // failwith "No scheme found"
               | _ -> ()
           | _ -> ()
 
@@ -3000,7 +3018,6 @@ module rec Infer =
         | ClassDecl { Declare = declare
                       Name = name
                       Class = cls } ->
-          printfn $"ClassDecl: {name}, Declare = {declare}"
           let! t, scheme = inferClass ctx env cls declare
           newEnv <- newEnv.AddValue name (t, false)
           newEnv <- newEnv.AddScheme name scheme

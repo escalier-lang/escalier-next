@@ -21,7 +21,7 @@ module Poly =
         match (prune t).Kind with
         // NOTE: If we get a type var after pruning it should, by definition,
         // not have an instance.
-        | TypeKind.TypeVar _ ->
+        | TypeKind.TypeVar tvar ->
           Some(
             { Kind = TypeKind.Keyword Keyword.Never
               Provenance = None }

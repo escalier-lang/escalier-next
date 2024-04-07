@@ -740,19 +740,20 @@ module Parser =
         InferredType = None }
 
   let objElemProperty: Parser<ObjElem, unit> =
-    pipe4 getPosition ident (opt (strWs ":" >>. expr)) getPosition
+    pipe4 getPosition propName (opt (strWs ":" >>. expr)) getPosition
     <| fun start name value stop ->
       let span = { Start = start; Stop = stop }
 
       // TODO: handle parsing computed properties
       match value with
-      | Some(value) ->
-        ObjElem.Property(
-          span = span,
-          name = PropName.String name,
-          value = value
-        )
-      | None -> ObjElem.Shorthand(span = span, name = name)
+      | Some(value) -> ObjElem.Property(span = span, name = name, value = value)
+      | None ->
+        let name: string =
+          match name with
+          | PropName.String s -> s
+          | _ -> failwith "Shorthand properties must be strings"
+
+        ObjElem.Shorthand(span = span, name = name)
 
   let objElemSpread: Parser<ObjElem, unit> =
     withSpan (strWs "..." >>. expr)
@@ -1608,16 +1609,16 @@ module Parser =
   let private keyValuePat =
     pipe5
       getPosition
-      ident
+      propName
       (strWs ":" >>. pattern)
       (opt (strWs "=" >>. expr))
       getPosition
-    <| fun start name value def stop ->
+    <| fun start key value def stop ->
       let span = { Start = start; Stop = stop }
 
       KeyValuePat
         { Span = span
-          Key = name
+          Key = key
           Value = value
           Default = def }
 

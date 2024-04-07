@@ -352,7 +352,7 @@ module Syntax =
 
   type KeyValuePat =
     { Span: Span
-      Key: string
+      Key: PropName
       Value: Pattern
       Default: option<Expr> }
 
@@ -673,7 +673,7 @@ module Type =
       Elems: list<'T> }
 
   type KeyValuePat =
-    { Key: string
+    { Key: PropName
       Value: Pattern
       Init: option<Syntax.Expr> }
 

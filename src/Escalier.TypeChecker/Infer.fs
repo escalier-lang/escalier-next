@@ -17,6 +17,26 @@ open Poly
 open Unify
 
 module rec Infer =
+  let inferPropName
+    (ctx: Ctx)
+    (env: Env)
+    (propName: Syntax.PropName)
+    : Result<PropName, TypeError> =
+    result {
+      match propName with
+      | Syntax.PropName.Ident name -> return PropName.String name
+      | Syntax.PropName.String name -> return PropName.String name
+      | Syntax.PropName.Number value -> return PropName.Number value
+      | Syntax.PropName.Computed expr ->
+        let! t = inferExpr ctx env expr
+
+        return!
+          Error(
+            TypeError.NotImplemented
+              "TODO: figure out how to handle computed prop names"
+          )
+    }
+
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
     match pat.Kind with
     | PatternKind.Ident { Name = name; IsMut = mut } ->
@@ -2882,9 +2902,11 @@ module rec Infer =
       for decl in decls do
         match decl.Kind with
         | VarDecl { Pattern = pattern
-                    Init = _
+                    Init = init
                     TypeAnn = _ } ->
           let! bindings, _ = inferPattern ctx env pattern
+
+          // printfn "init = %A" init
 
           for KeyValue(name, binding) in bindings do
             placeholderNS <- placeholderNS.AddBinding name binding

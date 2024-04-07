@@ -10,12 +10,19 @@ open Error
 open Env
 
 module Mutability =
-  type BindingPaths = Map<string, list<string> * bool>
+  type BindingPaths = Map<string, list<Type.PropName> * bool>
+
+  let inferPropName (propName: Syntax.PropName) : Type.PropName =
+    match propName with
+    | Syntax.PropName.Ident name -> Type.PropName.String name
+    | Syntax.PropName.String name -> Type.PropName.String name
+    | Syntax.PropName.Number value -> Type.PropName.Number value
+    | Syntax.PropName.Computed expr -> failwith "TODO: inferPropName - Computed"
 
   let getPatBindingPaths (pat: Pattern) : BindingPaths =
     let mutable result: BindingPaths = Map.empty
 
-    let rec walkPattern (pat: Pattern) (path: list<string>) =
+    let rec walkPattern (pat: Pattern) (path: list<Type.PropName>) =
       match pat.Kind with
       | PatternKind.Ident { Name = name; IsMut = mut } ->
         result <- Map.add name (path, mut) result
@@ -23,9 +30,10 @@ module Mutability =
         for elem in elems do
           match elem with
           | KeyValuePat { Key = key; Value = value } ->
-            walkPattern value (key :: path)
+            walkPattern value (inferPropName key :: path)
           | ShorthandPat { Name = name; IsMut = mut } ->
-            result <- Map.add name ((name :: path), mut) result
+            result <-
+              Map.add name ((Type.PropName.String name :: path), mut) result
           | RestPat { Target = target; IsMut = mut } ->
             // TODO: What should be the path for the rest pattern?
             // It should be multiple paths, one for each property in the pattern
@@ -34,7 +42,7 @@ module Mutability =
             printfn "TODO: getBindingPaths - ObjPatElem.RestPat"
       | PatternKind.Tuple tuple ->
         for i, elem in tuple.Elems |> List.indexed do
-          walkPattern elem (string i :: path)
+          walkPattern elem (Type.PropName.Number(Common.Int i) :: path)
       | PatternKind.Wildcard wildcardPattern -> ()
       | PatternKind.Literal literal -> ()
       | PatternKind.Rest pattern ->
@@ -51,7 +59,7 @@ module Mutability =
   let getTypePatBindingPaths (pat: Type.Pattern) : BindingPaths =
     let mutable result: BindingPaths = Map.empty
 
-    let rec walkPattern (pat: Type.Pattern) (path: list<string>) =
+    let rec walkPattern (pat: Type.Pattern) (path: list<Type.PropName>) =
       match pat with
       | Pattern.Identifier { Name = name; IsMut = mut } ->
         result <- Map.add name (path, mut) result
@@ -61,7 +69,8 @@ module Mutability =
           | Type.KeyValuePat { Key = key; Value = value } ->
             walkPattern value (key :: path)
           | Type.ShorthandPat { Name = name; IsMut = mut } ->
-            result <- Map.add name ((name :: path), mut) result
+            result <-
+              Map.add name ((Type.PropName.String name :: path), mut) result
           | Type.RestPat rest ->
             // TODO: What should be the path for the rest pattern?
             // It should be multiple paths, one for each property in the pattern
@@ -71,7 +80,8 @@ module Mutability =
       | Pattern.Tuple tuple ->
         for i, elem in tuple.Elems |> List.indexed do
           match elem with
-          | Some elem -> walkPattern elem (string i :: path)
+          | Some elem ->
+            walkPattern elem (Type.PropName.Number(Common.Int i) :: path)
           | None -> ()
       | Pattern.Wildcard -> ()
       | Pattern.Literal literal -> ()
@@ -89,7 +99,7 @@ module Mutability =
   let getExprBindingPaths (env: Env) (expr: Expr) : BindingPaths =
     let mutable result: BindingPaths = Map.empty
 
-    let rec walkExpr (expr: Expr) (path: list<string>) =
+    let rec walkExpr (expr: Expr) (path: list<Type.PropName>) =
       match expr.Kind with
       | ExprKind.Identifier ident ->
         // TODO: lookup `ident` in the current environment
@@ -98,7 +108,7 @@ module Mutability =
         | Error _ -> failwith $"{ident} isn't in scope"
       | ExprKind.Tuple { Elems = elems } ->
         for i, elem in elems |> List.indexed do
-          walkExpr elem (string i :: path)
+          walkExpr elem (Type.PropName.Number(Common.Int i) :: path)
       | ExprKind.Object { Elems = elems } ->
         for elem in elems do
           match elem with
@@ -110,10 +120,12 @@ module Mutability =
               | Syntax.Number n -> string (n)
               | Computed expr -> failwith "TODO: handle computed property names"
 
-            walkExpr value (name :: path)
+            walkExpr value (Type.PropName.String name :: path)
           | Shorthand(span, name) ->
             match env.GetBinding name with
-            | Ok(_, mut) -> result <- Map.add name ((name :: path), mut) result
+            | Ok(_, mut) ->
+              result <-
+                Map.add name ((Type.PropName.String name :: path), mut) result
             | Error _ -> failwith $"{name} isn't in scope"
           | Spread(span, value) ->
             // TODO: What should be the path for the spread expression?
@@ -129,9 +141,9 @@ module Mutability =
   let checkMutability
     (patBindingPaths: BindingPaths)
     (exprBindingPaths: BindingPaths)
-    : Result<option<list<list<string>>>, TypeError> =
+    : Result<option<list<list<Type.PropName>>>, TypeError> =
     result {
-      let mutable invariantPaths: list<list<string>> = []
+      let mutable invariantPaths: list<list<Type.PropName>> = []
 
       // let patBindingPaths = getPatBindingPaths pattern
       // let exprBindingPaths = getExprBindingPaths env init

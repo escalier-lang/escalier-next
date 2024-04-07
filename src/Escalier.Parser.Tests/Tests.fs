@@ -545,6 +545,38 @@ let ParsePropKeysInObjectType () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParsePropKeysInObjectLiteral () =
+  let src =
+    """
+    let obj = {
+      5: "world",
+      "hello": 10,
+      [Symbol.iterator]: fn () => 5,
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParsePropKeysInDestructuringPattern () =
+  let src =
+    """
+    let {
+      5: a,
+      "hello": b,
+      [Symbol.iterator]: c,
+    } = obj;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseForLoop () =
   let src =
     """

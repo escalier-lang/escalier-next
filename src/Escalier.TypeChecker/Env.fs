@@ -259,7 +259,8 @@ module rec Env =
       BinaryOps: Map<string, Binding>
       UnaryOps: Map<string, Binding>
       IsAsync: bool
-      IsPatternMatching: bool }
+      IsPatternMatching: bool
+      InferFunctionBodies: bool }
 
     // TODO: Rename to AddBinding
     // TODO: don't curry this function

@@ -86,6 +86,7 @@ module Mutability =
     walkPattern pat []
     result
 
+  // TODO: update this to return an Result
   let getExprBindingPaths (env: Env) (expr: Expr) : BindingPaths =
     let mutable result: BindingPaths = Map.empty
 

@@ -606,7 +606,10 @@ module rec Infer =
 
           return result
         | ExprKind.Function { Sig = fnSig; Body = body } ->
-          let! f = inferFunction ctx env fnSig body
+          let! f =
+            match env.InferFunctionBodies with
+            | true -> inferFunction ctx env fnSig body
+            | false -> inferFuncSig ctx env fnSig
 
           return
             { Kind = TypeKind.Function f
@@ -3725,4 +3728,179 @@ module rec Infer =
       | _ -> ()
 
       return (callee.Return, callee.Throws)
+    }
+
+  let newInferModule
+    (ctx: Ctx)
+    (env: Env)
+    (filename: string)
+    (m: Module)
+    : Result<Env, TypeError> =
+    result {
+      let mutable newEnv = { env with Filename = filename }
+
+      let decls =
+        List.choose
+          (fun item ->
+            match item with
+            | Decl decl -> Some decl
+            | _ -> None)
+          m.Items
+
+      // types
+      let! newEnv = inferTypeDeclPlaceholders ctx newEnv decls
+      let! newEnv = inferTypeDeclDefinitions ctx newEnv decls
+
+      // values
+      // TODO: do a similar thing with placeholders to what we're doing in
+      // `inferModule`
+      let! newEnv, placeholderNS = inferValueDeclPlaceholders ctx newEnv decls
+      let! newEnv, inferredNS = inferValueDeclDefinitions ctx newEnv decls
+
+      do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
+
+      return newEnv
+    }
+
+  let inferTypeDeclPlaceholders
+    (ctx: Ctx)
+    (env: Env)
+    (decls: list<Decl>)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = { env with InferFunctionBodies = false }
+      let mutable inferredNS = Namespace.empty
+
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl decl ->
+          // TODO: handle classes
+          ()
+        | FnDecl(_) -> ()
+        | ClassDecl(_) ->
+          // TODO: handle classes
+          ()
+        | TypeDecl decl ->
+          let! placeholder =
+            inferTypeDeclPlaceholderScheme ctx env decl.TypeParams
+
+          newEnv <- newEnv.AddScheme decl.Name placeholder
+          inferredNS <- inferredNS.AddScheme decl.Name placeholder
+        | InterfaceDecl(_) -> failwith "Not Implemented"
+        | EnumDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl(_) -> failwith "Not Implemented"
+
+      return newEnv
+    }
+
+  let inferTypeDeclDefinitions
+    (ctx: Ctx)
+    (env: Env)
+    (decls: list<Decl>)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = { env with InferFunctionBodies = false }
+      let mutable inferredNS = Namespace.empty
+
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl decl ->
+          // TODO: handle classes
+          ()
+        | FnDecl(_) -> ()
+        | ClassDecl(_) ->
+          // TODO: handle classes
+          ()
+        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+          let! placeholder = env.GetScheme(QualifiedIdent.Ident name)
+
+          let! scheme =
+            inferTypeDeclDefn ctx newEnv placeholder (fun env ->
+              inferTypeAnn ctx env typeAnn)
+
+          newEnv <- newEnv.AddScheme name scheme
+          inferredNS <- inferredNS.AddScheme name scheme
+        | InterfaceDecl(_) -> failwith "Not Implemented"
+        | EnumDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl(_) -> failwith "Not Implemented"
+
+      return newEnv
+    }
+
+  let inferValueDeclPlaceholders
+    (ctx: Ctx)
+    (env: Env)
+    (decls: list<Decl>)
+    : Result<Env * Namespace, TypeError> =
+
+    result {
+      let mutable newEnv = { env with InferFunctionBodies = false }
+      let mutable placeholderNS = Namespace.empty
+
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl decl ->
+          // We need to check the type of decl.Init and only infer the whole
+          // thing if it isn't a function, in which case we need to infer a
+          // placeholder for it
+          match decl.Init with
+          | Some init ->
+            let! bindings, schemes = inferVarDecl ctx newEnv decl
+
+            for binding in bindings do
+              placeholderNS <-
+                placeholderNS.AddBinding binding.Key binding.Value
+
+              newEnv <- newEnv.AddValue binding.Key binding.Value
+
+            for KeyValue(name, scheme) in schemes do
+              newEnv <- newEnv.AddScheme name scheme
+          | _ -> failwith "TODO: handle declare var decls"
+        | FnDecl(_) -> failwith "Not Implemented"
+        | ClassDecl(_) -> failwith "Not Implemented"
+        | TypeDecl(_) -> ()
+        | InterfaceDecl(_) -> failwith "Not Implemented"
+        | EnumDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl(_) -> failwith "Not Implemented"
+
+      return newEnv, placeholderNS
+    }
+
+  let inferValueDeclDefinitions
+    (ctx: Ctx)
+    (env: Env)
+    (decls: list<Decl>)
+    : Result<Env * Namespace, TypeError> =
+
+    result {
+      let mutable newEnv = { env with InferFunctionBodies = true }
+      let mutable inferredNS = Namespace.empty
+
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl decl ->
+          // We need to check the type of decl.Init and only infer the whole
+          // thing if it isn't a function, in which case we need to infer a
+          // placeholder for it
+          match decl.Init with
+          | Some init ->
+            let! bindings, schemes = inferVarDecl ctx newEnv decl
+
+            for binding in bindings do
+              inferredNS <- inferredNS.AddBinding binding.Key binding.Value
+              newEnv <- newEnv.AddValue binding.Key binding.Value
+
+            for KeyValue(name, scheme) in schemes do
+              newEnv <- newEnv.AddScheme name scheme
+          | _ -> failwith "TODO: handle declare var decls"
+        | FnDecl(_) -> failwith "Not Implemented"
+        | ClassDecl(_) -> failwith "Not Implemented"
+        | TypeDecl(_) -> ()
+        | InterfaceDecl(_) -> failwith "Not Implemented"
+        | EnumDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl(_) -> failwith "Not Implemented"
+
+      return newEnv, inferredNS
     }

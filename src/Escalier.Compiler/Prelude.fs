@@ -330,7 +330,8 @@ module Prelude =
         BinaryOps = binaryOps
         UnaryOps = unaryOps
         IsAsync = false
-        IsPatternMatching = false }
+        IsPatternMatching = false
+        InferFunctionBodies = true }
 
     env
 

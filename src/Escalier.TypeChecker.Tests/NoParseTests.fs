@@ -45,7 +45,8 @@ let getEnv () =
     BinaryOps = Map.empty
     UnaryOps = Map.empty
     IsAsync = false
-    IsPatternMatching = false }
+    IsPatternMatching = false
+    InferFunctionBodies = true }
 
 let dummySpan =
   { Start = Position("", 0, 0, 0)

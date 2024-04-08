@@ -3,6 +3,10 @@ module Modules
 open FsToolkit.ErrorHandling
 open Xunit
 
+open Escalier.Compiler
+open Escalier.Parser
+open Escalier.TypeChecker.Infer
+
 open TestUtils
 
 [<Fact>]
@@ -89,3 +93,170 @@ let InferMutuallyRecursiveTypes () =
     }
 
   Assert.False(Result.isError res)
+
+
+[<Fact>]
+let MisorderedDeclsShouldFailInModule () =
+  result {
+    let src =
+      """
+      let y = x;
+      let x = 5;
+      """
+
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+    try
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.True(false)
+    with _ ->
+      Assert.True(true)
+  }
+
+[<Fact>]
+let RecursiveDefinitionsInModule () =
+  let result =
+    result {
+      let src =
+        """
+        let x = 5;
+        let y = x;
+        let foo = fn () => "hello";
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+      Assert.Value(env, "foo", "fn () -> \"hello\"")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let UsePreviousObjectInNextDefinition () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = {a: "hello", b: true};
+        let bar = {a: foo.a, b: foo.b};
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "{a: \"hello\", b: true}")
+      Assert.Value(env, "bar", "{a: \"hello\", b: true}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let RecursiveFunctionsInModule () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn (x) => if x > 0 { bar(x) } else { 0 };
+        let bar = fn (x) => if x > 0 { x } else { foo(x) };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "foo", "fn (x: t6:number) -> t6:number | 0 throws t21")
+
+      Assert.Value(
+        env,
+        "bar",
+        "fn (x: t6:number) -> t6:number | t6:number | 0 throws t21"
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let RecursiveTypesInModule () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = number | Bar[];
+        type Bar = string | Foo[];
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Foo", "number | Bar[]")
+      Assert.Type(env, "Bar", "string | Foo[]")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let TypeofInType () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = typeof foo;
+        let foo = 5;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Foo", "5")
+      Assert.Value(env, "foo", "5")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

@@ -3747,30 +3747,74 @@ module rec Infer =
             | _ -> None)
           m.Items
 
-      // types
-      let! newEnv = inferTypeDeclPlaceholders ctx newEnv decls
-      let! newEnv = inferTypeDeclDefinitions ctx newEnv decls
+      let! newEnv, typesPlaceholderNS =
+        inferTypeDeclPlaceholders ctx newEnv decls
 
-      // values
-      // TODO: do a similar thing with placeholders to what we're doing in
-      // `inferModule`
-      let! newEnv, placeholderNS = inferValueDeclPlaceholders ctx newEnv decls
-      let! newEnv, inferredNS = inferValueDeclDefinitions ctx newEnv decls
+      // Infer placeholder types for values before inferring function types
+      // this allows `typeof` to work in type definitions.
+      let! newEnv, valuesPlaceholderNS =
+        inferValueDeclPlaceholders ctx newEnv decls
 
-      do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
+      let! typesInferredNS = inferTypeDeclDefinitions ctx newEnv decls
+
+      do!
+        newUnifyPlaceholdersAndInferredTypes
+          ctx
+          newEnv
+          typesPlaceholderNS
+          typesInferredNS
+
+      let! valuesInferredNS = inferValueDeclDefinitions ctx newEnv decls
+
+      do!
+        newUnifyPlaceholdersAndInferredTypes
+          ctx
+          newEnv
+          valuesPlaceholderNS
+          valuesInferredNS
 
       return newEnv
+    }
+
+  let newUnifyPlaceholdersAndInferredTypes
+    (ctx: Ctx)
+    (env: Env)
+    (placeholderNS: Namespace)
+    (inferredNS: Namespace)
+    : Result<unit, TypeError> =
+    result {
+      for KeyValue(name, inferredBinding) in inferredNS.Values do
+        let! placeholderBinding = placeholderNS.GetBinding name
+        // Checks that the inferredType can be assigned to the placeholderType
+        let placeholderType, _ = placeholderBinding
+        let inferredType, _ = inferredBinding
+        do! unify ctx env None placeholderType inferredType
+
+      for KeyValue(name, inferredScheme) in inferredNS.Schemes do
+        let! placeholderScheme = placeholderNS.GetScheme name
+        do! unify ctx env None placeholderScheme.Type inferredScheme.Type
+
+      // Recurse into each namespace
+      for KeyValue(name, inferredNS) in inferredNS.Namespaces do
+        let! placeholderNS =
+          match placeholderNS.Namespaces.TryFind name with
+          | None ->
+            Error(TypeError.SemanticError $"Namespace '{name}' not found")
+          | Some value -> Ok value
+
+        do!
+          newUnifyPlaceholdersAndInferredTypes ctx env placeholderNS inferredNS
     }
 
   let inferTypeDeclPlaceholders
     (ctx: Ctx)
     (env: Env)
     (decls: list<Decl>)
-    : Result<Env, TypeError> =
+    : Result<Env * Namespace, TypeError> =
 
     result {
       let mutable newEnv = { env with InferFunctionBodies = false }
-      let mutable inferredNS = Namespace.empty
+      let mutable placeholderNS = Namespace.empty
 
       for decl in decls do
         match decl.Kind with
@@ -3786,22 +3830,21 @@ module rec Infer =
             inferTypeDeclPlaceholderScheme ctx env decl.TypeParams
 
           newEnv <- newEnv.AddScheme decl.Name placeholder
-          inferredNS <- inferredNS.AddScheme decl.Name placeholder
+          placeholderNS <- placeholderNS.AddScheme decl.Name placeholder
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
         | NamespaceDecl(_) -> failwith "Not Implemented"
 
-      return newEnv
+      return newEnv, placeholderNS
     }
 
   let inferTypeDeclDefinitions
     (ctx: Ctx)
     (env: Env)
     (decls: list<Decl>)
-    : Result<Env, TypeError> =
+    : Result<Namespace, TypeError> =
 
     result {
-      let mutable newEnv = { env with InferFunctionBodies = false }
       let mutable inferredNS = Namespace.empty
 
       for decl in decls do
@@ -3817,16 +3860,15 @@ module rec Infer =
           let! placeholder = env.GetScheme(QualifiedIdent.Ident name)
 
           let! scheme =
-            inferTypeDeclDefn ctx newEnv placeholder (fun env ->
+            inferTypeDeclDefn ctx env placeholder (fun env ->
               inferTypeAnn ctx env typeAnn)
 
-          newEnv <- newEnv.AddScheme name scheme
           inferredNS <- inferredNS.AddScheme name scheme
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
         | NamespaceDecl(_) -> failwith "Not Implemented"
 
-      return newEnv
+      return inferredNS
     }
 
   let inferValueDeclPlaceholders
@@ -3856,6 +3898,7 @@ module rec Infer =
               newEnv <- newEnv.AddValue binding.Key binding.Value
 
             for KeyValue(name, scheme) in schemes do
+              placeholderNS <- placeholderNS.AddScheme name scheme
               newEnv <- newEnv.AddScheme name scheme
           | _ -> failwith "TODO: handle declare var decls"
         | FnDecl(_) -> failwith "Not Implemented"
@@ -3872,7 +3915,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (decls: list<Decl>)
-    : Result<Env * Namespace, TypeError> =
+    : Result<Namespace, TypeError> =
 
     result {
       let mutable newEnv = { env with InferFunctionBodies = true }
@@ -3890,10 +3933,9 @@ module rec Infer =
 
             for binding in bindings do
               inferredNS <- inferredNS.AddBinding binding.Key binding.Value
-              newEnv <- newEnv.AddValue binding.Key binding.Value
 
             for KeyValue(name, scheme) in schemes do
-              newEnv <- newEnv.AddScheme name scheme
+              inferredNS <- inferredNS.AddScheme name scheme
           | _ -> failwith "TODO: handle declare var decls"
         | FnDecl(_) -> failwith "Not Implemented"
         | ClassDecl(_) -> failwith "Not Implemented"
@@ -3902,5 +3944,5 @@ module rec Infer =
         | EnumDecl(_) -> failwith "Not Implemented"
         | NamespaceDecl(_) -> failwith "Not Implemented"
 
-      return newEnv, inferredNS
+      return inferredNS
     }

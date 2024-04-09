@@ -3757,6 +3757,13 @@ module rec Infer =
 
       let! newEnv, typesInferredNS = inferTypeDeclDefinitions ctx newEnv decls
 
+      do!
+        newUnifyPlaceholdersAndInferredTypes
+          ctx
+          newEnv
+          typesPlaceholderNS
+          typesInferredNS
+
       let! valuesInferredNS = inferValueDeclDefinitions ctx newEnv decls
 
       do!

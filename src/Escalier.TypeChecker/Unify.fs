@@ -867,6 +867,8 @@ module rec Unify =
             // TODO: Handle the case where the type is a primitive and use a
             // special function to expand the type
             // TODO: Handle different kinds of index types, e.g. number, symbol
+            printfn "target = %A" target
+            printfn "index = %A" index
             return! Error(TypeError.NotImplemented "TODO: expand index")
         | TypeKind.Condition { Check = check
                                Extends = extends

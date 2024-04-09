@@ -6,6 +6,7 @@ open Xunit
 open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.Unify
 
 open TestUtils
 
@@ -363,6 +364,51 @@ let ComputedKeysObjectValuesAndTypes () =
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "obj", "Obj")
       Assert.Type(env, "Obj", "{foo: number, bar: boolean}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
+let IndexedAccessTypes () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = Obj["foo"];
+        type Bar = Obj["bar"];
+        type Obj = {
+          foo: number,
+          bar: boolean,
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Obj", "{foo: number, bar: boolean}")
+      Assert.Type(env, "Foo", "Obj[\"foo\"]")
+      Assert.Type(env, "Bar", "Obj[\"bar\"]")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "number")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "boolean")
     }
 
   printfn "result = %A" result

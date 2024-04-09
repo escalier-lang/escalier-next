@@ -240,8 +240,11 @@ let TypeofInType () =
     result {
       let src =
         """
-        type Foo = typeof foo;
-        let foo = 5;
+        let p2: Point = {x: 5, y: 10};
+        type Point = typeof p1;
+        type X = typeof p1.x;
+        type Y = typeof p1.y;
+        let p1 = {x: 5, y: 10};
         """
 
       let! ast =
@@ -254,8 +257,11 @@ let TypeofInType () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Type(env, "Foo", "5")
-      Assert.Value(env, "foo", "5")
+      Assert.Type(env, "Point", "{x: 5, y: 10}")
+      Assert.Type(env, "X", "5")
+      Assert.Type(env, "Y", "10")
+      Assert.Value(env, "p1", "{x: 5, y: 10}")
+      Assert.Value(env, "p2", "Point")
     }
 
   printfn "result = %A" result

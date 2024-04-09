@@ -86,47 +86,6 @@ module Mutability =
     walkPattern pat []
     result
 
-  // TODO: update this to return an Result
-  let getExprBindingPaths (env: Env) (expr: Expr) : BindingPaths =
-    let mutable result: BindingPaths = Map.empty
-
-    let rec walkExpr (expr: Expr) (path: list<string>) =
-      match expr.Kind with
-      | ExprKind.Identifier ident ->
-        // TODO: lookup `ident` in the current environment
-        match env.GetBinding ident with
-        | Ok(_, mut) -> result <- Map.add ident (path, mut) result
-        | Error _ -> failwith $"{ident} isn't in scope"
-      | ExprKind.Tuple { Elems = elems } ->
-        for i, elem in elems |> List.indexed do
-          walkExpr elem (string i :: path)
-      | ExprKind.Object { Elems = elems } ->
-        for elem in elems do
-          match elem with
-          | ObjElem.Property(span, name, value) ->
-            let name =
-              match name with
-              | Syntax.Ident s -> s
-              | Syntax.String s -> s
-              | Syntax.Number n -> string (n)
-              | Computed expr -> failwith "TODO: handle computed property names"
-
-            walkExpr value (name :: path)
-          | Shorthand(span, name) ->
-            match env.GetBinding name with
-            | Ok(_, mut) -> result <- Map.add name ((name :: path), mut) result
-            | Error _ -> failwith $"{name} isn't in scope"
-          | Spread(span, value) ->
-            // TODO: What should be the path for the spread expression?
-            // It should be multiple paths, one for each property in the object
-            // We could use a "wildcard" path element to model this as long as
-            // we only check paths with wildcards after checking those without
-            printfn "TODO: getExprBindingPaths - Spread"
-      | _ -> ()
-
-    walkExpr expr []
-    result
-
   let checkMutability
     (patBindingPaths: BindingPaths)
     (exprBindingPaths: BindingPaths)

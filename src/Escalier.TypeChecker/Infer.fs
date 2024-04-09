@@ -642,7 +642,7 @@ module rec Infer =
           let! invariantPaths =
             checkMutability
               (getPatBindingPaths pattern)
-              (getExprBindingPaths env init)
+              (getExprBindingPaths ctx env init)
 
           let! patBindings, patType = inferPattern ctx env pattern
           let mutable newEnv = env
@@ -2583,7 +2583,7 @@ module rec Infer =
         let! invariantPaths =
           checkMutability
             (getPatBindingPaths pattern)
-            (getExprBindingPaths env init)
+            (getExprBindingPaths ctx env init)
 
         let! patBindings, patType = inferPattern ctx env pattern
         let mutable newEnv = env
@@ -3644,7 +3644,7 @@ module rec Infer =
           let! invariantPaths =
             checkMutability
               (getTypePatBindingPaths param.Pattern)
-              (getExprBindingPaths env arg)
+              (getExprBindingPaths ctx env arg)
 
           match unify ctx env invariantPaths argType param.Type with
           | Ok _ -> ()
@@ -3699,7 +3699,7 @@ module rec Infer =
           let! invariantPaths =
             checkMutability
               (getTypePatBindingPaths param.Pattern)
-              (getExprBindingPaths env arg)
+              (getExprBindingPaths ctx env arg)
 
           match unify ctx env invariantPaths argType param.Type with
           | Ok _ -> ()
@@ -3755,14 +3755,7 @@ module rec Infer =
       let! newEnv, valuesPlaceholderNS =
         inferValueDeclPlaceholders ctx newEnv decls
 
-      let! typesInferredNS = inferTypeDeclDefinitions ctx newEnv decls
-
-      do!
-        newUnifyPlaceholdersAndInferredTypes
-          ctx
-          newEnv
-          typesPlaceholderNS
-          typesInferredNS
+      let! newEnv, typesInferredNS = inferTypeDeclDefinitions ctx newEnv decls
 
       let! valuesInferredNS = inferValueDeclDefinitions ctx newEnv decls
 
@@ -3842,9 +3835,10 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (decls: list<Decl>)
-    : Result<Namespace, TypeError> =
+    : Result<Env * Namespace, TypeError> =
 
     result {
+      let mutable newEnv = { env with InferFunctionBodies = false }
       let mutable inferredNS = Namespace.empty
 
       for decl in decls do
@@ -3863,12 +3857,13 @@ module rec Infer =
             inferTypeDeclDefn ctx env placeholder (fun env ->
               inferTypeAnn ctx env typeAnn)
 
+          newEnv <- newEnv.AddScheme name scheme
           inferredNS <- inferredNS.AddScheme name scheme
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
         | NamespaceDecl(_) -> failwith "Not Implemented"
 
-      return inferredNS
+      return newEnv, inferredNS
     }
 
   let inferValueDeclPlaceholders
@@ -3946,3 +3941,54 @@ module rec Infer =
 
       return inferredNS
     }
+
+  // TODO: update this to return an Result
+  let getExprBindingPaths (ctx: Ctx) (env: Env) (expr: Expr) : BindingPaths =
+    let mutable result: BindingPaths = Map.empty
+
+    let rec walkExpr (expr: Expr) (path: list<string>) =
+      match expr.Kind with
+      | ExprKind.Identifier ident ->
+        // TODO: lookup `ident` in the current environment
+        match env.GetBinding ident with
+        | Ok(_, mut) -> result <- Map.add ident (path, mut) result
+        | Error _ -> failwith $"{ident} isn't in scope"
+      | ExprKind.Tuple { Elems = elems } ->
+        for i, elem in elems |> List.indexed do
+          walkExpr elem (string i :: path)
+      | ExprKind.Object { Elems = elems } ->
+        for elem in elems do
+          match elem with
+          | ObjElem.Property(span, name, value) ->
+            let name =
+              match name with
+              | Syntax.Ident s -> s
+              | Syntax.String s -> s
+              | Syntax.Number n -> string (n)
+              | Computed expr ->
+                let t =
+                  match inferExpr ctx env expr with
+                  | Ok t -> t
+                  | Error e -> failwith $"{e}"
+
+                // TODO: handle symbols
+                match t.Kind with
+                | TypeKind.Literal(Literal.String s) -> s
+                | TypeKind.Literal(Literal.Number n) -> string n
+                | _ -> failwith "TODO: handle computed property names"
+
+            walkExpr value (name :: path)
+          | Shorthand(span, name) ->
+            match env.GetBinding name with
+            | Ok(_, mut) -> result <- Map.add name ((name :: path), mut) result
+            | Error _ -> failwith $"{name} isn't in scope"
+          | Spread(span, value) ->
+            // TODO: What should be the path for the spread expression?
+            // It should be multiple paths, one for each property in the object
+            // We could use a "wildcard" path element to model this as long as
+            // we only check paths with wildcards after checking those without
+            printfn "TODO: getExprBindingPaths - Spread"
+      | _ -> ()
+
+    walkExpr expr []
+    result

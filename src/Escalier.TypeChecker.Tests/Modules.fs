@@ -266,3 +266,104 @@ let TypeofInType () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let ComputedKeysObjectValues () =
+  let result =
+    result {
+      let src =
+        """
+        let Constants = {
+          foo: "foo",
+          bar: "bar",
+        };
+        let obj = {
+          [Constants.foo]: "hello",
+          [Constants.bar]: "world",
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "obj", "{foo: \"hello\", bar: \"world\"}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ComputedKeysObjectTypes () =
+  let result =
+    result {
+      let src =
+        """
+        let Constants = {
+          foo: "foo",
+          bar: "bar",
+        };
+        type Obj = {
+          [Constants.foo]: number,
+          [Constants.bar]: boolean,
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Obj", "{foo: number, bar: boolean}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ComputedKeysObjectValuesAndTypes () =
+  let result =
+    result {
+      let src =
+        """
+        let Constants = {
+          foo: "foo",
+          bar: "bar",
+        };
+        let obj: Obj = {
+          [Constants.foo]: 5,
+          [Constants.bar]: true,
+        };
+        type Obj = {
+          [Constants.foo]: number,
+          [Constants.bar]: boolean,
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "obj", "Obj")
+      Assert.Type(env, "Obj", "{foo: number, bar: boolean}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

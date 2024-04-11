@@ -574,3 +574,32 @@ let NamespaceValuesAndTypes () =
     }
 
   Assert.False(Result.isError result)
+
+
+[<Fact>]
+let NamespaceTypeAnnsBeforeTypeDecl () =
+  let result =
+    result {
+      let src =
+        """
+        let x: Foo.Bar.X = 5;
+        let y: Foo.Y = 5;
+        namespace Foo {
+          let y1: Y = 5;
+          let y2: Foo.Y = 5;
+          type Y = Bar.X;
+          namespace Bar {
+            type X = number;
+            let x1: X = 5;
+            let x2: Bar.X = 5;
+            let x3: Foo.Bar.X = 5;
+          }
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)

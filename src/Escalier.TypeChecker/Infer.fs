@@ -2976,7 +2976,6 @@ module rec Infer =
   let inferDeclDefinitions
     (ctx: Ctx)
     (env: Env)
-    (placeholderNS: Namespace)
     (decls: list<Decl>)
     : Result<Env * Namespace, TypeError> =
 
@@ -3030,7 +3029,7 @@ module rec Infer =
               TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
             )
         | TypeDecl { Name = name; TypeAnn = typeAnn } ->
-          let! placeholder = placeholderNS.GetScheme name
+          let! placeholder = env.GetScheme(QualifiedIdent.Ident name)
 
           // Handles self-recursive types
           newEnv <- newEnv.AddScheme name placeholder
@@ -3047,22 +3046,13 @@ module rec Infer =
           let! placeholderNS =
             newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
 
-          let mutable nsEnv = newEnv
-
-          nsEnv <- nsEnv.AddBindings placeholderNS.Values
-
-          for KeyValue(name, ns) in placeholderNS.Namespaces do
-            nsEnv <- nsEnv.AddNamespace name ns
-
-          for KeyValue(name, scheme) in placeholderNS.Schemes do
-            nsEnv <- nsEnv.AddScheme name scheme
-
-          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
+          let nsEnv = openNamespace newEnv placeholderNS
+          let! _, ns = inferDeclDefinitions ctx nsEnv decls
           inferredNS <- inferredNS.AddNamespace name ns
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
-          let! placeholder = placeholderNS.GetScheme name
+          let! placeholder = env.GetScheme(QualifiedIdent.Ident name)
 
           // Handles self-recursive types
           newEnv <- newEnv.AddScheme name placeholder
@@ -3164,8 +3154,7 @@ module rec Infer =
 
       let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
-      let! newEnv, inferredNS =
-        inferDeclDefinitions ctx newEnv placeholderNS decls
+      let! newEnv, inferredNS = inferDeclDefinitions ctx newEnv decls
 
       do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
 
@@ -3750,7 +3739,7 @@ module rec Infer =
       let! newEnv, typesPlaceholderNS =
         inferTypeDeclPlaceholders ctx newEnv decls
 
-      // Infer placeholder types for values before inferring function types
+      // Infers placeholder types for values before inferring function types
       // this allows `typeof` to work in type definitions.
       let! newEnv, valuesPlaceholderNS =
         inferValueDeclPlaceholders ctx newEnv decls
@@ -3833,7 +3822,10 @@ module rec Infer =
           placeholderNS <- placeholderNS.AddScheme decl.Name placeholder
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
-        | NamespaceDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl { Name = name; Body = body } ->
+          let! _, ns = inferDeclPlaceholders ctx env body
+          placeholderNS <- placeholderNS.AddNamespace name ns
+          newEnv <- newEnv.AddNamespace name ns
 
       return newEnv, placeholderNS
     }
@@ -3868,11 +3860,20 @@ module rec Infer =
           inferredNS <- inferredNS.AddScheme name scheme
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
-        | NamespaceDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl { Name = name; Body = body } ->
+          let! placeholderNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let nsEnv = openNamespace newEnv placeholderNS
+          let! _, ns = inferTypeDeclDefinitions ctx nsEnv decls
+          inferredNS <- inferredNS.AddNamespace name ns
 
       return newEnv, inferredNS
     }
 
+  // We need to call this function recursively to handle nested namespaces, we
+  // need to add any existing symbols from the namespace to the environment before
+  // making the recursive call.
   let inferValueDeclPlaceholders
     (ctx: Ctx)
     (env: Env)
@@ -3908,7 +3909,13 @@ module rec Infer =
         | TypeDecl(_) -> ()
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
-        | NamespaceDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl { Name = name; Body = body } ->
+          let! existingNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let nsEnv = openNamespace newEnv existingNS
+          let! _, updatedNS = inferValueDeclPlaceholders ctx nsEnv decls
+          placeholderNS <- placeholderNS.AddNamespace name updatedNS
 
       return newEnv, placeholderNS
     }
@@ -3944,7 +3951,13 @@ module rec Infer =
         | TypeDecl(_) -> ()
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
-        | NamespaceDecl(_) -> failwith "Not Implemented"
+        | NamespaceDecl {Name=name; Body=body} -> 
+          let! existingNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let nsEnv = openNamespace newEnv existingNS
+          let! updatedNS = inferValueDeclDefinitions ctx nsEnv decls
+          inferredNS <- inferredNS.AddNamespace name updatedNS
 
       return inferredNS
     }
@@ -3999,3 +4012,17 @@ module rec Infer =
 
     walkExpr expr []
     result
+
+  let openNamespace (env: Env) (ns: Namespace) : Env =
+
+    let mutable nsEnv = env
+
+    nsEnv <- nsEnv.AddBindings ns.Values
+
+    for KeyValue(name, ns) in ns.Namespaces do
+      nsEnv <- nsEnv.AddNamespace name ns
+
+    for KeyValue(name, scheme) in ns.Schemes do
+      nsEnv <- nsEnv.AddScheme name scheme
+
+    nsEnv

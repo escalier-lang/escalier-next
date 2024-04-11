@@ -312,6 +312,8 @@ module rec Env =
         else
           Error(TypeError.SemanticError $"Undefined symbol {name}")
 
+    // TODO: return an environment as well with the appropriate namespaces opened
+    // in it
     member this.GetScheme(ident: QualifiedIdent) : Result<Scheme, TypeError> =
       result {
         match ident with

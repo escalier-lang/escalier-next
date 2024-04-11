@@ -413,3 +413,114 @@ let IndexedAccessTypes () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let NamespaceValues () =
+  let result =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = Bar.x;
+        }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let NamespaceTypes () =
+  let result =
+    result {
+      let src =
+        """
+        type X = Foo.Bar.X;
+        type Y = Foo.Y;
+        namespace Foo {
+          type Y = Bar.X;
+          namespace Bar {
+            type X = number;
+          }
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "X", "Foo.Bar.X")
+      Assert.Type(env, "Y", "Foo.Y")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "X") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "number")
+
+    // TODO: open the whole namespace when expand schemes that qualified with
+    // a namespace
+    // let! t =
+    //   expandScheme ctx env None (env.FindScheme "Y") Map.empty None
+    //   |> Result.mapError CompileError.TypeError
+
+    // Assert.Equal(t.ToString(), "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
+let NamespaceValuesAndTypes () =
+  let result =
+    result {
+      let src =
+        """
+        type X = Foo.Bar.X;
+        type Y = Foo.Y;
+        namespace Foo {
+          type Y = Bar.X;
+          namespace Bar {
+            type X = number;
+            let x = 5;
+          }
+          let y = Bar.x;
+        }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+      Assert.Type(env, "X", "Foo.Bar.X")
+      Assert.Type(env, "Y", "Foo.Y")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "X") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "number")
+
+    // TODO: open the whole namespace when expand schemes that qualified with
+    // a namespace
+    // let! t =
+    //   expandScheme ctx env None (env.FindScheme "Y") Map.empty None
+    //   |> Result.mapError CompileError.TypeError
+
+    // Assert.Equal(t.ToString(), "number")
+    }
+
+  Assert.False(Result.isError result)

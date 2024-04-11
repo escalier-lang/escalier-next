@@ -1026,7 +1026,7 @@ module rec Unify =
             return t
           else
             return foldType fold t
-        | TypeKind.TypeRef { Name = name
+        | TypeKind.TypeRef { Name = ident
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
 
@@ -1036,7 +1036,7 @@ module rec Unify =
           // TODO: check if `name` is a qualified ident first
           // only unqualified idents can appear in the mapping
           let! t =
-            match name with
+            match ident with
             | Ident name ->
               match Map.tryFind name mapping with
               | Some t -> Result.Ok t
@@ -1050,9 +1050,9 @@ module rec Unify =
                     expandScheme ctx env ips scheme mapping typeArgs
                   | None -> failwith $"{name} is not in scope"
             | Member _ ->
-              match env.GetScheme name with
+              match env.GetScheme ident with
               | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
-              | Error errorValue -> failwith $"{name} is not in scope"
+              | Error errorValue -> failwith $"{ident} is not in scope"
 
           return! expand mapping t
         | _ ->

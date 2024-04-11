@@ -440,6 +440,33 @@ let NamespaceValues () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let NamespaceValuesDontEscape () =
+  let result =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = Bar.x;
+        }
+        let a = Foo.Bar.x;
+        let b = Foo.y;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "a", "5")
+      Assert.Value(env, "b", "5")
+      env.TryFindValue "x" |> Assert.Null
+      env.TryFindValue "y" |> Assert.Null
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let NamespaceTypes () =
   let result =
     result {
@@ -477,6 +504,33 @@ let NamespaceTypes () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
+[<Fact>]
+let NamespaceTypesDontEscape () =
+  let result =
+    result {
+      let src =
+        """
+        type A = Foo.Bar.X;
+        type B = Foo.Y;
+        namespace Foo {
+          type Y = Bar.X;
+          namespace Bar {
+            type X = number;
+          }
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "A", "Foo.Bar.X")
+      Assert.Type(env, "B", "Foo.Y")
+      env.TryFindScheme "X" |> Assert.Null
+      env.TryFindScheme "Y" |> Assert.Null
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let NamespaceValuesAndTypes () =

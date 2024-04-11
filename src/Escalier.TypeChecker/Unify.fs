@@ -1050,8 +1050,9 @@ module rec Unify =
                     expandScheme ctx env ips scheme mapping typeArgs
                   | None -> failwith $"{name} is not in scope"
             | Member _ ->
-              match env.GetScheme ident with
-              | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
+              match env.GetSchemeAndEnv env ident with
+              | Ok(nsEnv, scheme) ->
+                expandScheme ctx nsEnv ips scheme mapping typeArgs
               | Error errorValue -> failwith $"{ident} is not in scope"
 
           return! expand mapping t

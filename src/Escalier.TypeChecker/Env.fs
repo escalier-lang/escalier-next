@@ -11,6 +11,21 @@ open Escalier.Data
 open Prune
 
 module rec Env =
+  // TODO: dedupwe with Infer.fs
+  let openNamespace (env: Env) (ns: Namespace) : Env =
+
+    let mutable nsEnv = env
+
+    nsEnv <- nsEnv.AddBindings ns.Values
+
+    for KeyValue(name, ns) in ns.Namespaces do
+      nsEnv <- nsEnv.AddNamespace name ns
+
+    for KeyValue(name, scheme) in ns.Schemes do
+      nsEnv <- nsEnv.AddScheme name scheme
+
+    nsEnv
+
   type Ctx
     (
       getExports: Ctx -> string -> Syntax.Import -> Namespace,
@@ -326,6 +341,25 @@ module rec Env =
           let! ns = this.GetNamspace qualifier
           return! ns.GetScheme ident
       }
+
+    member this.GetSchemeAndEnv
+      (env: Env)
+      (ident: QualifiedIdent)
+      : Result<Env * Scheme, TypeError> =
+      result {
+        match ident with
+        | Ident name ->
+          match this.TryFindScheme name with
+          | Some scheme -> return env, scheme
+          | None ->
+            return! Error(TypeError.SemanticError $"Undefined symbol {ident}")
+        | Member(qualifier, ident) ->
+          let! ns = this.GetNamspace qualifier
+          let nsEnv = openNamespace env ns
+          let! scheme = ns.GetScheme ident
+          return nsEnv, scheme
+      }
+
 
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
       match this.Namespace.Values |> Map.tryFind name with

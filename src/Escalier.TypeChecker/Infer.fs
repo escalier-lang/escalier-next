@@ -3951,7 +3951,7 @@ module rec Infer =
         | TypeDecl(_) -> ()
         | InterfaceDecl(_) -> failwith "Not Implemented"
         | EnumDecl(_) -> failwith "Not Implemented"
-        | NamespaceDecl {Name=name; Body=body} -> 
+        | NamespaceDecl { Name = name; Body = body } ->
           let! existingNS =
             newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
 
@@ -4013,6 +4013,7 @@ module rec Infer =
     walkExpr expr []
     result
 
+  // TODO: dedupe with Env.fs
   let openNamespace (env: Env) (ns: Namespace) : Env =
 
     let mutable nsEnv = env

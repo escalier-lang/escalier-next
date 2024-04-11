@@ -467,13 +467,11 @@ let NamespaceTypes () =
 
       Assert.Equal(t.ToString(), "number")
 
-    // TODO: open the whole namespace when expand schemes that qualified with
-    // a namespace
-    // let! t =
-    //   expandScheme ctx env None (env.FindScheme "Y") Map.empty None
-    //   |> Result.mapError CompileError.TypeError
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Y") Map.empty None
+        |> Result.mapError CompileError.TypeError
 
-    // Assert.Equal(t.ToString(), "number")
+      Assert.Equal(t.ToString(), "number")
     }
 
   printfn "result = %A" result
@@ -514,13 +512,11 @@ let NamespaceValuesAndTypes () =
 
       Assert.Equal(t.ToString(), "number")
 
-    // TODO: open the whole namespace when expand schemes that qualified with
-    // a namespace
-    // let! t =
-    //   expandScheme ctx env None (env.FindScheme "Y") Map.empty None
-    //   |> Result.mapError CompileError.TypeError
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Y") Map.empty None
+        |> Result.mapError CompileError.TypeError
 
-    // Assert.Equal(t.ToString(), "number")
+      Assert.Equal(t.ToString(), "number")
     }
 
   Assert.False(Result.isError result)

@@ -265,6 +265,7 @@ module rec Env =
     member this.Merge(other: Namespace) =
       { this with
           Values = FSharpPlus.Map.union this.Values other.Values
+          // TODO: fix how these are merged
           Namespaces = FSharpPlus.Map.union this.Namespaces other.Namespaces
           Schemes = FSharpPlus.Map.union this.Schemes other.Schemes }
 

@@ -49,6 +49,26 @@ let InferMutuallyRecursiveFunctions () =
   Assert.False(Result.isError res)
 
 [<Fact>]
+let InferMutuallyRecursiveFunctionsInScript () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn() => bar() + 1;
+        let bar = fn() => foo() - 1;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn () -> number")
+      Assert.Value(env, "bar", "fn () -> number")
+    }
+
+  Assert.False(Result.isError res)
+
+
+[<Fact>]
 let InferMutualRecursion () =
   let res =
     result {
@@ -333,6 +353,39 @@ let ComputedKeysObjectTypes () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let ComputedKeysObjectTypesOutOfOrder () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {
+          [Constants.foo]: number,
+          [Constants.bar]: boolean,
+        };
+        let Constants = {
+          foo: "foo",
+          bar: "bar",
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        newInferModule ctx env "input.esc" ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Obj", "{foo: number, bar: boolean}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
 let ComputedKeysObjectValuesAndTypes () =
   let result =
     result {
@@ -412,194 +465,4 @@ let IndexedAccessTypes () =
     }
 
   printfn "result = %A" result
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let NamespaceValues () =
-  let result =
-    result {
-      let src =
-        """
-        namespace Foo {
-          namespace Bar {
-            let x = 5;
-          }
-          let y = Bar.x;
-        }
-        let x = Foo.Bar.x;
-        let y = Foo.y;
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "x", "5")
-      Assert.Value(env, "y", "5")
-    }
-
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let NamespaceValuesDontEscape () =
-  let result =
-    result {
-      let src =
-        """
-        namespace Foo {
-          namespace Bar {
-            let x = 5;
-          }
-          let y = Bar.x;
-        }
-        let a = Foo.Bar.x;
-        let b = Foo.y;
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "a", "5")
-      Assert.Value(env, "b", "5")
-      env.TryFindValue "x" |> Assert.Null
-      env.TryFindValue "y" |> Assert.Null
-    }
-
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let NamespaceTypes () =
-  let result =
-    result {
-      let src =
-        """
-        type X = Foo.Bar.X;
-        type Y = Foo.Y;
-        namespace Foo {
-          type Y = Bar.X;
-          namespace Bar {
-            type X = number;
-          }
-        }
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Diagnostics)
-      Assert.Type(env, "X", "Foo.Bar.X")
-      Assert.Type(env, "Y", "Foo.Y")
-
-      let! t =
-        expandScheme ctx env None (env.FindScheme "X") Map.empty None
-        |> Result.mapError CompileError.TypeError
-
-      Assert.Equal(t.ToString(), "number")
-
-      let! t =
-        expandScheme ctx env None (env.FindScheme "Y") Map.empty None
-        |> Result.mapError CompileError.TypeError
-
-      Assert.Equal(t.ToString(), "number")
-    }
-
-  printfn "result = %A" result
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let NamespaceTypesDontEscape () =
-  let result =
-    result {
-      let src =
-        """
-        type A = Foo.Bar.X;
-        type B = Foo.Y;
-        namespace Foo {
-          type Y = Bar.X;
-          namespace Bar {
-            type X = number;
-          }
-        }
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Diagnostics)
-      Assert.Type(env, "A", "Foo.Bar.X")
-      Assert.Type(env, "B", "Foo.Y")
-      env.TryFindScheme "X" |> Assert.Null
-      env.TryFindScheme "Y" |> Assert.Null
-    }
-
-  printfn "result = %A" result
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let NamespaceValuesAndTypes () =
-  let result =
-    result {
-      let src =
-        """
-        type X = Foo.Bar.X;
-        type Y = Foo.Y;
-        namespace Foo {
-          type Y = Bar.X;
-          namespace Bar {
-            type X = number;
-            let x = 5;
-          }
-          let y = Bar.x;
-        }
-        let x = Foo.Bar.x;
-        let y = Foo.y;
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "x", "5")
-      Assert.Value(env, "y", "5")
-      Assert.Type(env, "X", "Foo.Bar.X")
-      Assert.Type(env, "Y", "Foo.Y")
-
-      let! t =
-        expandScheme ctx env None (env.FindScheme "X") Map.empty None
-        |> Result.mapError CompileError.TypeError
-
-      Assert.Equal(t.ToString(), "number")
-
-      let! t =
-        expandScheme ctx env None (env.FindScheme "Y") Map.empty None
-        |> Result.mapError CompileError.TypeError
-
-      Assert.Equal(t.ToString(), "number")
-    }
-
-  Assert.False(Result.isError result)
-
-
-[<Fact>]
-let NamespaceTypeAnnsBeforeTypeDecl () =
-  let result =
-    result {
-      let src =
-        """
-        let x: Foo.Bar.X = 5;
-        let y: Foo.Y = 5;
-        namespace Foo {
-          let y1: Y = 5;
-          let y2: Foo.Y = 5;
-          type Y = Bar.X;
-          namespace Bar {
-            type X = number;
-            let x1: X = 5;
-            let x2: Bar.X = 5;
-            let x3: Foo.Bar.X = 5;
-          }
-        }
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Diagnostics)
-    }
-
   Assert.False(Result.isError result)

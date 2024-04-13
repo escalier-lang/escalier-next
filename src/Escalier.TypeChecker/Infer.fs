@@ -3813,9 +3813,12 @@ module rec Infer =
 
     List.rev fns
 
+  // TODO: split this function up to determine a graph of function captures and
+  // their dependencies and a separate function that infers their values.
   let inferFunctionDeps
     (ctx: Ctx)
     (env: Env)
+    (graph: DeclGraph)
     (values: Map<string, Decl>)
     (functions: list<Syntax.Function>)
     : Result<Env, TypeError> =
@@ -3827,17 +3830,34 @@ module rec Infer =
         let captures = findCaptures fn
 
         for capture in captures do
-          // TODO: check what the dependencies are for the capture
-          let decl = values.[capture]
+          // infer dependencies of any captures...
+          for dep in graph.[capture] do
+            let decl = values.[dep]
 
-          match decl.Kind with
+            match decl.Kind with
+            | VarDecl decl ->
+              let functions =
+                match decl.Init with
+                | Some init -> findFunctions init
+                | None -> []
+
+              let! fnsEnv = inferFunctionDeps ctx newEnv graph values functions
+              newEnv <- fnsEnv
+
+              let! bindings, schemes = inferVarDecl ctx newEnv decl
+              newEnv <- newEnv.AddSchemes schemes
+              newEnv <- newEnv.AddBindings bindings
+            | _ -> ()
+
+          // ... before inferring the captures themselves
+          match values.[capture].Kind with
           | VarDecl decl ->
             let functions =
               match decl.Init with
               | Some init -> findFunctions init
               | None -> []
 
-            let! fnsEnv = inferFunctionDeps ctx newEnv values functions
+            let! fnsEnv = inferFunctionDeps ctx newEnv graph values functions
             newEnv <- fnsEnv
 
             let! bindings, schemes = inferVarDecl ctx newEnv decl
@@ -3913,35 +3933,9 @@ module rec Infer =
 
       let mutable newEnv = env
 
-      // TODO:
-      // - hoist function definitions
-      // - infer each function definitions dependences first
-      // - then infer the function
-      // - then keep track of what variables have been initialized and if
-      //   there's a top-level function call that's made before the deps of
-      //   the function are initialized, report an error
-
-      // what about stuff like:
-      // let [foo, bar] = [fn () { ... }, fn () { ... }]
-      // let {foo, bar} = {foo: fn () { ... }, bar: fn () { ... }}
-      // let obj = {foo: fn () { ... }, bar: fn () { ... }}
-      // let {foo, bar} + obj
-
-      // we need to be able to:
-      // - find all of the top-level functions
-      // - determine all of the variables they've captured
-      // - infer the captures first then their functions
-
-
-      // disallow things like:
-      // ```
-      // let foo = fn () => x
-      // let x = foo()
-      // ```
-
       printfn "graph = %A" graph
 
-      let! fnsEnv = inferFunctionDeps ctx newEnv values functions
+      let! fnsEnv = inferFunctionDeps ctx newEnv graph values functions
       newEnv <- fnsEnv
 
       // Check if the graph is valid and infer values

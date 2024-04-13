@@ -149,6 +149,106 @@ let BuildDeclGraphWithCapturesDefinedAfterClosure () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let GraphWithNonFunctionDeps () =
+  let res =
+    result {
+      let src =
+        """
+        let add = fn () => x + y;
+        let x = 5;
+        let y = x + 5;
+        let sum = add();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.buildDeclGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sum", "15")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let GraphWithFunctionCallDeps () =
+  let res =
+    result {
+      let src =
+        """
+        let add = fn () => x + y;
+        let sub = fn () => x - y;
+        let poly = fn () => sum * diff;
+        let x = 5;
+        let y = 10;
+        let zero = 0;
+        let sum = add() + zero;
+        let diff = sub() + zero;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.buildDeclGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "sum", "15")
+      Assert.Value(env, "diff", "-5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let GraphWithFunctionCallDepsWithObjects () =
+  let res =
+    result {
+      let src =
+        """
+        let math = {add: fn () => x + y, sub: fn () => x - y};
+        let poly = fn () => values.sum * values.diff;
+        let x = 5;
+        let y = 10;
+        let zero = 0;
+        let values = {sum: math.add() + zero, diff: math.sub() + zero};
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.buildDeclGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "math", "{add: fn () -> 15, sub: fn () -> -5}")
+      // TODO: simplify these values
+      Assert.Value(env, "values", "{sum: 15 + 0, diff: -5 + 0}")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let GraphWithFunctionsInObject () =
   let res =
     result {

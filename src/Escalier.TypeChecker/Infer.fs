@@ -3813,6 +3813,49 @@ module rec Infer =
 
     List.rev fns
 
+  let inferFunctionDeps
+    (ctx: Ctx)
+    (env: Env)
+    (values: Map<string, Decl>)
+    (functions: list<Syntax.Function>)
+    : Result<Env, TypeError> =
+    result {
+
+      let mutable newEnv = env
+
+      for fn in functions do
+        let captures = findCaptures fn
+
+        for capture in captures do
+          // TODO: check what the dependencies are for the capture
+          let decl = values.[capture]
+
+          match decl.Kind with
+          | VarDecl decl ->
+            let functions =
+              match decl.Init with
+              | Some init -> findFunctions init
+              | None -> []
+
+            let! fnsEnv = inferFunctionDeps ctx newEnv values functions
+            newEnv <- fnsEnv
+
+            let! bindings, schemes = inferVarDecl ctx newEnv decl
+            newEnv <- newEnv.AddSchemes schemes
+            newEnv <- newEnv.AddBindings bindings
+          | _ -> ()
+
+        let! funcType = inferFunction ctx newEnv fn.Sig fn.Body
+
+        let t =
+          { Kind = TypeKind.Function funcType
+            Provenance = None }
+
+        fn.InferredType <- Some t
+
+      return newEnv
+    }
+
   let buildDeclGraph
     (ctx: Ctx)
     (env: Env)
@@ -3898,68 +3941,8 @@ module rec Infer =
 
       printfn "graph = %A" graph
 
-      for fn in functions do
-        let captures = findCaptures fn
-        fn.Captures <- Some captures
-        printfn $"fn = {fn}"
-        printfn $"captures = {captures}"
-
-      printfn "-------------"
-
-      for fn in functions do
-        let captures =
-          match fn.Captures with
-          | Some captures -> captures
-          | None -> failwith "Expected captures to be Some"
-
-        printfn $"inferring captures"
-
-        for capture in captures do
-          // TODO: check what the dependencies are for the capture
-          let decl = values.[capture]
-
-          match decl.Kind with
-          | VarDecl decl ->
-            // TODO: determine if the decl has any captures we need to infer
-            let functions =
-              match decl.Init with
-              | Some init -> findFunctions init
-              | None -> []
-
-            for f in functions do
-              let captures = findCaptures f
-              printfn $"sub-captures = {captures}"
-
-              for capture in captures do
-                let decl = values.[capture]
-
-                match decl.Kind with
-                | VarDecl decl ->
-                  let! bindings, schemes = inferVarDecl ctx newEnv decl
-
-                  for KeyValue(name, scheme) in schemes do
-                    newEnv <- newEnv.AddScheme name scheme
-
-                  newEnv <- newEnv.AddBindings bindings
-                | _ -> ()
-
-            let! bindings, schemes = inferVarDecl ctx newEnv decl
-
-            for KeyValue(name, scheme) in schemes do
-              newEnv <- newEnv.AddScheme name scheme
-
-            newEnv <- newEnv.AddBindings bindings
-          | _ -> ()
-
-        // infer the function
-        let! funcType = inferFunction ctx newEnv fn.Sig fn.Body
-
-        let t =
-          { Kind = TypeKind.Function funcType
-            Provenance = None }
-
-        fn.InferredType <- Some t
-        printfn $"fn.InferredType = Some {t}"
+      let! fnsEnv = inferFunctionDeps ctx newEnv values functions
+      newEnv <- fnsEnv
 
       // Check if the graph is valid and infer values
       for item in ast.Items do

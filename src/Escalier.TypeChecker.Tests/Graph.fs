@@ -117,7 +117,6 @@ let BuildDeclGraphWithFunctions () =
       ()
     }
 
-  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 [<Fact>]
@@ -147,7 +146,6 @@ let BuildDeclGraphWithCapturesDefinedAfterClosure () =
       Assert.Value(env, "sum", "15")
     }
 
-  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 [<Fact>]
@@ -176,7 +174,6 @@ let GraphWithFunctionsInObject () =
       Assert.Value(env, "sum", "15")
     }
 
-  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 
@@ -210,5 +207,34 @@ let AcyclicFunctionDeps () =
       Assert.Value(env, "poly", "fn () -> -75")
     }
 
-  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let AcyclicFunctionDepsInObject () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => math.add() * math.sub();
+        let math = {add: fn () => x + y, sub: fn () => x - y};
+        let x = 5;
+        let y = 10;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.buildDeclGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "math", "{add: fn () -> 15, sub: fn () -> -5}")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
   Assert.True(Result.isOk res)

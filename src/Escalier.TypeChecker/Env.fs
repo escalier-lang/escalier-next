@@ -281,6 +281,14 @@ module rec Env =
       { this with
           Namespace = this.Namespace.AddScheme name s }
 
+    member this.AddSchemes(schemes: Map<string, Scheme>) =
+      let mutable newEnv = this
+
+      for KeyValue(name, scheme) in schemes do
+        newEnv <- newEnv.AddScheme name scheme
+
+      newEnv
+
     member this.AddNamespace (name: string) (ns: Namespace) =
       { this with
           Namespace = this.Namespace.AddNamespace name ns }

@@ -707,7 +707,11 @@ module Parser =
       (funcSig opt false)
       (block |>> BlockOrExpr.Block
        <|> (strWs "=>" >>. expr |>> BlockOrExpr.Expr))
-    <| fun sig' body -> { Sig = sig'; Body = body }
+    <| fun sig' body ->
+      { Sig = sig'
+        Body = body
+        Captures = None
+        InferredType = None }
 
   let funcExpr: Parser<Expr, unit> =
     withSpan func

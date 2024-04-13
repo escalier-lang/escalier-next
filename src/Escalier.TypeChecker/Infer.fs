@@ -605,12 +605,20 @@ module rec Infer =
           // TODO: handle throws
 
           return result
-        | ExprKind.Function { Sig = fnSig; Body = body } ->
-          let! f = inferFunction ctx env fnSig body
+        | ExprKind.Function { Sig = fnSig
+                              Body = body
+                              Captures = captures
+                              InferredType = it } ->
+          match it with
+          | Some t -> return t
+          | None ->
+            printfn "inferring function with captures: %A" captures
+            let! f = inferFunction ctx env fnSig body
 
-          return
-            { Kind = TypeKind.Function f
-              Provenance = None }
+            return
+              { Kind = TypeKind.Function f
+                Provenance = None }
+
         | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -3328,6 +3336,13 @@ module rec Infer =
             | PatternKind.Ident { Name = name } ->
               names <- name :: names
               false
+            | PatternKind.Object { Elems = elems } ->
+              for elem in elems do
+                match elem with
+                | Syntax.ShorthandPat { Name = name } -> names <- name :: names
+                | _ -> ()
+
+              false
             | _ -> true
         ExprVisitor.VisitTypeAnn = fun _ -> false }
 
@@ -3725,4 +3740,259 @@ module rec Infer =
       | _ -> ()
 
       return (callee.Return, callee.Throws)
+    }
+
+  // TODO:
+  // - identify dependencies between top-level declarations
+  // - identify groups of recursive funciton declarations
+
+  type DeclGraph = Map<string, list<string>>
+
+  let findIdentifiers (expr: Expr) : list<string> =
+    let mutable ids: list<string> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            // TODO: handle member expressions
+            // TODO: account for function params and such
+            | ExprKind.Identifier name ->
+              ids <- name :: ids
+              false
+            | ExprKind.Function _ -> false
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    walkExpr visitor expr
+
+    List.rev ids
+
+  let findCaptures (f: Syntax.Function) : list<string> =
+    let mutable ids: list<string> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            // TODO: handle member expressions
+            // TODO: account for function params and such
+            | ExprKind.Identifier name ->
+              ids <- name :: ids
+              false
+            | ExprKind.Function _ -> false
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    match f.Body with
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Expr expr -> walkExpr visitor expr
+
+    List.rev ids
+
+  let findFunctions (expr: Expr) : list<Syntax.Function> =
+    let mutable fns: list<Syntax.Function> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function f ->
+              fns <- f :: fns
+              false
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    walkExpr visitor expr
+
+    List.rev fns
+
+  let buildDeclGraph
+    (ctx: Ctx)
+    (env: Env)
+    (ast: Module)
+    : Result<Env, TypeError> =
+    result {
+      // TODO: differentiate between value dependencies and type dependencies
+      let mutable graph: Map<string, list<string>> = Map.empty
+      // TODO: change this to be a dictionary so that we can look up values later
+      // so that we can find all the functions so that we can hoist them
+      let mutable values: Map<string, Decl> = Map.empty
+      let mutable functions: list<Syntax.Function> = []
+      let mutable types: Map<string, option<Type>> = Map.empty
+
+      // Find all the values declared in the module
+      for item in ast.Items do
+        match item with
+        | Decl decl ->
+          match decl.Kind with
+          | VarDecl { Pattern = pattern; Init = init } ->
+            match init with
+            | Some init -> functions <- functions @ findFunctions init
+            | None -> ()
+
+            for name in findBindingNames pattern do
+              values <- Map.add name decl values
+          | FnDecl(_) -> failwith "Not Implemented"
+          | ClassDecl(_) -> failwith "Not Implemented"
+          | TypeDecl(_) -> failwith "Not Implemented"
+          | InterfaceDecl(_) -> failwith "Not Implemented"
+          | EnumDecl(_) -> failwith "Not Implemented"
+          | NamespaceDecl(_) -> failwith "Not Implemented"
+        | _ -> ()
+
+      // Determine the dependencies between the values
+      for item in ast.Items do
+        match item with
+        | Decl decl ->
+          match decl.Kind with
+          | VarDecl decl ->
+            let deps =
+              match decl.Init with
+              | Some init -> findIdentifiers init
+              | None -> [] // TODO: find identifiers in typeof types in type annotations
+
+            for name in findBindingNames decl.Pattern do
+              graph <- graph.Add(name, deps)
+          | FnDecl(_) -> failwith "Not Implemented"
+          | ClassDecl(_) -> failwith "Not Implemented"
+          | TypeDecl(_) -> failwith "Not Implemented"
+          | InterfaceDecl(_) -> failwith "Not Implemented"
+          | EnumDecl(_) -> failwith "Not Implemented"
+          | NamespaceDecl(_) -> failwith "Not Implemented"
+        | _ -> ()
+
+      let mutable newEnv = env
+
+      // TODO:
+      // - hoist function definitions
+      // - infer each function definitions dependences first
+      // - then infer the function
+      // - then keep track of what variables have been initialized and if
+      //   there's a top-level function call that's made before the deps of
+      //   the function are initialized, report an error
+
+      // what about stuff like:
+      // let [foo, bar] = [fn () { ... }, fn () { ... }]
+      // let {foo, bar} = {foo: fn () { ... }, bar: fn () { ... }}
+      // let obj = {foo: fn () { ... }, bar: fn () { ... }}
+      // let {foo, bar} + obj
+
+      // we need to be able to:
+      // - find all of the top-level functions
+      // - determine all of the variables they've captured
+      // - infer the captures first then their functions
+
+
+      // disallow things like:
+      // ```
+      // let foo = fn () => x
+      // let x = foo()
+      // ```
+
+      printfn "graph = %A" graph
+
+      for fn in functions do
+        let captures = findCaptures fn
+        fn.Captures <- Some captures
+        printfn $"fn = {fn}"
+        printfn $"captures = {captures}"
+
+      printfn "-------------"
+
+      for fn in functions do
+        let captures =
+          match fn.Captures with
+          | Some captures -> captures
+          | None -> failwith "Expected captures to be Some"
+
+        printfn $"inferring captures"
+
+        for capture in captures do
+          // TODO: check what the dependencies are for the capture
+          let decl = values.[capture]
+
+          match decl.Kind with
+          | VarDecl decl ->
+            // TODO: determine if the decl has any captures we need to infer
+            let functions =
+              match decl.Init with
+              | Some init -> findFunctions init
+              | None -> []
+
+            for f in functions do
+              let captures = findCaptures f
+              printfn $"sub-captures = {captures}"
+
+              for capture in captures do
+                let decl = values.[capture]
+
+                match decl.Kind with
+                | VarDecl decl ->
+                  let! bindings, schemes = inferVarDecl ctx newEnv decl
+
+                  for KeyValue(name, scheme) in schemes do
+                    newEnv <- newEnv.AddScheme name scheme
+
+                  newEnv <- newEnv.AddBindings bindings
+                | _ -> ()
+
+            let! bindings, schemes = inferVarDecl ctx newEnv decl
+
+            for KeyValue(name, scheme) in schemes do
+              newEnv <- newEnv.AddScheme name scheme
+
+            newEnv <- newEnv.AddBindings bindings
+          | _ -> ()
+
+        // infer the function
+        let! funcType = inferFunction ctx newEnv fn.Sig fn.Body
+
+        let t =
+          { Kind = TypeKind.Function funcType
+            Provenance = None }
+
+        fn.InferredType <- Some t
+        printfn $"fn.InferredType = Some {t}"
+
+      // Check if the graph is valid and infer values
+      for item in ast.Items do
+        match item with
+        | Decl decl ->
+          match decl.Kind with
+          | VarDecl decl ->
+            for name in findBindingNames decl.Pattern do
+              let deps = graph[name]
+
+              for name in deps do
+                match newEnv.TryFindValue name with
+                | Some _ -> ()
+                | None ->
+                  return!
+                    Error(
+                      TypeError.SemanticError
+                        $"{name} has not been initialized yet"
+                    )
+
+            let! bindings, schemes = inferVarDecl ctx newEnv decl
+
+            for KeyValue(name, scheme) in schemes do
+              newEnv <- newEnv.AddScheme name scheme
+
+            newEnv <- newEnv.AddBindings bindings
+          | FnDecl(_) -> failwith "Not Implemented"
+          | ClassDecl(_) -> failwith "Not Implemented"
+          | TypeDecl(_) -> failwith "Not Implemented"
+          | InterfaceDecl(_) -> failwith "Not Implemented"
+          | EnumDecl(_) -> failwith "Not Implemented"
+          | NamespaceDecl(_) -> failwith "Not Implemented"
+        | _ -> ()
+
+      return newEnv
     }

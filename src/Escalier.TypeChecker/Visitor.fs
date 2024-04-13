@@ -64,9 +64,12 @@ module rec ExprVisitor =
           walk left
           walk right
         | ExprKind.Unary(_op, value) -> walk value
-        | ExprKind.Object elems ->
-          // TODO:
-          ()
+        | ExprKind.Object obj ->
+          for elem in obj.Elems do
+            match elem with
+            | ObjElem.Property(span, key, value) -> walk value
+            | ObjElem.Shorthand(span, name) -> ()
+            | ObjElem.Spread(span, value) -> walk value
         | ExprKind.Try { Body = body
                          Catch = catch
                          Finally = fin } ->

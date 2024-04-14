@@ -3745,7 +3745,15 @@ module rec Infer =
   // - identify dependencies between top-level declarations
   // - identify groups of recursive funciton declarations
 
-  type DeclGraph = Map<string, Decl * list<string>>
+  type DeclGraph =
+    { Edges: Map<string, list<string>>
+      Nodes: Map<string, Decl> }
+
+    member this.Add(name: string, decl: Decl, deps: list<string>) =
+      { Edges = this.Edges.Add(name, deps)
+        Nodes = this.Nodes.Add(name, decl) }
+
+    static member Empty = { Edges = Map.empty; Nodes = Map.empty }
 
   // Find identifiers in an expression excluding function expressions.
   let findIdentifiers (expr: Expr) : list<string> =
@@ -3824,7 +3832,7 @@ module rec Infer =
   let buildGraph (ast: Module) : Result<DeclGraph, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
-      let mutable graph: DeclGraph = Map.empty
+      let mutable graph = DeclGraph.Empty
       let mutable declared: list<string> = []
 
       for item in ast.Items do
@@ -3855,7 +3863,7 @@ module rec Infer =
 
               for name in bindingNames do
                 printfn $"{name} -> {deps}"
-                graph <- graph.Add(name, (decl, deps))
+                graph <- graph.Add(name, decl, deps)
             | None -> ()
 
             declared <- declared @ bindingNames
@@ -3864,6 +3872,87 @@ module rec Infer =
 
       return graph
     }
+
+  // type DeclTree =
+
+
+  let rec findCycles (edges: Map<string, list<string>>) : Set<Set<string>> =
+
+    let mutable visited: list<string> = []
+    let mutable stack: list<string> = []
+    let mutable cycles: Set<Set<string>> = Set.empty
+
+    let rec visit (node: string) (parents: list<string>) =
+      if List.contains node parents then
+        // find the index of node in parents
+        let index = List.findIndex (fun p -> p = node) parents
+        let cycle = List.take index parents @ [ node ] |> Set.ofList
+        cycles <- Set.add cycle cycles
+      else
+        let edges = edges[node]
+
+        for next in edges do
+          visit next (node :: parents)
+
+    for KeyValue(node, _) in edges do
+      visit node []
+
+    cycles
+
+  let rec graphToTree
+    (edges: Map<string, list<string>>)
+    : Map<Set<string>, Set<Set<string>>> =
+    let mutable visited: list<string> = []
+    let mutable stack: list<string> = []
+    let mutable cycles: Set<Set<string>> = Set.empty
+
+    let rec visit (node: string) (parents: list<string>) =
+      if List.contains node parents then
+        // find the index of node in parents
+        let index = List.findIndex (fun p -> p = node) parents
+        let cycle = List.take index parents @ [ node ] |> Set.ofList
+        cycles <- Set.add cycle cycles
+      else
+        let edges = edges[node]
+
+        for next in edges do
+          visit next (node :: parents)
+
+    for KeyValue(node, _) in edges do
+      visit node []
+
+    let mutable cycleMap: Map<string, Set<string>> = Map.empty
+
+    for cycle in cycles do
+      for node in cycle do
+        cycleMap <- cycleMap.Add(node, cycle)
+
+    let mutable newEdges: Map<Set<string>, Set<Set<string>>> = Map.empty
+
+    for KeyValue(node, deps) in edges do
+      let deps = Set.ofList deps
+
+      let src =
+        if Map.containsKey node cycleMap then
+          cycleMap[node]
+        else
+          Set.singleton node
+
+      for dep in deps do
+        if not (Set.contains dep src) then
+          let dst =
+            if Map.containsKey dep cycleMap then
+              cycleMap[dep]
+            else
+              Set.singleton dep
+
+          if Map.containsKey src newEdges then
+            let dsts = newEdges[src]
+            newEdges <- newEdges.Add(src, dsts.Add(dst))
+          else
+            newEdges <- newEdges.Add(src, Set.singleton dst)
+
+    newEdges
 
   let rec inferGraphRec
     (ctx: Ctx)
@@ -3876,7 +3965,8 @@ module rec Infer =
       let mutable newEnv = env
       let generalize = true
 
-      let decl, deps = graph[root]
+      let decl = graph.Nodes[root]
+      let deps = graph.Edges[root]
 
       // TODO: find cycles in graph
       // walk the graph and if we ever run into the same node again, we have
@@ -3900,7 +3990,8 @@ module rec Infer =
         | _ -> return newEnv
       else
         for dep in deps do
-          let decl, deps = graph[dep]
+          let decl = graph.Nodes[dep]
+          let deps = graph.Edges[dep]
           let! nextEnv = inferGraphRec ctx newEnv dep graph
           newEnv <- nextEnv
 
@@ -3918,7 +4009,7 @@ module rec Infer =
     result {
       let mutable newEnv = env
 
-      for KeyValue(key, decl) in graph do
+      for KeyValue(key, decl) in graph.Nodes do
         let! nextEnv = inferGraphRec ctx newEnv key graph
         newEnv <- nextEnv
 

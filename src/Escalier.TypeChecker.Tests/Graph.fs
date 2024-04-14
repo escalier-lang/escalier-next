@@ -546,3 +546,96 @@ let BuildRecursiveGraph () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
+
+[<Fact>]
+let MutuallyRecursiveGraph () =
+  let res =
+    result {
+      let src =
+        """
+        let isEven = fn (n) => if n == 0 { true } else { isOdd(n - 1) };
+        let isOdd = fn (n) => if n == 0 { false } else { isEven(n - 1) };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! graph =
+        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
+
+      printfn "graph.Edges = %A" graph.Edges
+
+      ()
+    // let! env =
+    //   Infer.inferModuleUsingGraph ctx env ast
+    //   |> Result.mapError CompileError.TypeError
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let MutuallyRecursiveGraphInObjects () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = {
+          isEven: fn (n) => if n == 0 { true } else { bar.isOdd(n - 1) }
+        };
+        let bar = {
+          isOdd: fn (n) => if n == 0 { false } else { foo.isEven(n - 1) } 
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! graph =
+        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
+
+      printfn "graph.Edges = %A" graph.Edges
+
+      let cycles = Infer.findCycles graph.Edges
+
+      printfn "cycles = %A" cycles
+
+    // let! env =
+    //   Infer.inferModuleUsingGraph ctx env ast
+    //   |> Result.mapError CompileError.TypeError
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact>]
+let FindCycles1 () =
+  let mutable edges: Map<string, list<string>> = Map.empty
+
+  edges <- Map.add "a" [ "b" ] edges
+  edges <- Map.add "b" [ "c" ] edges
+  edges <- Map.add "c" [ "b" ] edges
+
+  let tree = Infer.graphToTree edges
+
+  printfn "tree = %A" tree
+
+[<Fact>]
+let FindCycles2 () =
+  let mutable edges: Map<string, list<string>> = Map.empty
+
+  edges <- Map.add "a" [ "b" ] edges
+  edges <- Map.add "b" [ "c" ] edges
+  edges <- Map.add "c" [ "b"; "d" ] edges
+  edges <- Map.add "d" [ "e" ] edges
+  edges <- Map.add "e" [ "f" ] edges
+  edges <- Map.add "f" [ "e" ] edges
+
+  let tree = Infer.graphToTree edges
+
+  printfn "tree = %A" tree

@@ -96,6 +96,56 @@ let BuildDeclGraphWithFunction () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let GraphWithFunctionWithParam () =
+  let res =
+    result {
+      let src =
+        """
+        let x = 5;
+        let add = fn (y) => x + y;
+        let sum = add(10);
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "add", "fn <A: number>(y: A) -> 5 + A")
+      Assert.Value(env, "sum", "15")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let BuildDeclGraphWithGenericFunction () =
+  let res =
+    result {
+      let src =
+        """
+        let id = fn (x) => x;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "id", "fn <A>(x: A) -> A")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let BuildDeclGraphWithFunctions () =
   let res =
     result {
@@ -462,6 +512,36 @@ let AcyclicFunctionDepsInObjectWithDestructuringStress () =
       Assert.Value(env, "add", "fn () -> 15")
       Assert.Value(env, "sub", "fn () -> -5")
       Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let BuildRecursiveGraph () =
+  let res =
+    result {
+      let src =
+        """
+        let fact = fn (n) => if n == 0 { 1 } else { n * fact(n - 1) };
+        let fib = fn (n) => if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = Infer.buildGraph ast
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      // TODO: merge 1 and number
+      // TODO: maintain the name of the function argument
+      Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "fib", "fn (arg0: number) -> number")
     }
 
   printfn "res = %A" res

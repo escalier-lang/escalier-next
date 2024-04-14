@@ -3747,6 +3747,7 @@ module rec Infer =
 
   type DeclGraph = Map<string, Decl * list<string>>
 
+  // Find identifiers in an expression excluding function expressions.
   let findIdentifiers (expr: Expr) : list<string> =
     let mutable ids: list<string> = []
 
@@ -3754,8 +3755,9 @@ module rec Infer =
       { ExprVisitor.VisitExpr =
           fun expr ->
             match expr.Kind with
-            // TODO: handle member expressions
-            // TODO: account for function params and such
+            // NOTE: we don't have to do any special handling for
+            // ExprKind.Member because the property is stored as a
+            // string instead of an identifier.
             | ExprKind.Identifier name ->
               ids <- name :: ids
               false
@@ -3771,15 +3773,22 @@ module rec Infer =
 
   let findCaptures (f: Syntax.Function) : list<string> =
     let mutable ids: list<string> = []
+    let mutable paramNames: list<string> = []
+
+    for p in f.Sig.ParamList do
+      paramNames <- paramNames @ findBindingNames p.Pattern
 
     let visitor =
       { ExprVisitor.VisitExpr =
           fun expr ->
             match expr.Kind with
-            // TODO: handle member expressions
-            // TODO: account for function params and such
+            // NOTE: we don't have to do any special handling for
+            // ExprKind.Member because the property is stored as a
+            // string instead of an identifier.
             | ExprKind.Identifier name ->
-              ids <- name :: ids
+              if not (List.contains name paramNames) then
+                ids <- name :: ids
+
               false
             | ExprKind.Function _ -> false
             | _ -> true
@@ -3827,6 +3836,7 @@ module rec Infer =
 
             match init with
             | Some init ->
+              // TODO: exclude function parameters from the list
               let mutable deps = findIdentifiers init
 
               for dep in deps do
@@ -3844,6 +3854,7 @@ module rec Infer =
                 deps <- deps @ captures
 
               for name in bindingNames do
+                printfn $"{name} -> {deps}"
                 graph <- graph.Add(name, (decl, deps))
             | None -> ()
 
@@ -3863,18 +3874,39 @@ module rec Infer =
 
     result {
       let mutable newEnv = env
-      let generalize = false
+      let generalize = true
 
-      let decl, deps = graph.[root]
+      let decl, deps = graph[root]
 
-      for dep in deps do
-        let decl, deps = graph.[dep]
-        let! nextEnv = inferGraphRec ctx newEnv dep graph
-        newEnv <- nextEnv
+      // TODO: find cycles in graph
+      // walk the graph and if we ever run into the same node again, we have
+      // a cycle
+      // a -> b -> c -> d -> b
+      // there's a cycle from b -> c -> d -> b
+      // and that cycle depends on a
 
-      let! newEnv = inferDecl ctx newEnv decl generalize
+      // TODO: handle cycles of arbitrary length
+      if List.contains root deps then
+        // TODO: determine the non-cyclic dependency and infer them first
+        match decl.Kind with
+        | VarDecl decl ->
+          let! bindings, schemes = inferVarDecl ctx newEnv decl
+          let bindings = generalizeBindings bindings
 
-      return newEnv
+          newEnv <- newEnv.AddSchemes schemes
+          newEnv <- newEnv.AddBindings bindings
+
+          return newEnv
+        | _ -> return newEnv
+      else
+        for dep in deps do
+          let decl, deps = graph[dep]
+          let! nextEnv = inferGraphRec ctx newEnv dep graph
+          newEnv <- nextEnv
+
+        let! newEnv = inferDecl ctx newEnv decl generalize
+
+        return newEnv
     }
 
   let inferGraph

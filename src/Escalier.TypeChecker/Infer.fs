@@ -612,7 +612,6 @@ module rec Infer =
           match it with
           | Some t -> return t
           | None ->
-            printfn "inferring function with captures: %A" captures
             let! f = inferFunction ctx env fnSig body
 
             return
@@ -3746,7 +3745,7 @@ module rec Infer =
   // - identify dependencies between top-level declarations
   // - identify groups of recursive funciton declarations
 
-  type DeclGraph = Map<string, list<string>>
+  type DeclGraph = Map<string, Decl * list<string>>
 
   let findIdentifiers (expr: Expr) : list<string> =
     let mutable ids: list<string> = []
@@ -3813,163 +3812,94 @@ module rec Infer =
 
     List.rev fns
 
-  // TODO: split this function up to determine a graph of function captures and
-  // their dependencies and a separate function that infers their values.
-  let inferFunctionDeps
-    (ctx: Ctx)
-    (env: Env)
-    (graph: DeclGraph)
-    (values: Map<string, Decl>)
-    (functions: list<Syntax.Function>)
-    : Result<Env, TypeError> =
+  let buildGraph (ast: Module) : Result<DeclGraph, TypeError> =
     result {
-
-      let mutable newEnv = env
-
-      for fn in functions do
-        let captures = findCaptures fn
-
-        for capture in captures do
-          // infer dependencies of any captures...
-          for dep in graph.[capture] do
-            let decl = values.[dep]
-
-            match decl.Kind with
-            | VarDecl decl ->
-              let functions =
-                match decl.Init with
-                | Some init -> findFunctions init
-                | None -> []
-
-              let! fnsEnv = inferFunctionDeps ctx newEnv graph values functions
-              newEnv <- fnsEnv
-
-              let! bindings, schemes = inferVarDecl ctx newEnv decl
-              newEnv <- newEnv.AddSchemes schemes
-              newEnv <- newEnv.AddBindings bindings
-            | _ -> ()
-
-          // ... before inferring the captures themselves
-          match values.[capture].Kind with
-          | VarDecl decl ->
-            let functions =
-              match decl.Init with
-              | Some init -> findFunctions init
-              | None -> []
-
-            let! fnsEnv = inferFunctionDeps ctx newEnv graph values functions
-            newEnv <- fnsEnv
-
-            let! bindings, schemes = inferVarDecl ctx newEnv decl
-            newEnv <- newEnv.AddSchemes schemes
-            newEnv <- newEnv.AddBindings bindings
-          | _ -> ()
-
-        let! funcType = inferFunction ctx newEnv fn.Sig fn.Body
-
-        let t =
-          { Kind = TypeKind.Function funcType
-            Provenance = None }
-
-        fn.InferredType <- Some t
-
-      return newEnv
-    }
-
-  let buildDeclGraph
-    (ctx: Ctx)
-    (env: Env)
-    (ast: Module)
-    : Result<Env, TypeError> =
-    result {
-      // TODO: differentiate between value dependencies and type dependencies
-      let mutable graph: Map<string, list<string>> = Map.empty
-      // TODO: change this to be a dictionary so that we can look up values later
-      // so that we can find all the functions so that we can hoist them
-      let mutable values: Map<string, Decl> = Map.empty
       let mutable functions: list<Syntax.Function> = []
-      let mutable types: Map<string, option<Type>> = Map.empty
+      let mutable graph: DeclGraph = Map.empty
+      let mutable declared: list<string> = []
 
-      // Find all the values declared in the module
       for item in ast.Items do
         match item with
         | Decl decl ->
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = init } ->
+            let bindingNames = findBindingNames pattern
+
             match init with
-            | Some init -> functions <- functions @ findFunctions init
-            | None -> ()
+            | Some init ->
+              let mutable deps = findIdentifiers init
 
-            for name in findBindingNames pattern do
-              values <- Map.add name decl values
-          | FnDecl(_) -> failwith "Not Implemented"
-          | ClassDecl(_) -> failwith "Not Implemented"
-          | TypeDecl(_) -> failwith "Not Implemented"
-          | InterfaceDecl(_) -> failwith "Not Implemented"
-          | EnumDecl(_) -> failwith "Not Implemented"
-          | NamespaceDecl(_) -> failwith "Not Implemented"
-        | _ -> ()
-
-      // Determine the dependencies between the values
-      for item in ast.Items do
-        match item with
-        | Decl decl ->
-          match decl.Kind with
-          | VarDecl decl ->
-            let deps =
-              match decl.Init with
-              | Some init -> findIdentifiers init
-              | None -> [] // TODO: find identifiers in typeof types in type annotations
-
-            for name in findBindingNames decl.Pattern do
-              graph <- graph.Add(name, deps)
-          | FnDecl(_) -> failwith "Not Implemented"
-          | ClassDecl(_) -> failwith "Not Implemented"
-          | TypeDecl(_) -> failwith "Not Implemented"
-          | InterfaceDecl(_) -> failwith "Not Implemented"
-          | EnumDecl(_) -> failwith "Not Implemented"
-          | NamespaceDecl(_) -> failwith "Not Implemented"
-        | _ -> ()
-
-      let mutable newEnv = env
-
-      printfn "graph = %A" graph
-
-      let! fnsEnv = inferFunctionDeps ctx newEnv graph values functions
-      newEnv <- fnsEnv
-
-      // Check if the graph is valid and infer values
-      for item in ast.Items do
-        match item with
-        | Decl decl ->
-          match decl.Kind with
-          | VarDecl decl ->
-            for name in findBindingNames decl.Pattern do
-              let deps = graph[name]
-
-              for name in deps do
-                match newEnv.TryFindValue name with
-                | Some _ -> ()
-                | None ->
+              for dep in deps do
+                if not (List.contains dep declared) then
                   return!
                     Error(
                       TypeError.SemanticError
-                        $"{name} has not been initialized yet"
+                        $"{dep} has not been initialized yet"
                     )
 
-            let! bindings, schemes = inferVarDecl ctx newEnv decl
+              let functions = findFunctions init
 
-            for KeyValue(name, scheme) in schemes do
-              newEnv <- newEnv.AddScheme name scheme
+              for f in functions do
+                let captures = findCaptures f
+                deps <- deps @ captures
 
-            newEnv <- newEnv.AddBindings bindings
-          | FnDecl(_) -> failwith "Not Implemented"
-          | ClassDecl(_) -> failwith "Not Implemented"
-          | TypeDecl(_) -> failwith "Not Implemented"
-          | InterfaceDecl(_) -> failwith "Not Implemented"
-          | EnumDecl(_) -> failwith "Not Implemented"
-          | NamespaceDecl(_) -> failwith "Not Implemented"
+              for name in bindingNames do
+                graph <- graph.Add(name, (decl, deps))
+            | None -> ()
+
+            declared <- declared @ bindingNames
+          | _ -> ()
         | _ -> ()
 
+      return graph
+    }
+
+  let rec inferGraphRec
+    (ctx: Ctx)
+    (env: Env)
+    (root: string)
+    (graph: DeclGraph)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = env
+      let generalize = false
+
+      let decl, deps = graph.[root]
+
+      for dep in deps do
+        let decl, deps = graph.[dep]
+        let! nextEnv = inferGraphRec ctx newEnv dep graph
+        newEnv <- nextEnv
+
+      let! newEnv = inferDecl ctx newEnv decl generalize
+
+      return newEnv
+    }
+
+  let inferGraph
+    (ctx: Ctx)
+    (env: Env)
+    (graph: DeclGraph)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      for KeyValue(key, decl) in graph do
+        let! nextEnv = inferGraphRec ctx newEnv key graph
+        newEnv <- nextEnv
+
+      return newEnv
+    }
+
+  let inferModuleUsingGraph
+    (ctx: Ctx)
+    (env: Env)
+    (ast: Module)
+    : Result<Env, TypeError> =
+    result {
+      let! graph = buildGraph ast
+      let! newEnv = inferGraph ctx env graph
       return newEnv
     }

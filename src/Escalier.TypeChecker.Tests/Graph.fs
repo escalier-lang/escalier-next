@@ -25,7 +25,7 @@ let BuildDeclGraph () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -50,11 +50,13 @@ let BuildDeclGraphIncorrectOrder () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       ()
     }
+
+  printfn "res = %A" res
 
   Assert.Equal(
     res,
@@ -82,7 +84,7 @@ let BuildDeclGraphWithFunction () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -111,7 +113,7 @@ let BuildDeclGraphWithFunctions () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       ()
@@ -137,7 +139,7 @@ let BuildDeclGraphWithCapturesDefinedAfterClosure () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -166,7 +168,7 @@ let GraphWithNonFunctionDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -200,7 +202,7 @@ let GraphWithFunctionCallDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -235,7 +237,7 @@ let GraphWithFunctionCallDepsWithObjects () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -266,7 +268,7 @@ let GraphWithFunctionsInObject () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -297,7 +299,39 @@ let AcyclicFunctionDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let AcyclicFunctionDepsBuildGraphFirst () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => add() * sub();
+        let add = fn () => x + y;
+        let sub = fn () => x - y;
+        let x = 5;
+        let y = 10;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -328,7 +362,7 @@ let AcyclicFunctionDepsInObject () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.buildDeclGraph ctx env ast
+        Infer.inferModuleUsingGraph ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -337,4 +371,98 @@ let AcyclicFunctionDepsInObject () =
       Assert.Value(env, "poly", "fn () -> -75")
     }
 
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let AcyclicFunctionDepsInObjectWithDestructuring () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => add() * sub();
+        let {add, sub} = {add: fn () => x + y, sub: fn () => x - y};
+        let x = 5;
+        let y = 10;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let AcyclicFunctionDepsInObjectWithDestructuringInSeparateStatement () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => add() * sub();
+        let obj = {add: fn () => x + y, sub: fn () => x - y};
+        let {add, sub} = obj;
+        let x = 5;
+        let y = 10;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact(Skip = "Fix stackoverflow")>]
+let AcyclicFunctionDepsInObjectWithDestructuringStress () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => add() * sub();
+        let {add, x} = {add: fn () => x + y, x: 5};
+        let {sub, y} = {sub: fn () => x - y, y: 10};
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingGraph ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  printfn "res = %A" res
   Assert.True(Result.isOk res)

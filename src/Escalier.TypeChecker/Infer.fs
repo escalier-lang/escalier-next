@@ -3862,7 +3862,6 @@ module rec Infer =
                 deps <- deps @ captures
 
               for name in bindingNames do
-                printfn $"{name} -> {deps}"
                 graph <- graph.Add(name, decl, deps)
             | None -> ()
 
@@ -3872,9 +3871,6 @@ module rec Infer =
 
       return graph
     }
-
-  // type DeclTree =
-
 
   let rec findCycles (edges: Map<string, list<string>>) : Set<Set<string>> =
 
@@ -3899,9 +3895,11 @@ module rec Infer =
 
     cycles
 
-  let rec graphToTree
-    (edges: Map<string, list<string>>)
-    : Map<Set<string>, Set<Set<string>>> =
+  type DeclTree =
+    { Edges: Map<Set<string>, Set<Set<string>>>
+      CycleMap: Map<string, Set<string>> }
+
+  let rec graphToTree (edges: Map<string, list<string>>) : DeclTree =
     let mutable visited: list<string> = []
     let mutable stack: list<string> = []
     let mutable cycles: Set<Set<string>> = Set.empty
@@ -3952,77 +3950,94 @@ module rec Infer =
           else
             newEdges <- newEdges.Add(src, Set.singleton dst)
 
-    newEdges
+    { CycleMap = cycleMap
+      Edges = newEdges }
 
-  let rec inferGraphRec
+  let inferTreeRec
     (ctx: Ctx)
     (env: Env)
-    (root: string)
-    (graph: DeclGraph)
+    (root: Set<string>)
+    (nodes: Map<string, Decl>)
+    (tree: DeclTree)
     : Result<Env, TypeError> =
 
     result {
       let mutable newEnv = env
-      let generalize = true
 
-      let decl = graph.Nodes[root]
-      let deps = graph.Edges[root]
+      match tree.Edges.TryFind root with
+      | Some deps ->
+        for dep in deps do
+          let! depEnv = inferTreeRec ctx newEnv dep nodes tree
+          newEnv <- depEnv
+      | None -> ()
 
-      // TODO: find cycles in graph
-      // walk the graph and if we ever run into the same node again, we have
-      // a cycle
-      // a -> b -> c -> d -> b
-      // there's a cycle from b -> c -> d -> b
-      // and that cycle depends on a
+      match List.ofSeq root with
+      | [] ->
+        return!
+          Error(
+            TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
+          )
+      | [ name ] ->
+        let decl = nodes[name]
 
-      // TODO: handle cycles of arbitrary length
-      if List.contains root deps then
-        // TODO: determine the non-cyclic dependency and infer them first
         match decl.Kind with
-        | VarDecl decl ->
-          let! bindings, schemes = inferVarDecl ctx newEnv decl
+        | VarDecl varDecl ->
+          let! bindings, schemes = inferVarDecl ctx newEnv varDecl
           let bindings = generalizeBindings bindings
 
-          newEnv <- newEnv.AddSchemes schemes
           newEnv <- newEnv.AddBindings bindings
+          newEnv <- newEnv.AddSchemes schemes
 
           return newEnv
         | _ -> return newEnv
-      else
-        for dep in deps do
-          let decl = graph.Nodes[dep]
-          let deps = graph.Edges[dep]
-          let! nextEnv = inferGraphRec ctx newEnv dep graph
-          newEnv <- nextEnv
+      | names ->
+        let decls = List.map (fun name -> nodes[name]) names
+        let! tempEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
-        let! newEnv = inferDecl ctx newEnv decl generalize
+        let! tempEnv, inferredNS =
+          inferDeclDefinitions ctx tempEnv placeholderNS decls
+
+        do!
+          unifyPlaceholdersAndInferredTypes ctx tempEnv placeholderNS inferredNS
+
+        let bindings = generalizeBindings inferredNS.Values
+        newEnv <- newEnv.AddBindings bindings
+        newEnv <- newEnv.AddSchemes inferredNS.Schemes
 
         return newEnv
     }
 
-  let inferGraph
+  let inferTree
     (ctx: Ctx)
     (env: Env)
-    (graph: DeclGraph)
+    (nodes: Map<string, Decl>)
+    (tree: DeclTree)
     : Result<Env, TypeError> =
 
     result {
       let mutable newEnv = env
 
-      for KeyValue(key, decl) in graph.Nodes do
-        let! nextEnv = inferGraphRec ctx newEnv key graph
+      let mutable sets: Set<Set<string>> = Set.empty
+
+      for KeyValue(key, value) in nodes do
+        match tree.CycleMap.TryFind(key) with
+        | Some set -> sets <- sets.Add(set)
+        | None -> sets <- sets.Add(Set.singleton key)
+
+      for set in sets do
+        let! nextEnv = inferTreeRec ctx newEnv set nodes tree
         newEnv <- nextEnv
 
       return newEnv
     }
 
-  let inferModuleUsingGraph
+  let inferModuleUsingTree
     (ctx: Ctx)
     (env: Env)
     (ast: Module)
     : Result<Env, TypeError> =
     result {
       let! graph = buildGraph ast
-      let! newEnv = inferGraph ctx env graph
-      return newEnv
+      let tree = graphToTree graph.Edges
+      return! inferTree ctx env graph.Nodes tree
     }

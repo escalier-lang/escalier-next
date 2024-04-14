@@ -25,7 +25,7 @@ let BuildDeclGraph () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -50,7 +50,7 @@ let BuildDeclGraphIncorrectOrder () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       ()
@@ -84,7 +84,7 @@ let BuildDeclGraphWithFunction () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -112,7 +112,7 @@ let GraphWithFunctionWithParam () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -137,7 +137,7 @@ let BuildDeclGraphWithGenericFunction () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "id", "fn <A>(x: A) -> A")
@@ -163,7 +163,7 @@ let BuildDeclGraphWithFunctions () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       ()
@@ -189,7 +189,7 @@ let BuildDeclGraphWithCapturesDefinedAfterClosure () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -218,7 +218,7 @@ let GraphWithNonFunctionDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -252,7 +252,7 @@ let GraphWithFunctionCallDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -287,7 +287,7 @@ let GraphWithFunctionCallDepsWithObjects () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -318,7 +318,7 @@ let GraphWithFunctionsInObject () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -349,7 +349,7 @@ let AcyclicFunctionDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -381,7 +381,7 @@ let AcyclicFunctionDepsBuildGraphFirst () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -412,7 +412,7 @@ let AcyclicFunctionDepsInObject () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -442,7 +442,7 @@ let AcyclicFunctionDepsInObjectWithDestructuring () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -474,7 +474,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringInSeparateStatement () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -504,7 +504,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringStress () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -535,7 +535,7 @@ let BuildRecursiveGraph () =
       let graph = Infer.buildGraph ast
 
       let! env =
-        Infer.inferModuleUsingGraph ctx env ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       // TODO: merge 1 and number
@@ -576,7 +576,7 @@ let MutuallyRecursiveGraph () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact>]
+[<Fact(Skip = "TODO: update placeholder types to handle objects and tuples")>]
 let MutuallyRecursiveGraphInObjects () =
   let res =
     result {
@@ -595,47 +595,95 @@ let MutuallyRecursiveGraphInObjects () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let! graph =
-        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
 
-      printfn "graph.Edges = %A" graph.Edges
+      // TODO: simplify return types to `boolean`
+      Assert.Value(
+        env,
+        "foo",
+        "{isEven: fn (n: number) -> true | false | true}"
+      )
 
-      let cycles = Infer.findCycles graph.Edges
-
-      printfn "cycles = %A" cycles
-
-    // let! env =
-    //   Infer.inferModuleUsingGraph ctx env ast
-    //   |> Result.mapError CompileError.TypeError
+      Assert.Value(
+        env,
+        "bar",
+        "{isOdd: fn (n: number) -> false | true | false | true}"
+      )
     }
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+[<Fact>]
+let AcyclicFunctionDepsBuildTreeFirst () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => add() * sub();
+        let add = fn () => x + y;
+        let sub = fn () => x - y;
+        let x = 5;
+        let y = 10;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! graph =
+        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
+
+      let tree = Infer.graphToTree graph.Edges
+
+      let! env =
+        Infer.inferTree ctx env graph.Nodes tree
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
 
 [<Fact>]
-let FindCycles1 () =
-  let mutable edges: Map<string, list<string>> = Map.empty
+let InferMutuallyRecursiveFunctions () =
+  let res =
+    result {
+      let src =
+        """
+        let isEven = fn (n) => if n == zero { true } else { isOdd(n - one) };
+        let isOdd = fn (n) => if n == zero { false } else { isEven(n - one) };
+        let zero = 0;
+        let one = 1;
+        """
 
-  edges <- Map.add "a" [ "b" ] edges
-  edges <- Map.add "b" [ "c" ] edges
-  edges <- Map.add "c" [ "b" ] edges
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-  let tree = Infer.graphToTree edges
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-  printfn "tree = %A" tree
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
 
-[<Fact>]
-let FindCycles2 () =
-  let mutable edges: Map<string, list<string>> = Map.empty
+      // TODO: simplify return types to `boolean`
+      Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
 
-  edges <- Map.add "a" [ "b" ] edges
-  edges <- Map.add "b" [ "c" ] edges
-  edges <- Map.add "c" [ "b"; "d" ] edges
-  edges <- Map.add "d" [ "e" ] edges
-  edges <- Map.add "e" [ "f" ] edges
-  edges <- Map.add "f" [ "e" ] edges
+      Assert.Value(
+        env,
+        "isOdd",
+        "fn (n: number) -> false | true | false | true"
+      )
+    }
 
-  let tree = Infer.graphToTree edges
-
-  printfn "tree = %A" tree
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)

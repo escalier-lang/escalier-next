@@ -2208,10 +2208,10 @@ module rec Infer =
 
         let mutable newEnv = env
 
-        for KeyValue(name, scheme) in schemes do
-          newEnv <- newEnv.AddScheme name scheme
+        newEnv <- newEnv.AddSchemes schemes
+        newEnv <- newEnv.AddBindings bindings
 
-        return newEnv.AddBindings bindings
+        return newEnv
       | DeclKind.FnDecl { Declare = false
                           Name = name
                           Sig = fnSig
@@ -3979,17 +3979,8 @@ module rec Infer =
           )
       | [ name ] ->
         let decl = nodes[name]
-
-        match decl.Kind with
-        | VarDecl varDecl ->
-          let! bindings, schemes = inferVarDecl ctx newEnv varDecl
-          let bindings = generalizeBindings bindings
-
-          newEnv <- newEnv.AddBindings bindings
-          newEnv <- newEnv.AddSchemes schemes
-
-          return newEnv
-        | _ -> return newEnv
+        let generalize = true
+        return! inferDecl ctx newEnv decl generalize
       | names ->
         let decls = List.map (fun name -> nodes[name]) names
         let! tempEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
@@ -4038,6 +4029,8 @@ module rec Infer =
     : Result<Env, TypeError> =
     result {
       let! graph = buildGraph ast
+      printfn "graph = %A" graph
       let tree = graphToTree graph.Edges
+      printfn "tree = %A" tree
       return! inferTree ctx env graph.Nodes tree
     }

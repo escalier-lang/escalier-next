@@ -655,6 +655,44 @@ let AcyclicFunctionDepsBuildTreeFirst () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let AcyclicFunctionDepsBuildTreeFirstWithTypeAnnotations () =
+  let res =
+    result {
+      let src =
+        """
+        let poly = fn() => add() * sub();
+        let add = fn () => x + y;
+        let sub = fn () => x - y;
+        let x = 5;
+        let y = 10;
+        let result = poly();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! graph =
+        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
+
+      let tree = Infer.graphToTree graph.Edges
+
+      let! env =
+        Infer.inferTree ctx env graph.Nodes tree
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "10")
+      Assert.Value(env, "add", "fn () -> 15")
+      Assert.Value(env, "sub", "fn () -> -5")
+      Assert.Value(env, "poly", "fn () -> -75")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let InferMutuallyRecursiveFunctions () =
   let res =
     result {
@@ -683,6 +721,32 @@ let InferMutuallyRecursiveFunctions () =
         "isOdd",
         "fn (n: number) -> false | true | false | true"
       )
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact(Skip = "TODO: handle types")>]
+let InferMutuallyRecursiveTypes () =
+  let res =
+    result {
+      let src =
+        """
+        type Foo = string | Bar[];
+        type Bar = number | Foo[];
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Foo", "")
+      Assert.Type(env, "Bar", "")
     }
 
   printfn "res = %A" res

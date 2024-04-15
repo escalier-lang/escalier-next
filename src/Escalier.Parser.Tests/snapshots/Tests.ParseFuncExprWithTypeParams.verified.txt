@@ -55,7 +55,9 @@ output: Ok
                                                     Stop = (Ln: 1, Col: 34) }
                                            InferredType = None }
                              Span = { Start = (Ln: 1, Col: 32)
-                                      Stop = (Ln: 1, Col: 34) } }] } }
+                                      Stop = (Ln: 1, Col: 34) } }] }
+                    Captures = None
+                    InferredType = None }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 35) }
                InferredType = None }

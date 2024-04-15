@@ -1,48 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-
-        <IsPackable>false</IsPackable>
-        <GenerateProgramFile>false</GenerateProgramFile>
-        <IsTestProject>true</IsTestProject>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <Compile Include="TestUtils.fs"/>
-        <Compile Include="Tests.fs"/>
-        <Compile Include="Functions.fs"/>
-        <Compile Include="Mutability.fs"/>
-        <Compile Include="NoParseTests.fs"/>
-        <Compile Include="UtilityTypes.fs"/>
-        <Compile Include="AsyncAwait.fs"/>
-        <Compile Include="Exceptions.fs"/>
-        <Compile Include="Symbol.fs"/>
-        <Compile Include="ArrayTuple.fs"/>
-        <Compile Include="PatternMatching.fs"/>
-        <Compile Include="Classes.fs"/>
-        <Compile Include="Modules.fs"/>
-        <Compile Include="Program.fs"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.1"/>
-        <PackageReference Include="xunit" Version="2.5.2"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="coverlet.collector" Version="3.2.0">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
-        <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
-        <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj"/>
-    </ItemGroup>
-
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="TestUtils.fs" />
+    <Compile Include="Tests.fs" />
+    <Compile Include="Functions.fs" />
+    <Compile Include="Graph.fs" />
+    <Compile Include="Mutability.fs" />
+    <Compile Include="NoParseTests.fs" />
+    <Compile Include="UtilityTypes.fs" />
+    <Compile Include="AsyncAwait.fs" />
+    <Compile Include="Exceptions.fs" />
+    <Compile Include="Symbol.fs" />
+    <Compile Include="ArrayTuple.fs" />
+    <Compile Include="PatternMatching.fs" />
+    <Compile Include="Classes.fs" />
+    <Compile Include="Modules.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.1" />
+    <PackageReference Include="xunit" Version="2.5.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="3.2.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj" />
+    <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj" />
+    <ProjectReference Include="..\Escalier.TypeChecker\Escalier.TypeChecker.fsproj" />
+  </ItemGroup>
 </Project>

@@ -605,12 +605,19 @@ module rec Infer =
           // TODO: handle throws
 
           return result
-        | ExprKind.Function { Sig = fnSig; Body = body } ->
-          let! f = inferFunction ctx env fnSig body
+        | ExprKind.Function { Sig = fnSig
+                              Body = body
+                              Captures = captures
+                              InferredType = it } ->
+          match it with
+          | Some t -> return t
+          | None ->
+            let! f = inferFunction ctx env fnSig body
 
-          return
-            { Kind = TypeKind.Function f
-              Provenance = None }
+            return
+              { Kind = TypeKind.Function f
+                Provenance = None }
+
         | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferExpr ctx env) elems
 
@@ -2201,10 +2208,10 @@ module rec Infer =
 
         let mutable newEnv = env
 
-        for KeyValue(name, scheme) in schemes do
-          newEnv <- newEnv.AddScheme name scheme
+        newEnv <- newEnv.AddSchemes schemes
+        newEnv <- newEnv.AddBindings bindings
 
-        return newEnv.AddBindings bindings
+        return newEnv
       | DeclKind.FnDecl { Declare = false
                           Name = name
                           Sig = fnSig
@@ -3328,6 +3335,13 @@ module rec Infer =
             | PatternKind.Ident { Name = name } ->
               names <- name :: names
               false
+            | PatternKind.Object { Elems = elems } ->
+              for elem in elems do
+                match elem with
+                | Syntax.ShorthandPat { Name = name } -> names <- name :: names
+                | _ -> ()
+
+              false
             | _ -> true
         ExprVisitor.VisitTypeAnn = fun _ -> false }
 
@@ -3725,4 +3739,298 @@ module rec Infer =
       | _ -> ()
 
       return (callee.Return, callee.Throws)
+    }
+
+  // TODO:
+  // - identify dependencies between top-level declarations
+  // - identify groups of recursive funciton declarations
+
+  type DeclGraph =
+    { Edges: Map<string, list<string>>
+      Nodes: Map<string, Decl> }
+
+    member this.Add(name: string, decl: Decl, deps: list<string>) =
+      { Edges = this.Edges.Add(name, deps)
+        Nodes = this.Nodes.Add(name, decl) }
+
+    static member Empty = { Edges = Map.empty; Nodes = Map.empty }
+
+  // Find identifiers in an expression excluding function expressions.
+  let findIdentifiers (expr: Expr) : list<string> =
+    let mutable ids: list<string> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            // NOTE: we don't have to do any special handling for
+            // ExprKind.Member because the property is stored as a
+            // string instead of an identifier.
+            | ExprKind.Identifier name ->
+              ids <- name :: ids
+              false
+            | ExprKind.Function _ -> false
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    walkExpr visitor expr
+
+    List.rev ids
+
+  let findCaptures (f: Syntax.Function) : list<string> =
+    let mutable ids: list<string> = []
+    let mutable paramNames: list<string> = []
+
+    for p in f.Sig.ParamList do
+      paramNames <- paramNames @ findBindingNames p.Pattern
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            // NOTE: we don't have to do any special handling for
+            // ExprKind.Member because the property is stored as a
+            // string instead of an identifier.
+            | ExprKind.Identifier name ->
+              if not (List.contains name paramNames) then
+                ids <- name :: ids
+
+              false
+            | ExprKind.Function _ -> false
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    match f.Body with
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Expr expr -> walkExpr visitor expr
+
+    List.rev ids
+
+  let findFunctions (expr: Expr) : list<Syntax.Function> =
+    let mutable fns: list<Syntax.Function> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr =
+          fun expr ->
+            match expr.Kind with
+            | ExprKind.Function f ->
+              fns <- f :: fns
+              false
+            | _ -> true
+        ExprVisitor.VisitStmt = fun _ -> true
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn = fun _ -> false }
+
+    walkExpr visitor expr
+
+    List.rev fns
+
+  let buildGraph (ast: Module) : Result<DeclGraph, TypeError> =
+    result {
+      let mutable functions: list<Syntax.Function> = []
+      let mutable graph = DeclGraph.Empty
+      let mutable declared: list<string> = []
+
+      for item in ast.Items do
+        match item with
+        | Decl decl ->
+          match decl.Kind with
+          | VarDecl { Pattern = pattern; Init = init } ->
+            let bindingNames = findBindingNames pattern
+
+            match init with
+            | Some init ->
+              // TODO: exclude function parameters from the list
+              let mutable deps = findIdentifiers init
+
+              for dep in deps do
+                if not (List.contains dep declared) then
+                  return!
+                    Error(
+                      TypeError.SemanticError
+                        $"{dep} has not been initialized yet"
+                    )
+
+              let functions = findFunctions init
+
+              for f in functions do
+                let captures = findCaptures f
+                deps <- deps @ captures
+
+              for name in bindingNames do
+                graph <- graph.Add(name, decl, deps)
+            | None -> ()
+
+            declared <- declared @ bindingNames
+          | _ -> ()
+        | _ -> ()
+
+      return graph
+    }
+
+  let rec findCycles (edges: Map<string, list<string>>) : Set<Set<string>> =
+
+    let mutable visited: list<string> = []
+    let mutable stack: list<string> = []
+    let mutable cycles: Set<Set<string>> = Set.empty
+
+    let rec visit (node: string) (parents: list<string>) =
+      if List.contains node parents then
+        // find the index of node in parents
+        let index = List.findIndex (fun p -> p = node) parents
+        let cycle = List.take index parents @ [ node ] |> Set.ofList
+        cycles <- Set.add cycle cycles
+      else
+        let edges = edges[node]
+
+        for next in edges do
+          visit next (node :: parents)
+
+    for KeyValue(node, _) in edges do
+      visit node []
+
+    cycles
+
+  type DeclTree =
+    { Edges: Map<Set<string>, Set<Set<string>>>
+      CycleMap: Map<string, Set<string>> }
+
+  let rec graphToTree (edges: Map<string, list<string>>) : DeclTree =
+    let mutable visited: list<string> = []
+    let mutable stack: list<string> = []
+    let mutable cycles: Set<Set<string>> = Set.empty
+
+    let rec visit (node: string) (parents: list<string>) =
+      if List.contains node parents then
+        // find the index of node in parents
+        let index = List.findIndex (fun p -> p = node) parents
+        let cycle = List.take index parents @ [ node ] |> Set.ofList
+        cycles <- Set.add cycle cycles
+      else
+        let edges = edges[node]
+
+        for next in edges do
+          visit next (node :: parents)
+
+    for KeyValue(node, _) in edges do
+      visit node []
+
+    let mutable cycleMap: Map<string, Set<string>> = Map.empty
+
+    for cycle in cycles do
+      for node in cycle do
+        cycleMap <- cycleMap.Add(node, cycle)
+
+    let mutable newEdges: Map<Set<string>, Set<Set<string>>> = Map.empty
+
+    for KeyValue(node, deps) in edges do
+      let deps = Set.ofList deps
+
+      let src =
+        if Map.containsKey node cycleMap then
+          cycleMap[node]
+        else
+          Set.singleton node
+
+      for dep in deps do
+        if not (Set.contains dep src) then
+          let dst =
+            if Map.containsKey dep cycleMap then
+              cycleMap[dep]
+            else
+              Set.singleton dep
+
+          if Map.containsKey src newEdges then
+            let dsts = newEdges[src]
+            newEdges <- newEdges.Add(src, dsts.Add(dst))
+          else
+            newEdges <- newEdges.Add(src, Set.singleton dst)
+
+    { CycleMap = cycleMap
+      Edges = newEdges }
+
+  let inferTreeRec
+    (ctx: Ctx)
+    (env: Env)
+    (root: Set<string>)
+    (nodes: Map<string, Decl>)
+    (tree: DeclTree)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      match tree.Edges.TryFind root with
+      | Some deps ->
+        for dep in deps do
+          let! depEnv = inferTreeRec ctx newEnv dep nodes tree
+          newEnv <- depEnv
+      | None -> ()
+
+      match List.ofSeq root with
+      | [] ->
+        return!
+          Error(
+            TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
+          )
+      | [ name ] ->
+        let decl = nodes[name]
+        let generalize = true
+        return! inferDecl ctx newEnv decl generalize
+      | names ->
+        let decls = List.map (fun name -> nodes[name]) names
+        let! tempEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
+
+        let! tempEnv, inferredNS =
+          inferDeclDefinitions ctx tempEnv placeholderNS decls
+
+        do!
+          unifyPlaceholdersAndInferredTypes ctx tempEnv placeholderNS inferredNS
+
+        let bindings = generalizeBindings inferredNS.Values
+        newEnv <- newEnv.AddBindings bindings
+        newEnv <- newEnv.AddSchemes inferredNS.Schemes
+
+        return newEnv
+    }
+
+  let inferTree
+    (ctx: Ctx)
+    (env: Env)
+    (nodes: Map<string, Decl>)
+    (tree: DeclTree)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      let mutable sets: Set<Set<string>> = Set.empty
+
+      for KeyValue(key, value) in nodes do
+        match tree.CycleMap.TryFind(key) with
+        | Some set -> sets <- sets.Add(set)
+        | None -> sets <- sets.Add(Set.singleton key)
+
+      for set in sets do
+        let! nextEnv = inferTreeRec ctx newEnv set nodes tree
+        newEnv <- nextEnv
+
+      return newEnv
+    }
+
+  let inferModuleUsingTree
+    (ctx: Ctx)
+    (env: Env)
+    (ast: Module)
+    : Result<Env, TypeError> =
+    result {
+      let! graph = buildGraph ast
+      printfn "graph = %A" graph
+      let tree = graphToTree graph.Edges
+      printfn "tree = %A" tree
+      return! inferTree ctx env graph.Nodes tree
     }

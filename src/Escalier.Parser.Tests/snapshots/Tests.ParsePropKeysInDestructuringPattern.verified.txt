@@ -1,0 +1,9 @@
+﻿input: 
+    let {
+      5: a,
+      "hello": b,
+      [Symbol.iterator]: c,
+    } = obj;
+    
+output: Error Error in Ln: 2 Col: 9
+Expecting: ';' or '}'

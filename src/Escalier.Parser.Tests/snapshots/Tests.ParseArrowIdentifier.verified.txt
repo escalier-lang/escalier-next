@@ -46,7 +46,9 @@ output: Ok
                               Body = Expr { Kind = Identifier "x"
                                             Span = { Start = (Ln: 1, Col: 24)
                                                      Stop = (Ln: 1, Col: 25) }
-                                            InferredType = None } }
+                                            InferredType = None }
+                              Captures = None
+                              InferredType = None }
                          Span = { Start = (Ln: 1, Col: 11)
                                   Stop = (Ln: 1, Col: 25) }
                          InferredType = None }

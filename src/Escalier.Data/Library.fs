@@ -160,7 +160,9 @@ module Syntax =
   // TODO: include optional name
   type Function =
     { Sig: FuncSig<option<TypeAnn>>
-      Body: BlockOrExpr }
+      Body: BlockOrExpr
+      mutable Captures: option<list<string>>
+      mutable InferredType: option<Type.Type> }
 
   type Constructor =
     { Sig: FuncSig<option<TypeAnn>>

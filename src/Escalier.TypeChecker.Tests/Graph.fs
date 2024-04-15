@@ -726,7 +726,7 @@ let InferMutuallyRecursiveFunctions () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: handle types")>]
+[<Fact>]
 let InferMutuallyRecursiveTypes () =
   let res =
     result {
@@ -745,8 +745,8 @@ let InferMutuallyRecursiveTypes () =
         Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Foo", "")
-      Assert.Type(env, "Bar", "")
+      Assert.Type(env, "Foo", "string | Bar[]")
+      Assert.Type(env, "Bar", "number | Foo[]")
     }
 
   printfn "res = %A" res

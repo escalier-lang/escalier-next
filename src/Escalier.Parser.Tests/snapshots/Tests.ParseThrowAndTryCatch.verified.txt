@@ -124,7 +124,9 @@ output: Ok
                                                   Stop = (Ln: 6, Col: 15) }
                                                InferredType = None })
                                        Span = { Start = (Ln: 6, Col: 7)
-                                                Stop = (Ln: 7, Col: 5) } }] } }
+                                                Stop = (Ln: 7, Col: 5) } }] }
+                              Captures = None
+                              InferredType = None }
                          Span = { Start = (Ln: 2, Col: 15)
                                   Stop = (Ln: 7, Col: 6) }
                          InferredType = None }
@@ -300,7 +302,9 @@ output: Ok
                                                   Stop = (Ln: 14, Col: 20) }
                                                InferredType = None })
                                        Span = { Start = (Ln: 14, Col: 7)
-                                                Stop = (Ln: 15, Col: 5) } }] } }
+                                                Stop = (Ln: 15, Col: 5) } }] }
+                              Captures = None
+                              InferredType = None }
                          Span = { Start = (Ln: 8, Col: 15)
                                   Stop = (Ln: 15, Col: 6) }
                          InferredType = None }

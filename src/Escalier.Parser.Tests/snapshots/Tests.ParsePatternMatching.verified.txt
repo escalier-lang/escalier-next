@@ -136,7 +136,9 @@ output: Ok
                                                InferredType = None } }])
                                    Span = { Start = (Ln: 3, Col: 7)
                                             Stop = (Ln: 8, Col: 8) }
-                                   InferredType = None } }
+                                   InferredType = None }
+                              Captures = None
+                              InferredType = None }
                          Span = { Start = (Ln: 2, Col: 15)
                                   Stop = (Ln: 8, Col: 8) }
                          InferredType = None }

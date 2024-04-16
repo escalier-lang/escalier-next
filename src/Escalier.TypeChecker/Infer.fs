@@ -3043,9 +3043,14 @@ module rec Infer =
             inferTypeDeclDefn ctx newEnv placeholder (fun env ->
               inferTypeAnn ctx env typeAnn)
 
+          newEnv <- newEnv.AddScheme name scheme
+
           // Replace the placeholder's type with the actual type.
           // NOTE: This is a bit hacky and we may want to change this later to use
           // `foldType` to replace any uses of the placeholder with the actual type.
+          // Required for the following test cases:
+          // - InferRecursiveGenericObjectTypeInModule
+          // - InferNamespaceInModule
           placeholder.Type <- scheme.Type
         | NamespaceDecl { Name = name; Body = decls } ->
           let! placeholderNS =
@@ -3745,19 +3750,23 @@ module rec Infer =
   // - identify dependencies between top-level declarations
   // - identify groups of recursive funciton declarations
 
-  type DeclGraph =
-    { Edges: Map<string, list<string>>
-      Nodes: Map<string, Decl> }
+  type DeclIdent =
+    | Value of string
+    | Type of string
 
-    member this.Add(name: string, decl: Decl, deps: list<string>) =
+  type DeclGraph =
+    { Edges: Map<DeclIdent, list<DeclIdent>>
+      Nodes: Map<DeclIdent, Decl> }
+
+    member this.Add(name: DeclIdent, decl: Decl, deps: list<DeclIdent>) =
       { Edges = this.Edges.Add(name, deps)
         Nodes = this.Nodes.Add(name, decl) }
 
     static member Empty = { Edges = Map.empty; Nodes = Map.empty }
 
   // Find identifiers in an expression excluding function expressions.
-  let findIdentifiers (expr: Expr) : list<string> =
-    let mutable ids: list<string> = []
+  let findIdentifiers (expr: Expr) : list<DeclIdent> =
+    let mutable ids: list<DeclIdent> = []
 
     let visitor =
       { ExprVisitor.VisitExpr =
@@ -3767,7 +3776,7 @@ module rec Infer =
             // ExprKind.Member because the property is stored as a
             // string instead of an identifier.
             | ExprKind.Identifier name ->
-              ids <- name :: ids
+              ids <- DeclIdent.Value name :: ids
               false
             | ExprKind.Function _ -> false
             | _ -> true
@@ -3779,8 +3788,41 @@ module rec Infer =
 
     List.rev ids
 
-  let findCaptures (f: Syntax.Function) : list<string> =
-    let mutable ids: list<string> = []
+  let getBaseName (ident: QualifiedIdent) : string =
+    match ident with
+    | QualifiedIdent.Ident name -> name
+    | QualifiedIdent.Member(left, right) -> getBaseName left
+
+  let findTypeRefs
+    (typeParams: option<list<Syntax.TypeParam>>)
+    (typeAnn: TypeAnn)
+    : list<DeclIdent> =
+    let mutable ids: list<DeclIdent> = []
+
+    let visitor =
+      { ExprVisitor.VisitExpr = fun _ -> false
+        ExprVisitor.VisitStmt = fun _ -> false
+        ExprVisitor.VisitPattern = fun _ -> false
+        ExprVisitor.VisitTypeAnn =
+          fun typeAnn ->
+            // TODO: filter out TypeParams
+            match typeAnn.Kind with
+            | TypeAnnKind.TypeRef { Ident = ident } ->
+              let baseName = getBaseName ident
+              ids <- DeclIdent.Type baseName :: ids
+              false
+            | TypeAnnKind.Typeof ident ->
+              let baseName = getBaseName ident
+              ids <- DeclIdent.Value baseName :: ids
+              false
+            | _ -> true }
+
+    walkTypeAnn visitor typeAnn
+
+    List.rev ids
+
+  let findCaptures (f: Syntax.Function) : list<DeclIdent> =
+    let mutable ids: list<DeclIdent> = []
     let mutable paramNames: list<string> = []
 
     for p in f.Sig.ParamList do
@@ -3795,7 +3837,7 @@ module rec Infer =
             // string instead of an identifier.
             | ExprKind.Identifier name ->
               if not (List.contains name paramNames) then
-                ids <- name :: ids
+                ids <- DeclIdent.Value name :: ids
 
               false
             | ExprKind.Function _ -> false
@@ -3833,14 +3875,15 @@ module rec Infer =
     result {
       let mutable functions: list<Syntax.Function> = []
       let mutable graph = DeclGraph.Empty
-      let mutable declared: list<string> = []
+      let mutable declared: list<DeclIdent> = []
 
       for item in ast.Items do
         match item with
         | Decl decl ->
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = init } ->
-            let bindingNames = findBindingNames pattern
+            let bindingNames =
+              findBindingNames pattern |> List.map DeclIdent.Value
 
             match init with
             | Some init ->
@@ -3849,10 +3892,15 @@ module rec Infer =
 
               for dep in deps do
                 if not (List.contains dep declared) then
+                  let depName =
+                    match dep with
+                    | DeclIdent.Value name -> name
+                    | DeclIdent.Type name -> name
+
                   return!
                     Error(
                       TypeError.SemanticError
-                        $"{dep} has not been initialized yet"
+                        $"{depName} has not been initialized yet"
                     )
 
               let functions = findFunctions init
@@ -3866,6 +3914,12 @@ module rec Infer =
             | None -> ()
 
             declared <- declared @ bindingNames
+          | TypeDecl { Name = name
+                       TypeAnn = typeAnn
+                       TypeParams = typeParams } ->
+
+            let mutable deps = findTypeRefs typeParams typeAnn
+            graph <- graph.Add(DeclIdent.Type name, decl, deps)
           | _ -> ()
         | _ -> ()
 
@@ -3896,15 +3950,15 @@ module rec Infer =
     cycles
 
   type DeclTree =
-    { Edges: Map<Set<string>, Set<Set<string>>>
-      CycleMap: Map<string, Set<string>> }
+    { Edges: Map<Set<DeclIdent>, Set<Set<DeclIdent>>>
+      CycleMap: Map<DeclIdent, Set<DeclIdent>> }
 
-  let rec graphToTree (edges: Map<string, list<string>>) : DeclTree =
-    let mutable visited: list<string> = []
-    let mutable stack: list<string> = []
-    let mutable cycles: Set<Set<string>> = Set.empty
+  let rec graphToTree (edges: Map<DeclIdent, list<DeclIdent>>) : DeclTree =
+    let mutable visited: list<DeclIdent> = []
+    let mutable stack: list<DeclIdent> = []
+    let mutable cycles: Set<Set<DeclIdent>> = Set.empty
 
-    let rec visit (node: string) (parents: list<string>) =
+    let rec visit (node: DeclIdent) (parents: list<DeclIdent>) =
       if List.contains node parents then
         // find the index of node in parents
         let index = List.findIndex (fun p -> p = node) parents
@@ -3919,13 +3973,13 @@ module rec Infer =
     for KeyValue(node, _) in edges do
       visit node []
 
-    let mutable cycleMap: Map<string, Set<string>> = Map.empty
+    let mutable cycleMap: Map<DeclIdent, Set<DeclIdent>> = Map.empty
 
     for cycle in cycles do
       for node in cycle do
         cycleMap <- cycleMap.Add(node, cycle)
 
-    let mutable newEdges: Map<Set<string>, Set<Set<string>>> = Map.empty
+    let mutable newEdges: Map<Set<DeclIdent>, Set<Set<DeclIdent>>> = Map.empty
 
     for KeyValue(node, deps) in edges do
       let deps = Set.ofList deps
@@ -3956,8 +4010,8 @@ module rec Infer =
   let inferTreeRec
     (ctx: Ctx)
     (env: Env)
-    (root: Set<string>)
-    (nodes: Map<string, Decl>)
+    (root: Set<DeclIdent>)
+    (nodes: Map<DeclIdent, Decl>)
     (tree: DeclTree)
     : Result<Env, TypeError> =
 
@@ -3983,17 +4037,18 @@ module rec Infer =
         return! inferDecl ctx newEnv decl generalize
       | names ->
         let decls = List.map (fun name -> nodes[name]) names
-        let! tempEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
+        let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
-        let! tempEnv, inferredNS =
-          inferDeclDefinitions ctx tempEnv placeholderNS decls
+        let! newEnv, inferredNS =
+          inferDeclDefinitions ctx newEnv placeholderNS decls
 
         do!
-          unifyPlaceholdersAndInferredTypes ctx tempEnv placeholderNS inferredNS
+          unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
 
+        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
+        // so that we can avoid generalizing here.
         let bindings = generalizeBindings inferredNS.Values
-        newEnv <- newEnv.AddBindings bindings
-        newEnv <- newEnv.AddSchemes inferredNS.Schemes
+        let newEnv = newEnv.AddBindings bindings
 
         return newEnv
     }
@@ -4001,14 +4056,14 @@ module rec Infer =
   let inferTree
     (ctx: Ctx)
     (env: Env)
-    (nodes: Map<string, Decl>)
+    (nodes: Map<DeclIdent, Decl>)
     (tree: DeclTree)
     : Result<Env, TypeError> =
 
     result {
       let mutable newEnv = env
 
-      let mutable sets: Set<Set<string>> = Set.empty
+      let mutable sets: Set<Set<DeclIdent>> = Set.empty
 
       for KeyValue(key, value) in nodes do
         match tree.CycleMap.TryFind(key) with
@@ -4029,8 +4084,6 @@ module rec Infer =
     : Result<Env, TypeError> =
     result {
       let! graph = buildGraph ast
-      printfn "graph = %A" graph
       let tree = graphToTree graph.Edges
-      printfn "tree = %A" tree
       return! inferTree ctx env graph.Nodes tree
     }

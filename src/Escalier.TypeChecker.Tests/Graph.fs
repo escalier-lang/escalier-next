@@ -726,7 +726,7 @@ let InferMutuallyRecursiveFunctions () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: handle types")>]
+[<Fact>]
 let InferMutuallyRecursiveTypes () =
   let res =
     result {
@@ -745,8 +745,170 @@ let InferMutuallyRecursiveTypes () =
         Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Foo", "")
-      Assert.Type(env, "Bar", "")
+      Assert.Type(env, "Foo", "string | Bar[]")
+      Assert.Type(env, "Bar", "number | Foo[]")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferTypeofType () =
+  let res =
+    result {
+      let src =
+        """
+        let msg = "hello";
+        type T = typeof msg;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "msg", "\"hello\"")
+      Assert.Type(env, "T", "\"hello\"")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferTypeofTypeForObjectProperty () =
+  let res =
+    result {
+      let src =
+        """
+        let obj = {msg: "hello"};
+        type T = typeof obj.msg;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "obj", "{msg: \"hello\"}")
+      Assert.Type(env, "T", "\"hello\"")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferIndexedAccessTypes () =
+  let res =
+    result {
+      let src =
+        """
+        type Obj = {foo: string, bar: number};
+        type Foo = Obj["foo"];
+        type Bar = Obj["bar"];
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Foo", "Obj[\"foo\"]")
+      Assert.Type(env, "Bar", "Obj[\"bar\"]")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferMutuallyRecursiveIndexedAccessTypes () =
+  let res =
+    result {
+      let src =
+        """
+        type Foo = {foo: number, bar: Bar["bar"]};
+        type Bar = {foo: Foo["foo"], bar: string};
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Foo", "{foo: number, bar: Bar[\"bar\"]}")
+      Assert.Type(env, "Bar", "{foo: Foo[\"foo\"], bar: string}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferObjectTypeWithComputedKeys () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = "foo";
+        let bar = "bar";
+        type Obj = {
+          [foo]: string,
+          [bar]: number,
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Obj", "{foo: string, bar: number}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferObjectTypeWithQualifiedComputedKeys () =
+  let res =
+    result {
+      let src =
+        """
+        let Keys = {FOO: "foo", BAR: "bar"};
+        type Obj = {
+          [Keys.FOO]: string,
+          [Keys.BAR]: number,
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Obj", "{foo: string, bar: number}")
     }
 
   printfn "res = %A" res

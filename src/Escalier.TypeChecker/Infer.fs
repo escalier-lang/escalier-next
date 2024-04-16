@@ -3791,7 +3791,7 @@ module rec Infer =
   let getBaseName (ident: QualifiedIdent) : string =
     match ident with
     | QualifiedIdent.Ident name -> name
-    | QualifiedIdent.Member(left, right) -> right
+    | QualifiedIdent.Member(left, right) -> getBaseName left
 
   let findTypeRefs
     (typeParams: option<list<Syntax.TypeParam>>)

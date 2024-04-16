@@ -779,6 +779,32 @@ let InferTypeofType () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let InferTypeofTypeForObjectProperty () =
+  let res =
+    result {
+      let src =
+        """
+        let obj = {msg: "hello"};
+        type T = typeof obj.msg;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "obj", "{msg: \"hello\"}")
+      Assert.Type(env, "T", "\"hello\"")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let InferIndexedAccessTypes () =
   let res =
     result {
@@ -842,6 +868,34 @@ let InferObjectTypeWithComputedKeys () =
         type Obj = {
           [foo]: string,
           [bar]: number,
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Obj", "{foo: string, bar: number}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferObjectTypeWithQualifiedComputedKeys () =
+  let res =
+    result {
+      let src =
+        """
+        let Keys = {FOO: "foo", BAR: "bar"};
+        type Obj = {
+          [Keys.FOO]: string,
+          [Keys.BAR]: number,
         };
         """
 

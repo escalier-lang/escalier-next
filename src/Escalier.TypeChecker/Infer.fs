@@ -3811,6 +3811,10 @@ module rec Infer =
               let baseName = getBaseName ident
               ids <- DeclIdent.Type baseName :: ids
               false
+            | TypeAnnKind.Typeof ident ->
+              let baseName = getBaseName ident
+              ids <- DeclIdent.Value baseName :: ids
+              false
             | _ -> true }
 
     walkTypeAnn visitor typeAnn

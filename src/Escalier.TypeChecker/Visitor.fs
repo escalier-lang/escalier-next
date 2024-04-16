@@ -190,7 +190,34 @@ module rec ExprVisitor =
         | TypeAnnKind.Array elem -> walk elem
         | TypeAnnKind.Literal _ -> ()
         | TypeAnnKind.Keyword _ -> ()
-        | TypeAnnKind.Object elems -> failwith "todo"
+        | TypeAnnKind.Object { Elems = elems } ->
+          for elem in elems do
+            match elem with
+            | Callable f ->
+              walk f.ReturnType
+              Option.iter walk f.Throws
+
+              List.iter
+                (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+                f.ParamList
+            | Constructor f ->
+              walk f.ReturnType
+              Option.iter walk f.Throws
+
+              List.iter
+                (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+                f.ParamList
+            | Method { Type = f } ->
+              walk f.ReturnType
+              Option.iter walk f.Throws
+
+              List.iter
+                (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+                f.ParamList
+            | Getter { ReturnType = retType } -> walk retType
+            | Setter { Param = { TypeAnn = paramType } } -> walk paramType
+            | Property { TypeAnn = typeAnn } -> walk typeAnn
+            | Mapped mapped -> failwith "TODO: walkTypeAnn - Mapped"
         | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
         | TypeAnnKind.Union types -> List.iter walk types
         | TypeAnnKind.Intersection types -> List.iter walk types

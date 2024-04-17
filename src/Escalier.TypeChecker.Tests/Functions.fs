@@ -638,12 +638,17 @@ let InferFuncDeclInModule () =
           return x;
         }
         declare fn snd<A, B>(x: A, y: B) -> B;
+        type Point = {x: number, y: number};
+        fn makePoint (x, y) -> Point {
+          return {x, y};
+        }
         """
 
       let! _, env = inferModule src
 
       Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
       Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
+      Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
     }
 
   printfn "result = %A" result

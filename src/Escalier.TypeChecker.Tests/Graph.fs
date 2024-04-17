@@ -913,3 +913,138 @@ let InferObjectTypeWithQualifiedComputedKeys () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferFuncDecl () =
+  let result =
+    result {
+      let src =
+        """
+        fn fst (x, y) {
+          return x;
+        }
+        declare fn snd<A, B>(x: A, y: B) -> B;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
+      Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFuncDeclInModule () =
+  let result =
+    result {
+      let src =
+        """
+        fn fst (x, y) {
+          return x;
+        }
+        declare fn snd<A, B>(x: A, y: B) -> B;
+        type Point = {x: number, y: number};
+        fn makePoint (x, y) -> Point {
+          return {x, y};
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
+      Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
+      Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let InferInterfaceInModule () =
+  let result =
+    result {
+      let src =
+        """
+        let p: Point = {x: 5, y: 10};
+        interface Point {
+          x: number,
+        }
+        interface Point {
+          y: number,
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Type(env, "Point", "{x: number, y: number}")
+      Assert.Value(env, "p", "Point")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let InferNamespaceInModule () =
+  let result =
+    result {
+      let src =
+        """
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        type Baz = Foo.Baz;
+        namespace Foo {
+          let y = Bar.x;
+          namespace Bar {
+            let x = 5;
+          }
+          type Baz = string;
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+      Assert.Type(env, "Baz", "Foo.Baz")
+
+      let! t =
+        Unify.expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "string")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

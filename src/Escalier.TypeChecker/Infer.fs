@@ -3756,11 +3756,16 @@ module rec Infer =
 
   type DeclGraph =
     { Edges: Map<DeclIdent, list<DeclIdent>>
-      Nodes: Map<DeclIdent, Decl> }
+      Nodes: Map<DeclIdent, list<Decl>> }
 
     member this.Add(name: DeclIdent, decl: Decl, deps: list<DeclIdent>) =
+      let decls =
+        match this.Nodes.TryFind name with
+        | Some nodes -> nodes @ [ decl ]
+        | None -> [ decl ]
+
       { Edges = this.Edges.Add(name, deps)
-        Nodes = this.Nodes.Add(name, decl) }
+        Nodes = this.Nodes.Add(name, decls) }
 
     static member Empty = { Edges = Map.empty; Nodes = Map.empty }
 
@@ -3995,16 +4000,25 @@ module rec Infer =
 
           for elem in elems do
             match elem with
-            | ObjTypeAnnElem.Callable f ->
-              failwith "TODO: buildGraph - Callable"
-            | ObjTypeAnnElem.Constructor f ->
-              failwith "TODO: buildGraph - Constructor"
-            | ObjTypeAnnElem.Method methodType ->
-              failwith "TODO: buildGraph - Method"
-            | ObjTypeAnnElem.Getter getterType ->
-              failwith "TODO: buildGraph - Getter"
-            | ObjTypeAnnElem.Setter setterType ->
-              failwith "TODO: buildGraph - Setter"
+            | ObjTypeAnnElem.Callable fnSig ->
+              for param in fnSig.ParamList do
+                deps <- deps @ findTypeRefs fnSig.TypeParams param.TypeAnn
+
+              deps <- deps @ findTypeRefs fnSig.TypeParams fnSig.ReturnType
+            | ObjTypeAnnElem.Constructor fnSig ->
+              for param in fnSig.ParamList do
+                deps <- deps @ findTypeRefs fnSig.TypeParams param.TypeAnn
+
+              deps <- deps @ findTypeRefs fnSig.TypeParams fnSig.ReturnType
+            | ObjTypeAnnElem.Method { Type = fnSig } ->
+              for param in fnSig.ParamList do
+                deps <- deps @ findTypeRefs fnSig.TypeParams param.TypeAnn
+
+              deps <- deps @ findTypeRefs fnSig.TypeParams fnSig.ReturnType
+            | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
+              deps <- deps @ findTypeRefs None returnType
+            | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
+              deps <- deps @ findTypeRefs None typeAnn
             | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
               deps <- findTypeRefs typeParams typeAnn
             | ObjTypeAnnElem.Mapped mapped ->
@@ -4105,7 +4119,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (root: Set<DeclIdent>)
-    (nodes: Map<DeclIdent, Decl>)
+    (nodes: Map<DeclIdent, list<Decl>>)
     (tree: DeclTree)
     : Result<Env, TypeError> =
 
@@ -4129,7 +4143,7 @@ module rec Infer =
         // let decl = nodes[name]
         // let generalize = true
         // return! inferDecl ctx newEnv decl generalize
-        let decls = [ nodes[name] ]
+        let decls = nodes[name]
         let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
         let! newEnv, inferredNS =
@@ -4145,7 +4159,7 @@ module rec Infer =
 
         return newEnv
       | names ->
-        let decls = List.map (fun name -> nodes[name]) names
+        let decls = names |> List.map (fun name -> nodes[name]) |> List.concat
         let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
         let! newEnv, inferredNS =
@@ -4165,7 +4179,7 @@ module rec Infer =
   let inferTree
     (ctx: Ctx)
     (env: Env)
-    (nodes: Map<DeclIdent, Decl>)
+    (nodes: Map<DeclIdent, list<Decl>>)
     (tree: DeclTree)
     : Result<Env, TypeError> =
 

@@ -975,7 +975,7 @@ let InferFuncDeclInModule () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let InferInterfaceInModule () =
   let result =
     result {

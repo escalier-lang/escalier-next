@@ -2980,6 +2980,9 @@ module rec Infer =
   let inferDeclDefinitions
     (ctx: Ctx)
     (env: Env)
+    // Instead of placeholders, we can have a pair of placeholder types
+    // and the associated declaration whose types need to be unified
+    // with the placeholder types.
     (placeholderNS: Namespace)
     (decls: list<Decl>)
     : Result<Env * Namespace, TypeError> =

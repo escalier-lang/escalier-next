@@ -952,10 +952,10 @@ let InferFuncDeclInModule () =
           return x;
         }
         declare fn snd<A, B>(x: A, y: B) -> B;
-        type Point = {x: number, y: number};
         fn makePoint (x, y) -> Point {
           return {x, y};
         }
+        type Point = {x: number, y: number};
         """
 
       let! ast =
@@ -1044,6 +1044,38 @@ let InferNamespaceInModule () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(t.ToString(), "string")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+// NOTE: requires updating inferDeclDefinitions to take pairs of declarations
+// and placeholder types instead of `placeholderTypes` and `decls`.
+[<Fact(Skip = "TODO")>]
+let MultipleFuncDecls () =
+  let result =
+    result {
+      let src =
+        """
+        fn add(x: number, y: number) -> number {
+          return x + y;
+        }
+        fn add(x: string, y: string) -> string {
+          return x ++ y;
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "add", "fn (x: string, y: string) -> string")
     }
 
   printfn "result = %A" result

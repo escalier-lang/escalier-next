@@ -532,8 +532,6 @@ let BuildRecursiveGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = Infer.buildGraph ast
-
       let! env =
         Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
@@ -562,8 +560,10 @@ let MutuallyRecursiveGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
+      let decls = Infer.getDeclsFromModule ast
+
       let! graph =
-        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
+        Infer.buildGraph decls |> Result.mapError CompileError.TypeError
 
       printfn "graph.Edges = %A" graph.Edges
 
@@ -635,13 +635,8 @@ let AcyclicFunctionDepsBuildTreeFirst () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let! graph =
-        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
-
-      let tree = Infer.graphToTree graph.Edges
-
       let! env =
-        Infer.inferTree ctx env graph.Nodes tree
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -673,13 +668,8 @@ let AcyclicFunctionDepsBuildTreeFirstWithTypeAnnotations () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let! graph =
-        Infer.buildGraph ast |> Result.mapError CompileError.TypeError
-
-      let tree = Infer.graphToTree graph.Edges
-
       let! env =
-        Infer.inferTree ctx env graph.Nodes tree
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -1007,22 +997,22 @@ let InferInterfaceInModule () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let InferNamespaceInModule () =
   let result =
     result {
       let src =
         """
-        let x = Foo.Bar.x;
-        let y = Foo.y;
         type Baz = Foo.Baz;
         namespace Foo {
-          let y = Bar.x;
           namespace Bar {
             let x = 5;
           }
+          let y = Bar.x;
           type Baz = string;
         }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
         """
 
       let! ast =

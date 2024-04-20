@@ -3898,19 +3898,11 @@ module rec Infer =
 
     List.rev fns
 
-  let buildGraph (ast: Module) : Result<DeclGraph, TypeError> =
+  let buildGraph (decls: list<Decl>) : Result<DeclGraph, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
       let mutable graph = DeclGraph.Empty
       let mutable declared: list<DeclIdent> = []
-
-      let decls =
-        List.choose
-          (fun item ->
-            match item with
-            | Decl decl -> Some decl
-            | _ -> None)
-          ast.Items
 
       for decl in decls do
         match decl.Kind with
@@ -3995,6 +3987,8 @@ module rec Infer =
             let deps = captures @ typeDeps
 
             graph <- graph.Add(DeclIdent.Value name, decl, deps)
+
+          declared <- declared @ [ DeclIdent.Value name ]
         | ClassDecl classDecl -> failwith "TODO: buildGraph - ClassDecl"
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
@@ -4031,8 +4025,19 @@ module rec Infer =
           // we can update its `deps` list instead of overwriting it.
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | EnumDecl enumDecl -> failwith "TODO: buildGraph - EnumDecl"
-        | NamespaceDecl namespaceDecl ->
-          failwith "TODO: buildGraph - NamespaceDecl"
+        | NamespaceDecl { Name = name; Body = decls } ->
+          let! subgraph = buildGraph decls
+          let subgraphDeps = subgraph.Edges.Values |> List.concat
+          let subgraphIdents = subgraph.Nodes.Keys |> List.ofSeq
+
+          let deps =
+            List.filter
+              (fun dep -> not (List.contains dep subgraphIdents))
+              subgraphDeps
+
+          graph <- graph.Add(DeclIdent.Value name, decl, deps)
+          graph <- graph.Add(DeclIdent.Type name, decl, deps)
+          declared <- declared @ [ DeclIdent.Value name ]
 
       return graph
     }
@@ -4076,7 +4081,10 @@ module rec Infer =
         let cycle = List.take index parents @ [ node ] |> Set.ofList
         cycles <- Set.add cycle cycles
       else
-        let edges = edges[node]
+        let edges =
+          match edges.TryFind node with
+          | None -> failwith $"Couldn't find edge for {node} in {edges}"
+          | Some value -> value
 
         for next in edges do
           visit next (node :: parents)
@@ -4203,13 +4211,22 @@ module rec Infer =
       return newEnv
     }
 
+  let getDeclsFromModule (ast: Module) : list<Decl> =
+    List.choose
+      (fun item ->
+        match item with
+        | Decl decl -> Some decl
+        | _ -> None)
+      ast.Items
+
   let inferModuleUsingTree
     (ctx: Ctx)
     (env: Env)
     (ast: Module)
     : Result<Env, TypeError> =
     result {
-      let! graph = buildGraph ast
+      let decls = getDeclsFromModule ast
+      let! graph = buildGraph decls
       let tree = graphToTree graph.Edges
       return! inferTree ctx env graph.Nodes tree
     }

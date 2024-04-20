@@ -435,7 +435,8 @@ module rec Infer =
 
                 VisitStmt = fun _ -> true
                 VisitPattern = fun _ -> false
-                VisitTypeAnn = fun _ -> false }
+                VisitTypeAnn = fun _ -> false
+                VisitTypeAnnObjElem = fun _ -> false }
 
             match body with
             | BlockOrExpr.Block block ->
@@ -2980,6 +2981,9 @@ module rec Infer =
   let inferDeclDefinitions
     (ctx: Ctx)
     (env: Env)
+    // Instead of placeholders, we can have a pair of placeholder types
+    // and the associated declaration whose types need to be unified
+    // with the placeholder types.
     (placeholderNS: Namespace)
     (decls: list<Decl>)
     : Result<Env * Namespace, TypeError> =
@@ -3211,7 +3215,8 @@ module rec Infer =
 
             true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     match body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -3271,7 +3276,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     match body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -3318,7 +3324,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     List.iter (walkStmt visitor) block.Stmts
 
@@ -3348,7 +3355,8 @@ module rec Infer =
 
               false
             | _ -> true
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     walkPattern visitor p
 
@@ -3756,11 +3764,16 @@ module rec Infer =
 
   type DeclGraph =
     { Edges: Map<DeclIdent, list<DeclIdent>>
-      Nodes: Map<DeclIdent, Decl> }
+      Nodes: Map<DeclIdent, list<Decl>> }
 
     member this.Add(name: DeclIdent, decl: Decl, deps: list<DeclIdent>) =
+      let decls =
+        match this.Nodes.TryFind name with
+        | Some nodes -> nodes @ [ decl ]
+        | None -> [ decl ]
+
       { Edges = this.Edges.Add(name, deps)
-        Nodes = this.Nodes.Add(name, decl) }
+        Nodes = this.Nodes.Add(name, decls) }
 
     static member Empty = { Edges = Map.empty; Nodes = Map.empty }
 
@@ -3782,7 +3795,18 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn =
+          fun typeAnn ->
+            match typeAnn.Kind with
+            | TypeAnnKind.TypeRef { Ident = ident } ->
+              let baseName = getBaseName ident
+              false
+            | TypeAnnKind.Typeof ident ->
+              let baseName = getBaseName ident
+              ids <- DeclIdent.Value baseName :: ids
+              false
+            | _ -> true
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> true }
 
     walkExpr visitor expr
 
@@ -3799,23 +3823,35 @@ module rec Infer =
     : list<DeclIdent> =
     let mutable ids: list<DeclIdent> = []
 
+    let typeParamNames =
+      match typeParams with
+      | Some typeParams ->
+        List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+      | None -> []
+      |> Set.ofList
+
     let visitor =
       { ExprVisitor.VisitExpr = fun _ -> false
         ExprVisitor.VisitStmt = fun _ -> false
         ExprVisitor.VisitPattern = fun _ -> false
         ExprVisitor.VisitTypeAnn =
           fun typeAnn ->
-            // TODO: filter out TypeParams
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
               let baseName = getBaseName ident
-              ids <- DeclIdent.Type baseName :: ids
+
+              if not (Set.contains baseName typeParamNames) then
+                ids <- DeclIdent.Type baseName :: ids
+
               false
             | TypeAnnKind.Typeof ident ->
               let baseName = getBaseName ident
               ids <- DeclIdent.Value baseName :: ids
               false
-            | _ -> true }
+            // TODO: update TypeParams when iterating over functions, methods,
+            // and mapped types
+            | _ -> true
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> true }
 
     walkTypeAnn visitor typeAnn
 
@@ -3844,7 +3880,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     match f.Body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -3865,32 +3902,42 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     walkExpr visitor expr
 
     List.rev fns
 
-  let buildGraph (ast: Module) : Result<DeclGraph, TypeError> =
+  let buildGraph (decls: list<Decl>) : Result<DeclGraph, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
       let mutable graph = DeclGraph.Empty
       let mutable declared: list<DeclIdent> = []
 
-      for item in ast.Items do
-        match item with
-        | Decl decl ->
-          match decl.Kind with
-          | VarDecl { Pattern = pattern; Init = init } ->
-            let bindingNames =
-              findBindingNames pattern |> List.map DeclIdent.Value
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl { Pattern = pattern
+                    Init = init
+                    TypeAnn = typeAnn } ->
+          let bindingNames =
+            findBindingNames pattern |> List.map DeclIdent.Value
 
-            match init with
-            | Some init ->
-              // TODO: exclude function parameters from the list
-              let mutable deps = findIdentifiers init
+          match init with
+          | Some init ->
+            let mutable deps = findIdentifiers init
 
-              for dep in deps do
+            let typeDeps =
+              match typeAnn with
+              | Some typeAnn -> findTypeRefs None typeAnn
+              | None -> []
+
+            deps <- deps @ typeDeps
+
+            for dep in deps do
+              match dep with
+              | Type _ -> ()
+              | Value _ ->
                 if not (List.contains dep declared) then
                   let depName =
                     match dep with
@@ -3903,25 +3950,120 @@ module rec Infer =
                         $"{depName} has not been initialized yet"
                     )
 
-              let functions = findFunctions init
+            let functions = findFunctions init
 
-              for f in functions do
-                let captures = findCaptures f
-                deps <- deps @ captures
+            for f in functions do
+              let captures = findCaptures f
+              deps <- deps @ captures
 
-              for name in bindingNames do
-                graph <- graph.Add(name, decl, deps)
+            for name in bindingNames do
+              graph <- graph.Add(name, decl, deps)
+          | None -> ()
+
+          declared <- declared @ bindingNames
+        | TypeDecl { Name = name
+                     TypeAnn = typeAnn
+                     TypeParams = typeParams } ->
+
+          let mutable deps = findTypeRefs typeParams typeAnn
+          graph <- graph.Add(DeclIdent.Type name, decl, deps)
+        | FnDecl { Declare = _
+                   Name = name
+                   Sig = fnSig
+                   Body = body } ->
+
+          let mutable typeDeps = []
+
+          for param in fnSig.ParamList do
+            match param.TypeAnn with
+            | Some typeAnn ->
+              typeDeps <- typeDeps @ findTypeRefs fnSig.TypeParams typeAnn
             | None -> ()
 
-            declared <- declared @ bindingNames
-          | TypeDecl { Name = name
-                       TypeAnn = typeAnn
-                       TypeParams = typeParams } ->
+          match fnSig.ReturnType with
+          | None -> ()
+          | Some returnType ->
+            typeDeps <- typeDeps @ findTypeRefs fnSig.TypeParams returnType
 
-            let mutable deps = findTypeRefs typeParams typeAnn
-            graph <- graph.Add(DeclIdent.Type name, decl, deps)
-          | _ -> ()
-        | _ -> ()
+          match body with
+          | None -> graph <- graph.Add(DeclIdent.Value name, decl, [])
+          | Some body ->
+            let f: Syntax.Function =
+              { Sig = fnSig
+                Body = body
+                Captures = None
+                InferredType = None }
+
+            let captures = findCaptures f
+            let deps = captures @ typeDeps
+
+            graph <- graph.Add(DeclIdent.Value name, decl, deps)
+
+          declared <- declared @ [ DeclIdent.Value name ]
+        | ClassDecl classDecl -> failwith "TODO: buildGraph - ClassDecl"
+        | InterfaceDecl { Name = name
+                          TypeParams = typeParams
+                          Elems = elems } ->
+          let mutable deps = []
+
+          for elem in elems do
+            match elem with
+            | ObjTypeAnnElem.Callable fnSig ->
+              for param in fnSig.ParamList do
+                deps <- deps @ findTypeRefs fnSig.TypeParams param.TypeAnn
+
+              deps <- deps @ findTypeRefs fnSig.TypeParams fnSig.ReturnType
+            | ObjTypeAnnElem.Constructor fnSig ->
+              for param in fnSig.ParamList do
+                deps <- deps @ findTypeRefs fnSig.TypeParams param.TypeAnn
+
+              deps <- deps @ findTypeRefs fnSig.TypeParams fnSig.ReturnType
+            | ObjTypeAnnElem.Method { Type = fnSig } ->
+              for param in fnSig.ParamList do
+                deps <- deps @ findTypeRefs fnSig.TypeParams param.TypeAnn
+
+              deps <- deps @ findTypeRefs fnSig.TypeParams fnSig.ReturnType
+            | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
+              deps <- deps @ findTypeRefs None returnType
+            | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
+              deps <- deps @ findTypeRefs None typeAnn
+            | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
+              deps <- findTypeRefs typeParams typeAnn
+            | ObjTypeAnnElem.Mapped { TypeParam = typeParam
+                                      TypeAnn = typeAnn } ->
+              let tp: Syntax.TypeParam =
+                { Span = DUMMY_SPAN
+                  Name = typeParam.Name
+                  Constraint = Some typeParam.Constraint
+                  Default = None }
+
+              let typeParams =
+                match typeParams with
+                | None -> Some [ tp ]
+                | Some typeParams -> Some(tp :: typeParams)
+
+              printfn "typeParams = %A" typeParams
+
+              deps <- findTypeRefs typeParams typeParam.Constraint
+              deps <- findTypeRefs typeParams typeAnn
+
+          // TODO: check if there's an existing entry for `name` so that
+          // we can update its `deps` list instead of overwriting it.
+          graph <- graph.Add(DeclIdent.Type name, decl, deps)
+        | EnumDecl enumDecl -> failwith "TODO: buildGraph - EnumDecl"
+        | NamespaceDecl { Name = name; Body = decls } ->
+          let! subgraph = buildGraph decls
+          let subgraphDeps = subgraph.Edges.Values |> List.concat
+          let subgraphIdents = subgraph.Nodes.Keys |> List.ofSeq
+
+          let deps =
+            List.filter
+              (fun dep -> not (List.contains dep subgraphIdents))
+              subgraphDeps
+
+          graph <- graph.Add(DeclIdent.Value name, decl, deps)
+          graph <- graph.Add(DeclIdent.Type name, decl, deps)
+          declared <- declared @ [ DeclIdent.Value name ]
 
       return graph
     }
@@ -3965,7 +4107,10 @@ module rec Infer =
         let cycle = List.take index parents @ [ node ] |> Set.ofList
         cycles <- Set.add cycle cycles
       else
-        let edges = edges[node]
+        let edges =
+          match edges.TryFind node with
+          | None -> failwith $"Couldn't find edge for {node} in {edges}"
+          | Some value -> value
 
         for next in edges do
           visit next (node :: parents)
@@ -4011,7 +4156,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (root: Set<DeclIdent>)
-    (nodes: Map<DeclIdent, Decl>)
+    (nodes: Map<DeclIdent, list<Decl>>)
     (tree: DeclTree)
     : Result<Env, TypeError> =
 
@@ -4032,11 +4177,26 @@ module rec Infer =
             TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
           )
       | [ name ] ->
-        let decl = nodes[name]
-        let generalize = true
-        return! inferDecl ctx newEnv decl generalize
+        // let decl = nodes[name]
+        // let generalize = true
+        // return! inferDecl ctx newEnv decl generalize
+        let decls = nodes[name]
+        let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
+
+        let! newEnv, inferredNS =
+          inferDeclDefinitions ctx newEnv placeholderNS decls
+
+        do!
+          unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
+
+        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
+        // so that we can avoid generalizing here.
+        let bindings = generalizeBindings inferredNS.Values
+        let newEnv = newEnv.AddBindings bindings
+
+        return newEnv
       | names ->
-        let decls = List.map (fun name -> nodes[name]) names
+        let decls = names |> List.map (fun name -> nodes[name]) |> List.concat
         let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
 
         let! newEnv, inferredNS =
@@ -4056,7 +4216,7 @@ module rec Infer =
   let inferTree
     (ctx: Ctx)
     (env: Env)
-    (nodes: Map<DeclIdent, Decl>)
+    (nodes: Map<DeclIdent, list<Decl>>)
     (tree: DeclTree)
     : Result<Env, TypeError> =
 
@@ -4077,13 +4237,22 @@ module rec Infer =
       return newEnv
     }
 
+  let getDeclsFromModule (ast: Module) : list<Decl> =
+    List.choose
+      (fun item ->
+        match item with
+        | Decl decl -> Some decl
+        | _ -> None)
+      ast.Items
+
   let inferModuleUsingTree
     (ctx: Ctx)
     (env: Env)
     (ast: Module)
     : Result<Env, TypeError> =
     result {
-      let! graph = buildGraph ast
+      let decls = getDeclsFromModule ast
+      let! graph = buildGraph decls
       let tree = graphToTree graph.Edges
       return! inferTree ctx env graph.Nodes tree
     }

@@ -3,10 +3,7 @@ module Migrate
 
 open FParsec
 open FsToolkit.ErrorHandling
-open FParsec.CharParsers
 open System.IO
-open VerifyTests
-open VerifyXunit
 open Xunit
 
 open Escalier.Compiler

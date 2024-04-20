@@ -8,7 +8,8 @@ module rec ExprVisitor =
     { VisitExpr: Expr -> bool
       VisitStmt: Stmt -> bool
       VisitPattern: Pattern -> bool
-      VisitTypeAnn: TypeAnn -> bool }
+      VisitTypeAnn: TypeAnn -> bool
+      VisitTypeAnnObjElem: ObjTypeAnnElem -> bool }
 
   let walkExpr (visitor: SyntaxVisitor) (expr: Expr) : unit =
     let rec walk (expr: Expr) : unit =
@@ -192,32 +193,7 @@ module rec ExprVisitor =
         | TypeAnnKind.Keyword _ -> ()
         | TypeAnnKind.Object { Elems = elems } ->
           for elem in elems do
-            match elem with
-            | Callable f ->
-              walk f.ReturnType
-              Option.iter walk f.Throws
-
-              List.iter
-                (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
-                f.ParamList
-            | Constructor f ->
-              walk f.ReturnType
-              Option.iter walk f.Throws
-
-              List.iter
-                (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
-                f.ParamList
-            | Method { Type = f } ->
-              walk f.ReturnType
-              Option.iter walk f.Throws
-
-              List.iter
-                (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
-                f.ParamList
-            | Getter { ReturnType = retType } -> walk retType
-            | Setter { Param = { TypeAnn = paramType } } -> walk paramType
-            | Property { TypeAnn = typeAnn } -> walk typeAnn
-            | Mapped mapped -> failwith "TODO: walkTypeAnn - Mapped"
+            walkTypeAnnObjElem visitor elem
         | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
         | TypeAnnKind.Union types -> List.iter walk types
         | TypeAnnKind.Intersection types -> List.iter walk types
@@ -253,6 +229,43 @@ module rec ExprVisitor =
         | TypeAnnKind.TemplateLiteral { Exprs = expr } -> List.iter walk expr
 
     walk typeAnn
+
+  let walkTypeAnnObjElem
+    (visitor: SyntaxVisitor)
+    (elem: ObjTypeAnnElem)
+    : unit =
+    let walk = walkTypeAnn visitor
+
+    match elem with
+    | Callable f ->
+      walk f.ReturnType
+      Option.iter walk f.Throws
+
+      List.iter
+        (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+        f.ParamList
+    | Constructor f ->
+      walk f.ReturnType
+      Option.iter walk f.Throws
+
+      List.iter
+        (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+        f.ParamList
+    | Method { Type = f } ->
+      walk f.ReturnType
+      Option.iter walk f.Throws
+
+      List.iter
+        (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+        f.ParamList
+    | Getter { ReturnType = retType } -> walk retType
+    | Setter { Param = { TypeAnn = paramType } } -> walk paramType
+    | Property { TypeAnn = typeAnn } -> walk typeAnn
+    | Mapped { TypeParam = typeParam
+               TypeAnn = typeAnn } ->
+      printfn "typeParam = %A" typeParam
+      walk typeParam.Constraint
+      walk typeAnn
 
 module rec TypeVisitor =
   open Escalier.Data.Type

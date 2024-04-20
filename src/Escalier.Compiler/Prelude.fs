@@ -134,7 +134,8 @@ module Prelude =
               names <- name :: names
               false
             | _ -> true
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     walkPattern visitor p
 

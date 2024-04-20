@@ -4,23 +4,26 @@ namespace Escalier.TypeChecker
 module rec ExprVisitor =
   open Escalier.Data.Syntax
 
-  type SyntaxVisitor =
-    { VisitExpr: Expr -> bool
-      VisitStmt: Stmt -> bool
-      VisitPattern: Pattern -> bool
-      VisitTypeAnn: TypeAnn -> bool
-      VisitTypeAnnObjElem: ObjTypeAnnElem -> bool }
+  type SyntaxVisitor<'S> =
+    { VisitExpr: Expr * 'S -> bool * 'S
+      VisitStmt: Stmt * 'S -> bool * 'S
+      VisitPattern: Pattern * 'S -> bool * 'S
+      VisitTypeAnn: TypeAnn * 'S -> bool * 'S
+      VisitTypeAnnObjElem: ObjTypeAnnElem * 'S -> bool * 'S }
 
-  let walkExpr (visitor: SyntaxVisitor) (expr: Expr) : unit =
+  let walkExpr (visitor: SyntaxVisitor<'S>) (state: 'S) (expr: Expr) : unit =
     let rec walk (expr: Expr) : unit =
-      if visitor.VisitExpr expr then
+      let cont, state = visitor.VisitExpr(expr, state)
+
+      if cont then
         match expr.Kind with
         | ExprKind.Identifier _ -> ()
         | ExprKind.Literal _ -> ()
         | ExprKind.Function f ->
           // TODO: walk type annotations
           match f.Body with
-          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+          | BlockOrExpr.Block block ->
+            List.iter (walkStmt visitor state) block.Stmts
           | BlockOrExpr.Expr expr -> walk expr
         | ExprKind.Call call ->
           walk call.Callee
@@ -37,13 +40,13 @@ module rec ExprVisitor =
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
           walk condition
 
-          List.iter (walkStmt visitor) thenBranch.Stmts
+          List.iter (walkStmt visitor state) thenBranch.Stmts
 
           Option.iter
             (fun elseBranch ->
               match elseBranch with
               | BlockOrExpr.Block block ->
-                List.iter (walkStmt visitor) block.Stmts
+                List.iter (walkStmt visitor state) block.Stmts
               | BlockOrExpr.Expr expr -> walk expr)
             elseBranch
         | ExprKind.Match(target, cases) ->
@@ -51,11 +54,11 @@ module rec ExprVisitor =
 
           List.iter
             (fun (case: MatchCase) ->
-              walkPattern visitor case.Pattern
+              walkPattern visitor state case.Pattern
 
               match case.Body with
               | BlockOrExpr.Block block ->
-                List.iter (walkStmt visitor) block.Stmts
+                List.iter (walkStmt visitor state) block.Stmts
               | BlockOrExpr.Expr expr -> walk expr
 
               Option.iter walk case.Guard)
@@ -74,25 +77,27 @@ module rec ExprVisitor =
         | ExprKind.Try { Body = body
                          Catch = catch
                          Finally = fin } ->
-          List.iter (walkStmt visitor) body.Stmts
+          List.iter (walkStmt visitor state) body.Stmts
 
           Option.iter
             (fun cases ->
               List.iter
                 (fun (case: MatchCase) ->
-                  walkPattern visitor case.Pattern
+                  walkPattern visitor state case.Pattern
 
                   match case.Body with
                   | BlockOrExpr.Block block ->
-                    List.iter (walkStmt visitor) block.Stmts
+                    List.iter (walkStmt visitor state) block.Stmts
                   | BlockOrExpr.Expr expr -> walk expr
 
                   Option.iter walk case.Guard)
                 cases)
             catch
 
-          Option.iter (fun body -> List.iter (walkStmt visitor) body.Stmts) fin
-        | ExprKind.Do body -> List.iter (walkStmt visitor) body.Stmts
+          Option.iter
+            (fun body -> List.iter (walkStmt visitor state) body.Stmts)
+            fin
+        | ExprKind.Do body -> List.iter (walkStmt visitor state) body.Stmts
         | ExprKind.Await await -> walk await.Value
         | ExprKind.Throw value -> walk value
         | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
@@ -109,60 +114,69 @@ module rec ExprVisitor =
 
     walk expr
 
-  let walkDecl (visitor: SyntaxVisitor) (decl: Decl) : unit =
+  let walkDecl (visitor: SyntaxVisitor<'S>) (state: 'S) (decl: Decl) : unit =
     match decl.Kind with
     | DeclKind.VarDecl { Pattern = pattern
                          TypeAnn = typeAnn
                          Init = init } ->
-      walkPattern visitor pattern
-      Option.iter (walkTypeAnn visitor) typeAnn
-      Option.iter (walkExpr visitor) init
+      walkPattern visitor state pattern
+      Option.iter (walkTypeAnn visitor state) typeAnn
+      Option.iter (walkExpr visitor state) init
     | DeclKind.FnDecl { Sig = fnSig; Body = body } ->
       // TODO: walk type params
       List.iter
         (fun (param: FuncParam<option<TypeAnn>>) ->
-          Option.iter (walkTypeAnn visitor) param.TypeAnn)
+          Option.iter (walkTypeAnn visitor state) param.TypeAnn)
         fnSig.ParamList
 
       Option.iter
         (fun body ->
           match body with
-          | BlockOrExpr.Expr expr -> walkExpr visitor expr
-          | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts)
+          | BlockOrExpr.Expr expr -> walkExpr visitor state expr
+          | BlockOrExpr.Block block ->
+            List.iter (walkStmt visitor state) block.Stmts)
         body
 
-      Option.iter (walkTypeAnn visitor) fnSig.ReturnType
+      Option.iter (walkTypeAnn visitor state) fnSig.ReturnType
     | DeclKind.TypeDecl { TypeAnn = typeAnn } ->
       // TODO: walk type params
-      walkTypeAnn visitor typeAnn
+      walkTypeAnn visitor state typeAnn
     | DeclKind.EnumDecl { Variants = variants } ->
       List.iter
         (fun (variant: EnumVariant) ->
-          List.iter (walkTypeAnn visitor) variant.TypeAnns)
+          List.iter (walkTypeAnn visitor state) variant.TypeAnns)
         variants
     | DeclKind.NamespaceDecl { Body = body } ->
-      List.iter (walkDecl visitor) body
+      List.iter (walkDecl visitor state) body
     | DeclKind.ClassDecl(_) -> failwith "TODO: walkDecl - ClassDecl"
     | DeclKind.InterfaceDecl(_) -> failwith "TODO: walkDecl - InterfaceDecl"
 
-  let walkStmt (visitor: SyntaxVisitor) (stmt: Stmt) : unit =
-    let rec walk (stmt: Stmt) : unit =
-      if visitor.VisitStmt stmt then
+  let walkStmt (visitor: SyntaxVisitor<'S>) (state: 'S) (stmt: Stmt) : unit =
+    let rec walk (state: 'S) (stmt: Stmt) : unit =
+      let cont, state = visitor.VisitStmt(stmt, state)
+
+      if cont then
         match stmt.Kind with
-        | StmtKind.Expr expr -> walkExpr visitor expr
+        | StmtKind.Expr expr -> walkExpr visitor state expr
         | StmtKind.For(left, right, body) ->
-          walkPattern visitor left
-          walkExpr visitor right
-          List.iter walk body.Stmts
-        | StmtKind.Decl decl -> walkDecl visitor decl
+          walkPattern visitor state left
+          walkExpr visitor state right
+          List.iter (walk state) body.Stmts
+        | StmtKind.Decl decl -> walkDecl visitor state decl
         | StmtKind.Return exprOption ->
-          Option.iter (walkExpr visitor) exprOption
+          Option.iter (walkExpr visitor state) exprOption
 
-    walk stmt
+    walk state stmt
 
-  let walkPattern (visitor: SyntaxVisitor) (pat: Pattern) : unit =
-    let rec walk (pat: Pattern) : unit =
-      if visitor.VisitPattern pat then
+  let walkPattern
+    (visitor: SyntaxVisitor<'S>)
+    (state: 'S)
+    (pat: Pattern)
+    : unit =
+    let rec walk (state: 'S) (pat: Pattern) : unit =
+      let cont, state = visitor.VisitPattern(pat, state)
+
+      if cont then
         match pat.Kind with
         | PatternKind.Ident _ -> ()
         | PatternKind.Object { Elems = elems } ->
@@ -170,30 +184,37 @@ module rec ExprVisitor =
             (fun (elem: ObjPatElem) ->
               match elem with
               | ObjPatElem.KeyValuePat { Value = value; Default = init } ->
-                walk value
-                Option.iter (walkExpr visitor) init
+                walk state value
+                Option.iter (walkExpr visitor state) init
               | ObjPatElem.ShorthandPat { Default = init } ->
-                Option.iter (walkExpr visitor) init
-              | ObjPatElem.RestPat { Target = target } -> walk target)
+                Option.iter (walkExpr visitor state) init
+              | ObjPatElem.RestPat { Target = target } -> walk state target)
             elems
-        | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
+        | PatternKind.Tuple { Elems = elems } -> List.iter (walk state) elems
         | PatternKind.Wildcard _ -> ()
         | PatternKind.Literal _ -> ()
-        | PatternKind.Rest arg -> walk arg
-        | PatternKind.Enum { Args = args } -> Option.iter (List.iter walk) args
+        | PatternKind.Rest arg -> (walk state) arg
+        | PatternKind.Enum { Args = args } ->
+          Option.iter (List.iter (walk state)) args
 
-    walk pat
+    walk state pat
 
-  let walkTypeAnn (visitor: SyntaxVisitor) (typeAnn: TypeAnn) : unit =
+  let walkTypeAnn
+    (visitor: SyntaxVisitor<'S>)
+    (state: 'S)
+    (typeAnn: TypeAnn)
+    : unit =
     let rec walk (typeAnn: TypeAnn) : unit =
-      if visitor.VisitTypeAnn typeAnn then
+      let cont, state = visitor.VisitTypeAnn(typeAnn, state)
+
+      if cont then
         match typeAnn.Kind with
         | TypeAnnKind.Array elem -> walk elem
         | TypeAnnKind.Literal _ -> ()
         | TypeAnnKind.Keyword _ -> ()
         | TypeAnnKind.Object { Elems = elems } ->
           for elem in elems do
-            walkTypeAnnObjElem visitor elem
+            walkTypeAnnObjElem visitor state elem
         | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
         | TypeAnnKind.Union types -> List.iter walk types
         | TypeAnnKind.Intersection types -> List.iter walk types
@@ -231,10 +252,11 @@ module rec ExprVisitor =
     walk typeAnn
 
   let walkTypeAnnObjElem
-    (visitor: SyntaxVisitor)
+    (visitor: SyntaxVisitor<'S>)
+    (state: 'S)
     (elem: ObjTypeAnnElem)
     : unit =
-    let walk = walkTypeAnn visitor
+    let walk = walkTypeAnn visitor state
 
     match elem with
     | Callable f ->

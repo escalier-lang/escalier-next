@@ -122,22 +122,22 @@ module Prelude =
 
     let visitor =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
-            | Syntax.ExprKind.Function _ -> false
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> false
+            | Syntax.ExprKind.Function _ -> (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
         ExprVisitor.VisitPattern =
-          fun pat ->
+          fun (pat, state) ->
             match pat.Kind with
             | Syntax.PatternKind.Ident { Name = name } ->
               names <- name :: names
-              false
-            | _ -> true
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+              (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-    walkPattern visitor p
+    walkPattern visitor () p
 
     List.rev names
 

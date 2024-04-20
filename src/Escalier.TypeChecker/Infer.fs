@@ -409,9 +409,9 @@ module rec Infer =
             let mutable assignedProps: list<string> = []
             let mutable methodsCalled: list<string> = []
 
-            let visitor: SyntaxVisitor =
+            let visitor: SyntaxVisitor<unit> =
               { VisitExpr =
-                  fun (expr: Expr) ->
+                  fun (expr: Expr, state) ->
                     match expr.Kind with
                     | ExprKind.Assign(_, left, _) ->
                       match left.Kind with
@@ -419,28 +419,28 @@ module rec Infer =
                         match obj.Kind with
                         | ExprKind.Identifier "self" ->
                           assignedProps <- prop :: assignedProps
-                          true
-                        | _ -> true
-                      | _ -> true
+                          (true, state)
+                        | _ -> (true, state)
+                      | _ -> (true, state)
                     | ExprKind.Call { Callee = callee } ->
                       match callee.Kind with
                       | ExprKind.Member(obj, prop, _) ->
                         match obj.Kind with
                         | ExprKind.Identifier "self" ->
                           methodsCalled <- prop :: methodsCalled
-                          true
-                        | _ -> true
-                      | _ -> true
-                    | _ -> true
+                          (true, state)
+                        | _ -> (true, state)
+                      | _ -> (true, state)
+                    | _ -> (true, state)
 
-                VisitStmt = fun _ -> true
-                VisitPattern = fun _ -> false
-                VisitTypeAnn = fun _ -> false
-                VisitTypeAnnObjElem = fun _ -> false }
+                VisitStmt = fun (_, state) -> (true, state)
+                VisitPattern = fun (_, state) -> (false, state)
+                VisitTypeAnn = fun (_, state) -> (false, state)
+                VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
             match body with
             | BlockOrExpr.Block block ->
-              List.iter (walkStmt visitor) block.Stmts
+              List.iter (walkStmt visitor ()) block.Stmts
             | BlockOrExpr.Expr _expr -> failwith "TODO"
 
             if not methodsCalled.IsEmpty then
@@ -3200,12 +3200,12 @@ module rec Infer =
 
     let visitor =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
-            | ExprKind.Function _ -> false
-            | _ -> true
+            | ExprKind.Function _ -> (false, state)
+            | _ -> (true, state)
         ExprVisitor.VisitStmt =
-          fun stmt ->
+          fun (stmt, state) ->
             match stmt.Kind with
             | StmtKind.Return expr ->
               match expr with
@@ -3213,15 +3213,15 @@ module rec Infer =
               | None -> ()
             | _ -> ()
 
-            true
-        ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+            (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
     match body with
-    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor ()) block.Stmts
     | BlockOrExpr.Expr expr ->
-      walkExpr visitor expr // There might be early returns in match expression
+      walkExpr visitor () expr // There might be early returns in match expression
       returns <- expr :: returns // We treat the expression as a return in this case
 
     returns
@@ -3241,11 +3241,11 @@ module rec Infer =
   let findThrows (body: BlockOrExpr) : list<Type> =
     let mutable throws: list<Type> = []
 
-    let visitor =
+    let visitor: SyntaxVisitor<unit> =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
-            | ExprKind.Function _ -> false
+            | ExprKind.Function _ -> (false, state)
             | ExprKind.Try { Catch = catch
                              Throws = uncaughtThrows } ->
               match uncaughtThrows with
@@ -3254,34 +3254,34 @@ module rec Infer =
               // If there is a catch clause, don't visit the children
               // TODO: we still need to visit the catch clause in that
               // cacse because there may be re-throws inside of it
-              catch.IsNone
+              (catch.IsNone, state)
             | ExprKind.Throw expr ->
               match expr.InferredType with
               | Some t -> throws <- t :: throws
               | None -> failwith "Expected `expr` to have an `InferredType`"
 
-              true // there might be other `throw` expressions inside
+              (true, state) // there might be other `throw` expressions inside
             | ExprKind.Call call ->
               match call.Throws with
               | Some t -> throws <- t :: throws
               | None -> ()
 
-              true // there might be other `throw` expressions inside
+              (true, state) // there might be other `throw` expressions inside
             | ExprKind.Await await ->
               match await.Throws with
               | Some t -> throws <- t :: throws
               | None -> ()
 
-              true // there might be other `throw` expressions inside
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> true
-        ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+              (true, state) // there might be other `throw` expressions inside
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
     match body with
-    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
-    | BlockOrExpr.Expr expr -> walkExpr visitor expr
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor ()) block.Stmts
+    | BlockOrExpr.Expr expr -> walkExpr visitor () expr
 
     throws
 
@@ -3289,11 +3289,11 @@ module rec Infer =
   let findThrowsInBlock (block: Block) : list<Type> =
     let mutable throws: list<Type> = []
 
-    let visitor =
+    let visitor: SyntaxVisitor<unit> =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
-            | ExprKind.Function _ -> false
+            | ExprKind.Function _ -> (false, state)
             | ExprKind.Try { Catch = catch
                              Throws = uncaughtThrows } ->
               match uncaughtThrows with
@@ -3302,32 +3302,32 @@ module rec Infer =
               // If there is a catch clause, don't visit the children
               // TODO: we still need to visit the catch clause in that
               // cacse because there may be re-throws inside of it
-              catch.IsNone
+              (catch.IsNone, state)
             | ExprKind.Throw expr ->
               match expr.InferredType with
               | Some t -> throws <- t :: throws
               | None -> failwith "Expected `expr` to have an `InferredType`"
 
-              true // there might be other `throw` expressions inside
+              (true, state) // there might be other `throw` expressions inside
             | ExprKind.Call call ->
               match call.Throws with
               | Some t -> throws <- t :: throws
               | None -> ()
 
-              true // there might be other `throw` expressions inside
+              (true, state) // there might be other `throw` expressions inside
             | ExprKind.Await await ->
               match await.Throws with
               | Some t -> throws <- t :: throws
               | None -> ()
 
-              true // there might be other `throw` expressions inside
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> true
-        ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+              (true, state) // there might be other `throw` expressions inside
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-    List.iter (walkStmt visitor) block.Stmts
+    List.iter (walkStmt visitor ()) block.Stmts
 
     throws
 
@@ -3336,29 +3336,29 @@ module rec Infer =
 
     let visitor =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
-            | ExprKind.Function _ -> false
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> false
+            | ExprKind.Function _ -> (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
         ExprVisitor.VisitPattern =
-          fun pat ->
+          fun (pat, state) ->
             match pat.Kind with
             | PatternKind.Ident { Name = name } ->
               names <- name :: names
-              false
+              (false, state)
             | PatternKind.Object { Elems = elems } ->
               for elem in elems do
                 match elem with
                 | Syntax.ShorthandPat { Name = name } -> names <- name :: names
                 | _ -> ()
 
-              false
-            | _ -> true
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+              (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-    walkPattern visitor p
+    walkPattern visitor () p
 
     List.rev names
 
@@ -3783,32 +3783,32 @@ module rec Infer =
 
     let visitor =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
             // NOTE: we don't have to do any special handling for
             // ExprKind.Member because the property is stored as a
             // string instead of an identifier.
             | ExprKind.Identifier name ->
               ids <- DeclIdent.Value name :: ids
-              false
-            | ExprKind.Function _ -> false
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> true
-        ExprVisitor.VisitPattern = fun _ -> false
+              (false, state)
+            | ExprKind.Function _ -> (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
         ExprVisitor.VisitTypeAnn =
-          fun typeAnn ->
+          fun (typeAnn, state) ->
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
               let baseName = getBaseName ident
-              false
+              (false, state)
             | TypeAnnKind.Typeof ident ->
               let baseName = getBaseName ident
               ids <- DeclIdent.Value baseName :: ids
-              false
-            | _ -> true
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> true }
+              (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
 
-    walkExpr visitor expr
+    walkExpr visitor () expr
 
     List.rev ids
 
@@ -3831,11 +3831,11 @@ module rec Infer =
       |> Set.ofList
 
     let visitor =
-      { ExprVisitor.VisitExpr = fun _ -> false
-        ExprVisitor.VisitStmt = fun _ -> false
-        ExprVisitor.VisitPattern = fun _ -> false
+      { ExprVisitor.VisitExpr = fun (_, state) -> (false, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
         ExprVisitor.VisitTypeAnn =
-          fun typeAnn ->
+          fun (typeAnn, state) ->
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
               let baseName = getBaseName ident
@@ -3843,17 +3843,17 @@ module rec Infer =
               if not (Set.contains baseName typeParamNames) then
                 ids <- DeclIdent.Type baseName :: ids
 
-              false
+              (false, state)
             | TypeAnnKind.Typeof ident ->
               let baseName = getBaseName ident
               ids <- DeclIdent.Value baseName :: ids
-              false
+              (false, state)
             // TODO: update TypeParams when iterating over functions, methods,
             // and mapped types
-            | _ -> true
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> true }
+            | _ -> (true, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
 
-    walkTypeAnn visitor typeAnn
+    walkTypeAnn visitor () typeAnn
 
     List.rev ids
 
@@ -3866,7 +3866,7 @@ module rec Infer =
 
     let visitor =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
             // NOTE: we don't have to do any special handling for
             // ExprKind.Member because the property is stored as a
@@ -3875,17 +3875,17 @@ module rec Infer =
               if not (List.contains name paramNames) then
                 ids <- DeclIdent.Value name :: ids
 
-              false
-            | ExprKind.Function _ -> false
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> true
-        ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+              (false, state)
+            | ExprKind.Function _ -> (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
     match f.Body with
-    | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
-    | BlockOrExpr.Expr expr -> walkExpr visitor expr
+    | BlockOrExpr.Block block -> List.iter (walkStmt visitor ()) block.Stmts
+    | BlockOrExpr.Expr expr -> walkExpr visitor () expr
 
     List.rev ids
 
@@ -3894,18 +3894,18 @@ module rec Infer =
 
     let visitor =
       { ExprVisitor.VisitExpr =
-          fun expr ->
+          fun (expr, state) ->
             match expr.Kind with
             | ExprKind.Function f ->
               fns <- f :: fns
-              false
-            | _ -> true
-        ExprVisitor.VisitStmt = fun _ -> true
-        ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false
-        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
+              (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-    walkExpr visitor expr
+    walkExpr visitor () expr
 
     List.rev fns
 

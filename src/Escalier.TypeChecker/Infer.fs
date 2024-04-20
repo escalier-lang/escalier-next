@@ -435,7 +435,8 @@ module rec Infer =
 
                 VisitStmt = fun _ -> true
                 VisitPattern = fun _ -> false
-                VisitTypeAnn = fun _ -> false }
+                VisitTypeAnn = fun _ -> false
+                VisitTypeAnnObjElem = fun _ -> false }
 
             match body with
             | BlockOrExpr.Block block ->
@@ -3214,7 +3215,8 @@ module rec Infer =
 
             true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     match body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -3274,7 +3276,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     match body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -3321,7 +3324,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     List.iter (walkStmt visitor) block.Stmts
 
@@ -3351,7 +3355,8 @@ module rec Infer =
 
               false
             | _ -> true
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     walkPattern visitor p
 
@@ -3800,7 +3805,8 @@ module rec Infer =
               let baseName = getBaseName ident
               ids <- DeclIdent.Value baseName :: ids
               false
-            | _ -> true }
+            | _ -> true
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> true }
 
     walkExpr visitor expr
 
@@ -3842,7 +3848,10 @@ module rec Infer =
               let baseName = getBaseName ident
               ids <- DeclIdent.Value baseName :: ids
               false
-            | _ -> true }
+            // TODO: update TypeParams when iterating over functions, methods,
+            // and mapped types
+            | _ -> true
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> true }
 
     walkTypeAnn visitor typeAnn
 
@@ -3871,7 +3880,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     match f.Body with
     | BlockOrExpr.Block block -> List.iter (walkStmt visitor) block.Stmts
@@ -3892,7 +3902,8 @@ module rec Infer =
             | _ -> true
         ExprVisitor.VisitStmt = fun _ -> true
         ExprVisitor.VisitPattern = fun _ -> false
-        ExprVisitor.VisitTypeAnn = fun _ -> false }
+        ExprVisitor.VisitTypeAnn = fun _ -> false
+        ExprVisitor.VisitTypeAnnObjElem = fun _ -> false }
 
     walkExpr visitor expr
 
@@ -4018,8 +4029,23 @@ module rec Infer =
               deps <- deps @ findTypeRefs None typeAnn
             | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
               deps <- findTypeRefs typeParams typeAnn
-            | ObjTypeAnnElem.Mapped mapped ->
-              failwith "TODO: buildGraph - Mapped"
+            | ObjTypeAnnElem.Mapped { TypeParam = typeParam
+                                      TypeAnn = typeAnn } ->
+              let tp: Syntax.TypeParam =
+                { Span = DUMMY_SPAN
+                  Name = typeParam.Name
+                  Constraint = Some typeParam.Constraint
+                  Default = None }
+
+              let typeParams =
+                match typeParams with
+                | None -> Some [ tp ]
+                | Some typeParams -> Some(tp :: typeParams)
+
+              printfn "typeParams = %A" typeParams
+
+              deps <- findTypeRefs typeParams typeParam.Constraint
+              deps <- findTypeRefs typeParams typeAnn
 
           // TODO: check if there's an existing entry for `name` so that
           // we can update its `deps` list instead of overwriting it.

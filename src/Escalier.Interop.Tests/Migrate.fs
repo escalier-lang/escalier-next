@@ -235,7 +235,7 @@ let ParseAndInferFuncDecl () =
 
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ParseAndInferClassDecl () =
   let res =
     result {

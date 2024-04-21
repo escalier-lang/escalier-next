@@ -3915,14 +3915,6 @@ module rec Infer =
 
             (true, state) }
 
-    // let typeParams =
-    //   match typeParams with
-    //   | Some typeParams -> typeParams
-    //   | None -> []
-    //
-    // let typeParamNames =
-    //   List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
     walkTypeAnn visitor typeParams typeAnn
 
     List.rev idents
@@ -4191,22 +4183,272 @@ module rec Infer =
               typeDeps
               @ findTypeRefIdents env localTypeNames typeParamNames returnType
 
-          match body with
-          | None -> graph <- graph.Add(DeclIdent.Value name, decl, [])
-          | Some body ->
-            let f: Syntax.Function =
-              { Sig = fnSig
-                Body = body
-                Captures = None
-                InferredType = None }
+          let deps =
+            match body with
+            | None -> typeDeps
+            | Some body ->
+              let f: Syntax.Function =
+                { Sig = fnSig
+                  Body = body
+                  Captures = None
+                  InferredType = None }
 
-            let captures = findCaptures locals f
-            let deps = captures @ typeDeps
+              let captures = findCaptures locals f
+              captures @ typeDeps
 
-            graph <- graph.Add(DeclIdent.Value name, decl, deps)
+          graph <- graph.Add(DeclIdent.Value name, decl, deps)
+          declared <- declared @ [ DeclIdent.Value name ]
+        | ClassDecl { Name = name; Class = cls } ->
+          let { TypeParams = typeParams
+                Syntax.Elems = elems } =
+            cls
+
+          let classTypeParamNames =
+            match typeParams with
+            | None -> []
+            | Some typeParams ->
+              List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+          for elem in elems do
+            match elem with
+            | ClassElem.Property { TypeAnn = typeAnn } ->
+              // TODO: if it's a static property then we need to add a dep for
+              // DeclIdent.Value name
+              let deps =
+                findTypeRefIdents env localTypeNames classTypeParamNames typeAnn
+
+              graph <- graph.Add(DeclIdent.Type name, decl, deps)
+            | ClassElem.Constructor { Sig = fnSig; Body = body } ->
+              let mutable typeDeps = []
+
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+              for param in fnSig.ParamList do
+                match param.TypeAnn with
+                | Some typeAnn ->
+
+                  typeDeps <-
+                    typeDeps
+                    @ findTypeRefIdents
+                        env
+                        localTypeNames
+                        (classTypeParamNames @ typeParamNames)
+                        typeAnn
+                | None -> ()
+
+              match fnSig.ReturnType with
+              | None -> ()
+              | Some returnType ->
+                let typeParamNames =
+                  match fnSig.TypeParams with
+                  | None -> []
+                  | Some typeParams ->
+                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+                typeDeps <-
+                  typeDeps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (classTypeParamNames @ typeParamNames)
+                      returnType
+
+              let deps =
+                match body with
+                | None -> typeDeps
+                | Some body ->
+                  let f: Syntax.Function =
+                    { Sig = fnSig
+                      Body = body
+                      Captures = None
+                      InferredType = None }
+
+                  findCaptures locals f @ typeDeps
+
+              graph <- graph.Add(DeclIdent.Value name, decl, deps)
+            | ClassElem.Method { Sig = fnSig; Body = body } ->
+              let mutable typeDeps = []
+
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+              for param in fnSig.ParamList do
+                match param.TypeAnn with
+                | Some typeAnn ->
+
+                  typeDeps <-
+                    typeDeps
+                    @ findTypeRefIdents
+                        env
+                        localTypeNames
+                        (classTypeParamNames @ typeParamNames)
+                        typeAnn
+                | None -> ()
+
+              match fnSig.ReturnType with
+              | None -> ()
+              | Some returnType ->
+                let typeParamNames =
+                  match fnSig.TypeParams with
+                  | None -> []
+                  | Some typeParams ->
+                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+                typeDeps <-
+                  typeDeps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (classTypeParamNames @ typeParamNames)
+                      returnType
+
+              let deps =
+                match body with
+                | None -> typeDeps
+                | Some body ->
+                  let f: Syntax.Function =
+                    { Sig = fnSig
+                      Body = body
+                      Captures = None
+                      InferredType = None }
+
+                  findCaptures locals f @ typeDeps
+
+              graph <- graph.Add(DeclIdent.Value name, decl, deps)
+            | ClassElem.Getter getter ->
+              let fnSig: FuncSig<option<TypeAnn>> =
+                { ParamList = []
+                  Self = Some getter.Self
+                  ReturnType = getter.ReturnType
+                  Throws = None
+                  TypeParams = None
+                  IsAsync = false }
+
+              let mutable typeDeps = []
+
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+              for param in fnSig.ParamList do
+                match param.TypeAnn with
+                | Some typeAnn ->
+
+                  typeDeps <-
+                    typeDeps
+                    @ findTypeRefIdents
+                        env
+                        localTypeNames
+                        (classTypeParamNames @ typeParamNames)
+                        typeAnn
+                | None -> ()
+
+              match fnSig.ReturnType with
+              | None -> ()
+              | Some returnType ->
+                let typeParamNames =
+                  match fnSig.TypeParams with
+                  | None -> []
+                  | Some typeParams ->
+                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+                typeDeps <-
+                  typeDeps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (classTypeParamNames @ typeParamNames)
+                      returnType
+
+              let deps =
+                match getter.Body with
+                | None -> typeDeps
+                | Some body ->
+                  let f: Syntax.Function =
+                    { Sig = fnSig
+                      Body = body
+                      Captures = None
+                      InferredType = None }
+
+                  findCaptures locals f @ typeDeps
+
+              graph <- graph.Add(DeclIdent.Value name, decl, deps)
+            | ClassElem.Setter setter ->
+              let undefinedTypeAnn: TypeAnn =
+                { Span = DUMMY_SPAN
+                  Kind = TypeAnnKind.Literal Literal.Undefined
+                  InferredType = None }
+
+              let fnSig: FuncSig<option<TypeAnn>> =
+                { ParamList = []
+                  Self = Some setter.Self
+                  ReturnType = Some undefinedTypeAnn
+                  Throws = None
+                  TypeParams = None
+                  IsAsync = false }
+
+              let mutable typeDeps = []
+
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+              for param in fnSig.ParamList do
+                match param.TypeAnn with
+                | Some typeAnn ->
+
+                  typeDeps <-
+                    typeDeps
+                    @ findTypeRefIdents
+                        env
+                        localTypeNames
+                        (classTypeParamNames @ typeParamNames)
+                        typeAnn
+                | None -> ()
+
+              match fnSig.ReturnType with
+              | None -> ()
+              | Some returnType ->
+                let typeParamNames =
+                  match fnSig.TypeParams with
+                  | None -> []
+                  | Some typeParams ->
+                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+                typeDeps <-
+                  typeDeps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (classTypeParamNames @ typeParamNames)
+                      returnType
+
+              let deps =
+                match setter.Body with
+                | None -> typeDeps
+                | Some body ->
+                  let f: Syntax.Function =
+                    { Sig = fnSig
+                      Body = body
+                      Captures = None
+                      InferredType = None }
+
+                  findCaptures locals f @ typeDeps
+
+              graph <- graph.Add(DeclIdent.Type name, decl, deps)
 
           declared <- declared @ [ DeclIdent.Value name ]
-        | ClassDecl classDecl -> failwith "TODO: buildGraph - ClassDecl"
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->

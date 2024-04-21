@@ -166,7 +166,7 @@ let ParseAndInferMappedType () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T})")

@@ -256,38 +256,41 @@ module rec ExprVisitor =
     (state: 'S)
     (elem: ObjTypeAnnElem)
     : unit =
-    let walk = walkTypeAnn visitor state
+    let cont, state = visitor.VisitTypeAnnObjElem(elem, state)
 
-    match elem with
-    | Callable f ->
-      walk f.ReturnType
-      Option.iter walk f.Throws
+    if cont then
+      let walk = walkTypeAnn visitor state
 
-      List.iter
-        (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
-        f.ParamList
-    | Constructor f ->
-      walk f.ReturnType
-      Option.iter walk f.Throws
+      match elem with
+      | Callable f ->
+        walk f.ReturnType
+        Option.iter walk f.Throws
 
-      List.iter
-        (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
-        f.ParamList
-    | Method { Type = f } ->
-      walk f.ReturnType
-      Option.iter walk f.Throws
+        List.iter
+          (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+          f.ParamList
+      | Constructor f ->
+        walk f.ReturnType
+        Option.iter walk f.Throws
 
-      List.iter
-        (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
-        f.ParamList
-    | Getter { ReturnType = retType } -> walk retType
-    | Setter { Param = { TypeAnn = paramType } } -> walk paramType
-    | Property { TypeAnn = typeAnn } -> walk typeAnn
-    | Mapped { TypeParam = typeParam
-               TypeAnn = typeAnn } ->
-      printfn "typeParam = %A" typeParam
-      walk typeParam.Constraint
-      walk typeAnn
+        List.iter
+          (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+          f.ParamList
+      | Method { Type = f } ->
+        walk f.ReturnType
+        Option.iter walk f.Throws
+
+        List.iter
+          (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+          f.ParamList
+      | Getter { ReturnType = retType } -> walk retType
+      | Setter { Param = { TypeAnn = paramType } } -> walk paramType
+      | Property { TypeAnn = typeAnn } -> walk typeAnn
+      | Mapped { TypeParam = typeParam
+                 TypeAnn = typeAnn } ->
+        printfn "typeParam = %A" typeParam
+        walk typeParam.Constraint
+        walk typeAnn
 
 module rec TypeVisitor =
   open Escalier.Data.Type

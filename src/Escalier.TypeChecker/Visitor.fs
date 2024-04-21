@@ -204,52 +204,53 @@ module rec ExprVisitor =
     (state: 'S)
     (typeAnn: TypeAnn)
     : unit =
-    let rec walk (typeAnn: TypeAnn) : unit =
+    let rec walk (state: 'S) (typeAnn: TypeAnn) : unit =
       let cont, state = visitor.VisitTypeAnn(typeAnn, state)
 
       if cont then
         match typeAnn.Kind with
-        | TypeAnnKind.Array elem -> walk elem
+        | TypeAnnKind.Array elem -> walk state elem
         | TypeAnnKind.Literal _ -> ()
         | TypeAnnKind.Keyword _ -> ()
         | TypeAnnKind.Object { Elems = elems } ->
           for elem in elems do
             walkTypeAnnObjElem visitor state elem
-        | TypeAnnKind.Tuple { Elems = elems } -> List.iter walk elems
-        | TypeAnnKind.Union types -> List.iter walk types
-        | TypeAnnKind.Intersection types -> List.iter walk types
+        | TypeAnnKind.Tuple { Elems = elems } -> List.iter (walk state) elems
+        | TypeAnnKind.Union types -> List.iter (walk state) types
+        | TypeAnnKind.Intersection types -> List.iter (walk state) types
         | TypeAnnKind.TypeRef { TypeArgs = typeArgs } ->
-          Option.iter (List.iter walk) typeArgs
+          Option.iter (List.iter (walk state)) typeArgs
         | TypeAnnKind.Function f ->
-          walk f.ReturnType
-          Option.iter walk f.Throws
+          walk state f.ReturnType
+          Option.iter (walk state) f.Throws
 
           List.iter
-            (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+            (fun (param: FuncParam<TypeAnn>) -> walk state param.TypeAnn)
             f.ParamList
-        | TypeAnnKind.Keyof target -> walk target
-        | TypeAnnKind.Rest target -> walk target
+        | TypeAnnKind.Keyof target -> walk state target
+        | TypeAnnKind.Rest target -> walk state target
         | TypeAnnKind.Typeof _ -> () // TODO: walk QualifiedIdents
         | TypeAnnKind.Index(target, index) ->
-          walk target
-          walk index
+          walk state target
+          walk state index
         | TypeAnnKind.Condition conditionType ->
-          walk conditionType.Check
-          walk conditionType.Extends
-          walk conditionType.TrueType
-          walk conditionType.FalseType
+          walk state conditionType.Check
+          walk state conditionType.Extends
+          walk state conditionType.TrueType
+          walk state conditionType.FalseType
         | TypeAnnKind.Match matchType -> failwith "todo"
         | TypeAnnKind.Infer _name -> ()
         | TypeAnnKind.Wildcard -> ()
         | TypeAnnKind.Binary(left, op, right) ->
-          walk left
-          walk right
+          walk state left
+          walk state right
         | TypeAnnKind.Range { Min = min; Max = max } ->
-          walk min
-          walk max
-        | TypeAnnKind.TemplateLiteral { Exprs = expr } -> List.iter walk expr
+          walk state min
+          walk state max
+        | TypeAnnKind.TemplateLiteral { Exprs = expr } ->
+          List.iter (walk state) expr
 
-    walk typeAnn
+    walk state typeAnn
 
   let walkTypeAnnObjElem
     (visitor: SyntaxVisitor<'S>)
@@ -288,7 +289,6 @@ module rec ExprVisitor =
       | Property { TypeAnn = typeAnn } -> walk typeAnn
       | Mapped { TypeParam = typeParam
                  TypeAnn = typeAnn } ->
-        printfn "typeParam = %A" typeParam
         walk typeParam.Constraint
         walk typeAnn
 

@@ -3817,14 +3817,36 @@ module rec Infer =
     | QualifiedIdent.Ident name -> name
     | QualifiedIdent.Member(left, right) -> getBaseName left
 
+  let findInferTypeAnns (typeAnn: TypeAnn) : list<DeclIdent> =
+
+    let mutable idents: list<DeclIdent> = []
+
+    let visitor: SyntaxVisitor<unit> =
+      { ExprVisitor.VisitExpr = fun (_, state) -> (false, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn =
+          fun (typeAnn, state) ->
+            match typeAnn.Kind with
+            | TypeAnnKind.Infer name ->
+              idents <- DeclIdent.Type name :: idents
+              (false, state)
+            | _ -> (true, state)
+        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
+
+    walkTypeAnn visitor () typeAnn
+
+    List.rev idents
+
   let findTypeRefIdents
     (env: Env)
-    (typeParams: option<list<Syntax.TypeParam>>)
+    (localTypeNames: list<string>)
+    (typeParams: list<string>)
     (typeAnn: TypeAnn)
     : list<DeclIdent> =
     let mutable idents: list<DeclIdent> = []
 
-    let visitor: SyntaxVisitor<option<list<Syntax.TypeParam>>> =
+    let visitor: SyntaxVisitor<list<string>> =
       { ExprVisitor.VisitExpr = fun (_, state) -> (false, state)
         ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
         ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
@@ -3834,16 +3856,11 @@ module rec Infer =
             | TypeAnnKind.TypeRef { Ident = ident } ->
               let baseName = getBaseName ident
 
-              let typeParamNames =
-                match typeParams with
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-                | None -> []
-                |> Set.ofList
-
               if
-                not (Set.contains baseName typeParamNames)
+                (List.contains baseName localTypeNames)
+                && not (List.contains baseName typeParams)
                 && not (Map.containsKey baseName env.Namespace.Schemes)
+                && not (Map.containsKey baseName env.Namespace.Namespaces)
               then
                 idents <- DeclIdent.Type baseName :: idents
 
@@ -3852,47 +3869,59 @@ module rec Infer =
               let baseName = getBaseName ident
               idents <- DeclIdent.Value baseName :: idents
               (false, typeParams)
+            | TypeAnnKind.Condition { Extends = extends } ->
+              let inferNames =
+                findInferTypeAnns extends
+                |> List.choose (fun ident ->
+                  match ident with
+                  | DeclIdent.Type name -> Some name
+                  | _ -> None)
+
+              (true, typeParams @ inferNames)
             | _ -> (true, typeParams)
         ExprVisitor.VisitTypeAnnObjElem =
           fun (elem, typeParams) ->
             let state =
               match elem with
               | ObjTypeAnnElem.Callable funcSig ->
-                match typeParams, funcSig.TypeParams with
-                | None, None -> None
-                | Some typeParams, None -> Some typeParams
-                | None, Some typeParams -> Some typeParams
-                | Some typeParams, Some funcTypeParams ->
-                  Some(typeParams @ funcTypeParams)
+                match funcSig.TypeParams with
+                | None -> typeParams
+                | Some funcTypeParams ->
+                  typeParams
+                  @ (List.map
+                    (fun (tp: Syntax.TypeParam) -> tp.Name)
+                    funcTypeParams)
               | ObjTypeAnnElem.Constructor funcSig ->
-                match typeParams, funcSig.TypeParams with
-                | None, None -> None
-                | Some typeParams, None -> Some typeParams
-                | None, Some typeParams -> Some typeParams
-                | Some typeParams, Some funcTypeParams ->
-                  Some(typeParams @ funcTypeParams)
+                match funcSig.TypeParams with
+                | None -> typeParams
+                | Some funcTypeParams ->
+                  typeParams
+                  @ List.map
+                      (fun (tp: Syntax.TypeParam) -> tp.Name)
+                      funcTypeParams
               | ObjTypeAnnElem.Method { Type = t } ->
-                match typeParams, t.TypeParams with
-                | None, None -> None
-                | Some typeParams, None -> Some typeParams
-                | None, Some typeParams -> Some typeParams
-                | Some typeParams, Some funcTypeParams ->
-                  Some(typeParams @ funcTypeParams)
+                match t.TypeParams with
+                | None -> typeParams
+                | Some funcTypeParams ->
+                  typeParams
+                  @ List.map
+                      (fun (tp: Syntax.TypeParam) -> tp.Name)
+                      funcTypeParams
               | ObjTypeAnnElem.Getter _ -> typeParams
               | ObjTypeAnnElem.Setter _ -> typeParams
               | ObjTypeAnnElem.Property _ -> typeParams
               | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
-                let typeParam: Syntax.TypeParam =
-                  { Span = DUMMY_SPAN
-                    Name = typeParam.Name
-                    Constraint = Some typeParam.Constraint
-                    Default = None }
-
-                match typeParams with
-                | None -> Some [ typeParam ]
-                | Some typeParams -> Some(typeParam :: typeParams)
+                typeParam.Name :: typeParams
 
             (true, state) }
+
+    // let typeParams =
+    //   match typeParams with
+    //   | Some typeParams -> typeParams
+    //   | None -> []
+    //
+    // let typeParamNames =
+    //   List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
     walkTypeAnn visitor typeParams typeAnn
 
@@ -4030,6 +4059,14 @@ module rec Infer =
       let mutable declared: list<DeclIdent> = []
       let locals = findLocals decls
 
+      let localTypeNames =
+        List.choose
+          (fun id ->
+            match id with
+            | DeclIdent.Type name -> Some name
+            | _ -> None)
+          locals
+
       for decl in decls do
         match decl.Kind with
         | VarDecl { Declare = declare
@@ -4045,7 +4082,7 @@ module rec Infer =
 
             let typeDeps =
               match typeAnn with
-              | Some typeAnn -> findTypeRefIdents env None typeAnn
+              | Some typeAnn -> findTypeRefIdents env localTypeNames [] typeAnn
               | None -> []
 
             deps <- deps @ typeDeps
@@ -4077,7 +4114,7 @@ module rec Infer =
           | true, None ->
             let deps =
               match typeAnn with
-              | Some typeAnn -> findTypeRefIdents env None typeAnn
+              | Some typeAnn -> findTypeRefIdents env localTypeNames [] typeAnn
               | None -> []
 
             // TODO: dedupe with the other branch
@@ -4110,7 +4147,14 @@ module rec Infer =
         | TypeDecl { Name = name
                      TypeAnn = typeAnn
                      TypeParams = typeParams } ->
-          let deps = findTypeRefIdents env typeParams typeAnn
+          let typeParamNames =
+            match typeParams with
+            | None -> []
+            | Some typeParams ->
+              List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+          let deps = findTypeRefIdents env localTypeNames typeParamNames typeAnn
+
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | FnDecl { Declare = _
                    Name = name
@@ -4119,18 +4163,33 @@ module rec Infer =
 
           let mutable typeDeps = []
 
+          let typeParamNames =
+            match fnSig.TypeParams with
+            | None -> []
+            | Some typeParams ->
+              List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
           for param in fnSig.ParamList do
             match param.TypeAnn with
             | Some typeAnn ->
+
               typeDeps <-
-                typeDeps @ findTypeRefIdents env fnSig.TypeParams typeAnn
+                typeDeps
+                @ findTypeRefIdents env localTypeNames typeParamNames typeAnn
             | None -> ()
 
           match fnSig.ReturnType with
           | None -> ()
           | Some returnType ->
+            let typeParamNames =
+              match fnSig.TypeParams with
+              | None -> []
+              | Some typeParams ->
+                List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
             typeDeps <-
-              typeDeps @ findTypeRefIdents env fnSig.TypeParams returnType
+              typeDeps
+              @ findTypeRefIdents env localTypeNames typeParamNames returnType
 
           match body with
           | None -> graph <- graph.Add(DeclIdent.Value name, decl, [])
@@ -4153,35 +4212,106 @@ module rec Infer =
                           Elems = elems } ->
           let mutable deps = []
 
+          let interfaceTypeParamNames =
+            match typeParams with
+            | None -> []
+            | Some typeParams ->
+              List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
           for elem in elems do
             match elem with
             | ObjTypeAnnElem.Callable fnSig ->
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
               for param in fnSig.ParamList do
                 deps <-
-                  deps @ findTypeRefIdents env fnSig.TypeParams param.TypeAnn
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (interfaceTypeParamNames @ typeParamNames)
+                      param.TypeAnn
 
               deps <-
-                deps @ findTypeRefIdents env fnSig.TypeParams fnSig.ReturnType
+                deps
+                @ findTypeRefIdents
+                    env
+                    localTypeNames
+                    (interfaceTypeParamNames @ typeParamNames)
+                    fnSig.ReturnType
             | ObjTypeAnnElem.Constructor fnSig ->
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
               for param in fnSig.ParamList do
                 deps <-
-                  deps @ findTypeRefIdents env fnSig.TypeParams param.TypeAnn
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (interfaceTypeParamNames @ typeParamNames)
+                      param.TypeAnn
 
               deps <-
-                deps @ findTypeRefIdents env fnSig.TypeParams fnSig.ReturnType
+                deps
+                @ findTypeRefIdents
+                    env
+                    localTypeNames
+                    (interfaceTypeParamNames @ typeParamNames)
+                    fnSig.ReturnType
             | ObjTypeAnnElem.Method { Type = fnSig } ->
+              let typeParamNames =
+                match fnSig.TypeParams with
+                | None -> []
+                | Some typeParams ->
+                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
               for param in fnSig.ParamList do
                 deps <-
-                  deps @ findTypeRefIdents env fnSig.TypeParams param.TypeAnn
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      (interfaceTypeParamNames @ typeParamNames)
+                      param.TypeAnn
 
               deps <-
-                deps @ findTypeRefIdents env fnSig.TypeParams fnSig.ReturnType
+                deps
+                @ findTypeRefIdents
+                    env
+                    localTypeNames
+                    (interfaceTypeParamNames @ typeParamNames)
+                    fnSig.ReturnType
             | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
-              deps <- deps @ findTypeRefIdents env None returnType
+              deps <-
+                deps
+                @ findTypeRefIdents
+                    env
+                    localTypeNames
+                    interfaceTypeParamNames
+                    returnType
             | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
-              deps <- deps @ findTypeRefIdents env None typeAnn
+              deps <-
+                deps
+                @ findTypeRefIdents
+                    env
+                    localTypeNames
+                    interfaceTypeParamNames
+                    typeAnn
             | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
-              deps <- findTypeRefIdents env typeParams typeAnn
+              deps <-
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  typeAnn
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam
                                       TypeAnn = typeAnn } ->
               let tp: Syntax.TypeParam =
@@ -4195,10 +4325,19 @@ module rec Infer =
                 | None -> Some [ tp ]
                 | Some typeParams -> Some(tp :: typeParams)
 
-              printfn "typeParams = %A" typeParams
+              deps <-
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  typeParam.Constraint
 
-              deps <- findTypeRefIdents env typeParams typeParam.Constraint
-              deps <- findTypeRefIdents env typeParams typeAnn
+              deps <-
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  typeAnn
 
           // TODO: check if there's an existing entry for `name` so that
           // we can update its `deps` list instead of overwriting it.
@@ -4384,8 +4523,12 @@ module rec Infer =
         | None -> sets <- sets.Add(Set.singleton key)
 
       for set in sets do
-        let! nextEnv = inferTreeRec ctx newEnv set nodes tree
-        newEnv <- nextEnv
+        try
+          let! nextEnv = inferTreeRec ctx newEnv set nodes tree
+          newEnv <- nextEnv
+        with e ->
+          printfn $"Error: {e}"
+          return! Error(TypeError.SemanticError(e.ToString()))
 
       return newEnv
     }
@@ -4404,8 +4547,23 @@ module rec Infer =
     (ast: Module)
     : Result<Env, TypeError> =
     result {
+      // TODO: update this function to accept a filename
+      let mutable newEnv = { env with Filename = "input.esc" }
+
+      let imports =
+        List.choose
+          (fun item ->
+            match item with
+            | Import import -> Some import
+            | _ -> None)
+          ast.Items
+
+      for import in imports do
+        let! importEnv = inferImport ctx newEnv import
+        newEnv <- importEnv
+
       let decls = getDeclsFromModule ast
-      let! graph = buildGraph env decls
+      let! graph = buildGraph newEnv decls
       let tree = graphToTree graph.Edges
-      return! inferTree ctx env graph.Nodes tree
+      return! inferTree ctx newEnv graph.Nodes tree
     }

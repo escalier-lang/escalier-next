@@ -66,7 +66,7 @@ let ParseAndInferBasicDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
@@ -98,7 +98,7 @@ let ParseAndInferTypeAliases () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string")
@@ -132,7 +132,7 @@ let ParseAndInferInterface () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -166,7 +166,7 @@ let ParseAndInferMappedType () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T})")
@@ -195,7 +195,7 @@ let ParseAndInferUnorderedTypeParams () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -227,7 +227,7 @@ let ParseAndInferFuncDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "fn (mut x: number, mut y: string) -> boolean")
@@ -257,7 +257,7 @@ let ParseAndInferClassDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "Foo", "{new fn () -> Foo}")
@@ -295,7 +295,7 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -329,6 +329,51 @@ let ImportThirdPartyModules () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let ParseAndInferPropertyKey () =
+  let res =
+    result {
+      let input =
+        """
+        declare type PropertyKey = string | number | symbol;
+
+        interface PropertyDescriptor {
+            configurable?: boolean;
+            enumerable?: boolean;
+            value?: any;
+            writable?: boolean;
+            get?(): any;
+            set?(v: any): void;
+        }
+
+        interface PropertyDescriptorMap {
+            [key: PropertyKey]: PropertyDescriptor;
+        }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(
+        env,
+        "PropertyDescriptorMap",
+        "{[key]+?: PropertyDescriptor for key in PropertyKey}"
+      )
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let ParseAndInferLibEs5 () =
   let res =
     result {
@@ -350,7 +395,7 @@ let ParseAndInferLibEs5 () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(true, true)

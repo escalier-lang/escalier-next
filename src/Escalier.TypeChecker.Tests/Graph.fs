@@ -563,7 +563,7 @@ let MutuallyRecursiveGraph () =
       let decls = Infer.getDeclsFromModule ast
 
       let! graph =
-        Infer.buildGraph decls |> Result.mapError CompileError.TypeError
+        Infer.buildGraph env decls |> Result.mapError CompileError.TypeError
 
       printfn "graph.Edges = %A" graph.Edges
 
@@ -1066,6 +1066,68 @@ let MultipleFuncDecls () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "add", "fn (x: string, y: string) -> string")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferNestedFunctionsWithNestedCaptures () =
+  let result =
+    result {
+      let src =
+        """
+        let x = 5;
+        let y = 10;
+        let add = fn (a) => fn (b) => a * x + b * y;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(
+        env,
+        "add",
+        "fn <A: number, B: number>(a: A) -> fn (b: B) -> A * 5 + B * 10"
+      )
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferFunctionWithTypeParams () =
+  let result =
+    result {
+      let src =
+        """
+        let add = fn <A: number, B: number>(x: A, y: B) {
+          let a: A = x;
+          let b: B = y;
+          return a + b;
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
     }
 
   printfn "result = %A" result

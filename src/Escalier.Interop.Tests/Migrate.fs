@@ -66,7 +66,7 @@ let ParseAndInferBasicDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
@@ -98,7 +98,7 @@ let ParseAndInferTypeAliases () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string")
@@ -132,7 +132,7 @@ let ParseAndInferInterface () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -195,7 +195,7 @@ let ParseAndInferUnorderedTypeParams () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -227,7 +227,7 @@ let ParseAndInferFuncDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env "input.esc" ast
+        Infer.inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "fn (mut x: number, mut y: string) -> boolean")

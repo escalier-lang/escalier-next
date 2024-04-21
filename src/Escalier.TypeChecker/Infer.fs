@@ -3818,6 +3818,7 @@ module rec Infer =
     | QualifiedIdent.Member(left, right) -> getBaseName left
 
   let findTypeRefIdents
+    (env: Env)
     (typeParams: option<list<Syntax.TypeParam>>)
     (typeAnn: TypeAnn)
     : list<DeclIdent> =
@@ -3840,7 +3841,10 @@ module rec Infer =
                 | None -> []
                 |> Set.ofList
 
-              if not (Set.contains baseName typeParamNames) then
+              if
+                not (Set.contains baseName typeParamNames)
+                && not (Map.containsKey baseName env.Namespace.Schemes)
+              then
                 idents <- DeclIdent.Type baseName :: idents
 
               (false, typeParams)
@@ -3894,6 +3898,9 @@ module rec Infer =
 
     List.rev idents
 
+  // TODO: update too look in `env` as well when deciding if something is a
+  // local capture of not.
+  // TODO: rename to `findLocalCaptures`
   let findCaptures
     (parentLocals: list<DeclIdent>)
     (f: Syntax.Function)
@@ -4016,7 +4023,7 @@ module rec Infer =
 
     locals
 
-  let buildGraph (decls: list<Decl>) : Result<DeclGraph, TypeError> =
+  let buildGraph (env: Env) (decls: list<Decl>) : Result<DeclGraph, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
       let mutable graph = DeclGraph.Empty
@@ -4025,23 +4032,25 @@ module rec Infer =
 
       for decl in decls do
         match decl.Kind with
-        | VarDecl { Pattern = pattern
+        | VarDecl { Declare = declare
+                    Pattern = pattern
                     Init = init
                     TypeAnn = typeAnn } ->
           let bindingNames =
             findBindingNames pattern |> List.map DeclIdent.Value
 
-          match init with
-          | Some init ->
+          match declare, init with
+          | false, Some init ->
             let mutable deps = findIdentifiers init
 
             let typeDeps =
               match typeAnn with
-              | Some typeAnn -> findTypeRefIdents None typeAnn
+              | Some typeAnn -> findTypeRefIdents env None typeAnn
               | None -> []
 
             deps <- deps @ typeDeps
 
+            // TODO: dedupe with the other branch
             for dep in deps do
               match dep with
               | Type _ -> ()
@@ -4065,14 +4074,43 @@ module rec Infer =
 
             for name in bindingNames do
               graph <- graph.Add(name, decl, deps)
-          | None -> ()
+          | true, None ->
+            let deps =
+              match typeAnn with
+              | Some typeAnn -> findTypeRefIdents env None typeAnn
+              | None -> []
+
+            // TODO: dedupe with the other branch
+            for dep in deps do
+              match dep with
+              | Type _ -> ()
+              | Value _ ->
+                if not (List.contains dep declared) then
+                  let depName =
+                    match dep with
+                    | DeclIdent.Value name -> name
+                    | DeclIdent.Type name -> name
+
+                  return!
+                    Error(
+                      TypeError.SemanticError
+                        $"{depName} has not been initialized yet"
+                    )
+
+            for name in bindingNames do
+              graph <- graph.Add(name, decl, deps)
+          | _, _ ->
+            return!
+              Error(
+                TypeError.SemanticError
+                  "Variable declaration must have an initializer or use 'declare'"
+              )
 
           declared <- declared @ bindingNames
         | TypeDecl { Name = name
                      TypeAnn = typeAnn
                      TypeParams = typeParams } ->
-
-          let mutable deps = findTypeRefIdents typeParams typeAnn
+          let deps = findTypeRefIdents env typeParams typeAnn
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | FnDecl { Declare = _
                    Name = name
@@ -4084,13 +4122,15 @@ module rec Infer =
           for param in fnSig.ParamList do
             match param.TypeAnn with
             | Some typeAnn ->
-              typeDeps <- typeDeps @ findTypeRefIdents fnSig.TypeParams typeAnn
+              typeDeps <-
+                typeDeps @ findTypeRefIdents env fnSig.TypeParams typeAnn
             | None -> ()
 
           match fnSig.ReturnType with
           | None -> ()
           | Some returnType ->
-            typeDeps <- typeDeps @ findTypeRefIdents fnSig.TypeParams returnType
+            typeDeps <-
+              typeDeps @ findTypeRefIdents env fnSig.TypeParams returnType
 
           match body with
           | None -> graph <- graph.Add(DeclIdent.Value name, decl, [])
@@ -4117,25 +4157,31 @@ module rec Infer =
             match elem with
             | ObjTypeAnnElem.Callable fnSig ->
               for param in fnSig.ParamList do
-                deps <- deps @ findTypeRefIdents fnSig.TypeParams param.TypeAnn
+                deps <-
+                  deps @ findTypeRefIdents env fnSig.TypeParams param.TypeAnn
 
-              deps <- deps @ findTypeRefIdents fnSig.TypeParams fnSig.ReturnType
+              deps <-
+                deps @ findTypeRefIdents env fnSig.TypeParams fnSig.ReturnType
             | ObjTypeAnnElem.Constructor fnSig ->
               for param in fnSig.ParamList do
-                deps <- deps @ findTypeRefIdents fnSig.TypeParams param.TypeAnn
+                deps <-
+                  deps @ findTypeRefIdents env fnSig.TypeParams param.TypeAnn
 
-              deps <- deps @ findTypeRefIdents fnSig.TypeParams fnSig.ReturnType
+              deps <-
+                deps @ findTypeRefIdents env fnSig.TypeParams fnSig.ReturnType
             | ObjTypeAnnElem.Method { Type = fnSig } ->
               for param in fnSig.ParamList do
-                deps <- deps @ findTypeRefIdents fnSig.TypeParams param.TypeAnn
+                deps <-
+                  deps @ findTypeRefIdents env fnSig.TypeParams param.TypeAnn
 
-              deps <- deps @ findTypeRefIdents fnSig.TypeParams fnSig.ReturnType
+              deps <-
+                deps @ findTypeRefIdents env fnSig.TypeParams fnSig.ReturnType
             | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
-              deps <- deps @ findTypeRefIdents None returnType
+              deps <- deps @ findTypeRefIdents env None returnType
             | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
-              deps <- deps @ findTypeRefIdents None typeAnn
+              deps <- deps @ findTypeRefIdents env None typeAnn
             | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
-              deps <- findTypeRefIdents typeParams typeAnn
+              deps <- findTypeRefIdents env typeParams typeAnn
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam
                                       TypeAnn = typeAnn } ->
               let tp: Syntax.TypeParam =
@@ -4151,15 +4197,15 @@ module rec Infer =
 
               printfn "typeParams = %A" typeParams
 
-              deps <- findTypeRefIdents typeParams typeParam.Constraint
-              deps <- findTypeRefIdents typeParams typeAnn
+              deps <- findTypeRefIdents env typeParams typeParam.Constraint
+              deps <- findTypeRefIdents env typeParams typeAnn
 
           // TODO: check if there's an existing entry for `name` so that
           // we can update its `deps` list instead of overwriting it.
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | EnumDecl enumDecl -> failwith "TODO: buildGraph - EnumDecl"
         | NamespaceDecl { Name = name; Body = decls } ->
-          let! subgraph = buildGraph decls
+          let! subgraph = buildGraph env decls
           let subgraphDeps = subgraph.Edges.Values |> List.concat
           let subgraphIdents = subgraph.Nodes.Keys |> List.ofSeq
 
@@ -4214,12 +4260,12 @@ module rec Infer =
         let cycle = List.take index parents @ [ node ] |> Set.ofList
         cycles <- Set.add cycle cycles
       else
-        let edges =
+        let edgesOuts =
           match edges.TryFind node with
           | None -> failwith $"Couldn't find edge for {node} in {edges}"
           | Some value -> value
 
-        for next in edges do
+        for next in edgesOuts do
           visit next (node :: parents)
 
     for KeyValue(node, _) in edges do
@@ -4359,7 +4405,7 @@ module rec Infer =
     : Result<Env, TypeError> =
     result {
       let decls = getDeclsFromModule ast
-      let! graph = buildGraph decls
+      let! graph = buildGraph env decls
       let tree = graphToTree graph.Edges
       return! inferTree ctx env graph.Nodes tree
     }

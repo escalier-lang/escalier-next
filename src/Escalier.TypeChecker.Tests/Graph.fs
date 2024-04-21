@@ -563,7 +563,7 @@ let MutuallyRecursiveGraph () =
       let decls = Infer.getDeclsFromModule ast
 
       let! graph =
-        Infer.buildGraph decls |> Result.mapError CompileError.TypeError
+        Infer.buildGraph env decls |> Result.mapError CompileError.TypeError
 
       printfn "graph.Edges = %A" graph.Edges
 

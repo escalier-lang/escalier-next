@@ -563,7 +563,8 @@ let MutuallyRecursiveGraph () =
       let decls = Infer.getDeclsFromModule ast
 
       let! graph =
-        Infer.buildGraph env decls |> Result.mapError CompileError.TypeError
+        Infer.buildGraph env [] [] decls
+        |> Result.mapError CompileError.TypeError
 
       printfn "graph.Edges = %A" graph.Edges
 
@@ -1034,6 +1035,70 @@ let InferNamespaceInModule () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(t.ToString(), "string")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferNamespaceInModuleWithCaptures () =
+  let result =
+    result {
+      let src =
+        """
+        type Bar = string;
+        let bar: Bar = "hello";
+        namespace Foo {
+          let baz: Bar = bar;
+        }
+        let baz = Foo.baz;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "baz", "Bar")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferNamespaceInModuleWithInterfaceCapture () =
+  let result =
+    result {
+      let src =
+        """
+        interface Point {
+          x: number,
+        }
+        interface Point {
+          y: number,
+        }
+        namespace Foo {
+          let bar = fn (p: Point) -> undefined {};
+        }
+        let bar = Foo.bar;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "bar", "fn (p: Point) -> undefined")
     }
 
   printfn "result = %A" result

@@ -11,7 +11,7 @@ open Escalier.Compiler
 open Escalier.Interop.Parser
 open Escalier.Interop.Migrate
 open Escalier.TypeChecker
-// open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.Graph
 open Escalier.TypeChecker.Env
 
 type Assert with
@@ -66,7 +66,7 @@ let ParseAndInferBasicDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
@@ -98,7 +98,7 @@ let ParseAndInferTypeAliases () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string")
@@ -132,7 +132,7 @@ let ParseAndInferInterface () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -166,7 +166,7 @@ let ParseAndInferMappedType () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T})")
@@ -195,7 +195,7 @@ let ParseAndInferUnorderedTypeParams () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -227,7 +227,7 @@ let ParseAndInferFuncDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "fn (mut x: number, mut y: string) -> boolean")
@@ -257,7 +257,7 @@ let ParseAndInferClassDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "Foo", "{new fn () -> Foo}")
@@ -295,7 +295,7 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -360,7 +360,7 @@ let ParseAndInferPropertyKey () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -395,7 +395,7 @@ let ParseAndInferLibEs5 () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(true, true)

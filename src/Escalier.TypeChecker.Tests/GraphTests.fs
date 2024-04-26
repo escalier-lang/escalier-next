@@ -1,10 +1,11 @@
-module Graph
+module GraphTests
 
 open FsToolkit.ErrorHandling
 open Xunit
 
 open Escalier.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Graph
 open Escalier.Compiler
 open Escalier.TypeChecker.Error
 open TestUtils
@@ -25,7 +26,7 @@ let BuildDeclGraph () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -50,7 +51,7 @@ let BuildDeclGraphIncorrectOrder () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       ()
@@ -84,7 +85,7 @@ let BuildDeclGraphWithFunction () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -112,7 +113,7 @@ let GraphWithFunctionWithParam () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -137,7 +138,7 @@ let BuildDeclGraphWithGenericFunction () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "id", "fn <A>(x: A) -> A")
@@ -163,7 +164,7 @@ let BuildDeclGraphWithFunctions () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       ()
@@ -189,7 +190,7 @@ let BuildDeclGraphWithCapturesDefinedAfterClosure () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -218,7 +219,7 @@ let GraphWithNonFunctionDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -252,7 +253,7 @@ let GraphWithFunctionCallDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -287,7 +288,7 @@ let GraphWithFunctionCallDepsWithObjects () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -318,7 +319,7 @@ let GraphWithFunctionsInObject () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -349,7 +350,7 @@ let AcyclicFunctionDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -381,7 +382,7 @@ let AcyclicFunctionDepsBuildGraphFirst () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -412,7 +413,7 @@ let AcyclicFunctionDepsInObject () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -442,7 +443,7 @@ let AcyclicFunctionDepsInObjectWithDestructuring () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -474,7 +475,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringInSeparateStatement () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -504,7 +505,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringStress () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -533,7 +534,7 @@ let BuildRecursiveGraph () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       // TODO: merge 1 and number
@@ -560,11 +561,10 @@ let MutuallyRecursiveGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let decls = Infer.getDeclsFromModule ast
+      let decls = getDeclsFromModule ast
 
       let! graph =
-        Infer.buildGraph env [] [] decls
-        |> Result.mapError CompileError.TypeError
+        buildGraph env [] [] decls |> Result.mapError CompileError.TypeError
 
       printfn "graph.Edges = %A" graph.Edges
 
@@ -597,7 +597,7 @@ let MutuallyRecursiveGraphInObjects () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       // TODO: simplify return types to `boolean`
@@ -637,7 +637,7 @@ let AcyclicFunctionDepsBuildTreeFirst () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -670,7 +670,7 @@ let AcyclicFunctionDepsBuildTreeFirstWithTypeAnnotations () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
@@ -701,7 +701,7 @@ let InferMutuallyRecursiveFunctions () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       // TODO: simplify return types to `boolean`
@@ -733,7 +733,7 @@ let InferMutuallyRecursiveTypes () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string | Bar[]")
@@ -759,7 +759,7 @@ let InferTypeofType () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "msg", "\"hello\"")
@@ -785,7 +785,7 @@ let InferTypeofTypeForObjectProperty () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "obj", "{msg: \"hello\"}")
@@ -812,7 +812,7 @@ let InferIndexedAccessTypes () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "Obj[\"foo\"]")
@@ -838,7 +838,7 @@ let InferMutuallyRecursiveIndexedAccessTypes () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "{foo: number, bar: Bar[\"bar\"]}")
@@ -868,7 +868,7 @@ let InferObjectTypeWithComputedKeys () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Obj", "{foo: string, bar: number}")
@@ -896,7 +896,7 @@ let InferObjectTypeWithQualifiedComputedKeys () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Obj", "{foo: string, bar: number}")
@@ -923,7 +923,7 @@ let InferFuncDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
@@ -955,7 +955,7 @@ let InferFuncDeclInModule () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
@@ -987,7 +987,7 @@ let InferInterfaceInModule () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
@@ -1022,7 +1022,7 @@ let InferNamespaceInModule () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
@@ -1060,7 +1060,7 @@ let InferNamespaceInModuleWithCaptures () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
@@ -1094,7 +1094,7 @@ let InferNamespaceInModuleWithInterfaceCapture () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
@@ -1126,7 +1126,7 @@ let MultipleFuncDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
@@ -1153,7 +1153,7 @@ let InferNestedFunctionsWithNestedCaptures () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)
@@ -1187,7 +1187,7 @@ let InferFunctionWithTypeParams () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModuleUsingTree ctx env ast
+        inferModuleUsingTree ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Empty(ctx.Diagnostics)

@@ -3838,6 +3838,7 @@ module rec Infer =
 
     List.rev idents
 
+  // TODO: dedupe with findTypeRefIdentsInExpr
   let findTypeRefIdents
     (env: Env)
     (localTypeNames: list<string>)
@@ -3916,6 +3917,89 @@ module rec Infer =
             (true, state) }
 
     walkTypeAnn visitor typeParams typeAnn
+
+    List.rev idents
+
+  // TODO: dedupe with findTypeRefIdents
+  let findTypeRefIdentsInExpr
+    (env: Env)
+    (localTypeNames: list<string>)
+    (typeParams: list<string>)
+    (expr: Expr)
+    : list<DeclIdent> =
+    let mutable idents: list<DeclIdent> = []
+
+    let visitor: SyntaxVisitor<list<string>> =
+      { ExprVisitor.VisitExpr = fun (_, state) -> (true, state)
+        ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+        ExprVisitor.VisitTypeAnn =
+          fun (typeAnn, typeParams) ->
+            match typeAnn.Kind with
+            | TypeAnnKind.TypeRef { Ident = ident } ->
+              let baseName = getBaseName ident
+              printfn $"baseName = {baseName}"
+
+              if
+                (List.contains baseName localTypeNames)
+                && not (List.contains baseName typeParams)
+                && not (Map.containsKey baseName env.Namespace.Schemes)
+                && not (Map.containsKey baseName env.Namespace.Namespaces)
+              then
+                idents <- DeclIdent.Type baseName :: idents
+
+              (false, typeParams)
+            | TypeAnnKind.Typeof ident ->
+              let baseName = getBaseName ident
+              idents <- DeclIdent.Value baseName :: idents
+              (false, typeParams)
+            | TypeAnnKind.Condition { Extends = extends } ->
+              let inferNames =
+                findInferTypeAnns extends
+                |> List.choose (fun ident ->
+                  match ident with
+                  | DeclIdent.Type name -> Some name
+                  | _ -> None)
+
+              (true, typeParams @ inferNames)
+            | _ -> (true, typeParams)
+        ExprVisitor.VisitTypeAnnObjElem =
+          fun (elem, typeParams) ->
+            let state =
+              match elem with
+              | ObjTypeAnnElem.Callable funcSig ->
+                match funcSig.TypeParams with
+                | None -> typeParams
+                | Some funcTypeParams ->
+                  typeParams
+                  @ (List.map
+                    (fun (tp: Syntax.TypeParam) -> tp.Name)
+                    funcTypeParams)
+              | ObjTypeAnnElem.Constructor funcSig ->
+                match funcSig.TypeParams with
+                | None -> typeParams
+                | Some funcTypeParams ->
+                  typeParams
+                  @ List.map
+                      (fun (tp: Syntax.TypeParam) -> tp.Name)
+                      funcTypeParams
+              | ObjTypeAnnElem.Method { Type = t } ->
+                match t.TypeParams with
+                | None -> typeParams
+                | Some funcTypeParams ->
+                  typeParams
+                  @ List.map
+                      (fun (tp: Syntax.TypeParam) -> tp.Name)
+                      funcTypeParams
+              | ObjTypeAnnElem.Getter _ -> typeParams
+              | ObjTypeAnnElem.Setter _ -> typeParams
+              | ObjTypeAnnElem.Property _ -> typeParams
+              | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
+                typeParam.Name :: typeParams
+
+            (true, state) }
+
+    walkExpr visitor typeParams expr
 
     List.rev idents
 
@@ -4044,12 +4128,17 @@ module rec Infer =
 
     locals
 
-  let buildGraph (env: Env) (decls: list<Decl>) : Result<DeclGraph, TypeError> =
+  let buildGraph
+    (env: Env)
+    (parentDeclared: list<DeclIdent>)
+    (parentLocals: list<DeclIdent>)
+    (decls: list<Decl>)
+    : Result<DeclGraph, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
       let mutable graph = DeclGraph.Empty
-      let mutable declared: list<DeclIdent> = []
-      let locals = findLocals decls
+      let mutable declared: list<DeclIdent> = parentDeclared
+      let locals = parentLocals @ findLocals decls
 
       let localTypeNames =
         List.choose
@@ -4072,12 +4161,15 @@ module rec Infer =
           | false, Some init ->
             let mutable deps = findIdentifiers init
 
+            let typeDepsInExpr =
+              findTypeRefIdentsInExpr env localTypeNames [] init
+
             let typeDeps =
               match typeAnn with
               | Some typeAnn -> findTypeRefIdents env localTypeNames [] typeAnn
               | None -> []
 
-            deps <- deps @ typeDeps
+            deps <- deps @ typeDepsInExpr @ typeDeps
 
             // TODO: dedupe with the other branch
             for dep in deps do
@@ -4586,7 +4678,7 @@ module rec Infer =
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | EnumDecl enumDecl -> failwith "TODO: buildGraph - EnumDecl"
         | NamespaceDecl { Name = name; Body = decls } ->
-          let! subgraph = buildGraph env decls
+          let! subgraph = buildGraph env declared locals decls
           let subgraphDeps = subgraph.Edges.Values |> List.concat
           let subgraphIdents = subgraph.Nodes.Keys |> List.ofSeq
 
@@ -4805,7 +4897,59 @@ module rec Infer =
         newEnv <- importEnv
 
       let decls = getDeclsFromModule ast
-      let! graph = buildGraph newEnv decls
+      let! graph = buildGraph newEnv [] [] decls
       let tree = graphToTree graph.Edges
       return! inferTree ctx newEnv graph.Nodes tree
+    }
+
+  let getExports
+    (ctx: Ctx)
+    (env: Env)
+    (name: string)
+    (items: list<ModuleItem>)
+    : Result<Namespace, TypeError> =
+
+    result {
+      let mutable ns: Namespace =
+        { Name = name
+          Values = Map.empty
+          Schemes = Map.empty
+          Namespaces = Map.empty }
+
+      for item in items do
+        match item with
+        | ModuleItem.Import importDecl ->
+          failwith "TODO: getExports - importDecl"
+        | ModuleItem.Decl decl ->
+          match decl.Kind with
+          | DeclKind.ClassDecl classDecl ->
+            failwith "TODO: getExports - classDecl"
+          | DeclKind.FnDecl { Name = name } ->
+            let! t = env.GetValue name
+            let isMut = false
+            ns <- ns.AddBinding name (t, isMut)
+          | DeclKind.VarDecl { Pattern = pattern } ->
+            let names = findBindingNames pattern
+
+            for name in names do
+              let! t = env.GetValue name
+              let isMut = false
+              ns <- ns.AddBinding name (t, isMut)
+          // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
+          | DeclKind.InterfaceDecl { Name = name } ->
+            let! scheme = env.GetScheme(QualifiedIdent.Ident name)
+
+            ns <- ns.AddScheme name scheme
+          | DeclKind.TypeDecl { Name = name } ->
+            let! scheme = env.GetScheme(QualifiedIdent.Ident name)
+
+            ns <- ns.AddScheme name scheme
+          | DeclKind.EnumDecl tsEnumDecl ->
+            failwith "TODO: getExports - tsEnumDecl"
+          | DeclKind.NamespaceDecl { Name = name } ->
+            match env.Namespace.Namespaces.TryFind name with
+            | Some value -> ns <- ns.AddNamespace name value
+            | None -> failwith $"Couldn't find namespace: '{name}'"
+
+      return ns
     }

@@ -628,128 +628,110 @@ module rec Graph =
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          for elem in elems do
-            match elem with
-            | ClassElem.Property { TypeAnn = typeAnn } ->
-              // TODO: if it's a static property then we need to add a dep for
-              // DeclIdent.Value name
-              let deps =
-                findTypeRefIdents env localTypeNames classTypeParamNames typeAnn
+          let deps =
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | ClassElem.Property { TypeAnn = typeAnn } ->
+                // TODO: if it's a static property then we need to add a dep for
+                // DeclIdent.Value name
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  classTypeParamNames
+                  typeAnn
+              | ClassElem.Constructor { Sig = fnSig; Body = body } ->
+                getDepsForFn env locals classTypeParamNames fnSig body
+              | ClassElem.Method { Sig = fnSig; Body = body } ->
+                getDepsForFn env locals classTypeParamNames fnSig body
+              | ClassElem.Getter getter ->
+                let fnSig: FuncSig<option<TypeAnn>> =
+                  { ParamList = []
+                    Self = Some getter.Self
+                    ReturnType = getter.ReturnType
+                    Throws = None
+                    TypeParams = None
+                    IsAsync = false }
 
-              graph <- graph.Add(DeclIdent.Type name, decl, deps)
-            | ClassElem.Constructor { Sig = fnSig; Body = body } ->
-              let deps = getDepsForFn env locals classTypeParamNames fnSig body
-              graph <- graph.Add(DeclIdent.Value name, decl, deps)
-            | ClassElem.Method { Sig = fnSig; Body = body } ->
-              let deps = getDepsForFn env locals classTypeParamNames fnSig body
-              graph <- graph.Add(DeclIdent.Value name, decl, deps)
-            | ClassElem.Getter getter ->
-              let fnSig: FuncSig<option<TypeAnn>> =
-                { ParamList = []
-                  Self = Some getter.Self
-                  ReturnType = getter.ReturnType
-                  Throws = None
-                  TypeParams = None
-                  IsAsync = false }
-
-              let deps =
                 getDepsForFn env locals classTypeParamNames fnSig getter.Body
+              | ClassElem.Setter setter ->
+                let undefinedTypeAnn: TypeAnn =
+                  { Span = DUMMY_SPAN
+                    Kind = TypeAnnKind.Literal Literal.Undefined
+                    InferredType = None }
 
-              graph <- graph.Add(DeclIdent.Value name, decl, deps)
-            | ClassElem.Setter setter ->
-              let undefinedTypeAnn: TypeAnn =
-                { Span = DUMMY_SPAN
-                  Kind = TypeAnnKind.Literal Literal.Undefined
-                  InferredType = None }
+                let fnSig: FuncSig<option<TypeAnn>> =
+                  { ParamList = []
+                    Self = Some setter.Self
+                    ReturnType = Some undefinedTypeAnn
+                    Throws = None
+                    TypeParams = None
+                    IsAsync = false }
 
-              let fnSig: FuncSig<option<TypeAnn>> =
-                { ParamList = []
-                  Self = Some setter.Self
-                  ReturnType = Some undefinedTypeAnn
-                  Throws = None
-                  TypeParams = None
-                  IsAsync = false }
+                getDepsForFn env locals classTypeParamNames fnSig setter.Body)
 
-              let deps =
-                getDepsForFn env locals classTypeParamNames fnSig setter.Body
-
-              graph <- graph.Add(DeclIdent.Type name, decl, deps)
-
+          graph <- graph.Add(DeclIdent.Type name, decl, deps)
           declared <- declared @ [ DeclIdent.Value name ]
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
-          let mutable deps = []
-
           let interfaceTypeParamNames =
             match typeParams with
             | None -> []
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          for elem in elems do
-            match elem with
-            | ObjTypeAnnElem.Callable fnSig ->
-              deps <-
-                deps
-                @ getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
-            | ObjTypeAnnElem.Constructor fnSig ->
-              deps <-
-                deps
-                @ getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
-            | ObjTypeAnnElem.Method { Type = fnSig } ->
-              deps <-
-                deps
-                @ getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
-            | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
-              deps <-
-                deps
-                @ findTypeRefIdents
-                    env
-                    localTypeNames
-                    interfaceTypeParamNames
-                    returnType
-            | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
-              deps <-
-                deps
-                @ findTypeRefIdents
-                    env
-                    localTypeNames
-                    interfaceTypeParamNames
-                    typeAnn
-            | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
-              deps <-
+          let deps =
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | ObjTypeAnnElem.Callable fnSig ->
+                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              | ObjTypeAnnElem.Constructor fnSig ->
+                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              | ObjTypeAnnElem.Method { Type = fnSig } ->
+                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  returnType
+              | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
                 findTypeRefIdents
                   env
                   localTypeNames
                   interfaceTypeParamNames
                   typeAnn
-            | ObjTypeAnnElem.Mapped { TypeParam = typeParam
-                                      TypeAnn = typeAnn } ->
-              let tp: Syntax.TypeParam =
-                { Span = DUMMY_SPAN
-                  Name = typeParam.Name
-                  Constraint = Some typeParam.Constraint
-                  Default = None }
+              | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  typeAnn
+              | ObjTypeAnnElem.Mapped { TypeParam = typeParam
+                                        TypeAnn = typeAnn } ->
+                let tp: Syntax.TypeParam =
+                  { Span = DUMMY_SPAN
+                    Name = typeParam.Name
+                    Constraint = Some typeParam.Constraint
+                    Default = None }
 
-              let typeParams =
-                match typeParams with
-                | None -> Some [ tp ]
-                | Some typeParams -> Some(tp :: typeParams)
+                let typeParams =
+                  match typeParams with
+                  | None -> Some [ tp ]
+                  | Some typeParams -> Some(tp :: typeParams)
 
-              deps <-
                 findTypeRefIdents
                   env
                   localTypeNames
                   interfaceTypeParamNames
                   typeParam.Constraint
-
-              deps <-
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  typeAnn
+                @ findTypeRefIdents
+                    env
+                    localTypeNames
+                    interfaceTypeParamNames
+                    typeAnn)
 
           // TODO: check if there's an existing entry for `name` so that
           // we can update its `deps` list instead of overwriting it.

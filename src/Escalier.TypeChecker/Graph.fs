@@ -8,6 +8,7 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
 
+open Helpers
 open Error
 open Env
 
@@ -819,7 +820,7 @@ module rec Graph =
 
         // TODO: update `inferDeclDefinitions` to take a `generalize` flag
         // so that we can avoid generalizing here.
-        let bindings = Infer.generalizeBindings inferredNS.Values
+        let bindings = generalizeBindings inferredNS.Values
         let newEnv = newEnv.AddBindings bindings
 
         return newEnv
@@ -841,7 +842,7 @@ module rec Graph =
 
         // TODO: update `inferDeclDefinitions` to take a `generalize` flag
         // so that we can avoid generalizing here.
-        let bindings = Infer.generalizeBindings inferredNS.Values
+        let bindings = generalizeBindings inferredNS.Values
         let newEnv = newEnv.AddBindings bindings
 
         return newEnv

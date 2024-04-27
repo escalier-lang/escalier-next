@@ -15,6 +15,7 @@ open Env
 open Mutability
 open Poly
 open Unify
+open Helpers
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
@@ -179,16 +180,7 @@ module rec Infer =
                                TypeAnn = typeAnn
                                Optional = optional
                                Readonly = readonly } ->
-          let name =
-            match name with
-            | Syntax.PropName.Ident s -> PropName.String s
-            | Syntax.PropName.String s -> PropName.String s
-            | Syntax.PropName.Number n -> PropName.Number n
-            | Syntax.PropName.Computed expr ->
-              let _t = inferExpr ctx newEnv expr
-              // TODO: check if `t` is a valid type for a PropName
-              failwith "TODO: inferStmt - Computed prop name"
-
+          let! name = inferPropName ctx env name
           let! t = inferTypeAnn ctx newEnv typeAnn
 
           let prop =
@@ -2697,23 +2689,6 @@ module rec Infer =
       }
     | _ -> Error(TypeError.SemanticError "Invalid var decl")
 
-  let generalizeBindings
-    (bindings: Map<string, Binding>)
-    : Map<string, Binding> =
-    let mutable newBindings = Map.empty
-
-    for KeyValue(name, (t, isMut)) in bindings do
-      let t =
-        match (prune t).Kind with
-        | TypeKind.Function f ->
-          { t with
-              Kind = generalizeFunc f |> TypeKind.Function }
-        | _ -> t
-
-      newBindings <- newBindings.Add(name, (t, isMut))
-
-    newBindings
-
   // Infers a placeholder scheme from a type declaration
   // It has the proper type params but the type definition itself is a
   // fresh type variable.
@@ -2877,6 +2852,67 @@ module rec Infer =
       return newEnv
     }
 
+  let inferExprStructuralPlacholder
+    (ctx: Ctx)
+    (env: Env)
+    (expr: Expr)
+    : Result<Type, TypeError> =
+    result {
+      match expr.Kind with
+      | ExprKind.Object { Elems = elems } ->
+        let! elems =
+          elems
+          |> List.traverseResultM (fun elem ->
+            result {
+              match elem with
+              | ObjElem.Property(span, name, value) ->
+                let! name = inferPropName ctx env name
+                let! t = inferExprStructuralPlacholder ctx env value
+
+                return
+                  ObjTypeElem.Property
+                    { Name = name
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+              | ObjElem.Shorthand(span, name) ->
+                match env.TryFindValue name with
+                | Some(t, _) ->
+                  return
+                    ObjTypeElem.Property
+                      { Name = PropName.String name
+                        Optional = false
+                        Readonly = false
+                        Type = t }
+                | None ->
+                  return! Error(TypeError.SemanticError $"{name} not found")
+              | ObjElem.Spread(span, value) ->
+                return!
+                  Error(
+                    TypeError.NotImplemented
+                      "TODO: inferExprStructuralPlacholder - Spread"
+                  )
+            })
+
+        let kind =
+          TypeKind.Object
+            { Elems = elems
+              Immutable = false
+              Interface = false }
+
+        return { Kind = kind; Provenance = None }
+      | ExprKind.Tuple { Elems = elems } ->
+        let! elems =
+          elems
+          |> List.traverseResultM (fun elem ->
+            inferExprStructuralPlacholder ctx env elem)
+
+        let kind = TypeKind.Tuple { Elems = elems; Immutable = false }
+
+        return { Kind = kind; Provenance = None }
+      | _ -> return ctx.FreshTypeVar None
+    }
+
   let inferDeclPlaceholders
     (ctx: Ctx)
     (env: Env)
@@ -2890,9 +2926,19 @@ module rec Infer =
       for decl in decls do
         match decl.Kind with
         | VarDecl { Pattern = pattern
-                    Init = _
+                    Init = init
                     TypeAnn = _ } ->
-          let! bindings, _ = inferPattern ctx env pattern
+          // QUESTION: Should we check the type annotation as we're generating
+          // the placeholder type?
+          let! bindings, patternType = inferPattern ctx env pattern
+
+          match init with
+          | Some init ->
+            let! structuralPlacholderType =
+              inferExprStructuralPlacholder ctx env init
+
+            do! unify ctx env None patternType structuralPlacholderType
+          | None -> ()
 
           for KeyValue(name, binding) in bindings do
             placeholderNS <- placeholderNS.AddBinding name binding
@@ -2935,6 +2981,9 @@ module rec Infer =
           placeholderNS <- placeholderNS.AddBinding name (t, false)
           newEnv <- newEnv.AddValue name (t, false)
         | ClassDecl { Name = name } ->
+          // TODO: treat ClassDecl similar to object types where we create a
+          // structural placeholder type instead of an opaque type variable.
+          // We should do this for both instance members and statics.
           let instance = ctx.FreshTypeVar None
           newEnv <- newEnv.AddValue name (instance, false)
 
@@ -2960,10 +3009,6 @@ module rec Infer =
           // return an error if the name already exists since we can't redefine
           // types.
           newEnv <- newEnv.AddScheme typeDecl.Name placeholder
-        | NamespaceDecl nsDecl ->
-          let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
-          placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
-          newEnv <- newEnv.AddNamespace nsDecl.Name ns
         | InterfaceDecl { Name = name; TypeParams = typeParams } ->
           // TODO: replace placeholders, with a reference the actual definition
           // once we've inferred the definition
@@ -2974,6 +3019,10 @@ module rec Infer =
           // return an error if the name already exists since we can't redefine
           // types.
           newEnv <- newEnv.AddScheme name placeholder
+        | NamespaceDecl nsDecl ->
+          let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
+          placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
+          newEnv <- newEnv.AddNamespace nsDecl.Name ns
 
       return newEnv, placeholderNS
     }
@@ -3182,15 +3231,6 @@ module rec Infer =
 
       do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
 
-      // Prune any functions before generalizing, this avoids
-      // issues with mutually recursive functions being generalized
-      // prematurely.
-      // for binding in bindings.values() {
-      //     let pruned_index = self.prune(binding.index);
-      //     self.bind(ctx, binding.index, pruned_index)?;
-      // }
-
-      // Generalize any functions.
       let bindings = generalizeBindings inferredNS.Values
       return newEnv.AddBindings bindings
     }

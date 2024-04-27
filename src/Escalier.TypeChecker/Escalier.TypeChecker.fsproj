@@ -13,6 +13,7 @@
         <Compile Include="Poly.fs"/>
         <Compile Include="TemplateLiteral.fs"/>
         <Compile Include="Unify.fs"/>
+        <Compile Include="Helpers.fs"/>
         <Compile Include="Infer.fs"/>
         <Compile Include="Graph.fs"/>
     </ItemGroup>

@@ -577,7 +577,7 @@ let MutuallyRecursiveGraph () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: update placeholder types to handle objects and tuples")>]
+[<Fact>]
 let MutuallyRecursiveGraphInObjects () =
   let res =
     result {
@@ -604,17 +604,94 @@ let MutuallyRecursiveGraphInObjects () =
       Assert.Value(
         env,
         "foo",
-        "{isEven: fn (n: number) -> true | false | true}"
+        "{isEven: fn (n: number) -> true | false | true | false}"
       )
 
       Assert.Value(
         env,
         "bar",
-        "{isOdd: fn (n: number) -> false | true | false | true}"
+        "{isOdd: fn (n: number) -> false | true | false}"
       )
     }
 
-  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let MutuallyRecursiveGraphInDeppObjects () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = {
+          math: {
+            isEven: fn (n) => if n == 0 { true } else { bar.math.isOdd(n - 1) },
+          },
+        };
+        let bar = {
+          math: {
+            isOdd: fn (n) => if n == 0 { false } else { foo.math.isEven(n - 1) }, 
+          },
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      // TODO: simplify return types to `boolean`
+      Assert.Value(
+        env,
+        "foo",
+        "{math: {isEven: fn (n: number) -> true | false | true | false}}"
+      )
+
+      Assert.Value(
+        env,
+        "bar",
+        "{math: {isOdd: fn (n: number) -> false | true | false}}"
+      )
+    }
+
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let MutuallyRecursiveGraphInTuples () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = [
+          fn (n) => if n == 0 { true } else { bar[0](n - 1) }
+        ];
+        let bar = [
+          fn (n) => if n == 0 { false } else { foo[0](n - 1) } 
+        ];
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      // TODO: simplify return types to `boolean`
+      Assert.Value(
+        env,
+        "foo",
+        "[fn (n: number) -> true | false | true | false]"
+      )
+
+      Assert.Value(env, "bar", "[fn (n: number) -> false | true | false]")
+    }
+
   Assert.True(Result.isOk res)
 
 [<Fact>]

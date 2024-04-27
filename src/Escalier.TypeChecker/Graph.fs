@@ -96,96 +96,18 @@ module rec Graph =
 
     List.rev idents
 
-  // TODO: dedupe with findTypeRefIdentsInExpr
+  // TODO: file this out some more
+  type SyntaxNode =
+    | TypeAnn of TypeAnn
+    | Expr of Expr
+
   let findTypeRefIdents
     (env: Env)
-    (localTypeNames: list<string>)
+    (localTypeNames: list<string>) // top-level and namespace decls
     (typeParams: list<string>)
-    (typeAnn: TypeAnn)
+    (syntaxNode: SyntaxNode)
     : list<DeclIdent> =
-    let mutable idents: list<DeclIdent> = []
-
-    let visitor: SyntaxVisitor<list<string>> =
-      { ExprVisitor.VisitExpr = fun (_, state) -> (false, state)
-        ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
-        ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
-        ExprVisitor.VisitTypeAnn =
-          fun (typeAnn, typeParams) ->
-            match typeAnn.Kind with
-            | TypeAnnKind.TypeRef { Ident = ident } ->
-              let baseName = getBaseName ident
-
-              if
-                (List.contains baseName localTypeNames)
-                && not (List.contains baseName typeParams)
-                && not (Map.containsKey baseName env.Namespace.Schemes)
-                && not (Map.containsKey baseName env.Namespace.Namespaces)
-              then
-                idents <- DeclIdent.Type baseName :: idents
-
-              (false, typeParams)
-            | TypeAnnKind.Typeof ident ->
-              let baseName = getBaseName ident
-              idents <- DeclIdent.Value baseName :: idents
-              (false, typeParams)
-            | TypeAnnKind.Condition { Extends = extends } ->
-              let inferNames =
-                findInferTypeAnns extends
-                |> List.choose (fun ident ->
-                  match ident with
-                  | DeclIdent.Type name -> Some name
-                  | _ -> None)
-
-              (true, typeParams @ inferNames)
-            | _ -> (true, typeParams)
-        ExprVisitor.VisitTypeAnnObjElem =
-          fun (elem, typeParams) ->
-            let state =
-              match elem with
-              | ObjTypeAnnElem.Callable funcSig ->
-                match funcSig.TypeParams with
-                | None -> typeParams
-                | Some funcTypeParams ->
-                  typeParams
-                  @ (List.map
-                    (fun (tp: Syntax.TypeParam) -> tp.Name)
-                    funcTypeParams)
-              | ObjTypeAnnElem.Constructor funcSig ->
-                match funcSig.TypeParams with
-                | None -> typeParams
-                | Some funcTypeParams ->
-                  typeParams
-                  @ List.map
-                      (fun (tp: Syntax.TypeParam) -> tp.Name)
-                      funcTypeParams
-              | ObjTypeAnnElem.Method { Type = t } ->
-                match t.TypeParams with
-                | None -> typeParams
-                | Some funcTypeParams ->
-                  typeParams
-                  @ List.map
-                      (fun (tp: Syntax.TypeParam) -> tp.Name)
-                      funcTypeParams
-              | ObjTypeAnnElem.Getter _ -> typeParams
-              | ObjTypeAnnElem.Setter _ -> typeParams
-              | ObjTypeAnnElem.Property _ -> typeParams
-              | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
-                typeParam.Name :: typeParams
-
-            (true, state) }
-
-    walkTypeAnn visitor typeParams typeAnn
-
-    List.rev idents
-
-  // TODO: dedupe with findTypeRefIdents
-  let findTypeRefIdentsInExpr
-    (env: Env)
-    (localTypeNames: list<string>)
-    (typeParams: list<string>)
-    (expr: Expr)
-    : list<DeclIdent> =
-    let mutable idents: list<DeclIdent> = []
+    let mutable typeRefIdents: list<DeclIdent> = []
 
     let visitor: SyntaxVisitor<list<string>> =
       { ExprVisitor.VisitExpr = fun (_, state) -> (true, state)
@@ -193,73 +115,72 @@ module rec Graph =
         ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
         ExprVisitor.VisitTypeAnn =
           fun (typeAnn, typeParams) ->
-            match typeAnn.Kind with
-            | TypeAnnKind.TypeRef { Ident = ident } ->
-              let baseName = getBaseName ident
-              printfn $"baseName = {baseName}"
+            let newTypeParams =
+              match typeAnn.Kind with
+              | TypeAnnKind.TypeRef { Ident = ident } ->
+                let baseName = getBaseName ident
 
-              if
-                (List.contains baseName localTypeNames)
-                && not (List.contains baseName typeParams)
-                && not (Map.containsKey baseName env.Namespace.Schemes)
-                && not (Map.containsKey baseName env.Namespace.Namespaces)
-              then
-                idents <- DeclIdent.Type baseName :: idents
+                if
+                  (List.contains baseName localTypeNames)
+                  && not (List.contains baseName typeParams)
+                  && not (Map.containsKey baseName env.Namespace.Schemes)
+                  && not (Map.containsKey baseName env.Namespace.Namespaces)
+                then
+                  typeRefIdents <- DeclIdent.Type baseName :: typeRefIdents
 
-              (false, typeParams)
-            | TypeAnnKind.Typeof ident ->
-              let baseName = getBaseName ident
-              idents <- DeclIdent.Value baseName :: idents
-              (false, typeParams)
-            | TypeAnnKind.Condition { Extends = extends } ->
-              let inferNames =
+                []
+              | TypeAnnKind.Typeof ident ->
+                let baseName = getBaseName ident
+                typeRefIdents <- DeclIdent.Value baseName :: typeRefIdents
+
+                []
+              | TypeAnnKind.Condition { Extends = extends } ->
                 findInferTypeAnns extends
                 |> List.choose (fun ident ->
                   match ident with
                   | DeclIdent.Type name -> Some name
                   | _ -> None)
+              | _ -> []
 
-              (true, typeParams @ inferNames)
-            | _ -> (true, typeParams)
+            (true, newTypeParams @ typeParams)
         ExprVisitor.VisitTypeAnnObjElem =
           fun (elem, typeParams) ->
-            let state =
+            let newTypeParams =
               match elem with
               | ObjTypeAnnElem.Callable funcSig ->
                 match funcSig.TypeParams with
-                | None -> typeParams
+                | None -> []
                 | Some funcTypeParams ->
-                  typeParams
-                  @ (List.map
+                  List.map
                     (fun (tp: Syntax.TypeParam) -> tp.Name)
-                    funcTypeParams)
+                    funcTypeParams
               | ObjTypeAnnElem.Constructor funcSig ->
                 match funcSig.TypeParams with
-                | None -> typeParams
+                | None -> []
                 | Some funcTypeParams ->
-                  typeParams
-                  @ List.map
-                      (fun (tp: Syntax.TypeParam) -> tp.Name)
-                      funcTypeParams
+                  List.map
+                    (fun (tp: Syntax.TypeParam) -> tp.Name)
+                    funcTypeParams
               | ObjTypeAnnElem.Method { Type = t } ->
                 match t.TypeParams with
-                | None -> typeParams
+                | None -> []
                 | Some funcTypeParams ->
-                  typeParams
-                  @ List.map
-                      (fun (tp: Syntax.TypeParam) -> tp.Name)
-                      funcTypeParams
-              | ObjTypeAnnElem.Getter _ -> typeParams
-              | ObjTypeAnnElem.Setter _ -> typeParams
-              | ObjTypeAnnElem.Property _ -> typeParams
+                  List.map
+                    (fun (tp: Syntax.TypeParam) -> tp.Name)
+                    funcTypeParams
+              | ObjTypeAnnElem.Getter _ -> []
+              | ObjTypeAnnElem.Setter _ -> []
+              | ObjTypeAnnElem.Property _ -> []
               | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
-                typeParam.Name :: typeParams
+                [ typeParam.Name ]
 
-            (true, state) }
+            (true, typeParams @ newTypeParams) }
 
-    walkExpr visitor typeParams expr
+    match syntaxNode with
+    | TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
+    | Expr expr -> walkExpr visitor typeParams expr
 
-    List.rev idents
+    List.rev typeRefIdents
 
   // TODO: update too look in `env` as well when deciding if something is a
   // local capture of not.
@@ -387,6 +308,115 @@ module rec Graph =
 
     locals
 
+  let getDepsForFn
+    (env: Env)
+    (possibleDeps: list<DeclIdent>)
+    (excludedTypeNames: list<string>)
+    (fnSig: FuncSig<option<TypeAnn>>)
+    (body: option<BlockOrExpr>)
+    : DeclIdent list =
+    let mutable typeDeps = []
+
+    let possibleTypeNames =
+      List.choose
+        (fun id ->
+          match id with
+          | DeclIdent.Type name -> Some name
+          | _ -> None)
+        possibleDeps
+
+    let typeParamNames =
+      match fnSig.TypeParams with
+      | None -> []
+      | Some typeParams ->
+        List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+    for param in fnSig.ParamList do
+      match param.TypeAnn with
+      | Some typeAnn ->
+
+        typeDeps <-
+          typeDeps
+          @ findTypeRefIdents
+              env
+              possibleTypeNames
+              (excludedTypeNames @ typeParamNames)
+              (SyntaxNode.TypeAnn typeAnn)
+      | None -> ()
+
+    match fnSig.ReturnType with
+    | None -> ()
+    | Some returnType ->
+      let typeParamNames =
+        match fnSig.TypeParams with
+        | None -> []
+        | Some typeParams ->
+          List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+      typeDeps <-
+        typeDeps
+        @ findTypeRefIdents
+            env
+            possibleTypeNames
+            (excludedTypeNames @ typeParamNames)
+            (SyntaxNode.TypeAnn returnType)
+
+    let deps =
+      match body with
+      | None -> typeDeps
+      | Some body ->
+        let f: Syntax.Function =
+          { Sig = fnSig
+            Body = body
+            Captures = None
+            InferredType = None }
+
+        findCaptures possibleDeps f @ typeDeps
+
+    deps
+
+  let getDepsForInterfaceFn
+    (env: Env)
+    (possibleDeps: list<DeclIdent>)
+    (interfaceTypeParamNames: list<string>)
+    (fnSig: FuncSig<TypeAnn>)
+    : DeclIdent list =
+
+    let localTypeNames =
+      List.choose
+        (fun id ->
+          match id with
+          | DeclIdent.Type name -> Some name
+          | _ -> None)
+        possibleDeps
+
+    let mutable deps = []
+
+    let typeParamNames =
+      match fnSig.TypeParams with
+      | None -> []
+      | Some typeParams ->
+        List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+
+    for param in fnSig.ParamList do
+      deps <-
+        deps
+        @ findTypeRefIdents
+            env
+            localTypeNames
+            (interfaceTypeParamNames @ typeParamNames)
+            (SyntaxNode.TypeAnn param.TypeAnn)
+
+    deps <-
+      deps
+      @ findTypeRefIdents
+          env
+          localTypeNames
+          (interfaceTypeParamNames @ typeParamNames)
+          (SyntaxNode.TypeAnn fnSig.ReturnType)
+
+    deps
+
   let buildGraph
     (env: Env)
     (parentDeclared: list<DeclIdent>)
@@ -397,6 +427,8 @@ module rec Graph =
       let mutable functions: list<Syntax.Function> = []
       let mutable graph = DeclGraph.Empty
       let mutable declared: list<DeclIdent> = parentDeclared
+      // These are top-level decls in the module and top-level
+      // decls inside any namespaces we're inside of.
       let locals = parentLocals @ findLocals decls
 
       let localTypeNames =
@@ -421,11 +453,16 @@ module rec Graph =
             let mutable deps = findIdentifiers init
 
             let typeDepsInExpr =
-              findTypeRefIdentsInExpr env localTypeNames [] init
+              findTypeRefIdents env localTypeNames [] (SyntaxNode.Expr init)
 
             let typeDeps =
               match typeAnn with
-              | Some typeAnn -> findTypeRefIdents env localTypeNames [] typeAnn
+              | Some typeAnn ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  []
+                  (SyntaxNode.TypeAnn typeAnn)
               | None -> []
 
             deps <- deps @ typeDepsInExpr @ typeDeps
@@ -457,7 +494,12 @@ module rec Graph =
           | true, None ->
             let deps =
               match typeAnn with
-              | Some typeAnn -> findTypeRefIdents env localTypeNames [] typeAnn
+              | Some typeAnn ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  []
+                  (SyntaxNode.TypeAnn typeAnn)
               | None -> []
 
             // TODO: dedupe with the other branch
@@ -496,57 +538,19 @@ module rec Graph =
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          let deps = findTypeRefIdents env localTypeNames typeParamNames typeAnn
+          let deps =
+            findTypeRefIdents
+              env
+              localTypeNames
+              typeParamNames
+              (SyntaxNode.TypeAnn typeAnn)
 
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | FnDecl { Declare = _
                    Name = name
                    Sig = fnSig
                    Body = body } ->
-
-          let mutable typeDeps = []
-
-          let typeParamNames =
-            match fnSig.TypeParams with
-            | None -> []
-            | Some typeParams ->
-              List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-          for param in fnSig.ParamList do
-            match param.TypeAnn with
-            | Some typeAnn ->
-
-              typeDeps <-
-                typeDeps
-                @ findTypeRefIdents env localTypeNames typeParamNames typeAnn
-            | None -> ()
-
-          match fnSig.ReturnType with
-          | None -> ()
-          | Some returnType ->
-            let typeParamNames =
-              match fnSig.TypeParams with
-              | None -> []
-              | Some typeParams ->
-                List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-            typeDeps <-
-              typeDeps
-              @ findTypeRefIdents env localTypeNames typeParamNames returnType
-
-          let deps =
-            match body with
-            | None -> typeDeps
-            | Some body ->
-              let f: Syntax.Function =
-                { Sig = fnSig
-                  Body = body
-                  Captures = None
-                  InferredType = None }
-
-              let captures = findCaptures locals f
-              captures @ typeDeps
-
+          let deps = getDepsForFn env locals [] fnSig body
           graph <- graph.Add(DeclIdent.Value name, decl, deps)
           declared <- declared @ [ DeclIdent.Value name ]
         | ClassDecl { Name = name; Class = cls } ->
@@ -560,377 +564,110 @@ module rec Graph =
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          for elem in elems do
-            match elem with
-            | ClassElem.Property { TypeAnn = typeAnn } ->
-              // TODO: if it's a static property then we need to add a dep for
-              // DeclIdent.Value name
-              let deps =
-                findTypeRefIdents env localTypeNames classTypeParamNames typeAnn
+          let deps =
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | ClassElem.Property { TypeAnn = typeAnn } ->
+                // TODO: if it's a static property then we need to add a dep for
+                // DeclIdent.Value name
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  classTypeParamNames
+                  (SyntaxNode.TypeAnn typeAnn)
+              | ClassElem.Constructor { Sig = fnSig; Body = body } ->
+                getDepsForFn env locals classTypeParamNames fnSig body
+              | ClassElem.Method { Sig = fnSig; Body = body } ->
+                getDepsForFn env locals classTypeParamNames fnSig body
+              | ClassElem.Getter getter ->
+                let fnSig: FuncSig<option<TypeAnn>> =
+                  { ParamList = []
+                    Self = Some getter.Self
+                    ReturnType = getter.ReturnType
+                    Throws = None
+                    TypeParams = None
+                    IsAsync = false }
 
-              graph <- graph.Add(DeclIdent.Type name, decl, deps)
-            | ClassElem.Constructor { Sig = fnSig; Body = body } ->
-              let mutable typeDeps = []
+                getDepsForFn env locals classTypeParamNames fnSig getter.Body
+              | ClassElem.Setter setter ->
+                let undefinedTypeAnn: TypeAnn =
+                  { Span = DUMMY_SPAN
+                    Kind = TypeAnnKind.Literal Literal.Undefined
+                    InferredType = None }
 
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+                let fnSig: FuncSig<option<TypeAnn>> =
+                  { ParamList = []
+                    Self = Some setter.Self
+                    ReturnType = Some undefinedTypeAnn
+                    Throws = None
+                    TypeParams = None
+                    IsAsync = false }
 
-              for param in fnSig.ParamList do
-                match param.TypeAnn with
-                | Some typeAnn ->
+                getDepsForFn env locals classTypeParamNames fnSig setter.Body)
 
-                  typeDeps <-
-                    typeDeps
-                    @ findTypeRefIdents
-                        env
-                        localTypeNames
-                        (classTypeParamNames @ typeParamNames)
-                        typeAnn
-                | None -> ()
-
-              match fnSig.ReturnType with
-              | None -> ()
-              | Some returnType ->
-                let typeParamNames =
-                  match fnSig.TypeParams with
-                  | None -> []
-                  | Some typeParams ->
-                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-                typeDeps <-
-                  typeDeps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (classTypeParamNames @ typeParamNames)
-                      returnType
-
-              let deps =
-                match body with
-                | None -> typeDeps
-                | Some body ->
-                  let f: Syntax.Function =
-                    { Sig = fnSig
-                      Body = body
-                      Captures = None
-                      InferredType = None }
-
-                  findCaptures locals f @ typeDeps
-
-              graph <- graph.Add(DeclIdent.Value name, decl, deps)
-            | ClassElem.Method { Sig = fnSig; Body = body } ->
-              let mutable typeDeps = []
-
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-              for param in fnSig.ParamList do
-                match param.TypeAnn with
-                | Some typeAnn ->
-
-                  typeDeps <-
-                    typeDeps
-                    @ findTypeRefIdents
-                        env
-                        localTypeNames
-                        (classTypeParamNames @ typeParamNames)
-                        typeAnn
-                | None -> ()
-
-              match fnSig.ReturnType with
-              | None -> ()
-              | Some returnType ->
-                let typeParamNames =
-                  match fnSig.TypeParams with
-                  | None -> []
-                  | Some typeParams ->
-                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-                typeDeps <-
-                  typeDeps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (classTypeParamNames @ typeParamNames)
-                      returnType
-
-              let deps =
-                match body with
-                | None -> typeDeps
-                | Some body ->
-                  let f: Syntax.Function =
-                    { Sig = fnSig
-                      Body = body
-                      Captures = None
-                      InferredType = None }
-
-                  findCaptures locals f @ typeDeps
-
-              graph <- graph.Add(DeclIdent.Value name, decl, deps)
-            | ClassElem.Getter getter ->
-              let fnSig: FuncSig<option<TypeAnn>> =
-                { ParamList = []
-                  Self = Some getter.Self
-                  ReturnType = getter.ReturnType
-                  Throws = None
-                  TypeParams = None
-                  IsAsync = false }
-
-              let mutable typeDeps = []
-
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-              for param in fnSig.ParamList do
-                match param.TypeAnn with
-                | Some typeAnn ->
-
-                  typeDeps <-
-                    typeDeps
-                    @ findTypeRefIdents
-                        env
-                        localTypeNames
-                        (classTypeParamNames @ typeParamNames)
-                        typeAnn
-                | None -> ()
-
-              match fnSig.ReturnType with
-              | None -> ()
-              | Some returnType ->
-                let typeParamNames =
-                  match fnSig.TypeParams with
-                  | None -> []
-                  | Some typeParams ->
-                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-                typeDeps <-
-                  typeDeps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (classTypeParamNames @ typeParamNames)
-                      returnType
-
-              let deps =
-                match getter.Body with
-                | None -> typeDeps
-                | Some body ->
-                  let f: Syntax.Function =
-                    { Sig = fnSig
-                      Body = body
-                      Captures = None
-                      InferredType = None }
-
-                  findCaptures locals f @ typeDeps
-
-              graph <- graph.Add(DeclIdent.Value name, decl, deps)
-            | ClassElem.Setter setter ->
-              let undefinedTypeAnn: TypeAnn =
-                { Span = DUMMY_SPAN
-                  Kind = TypeAnnKind.Literal Literal.Undefined
-                  InferredType = None }
-
-              let fnSig: FuncSig<option<TypeAnn>> =
-                { ParamList = []
-                  Self = Some setter.Self
-                  ReturnType = Some undefinedTypeAnn
-                  Throws = None
-                  TypeParams = None
-                  IsAsync = false }
-
-              let mutable typeDeps = []
-
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-              for param in fnSig.ParamList do
-                match param.TypeAnn with
-                | Some typeAnn ->
-
-                  typeDeps <-
-                    typeDeps
-                    @ findTypeRefIdents
-                        env
-                        localTypeNames
-                        (classTypeParamNames @ typeParamNames)
-                        typeAnn
-                | None -> ()
-
-              match fnSig.ReturnType with
-              | None -> ()
-              | Some returnType ->
-                let typeParamNames =
-                  match fnSig.TypeParams with
-                  | None -> []
-                  | Some typeParams ->
-                    List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-                typeDeps <-
-                  typeDeps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (classTypeParamNames @ typeParamNames)
-                      returnType
-
-              let deps =
-                match setter.Body with
-                | None -> typeDeps
-                | Some body ->
-                  let f: Syntax.Function =
-                    { Sig = fnSig
-                      Body = body
-                      Captures = None
-                      InferredType = None }
-
-                  findCaptures locals f @ typeDeps
-
-              graph <- graph.Add(DeclIdent.Type name, decl, deps)
-
+          graph <- graph.Add(DeclIdent.Type name, decl, deps)
           declared <- declared @ [ DeclIdent.Value name ]
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
-          let mutable deps = []
-
           let interfaceTypeParamNames =
             match typeParams with
             | None -> []
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          for elem in elems do
-            match elem with
-            | ObjTypeAnnElem.Callable fnSig ->
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
+          let deps =
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | ObjTypeAnnElem.Callable fnSig ->
+                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              | ObjTypeAnnElem.Constructor fnSig ->
+                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              | ObjTypeAnnElem.Method { Type = fnSig } ->
+                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  (SyntaxNode.TypeAnn returnType)
+              | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  (SyntaxNode.TypeAnn typeAnn)
+              | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  (SyntaxNode.TypeAnn typeAnn)
+              | ObjTypeAnnElem.Mapped { TypeParam = typeParam
+                                        TypeAnn = typeAnn } ->
+                let tp: Syntax.TypeParam =
+                  { Span = DUMMY_SPAN
+                    Name = typeParam.Name
+                    Constraint = Some typeParam.Constraint
+                    Default = None }
 
-              for param in fnSig.ParamList do
-                deps <-
-                  deps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (interfaceTypeParamNames @ typeParamNames)
-                      param.TypeAnn
+                let typeParams =
+                  match typeParams with
+                  | None -> Some [ tp ]
+                  | Some typeParams -> Some(tp :: typeParams)
 
-              deps <-
-                deps
-                @ findTypeRefIdents
-                    env
-                    localTypeNames
-                    (interfaceTypeParamNames @ typeParamNames)
-                    fnSig.ReturnType
-            | ObjTypeAnnElem.Constructor fnSig ->
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-              for param in fnSig.ParamList do
-                deps <-
-                  deps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (interfaceTypeParamNames @ typeParamNames)
-                      param.TypeAnn
-
-              deps <-
-                deps
-                @ findTypeRefIdents
-                    env
-                    localTypeNames
-                    (interfaceTypeParamNames @ typeParamNames)
-                    fnSig.ReturnType
-            | ObjTypeAnnElem.Method { Type = fnSig } ->
-              let typeParamNames =
-                match fnSig.TypeParams with
-                | None -> []
-                | Some typeParams ->
-                  List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
-
-              for param in fnSig.ParamList do
-                deps <-
-                  deps
-                  @ findTypeRefIdents
-                      env
-                      localTypeNames
-                      (interfaceTypeParamNames @ typeParamNames)
-                      param.TypeAnn
-
-              deps <-
-                deps
-                @ findTypeRefIdents
-                    env
-                    localTypeNames
-                    (interfaceTypeParamNames @ typeParamNames)
-                    fnSig.ReturnType
-            | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
-              deps <-
-                deps
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  interfaceTypeParamNames
+                  (SyntaxNode.TypeAnn typeParam.Constraint)
                 @ findTypeRefIdents
                     env
                     localTypeNames
                     interfaceTypeParamNames
-                    returnType
-            | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
-              deps <-
-                deps
-                @ findTypeRefIdents
-                    env
-                    localTypeNames
-                    interfaceTypeParamNames
-                    typeAnn
-            | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
-              deps <-
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  typeAnn
-            | ObjTypeAnnElem.Mapped { TypeParam = typeParam
-                                      TypeAnn = typeAnn } ->
-              let tp: Syntax.TypeParam =
-                { Span = DUMMY_SPAN
-                  Name = typeParam.Name
-                  Constraint = Some typeParam.Constraint
-                  Default = None }
-
-              let typeParams =
-                match typeParams with
-                | None -> Some [ tp ]
-                | Some typeParams -> Some(tp :: typeParams)
-
-              deps <-
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  typeParam.Constraint
-
-              deps <-
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  typeAnn
+                    (SyntaxNode.TypeAnn typeAnn))
 
           // TODO: check if there's an existing entry for `name` so that
           // we can update its `deps` list instead of overwriting it.

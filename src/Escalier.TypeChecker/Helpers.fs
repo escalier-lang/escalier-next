@@ -15,10 +15,15 @@ let rec generalizeFunctionsInType (t: Type) : Type =
       elems
       |> List.map (fun elem ->
         match elem with
+        | ObjTypeElem.Callable fn -> ObjTypeElem.Callable(generalizeFunc fn)
+        | ObjTypeElem.Constructor fn ->
+          ObjTypeElem.Constructor(generalizeFunc fn)
         | ObjTypeElem.Method(name, fn) ->
-          let fn = generalizeFunc fn
-          ObjTypeElem.Method(name, fn)
-        // TODO: handle the other function like element types
+          ObjTypeElem.Method(name, (generalizeFunc fn))
+        | ObjTypeElem.Getter(name, fn) ->
+          ObjTypeElem.Getter(name, (generalizeFunc fn))
+        | ObjTypeElem.Setter(name, fn) ->
+          ObjTypeElem.Setter(name, (generalizeFunc fn))
         | ObjTypeElem.Property { Name = name
                                  Optional = optional
                                  Readonly = readonly

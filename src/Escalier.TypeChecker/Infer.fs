@@ -164,11 +164,11 @@ module rec Infer =
           |> ResultOption.ofResult
 
       let mutable instanceMethods
-        : list<ObjTypeElem * FuncSig<TypeAnn option> * option<BlockOrExpr>> =
+        : list<ObjTypeElem * FuncSig * option<BlockOrExpr>> =
         []
 
       let mutable staticMethods
-        : list<ObjTypeElem * FuncSig<TypeAnn option> * option<BlockOrExpr>> =
+        : list<ObjTypeElem * FuncSig * option<BlockOrExpr>> =
         []
 
       let mutable instanceElems: list<ObjTypeElem> = []
@@ -233,7 +233,7 @@ module rec Infer =
                              ReturnType = retType
                              Body = body } ->
           // TODO: handle static getters
-          let fnSig: FuncSig<option<TypeAnn>> =
+          let fnSig: FuncSig =
             { TypeParams = None
               Self = Some self
               ParamList = []
@@ -253,7 +253,7 @@ module rec Infer =
                              Param = param
                              Body = body } ->
           // TODO: handle static setters
-          let fnSig: FuncSig<option<TypeAnn>> =
+          let fnSig: FuncSig =
             { TypeParams = None
               Self = Some self
               ParamList = [ param ]
@@ -983,7 +983,7 @@ module rec Infer =
   let inferFuncSig
     (ctx: Ctx)
     (env: Env)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     : Result<Function, TypeError> =
 
     result {
@@ -1022,7 +1022,7 @@ module rec Infer =
 
       let! paramList =
         List.traverseResultM
-          (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
+          (fun (param: Syntax.FuncParam) ->
             result {
               let! paramType =
                 match param.TypeAnn with
@@ -1034,7 +1034,8 @@ module rec Infer =
               let! _assumps, patternType =
                 inferPattern ctx newEnv param.Pattern
 
-              do! unify ctx newEnv None patternType paramType
+              // TODO: figure out how to handle unifying `...rest` and `infer _`
+              // do! unify ctx newEnv None patternType paramType
 
               return
                 { Pattern = patternToPattern param.Pattern
@@ -1061,7 +1062,7 @@ module rec Infer =
   let inferFuncBody
     (ctx: Ctx)
     (newEnv: Env)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     (placeholderFn: Function)
     (body: BlockOrExpr)
     : Result<Function, TypeError> =
@@ -1189,7 +1190,7 @@ module rec Infer =
   let inferFunction
     (ctx: Ctx)
     (env: Env)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     (body: BlockOrExpr)
     : Result<Function, TypeError> =
 
@@ -1505,19 +1506,19 @@ module rec Infer =
               Optional = optional
               Readonly = readonly }
       | ObjTypeAnnElem.Callable functionType ->
-        let! f = inferFunctionType ctx env functionType
+        let! f = inferFuncSig ctx env functionType
         return Callable f
       | ObjTypeAnnElem.Constructor functionType ->
-        let! f = inferFunctionType ctx env functionType
+        let! f = inferFuncSig ctx env functionType
         return Constructor f
       | ObjTypeAnnElem.Method { Name = name; Type = methodType } ->
-        let! f = inferFunctionType ctx env methodType
+        let! f = inferFuncSig ctx env methodType
         let! name = inferPropName ctx env name
         return Method(name, f)
       | ObjTypeAnnElem.Getter { Name = name
                                 ReturnType = retType
                                 Throws = throws } ->
-        let f: FunctionType =
+        let f: FuncSig =
           { TypeParams = None
             Self = None
             ParamList = []
@@ -1525,7 +1526,7 @@ module rec Infer =
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFunctionType ctx env f
+        let! f = inferFuncSig ctx env f
         let! name = inferPropName ctx env name
         return Getter(name, f)
       | ObjTypeAnnElem.Setter { Name = name
@@ -1537,15 +1538,15 @@ module rec Infer =
             Span = DUMMY_SPAN
             InferredType = None }
 
-        let f: FunctionType =
+        let f: FuncSig =
           { TypeParams = None
             Self = None
             ParamList = []
-            ReturnType = undefined
+            ReturnType = Some undefined
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFunctionType ctx env f
+        let! f = inferFuncSig ctx env f
         let! name = inferPropName ctx env name
         return Setter(name, f)
       | ObjTypeAnnElem.Mapped mapped ->
@@ -1711,7 +1712,7 @@ module rec Infer =
         //   else
         //     return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
-          let! f = inferFunctionType ctx env functionType
+          let! f = inferFuncSig ctx env functionType
           return TypeKind.Function(f)
         | TypeAnnKind.Keyof target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.KeyOf
@@ -1784,64 +1785,6 @@ module rec Infer =
         kind
 
     t
-
-  let inferFunctionType
-    (ctx: Ctx)
-    (env: Env)
-    (functionType: FunctionType)
-    : Result<Function, TypeError> =
-    result {
-      let! typeParams, newEnv = inferTypeParams ctx env functionType.TypeParams
-      let! returnType = inferTypeAnn ctx newEnv functionType.ReturnType
-
-      // TODO: add `Self` to environment when inferring interfaces and object types
-      let! self =
-        match functionType.Self with
-        | Some(self) ->
-          result {
-            let! t = inferTypeAnn ctx newEnv self.TypeAnn
-
-            let param =
-              { Pattern = patternToPattern self.Pattern
-                Type = t
-                Optional = false }
-
-            return Some(param)
-          }
-        | None -> Result.Ok None
-
-      let! throws =
-        match functionType.Throws with
-        | Some(throws) -> inferTypeAnn ctx newEnv throws
-        | None ->
-          Result.Ok(
-            { Kind = TypeKind.Keyword Keyword.Never
-              Provenance = None }
-          )
-
-      let! paramList =
-        List.traverseResultM
-          (fun (p: FuncParam<TypeAnn>) ->
-            result {
-              let! t = inferTypeAnn ctx newEnv p.TypeAnn
-              let pattern = patternToPattern p.Pattern
-
-              return
-                { Pattern = pattern
-                  Type = t
-                  Optional = false }
-            })
-          functionType.ParamList
-
-      let f =
-        { TypeParams = typeParams
-          Self = self
-          ParamList = paramList
-          Return = returnType
-          Throws = throws }
-
-      return f
-    }
 
   let inferPattern
     (ctx: Ctx)
@@ -2712,14 +2655,14 @@ module rec Infer =
   let inferTypeDeclDefn
     (ctx: Ctx)
     (env: Env)
-    (scheme: Scheme)
+    (placeholder: Scheme)
     (getType: Env -> Result<Type, TypeError>)
     : Result<Scheme, TypeError> =
 
     result {
       let mutable newEnv = env
 
-      match scheme.TypeParams with
+      match placeholder.TypeParams with
       | None -> ()
       | Some typeParams ->
         for typeParam in typeParams do
@@ -2734,10 +2677,13 @@ module rec Infer =
                 Type = unknown
                 IsTypeParam = true }
 
-      newEnv <- newEnv.AddScheme "Self" scheme
+      newEnv <- newEnv.AddScheme "Self" placeholder
 
       let! t = getType newEnv
-      return { scheme with Type = t }
+
+      return
+        { placeholder with
+            Type = generalizeFunctionsInType t }
     }
 
   let resolvePath
@@ -3156,7 +3102,7 @@ module rec Infer =
                   Interface = false }
 
             // TODO: suport multiple provenances
-            let t = { Kind = kind; Provenance = None }
+            let t = generalizeFunctionsInType { Kind = kind; Provenance = None }
 
             // We modify the existing scheme in place so that existing values
             // with this type are updated.

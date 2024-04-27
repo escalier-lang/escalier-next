@@ -68,7 +68,7 @@ module rec Migrate =
 
     expr
 
-  let makeSelfFuncParam () : FuncParam<TypeAnn> =
+  let makeSelfFuncParam () : FuncParam =
     let ident =
       { Name = "self"
         IsMut = false
@@ -89,14 +89,14 @@ module rec Migrate =
         Span = DUMMY_SPAN
         InferredType = None }
 
-    let self: Syntax.FuncParam<TypeAnn> =
+    let self: Syntax.FuncParam =
       { Pattern = pattern
-        TypeAnn = selfTypeAnn
+        TypeAnn = Some selfTypeAnn
         Optional = false }
 
     self
 
-  let makeSelfFuncParamWithOptionalTypeann () : FuncParam<option<TypeAnn>> =
+  let makeSelfFuncParamWithOptionalTypeann () : FuncParam =
     let ident =
       { Name = "self"
         IsMut = false
@@ -117,7 +117,7 @@ module rec Migrate =
         Span = DUMMY_SPAN
         InferredType = None }
 
-    let self: Syntax.FuncParam<option<TypeAnn>> =
+    let self: Syntax.FuncParam =
       { Pattern = pattern
         TypeAnn = Some selfTypeAnn
         Optional = false }
@@ -139,11 +139,11 @@ module rec Migrate =
         | Some t -> migrateTypeAnn t
         | None -> failwith "all callable signatures must have a return type"
 
-      let f: FunctionType =
+      let f: FuncSig =
         { TypeParams = typeParams
           Self = Some(makeSelfFuncParam ())
           ParamList = List.map migrateFnParam fnParams
-          ReturnType = retType
+          ReturnType = Some retType
           Throws = None
           IsAsync = false }
 
@@ -161,11 +161,11 @@ module rec Migrate =
         | Some t -> migrateTypeAnn t
         | None -> failwith "all constructor signatures must have a return type"
 
-      let f: FunctionType =
+      let f: FuncSig =
         { TypeParams = typeParams
           Self = Some(makeSelfFuncParam ())
           ParamList = List.map migrateFnParam fnParams
-          ReturnType = retType
+          ReturnType = Some retType
           Throws = None
           IsAsync = false }
 
@@ -204,11 +204,11 @@ module rec Migrate =
         | Some t -> migrateTypeAnn t
         | None -> failwith "all method signatures must have a return type"
 
-      let f: FunctionType =
+      let f: FuncSig =
         { TypeParams = typeParams
           Self = Some(makeSelfFuncParam ())
           ParamList = List.map migrateFnParam fnParams
-          ReturnType = retType
+          ReturnType = Some retType
           Throws = None
           IsAsync = false }
 
@@ -261,7 +261,7 @@ module rec Migrate =
       ObjTypeAnnElem.Getter
         { Name = name
           Self = makeSelfFuncParam ()
-          ReturnType = retType
+          ReturnType = Some retType
           Throws = None }
     | TsSetterSignature { Key = key
                           Param = fnParam
@@ -287,7 +287,7 @@ module rec Migrate =
           Param = fnParam
           Throws = None }
 
-  let migrateTypeAnn (typeAnn: TypeScript.TsTypeAnn) : Syntax.TypeAnn =
+  let migrateTypeAnn (typeAnn: TsTypeAnn) : TypeAnn =
     migrateType typeAnn.TypeAnn
 
   let migrateType (t: TypeScript.TsType) : TypeAnn =
@@ -327,14 +327,13 @@ module rec Migrate =
                 List.map migrateTypeParam tpd.Params)
               f.TypeParams
 
-          let paramList: list<FuncParam<TypeAnn>> =
-            List.map migrateFnParam f.Params
+          let paramList: list<FuncParam> = List.map migrateFnParam f.Params
 
-          let fnType: FunctionType =
+          let fnType: FuncSig =
             { TypeParams = typeParams
               Self = None // TODO: check if first parameter has type `Self`
               ParamList = paramList
-              ReturnType = migrateTypeAnn f.TypeAnn
+              ReturnType = Some(migrateTypeAnn f.TypeAnn)
               Throws = None
               IsAsync = false }
 
@@ -347,14 +346,13 @@ module rec Migrate =
                 List.map migrateTypeParam tpd.Params)
               f.TypeParams
 
-          let paramList: list<FuncParam<TypeAnn>> =
-            List.map migrateFnParam f.Params
+          let paramList = List.map migrateFnParam f.Params
 
-          let fnType: FunctionType =
+          let fnType: FuncSig =
             { TypeParams = typeParams
               Self = None // TODO: check if first parameter has type `Self`
               ParamList = paramList
-              ReturnType = migrateTypeAnn f.TypeAnn
+              ReturnType = Some(migrateTypeAnn f.TypeAnn)
               Throws = None
               IsAsync = false }
 
@@ -502,13 +500,11 @@ module rec Migrate =
       Default = Option.map migrateType typeParam.Default
       Span = DUMMY_SPAN }
 
-  let migrateFnParam
-    (fnParam: TypeScript.TsFnParam)
-    : Syntax.FuncParam<TypeAnn> =
+  let migrateFnParam (fnParam: TypeScript.TsFnParam) : Syntax.FuncParam =
     { Pattern = migrateFnParamPattern fnParam.Pat
       TypeAnn =
         match fnParam.TypeAnn with
-        | Some typeAnn -> migrateTypeAnn typeAnn
+        | Some typeAnn -> Some(migrateTypeAnn typeAnn)
         | None -> failwith "all function parameters must have a type annotation"
       Optional = fnParam.Optional }
 
@@ -693,7 +689,7 @@ module rec Migrate =
 
     { Kind = kind; Span = DUMMY_SPAN }
 
-  let migrateParam (param: Param) : Syntax.FuncParam<option<TypeAnn>> =
+  let migrateParam (param: Param) : Syntax.FuncParam =
     { Pattern = migratePat param.Pat
       TypeAnn = Option.map migrateTypeAnn param.TypeAnn
       Optional = false }
@@ -741,7 +737,7 @@ module rec Migrate =
               | None ->
                 failwith "all callable signatures must have a return type"
 
-            let fnSig: FuncSig<option<TypeAnn>> =
+            let fnSig: FuncSig =
               { TypeParams = typeParams
                 Self = Some(makeSelfFuncParamWithOptionalTypeann ())
                 ParamList = List.map migrateParam f.Params
@@ -826,7 +822,7 @@ module rec Migrate =
             (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
             f.TypeParams
 
-        let paramList: list<FuncParam<option<TypeAnn>>> =
+        let paramList: list<FuncParam> =
           List.map
             (fun (p: Param) ->
               { Pattern = migratePat p.Pat
@@ -839,7 +835,7 @@ module rec Migrate =
           | Some t -> migrateTypeAnn t
           | None -> failwith "all functions must have a return type"
 
-        let fnSig: FuncSig<option<TypeAnn>> =
+        let fnSig: FuncSig =
           { TypeParams = typeParams
             Self = None
             ParamList = paramList

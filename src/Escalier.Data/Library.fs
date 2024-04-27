@@ -142,48 +142,48 @@ module Syntax =
       Constraint: option<TypeAnn>
       Default: option<TypeAnn> }
 
-  type FuncParam<'T> =
+  type FuncParam =
     { Pattern: Pattern
-      TypeAnn: 'T
+      TypeAnn: option<TypeAnn>
       Optional: bool }
 
     override this.ToString() = this.Pattern.ToString()
 
-  type FuncSig<'T> =
+  type FuncSig =
     { TypeParams: option<list<TypeParam>>
-      Self: option<FuncParam<'T>>
-      ParamList: list<FuncParam<'T>>
-      ReturnType: 'T
+      Self: option<FuncParam>
+      ParamList: list<FuncParam>
+      ReturnType: option<TypeAnn>
       Throws: option<TypeAnn>
       IsAsync: bool }
 
   // TODO: include optional name
   type Function =
-    { Sig: FuncSig<option<TypeAnn>>
+    { Sig: FuncSig
       Body: BlockOrExpr
       mutable Captures: option<list<string>>
       mutable InferredType: option<Type.Type> }
 
   type Constructor =
-    { Sig: FuncSig<option<TypeAnn>>
+    { Sig: FuncSig
       Body: option<BlockOrExpr> }
 
   type Method =
     { Name: string
-      Sig: FuncSig<option<TypeAnn>>
+      Sig: FuncSig
       Body: option<BlockOrExpr> }
 
   type Getter =
     { Name: string
-      Self: FuncParam<option<TypeAnn>>
+      Self: FuncParam
       Body: option<BlockOrExpr>
       ReturnType: option<TypeAnn>
       Throws: option<TypeAnn> }
 
   type Setter =
     { Name: string
-      Self: FuncParam<option<TypeAnn>>
-      Param: FuncParam<option<TypeAnn>>
+      Self: FuncParam
+      Param: FuncParam
       Body: option<BlockOrExpr>
       Throws: option<TypeAnn> }
 
@@ -421,7 +421,7 @@ module Syntax =
   type FnDecl =
     { Declare: bool
       Name: string
-      Sig: FuncSig<option<TypeAnn>>
+      Sig: FuncSig
       Body: option<BlockOrExpr> }
 
   type ClassDecl =
@@ -487,8 +487,8 @@ module Syntax =
 
   // TODO: add location information
   type ObjTypeAnnElem =
-    | Callable of FunctionType
-    | Constructor of FunctionType
+    | Callable of FuncSig
+    | Constructor of FuncSig
     | Method of MethodType
     | Getter of GetterType
     | Setter of SetterType
@@ -510,20 +510,18 @@ module Syntax =
     | BigInt
     | Any // only used by .d.ts files
 
-  type FunctionType = FuncSig<TypeAnn>
-
-  type MethodType = { Name: PropName; Type: FunctionType }
+  type MethodType = { Name: PropName; Type: FuncSig }
 
   type GetterType =
     { Name: PropName
-      Self: FuncParam<TypeAnn>
-      ReturnType: TypeAnn
+      Self: FuncParam
+      ReturnType: option<TypeAnn>
       Throws: option<TypeAnn> }
 
   type SetterType =
     { Name: PropName
-      Self: FuncParam<TypeAnn>
-      Param: FuncParam<TypeAnn>
+      Self: FuncParam
+      Param: FuncParam
       Throws: option<TypeAnn> }
 
   type ConditionType =
@@ -548,7 +546,7 @@ module Syntax =
     | Union of types: list<TypeAnn>
     | Intersection of types: list<TypeAnn>
     | TypeRef of TypeRef
-    | Function of FunctionType
+    | Function of FuncSig
     | Keyof of target: TypeAnn
     | Rest of target: TypeAnn
     | Typeof of target: Common.QualifiedIdent

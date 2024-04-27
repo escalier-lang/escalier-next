@@ -203,6 +203,8 @@ module rec Unify =
                     Immutable = false }
               Provenance = None }
 
+          printfn $"restParam2.Type = {restParam2.Type}"
+          printfn $"restParam1 = {restParam1}"
           do! unify ctx env ips restParam2.Type restParam1
         | _ -> return! Error(TypeError.SemanticError("Too many rest params!"))
 

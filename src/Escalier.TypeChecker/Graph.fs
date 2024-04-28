@@ -8,6 +8,7 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
 
+open Helpers
 open Error
 open Env
 
@@ -312,7 +313,7 @@ module rec Graph =
     (env: Env)
     (possibleDeps: list<DeclIdent>)
     (excludedTypeNames: list<string>)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     (body: option<BlockOrExpr>)
     : DeclIdent list =
     let mutable typeDeps = []
@@ -379,7 +380,7 @@ module rec Graph =
     (env: Env)
     (possibleDeps: list<DeclIdent>)
     (interfaceTypeParamNames: list<string>)
-    (fnSig: FuncSig<TypeAnn>)
+    (fnSig: FuncSig)
     : DeclIdent list =
 
     let localTypeNames =
@@ -399,21 +400,27 @@ module rec Graph =
         List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
     for param in fnSig.ParamList do
+      match param.TypeAnn with
+      | Some typeAnn ->
+        deps <-
+          deps
+          @ findTypeRefIdents
+              env
+              localTypeNames
+              (interfaceTypeParamNames @ typeParamNames)
+              (SyntaxNode.TypeAnn typeAnn)
+      | None -> ()
+
+    match fnSig.ReturnType with
+    | Some returnType ->
       deps <-
         deps
         @ findTypeRefIdents
             env
             localTypeNames
             (interfaceTypeParamNames @ typeParamNames)
-            (SyntaxNode.TypeAnn param.TypeAnn)
-
-    deps <-
-      deps
-      @ findTypeRefIdents
-          env
-          localTypeNames
-          (interfaceTypeParamNames @ typeParamNames)
-          (SyntaxNode.TypeAnn fnSig.ReturnType)
+            (SyntaxNode.TypeAnn returnType)
+    | None -> ()
 
     deps
 
@@ -581,7 +588,7 @@ module rec Graph =
               | ClassElem.Method { Sig = fnSig; Body = body } ->
                 getDepsForFn env locals classTypeParamNames fnSig body
               | ClassElem.Getter getter ->
-                let fnSig: FuncSig<option<TypeAnn>> =
+                let fnSig: FuncSig =
                   { ParamList = []
                     Self = Some getter.Self
                     ReturnType = getter.ReturnType
@@ -596,7 +603,7 @@ module rec Graph =
                     Kind = TypeAnnKind.Literal Literal.Undefined
                     InferredType = None }
 
-                let fnSig: FuncSig<option<TypeAnn>> =
+                let fnSig: FuncSig =
                   { ParamList = []
                     Self = Some setter.Self
                     ReturnType = Some undefinedTypeAnn
@@ -628,17 +635,23 @@ module rec Graph =
               | ObjTypeAnnElem.Method { Type = fnSig } ->
                 getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
               | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  (SyntaxNode.TypeAnn returnType)
+                match returnType with
+                | Some returnType ->
+                  findTypeRefIdents
+                    env
+                    localTypeNames
+                    interfaceTypeParamNames
+                    (SyntaxNode.TypeAnn returnType)
+                | None -> []
               | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  (SyntaxNode.TypeAnn typeAnn)
+                match typeAnn with
+                | Some typeAnn ->
+                  findTypeRefIdents
+                    env
+                    localTypeNames
+                    interfaceTypeParamNames
+                    (SyntaxNode.TypeAnn typeAnn)
+                | None -> []
               | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
                 findTypeRefIdents
                   env
@@ -819,7 +832,7 @@ module rec Graph =
 
         // TODO: update `inferDeclDefinitions` to take a `generalize` flag
         // so that we can avoid generalizing here.
-        let bindings = Infer.generalizeBindings inferredNS.Values
+        let bindings = generalizeBindings inferredNS.Values
         let newEnv = newEnv.AddBindings bindings
 
         return newEnv
@@ -841,7 +854,7 @@ module rec Graph =
 
         // TODO: update `inferDeclDefinitions` to take a `generalize` flag
         // so that we can avoid generalizing here.
-        let bindings = Infer.generalizeBindings inferredNS.Values
+        let bindings = generalizeBindings inferredNS.Values
         let newEnv = newEnv.AddBindings bindings
 
         return newEnv
@@ -857,14 +870,18 @@ module rec Graph =
     result {
       let mutable newEnv = env
 
-      let mutable sets: Set<Set<DeclIdent>> = Set.empty
+      let mutable entryPoints: Set<Set<DeclIdent>> = Set.empty
+      let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
 
       for KeyValue(key, value) in nodes do
         match tree.CycleMap.TryFind(key) with
-        | Some set -> sets <- sets.Add(set)
-        | None -> sets <- sets.Add(Set.singleton key)
+        | Some set -> entryPoints <- entryPoints.Add(set)
+        | None ->
+          // Anything that appears in deps can't be an entry point
+          if not (Set.contains key deps) then
+            entryPoints <- entryPoints.Add(Set.singleton key)
 
-      for set in sets do
+      for set in entryPoints do
         try
           let! nextEnv = inferTreeRec ctx newEnv set nodes tree
           newEnv <- nextEnv

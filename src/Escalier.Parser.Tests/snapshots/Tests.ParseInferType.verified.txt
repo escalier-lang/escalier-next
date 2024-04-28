@@ -36,17 +36,18 @@ output: Ok
                                                     Stop = (Ln: 1, Col: 39) }
                                            InferredType = None }
                                         TypeAnn =
-                                         { Kind = TypeRef { Ident = Ident "_"
-                                                            TypeArgs = None }
-                                           Span = { Start = (Ln: 1, Col: 41)
-                                                    Stop = (Ln: 1, Col: 42) }
-                                           InferredType = None }
+                                         Some
+                                           { Kind = TypeRef { Ident = Ident "_"
+                                                              TypeArgs = None }
+                                             Span = { Start = (Ln: 1, Col: 41)
+                                                      Stop = (Ln: 1, Col: 42) }
+                                             InferredType = None }
                                         Optional = false }]
                                     ReturnType =
-                                     { Kind = Infer "R"
-                                       Span = { Start = (Ln: 1, Col: 47)
-                                                Stop = (Ln: 1, Col: 55) }
-                                       InferredType = None }
+                                     Some { Kind = Infer "R"
+                                            Span = { Start = (Ln: 1, Col: 47)
+                                                     Stop = (Ln: 1, Col: 55) }
+                                            InferredType = None }
                                     Throws = None
                                     IsAsync = false }
                                Span = { Start = (Ln: 1, Col: 28)

@@ -128,7 +128,7 @@ module rec ExprVisitor =
     | DeclKind.FnDecl { Sig = fnSig; Body = body } ->
       // TODO: walk type params
       List.iter
-        (fun (param: FuncParam<option<TypeAnn>>) ->
+        (fun (param: FuncParam) ->
           Option.iter (walkTypeAnn visitor state) param.TypeAnn)
         fnSig.ParamList
 
@@ -224,11 +224,11 @@ module rec ExprVisitor =
         | TypeAnnKind.TypeRef { TypeArgs = typeArgs } ->
           Option.iter (List.iter (walk state)) typeArgs
         | TypeAnnKind.Function f ->
-          walk state f.ReturnType
+          Option.iter (walk state) f.ReturnType
           Option.iter (walk state) f.Throws
 
           List.iter
-            (fun (param: FuncParam<TypeAnn>) -> walk state param.TypeAnn)
+            (fun (param: FuncParam) -> Option.iter (walk state) param.TypeAnn)
             f.ParamList
         | TypeAnnKind.Keyof target -> walk state target
         | TypeAnnKind.Rest target -> walk state target
@@ -267,28 +267,28 @@ module rec ExprVisitor =
 
       match elem with
       | Callable f ->
-        walk f.ReturnType
+        Option.iter walk f.ReturnType
         Option.iter walk f.Throws
 
         List.iter
-          (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+          (fun (param: FuncParam) -> Option.iter walk param.TypeAnn)
           f.ParamList
       | Constructor f ->
-        walk f.ReturnType
+        Option.iter walk f.ReturnType
         Option.iter walk f.Throws
 
         List.iter
-          (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+          (fun (param: FuncParam) -> Option.iter walk param.TypeAnn)
           f.ParamList
       | Method { Type = f } ->
-        walk f.ReturnType
+        Option.iter walk f.ReturnType
         Option.iter walk f.Throws
 
         List.iter
-          (fun (param: FuncParam<TypeAnn>) -> walk param.TypeAnn)
+          (fun (param: FuncParam) -> Option.iter walk param.TypeAnn)
           f.ParamList
-      | Getter { ReturnType = retType } -> walk retType
-      | Setter { Param = { TypeAnn = paramType } } -> walk paramType
+      | Getter { ReturnType = retType } -> Option.iter walk retType
+      | Setter { Param = { TypeAnn = paramType } } -> Option.iter walk paramType
       | Property { TypeAnn = typeAnn } -> walk typeAnn
       | Mapped { TypeParam = typeParam
                  TypeAnn = typeAnn } ->

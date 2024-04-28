@@ -24,69 +24,70 @@ output: Ok
                                           Self = None
                                           ParamList = []
                                           ReturnType =
-                                           { Kind =
-                                              Object
-                                                { Elems =
-                                                   [Property
-                                                      { Name = String "done"
-                                                        TypeAnn =
-                                                         { Kind =
-                                                            Keyword Boolean
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 3, Col: 32)
-                                                              Stop =
-                                                               (Ln: 3, Col: 39) }
-                                                           InferredType = None }
-                                                        Optional = false
-                                                        Readonly = false };
-                                                    Property
-                                                      { Name = String "value"
-                                                        TypeAnn =
-                                                         { Kind =
-                                                            Range
-                                                              { Min =
-                                                                 { Kind =
-                                                                    TypeRef
-                                                                      { Ident =
-                                                                         Ident
-                                                                           "Min"
-                                                                        TypeArgs =
-                                                                         None }
-                                                                   Span =
-                                                                    { Start =
-                                                                       (Ln: 3, Col: 48)
-                                                                      Stop =
-                                                                       (Ln: 3, Col: 51) }
-                                                                   InferredType =
-                                                                    None }
-                                                                Max =
-                                                                 { Kind =
-                                                                    TypeRef
-                                                                      { Ident =
-                                                                         Ident
-                                                                           "Max"
-                                                                        TypeArgs =
-                                                                         None }
-                                                                   Span =
-                                                                    { Start =
-                                                                       (Ln: 3, Col: 53)
-                                                                      Stop =
-                                                                       (Ln: 3, Col: 57) }
-                                                                   InferredType =
-                                                                    None } }
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 3, Col: 48)
-                                                              Stop =
-                                                               (Ln: 3, Col: 57) }
-                                                           InferredType = None }
-                                                        Optional = false
-                                                        Readonly = false }]
-                                                  Immutable = false }
-                                             Span = { Start = (Ln: 3, Col: 24)
-                                                      Stop = (Ln: 4, Col: 7) }
-                                             InferredType = None }
+                                           Some
+                                             { Kind =
+                                                Object
+                                                  { Elems =
+                                                     [Property
+                                                        { Name = String "done"
+                                                          TypeAnn =
+                                                           { Kind =
+                                                              Keyword Boolean
+                                                             Span =
+                                                              { Start =
+                                                                 (Ln: 3, Col: 32)
+                                                                Stop =
+                                                                 (Ln: 3, Col: 39) }
+                                                             InferredType = None }
+                                                          Optional = false
+                                                          Readonly = false };
+                                                      Property
+                                                        { Name = String "value"
+                                                          TypeAnn =
+                                                           { Kind =
+                                                              Range
+                                                                { Min =
+                                                                   { Kind =
+                                                                      TypeRef
+                                                                        { Ident =
+                                                                           Ident
+                                                                             "Min"
+                                                                          TypeArgs =
+                                                                           None }
+                                                                     Span =
+                                                                      { Start =
+                                                                         (Ln: 3, Col: 48)
+                                                                        Stop =
+                                                                         (Ln: 3, Col: 51) }
+                                                                     InferredType =
+                                                                      None }
+                                                                  Max =
+                                                                   { Kind =
+                                                                      TypeRef
+                                                                        { Ident =
+                                                                           Ident
+                                                                             "Max"
+                                                                          TypeArgs =
+                                                                           None }
+                                                                     Span =
+                                                                      { Start =
+                                                                         (Ln: 3, Col: 53)
+                                                                        Stop =
+                                                                         (Ln: 3, Col: 57) }
+                                                                     InferredType =
+                                                                      None } }
+                                                             Span =
+                                                              { Start =
+                                                                 (Ln: 3, Col: 48)
+                                                                Stop =
+                                                                 (Ln: 3, Col: 57) }
+                                                             InferredType = None }
+                                                          Optional = false
+                                                          Readonly = false }]
+                                                    Immutable = false }
+                                               Span = { Start = (Ln: 3, Col: 24)
+                                                        Stop = (Ln: 4, Col: 7) }
+                                               InferredType = None }
                                           Throws = None
                                           IsAsync = false }
                                      Span = { Start = (Ln: 3, Col: 15)

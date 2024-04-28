@@ -119,7 +119,7 @@ module rec Codegen =
       | BlockOrExpr.Block block ->
         let ps: list<Param> =
           s.ParamList
-          |> List.map (fun (p: FuncParam<TypeAnn option>) ->
+          |> List.map (fun (p: Syntax.FuncParam) ->
             let pat = buildPattern ctx p.Pattern
 
             { Pat = pat

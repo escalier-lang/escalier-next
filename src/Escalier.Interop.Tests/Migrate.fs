@@ -180,7 +180,7 @@ let ParseAndInferUnorderedTypeParams () =
     result {
       let input =
         """
-        interface ObjectConstructor {
+        interface MyObjectConstructor {
             freeze<T extends { [idx: string]: U | null | undefined | object; }, U extends string | bigint | number | boolean | symbol>(o: T): Readonly<T>;
         }
         """
@@ -200,7 +200,7 @@ let ParseAndInferUnorderedTypeParams () =
 
       Assert.Type(
         env,
-        "ObjectConstructor",
+        "MyObjectConstructor",
         "{freeze fn <T: {[idx]+?: U | null | undefined | object for idx in string}, U: string | bigint | number | boolean | symbol>(self: Self, mut o: T) -> Readonly<T>}"
       )
     }
@@ -334,9 +334,9 @@ let ParseAndInferPropertyKey () =
     result {
       let input =
         """
-        declare type PropertyKey = string | number | symbol;
+        declare type MyPropertyKey = string | number | symbol;
 
-        interface PropertyDescriptor {
+        interface MyPropertyDescriptor {
             configurable?: boolean;
             enumerable?: boolean;
             value?: any;
@@ -345,8 +345,8 @@ let ParseAndInferPropertyKey () =
             set?(v: any): void;
         }
 
-        interface PropertyDescriptorMap {
-            [key: PropertyKey]: PropertyDescriptor;
+        interface MyPropertyDescriptorMap {
+            [key: MyPropertyKey]: MyPropertyDescriptor;
         }
         """
 
@@ -365,8 +365,8 @@ let ParseAndInferPropertyKey () =
 
       Assert.Type(
         env,
-        "PropertyDescriptorMap",
-        "{[key]+?: PropertyDescriptor for key in PropertyKey}"
+        "MyPropertyDescriptorMap",
+        "{[key]+?: MyPropertyDescriptor for key in MyPropertyKey}"
       )
     }
 

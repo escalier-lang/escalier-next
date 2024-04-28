@@ -15,6 +15,7 @@ open Env
 open Mutability
 open Poly
 open Unify
+open Helpers
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
@@ -163,11 +164,11 @@ module rec Infer =
           |> ResultOption.ofResult
 
       let mutable instanceMethods
-        : list<ObjTypeElem * FuncSig<TypeAnn option> * option<BlockOrExpr>> =
+        : list<ObjTypeElem * FuncSig * option<BlockOrExpr>> =
         []
 
       let mutable staticMethods
-        : list<ObjTypeElem * FuncSig<TypeAnn option> * option<BlockOrExpr>> =
+        : list<ObjTypeElem * FuncSig * option<BlockOrExpr>> =
         []
 
       let mutable instanceElems: list<ObjTypeElem> = []
@@ -179,16 +180,7 @@ module rec Infer =
                                TypeAnn = typeAnn
                                Optional = optional
                                Readonly = readonly } ->
-          let name =
-            match name with
-            | Syntax.PropName.Ident s -> PropName.String s
-            | Syntax.PropName.String s -> PropName.String s
-            | Syntax.PropName.Number n -> PropName.Number n
-            | Syntax.PropName.Computed expr ->
-              let _t = inferExpr ctx newEnv expr
-              // TODO: check if `t` is a valid type for a PropName
-              failwith "TODO: inferStmt - Computed prop name"
-
+          let! name = inferPropName ctx env name
           let! t = inferTypeAnn ctx newEnv typeAnn
 
           let prop =
@@ -241,7 +233,7 @@ module rec Infer =
                              ReturnType = retType
                              Body = body } ->
           // TODO: handle static getters
-          let fnSig: FuncSig<option<TypeAnn>> =
+          let fnSig: FuncSig =
             { TypeParams = None
               Self = Some self
               ParamList = []
@@ -261,7 +253,7 @@ module rec Infer =
                              Param = param
                              Body = body } ->
           // TODO: handle static setters
-          let fnSig: FuncSig<option<TypeAnn>> =
+          let fnSig: FuncSig =
             { TypeParams = None
               Self = Some self
               ParamList = [ param ]
@@ -991,7 +983,7 @@ module rec Infer =
   let inferFuncSig
     (ctx: Ctx)
     (env: Env)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     : Result<Function, TypeError> =
 
     result {
@@ -1030,7 +1022,7 @@ module rec Infer =
 
       let! paramList =
         List.traverseResultM
-          (fun (param: Syntax.FuncParam<option<TypeAnn>>) ->
+          (fun (param: Syntax.FuncParam) ->
             result {
               let! paramType =
                 match param.TypeAnn with
@@ -1042,7 +1034,8 @@ module rec Infer =
               let! _assumps, patternType =
                 inferPattern ctx newEnv param.Pattern
 
-              do! unify ctx newEnv None patternType paramType
+              // TODO: figure out how to handle unifying `...rest` and `infer _`
+              // do! unify ctx newEnv None patternType paramType
 
               return
                 { Pattern = patternToPattern param.Pattern
@@ -1069,7 +1062,7 @@ module rec Infer =
   let inferFuncBody
     (ctx: Ctx)
     (newEnv: Env)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     (placeholderFn: Function)
     (body: BlockOrExpr)
     : Result<Function, TypeError> =
@@ -1197,7 +1190,7 @@ module rec Infer =
   let inferFunction
     (ctx: Ctx)
     (env: Env)
-    (fnSig: FuncSig<option<TypeAnn>>)
+    (fnSig: FuncSig)
     (body: BlockOrExpr)
     : Result<Function, TypeError> =
 
@@ -1513,19 +1506,19 @@ module rec Infer =
               Optional = optional
               Readonly = readonly }
       | ObjTypeAnnElem.Callable functionType ->
-        let! f = inferFunctionType ctx env functionType
+        let! f = inferFuncSig ctx env functionType
         return Callable f
       | ObjTypeAnnElem.Constructor functionType ->
-        let! f = inferFunctionType ctx env functionType
+        let! f = inferFuncSig ctx env functionType
         return Constructor f
       | ObjTypeAnnElem.Method { Name = name; Type = methodType } ->
-        let! f = inferFunctionType ctx env methodType
+        let! f = inferFuncSig ctx env methodType
         let! name = inferPropName ctx env name
         return Method(name, f)
       | ObjTypeAnnElem.Getter { Name = name
                                 ReturnType = retType
                                 Throws = throws } ->
-        let f: FunctionType =
+        let f: FuncSig =
           { TypeParams = None
             Self = None
             ParamList = []
@@ -1533,7 +1526,7 @@ module rec Infer =
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFunctionType ctx env f
+        let! f = inferFuncSig ctx env f
         let! name = inferPropName ctx env name
         return Getter(name, f)
       | ObjTypeAnnElem.Setter { Name = name
@@ -1545,15 +1538,15 @@ module rec Infer =
             Span = DUMMY_SPAN
             InferredType = None }
 
-        let f: FunctionType =
+        let f: FuncSig =
           { TypeParams = None
             Self = None
             ParamList = []
-            ReturnType = undefined
+            ReturnType = Some undefined
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFunctionType ctx env f
+        let! f = inferFuncSig ctx env f
         let! name = inferPropName ctx env name
         return Setter(name, f)
       | ObjTypeAnnElem.Mapped mapped ->
@@ -1719,7 +1712,7 @@ module rec Infer =
         //   else
         //     return! Error(TypeError.SemanticError $"{name} is not in scope")
         | TypeAnnKind.Function functionType ->
-          let! f = inferFunctionType ctx env functionType
+          let! f = inferFuncSig ctx env functionType
           return TypeKind.Function(f)
         | TypeAnnKind.Keyof target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.KeyOf
@@ -1792,64 +1785,6 @@ module rec Infer =
         kind
 
     t
-
-  let inferFunctionType
-    (ctx: Ctx)
-    (env: Env)
-    (functionType: FunctionType)
-    : Result<Function, TypeError> =
-    result {
-      let! typeParams, newEnv = inferTypeParams ctx env functionType.TypeParams
-      let! returnType = inferTypeAnn ctx newEnv functionType.ReturnType
-
-      // TODO: add `Self` to environment when inferring interfaces and object types
-      let! self =
-        match functionType.Self with
-        | Some(self) ->
-          result {
-            let! t = inferTypeAnn ctx newEnv self.TypeAnn
-
-            let param =
-              { Pattern = patternToPattern self.Pattern
-                Type = t
-                Optional = false }
-
-            return Some(param)
-          }
-        | None -> Result.Ok None
-
-      let! throws =
-        match functionType.Throws with
-        | Some(throws) -> inferTypeAnn ctx newEnv throws
-        | None ->
-          Result.Ok(
-            { Kind = TypeKind.Keyword Keyword.Never
-              Provenance = None }
-          )
-
-      let! paramList =
-        List.traverseResultM
-          (fun (p: FuncParam<TypeAnn>) ->
-            result {
-              let! t = inferTypeAnn ctx newEnv p.TypeAnn
-              let pattern = patternToPattern p.Pattern
-
-              return
-                { Pattern = pattern
-                  Type = t
-                  Optional = false }
-            })
-          functionType.ParamList
-
-      let f =
-        { TypeParams = typeParams
-          Self = self
-          ParamList = paramList
-          Return = returnType
-          Throws = throws }
-
-      return f
-    }
 
   let inferPattern
     (ctx: Ctx)
@@ -2697,23 +2632,6 @@ module rec Infer =
       }
     | _ -> Error(TypeError.SemanticError "Invalid var decl")
 
-  let generalizeBindings
-    (bindings: Map<string, Binding>)
-    : Map<string, Binding> =
-    let mutable newBindings = Map.empty
-
-    for KeyValue(name, (t, isMut)) in bindings do
-      let t =
-        match (prune t).Kind with
-        | TypeKind.Function f ->
-          { t with
-              Kind = generalizeFunc f |> TypeKind.Function }
-        | _ -> t
-
-      newBindings <- newBindings.Add(name, (t, isMut))
-
-    newBindings
-
   // Infers a placeholder scheme from a type declaration
   // It has the proper type params but the type definition itself is a
   // fresh type variable.
@@ -2737,14 +2655,14 @@ module rec Infer =
   let inferTypeDeclDefn
     (ctx: Ctx)
     (env: Env)
-    (scheme: Scheme)
+    (placeholder: Scheme)
     (getType: Env -> Result<Type, TypeError>)
     : Result<Scheme, TypeError> =
 
     result {
       let mutable newEnv = env
 
-      match scheme.TypeParams with
+      match placeholder.TypeParams with
       | None -> ()
       | Some typeParams ->
         for typeParam in typeParams do
@@ -2759,10 +2677,13 @@ module rec Infer =
                 Type = unknown
                 IsTypeParam = true }
 
-      newEnv <- newEnv.AddScheme "Self" scheme
+      newEnv <- newEnv.AddScheme "Self" placeholder
 
       let! t = getType newEnv
-      return { scheme with Type = t }
+
+      return
+        { placeholder with
+            Type = generalizeFunctionsInType t }
     }
 
   let resolvePath
@@ -2877,6 +2798,67 @@ module rec Infer =
       return newEnv
     }
 
+  let inferExprStructuralPlacholder
+    (ctx: Ctx)
+    (env: Env)
+    (expr: Expr)
+    : Result<Type, TypeError> =
+    result {
+      match expr.Kind with
+      | ExprKind.Object { Elems = elems } ->
+        let! elems =
+          elems
+          |> List.traverseResultM (fun elem ->
+            result {
+              match elem with
+              | ObjElem.Property(span, name, value) ->
+                let! name = inferPropName ctx env name
+                let! t = inferExprStructuralPlacholder ctx env value
+
+                return
+                  ObjTypeElem.Property
+                    { Name = name
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+              | ObjElem.Shorthand(span, name) ->
+                match env.TryFindValue name with
+                | Some(t, _) ->
+                  return
+                    ObjTypeElem.Property
+                      { Name = PropName.String name
+                        Optional = false
+                        Readonly = false
+                        Type = t }
+                | None ->
+                  return! Error(TypeError.SemanticError $"{name} not found")
+              | ObjElem.Spread(span, value) ->
+                return!
+                  Error(
+                    TypeError.NotImplemented
+                      "TODO: inferExprStructuralPlacholder - Spread"
+                  )
+            })
+
+        let kind =
+          TypeKind.Object
+            { Elems = elems
+              Immutable = false
+              Interface = false }
+
+        return { Kind = kind; Provenance = None }
+      | ExprKind.Tuple { Elems = elems } ->
+        let! elems =
+          elems
+          |> List.traverseResultM (fun elem ->
+            inferExprStructuralPlacholder ctx env elem)
+
+        let kind = TypeKind.Tuple { Elems = elems; Immutable = false }
+
+        return { Kind = kind; Provenance = None }
+      | _ -> return ctx.FreshTypeVar None
+    }
+
   let inferDeclPlaceholders
     (ctx: Ctx)
     (env: Env)
@@ -2890,9 +2872,19 @@ module rec Infer =
       for decl in decls do
         match decl.Kind with
         | VarDecl { Pattern = pattern
-                    Init = _
+                    Init = init
                     TypeAnn = _ } ->
-          let! bindings, _ = inferPattern ctx env pattern
+          // QUESTION: Should we check the type annotation as we're generating
+          // the placeholder type?
+          let! bindings, patternType = inferPattern ctx env pattern
+
+          match init with
+          | Some init ->
+            let! structuralPlacholderType =
+              inferExprStructuralPlacholder ctx env init
+
+            do! unify ctx env None patternType structuralPlacholderType
+          | None -> ()
 
           for KeyValue(name, binding) in bindings do
             placeholderNS <- placeholderNS.AddBinding name binding
@@ -2935,6 +2927,9 @@ module rec Infer =
           placeholderNS <- placeholderNS.AddBinding name (t, false)
           newEnv <- newEnv.AddValue name (t, false)
         | ClassDecl { Name = name } ->
+          // TODO: treat ClassDecl similar to object types where we create a
+          // structural placeholder type instead of an opaque type variable.
+          // We should do this for both instance members and statics.
           let instance = ctx.FreshTypeVar None
           newEnv <- newEnv.AddValue name (instance, false)
 
@@ -2960,20 +2955,18 @@ module rec Infer =
           // return an error if the name already exists since we can't redefine
           // types.
           newEnv <- newEnv.AddScheme typeDecl.Name placeholder
+        | InterfaceDecl { Name = name; TypeParams = typeParams } ->
+          let! placeholder =
+            match newEnv.TryFindScheme name with
+            | Some scheme -> Result.Ok scheme
+            | None -> inferTypeDeclPlaceholderScheme ctx env typeParams
+
+          placeholderNS <- placeholderNS.AddScheme name placeholder
+          newEnv <- newEnv.AddScheme name placeholder
         | NamespaceDecl nsDecl ->
           let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
           placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
           newEnv <- newEnv.AddNamespace nsDecl.Name ns
-        | InterfaceDecl { Name = name; TypeParams = typeParams } ->
-          // TODO: replace placeholders, with a reference the actual definition
-          // once we've inferred the definition
-          let! placeholder = inferTypeDeclPlaceholderScheme ctx env typeParams
-
-          placeholderNS <- placeholderNS.AddScheme name placeholder
-          // TODO: update AddScheme to return a Result<Env, TypeError> and
-          // return an error if the name already exists since we can't redefine
-          // types.
-          newEnv <- newEnv.AddScheme name placeholder
 
       return newEnv, placeholderNS
     }
@@ -2998,7 +2991,8 @@ module rec Infer =
         | VarDecl varDecl ->
           // NOTE: We explicitly don't generalize here because we want other
           // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things below.
+          // from this declaration.  We generalize things in `inferModule` and
+          // `inferTreeRec`.
           let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
 
           for binding in newBindings do
@@ -3012,7 +3006,8 @@ module rec Infer =
                    Body = Some body } ->
           // NOTE: We explicitly don't generalize here because we want other
           // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things below.
+          // from this declaration.  We generalize things in `inferModule` and
+          // `inferTreeRec`.
           let! f = inferFunction ctx newEnv fnSig body
 
           let t =
@@ -3056,29 +3051,10 @@ module rec Infer =
           // - InferRecursiveGenericObjectTypeInModule
           // - InferNamespaceInModule
           placeholder.Type <- scheme.Type
-        | NamespaceDecl { Name = name; Body = decls } ->
-          let! placeholderNS =
-            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
-
-          let mutable nsEnv = newEnv
-
-          nsEnv <- nsEnv.AddBindings placeholderNS.Values
-
-          for KeyValue(name, ns) in placeholderNS.Namespaces do
-            nsEnv <- nsEnv.AddNamespace name ns
-
-          for KeyValue(name, scheme) in placeholderNS.Schemes do
-            nsEnv <- nsEnv.AddScheme name scheme
-
-          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
-          inferredNS <- inferredNS.AddNamespace name ns
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
           let! placeholder = placeholderNS.GetScheme name
-
-          // Handles self-recursive types
-          newEnv <- newEnv.AddScheme name placeholder
 
           let getType (env: Env) : Result<Type, TypeError> =
             result {
@@ -3098,6 +3074,7 @@ module rec Infer =
           match placeholder.Type.Kind, newScheme.Type.Kind with
           | TypeKind.Object { Elems = existingElems },
             TypeKind.Object { Elems = newElems } ->
+            // TODO: remove duplicates
             let mergedElems = existingElems @ newElems
 
             let kind =
@@ -3106,6 +3083,10 @@ module rec Infer =
                   Immutable = false
                   Interface = false }
 
+            // NOTE: We explicitly don't generalize here because we want other
+            // declarations to be able to unify with any free type variables
+            // from this declaration.  We generalize things in `inferModule` and
+            // `inferTreeRec`.
             // TODO: suport multiple provenances
             let t = { Kind = kind; Provenance = None }
 
@@ -3117,6 +3098,22 @@ module rec Infer =
             // NOTE: This is a bit hacky and we may want to change this later to use
             // `foldType` to replace any uses of the placeholder with the actual type.
             placeholder.Type <- newScheme.Type
+        | NamespaceDecl { Name = name; Body = decls } ->
+          let! placeholderNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let mutable nsEnv = newEnv
+
+          nsEnv <- nsEnv.AddBindings placeholderNS.Values
+
+          for KeyValue(name, ns) in placeholderNS.Namespaces do
+            nsEnv <- nsEnv.AddNamespace name ns
+
+          for KeyValue(name, scheme) in placeholderNS.Schemes do
+            nsEnv <- nsEnv.AddScheme name scheme
+
+          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
+          inferredNS <- inferredNS.AddNamespace name ns
 
       return newEnv, inferredNS
     }
@@ -3182,15 +3179,6 @@ module rec Infer =
 
       do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
 
-      // Prune any functions before generalizing, this avoids
-      // issues with mutually recursive functions being generalized
-      // prematurely.
-      // for binding in bindings.values() {
-      //     let pruned_index = self.prune(binding.index);
-      //     self.bind(ctx, binding.index, pruned_index)?;
-      // }
-
-      // Generalize any functions.
       let bindings = generalizeBindings inferredNS.Values
       return newEnv.AddBindings bindings
     }

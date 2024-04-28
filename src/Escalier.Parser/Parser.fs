@@ -86,31 +86,22 @@ module Parser =
     between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))
 
 
-  let funcParam<'A>
-    (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
-    : Parser<FuncParam<'A>, unit> =
-    pipe3 pattern (opt (strWs "?")) (opt_or_id (strWs ":" >>. typeAnn))
+  let funcParam: Parser<FuncParam, unit> =
+    pipe3 pattern (opt (strWs "?")) (opt (strWs ":" >>. typeAnn))
     <| fun pattern optional typeAnn ->
       { Pattern = pattern
         Optional = optional.IsSome
         TypeAnn = typeAnn }
 
-  let paramList<'A>
-    (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
-    : Parser<list<FuncParam<'A>>, unit> =
-    between (strWs "(") (strWs ")") (sepEndBy (funcParam opt_or_id) (strWs ","))
+  let paramList: Parser<list<FuncParam>, unit> =
+    between (strWs "(") (strWs ")") (sepEndBy funcParam (strWs ","))
 
-  // TODO: provide a way to control wehther default values for params are allowed
-  // opt_or_id controls whether the type annotation is optional or not
-  let funcSig<'A>
-    (opt_or_id: Parser<TypeAnn, unit> -> Parser<'A, unit>)
-    (self: bool)
-    : Parser<FuncSig<'A>, unit> =
+  let funcSig (self: bool) : Parser<FuncSig, unit> =
     pipe5
       (opt (keyword "async"))
       (keyword "fn" >>. (opt typeParams))
-      (paramList opt_or_id)
-      (opt_or_id (strWs "->" >>. typeAnn))
+      paramList
+      (opt (strWs "->" >>. typeAnn))
       (opt (ws .>> keyword "throws" >>. typeAnn))
     <| fun async type_params paramList return_type throws ->
       if self then
@@ -253,7 +244,7 @@ module Parser =
         InferredType = None }
 
   let private funcTypeAnn =
-    funcSig id false |> withSpan
+    funcSig false |> withSpan
     |>> fun (f, span) ->
       { TypeAnn.Kind = TypeAnnKind.Function(f)
         Span = span
@@ -304,7 +295,7 @@ module Parser =
           Optional = optional }
 
   let private callableSignature =
-    pipe4 getPosition (opt (keyword "new")) (funcSig id false) getPosition
+    pipe4 getPosition (opt (keyword "new")) (funcSig false) getPosition
     <| fun start newable funcSig stop ->
       match newable with
       | Some _ -> ObjTypeAnnElem.Constructor(funcSig)
@@ -704,7 +695,7 @@ module Parser =
 
   let func: Parser<Function, unit> =
     pipe2
-      (funcSig opt false)
+      (funcSig false)
       (block |>> BlockOrExpr.Block
        <|> (strWs "=>" >>. expr |>> BlockOrExpr.Expr))
     <| fun sig' body ->
@@ -833,11 +824,11 @@ module Parser =
   let private constructor: Parser<Constructor, unit> =
     pipe4
       (keyword "new")
-      ((opt typeParams) .>>. (paramList opt))
+      ((opt typeParams) .>>. paramList)
       (opt (ws .>> keyword "throws" >>. typeAnn))
       block
     <| fun _ (typeParams, paramList) throws body ->
-      let funcSig: FuncSig<option<TypeAnn>> =
+      let funcSig: FuncSig =
         match paramList with
         | { Pattern = { Kind = PatternKind.Ident { Name = "self" } } } as self :: paramList ->
           { TypeParams = typeParams
@@ -855,12 +846,12 @@ module Parser =
     pipe5
       (opt (keyword "async"))
       (keyword "fn" >>. ident)
-      ((opt typeParams) .>>. (paramList opt))
+      ((opt typeParams) .>>. paramList)
       ((opt (strWs "->" >>. typeAnn))
        .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
       block
     <| fun async name (typeParams, paramList) (retType, throws) body ->
-      let funcSig: FuncSig<option<TypeAnn>> =
+      let funcSig: FuncSig =
         match paramList with
         | [] ->
           { TypeParams = typeParams
@@ -892,7 +883,7 @@ module Parser =
     pipe5
       (opt (keyword "async"))
       (keyword "get" >>. ident)
-      (between (strWs "(") (strWs ")") (funcParam opt))
+      (between (strWs "(") (strWs ")") funcParam)
       ((opt (strWs "->" >>. typeAnn))
        .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
       block
@@ -911,7 +902,7 @@ module Parser =
       (between
         (strWs "(")
         (strWs ")")
-        ((funcParam opt) .>>. (strWs "," >>. (funcParam opt))))
+        (funcParam .>>. (strWs "," >>. funcParam)))
       (opt (ws .>> keyword "throws" >>. typeAnn))
       block
     <| fun async name (self, param) throws body ->
@@ -1433,15 +1424,15 @@ module Parser =
       (opt (strWs "->" >>. typeAnn))
       (opt (ws .>> keyword "throws" >>. typeAnn))
 
-  let private fnDeclSig: Parser<string * FuncSig<option<TypeAnn>>, unit> =
+  let private fnDeclSig: Parser<string * FuncSig, unit> =
     pipe4
       (opt (keyword "async"))
       (keyword "fn" >>. ident)
-      ((opt typeParams) .>>. (paramList opt))
+      ((opt typeParams) .>>. paramList)
       ((opt (strWs "->" >>. typeAnn))
        .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
     <| fun async name (typeParams, paramList) (retType, throws) ->
-      let funcSig: FuncSig<option<TypeAnn>> =
+      let funcSig: FuncSig =
         { TypeParams = typeParams
           Self = None
           ParamList = paramList

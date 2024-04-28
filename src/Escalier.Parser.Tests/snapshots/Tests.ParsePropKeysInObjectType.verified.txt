@@ -53,24 +53,26 @@ output: Ok
                                           Self = None
                                           ParamList = []
                                           ReturnType =
-                                           { Kind =
-                                              TypeRef
-                                                { Ident = Ident "Iterator"
-                                                  TypeArgs =
-                                                   Some
-                                                     [{ Kind =
-                                                         TypeRef
-                                                           { Ident = Ident "T"
-                                                             TypeArgs = None }
-                                                        Span =
-                                                         { Start =
-                                                            (Ln: 5, Col: 44)
-                                                           Stop =
-                                                            (Ln: 5, Col: 45) }
-                                                        InferredType = None }] }
-                                             Span = { Start = (Ln: 5, Col: 35)
-                                                      Stop = (Ln: 5, Col: 46) }
-                                             InferredType = None }
+                                           Some
+                                             { Kind =
+                                                TypeRef
+                                                  { Ident = Ident "Iterator"
+                                                    TypeArgs =
+                                                     Some
+                                                       [{ Kind =
+                                                           TypeRef
+                                                             { Ident = Ident "T"
+                                                               TypeArgs = None }
+                                                          Span =
+                                                           { Start =
+                                                              (Ln: 5, Col: 44)
+                                                             Stop =
+                                                              (Ln: 5, Col: 45) }
+                                                          InferredType = None }] }
+                                               Span =
+                                                { Start = (Ln: 5, Col: 35)
+                                                  Stop = (Ln: 5, Col: 46) }
+                                               InferredType = None }
                                           Throws = None
                                           IsAsync = false }
                                      Span = { Start = (Ln: 5, Col: 26)

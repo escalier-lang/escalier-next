@@ -434,7 +434,7 @@ let InferBasicVarDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModuleUsingTree ctx env ast
+        inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
@@ -471,7 +471,7 @@ let InferTypeDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModuleUsingTree ctx env ast
+        inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
@@ -702,7 +702,7 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Graph.inferModuleUsingTree ctx env ast
+        Graph.inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -752,7 +752,7 @@ let ImportReact () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Graph.inferModuleUsingTree ctx env ast
+        Graph.inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "React", "React")

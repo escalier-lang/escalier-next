@@ -986,7 +986,7 @@ module rec Graph =
         | _ -> None)
       ast.Items
 
-  let inferModuleUsingTree
+  let inferModule
     (ctx: Ctx)
     (env: Env)
     (ast: Module)

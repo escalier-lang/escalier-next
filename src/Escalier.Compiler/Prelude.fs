@@ -355,7 +355,7 @@ module Prelude =
       let newEnv = { env with Filename = fullPath }
 
       let! outEnv =
-        Graph.inferModuleUsingTree ctx newEnv ast
+        Graph.inferModule ctx newEnv ast
         |> Result.mapError CompileError.TypeError
 
       return outEnv, ast

@@ -102,6 +102,7 @@ module rec Graph =
     | TypeAnn of TypeAnn
     | Expr of Expr
 
+  // TODO: Find deps in computed property names
   let findTypeRefIdents
     (env: Env)
     (localTypeNames: list<string>) // top-level and namespace decls
@@ -332,6 +333,32 @@ module rec Graph =
       | Some typeParams ->
         List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
+    match fnSig.TypeParams with
+    | Some typeParams ->
+      for tp in typeParams do
+        match tp.Constraint with
+        | Some c ->
+          typeDeps <-
+            typeDeps
+            @ findTypeRefIdents
+                env
+                possibleTypeNames
+                (excludedTypeNames @ typeParamNames)
+                (SyntaxNode.TypeAnn c)
+        | None -> ()
+
+        match tp.Default with
+        | Some d ->
+          typeDeps <-
+            typeDeps
+            @ findTypeRefIdents
+                env
+                possibleTypeNames
+                (excludedTypeNames @ typeParamNames)
+                (SyntaxNode.TypeAnn d)
+        | None -> ()
+    | None -> ()
+
     for param in fnSig.ParamList do
       match param.TypeAnn with
       | Some typeAnn ->
@@ -423,6 +450,37 @@ module rec Graph =
     | None -> ()
 
     deps
+
+  // TODO: we should be using this for more than PropName dependencies
+  let getPropNameDeps
+    (env: Env)
+    (topLevelDecls: list<DeclIdent>)
+    (name: Syntax.PropName)
+    : list<DeclIdent> =
+    match name with
+    | Computed expr ->
+      match expr.Kind with
+      | ExprKind.Member(target, name, opt_chain) ->
+        match target.Kind with
+        | ExprKind.Identifier name ->
+          if List.contains (DeclIdent.Value name) topLevelDecls then
+            [ DeclIdent.Value name ]
+          else
+            match env.TryFindValue name with
+            | Some(t, _) ->
+              match t.Kind with
+              | TypeKind.TypeRef { Name = name } ->
+                let baseName = getBaseName name
+
+                if List.contains (DeclIdent.Type baseName) topLevelDecls then
+                  [ DeclIdent.Type baseName ]
+                else
+                  []
+              | _ -> [] // This should probably be an error
+            | None -> [] // This should probably be an error
+        | _ -> []
+      | _ -> []
+    | _ -> []
 
   let buildGraph
     (env: Env)
@@ -618,6 +676,8 @@ module rec Graph =
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
+          let interfaceName = name
+
           let interfaceTypeParamNames =
             match typeParams with
             | None -> []
@@ -632,32 +692,57 @@ module rec Graph =
                 getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
               | ObjTypeAnnElem.Constructor fnSig ->
                 getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
-              | ObjTypeAnnElem.Method { Type = fnSig } ->
-                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
-              | ObjTypeAnnElem.Getter { ReturnType = returnType } ->
-                match returnType with
-                | Some returnType ->
-                  findTypeRefIdents
+              | ObjTypeAnnElem.Method { Type = fnSig; Name = name } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  getDepsForInterfaceFn
                     env
-                    localTypeNames
+                    locals
                     interfaceTypeParamNames
-                    (SyntaxNode.TypeAnn returnType)
-                | None -> []
-              | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn } } ->
-                match typeAnn with
-                | Some typeAnn ->
+                    fnSig
+
+                propNameDeps @ fnDeps
+              | ObjTypeAnnElem.Getter { ReturnType = returnType; Name = name } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  match returnType with
+                  | Some returnType ->
+                    findTypeRefIdents
+                      env
+                      localTypeNames
+                      interfaceTypeParamNames
+                      (SyntaxNode.TypeAnn returnType)
+                  | None -> []
+
+                propNameDeps @ fnDeps
+              | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn }
+                                        Name = name } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  match typeAnn with
+                  | Some typeAnn ->
+                    findTypeRefIdents
+                      env
+                      localTypeNames
+                      interfaceTypeParamNames
+                      (SyntaxNode.TypeAnn typeAnn)
+                  | None -> []
+
+                propNameDeps @ fnDeps
+              | ObjTypeAnnElem.Property { TypeAnn = typeAnn; Name = name } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let typeAnnDeps =
                   findTypeRefIdents
                     env
                     localTypeNames
                     interfaceTypeParamNames
                     (SyntaxNode.TypeAnn typeAnn)
-                | None -> []
-              | ObjTypeAnnElem.Property { TypeAnn = typeAnn } ->
-                findTypeRefIdents
-                  env
-                  localTypeNames
-                  interfaceTypeParamNames
-                  (SyntaxNode.TypeAnn typeAnn)
+
+                propNameDeps @ typeAnnDeps
               | ObjTypeAnnElem.Mapped { TypeParam = typeParam
                                         TypeAnn = typeAnn } ->
                 let tp: Syntax.TypeParam =
@@ -682,9 +767,10 @@ module rec Graph =
                     interfaceTypeParamNames
                     (SyntaxNode.TypeAnn typeAnn))
 
-          // TODO: check if there's an existing entry for `name` so that
-          // we can update its `deps` list instead of overwriting it.
-          graph <- graph.Add(DeclIdent.Type name, decl, deps)
+          match graph.Edges.TryFind(DeclIdent.Type name) with
+          | Some existingDeps ->
+            graph <- graph.Add(DeclIdent.Type name, decl, existingDeps @ deps)
+          | None -> graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | EnumDecl enumDecl -> failwith "TODO: buildGraph - EnumDecl"
         | NamespaceDecl { Name = name; Body = decls } ->
           let! subgraph = buildGraph env declared locals decls
@@ -923,6 +1009,10 @@ module rec Graph =
 
       let decls = getDeclsFromModule ast
       let! graph = buildGraph newEnv [] [] decls
+
+      // for KeyValue(key, value) in graph.Edges do
+      //   printfn $"{key} -> {value}"
+
       let tree = graphToTree graph.Edges
       return! inferTree ctx newEnv graph.Nodes tree
     }

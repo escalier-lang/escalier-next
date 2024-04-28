@@ -886,6 +886,7 @@ let InferEnumPatternMatching () =
       Assert.Value(env, "x", "number")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

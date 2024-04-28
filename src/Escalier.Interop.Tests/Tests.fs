@@ -690,7 +690,14 @@ let ImportThirdPartyModules () =
         type AccentColor = Property.AccentColor;
         """
 
-      let! ctx, env = inferScript src
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Graph.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -698,10 +705,12 @@ let ImportThirdPartyModules () =
         "\"-moz-initial\" | \"inherit\" | \"initial\" | \"revert\" | \"revert-layer\" | \"unset\""
       )
 
+      // TODO: use sets when computing dependencies instead of lists so that we don't end up
+      // inferring the same thing multiple times
       Assert.Type(
         env,
         "SchedulerInteraction",
-        "{__count: number, id: number, name: string, timestamp: number}"
+        "{__count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number}"
       )
 
       Assert.Type(env, "AccentColor", "Property.AccentColor")
@@ -731,7 +740,14 @@ let ImportReact () =
         import "react" as React;
         """
 
-      let! ctx, env = inferScript src
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Graph.inferModuleUsingTree ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "React", "React")
     }

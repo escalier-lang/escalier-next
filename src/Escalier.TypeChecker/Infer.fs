@@ -2965,6 +2965,7 @@ module rec Infer =
           newEnv <- newEnv.AddScheme name placeholder
         | NamespaceDecl nsDecl ->
           let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
+          let ns = { ns with Name = nsDecl.Name }
           placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
           newEnv <- newEnv.AddNamespace nsDecl.Name ns
 
@@ -3019,7 +3020,7 @@ module rec Infer =
           // Nothing to do since ambient function declarations don't have
           // function bodies.
           ()
-        | FnDecl _ ->
+        | FnDecl fnDecl ->
           return! Error(TypeError.SemanticError "Invalid function declaration")
         | ClassDecl { Declare = declare
                       Name = name

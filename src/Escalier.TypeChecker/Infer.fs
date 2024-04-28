@@ -3144,46 +3144,6 @@ module rec Infer =
         do! unifyPlaceholdersAndInferredTypes ctx env placeholderNS inferredNS
     }
 
-  let inferModule
-    (ctx: Ctx)
-    (env: Env)
-    (filename: string)
-    (m: Module)
-    : Result<Env, TypeError> =
-    result {
-      let mutable newEnv = { env with Filename = filename }
-
-      let imports =
-        List.choose
-          (fun item ->
-            match item with
-            | Import import -> Some import
-            | _ -> None)
-          m.Items
-
-      for import in imports do
-        let! importEnv = inferImport ctx newEnv import
-        newEnv <- importEnv
-
-      let decls =
-        List.choose
-          (fun item ->
-            match item with
-            | Decl decl -> Some decl
-            | _ -> None)
-          m.Items
-
-      let! newEnv, placeholderNS = inferDeclPlaceholders ctx newEnv decls
-
-      let! newEnv, inferredNS =
-        inferDeclDefinitions ctx newEnv placeholderNS decls
-
-      do! unifyPlaceholdersAndInferredTypes ctx newEnv placeholderNS inferredNS
-
-      let bindings = generalizeBindings inferredNS.Values
-      return newEnv.AddBindings bindings
-    }
-
   let findReturns (body: BlockOrExpr) : list<Expr> =
     let mutable returns: list<Expr> = []
 

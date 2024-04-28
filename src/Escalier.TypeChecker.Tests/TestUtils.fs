@@ -33,7 +33,7 @@ let inferModule src =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferModule ctx env "input.esc" ast
+      Graph.inferModuleUsingTree ctx env ast
       |> Result.mapError CompileError.TypeError
 
     return ctx, env

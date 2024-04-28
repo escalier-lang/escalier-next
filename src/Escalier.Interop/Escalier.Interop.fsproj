@@ -9,7 +9,6 @@
         <Compile Include="TypeScript.fs"/>
         <Compile Include="Parser.fs"/>
         <Compile Include="Migrate.fs"/>
-        <Compile Include="Infer.fs"/>
     </ItemGroup>
 
     <ItemGroup>

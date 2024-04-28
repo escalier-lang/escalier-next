@@ -1068,3 +1068,105 @@ module rec Graph =
 
       return ns
     }
+
+  // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
+  let mergeType (imutType: Type) (mutType: Type) : Type =
+    // If a method exists on both `imutType` and `mutType` then it's a mutable method
+    // If it only exists on `imutType` then it's an immutable method
+    // There should never be a method that only exists on `mutType`
+
+    match imutType.Kind, mutType.Kind with
+    | TypeKind.Object imutElems, TypeKind.Object mutElems ->
+      // TODO: figure out how to handle overloaded methods
+      let mutable imutNamedElems: Map<Type.PropName, ObjTypeElem> =
+        imutElems.Elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Property p ->
+            match p.Name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Method(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | _ -> None)
+        |> Map.ofSeq
+
+      let mutable unnamedElems: list<ObjTypeElem> = []
+
+      let mutable mutNamedElems: Map<Type.PropName, ObjTypeElem> =
+        mutElems.Elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Property p ->
+            match p.Name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Method(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Getter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | ObjTypeElem.Setter(name, fn) ->
+            match name with
+            | PropName.String s -> Some(Type.PropName.String s, elem)
+            | PropName.Number n -> Some(Type.PropName.Number n, elem)
+            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+          | elem ->
+            // This assumes that indexed/mapped signatures are on both the
+            // readonly and non-readonly interfaces.  We ignore the readonly
+            // one because the signature isn't responsible for preventing
+            // mutation of the object in this way.  Instead we have a special
+            // check for this.
+            unnamedElems <- elem :: unnamedElems
+            None)
+        |> Map.ofSeq
+
+      let elems =
+        mutNamedElems
+        |> Map.toSeq
+        |> Seq.map (fun (key, value) ->
+          match imutNamedElems.TryFind key with
+          | Some(imutValue) -> imutValue
+          | None ->
+            match value with
+            | ObjTypeElem.Method(name, fn) ->
+              let self =
+                match fn.Self with
+                | None -> None
+                | Some self ->
+                  Some
+                    { self with
+                        Pattern =
+                          Pattern.Identifier { Name = "self"; IsMut = true } }
+
+              ObjTypeElem.Method(name, { fn with Self = self })
+            | elem -> elem)
+
+      let kind =
+        TypeKind.Object
+          { Elems = List.ofSeq elems @ unnamedElems
+            Immutable = false
+            Interface = false }
+
+      { Kind = kind; Provenance = None }
+    | _ -> failwith "both types must be objects to merge them"

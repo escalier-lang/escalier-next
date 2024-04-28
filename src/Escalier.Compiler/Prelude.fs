@@ -503,7 +503,8 @@ module Prelude =
           newEnv.TryFindScheme "ReadonlyArray", newEnv.TryFindScheme "Array"
         with
         | Some(readonlyArray), Some(array) ->
-          let merged = Infer.mergeType readonlyArray.Type array.Type
+          // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
+          let merged = Graph.mergeType readonlyArray.Type array.Type
           newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
 
           // TODO: for type definitions using Array and ReadonlyArray we need to

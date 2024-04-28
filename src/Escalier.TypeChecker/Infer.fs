@@ -2956,14 +2956,12 @@ module rec Infer =
           // types.
           newEnv <- newEnv.AddScheme typeDecl.Name placeholder
         | InterfaceDecl { Name = name; TypeParams = typeParams } ->
-          // TODO: replace placeholders, with a reference the actual definition
-          // once we've inferred the definition
-          let! placeholder = inferTypeDeclPlaceholderScheme ctx env typeParams
+          let! placeholder =
+            match newEnv.TryFindScheme name with
+            | Some scheme -> Result.Ok scheme
+            | None -> inferTypeDeclPlaceholderScheme ctx env typeParams
 
           placeholderNS <- placeholderNS.AddScheme name placeholder
-          // TODO: update AddScheme to return a Result<Env, TypeError> and
-          // return an error if the name already exists since we can't redefine
-          // types.
           newEnv <- newEnv.AddScheme name placeholder
         | NamespaceDecl nsDecl ->
           let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
@@ -2993,7 +2991,8 @@ module rec Infer =
         | VarDecl varDecl ->
           // NOTE: We explicitly don't generalize here because we want other
           // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things below.
+          // from this declaration.  We generalize things in `inferModule` and
+          // `inferTreeRec`.
           let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
 
           for binding in newBindings do
@@ -3007,7 +3006,8 @@ module rec Infer =
                    Body = Some body } ->
           // NOTE: We explicitly don't generalize here because we want other
           // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things below.
+          // from this declaration.  We generalize things in `inferModule` and
+          // `inferTreeRec`.
           let! f = inferFunction ctx newEnv fnSig body
 
           let t =
@@ -3051,29 +3051,10 @@ module rec Infer =
           // - InferRecursiveGenericObjectTypeInModule
           // - InferNamespaceInModule
           placeholder.Type <- scheme.Type
-        | NamespaceDecl { Name = name; Body = decls } ->
-          let! placeholderNS =
-            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
-
-          let mutable nsEnv = newEnv
-
-          nsEnv <- nsEnv.AddBindings placeholderNS.Values
-
-          for KeyValue(name, ns) in placeholderNS.Namespaces do
-            nsEnv <- nsEnv.AddNamespace name ns
-
-          for KeyValue(name, scheme) in placeholderNS.Schemes do
-            nsEnv <- nsEnv.AddScheme name scheme
-
-          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
-          inferredNS <- inferredNS.AddNamespace name ns
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
           let! placeholder = placeholderNS.GetScheme name
-
-          // Handles self-recursive types
-          newEnv <- newEnv.AddScheme name placeholder
 
           let getType (env: Env) : Result<Type, TypeError> =
             result {
@@ -3093,6 +3074,7 @@ module rec Infer =
           match placeholder.Type.Kind, newScheme.Type.Kind with
           | TypeKind.Object { Elems = existingElems },
             TypeKind.Object { Elems = newElems } ->
+            // TODO: remove duplicates
             let mergedElems = existingElems @ newElems
 
             let kind =
@@ -3101,8 +3083,12 @@ module rec Infer =
                   Immutable = false
                   Interface = false }
 
+            // NOTE: We explicitly don't generalize here because we want other
+            // declarations to be able to unify with any free type variables
+            // from this declaration.  We generalize things in `inferModule` and
+            // `inferTreeRec`.
             // TODO: suport multiple provenances
-            let t = generalizeFunctionsInType { Kind = kind; Provenance = None }
+            let t = { Kind = kind; Provenance = None }
 
             // We modify the existing scheme in place so that existing values
             // with this type are updated.
@@ -3112,6 +3098,22 @@ module rec Infer =
             // NOTE: This is a bit hacky and we may want to change this later to use
             // `foldType` to replace any uses of the placeholder with the actual type.
             placeholder.Type <- newScheme.Type
+        | NamespaceDecl { Name = name; Body = decls } ->
+          let! placeholderNS =
+            newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
+
+          let mutable nsEnv = newEnv
+
+          nsEnv <- nsEnv.AddBindings placeholderNS.Values
+
+          for KeyValue(name, ns) in placeholderNS.Namespaces do
+            nsEnv <- nsEnv.AddNamespace name ns
+
+          for KeyValue(name, scheme) in placeholderNS.Schemes do
+            nsEnv <- nsEnv.AddScheme name scheme
+
+          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
+          inferredNS <- inferredNS.AddNamespace name ns
 
       return newEnv, inferredNS
     }

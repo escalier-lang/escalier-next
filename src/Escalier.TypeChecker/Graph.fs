@@ -870,14 +870,18 @@ module rec Graph =
     result {
       let mutable newEnv = env
 
-      let mutable sets: Set<Set<DeclIdent>> = Set.empty
+      let mutable entryPoints: Set<Set<DeclIdent>> = Set.empty
+      let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
 
       for KeyValue(key, value) in nodes do
         match tree.CycleMap.TryFind(key) with
-        | Some set -> sets <- sets.Add(set)
-        | None -> sets <- sets.Add(Set.singleton key)
+        | Some set -> entryPoints <- entryPoints.Add(set)
+        | None ->
+          // Anything that appears in deps can't be an entry point
+          if not (Set.contains key deps) then
+            entryPoints <- entryPoints.Add(Set.singleton key)
 
-      for set in sets do
+      for set in entryPoints do
         try
           let! nextEnv = inferTreeRec ctx newEnv set nodes tree
           newEnv <- nextEnv

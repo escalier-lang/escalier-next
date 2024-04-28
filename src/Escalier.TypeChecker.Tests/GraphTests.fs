@@ -4,8 +4,8 @@ open FsToolkit.ErrorHandling
 open Xunit
 
 open Escalier.Parser
-open Escalier.TypeChecker.Graph
 open Escalier.Compiler
+open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
 open TestUtils
 
@@ -19,14 +19,7 @@ let BuildDeclGraph () =
         let y = x;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "5")
@@ -44,15 +37,7 @@ let BuildDeclGraphIncorrectOrder () =
         let x = 5;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       ()
     }
 
@@ -78,15 +63,7 @@ let BuildDeclGraphWithFunction () =
         let sum = add();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -106,15 +83,7 @@ let GraphWithFunctionWithParam () =
         let sum = add(10);
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "add", "fn <A: number>(y: A) -> 5 + A")
       Assert.Value(env, "sum", "15")
@@ -131,15 +100,7 @@ let BuildDeclGraphWithGenericFunction () =
         let id = fn (x) => x;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "id", "fn <A>(x: A) -> A")
     }
 
@@ -157,15 +118,7 @@ let BuildDeclGraphWithFunctions () =
         let {foo, bar} = obj;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       ()
     }
 
@@ -183,15 +136,7 @@ let BuildDeclGraphWithCapturesDefinedAfterClosure () =
         let sum = add();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -212,15 +157,7 @@ let GraphWithNonFunctionDeps () =
         let sum = add();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -246,15 +183,7 @@ let GraphWithFunctionCallDeps () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -281,15 +210,7 @@ let GraphWithFunctionCallDepsWithObjects () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "math", "{add: fn () -> 15, sub: fn () -> -5}")
@@ -312,15 +233,7 @@ let GraphWithFunctionsInObject () =
         let sum = math.add();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "sum", "15")
@@ -343,15 +256,7 @@ let AcyclicFunctionDeps () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -375,15 +280,7 @@ let AcyclicFunctionDepsBuildGraphFirst () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -406,15 +303,7 @@ let AcyclicFunctionDepsInObject () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "math", "{add: fn () -> 15, sub: fn () -> -5}")
@@ -436,15 +325,7 @@ let AcyclicFunctionDepsInObjectWithDestructuring () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -468,15 +349,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringInSeparateStatement () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -498,15 +371,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringStress () =
         let result = poly();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
       Assert.Value(env, "add", "fn () -> 15")
@@ -527,15 +392,7 @@ let BuildRecursiveGraph () =
         let fib = fn (n) => if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       // TODO: merge 1 and number
       // TODO: maintain the name of the function argument
       Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
@@ -560,10 +417,11 @@ let MutuallyRecursiveGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let decls = getDeclsFromModule ast
+      let decls = Graph.getDeclsFromModule ast
 
       let! graph =
-        buildGraph env [] [] decls |> Result.mapError CompileError.TypeError
+        Graph.buildGraph env [] [] decls
+        |> Result.mapError CompileError.TypeError
 
       printfn "graph.Edges = %A" graph.Edges
 
@@ -590,15 +448,7 @@ let MutuallyRecursiveGraphInObjects () =
         };
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       // TODO: simplify return types to `boolean`
       Assert.Value(
         env,
@@ -633,15 +483,7 @@ let MutuallyRecursiveGraphInDeppObjects () =
         };
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       // TODO: simplify return types to `boolean`
       Assert.Value(
         env,
@@ -668,15 +510,7 @@ let MutuallyRecursiveTypeDecl () =
         type Bar = {bar: string | Foo["foo"][]};
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Type(env, "Foo", "{foo: number | Bar[\"bar\"][]}")
       Assert.Type(env, "Bar", "{bar: string | Foo[\"foo\"][]}")
     }
@@ -695,15 +529,7 @@ let MergeInterfaceBetweenFiles () =
         declare let keys: Keys;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
-
+      let! ctx, env = inferModule src
       Assert.Type(env, "Keys", "{foo: \"foo\"}")
 
       let src =
@@ -719,8 +545,7 @@ let MergeInterfaceBetweenFiles () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let! env =
-        inferModuleUsingTree ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Graph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
 

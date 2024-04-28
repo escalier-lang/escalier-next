@@ -521,6 +521,7 @@ let InferFuncGenericFunc () =
       Assert.Value(env, "baz", "\"hello\"")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

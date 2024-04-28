@@ -180,7 +180,7 @@ module rec Migrate =
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
         | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> failwith "TODO: handle computed property name"
+        | expr -> Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Property
         { Name = name
@@ -217,7 +217,7 @@ module rec Migrate =
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
         | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> failwith "TODO: handle computed property name"
+        | expr -> Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Method { Name = name; Type = f }
     | TsIndexSignature { Readonly = readonly
@@ -256,7 +256,7 @@ module rec Migrate =
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
         | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> failwith "TODO: handle computed property name"
+        | expr -> Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Getter
         { Name = name
@@ -279,7 +279,7 @@ module rec Migrate =
         | Expr.Ident id -> PropName.String id.Name
         | Expr.Lit(Lit.Str str) -> PropName.String str.Value
         | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> failwith "TODO: handle computed property name"
+        | expr -> Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Setter
         { Name = name
@@ -628,7 +628,7 @@ module rec Migrate =
       Span = DUMMY_SPAN
       InferredType = None }
 
-  let migrateModuleDecl (decl: ModuleDecl) : Syntax.ModuleItem =
+  let rec migrateModuleDecl (decl: ModuleDecl) : list<Syntax.ModuleItem> =
     match decl with
     | ModuleDecl.Import { Specifiers = specifiers
                           Src = src
@@ -654,13 +654,16 @@ module rec Migrate =
               Syntax.ImportSpecifier.ModuleAlias local.Name)
           specifiers
 
-      ModuleItem.Import
-        { Path = src.Value
-          Specifiers = specifiers }
-    | ModuleDecl.ExportDecl(_) ->
-      failwith "TODO: migrateModuleDecl - exportDecl"
-    | ModuleDecl.ExportNamed(_) ->
-      failwith "TODO: migrateModuleDecl - exportNamed"
+      [ ModuleItem.Import
+          { Path = src.Value
+            Specifiers = specifiers } ]
+    | ModuleDecl.ExportDecl { Decl = decl } ->
+      List.map Syntax.ModuleItem.Decl (migrateStmt (Stmt.Decl decl))
+    | ModuleDecl.ExportNamed namedExport ->
+      // TODO: handle named exports with specifiers
+      // The only modules that use this so far do `export {}` so the specifiers
+      // is empty.
+      []
     | ModuleDecl.ExportDefaultDecl(_) ->
       failwith "TODO: migrateModuleDecl - exportDefaultDecl"
     | ModuleDecl.ExportDefaultExpr(_) ->
@@ -813,9 +816,7 @@ module rec Migrate =
 
         [ { Kind = DeclKind.ClassDecl decl
             Span = DUMMY_SPAN } ]
-      | Decl.Fn { Declare = _declare
-                  Id = ident
-                  Fn = f } ->
+      | Decl.Fn { Declare = _; Id = ident; Fn = f } ->
 
         let typeParams =
           Option.map
@@ -845,7 +846,7 @@ module rec Migrate =
 
         let kind =
           DeclKind.FnDecl
-            { Declare = _declare
+            { Declare = true // Some .d.ts files do `export function foo();`
               Name = ident.Name
               Sig = fnSig
               Body = None }
@@ -909,7 +910,28 @@ module rec Migrate =
               List.collect
                 (fun (item: ModuleItem) ->
                   match item with
-                  | ModuleItem.ModuleDecl decl -> [] // TODO
+                  | ModuleItem.ModuleDecl decl ->
+                    match decl with
+                    | ModuleDecl.ExportDecl { Decl = decl } ->
+                      migrateStmt (Stmt.Decl decl)
+
+                    | ModuleDecl.Import importDecl ->
+                      failwith "TODO: TsModule - Import"
+                    | ModuleDecl.ExportNamed namedExport ->
+                      failwith "TODO: TsModule - ExportNamed"
+                    | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+                      failwith "TODO: TsModule - ExportDefaultDecl"
+                    | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+                      failwith "TODO: TsModule - ExportDefaultExpr"
+                    | ModuleDecl.ExportAll exportAll ->
+                      failwith "TODO: TsModule - ExportAll"
+                    | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+                      failwith "TODO: TsModule - TsImportEquals"
+                    | ModuleDecl.TsExportAssignment tsExportAssignment ->
+                      failwith "TODO: TsModule - TsExportAssignment"
+                    | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+                      failwith "TODO: TsModule - TsNamespaceExport"
+
                   | ModuleItem.Stmt stmt -> migrateStmt stmt)
                 items
             | TsNamespaceDecl _tsNamespaceDecl ->
@@ -926,7 +948,7 @@ module rec Migrate =
         (fun (item: ModuleItem) ->
           try
             match item with
-            | ModuleItem.ModuleDecl decl -> [ migrateModuleDecl decl ]
+            | ModuleItem.ModuleDecl decl -> migrateModuleDecl decl
             | ModuleItem.Stmt stmt ->
               List.map Syntax.ModuleItem.Decl (migrateStmt stmt)
           with ex ->

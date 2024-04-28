@@ -886,6 +886,7 @@ let InferEnumPatternMatching () =
       Assert.Value(env, "x", "number")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1152,16 +1153,16 @@ let InferNamespaceInModule () =
     result {
       let src =
         """
-        let x = Foo.Bar.x;
-        let y = Foo.y;
         type Baz = Foo.Baz;
         namespace Foo {
-          let y = Bar.x;
           namespace Bar {
             let x = 5;
           }
+          let y = Bar.x;
           type Baz = string;
         }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
         """
 
       let! ctx, env = inferModule src

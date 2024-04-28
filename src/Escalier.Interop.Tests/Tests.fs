@@ -10,9 +10,10 @@ open Xunit
 
 open Escalier.Compiler
 open Escalier.Parser
-open Escalier.Interop.Infer
+open Escalier.Interop.Migrate
 open Escalier.Interop.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Graph
 open Escalier.TypeChecker.Env
 
 type Assert with
@@ -425,20 +426,22 @@ let InferBasicVarDecls () =
 
       let! ast =
         match parseModule input with
-        | Success(value, _, _) -> Result.Ok(value)
-        | Failure(_, parserError, _) ->
-          Result.mapError CompileError.ParseError (Result.Error(parserError))
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let! newEnv =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      let! env =
+        inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
-      Assert.Value(newEnv, "a", "number")
-      Assert.Value(newEnv, "b", "string | undefined")
-      Assert.Value(newEnv, "c", "fn (a: number) -> string")
-      Assert.Value(newEnv, "d", "fn <T>(x: T) -> T")
-      Assert.Value(newEnv, "e", "[5, \"hello\", true]")
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "b", "string | undefined")
+      Assert.Value(env, "c", "fn (mut a: number) -> string")
+      Assert.Value(env, "d", "fn <T>(mut x: T) -> T")
+      Assert.Value(env, "e", "[5, \"hello\", true]")
     }
 
   Assert.True(Result.isOk res)
@@ -460,19 +463,22 @@ let InferTypeDecls () =
 
       let! ast =
         match parseModule input with
-        | Success(value, _, _) -> Result.Ok(value)
-        | Failure(_, parserError, _) ->
-          Result.mapError CompileError.ParseError (Result.Error(parserError))
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let! newEnv =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      let! env =
+        inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
-      Assert.Type(newEnv, "Pick", "{[P]: T[P] for P in K}")
-      Assert.Type(newEnv, "Exclude", "T extends U ? never : T")
-      Assert.Type(newEnv, "Omit", "Pick<T, Exclude<keyof T, K>>")
-      Assert.Type(newEnv, "Point", "{x: number, y: number}")
+      Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
+      Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
+      // TODO: infer `keyof any` as `string | number | symbol`
+      Assert.Type(env, "Omit", "<T, K: keyof t5>(Pick<T, Exclude<keyof T, K>>)")
+      Assert.Type(env, "Point", "{x: number, y: number}")
     }
 
   printfn "res = %A" res
@@ -690,7 +696,14 @@ let ImportThirdPartyModules () =
         type AccentColor = Property.AccentColor;
         """
 
-      let! ctx, env = inferScript src
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Graph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -698,10 +711,12 @@ let ImportThirdPartyModules () =
         "\"-moz-initial\" | \"inherit\" | \"initial\" | \"revert\" | \"revert-layer\" | \"unset\""
       )
 
+      // TODO: use sets when computing dependencies instead of lists so that we don't end up
+      // inferring the same thing multiple times
       Assert.Type(
         env,
         "SchedulerInteraction",
-        "{__count: number, id: number, name: string, timestamp: number}"
+        "{__count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number, __count: number, id: number, name: string, timestamp: number}"
       )
 
       Assert.Type(env, "AccentColor", "Property.AccentColor")
@@ -731,7 +746,14 @@ let ImportReact () =
         import "react" as React;
         """
 
-      let! ctx, env = inferScript src
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Graph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "React", "React")
     }

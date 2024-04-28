@@ -126,7 +126,16 @@ module rec ExprVisitor =
       Option.iter (walkTypeAnn visitor state) typeAnn
       Option.iter (walkExpr visitor state) init
     | DeclKind.FnDecl { Sig = fnSig; Body = body } ->
-      // TODO: walk type params
+      match fnSig.TypeParams with
+      | Some typeParams ->
+        List.iter
+          (fun (typeParam: TypeParam) ->
+            // TODO: include type param name in visitor state
+            Option.iter (walkTypeAnn visitor state) typeParam.Constraint
+            Option.iter (walkTypeAnn visitor state) typeParam.Default)
+          typeParams
+      | _ -> ()
+
       List.iter
         (fun (param: FuncParam) ->
           Option.iter (walkTypeAnn visitor state) param.TypeAnn)

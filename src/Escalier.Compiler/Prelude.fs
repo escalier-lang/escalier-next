@@ -339,7 +339,7 @@ module Prelude =
     (ctx: Ctx)
     (env: Env)
     (fullPath: string)
-    : Result<Env * TypeScript.Module, CompileError> =
+    : Result<Env * Syntax.Module, CompileError> =
 
     result {
       let input = File.ReadAllText(fullPath)
@@ -350,10 +350,12 @@ module Prelude =
         | FParsec.CharParsers.Failure(_, parserError, _) ->
           Result.mapError CompileError.ParseError (Result.Error(parserError))
 
+      let ast = Migrate.migrateModule ast
+
       let newEnv = { env with Filename = fullPath }
 
       let! outEnv =
-        Infer.inferModule ctx newEnv ast
+        Graph.inferModule ctx newEnv ast
         |> Result.mapError CompileError.TypeError
 
       return outEnv, ast
@@ -371,7 +373,7 @@ module Prelude =
 
   let getCtx
     (projectRoot: string)
-    (globalEnv: Env)
+    (getGlobalEnv: unit -> Env)
     : Result<Ctx, CompileError> =
 
     result {
@@ -383,7 +385,7 @@ module Prelude =
             let exportNs =
               if resolvedPath.EndsWith(".d.ts") then
                 let modEnv, modAst =
-                  match inferLib ctx globalEnv resolvedPath with
+                  match inferLib ctx (getGlobalEnv ()) resolvedPath with
                   | Ok value -> value
                   | Error err ->
                     printfn "err = %A" err
@@ -391,7 +393,7 @@ module Prelude =
 
                 let ns =
                   match
-                    Infer.getExports ctx modEnv "<exports>" modAst.Body
+                    Graph.getExports ctx modEnv "<exports>" modAst.Items
                   with
                   | Ok value -> value
                   | Error err ->
@@ -418,7 +420,7 @@ module Prelude =
                 // TODO: update `inferScript to also return just the new symbols
                 // scriptEnv
                 let scriptEnv =
-                  match Infer.inferScript ctx globalEnv filename m with
+                  match Infer.inferScript ctx (getGlobalEnv ()) filename m with
                   | Ok value -> value
                   | Error err ->
                     printfn "err = %A" err
@@ -466,7 +468,11 @@ module Prelude =
         return ctx, env
       | None ->
         let env = getGlobalEnvMemoized ()
-        let! ctx = getCtx baseDir env
+        let mutable newEnv = env
+
+        // QUESTION: How do we make sure that the environment being used by
+        // ctx is update to date.
+        let! ctx = getCtx baseDir (fun _ -> newEnv)
 
         let libs =
           [ "lib.es5.d.ts"
@@ -479,9 +485,8 @@ module Prelude =
             // "lib.es2015.promise.d.ts"
             "lib.es2015.proxy.d.ts"
             // "lib.es2015.reflect.d.ts"
-            "lib.dom.d.ts" ]
-
-        let mutable newEnv = env
+            // "lib.dom.d.ts" // requires `globalThis` to be defined
+            ]
 
         let packageRoot = findNearestAncestorWithNodeModules baseDir
         let nodeModulesDir = Path.Combine(packageRoot, "node_modules")
@@ -498,7 +503,8 @@ module Prelude =
           newEnv.TryFindScheme "ReadonlyArray", newEnv.TryFindScheme "Array"
         with
         | Some(readonlyArray), Some(array) ->
-          let merged = Infer.mergeType readonlyArray.Type array.Type
+          // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
+          let merged = Graph.mergeType readonlyArray.Type array.Type
           newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
 
           // TODO: for type definitions using Array and ReadonlyArray we need to

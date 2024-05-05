@@ -359,7 +359,7 @@ let AcyclicFunctionDepsInObjectWithDestructuringInSeparateStatement () =
 
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "Fix stackoverflow")>]
+[<Fact>]
 let AcyclicFunctionDepsInObjectWithDestructuringStress () =
   let res =
     result {

@@ -1183,6 +1183,36 @@ let InferNamespaceInModule () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferMutuallyRecursiveNamespaces () =
+  let result =
+    result {
+      let src =
+        """
+        namespace Foo {
+          type Baz = string;
+          type Qux = GlobalQux;
+        }
+        namespace Bar {
+          type Baz = GlobalBaz;
+          type Qux = number;
+        }
+        let x: Foo.Baz = "hello";
+        let y: Bar.Qux = 5;
+        type GlobalQux = Bar.Qux;
+        type GlobalBaz = Foo.Baz;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "x", "Foo.Baz")
+      Assert.Value(env, "y", "Bar.Qux")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferInterfaceInScript () =
   let result =
     result {

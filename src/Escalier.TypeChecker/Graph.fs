@@ -986,11 +986,7 @@ module rec Graph =
         | _ -> None)
       ast.Items
 
-  let inferModule
-    (ctx: Ctx)
-    (env: Env)
-    (ast: Module)
-    : Result<Env, TypeError> =
+  let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
     result {
       // TODO: update this function to accept a filename
       let mutable newEnv = { env with Filename = "input.esc" }
@@ -1078,59 +1074,59 @@ module rec Graph =
     match imutType.Kind, mutType.Kind with
     | TypeKind.Object imutElems, TypeKind.Object mutElems ->
       // TODO: figure out how to handle overloaded methods
-      let mutable imutNamedElems: Map<Type.PropName, ObjTypeElem> =
+      let mutable imutNamedElems: Map<PropName, ObjTypeElem> =
         imutElems.Elems
         |> List.choose (fun elem ->
           match elem with
           | ObjTypeElem.Property p ->
             match p.Name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | ObjTypeElem.Method(name, fn) ->
             match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | ObjTypeElem.Getter(name, fn) ->
             match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | ObjTypeElem.Setter(name, fn) ->
             match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | _ -> None)
         |> Map.ofSeq
 
       let mutable unnamedElems: list<ObjTypeElem> = []
 
-      let mutable mutNamedElems: Map<Type.PropName, ObjTypeElem> =
+      let mutable mutNamedElems: Map<PropName, ObjTypeElem> =
         mutElems.Elems
         |> List.choose (fun elem ->
           match elem with
           | ObjTypeElem.Property p ->
             match p.Name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | ObjTypeElem.Method(name, fn) ->
             match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | ObjTypeElem.Getter(name, fn) ->
             match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | ObjTypeElem.Setter(name, fn) ->
             match name with
-            | PropName.String s -> Some(Type.PropName.String s, elem)
-            | PropName.Number n -> Some(Type.PropName.Number n, elem)
-            | PropName.Symbol i -> Some(Type.PropName.Symbol i, elem)
+            | PropName.String s -> Some(PropName.String s, elem)
+            | PropName.Number n -> Some(PropName.Number n, elem)
+            | PropName.Symbol i -> Some(PropName.Symbol i, elem)
           | elem ->
             // This assumes that indexed/mapped signatures are on both the
             // readonly and non-readonly interfaces.  We ignore the readonly

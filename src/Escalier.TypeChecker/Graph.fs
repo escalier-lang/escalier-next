@@ -8,7 +8,6 @@ open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
 
-open Helpers
 open Error
 open Env
 
@@ -16,25 +15,6 @@ module rec Graph =
   let start = FParsec.Position("", 0, 1, 1)
   let stop = FParsec.Position("", 0, 1, 1)
   let DUMMY_SPAN: Span = { Start = start; Stop = stop }
-
-  type DeclIdent =
-    | Value of string
-    | Type of string
-
-  type DeclGraph =
-    { Edges: Map<DeclIdent, list<DeclIdent>>
-      Nodes: Map<DeclIdent, list<Decl>> }
-
-    member this.Add(name: DeclIdent, decl: Decl, deps: list<DeclIdent>) =
-      let decls =
-        match this.Nodes.TryFind name with
-        | Some nodes -> nodes @ [ decl ]
-        | None -> [ decl ]
-
-      { Edges = this.Edges.Add(name, deps)
-        Nodes = this.Nodes.Add(name, decls) }
-
-    static member Empty = { Edges = Map.empty; Nodes = Map.empty }
 
   // Find identifiers in an expression excluding function expressions.
   let findIdentifiers (expr: Expr) : list<DeclIdent> =
@@ -219,7 +199,7 @@ module rec Graph =
         | Type name -> None)
 
     for p in f.Sig.ParamList do
-      localNames <- localNames @ Infer.findBindingNames p.Pattern
+      localNames <- localNames @ Helpers.findBindingNames p.Pattern
 
     let mutable captures: list<DeclIdent> = []
 
@@ -250,7 +230,7 @@ module rec Graph =
               | StmtKind.Decl decl ->
                 match decl.Kind with
                 | DeclKind.VarDecl { Pattern = pattern } ->
-                  Infer.findBindingNames pattern
+                  Helpers.findBindingNames pattern
                 | _ -> [] // TODO: handle other kinds of declarations
               | _ -> []
 
@@ -293,7 +273,7 @@ module rec Graph =
       match decl.Kind with
       | VarDecl { Pattern = pattern } ->
         let bindingNames =
-          Infer.findBindingNames pattern |> List.map DeclIdent.Value
+          Helpers.findBindingNames pattern |> List.map DeclIdent.Value
 
         locals <- locals @ bindingNames
       | FnDecl { Name = name } -> locals <- locals @ [ DeclIdent.Value name ]
@@ -511,7 +491,7 @@ module rec Graph =
                     Init = init
                     TypeAnn = typeAnn } ->
           let bindingNames =
-            Infer.findBindingNames pattern |> List.map DeclIdent.Value
+            Helpers.findBindingNames pattern |> List.map DeclIdent.Value
 
           match declare, init with
           | false, Some init ->
@@ -784,6 +764,8 @@ module rec Graph =
 
           graph <- graph.Add(DeclIdent.Value name, decl, deps)
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
+          graph <- graph.AddNamespace(name, subgraph)
+
           declared <- declared @ [ DeclIdent.Value name ]
 
       return graph
@@ -873,146 +855,6 @@ module rec Graph =
     { CycleMap = cycleMap
       Edges = newEdges }
 
-  let inferTreeRec
-    (ctx: Ctx)
-    (env: Env)
-    (root: Set<DeclIdent>)
-    (nodes: Map<DeclIdent, list<Decl>>)
-    (tree: DeclTree)
-    : Result<Env, TypeError> =
-
-    result {
-      let mutable newEnv = env
-
-      match tree.Edges.TryFind root with
-      | Some deps ->
-        for dep in deps do
-          let! depEnv = inferTreeRec ctx newEnv dep nodes tree
-          newEnv <- depEnv
-      | None -> ()
-
-      match List.ofSeq root with
-      | [] ->
-        return!
-          Error(
-            TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
-          )
-      | [ name ] ->
-        // let decl = nodes[name]
-        // let generalize = true
-        // return! inferDecl ctx newEnv decl generalize
-        let decls = nodes[name]
-
-        let! newEnv, placeholderNS =
-          Infer.inferDeclPlaceholders ctx newEnv decls
-
-        let! newEnv, inferredNS =
-          Infer.inferDeclDefinitions ctx newEnv placeholderNS decls
-
-        do!
-          Infer.unifyPlaceholdersAndInferredTypes
-            ctx
-            newEnv
-            placeholderNS
-            inferredNS
-
-        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
-        // so that we can avoid generalizing here.
-        let bindings = generalizeBindings inferredNS.Values
-        let newEnv = newEnv.AddBindings bindings
-
-        return newEnv
-      | names ->
-        let decls = names |> List.map (fun name -> nodes[name]) |> List.concat
-
-        let! newEnv, placeholderNS =
-          Infer.inferDeclPlaceholders ctx newEnv decls
-
-        let! newEnv, inferredNS =
-          Infer.inferDeclDefinitions ctx newEnv placeholderNS decls
-
-        do!
-          Infer.unifyPlaceholdersAndInferredTypes
-            ctx
-            newEnv
-            placeholderNS
-            inferredNS
-
-        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
-        // so that we can avoid generalizing here.
-        let bindings = generalizeBindings inferredNS.Values
-        let newEnv = newEnv.AddBindings bindings
-
-        return newEnv
-    }
-
-  let inferTree
-    (ctx: Ctx)
-    (env: Env)
-    (nodes: Map<DeclIdent, list<Decl>>)
-    (tree: DeclTree)
-    : Result<Env, TypeError> =
-
-    result {
-      let mutable newEnv = env
-
-      let mutable entryPoints: Set<Set<DeclIdent>> = Set.empty
-      let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
-
-      for KeyValue(key, value) in nodes do
-        match tree.CycleMap.TryFind(key) with
-        | Some set -> entryPoints <- entryPoints.Add(set)
-        | None ->
-          // Anything that appears in deps can't be an entry point
-          if not (Set.contains key deps) then
-            entryPoints <- entryPoints.Add(Set.singleton key)
-
-      for set in entryPoints do
-        try
-          let! nextEnv = inferTreeRec ctx newEnv set nodes tree
-          newEnv <- nextEnv
-        with e ->
-          printfn $"Error: {e}"
-          return! Error(TypeError.SemanticError(e.ToString()))
-
-      return newEnv
-    }
-
-  let getDeclsFromModule (ast: Module) : list<Decl> =
-    List.choose
-      (fun item ->
-        match item with
-        | Decl decl -> Some decl
-        | _ -> None)
-      ast.Items
-
-  let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
-    result {
-      // TODO: update this function to accept a filename
-      let mutable newEnv = { env with Filename = "input.esc" }
-
-      let imports =
-        List.choose
-          (fun item ->
-            match item with
-            | Import import -> Some import
-            | _ -> None)
-          ast.Items
-
-      for import in imports do
-        let! importEnv = Infer.inferImport ctx newEnv import
-        newEnv <- importEnv
-
-      let decls = getDeclsFromModule ast
-      let! graph = buildGraph newEnv [] [] decls
-
-      // for KeyValue(key, value) in graph.Edges do
-      //   printfn $"{key} -> {value}"
-
-      let tree = graphToTree graph.Edges
-      return! inferTree ctx newEnv graph.Nodes tree
-    }
-
   let getExports
     (ctx: Ctx)
     (env: Env)
@@ -1040,7 +882,7 @@ module rec Graph =
             let isMut = false
             ns <- ns.AddBinding name (t, isMut)
           | DeclKind.VarDecl { Pattern = pattern } ->
-            let names = Infer.findBindingNames pattern
+            let names = Helpers.findBindingNames pattern
 
             for name in names do
               let! t = env.GetValue name

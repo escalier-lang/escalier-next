@@ -11,7 +11,7 @@ open Escalier.Compiler
 open Escalier.Interop.Parser
 open Escalier.Interop.Migrate
 open Escalier.TypeChecker
-open Escalier.TypeChecker.Graph
+open Escalier.TypeChecker.Infer
 open Escalier.TypeChecker.Env
 
 type Assert with

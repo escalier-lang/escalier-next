@@ -16,6 +16,7 @@ open Mutability
 open Poly
 open Unify
 open Helpers
+open Graph
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
@@ -2863,6 +2864,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (decls: list<Decl>)
+    (graph: DeclGraph)
     : Result<Env * Namespace, TypeError> =
 
     result {
@@ -2964,7 +2966,8 @@ module rec Infer =
           placeholderNS <- placeholderNS.AddScheme name placeholder
           newEnv <- newEnv.AddScheme name placeholder
         | NamespaceDecl nsDecl ->
-          let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body
+          let subgraph = graph.Namespaces[nsDecl.Name]
+          let! _, ns = inferDeclPlaceholders ctx env nsDecl.Body subgraph
           let ns = { ns with Name = nsDecl.Name }
           placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
           newEnv <- newEnv.AddNamespace nsDecl.Name ns
@@ -2980,6 +2983,7 @@ module rec Infer =
     // with the placeholder types.
     (placeholderNS: Namespace)
     (decls: list<Decl>)
+    (graph: DeclGraph)
     : Result<Env * Namespace, TypeError> =
 
     result {
@@ -3113,10 +3117,152 @@ module rec Infer =
           for KeyValue(name, scheme) in placeholderNS.Schemes do
             nsEnv <- nsEnv.AddScheme name scheme
 
-          let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls
+          let subgraph = graph.Namespaces[name]
+
+          let! _, ns =
+            inferDeclDefinitions ctx nsEnv placeholderNS decls subgraph
+
           inferredNS <- inferredNS.AddNamespace name ns
 
       return newEnv, inferredNS
+    }
+
+  let inferTreeRec
+    (ctx: Ctx)
+    (env: Env)
+    (root: Set<DeclIdent>)
+    (graph: DeclGraph)
+    (tree: DeclTree)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      match tree.Edges.TryFind root with
+      | Some deps ->
+        for dep in deps do
+          let! depEnv = inferTreeRec ctx newEnv dep graph tree
+          newEnv <- depEnv
+      | None -> ()
+
+      match List.ofSeq root with
+      | [] ->
+        return!
+          Error(
+            TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
+          )
+      | [ name ] ->
+        let decls = graph.Nodes[name]
+
+        let! newEnv, placeholderNS =
+          Infer.inferDeclPlaceholders ctx newEnv decls graph
+
+        let! newEnv, inferredNS =
+          Infer.inferDeclDefinitions ctx newEnv placeholderNS decls graph
+
+        do!
+          Infer.unifyPlaceholdersAndInferredTypes
+            ctx
+            newEnv
+            placeholderNS
+            inferredNS
+
+        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
+        // so that we can avoid generalizing here.
+        let bindings = generalizeBindings inferredNS.Values
+        let newEnv = newEnv.AddBindings bindings
+
+        return newEnv
+      | names ->
+        let decls =
+          names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
+
+        let! newEnv, placeholderNS =
+          Infer.inferDeclPlaceholders ctx newEnv decls graph
+
+        let! newEnv, inferredNS =
+          Infer.inferDeclDefinitions ctx newEnv placeholderNS decls graph
+
+        do!
+          Infer.unifyPlaceholdersAndInferredTypes
+            ctx
+            newEnv
+            placeholderNS
+            inferredNS
+
+        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
+        // so that we can avoid generalizing here.
+        let bindings = generalizeBindings inferredNS.Values
+        let newEnv = newEnv.AddBindings bindings
+
+        return newEnv
+    }
+
+  let inferTree
+    (ctx: Ctx)
+    (env: Env)
+    (graph: DeclGraph)
+    (tree: DeclTree)
+    : Result<Env, TypeError> =
+
+    result {
+      let mutable newEnv = env
+
+      let mutable entryPoints: Set<Set<DeclIdent>> = Set.empty
+      let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
+
+      for KeyValue(key, value) in graph.Nodes do
+        match tree.CycleMap.TryFind(key) with
+        | Some set -> entryPoints <- entryPoints.Add(set)
+        | None ->
+          // Anything that appears in deps can't be an entry point
+          if not (Set.contains key deps) then
+            entryPoints <- entryPoints.Add(Set.singleton key)
+
+      for set in entryPoints do
+        try
+          let! nextEnv = inferTreeRec ctx newEnv set graph tree
+          newEnv <- nextEnv
+        with e ->
+          printfn $"Error: {e}"
+          return! Error(TypeError.SemanticError(e.ToString()))
+
+      return newEnv
+    }
+
+  let getDeclsFromModule (ast: Module) : list<Decl> =
+    List.choose
+      (fun item ->
+        match item with
+        | Decl decl -> Some decl
+        | _ -> None)
+      ast.Items
+
+  let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
+    result {
+      // TODO: update this function to accept a filename
+      let mutable newEnv = { env with Filename = "input.esc" }
+
+      let imports =
+        List.choose
+          (fun item ->
+            match item with
+            | Import import -> Some import
+            | _ -> None)
+          ast.Items
+
+      for import in imports do
+        let! importEnv = Infer.inferImport ctx newEnv import
+        newEnv <- importEnv
+
+      let decls = getDeclsFromModule ast
+      let! graph = buildGraph newEnv [] [] decls
+
+      // for KeyValue(key, value) in graph.Edges do
+      //   printfn $"{key} -> {value}"
+
+      let tree = graphToTree graph.Edges
+      return! inferTree ctx newEnv graph tree
     }
 
   let unifyPlaceholdersAndInferredTypes
@@ -3279,37 +3425,6 @@ module rec Infer =
     List.iter (walkStmt visitor ()) block.Stmts
 
     throws
-
-  let findBindingNames (p: Syntax.Pattern) : list<string> =
-    let mutable names: list<string> = []
-
-    let visitor =
-      { ExprVisitor.VisitExpr =
-          fun (expr, state) ->
-            match expr.Kind with
-            | ExprKind.Function _ -> (false, state)
-            | _ -> (true, state)
-        ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
-        ExprVisitor.VisitPattern =
-          fun (pat, state) ->
-            match pat.Kind with
-            | PatternKind.Ident { Name = name } ->
-              names <- name :: names
-              (false, state)
-            | PatternKind.Object { Elems = elems } ->
-              for elem in elems do
-                match elem with
-                | Syntax.ShorthandPat { Name = name } -> names <- name :: names
-                | _ -> ()
-
-              (false, state)
-            | _ -> (true, state)
-        ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
-        ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
-
-    walkPattern visitor () p
-
-    List.rev names
 
   let findModuleBindingNames (m: Script) : list<string> =
     let mutable names: list<string> = []

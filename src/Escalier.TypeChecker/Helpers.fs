@@ -1,8 +1,11 @@
 module rec Escalier.TypeChecker.Helpers
 
+open Escalier.Data
+open Escalier.Data.Syntax
 open Escalier.Data.Common
 open Escalier.Data.Type
 
+open ExprVisitor
 open Poly
 
 let rec generalizeFunctionsInType (t: Type) : Type =
@@ -52,3 +55,34 @@ let generalizeBindings (bindings: Map<string, Binding>) : Map<string, Binding> =
     newBindings <- newBindings.Add(name, (t, isMut))
 
   newBindings
+
+let findBindingNames (p: Syntax.Pattern) : list<string> =
+  let mutable names: list<string> = []
+
+  let visitor =
+    { ExprVisitor.VisitExpr =
+        fun (expr, state) ->
+          match expr.Kind with
+          | ExprKind.Function _ -> (false, state)
+          | _ -> (true, state)
+      ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
+      ExprVisitor.VisitPattern =
+        fun (pat, state) ->
+          match pat.Kind with
+          | PatternKind.Ident { Name = name } ->
+            names <- name :: names
+            (false, state)
+          | PatternKind.Object { Elems = elems } ->
+            for elem in elems do
+              match elem with
+              | Syntax.ShorthandPat { Name = name } -> names <- name :: names
+              | _ -> ()
+
+            (false, state)
+          | _ -> (true, state)
+      ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+      ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
+
+  walkPattern visitor () p
+
+  List.rev names

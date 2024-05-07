@@ -417,7 +417,7 @@ let MutuallyRecursiveGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let decls = Graph.getDeclsFromModule ast
+      let decls = Infer.getDeclsFromModule ast
 
       let! graph =
         Graph.buildGraph env [] [] decls
@@ -545,11 +545,48 @@ let MergeInterfaceBetweenFiles () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let! env =
-        Graph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
 
       Assert.Type(env, "Obj", "{foo: number, bar: number}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact(Skip = "TODO")>]
+let OutOfOrderDepsInsideNamespace () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          type Bar<T: Baz> = {bar: T};
+          type Baz = string;
+        }
+        """
+
+      let! ctx, env = inferModule src
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact(Skip = "TODO")>]
+let OutOfOrderDepsOutsideNamespace () =
+  let res =
+    result {
+      let src =
+        """
+        type Bar<T: Baz> = {bar: T};
+        type Baz = string;
+        """
+
+      let! ctx, env = inferModule src
+      ()
     }
 
   printfn "res = %A" res

@@ -11,6 +11,34 @@ open Escalier.Data
 open Prune
 
 module rec Env =
+  type DeclIdent =
+    | Value of string
+    | Type of string
+
+  type DeclGraph =
+    { Edges: Map<DeclIdent, list<DeclIdent>>
+      Nodes: Map<DeclIdent, list<Syntax.Decl>>
+      Namespaces: Map<string, DeclGraph> }
+
+    member this.Add(name: DeclIdent, decl: Syntax.Decl, deps: list<DeclIdent>) =
+      let decls =
+        match this.Nodes.TryFind name with
+        | Some nodes -> nodes @ [ decl ]
+        | None -> [ decl ]
+
+      { this with
+          Edges = this.Edges.Add(name, deps)
+          Nodes = this.Nodes.Add(name, decls) }
+
+    member this.AddNamespace(name: string, graph: DeclGraph) =
+      { this with
+          Namespaces = this.Namespaces.Add(name, graph) }
+
+    static member Empty =
+      { Edges = Map.empty
+        Nodes = Map.empty
+        Namespaces = Map.empty }
+
   type Ctx
     (
       getExports: Ctx -> string -> Syntax.Import -> Namespace,

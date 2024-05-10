@@ -67,7 +67,8 @@ output: Ok
                                              Name = "a"
                                              IsMut = false
                                              Default = None
-                                             Assertion = None };
+                                             Assertion = None
+                                             Inferred = None };
                               RestPat
                                 { Span = { Start = (Ln: 3, Col: 13)
                                            Stop = (Ln: 3, Col: 20) }

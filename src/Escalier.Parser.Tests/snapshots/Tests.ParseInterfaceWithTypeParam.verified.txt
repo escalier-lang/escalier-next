@@ -29,6 +29,7 @@ output: Ok
                                           Stop = (Ln: 3, Col: 14) }
                                  InferredType = None }
                      Optional = None
-                     Readonly = None }] }
+                     Readonly = None }]
+               Inferred = None }
           Span = { Start = (Ln: 2, Col: 5)
                    Stop = (Ln: 5, Col: 5) } }] }

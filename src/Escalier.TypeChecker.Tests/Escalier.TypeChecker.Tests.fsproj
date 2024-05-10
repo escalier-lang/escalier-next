@@ -20,6 +20,7 @@
         <Compile Include="PatternMatching.fs"/>
         <Compile Include="Classes.fs"/>
         <Compile Include="Modules.fs"/>
+        <Compile Include="QualifiedGraphTests.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
     <ItemGroup>

@@ -1815,6 +1815,7 @@ module rec Infer =
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
+        pat.InferredType <- Some t
         t
       | PatternKind.Literal lit ->
         { Kind = TypeKind.Literal lit
@@ -1838,12 +1839,11 @@ module rec Infer =
                       Readonly = false
                       Type = t }
                 )
-              | Syntax.ObjPatElem.ShorthandPat { Name = name
+              | Syntax.ObjPatElem.ShorthandPat({ Name = name
                                                  IsMut = isMut
-                                                 Assertion = assertion } ->
+                                                 Assertion = assertion } as pat) ->
                 // TODO: lookup `assertion` in `env`
 
-                // let t = ctx.FreshTypeVar None
                 let t =
                   match assertion with
                   | Some qi ->
@@ -1859,6 +1859,7 @@ module rec Infer =
 
                 // TODO: check if `name` already exists in `assump`
                 assump <- assump.Add(name, (t, isMut))
+                pat.Inferred <- Some t
 
                 Some(
                   ObjTypeElem.Property

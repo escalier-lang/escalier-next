@@ -191,114 +191,118 @@ let rec getOrCreateNamespace
 let inferDeclPlaceholders
   (ctx: Ctx)
   (env: Env)
-  (decl: Decl)
+  (decls: list<Decl>)
   : Result<unit, TypeError> =
 
   result {
     let mutable newEnv = env
 
-    match decl.Kind with
-    | VarDecl { Pattern = pattern
-                Init = init
-                TypeAnn = _ } ->
-      // QUESTION: Should we check the type annotation as we're generating
-      // the placeholder type?
-      let! bindings, patternType = Infer.inferPattern ctx env pattern
+    for decl in decls do
+      match decl.Kind with
+      | VarDecl { Pattern = pattern
+                  Init = init
+                  TypeAnn = _ } ->
+        // QUESTION: Should we check the type annotation as we're generating
+        // the placeholder type?
+        let! bindings, patternType = Infer.inferPattern ctx env pattern
 
-      match init with
-      | Some init ->
-        let! structuralPlacholderType =
-          Infer.inferExprStructuralPlacholder ctx env init
+        match init with
+        | Some init ->
+          let! structuralPlacholderType =
+            Infer.inferExprStructuralPlacholder ctx env init
 
-        do! Unify.unify ctx env None patternType structuralPlacholderType
-      | None -> ()
+          do! Unify.unify ctx env None patternType structuralPlacholderType
+        | None -> ()
 
-      for KeyValue(name, binding) in bindings do
-        newEnv <- newEnv.AddValue name binding
-    | FnDecl({ Declare = false
-               Sig = fnSig
-               Name = name } as decl) ->
-      let! f = Infer.inferFuncSig ctx newEnv fnSig
+        for KeyValue(name, binding) in bindings do
+          newEnv <- newEnv.AddValue name binding
+      | FnDecl({ Declare = false
+                 Sig = fnSig
+                 Name = name } as decl) ->
+        let! f = Infer.inferFuncSig ctx newEnv fnSig
 
-      let t =
-        { Kind = TypeKind.Function f
-          Provenance = None }
-
-      newEnv <- newEnv.AddValue name (t, false)
-
-      decl.Inferred <- Some t
-    | FnDecl({ Declare = true
-               Sig = fnSig
-               Name = name } as decl) ->
-      // TODO: dedupe with `inferDecl`
-      // TODO: capture these errors as diagnostics and infer the missing
-      // types as `never`
-      for p in fnSig.ParamList do
-        if p.TypeAnn.IsNone then
-          failwith "Ambient function declarations must be fully typed"
-
-      if fnSig.ReturnType.IsNone then
-        failwith "Ambient function declarations must be fully typed"
-
-      let! f = Infer.inferFuncSig ctx newEnv fnSig
-
-      if fnSig.Throws.IsNone then
-        f.Throws <-
-          { Kind = TypeKind.Keyword Keyword.Never
+        let t =
+          { Kind = TypeKind.Function f
             Provenance = None }
 
-      let t =
-        { Kind = TypeKind.Function f
-          Provenance = None }
+        newEnv <- newEnv.AddValue name (t, false)
 
-      newEnv <- newEnv.AddValue name (t, false)
+        decl.Inferred <- Some t
+      | FnDecl({ Declare = true
+                 Sig = fnSig
+                 Name = name } as decl) ->
+        // TODO: dedupe with `inferDecl`
+        // TODO: capture these errors as diagnostics and infer the missing
+        // types as `never`
+        for p in fnSig.ParamList do
+          if p.TypeAnn.IsNone then
+            failwith "Ambient function declarations must be fully typed"
 
-      decl.Inferred <- Some t
-    | ClassDecl({ Name = name } as decl) ->
-      // TODO: treat ClassDecl similar to object types where we create a
-      // structural placeholder type instead of an opaque type variable.
-      // We should do this for both instance members and statics.
-      let instance: Scheme =
-        { Type = ctx.FreshTypeVar None
-          TypeParams = None // TODO: handle type params
-          IsTypeParam = false }
+        if fnSig.ReturnType.IsNone then
+          failwith "Ambient function declarations must be fully typed"
 
-      newEnv <- newEnv.AddScheme name instance
+        let! f = Infer.inferFuncSig ctx newEnv fnSig
 
-      let statics: Type = ctx.FreshTypeVar None
+        if fnSig.Throws.IsNone then
+          f.Throws <-
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
 
-      newEnv <- newEnv.AddValue name (statics, false)
+        let t =
+          { Kind = TypeKind.Function f
+            Provenance = None }
 
-      decl.Inferred <-
-        Some
-          { Instance = instance
-            Statics = statics }
-    | EnumDecl _ ->
-      return!
-        Error(TypeError.NotImplemented "TODO: inferDeclPlaceholders - EnumDecl")
-    | TypeDecl typeDecl ->
-      // TODO: replace placeholders, with a reference the actual definition
-      // once we've inferred the definition
-      let! placeholder =
-        Infer.inferTypeDeclPlaceholderScheme ctx env typeDecl.TypeParams
+        newEnv <- newEnv.AddValue name (t, false)
 
-      // TODO: update AddScheme to return a Result<Env, TypeError> and
-      // return an error if the name already exists since we can't redefine
-      // types.
-      typeDecl.Inferred <- Some placeholder
-      newEnv <- newEnv.AddScheme typeDecl.Name placeholder
-    | InterfaceDecl { Name = name; TypeParams = typeParams } ->
-      let! placeholder =
-        match newEnv.TryFindScheme name with
-        | Some scheme -> Result.Ok scheme
-        | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+        decl.Inferred <- Some t
+      | ClassDecl({ Name = name } as decl) ->
+        // TODO: treat ClassDecl similar to object types where we create a
+        // structural placeholder type instead of an opaque type variable.
+        // We should do this for both instance members and statics.
+        let instance: Scheme =
+          { Type = ctx.FreshTypeVar None
+            TypeParams = None // TODO: handle type params
+            IsTypeParam = false }
 
-      newEnv <- newEnv.AddScheme name placeholder
-    | NamespaceDecl nsDecl ->
-      return!
-        Error(
-          TypeError.NotImplemented "TODO: inferDeclPlaceholders - NamespaceDecl"
-        )
+        newEnv <- newEnv.AddScheme name instance
+
+        let statics: Type = ctx.FreshTypeVar None
+
+        newEnv <- newEnv.AddValue name (statics, false)
+
+        decl.Inferred <-
+          Some
+            { Instance = instance
+              Statics = statics }
+      | EnumDecl _ ->
+        return!
+          Error(
+            TypeError.NotImplemented "TODO: inferDeclPlaceholders - EnumDecl"
+          )
+      | TypeDecl typeDecl ->
+        // TODO: replace placeholders, with a reference the actual definition
+        // once we've inferred the definition
+        let! placeholder =
+          Infer.inferTypeDeclPlaceholderScheme ctx env typeDecl.TypeParams
+
+        // TODO: update AddScheme to return a Result<Env, TypeError> and
+        // return an error if the name already exists since we can't redefine
+        // types.
+        typeDecl.Inferred <- Some placeholder
+        newEnv <- newEnv.AddScheme typeDecl.Name placeholder
+      | InterfaceDecl { Name = name; TypeParams = typeParams } ->
+        let! placeholder =
+          match newEnv.TryFindScheme name with
+          | Some scheme -> Result.Ok scheme
+          | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+        newEnv <- newEnv.AddScheme name placeholder
+      | NamespaceDecl nsDecl ->
+        return!
+          Error(
+            TypeError.NotImplemented
+              "TODO: inferDeclPlaceholders - NamespaceDecl"
+          )
     // let subgraph = graph.Namespaces[nsDecl.Name]
     // let! _, ns = Infer.inferDeclPlaceholders ctx env nsDecl.Body subgraph
     // let ns = { ns with Name = nsDecl.Name }
@@ -348,174 +352,161 @@ let getAllBindingPatterns (pattern: Pattern) : Map<string, Type> =
 let inferDeclDefinitions
   (ctx: Ctx)
   (env: Env)
-  (decl: Decl)
+  (decls: list<Decl>)
   : Result<unit, TypeError> =
 
   result {
-    let mutable newEnv = env
-
-    match decl.Kind with
-    | VarDecl varDecl ->
-      let placeholderTypes = getAllBindingPatterns varDecl.Pattern
-
-      // NOTE: We explicitly don't generalize here because we want other
-      // declarations to be able to unify with any free type variables
-      // from this declaration.  We generalize things in `inferModule` and
-      // `inferTreeRec`.
-      let! newBindings, newSchemes = Infer.inferVarDecl ctx newEnv varDecl
-
-      let inferredTypes = getAllBindingPatterns varDecl.Pattern
-
-      for KeyValue(name, inferredType) in inferredTypes do
-        let placeholderType =
-          match Map.tryFind name placeholderTypes with
-          | Some t -> t
-          | None -> failwith "Missing placeholder type"
-
-        do! Unify.unify ctx newEnv None placeholderType inferredType
-
-      // TODO: handle any schemes that are generated in a similar way to how
-      // we're handling inferred value types.
-      // Schemes can be generated for things like class expressions, e.g.
-      // let Foo = class { ... }
-      for KeyValue(name, scheme) in newSchemes do
-        newEnv <- newEnv.AddScheme name scheme
-    | FnDecl { Declare = false
-               Name = name
-               Sig = fnSig
-               Body = Some body } ->
-      // NOTE: We explicitly don't generalize here because we want other
-      // declarations to be able to unify with any free type variables
-      // from this declaration.  We generalize things in `inferModule` and
-      // `inferTreeRec`.
-      let! f = Infer.inferFunction ctx newEnv fnSig body
-
-      let _ =
-        { Kind = TypeKind.Function f
-          Provenance = None }
-
-      // TODO: add inferred type to the function decl
-      ()
-    | FnDecl { Declare = true } ->
-      // Nothing to do since ambient function declarations don't have
-      // function bodies.
-      ()
-    | FnDecl fnDecl ->
-      return! Error(TypeError.SemanticError "Invalid function declaration")
-    | ClassDecl { Declare = declare
-                  Name = name
-                  Class = cls } ->
-      let! t, scheme = Infer.inferClass ctx env cls declare
-      newEnv <- newEnv.AddValue name (t, false)
-      newEnv <- newEnv.AddScheme name scheme
-    | EnumDecl _ ->
-      return!
-        Error(TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl")
-    | TypeDecl { Name = name
-                 TypeAnn = typeAnn
-                 Inferred = placeholder } ->
-      // TODO: when computing the decl graph, include self-recursive types in
-      // the deps set so that we don't have to special case this here.
-      // Handles self-recursive types
-      newEnv <- newEnv.AddScheme name placeholder.Value
-
-      let! scheme =
-        Infer.inferTypeDeclDefn ctx newEnv placeholder.Value (fun env ->
-          Infer.inferTypeAnn ctx env typeAnn)
-
-      newEnv <- newEnv.AddScheme name scheme
-
-      // Replace the placeholder's type with the actual type.
-      // NOTE: This is a bit hacky and we may want to change this later to use
-      // `foldType` to replace any uses of the placeholder with the actual type.
-      // Required for the following test cases:
-      // - InferRecursiveGenericObjectTypeInModule
-      // - InferNamespaceInModule
-      placeholder.Value.Type <- scheme.Type
-    | InterfaceDecl { Name = name
-                      TypeParams = typeParams
-                      Elems = elems
-                      Inferred = placeholder } ->
-
-      let placeholder =
-        match placeholder with
-        | Some placeholder -> placeholder
-        | None -> failwith "Missing placeholder"
-
-      let getType (env: Env) : Result<Type, TypeError> =
-        result {
-          let! elems = List.traverseResultM (Infer.inferObjElem ctx env) elems
-
-          let kind =
-            TypeKind.Object
-              { Elems = elems
-                Immutable = false
-                Interface = true }
-
-          return { Kind = kind; Provenance = None }
-        }
-
-      let! newScheme = Infer.inferTypeDeclDefn ctx newEnv placeholder getType
-
-      match placeholder.Type.Kind, newScheme.Type.Kind with
-      | TypeKind.Object { Elems = existingElems },
-        TypeKind.Object { Elems = newElems } ->
-        // TODO: remove duplicates
-        let mergedElems = existingElems @ newElems
-
-        let kind =
-          TypeKind.Object
-            { Elems = mergedElems
-              Immutable = false
-              Interface = false }
+    for decl in decls do
+      match decl.Kind with
+      | VarDecl varDecl ->
+        let placeholderTypes = getAllBindingPatterns varDecl.Pattern
 
         // NOTE: We explicitly don't generalize here because we want other
         // declarations to be able to unify with any free type variables
         // from this declaration.  We generalize things in `inferModule` and
         // `inferTreeRec`.
-        // TODO: suport multiple provenances
-        let t = { Kind = kind; Provenance = None }
+        let! newBindings, newSchemes = Infer.inferVarDecl ctx env varDecl
 
-        // We modify the existing scheme in place so that existing values
-        // with this type are updated.
-        placeholder.Type <- t
-      | _ ->
+        let inferredTypes = getAllBindingPatterns varDecl.Pattern
+
+        for KeyValue(name, inferredType) in inferredTypes do
+          let placeholderType =
+            match Map.tryFind name placeholderTypes with
+            | Some t -> t
+            | None -> failwith "Missing placeholder type"
+
+          do! Unify.unify ctx env None placeholderType inferredType
+
+      // TODO: handle any schemes that are generated in a similar way to how
+      // we're handling inferred value types.
+      // Schemes can be generated for things like class expressions, e.g.
+      // let Foo = class { ... }
+      // for KeyValue(name, scheme) in newSchemes do
+      //   newEnv <- newEnv.AddScheme name scheme
+      | FnDecl { Declare = false
+                 Name = name
+                 Sig = fnSig
+                 Body = Some body } ->
+        // NOTE: We explicitly don't generalize here because we want other
+        // declarations to be able to unify with any free type variables
+        // from this declaration.  We generalize things in `inferModule` and
+        // `inferTreeRec`.
+        let! f = Infer.inferFunction ctx env fnSig body
+
+        let _ =
+          { Kind = TypeKind.Function f
+            Provenance = None }
+
+        // TODO: add inferred type to the function decl
+        ()
+      | FnDecl { Declare = true } ->
+        // Nothing to do since ambient function declarations don't have
+        // function bodies.
+        ()
+      | FnDecl fnDecl ->
+        return! Error(TypeError.SemanticError "Invalid function declaration")
+      | ClassDecl { Declare = declare
+                    Name = name
+                    Class = cls
+                    Inferred = placeholders } ->
+        let! t, scheme = Infer.inferClass ctx env cls declare
+
+        // TODO: update `Statics` and `Instance` on `placeholders`
+
+        ()
+      | EnumDecl _ ->
+        return!
+          Error(
+            TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
+          )
+      | TypeDecl { Name = name
+                   TypeAnn = typeAnn
+                   Inferred = placeholder } ->
+        // TODO: when computing the decl graph, include self-recursive types in
+        // the deps set so that we don't have to special case this here.
+        // Handles self-recursive types
+        let newEnv = env.AddScheme name placeholder.Value
+        let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
+
+        let! scheme =
+          Infer.inferTypeDeclDefn ctx newEnv placeholder.Value getType
+
         // Replace the placeholder's type with the actual type.
         // NOTE: This is a bit hacky and we may want to change this later to use
         // `foldType` to replace any uses of the placeholder with the actual type.
-        placeholder.Type <- newScheme.Type
-    | NamespaceDecl { Name = name; Body = decls } ->
-      return!
-        Error(
-          TypeError.NotImplemented "TODO: inferDeclDefinitions - NamespaceDecl"
-        )
-    // let! placeholderNS =
-    //   newEnv.Namespace.GetNamspace(QualifiedIdent.Ident name)
-    //
-    // let mutable nsEnv = newEnv
-    //
-    // nsEnv <- nsEnv.AddBindings placeholderNS.Values
-    //
-    // for KeyValue(name, ns) in placeholderNS.Namespaces do
-    //   nsEnv <- nsEnv.AddNamespace name ns
-    //
-    // for KeyValue(name, scheme) in placeholderNS.Schemes do
-    //   nsEnv <- nsEnv.AddScheme name scheme
-    //
-    // let subgraph = graph.Namespaces[name]
-    //
-    // let! _, ns = inferDeclDefinitions ctx nsEnv placeholderNS decls subgraph
-    //
-    // inferredNS <- inferredNS.AddNamespace name ns
+        // Required for the following test cases:
+        // - InferRecursiveGenericObjectTypeInModule
+        // - InferNamespaceInModule
+        placeholder.Value.Type <- scheme.Type
+      | InterfaceDecl { Name = name
+                        TypeParams = typeParams
+                        Elems = elems
+                        Inferred = placeholder } ->
+
+        // TODO: when computing the decl graph, include self-recursive types in
+        // the deps set so that we don't have to special case this here.
+        // Handles self-recursive types
+        let newEnv = env.AddScheme name placeholder.Value
+
+        let getType (env: Env) : Result<Type, TypeError> =
+          result {
+            let! elems =
+              List.traverseResultM (Infer.inferObjElem ctx newEnv) elems
+
+            let kind =
+              TypeKind.Object
+                { Elems = elems
+                  Immutable = false
+                  Interface = true }
+
+            return { Kind = kind; Provenance = None }
+          }
+
+        let! newScheme =
+          Infer.inferTypeDeclDefn ctx newEnv placeholder.Value getType
+
+        match placeholder.Value.Type.Kind, newScheme.Type.Kind with
+        | TypeKind.Object { Elems = existingElems },
+          TypeKind.Object { Elems = newElems } ->
+          // TODO: remove duplicates
+          let mergedElems = existingElems @ newElems
+
+          let kind =
+            TypeKind.Object
+              { Elems = mergedElems
+                Immutable = false
+                Interface = false }
+
+          // NOTE: We explicitly don't generalize here because we want other
+          // declarations to be able to unify with any free type variables
+          // from this declaration.  We generalize things in `inferModule` and
+          // `inferTreeRec`.
+          // TODO: suport multiple provenances
+          let t = { Kind = kind; Provenance = None }
+
+          // We modify the existing scheme in place so that existing values
+          // with this type are updated.
+          placeholder.Value.Type <- t
+        | _ ->
+          // Replace the placeholder's type with the actual type.
+          // NOTE: This is a bit hacky and we may want to change this later to use
+          // `foldType` to replace any uses of the placeholder with the actual type.
+          placeholder.Value.Type <- newScheme.Type
+      | NamespaceDecl { Name = name; Body = decls } ->
+        return!
+          Error(
+            TypeError.NotImplemented
+              "TODO: inferDeclDefinitions - NamespaceDecl"
+          )
 
     return ()
   }
 
-let inferDecl
+let inferDecls
   (ctx: Ctx)
   (env: Env)
   (ident: QDeclIDent)
-  (decl: Decl)
+  (decls: list<Decl>)
   : Result<unit, TypeError> =
   result {
     // in the future we'll generalize each set of recursive decls once we're
@@ -526,28 +517,28 @@ let inferDecl
     | Type qualifiedIdent ->
       match qualifiedIdent with
       | QualifiedIdent.Ident s ->
-        do! inferDeclPlaceholders ctx env decl
-        do! inferDeclDefinitions ctx env decl
+        do! inferDeclPlaceholders ctx env decls
+        do! inferDeclDefinitions ctx env decls
         ()
       | QualifiedIdent.Member(left, right) ->
         // let! ns = getOrCreateNamespace left env.Namespace
         // printfn $"ns = {ns}"
         // TODO: get namespace from `env` for `left`
-        do! inferDeclPlaceholders ctx env decl
-        do! inferDeclDefinitions ctx env decl
+        do! inferDeclPlaceholders ctx env decls
+        do! inferDeclDefinitions ctx env decls
         ()
     | Value qualifiedIdent ->
       match qualifiedIdent with
       | QualifiedIdent.Ident s ->
-        do! inferDeclPlaceholders ctx env decl
-        do! inferDeclDefinitions ctx env decl
+        do! inferDeclPlaceholders ctx env decls
+        do! inferDeclDefinitions ctx env decls
         ()
       | QualifiedIdent.Member(left, right) ->
         // let! ns = getOrCreateNamespace left env.Namespace
         // printfn $"ns = {ns}"
         // TODO: get namespace from `env` for `left`
-        do! inferDeclPlaceholders ctx env decl
-        do! inferDeclDefinitions ctx env decl
+        do! inferDeclPlaceholders ctx env decls
+        do! inferDeclDefinitions ctx env decls
         ()
 
     return ()
@@ -556,7 +547,7 @@ let inferDecl
 let inferGraph (ctx: Ctx) (env: Env) (graph: QGraph) : Result<Env, TypeError> =
   result {
     for KeyValue(ident, decl) in graph.Nodes do
-      do! inferDecl ctx env ident decl
+      do! inferDecls ctx env ident [ decl ]
 
     let mutable newEnv = env
 

@@ -105,13 +105,9 @@ let findTypeRefIdents
           let newTypeParams =
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
-              let baseName = Graph.getBaseName ident
-
               if
                 (List.contains ident localTypeNames)
                 && not (List.contains ident typeParams)
-                && not (Map.containsKey baseName env.Namespace.Schemes)
-                && not (Map.containsKey baseName env.Namespace.Namespaces)
               then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
 
@@ -813,22 +809,21 @@ let inferDeclDefinitions
       // let Foo = class { ... }
       // for KeyValue(name, scheme) in newSchemes do
       //   newEnv <- newEnv.AddScheme name scheme
-      | FnDecl { Declare = false
+      | FnDecl({ Declare = false
                  Name = name
                  Sig = fnSig
-                 Body = Some body } ->
+                 Body = Some body } as decl) ->
         // NOTE: We explicitly don't generalize here because we want other
         // declarations to be able to unify with any free type variables
         // from this declaration.  We generalize things in `inferModule` and
         // `inferTreeRec`.
         let! f = Infer.inferFunction ctx env fnSig body
 
-        let _ =
+        let t =
           { Kind = TypeKind.Function f
             Provenance = None }
 
-        // TODO: add inferred type to the function decl
-        ()
+        decl.Inferred <- Some t
       | FnDecl { Declare = true } ->
         // Nothing to do since ambient function declarations don't have
         // function bodies.
@@ -985,13 +980,172 @@ let inferDecls
     return ()
   }
 
+type QDeclTree =
+  { Edges: Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>>
+    CycleMap: Map<QDeclIdent, Set<QDeclIdent>> }
+
+let rec graphToTree (edges: Map<QDeclIdent, list<QDeclIdent>>) : QDeclTree =
+  let mutable visited: list<QDeclIdent> = []
+  let mutable stack: list<QDeclIdent> = []
+  let mutable cycles: Set<Set<QDeclIdent>> = Set.empty
+
+  let rec visit (node: QDeclIdent) (parents: list<QDeclIdent>) =
+    if List.contains node parents then
+      // find the index of node in parents
+      let index = List.findIndex (fun p -> p = node) parents
+      let cycle = List.take index parents @ [ node ] |> Set.ofList
+      cycles <- Set.add cycle cycles
+    else
+      let edgesOuts =
+        match edges.TryFind node with
+        | None -> failwith $"Couldn't find edge for {node} in {edges}"
+        | Some value -> value
+
+      for next in edgesOuts do
+        visit next (node :: parents)
+
+  for KeyValue(node, _) in edges do
+    visit node []
+
+  let mutable cycleMap: Map<QDeclIdent, Set<QDeclIdent>> = Map.empty
+
+  for cycle in cycles do
+    for node in cycle do
+      cycleMap <- cycleMap.Add(node, cycle)
+
+  let mutable newEdges: Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>> = Map.empty
+
+  for KeyValue(node, deps) in edges do
+    let deps = Set.ofList deps
+
+    let src =
+      if Map.containsKey node cycleMap then
+        cycleMap[node]
+      else
+        Set.singleton node
+
+    for dep in deps do
+      if not (Set.contains dep src) then
+        let dst =
+          if Map.containsKey dep cycleMap then
+            cycleMap[dep]
+          else
+            Set.singleton dep
+
+        if Map.containsKey src newEdges then
+          let dsts = newEdges[src]
+          newEdges <- newEdges.Add(src, dsts.Add(dst))
+        else
+          newEdges <- newEdges.Add(src, Set.singleton dst)
+
+  { CycleMap = cycleMap
+    Edges = newEdges }
+
+let updateEnv (env: Env) (decl: Decl) : Env =
+  let mutable newEnv = env
+
+  match decl.Kind with
+  | VarDecl varDecl ->
+    // TODO: store the binding instead of just the types
+    let valueTypes = getAllBindingPatterns varDecl.Pattern
+
+    for KeyValue(name, t) in valueTypes do
+      newEnv <- newEnv.AddValue name (t, false)
+  | FnDecl fnDecl ->
+    newEnv <- newEnv.AddValue fnDecl.Name (fnDecl.Inferred.Value, false)
+  | ClassDecl classDecl ->
+    newEnv <-
+      newEnv.AddValue classDecl.Name (classDecl.Inferred.Value.Statics, false)
+
+    newEnv <- newEnv.AddScheme classDecl.Name classDecl.Inferred.Value.Instance
+  | TypeDecl typeDecl ->
+    newEnv <- newEnv.AddScheme typeDecl.Name typeDecl.Inferred.Value
+  | InterfaceDecl interfaceDecl ->
+    newEnv <- newEnv.AddScheme interfaceDecl.Name interfaceDecl.Inferred.Value
+  | EnumDecl enumDecl -> failwith "TODO: inferGraph - EnumDecl"
+  | NamespaceDecl namespaceDecl -> failwith "TODO: inferGraph - NamespaceDecl"
+
+  newEnv
+
+let rec inferTreeRec
+  (ctx: Ctx)
+  (env: Env)
+  (root: Set<QDeclIdent>)
+  (graph: QGraph)
+  (tree: QDeclTree)
+  : Result<unit, TypeError> =
+
+  result {
+    printfn $"inferTreeRec - root = {root}"
+
+    let mutable newEnv = env
+
+    match tree.Edges.TryFind root with
+    | Some deps ->
+      for dep in deps do
+        do! inferTreeRec ctx newEnv dep graph tree
+
+        for ident in dep do
+          let decls = graph.Nodes.TryFind ident |> Option.defaultValue []
+
+          for decl in decls do
+            newEnv <- updateEnv newEnv decl
+    | None -> ()
+
+    match List.ofSeq root with
+    | [] ->
+      return!
+        Error(
+          TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
+        )
+    | [ name ] ->
+      let decls = graph.Nodes[name]
+
+      do! inferDeclPlaceholders ctx newEnv decls
+      do! inferDeclDefinitions ctx newEnv decls
+
+      // TODO: generalize the types generated by each decl
+      ()
+    | names ->
+      let decls =
+        names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
+
+      do! inferDeclPlaceholders ctx newEnv decls
+      do! inferDeclDefinitions ctx newEnv decls
+
+      // TODO: generalize the types generated by each decl
+      ()
+  }
+
 // TODO: convert the Graph to a Forest
 let inferGraph (ctx: Ctx) (env: Env) (graph: QGraph) : Result<Env, TypeError> =
   result {
-    for KeyValue(ident, decls) in graph.Nodes do
-      let deps = graph.Edges.TryFind ident |> Option.defaultValue []
-      printfn $"deps = {deps}"
-      do! inferDecls ctx env decls deps graph
+    let tree = graphToTree graph.Edges
+    let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
+
+    let mutable entryPoints: Set<Set<QDeclIdent>> = Set.empty
+
+    for KeyValue(key, value) in graph.Nodes do
+      match tree.CycleMap.TryFind(key) with
+      | Some set -> entryPoints <- entryPoints.Add(set)
+      | None ->
+        // Anything that appears in deps can't be an entry point
+        if not (Set.contains key deps) then
+          entryPoints <- entryPoints.Add(Set.singleton key)
+
+    printfn $"entryPoints = {entryPoints}"
+
+    for set in entryPoints do
+      try
+        do! inferTreeRec ctx env set graph tree
+      with e ->
+        printfn $"Error: {e}"
+        return! Error(TypeError.SemanticError(e.ToString()))
+
+    // for KeyValue(ident, decls) in graph.Nodes do
+    //   let deps = graph.Edges.TryFind ident |> Option.defaultValue []
+    //   printfn $"deps = {deps}"
+    //   do! inferDecls ctx env decls deps graph
 
     let mutable newEnv = env
 

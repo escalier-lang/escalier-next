@@ -142,8 +142,8 @@ let BasicGraphInferFunctionDecl () =
         QualifiedGraph.inferGraph ctx env graph
         |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "add", "fn (x: number, y: number) -> number throws t2")
-      Assert.Value(env, "fst", "fn <T, U>(x: T, y: U) -> T throws t14")
+      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
+      Assert.Value(env, "fst", "fn <T, U>(x: T, y: U) -> T")
     }
 
   printfn "res = %A" res
@@ -165,7 +165,6 @@ let BasicDeps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let graph = QualifiedGraph.getIdentsForModule env ast
-      printfn $"graph = {graph}"
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -178,7 +177,7 @@ let BasicDeps () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: this doesn't work becuase F#'s Maps have their keys sorted")>]
+[<Fact>]
 let BasicFunctionCaptures () =
   let res =
     result {
@@ -198,7 +197,6 @@ let BasicFunctionCaptures () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let graph = QualifiedGraph.getIdentsForModule env ast
-      printfn $"graph = {graph}"
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -212,7 +210,7 @@ let BasicFunctionCaptures () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: requires tree/forest representation")>]
+[<Fact>]
 let OutOfOrderFunctionCaptures () =
   let res =
     result {
@@ -232,7 +230,6 @@ let OutOfOrderFunctionCaptures () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let graph = QualifiedGraph.getIdentsForModule env ast
-      printfn $"graph = {graph}"
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph

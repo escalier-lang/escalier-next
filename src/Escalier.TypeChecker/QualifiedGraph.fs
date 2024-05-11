@@ -102,6 +102,8 @@ let findTypeRefIdents
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn =
         fun (typeAnn, typeParams) ->
+          printfn $"visiting typeAnn: {typeAnn}"
+
           let newTypeParams =
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
@@ -449,9 +451,7 @@ let rec buildGraph
       | Some left -> QDeclIdent.Value(QualifiedIdent.Member(left, name))
       | None -> QDeclIdent.Value(QualifiedIdent.Ident name)
 
-    // TODO: determine deps
     let deps = getDepsForFn env locals [] fnSig body
-
     graph <- graph.Add(ident, decl, deps)
   | ClassDecl { Name = name } ->
     let ident =
@@ -466,14 +466,58 @@ let rec buildGraph
     // TODO: determine instance deps
     let instanceDeps = []
     graph <- graph.Add((Type ident), decl, instanceDeps)
-  | TypeDecl { Name = name } ->
+  | TypeDecl { Name = name
+               TypeParams = typeParams
+               TypeAnn = typeAnn } ->
     let ident =
       match nsIdent with
       | Some left -> QualifiedIdent.Member(left, name)
       | None -> QualifiedIdent.Ident name
 
-    // TODO: determine deps
-    let deps = []
+    let mutable deps: list<QDeclIdent> = []
+
+    let typeParamNames =
+      match typeParams with
+      | None -> []
+      | Some typeParams ->
+        List.map
+          (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+          typeParams
+
+    match typeParams with
+    | None -> ()
+    | Some typeParams ->
+      for typeParam in typeParams do
+        match typeParam.Constraint with
+        | Some c ->
+          deps <-
+            deps
+            @ findTypeRefIdents
+                env
+                localTypeNames
+                typeParamNames
+                (SyntaxNode.TypeAnn c)
+        | None -> ()
+
+        match typeParam.Default with
+        | Some d ->
+          deps <-
+            deps
+            @ findTypeRefIdents
+                env
+                localTypeNames
+                typeParamNames
+                (SyntaxNode.TypeAnn d)
+        | None -> ()
+
+    deps <-
+      deps
+      @ findTypeRefIdents
+          env
+          localTypeNames
+          typeParamNames
+          (SyntaxNode.TypeAnn typeAnn)
+
     graph <- graph.Add((Type ident), decl, deps)
   | InterfaceDecl { Name = name } ->
     let ident =

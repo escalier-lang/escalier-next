@@ -242,3 +242,31 @@ let OutOfOrderFunctionCaptures () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
+
+[<Fact>]
+let OutOfOrderTypeDepsWithTypeParamConstraint () =
+  let res =
+    result {
+      let src =
+        """
+        type Bar<T: Baz> = {bar: T};
+        type Baz = string;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.getIdentsForModule env ast
+      printfn $"graph = {graph}"
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)

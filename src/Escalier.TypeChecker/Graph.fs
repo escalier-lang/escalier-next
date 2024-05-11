@@ -82,7 +82,6 @@ module rec Graph =
     | TypeAnn of TypeAnn
     | Expr of Expr
 
-  // TODO: Find deps in computed property names
   let findTypeRefIdents
     (env: Env)
     (localTypeNames: list<string>) // top-level and namespace decls

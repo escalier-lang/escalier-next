@@ -376,3 +376,62 @@ let MergeInterfaceBetweenFiles () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
+
+
+[<Fact>]
+let SelfRecursiveFunction () =
+  let res =
+    result {
+      let src =
+        """
+        let fact = fn (n) => if n == 0 { 1 } else { n * fact(n - 1) };
+        let fib = fn (n) => if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "fib", "fn (arg0: number) -> number")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact(Skip = "TODO: ignore local variables in functions")>]
+let ReturnSelfRecursiveFunction () =
+  let res =
+    result {
+      let src =
+        """
+        let ret_fact = fn () {
+          let fact = fn (n) => if n == 0 { 1 } else { n * fact(n - 1) };
+          return fact;
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "ret_fact", "{foo: \"foo\"}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)

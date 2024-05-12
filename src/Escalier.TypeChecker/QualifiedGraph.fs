@@ -545,7 +545,35 @@ let buildGraph (env: Env) (m: Module) : QGraph =
               deps <- deps @ findCaptures locals f
 
             deps
-          | None -> failwith "TODO"
+          | None ->
+            let deps =
+              match typeAnn with
+              | Some typeAnn ->
+                findTypeRefIdents
+                  env
+                  localTypeNames
+                  []
+                  (SyntaxNode.TypeAnn typeAnn)
+              | None -> []
+
+            // TODO: dedupe with the other branch
+            // for dep in deps do
+            //   match dep with
+            //   | Type _ -> ()
+            //   | Value _ ->
+            //     if not (List.contains dep declared) then
+            //       let depName =
+            //         match dep with
+            //         | DeclIdent.Value name -> name
+            //         | DeclIdent.Type name -> name
+            //
+            //       return!
+            //         Error(
+            //           TypeError.SemanticError
+            //             $"{depName} has not been initialized yet"
+            //         )
+
+            deps
 
         for ident in idents do
           graph <- graph.Add(ident, decl, deps)

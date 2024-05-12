@@ -301,7 +301,34 @@ let BasicInterface () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
+let VariableDeclWithoutInit () =
+  let res =
+    result {
+      let src =
+        """
+        interface Keys {foo: "foo"}
+        declare let keys: Keys;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let MergeInterfaceBetweenFiles () =
   let res =
     result {
@@ -311,7 +338,17 @@ let MergeInterfaceBetweenFiles () =
         declare let keys: Keys;
         """
 
-      let! ctx, env = inferModule src
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
       Assert.Type(env, "Keys", "{foo: \"foo\"}")
 
       let src =
@@ -326,8 +363,11 @@ let MergeInterfaceBetweenFiles () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
+      let graph = QualifiedGraph.buildGraph env ast
+
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
 

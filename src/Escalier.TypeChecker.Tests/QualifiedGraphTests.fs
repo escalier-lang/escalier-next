@@ -270,3 +270,70 @@ let OutOfOrderTypeDepsWithTypeParamConstraint () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
+
+[<Fact>]
+let BasicInterface () =
+  let res =
+    result {
+      // We've been setting the `Inferred` field on declarations to the inferred
+      // type, but what should we do when there are multiple declarations that
+      // result in a shared typed?
+      let src =
+        """
+        interface FooBar { foo: number }
+        // interface FooBar { bar: string }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.getIdentsForModule env ast
+      printfn $"graph = {graph}"
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact(Skip = "TODO")>]
+let MergeInterfaceBetweenFiles () =
+  let res =
+    result {
+      let src =
+        """
+        interface Keys {foo: "foo"}
+        declare let keys: Keys;
+        """
+
+      let! ctx, env = inferModule src
+      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+
+      let src =
+        """
+        interface Keys { bar: "bar"}
+        interface Obj {
+          [keys.foo]: number,
+          [keys.bar]: number,
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
+
+      Assert.Type(env, "Obj", "{foo: number, bar: number}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)

@@ -10,6 +10,10 @@ open Escalier.Data.Syntax
 open Error
 open ExprVisitor
 
+let start = FParsec.Position("", 0, 1, 1)
+let stop = FParsec.Position("", 0, 1, 1)
+let DUMMY_SPAN: Span = { Start = start; Stop = stop }
+
 // TODO:
 // - infer types for all the declarations in each namespace
 // - determine the dependences between declarations in each namespace
@@ -378,6 +382,86 @@ let getDepsForFn
 
   deps
 
+// TODO: try to reuse this for type declarations with type params
+let getDepsForInterfaceFn
+  (env: Env)
+  (possibleDeps: list<QDeclIdent>)
+  (interfaceTypeParamNames: list<QualifiedIdent>)
+  (fnSig: FuncSig)
+  : list<QDeclIdent> =
+
+  let localTypeNames =
+    List.choose
+      (fun id ->
+        match id with
+        | QDeclIdent.Type name -> Some name
+        | _ -> None)
+      possibleDeps
+
+  let mutable deps = []
+
+  let typeParamNames =
+    match fnSig.TypeParams with
+    | None -> []
+    | Some typeParams ->
+      List.map (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name) typeParams
+
+  for param in fnSig.ParamList do
+    match param.TypeAnn with
+    | Some typeAnn ->
+      deps <-
+        deps
+        @ findTypeRefIdents
+            env
+            localTypeNames
+            (interfaceTypeParamNames @ typeParamNames)
+            (SyntaxNode.TypeAnn typeAnn)
+    | None -> ()
+
+  match fnSig.ReturnType with
+  | Some returnType ->
+    deps <-
+      deps
+      @ findTypeRefIdents
+          env
+          localTypeNames
+          (interfaceTypeParamNames @ typeParamNames)
+          (SyntaxNode.TypeAnn returnType)
+  | None -> ()
+
+  deps
+
+// TODO: we should be using this for more than PropName dependencies
+let getPropNameDeps
+  (env: Env)
+  (topLevelDecls: list<QDeclIdent>)
+  (name: PropName)
+  : list<QDeclIdent> =
+  match name with
+  | Computed expr ->
+    match expr.Kind with
+    | ExprKind.Member(target, name, opt_chain) ->
+      match target.Kind with
+      | ExprKind.Identifier name ->
+        let ident = (QualifiedIdent.Ident name)
+
+        if List.contains (QDeclIdent.Value ident) topLevelDecls then
+          [ QDeclIdent.Value ident ]
+        else
+          match env.TryFindValue name with
+          | Some(t, _) ->
+            match t.Kind with
+            | TypeKind.TypeRef { Name = ident } ->
+
+              if List.contains (QDeclIdent.Type ident) topLevelDecls then
+                [ QDeclIdent.Type ident ]
+              else
+                []
+            | _ -> [] // This should probably be an error
+          | None -> [] // This should probably be an error
+      | _ -> []
+    | _ -> []
+  | _ -> []
 
 let rec buildGraph
   (env: Env)
@@ -519,11 +603,107 @@ let rec buildGraph
           (SyntaxNode.TypeAnn typeAnn)
 
     graph <- graph.Add((Type ident), decl, deps)
-  | InterfaceDecl { Name = name } ->
+  | InterfaceDecl { Name = name
+                    TypeParams = typeParams
+                    Elems = elems } ->
     let ident =
       match nsIdent with
       | Some left -> QualifiedIdent.Member(left, name)
       | None -> QualifiedIdent.Ident name
+
+    let interfaceName = ident
+
+    let interfaceTypeParamNames =
+      match typeParams with
+      | None -> []
+      | Some typeParams ->
+        List.map
+          (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+          typeParams
+
+    let deps =
+      elems
+      |> List.collect (fun elem ->
+        match elem with
+        | ObjTypeAnnElem.Callable fnSig ->
+          getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+        | ObjTypeAnnElem.Constructor fnSig ->
+          getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+        | ObjTypeAnnElem.Method { Type = fnSig; Name = name } ->
+          let propNameDeps = getPropNameDeps env locals name
+
+          let fnDeps =
+            getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+
+          propNameDeps @ fnDeps
+        | ObjTypeAnnElem.Getter { ReturnType = returnType; Name = name } ->
+          let propNameDeps = getPropNameDeps env locals name
+
+          let fnDeps =
+            match returnType with
+            | Some returnType ->
+              findTypeRefIdents
+                env
+                localTypeNames
+                interfaceTypeParamNames
+                (SyntaxNode.TypeAnn returnType)
+            | None -> []
+
+          propNameDeps @ fnDeps
+        | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn }
+                                  Name = name } ->
+          let propNameDeps = getPropNameDeps env locals name
+
+          let fnDeps =
+            match typeAnn with
+            | Some typeAnn ->
+              findTypeRefIdents
+                env
+                localTypeNames
+                interfaceTypeParamNames
+                (SyntaxNode.TypeAnn typeAnn)
+            | None -> []
+
+          propNameDeps @ fnDeps
+        | ObjTypeAnnElem.Property { TypeAnn = typeAnn; Name = name } ->
+          let propNameDeps = getPropNameDeps env locals name
+
+          let typeAnnDeps =
+            findTypeRefIdents
+              env
+              localTypeNames
+              interfaceTypeParamNames
+              (SyntaxNode.TypeAnn typeAnn)
+
+          propNameDeps @ typeAnnDeps
+        | ObjTypeAnnElem.Mapped { TypeParam = typeParam
+                                  TypeAnn = typeAnn } ->
+          let tp: TypeParam =
+            { Span = DUMMY_SPAN
+              Name = typeParam.Name
+              Constraint = Some typeParam.Constraint
+              Default = None }
+
+          let typeParams =
+            match typeParams with
+            | None -> Some [ tp ]
+            | Some typeParams -> Some(tp :: typeParams)
+
+          findTypeRefIdents
+            env
+            localTypeNames
+            interfaceTypeParamNames
+            (SyntaxNode.TypeAnn typeParam.Constraint)
+          @ findTypeRefIdents
+              env
+              localTypeNames
+              interfaceTypeParamNames
+              (SyntaxNode.TypeAnn typeAnn))
+
+    match graph.Edges.TryFind(QDeclIdent.Type ident) with
+    | Some existingDeps ->
+      graph <- graph.Add(QDeclIdent.Type ident, decl, existingDeps @ deps)
+    | None -> graph <- graph.Add(QDeclIdent.Type ident, decl, deps)
 
     // TODO: check if there's an existing node with the same name
     // and merge their decls
@@ -658,6 +838,44 @@ let rec getOrCreateNamespace
             Namespaces = Map.add parentNS.Name parentNS ns.Namespaces }
   }
 
+
+let getAllBindingPatterns (pattern: Pattern) : Map<string, Type> =
+  let mutable result = Map.empty
+
+  let visitor =
+    { ExprVisitor.VisitExpr =
+        fun (expr, state) ->
+          match expr.Kind with
+          | ExprKind.Function _ -> (false, state)
+          | _ -> (true, state)
+      ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
+      ExprVisitor.VisitPattern =
+        fun (pat, state) ->
+          match pat.Kind with
+          | PatternKind.Ident { Name = name } ->
+            match pat.InferredType with
+            | Some t -> result <- Map.add name t result
+            | None -> ()
+
+            (false, state)
+          | PatternKind.Object { Elems = elems } ->
+            for elem in elems do
+              match elem with
+              | ShorthandPat { Name = name; Inferred = inferred } ->
+                match inferred with
+                | Some t -> result <- Map.add name t result
+                | None -> ()
+              | _ -> ()
+
+            (false, state)
+          | _ -> (true, state)
+      ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+      ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
+
+  walkPattern visitor () pattern
+
+  result
+
 let inferDeclPlaceholders
   (ctx: Ctx)
   (env: Env)
@@ -760,12 +978,15 @@ let inferDeclPlaceholders
         // types.
         typeDecl.Inferred <- Some placeholder
         newEnv <- newEnv.AddScheme typeDecl.Name placeholder
-      | InterfaceDecl { Name = name; TypeParams = typeParams } ->
+      | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
+        // Instead of looking things up in the environment, we need some way to
+        // find the existing type on other declarations.
         let! placeholder =
           match newEnv.TryFindScheme name with
           | Some scheme -> Result.Ok scheme
           | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
+        decl.Inferred <- Some placeholder
         newEnv <- newEnv.AddScheme name placeholder
       | NamespaceDecl nsDecl ->
         return!
@@ -781,43 +1002,6 @@ let inferDeclPlaceholders
 
     return ()
   }
-
-let getAllBindingPatterns (pattern: Pattern) : Map<string, Type> =
-  let mutable result = Map.empty
-
-  let visitor =
-    { ExprVisitor.VisitExpr =
-        fun (expr, state) ->
-          match expr.Kind with
-          | ExprKind.Function _ -> (false, state)
-          | _ -> (true, state)
-      ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
-      ExprVisitor.VisitPattern =
-        fun (pat, state) ->
-          match pat.Kind with
-          | PatternKind.Ident { Name = name } ->
-            match pat.InferredType with
-            | Some t -> result <- Map.add name t result
-            | None -> ()
-
-            (false, state)
-          | PatternKind.Object { Elems = elems } ->
-            for elem in elems do
-              match elem with
-              | ShorthandPat { Name = name; Inferred = inferred } ->
-                match inferred with
-                | Some t -> result <- Map.add name t result
-                | None -> ()
-              | _ -> ()
-
-            (false, state)
-          | _ -> (true, state)
-      ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
-      ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
-
-  walkPattern visitor () pattern
-
-  result
 
 let inferDeclDefinitions
   (ctx: Ctx)

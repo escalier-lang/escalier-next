@@ -29,7 +29,7 @@ let BuildDeclGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
       ()
     }
 
@@ -53,7 +53,7 @@ let NestedNamespaceOnly () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
       ()
     }
 
@@ -74,7 +74,7 @@ let BasicGraphInferCompositeValues () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -104,7 +104,7 @@ let BasicGraphInferTypes () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -136,7 +136,7 @@ let BasicGraphInferFunctionDecl () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -164,7 +164,7 @@ let BasicDeps () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -196,7 +196,7 @@ let BasicFunctionCaptures () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -229,7 +229,7 @@ let OutOfOrderFunctionCaptures () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
@@ -258,14 +258,14 @@ let OutOfOrderTypeDepsWithTypeParamConstraint () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
-      printfn $"graph = {graph}"
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
         |> Result.mapError CompileError.TypeError
 
-      ()
+      Assert.Type(env, "Bar", "<T: Baz>({bar: T})")
+      Assert.Type(env, "Baz", "string")
     }
 
   printfn "res = %A" res
@@ -281,7 +281,7 @@ let BasicInterface () =
       let src =
         """
         interface FooBar { foo: number }
-        // interface FooBar { bar: string }
+        interface FooBar { bar: string }
         """
 
       let! ast =
@@ -289,14 +289,13 @@ let BasicInterface () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.getIdentsForModule env ast
-      printfn $"graph = {graph}"
+      let graph = QualifiedGraph.buildGraph env ast
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph
         |> Result.mapError CompileError.TypeError
 
-      ()
+      Assert.Type(env, "FooBar", "{foo: number, bar: string}")
     }
 
   printfn "res = %A" res

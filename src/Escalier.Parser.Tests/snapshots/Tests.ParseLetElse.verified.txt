@@ -20,13 +20,15 @@ output: Ok
                                              Name = "x"
                                              IsMut = false
                                              Default = None
-                                             Assertion = None };
+                                             Assertion = None
+                                             Inferred = None };
                               ShorthandPat { Span = { Start = (Ln: 2, Col: 13)
                                                       Stop = (Ln: 2, Col: 14) }
                                              Name = "y"
                                              IsMut = false
                                              Default = None
-                                             Assertion = None }]
+                                             Assertion = None
+                                             Inferred = None }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 9)
                                 Stop = (Ln: 2, Col: 16) }

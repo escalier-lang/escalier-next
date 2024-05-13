@@ -363,7 +363,8 @@ module Syntax =
       Name: string
       IsMut: bool
       Default: option<Expr>
-      Assertion: option<Common.QualifiedIdent> }
+      Assertion: option<Common.QualifiedIdent>
+      mutable Inferred: option<Type.Type> }
 
   type RestPat =
     { Span: Span
@@ -422,22 +423,30 @@ module Syntax =
     { Declare: bool
       Name: string
       Sig: FuncSig
-      Body: option<BlockOrExpr> }
+      Body: option<BlockOrExpr>
+      mutable Inferred: option<Type.Type> }
+
+  type ClassDeclInferredTypes =
+    { Instance: Type.Scheme
+      Statics: Type.Type }
 
   type ClassDecl =
     { Declare: bool
       Name: string
-      Class: Class }
+      Class: Class
+      mutable Inferred: option<ClassDeclInferredTypes> }
 
   type TypeDecl =
     { Name: string
       TypeAnn: TypeAnn
-      TypeParams: option<list<TypeParam>> }
+      TypeParams: option<list<TypeParam>>
+      mutable Inferred: option<Type.Scheme> }
 
   type InterfaceDecl =
     { Name: string
       TypeParams: option<list<TypeParam>>
-      Elems: list<ObjTypeAnnElem> }
+      Elems: list<ObjTypeAnnElem>
+      mutable Inferred: option<Type.Scheme> }
 
   type EnumVariant =
     { Name: string

@@ -38,7 +38,8 @@ output: Ok
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 2, Col: 40) }
                        InferredType = None }
-                    TypeParams = None }
+                    TypeParams = None
+                    Inferred = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -77,7 +78,8 @@ output: Ok
                        Span = { Start = (Ln: 3, Col: 17)
                                 Stop = (Ln: 3, Col: 39) }
                        InferredType = None }
-                    TypeParams = None }
+                    TypeParams = None
+                    Inferred = None }
                Span = { Start = (Ln: 3, Col: 5)
                         Stop = (Ln: 4, Col: 5) } }
           Span = { Start = (Ln: 3, Col: 5)
@@ -119,7 +121,8 @@ output: Ok
                                              Name = "p0"
                                              IsMut = true
                                              Default = None
-                                             Assertion = None };
+                                             Assertion = None
+                                             Inferred = None };
                               KeyValuePat
                                 { Span = { Start = (Ln: 6, Col: 18)
                                            Stop = (Ln: 6, Col: 27) }

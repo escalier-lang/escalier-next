@@ -31,7 +31,8 @@ output: Ok
                                     Name = "x"
                                     IsMut = false
                                     Default = None
-                                    Assertion = None };
+                                    Assertion = None
+                                    Inferred = None };
                                 KeyValuePat
                                   { Span = { Start = (Ln: 3, Col: 13)
                                              Stop = (Ln: 3, Col: 17) }
@@ -64,7 +65,8 @@ output: Ok
                                     Name = "x"
                                     IsMut = false
                                     Default = None
-                                    Assertion = Some (Ident "number") };
+                                    Assertion = Some (Ident "number")
+                                    Inferred = None };
                                 KeyValuePat
                                   { Span = { Start = (Ln: 4, Col: 23)
                                              Stop = (Ln: 4, Col: 37) }
@@ -158,7 +160,8 @@ output: Ok
                                                   Name = "x"
                                                   IsMut = false
                                                   Default = None
-                                                  Assertion = None };
+                                                  Assertion = None
+                                                  Inferred = None };
                                               ShorthandPat
                                                 { Span =
                                                    { Start = (Ln: 6, Col: 38)
@@ -166,7 +169,8 @@ output: Ok
                                                   Name = "y"
                                                   IsMut = false
                                                   Default = None
-                                                  Assertion = None }]
+                                                  Assertion = None
+                                                  Inferred = None }]
                                             Immutable = false }
                                        Span = { Start = (Ln: 6, Col: 34)
                                                 Stop = (Ln: 6, Col: 40) }
@@ -178,7 +182,8 @@ output: Ok
                                     Name = "radius"
                                     IsMut = false
                                     Default = None
-                                    Assertion = None }]
+                                    Assertion = None
+                                    Inferred = None }]
                               Immutable = false }
                          Span = { Start = (Ln: 6, Col: 9)
                                   Stop = (Ln: 6, Col: 50) }
@@ -204,7 +209,8 @@ output: Ok
                                             Span = { Start = (Ln: 7, Col: 14)
                                                      Stop = (Ln: 7, Col: 15) }
                                             InferredType = None }
-                                    Assertion = None };
+                                    Assertion = None
+                                    Inferred = None };
                                 KeyValuePat
                                   { Span = { Start = (Ln: 7, Col: 17)
                                              Stop = (Ln: 7, Col: 25) }
@@ -245,7 +251,8 @@ output: Ok
                                             Span = { Start = (Ln: 8, Col: 24)
                                                      Stop = (Ln: 8, Col: 25) }
                                             InferredType = None }
-                                    Assertion = Some (Ident "number") };
+                                    Assertion = Some (Ident "number")
+                                    Inferred = None };
                                 KeyValuePat
                                   { Span = { Start = (Ln: 8, Col: 27)
                                              Stop = (Ln: 8, Col: 45) }

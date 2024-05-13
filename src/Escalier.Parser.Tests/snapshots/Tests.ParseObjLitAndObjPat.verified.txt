@@ -36,7 +36,8 @@ output: Ok
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 2, Col: 40) }
                        InferredType = None }
-                    TypeParams = None }
+                    TypeParams = None
+                    Inferred = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -56,13 +57,15 @@ output: Ok
                                              Name = "x"
                                              IsMut = false
                                              Default = None
-                                             Assertion = None };
+                                             Assertion = None
+                                             Inferred = None };
                               ShorthandPat { Span = { Start = (Ln: 3, Col: 13)
                                                       Stop = (Ln: 3, Col: 14) }
                                              Name = "y"
                                              IsMut = false
                                              Default = None
-                                             Assertion = None }]
+                                             Assertion = None
+                                             Inferred = None }]
                             Immutable = false }
                        Span = { Start = (Ln: 3, Col: 9)
                                 Stop = (Ln: 3, Col: 15) }
@@ -167,7 +170,8 @@ output: Ok
                                                    Name = "x"
                                                    IsMut = false
                                                    Default = None
-                                                   Assertion = None };
+                                                   Assertion = None
+                                                   Inferred = None };
                                                ShorthandPat
                                                  { Span =
                                                     { Start = (Ln: 5, Col: 23)
@@ -175,7 +179,8 @@ output: Ok
                                                    Name = "y"
                                                    IsMut = false
                                                    Default = None
-                                                   Assertion = None }]
+                                                   Assertion = None
+                                                   Inferred = None }]
                                              Immutable = false }
                                         Span = { Start = (Ln: 5, Col: 19)
                                                  Stop = (Ln: 5, Col: 25) }

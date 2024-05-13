@@ -198,15 +198,22 @@ let findLocals (decls: list<Decl>) : list<QDeclIdent> =
 
   locals
 
-// TODO: update too look in `env` as well when deciding if something is a
-// local capture of not.
-// TODO: rename to `findLocalCaptures`
+// TODO: update this function to accept a QualifiedNamespace as an argument
+// Only items in this namespace can be considered as a potential captures
 let rec findCaptures
+  (qns: list<QDeclIdent>) // TODO: update this to use QualifiedNamespace
   (parentLocals: list<QDeclIdent>)
   (f: Function)
   : list<QDeclIdent> =
 
-  let mutable parentLocalNames =
+  let qnsNames =
+    qns
+    |> List.choose (fun (qid: QDeclIdent) ->
+      match qid with
+      | QDeclIdent.Value name -> Some name
+      | QDeclIdent.Type name -> None)
+
+  let parentLocalNames =
     parentLocals
     |> List.choose (fun (qid: QDeclIdent) ->
       match qid with
@@ -251,14 +258,15 @@ let rec findCaptures
             let ident = QualifiedIdent.Ident name
 
             if
-              (List.contains ident parentLocalNames)
+              (List.contains ident qnsNames)
+              && not (List.contains ident parentLocalNames)
               && not (List.contains ident localNames)
             then
               captures <- QDeclIdent.Value ident :: captures
 
             (false, localNames)
           | ExprKind.Function f ->
-            captures <- findCaptures (parentLocals @ locals) f
+            captures <- findCaptures qns (parentLocals @ locals) f
             // Don't recurse since `findCaptures` already does that
             (false, localNames)
           | _ -> (true, localNames)
@@ -376,7 +384,7 @@ let getDepsForFn
           Captures = None
           InferredType = None }
 
-      findCaptures possibleDeps f @ typeDeps
+      findCaptures possibleDeps [] f @ typeDeps
 
   deps
 
@@ -542,7 +550,8 @@ let buildGraph (env: Env) (m: Module) : QGraph =
             let functions = Graph.findFunctions init
 
             for f in functions do
-              deps <- deps @ findCaptures locals f
+              let captures = findCaptures locals [] f
+              deps <- deps @ captures
 
             deps
           | None ->
@@ -1326,6 +1335,8 @@ let rec inferTreeRec
         names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
 
       do! inferDeclPlaceholders ctx newEnv decls
+      // TODO: add decls to the environment after inferring placeholders so
+      // they're available when inferring mutually recursive function definitions
       do! inferDeclDefinitions ctx newEnv decls
 
       inferredLocals <- updateInferredLocals inferredLocals decls

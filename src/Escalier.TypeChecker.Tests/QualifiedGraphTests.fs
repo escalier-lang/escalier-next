@@ -150,6 +150,69 @@ let BasicGraphInferFunctionDecl () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let FunctionDeclsWithLocalVariables () =
+  let res =
+    result {
+      let src =
+        """
+        fn add5(x) {
+          let y = 5;
+          return x + y;
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ReturnFunctionDeclWithCaptures () =
+  // TODO: fix this for function decls as well
+  let res =
+    result {
+      let src =
+        """
+        let getAdd5 = fn () {
+          let y = 5;
+          return fn (x) {
+            return x + y;
+          };
+        };
+        let add5 = getAdd5();
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact>]
 let BasicDeps () =
   let res =
     result {
@@ -379,7 +442,7 @@ let MergeInterfaceBetweenFiles () =
 
 
 [<Fact>]
-let SelfRecursiveFunction () =
+let SelfRecursiveFunctions () =
   let res =
     result {
       let src =
@@ -406,8 +469,38 @@ let SelfRecursiveFunction () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+[<Fact(Skip = "TODO: add placeholders to the environment before calling inferDeclDefinitions")>]
+let MutuallysRecursiveFunctions () =
+  let res =
+    result {
+      let src =
+        """
+        let isEven = fn (n) => if n == 0 { true } else { isOdd(n - 1) };
+        let isOdd = fn (n) => if n == 0 { false } else { isEven(n - 1) };
+        """
 
-[<Fact(Skip = "TODO: ignore local variables in functions")>]
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      printfn $"graph = {graph}"
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "isEven", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "isOdd", "fn (arg0: number) -> number")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact>]
 let ReturnSelfRecursiveFunction () =
   let res =
     result {
@@ -430,7 +523,7 @@ let ReturnSelfRecursiveFunction () =
         QualifiedGraph.inferGraph ctx env graph
         |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "ret_fact", "{foo: \"foo\"}")
+      Assert.Value(env, "ret_fact", "fn () -> fn (arg0: number) -> 1 | number")
     }
 
   printfn "res = %A" res

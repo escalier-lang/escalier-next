@@ -42,6 +42,10 @@ type QualifiedNamespace =
   { Values: Map<QualifiedIdent, Binding>
     Schemes: Map<QualifiedIdent, Scheme> }
 
+  static member Empty =
+    { Values = Map.empty
+      Schemes = Map.empty }
+
   member this.AddValue (ident: QualifiedIdent) (binding: Binding) =
     { this with
         Values = Map.add ident binding this.Values }
@@ -1254,61 +1258,66 @@ let updateEnvWithQualifiedNamespace
 
   newEnv
 
+let updateQualifiedNamespace
+  (src: QualifiedNamespace)
+  (dst: QualifiedNamespace)
+  (generalize: bool)
+  : QualifiedNamespace =
+  let mutable dst = dst
+
+  for KeyValue(key, binding) in src.Values do
+    if generalize then
+      let t, isMut = binding
+      let t = Helpers.generalizeFunctionsInType t
+      dst <- dst.AddValue key (t, isMut)
+    else
+      dst <- dst.AddValue key binding
+
+  for KeyValue(key, scheme) in src.Schemes do
+    dst <- dst.AddScheme key scheme
+
+  dst
+
 let rec inferTreeRec
   (ctx: Ctx)
   (env: Env)
   (root: Set<QDeclIdent>)
   (graph: QGraph)
   (tree: QDeclTree)
-  (qns: QualifiedNamespace)
-  : Result<QualifiedNamespace, TypeError> =
+  (fullQns: QualifiedNamespace)
+  : Result<QualifiedNamespace * QualifiedNamespace, TypeError> =
 
   result {
-    let mutable qns = qns
+    let mutable fullQns = fullQns
+    let mutable partialQns = QualifiedNamespace.Empty
 
     // Infer dependencies
     match tree.Edges.TryFind root with
     | Some deps ->
       for dep in deps do
         // TODO: avoid re-inferring types if they've already been inferred
-        let! newQns = inferTreeRec ctx env dep graph tree qns
-        qns <- newQns
+        let! newFullQns, newPartialQns =
+          inferTreeRec ctx env dep graph tree fullQns
+
+        // Update partialQns with new values and types
+        partialQns <- updateQualifiedNamespace newPartialQns partialQns false
+
     | None -> ()
 
     // Update environment to include dependencies
-    // TODO: minimize the number of updates we have to make each time to newEnv
-    // Right now we're updating we're updating the environment with symbols from
-    // the current deps as well as the symbols from all previous calls to
-    // inferTreeRec.  We still want to pass a QualifiedNamespace that accumulates
-    // inferred symbols over multiple calls so that avoid re-infering the same
-    // symbol, but we only need to add the symbols from the current deps to the
-    // environment.
-    let newEnv = updateEnvWithQualifiedNamespace env qns
-    let newQns = qns
+    let newEnv = updateEnvWithQualifiedNamespace env partialQns
 
-    match List.ofSeq root with
-    | [] ->
-      return!
-        Error(
-          TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
-        )
-    | names ->
-      let decls =
-        names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
+    let names = Set.toList root
+    let decls = names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
 
-      let! newQns = inferDeclPlaceholders ctx newEnv newQns decls
-      // TODO: add decls to the environment after inferring placeholders so
-      // they're available when inferring mutually recursive function definitions
-      let! newQns = inferDeclDefinitions ctx newEnv newQns decls
+    // Infer declarations
+    let! newPartialQns = inferDeclPlaceholders ctx newEnv partialQns decls
+    let! newPartialQns = inferDeclDefinitions ctx newEnv newPartialQns decls
 
-      qns <- newQns
+    // Update fullQns with new values and types
+    fullQns <- updateQualifiedNamespace newPartialQns fullQns true
 
-      for KeyValue(key, binding) in qns.Values do
-        let t, isMut = binding
-        let t = Helpers.generalizeFunctionsInType t
-        qns <- qns.AddValue key (t, isMut)
-
-      return qns
+    return fullQns, newPartialQns
   }
 
 let inferGraph (ctx: Ctx) (env: Env) (graph: QGraph) : Result<Env, TypeError> =
@@ -1326,15 +1335,13 @@ let inferGraph (ctx: Ctx) (env: Env) (graph: QGraph) : Result<Env, TypeError> =
         if not (Set.contains key deps) then
           entryPoints <- entryPoints.Add(Set.singleton key)
 
-    let mutable qns: QualifiedNamespace =
-      { Values = Map.empty
-        Schemes = Map.empty }
+    let mutable qns = QualifiedNamespace.Empty
 
     // Infer entry points and all their dependencies
     for set in entryPoints do
       try
-        let! newQns = inferTreeRec ctx env set graph tree qns
-        qns <- newQns
+        let! fullQns, _ = inferTreeRec ctx env set graph tree qns
+        qns <- fullQns
       with e ->
         printfn $"Error: {e}"
         return! Error(TypeError.SemanticError(e.ToString()))

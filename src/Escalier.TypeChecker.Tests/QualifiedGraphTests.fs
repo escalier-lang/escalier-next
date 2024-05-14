@@ -528,3 +528,58 @@ let ReturnSelfRecursiveFunction () =
 
   printfn "res = %A" res
   Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferFunctionDeclTypeFromBody () =
+  let res =
+    result {
+      let src =
+        """
+        fn add(x, y) {
+          return x + y;
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InferFunctionDeclTypeFromBodyWrongSig () =
+  let res =
+    result {
+      let src =
+        """
+        fn add(x: string, y: string) -> string {
+          return x + y;
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      ()
+    }
+
+  Assert.True(Result.isError res)

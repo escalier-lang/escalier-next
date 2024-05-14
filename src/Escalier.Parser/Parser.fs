@@ -1450,8 +1450,7 @@ module Parser =
           { Declare = false
             Name = name
             Sig = fnSig
-            Body = Some(BlockOrExpr.Block body)
-            Inferred = None }
+            Body = Some(BlockOrExpr.Block body) }
 
       { Kind = kind; Span = span }
 
@@ -1473,8 +1472,7 @@ module Parser =
           TypeDecl
             { Name = id
               TypeAnn = typeAnn
-              TypeParams = typeParams
-              Inferred = None }
+              TypeParams = typeParams }
         Span = span }
 
   let private interfaceDecl: Parser<Decl, unit> =
@@ -1491,8 +1489,7 @@ module Parser =
           InterfaceDecl
             { Name = name
               TypeParams = typeParams
-              Elems = objTypeElems
-              Inferred = None }
+              Elems = objTypeElems }
         Span = span }
 
   let private enumVariant: Parser<EnumVariant, unit> =
@@ -1745,8 +1742,7 @@ module Parser =
         { Declare = true
           Name = name
           Sig = fnSig
-          Body = None
-          Inferred = None }
+          Body = None }
 
   let declare: Parser<Stmt, unit> =
     pipe3

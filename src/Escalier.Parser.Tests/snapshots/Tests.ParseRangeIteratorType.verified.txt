@@ -116,8 +116,7 @@ output: Ok
                                               Span = { Start = (Ln: 2, Col: 44)
                                                        Stop = (Ln: 2, Col: 50) }
                                               InferredType = None }
-                          Default = None }]
-                    Inferred = None }
+                          Default = None }] }
                Span = { Start = (Ln: 2, Col: 7)
                         Stop = (Ln: 5, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 7)

@@ -36,8 +36,7 @@ output: Ok
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 2, Col: 40) }
                        InferredType = None }
-                    TypeParams = None
-                    Inferred = None }
+                    TypeParams = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)

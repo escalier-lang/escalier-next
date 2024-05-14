@@ -58,8 +58,7 @@ output: Ok
                                                   Stop = (Ln: 2, Col: 15) }
                                          Name = "T"
                                          Constraint = None
-                                         Default = None }]
-                    Inferred = None }
+                                         Default = None }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 3, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)

@@ -60,8 +60,7 @@ output: Ok
                                                     Stop = (Ln: 1, Col: 38) }
                                            InferredType = None })
                                 Span = { Start = (Ln: 1, Col: 30)
-                                         Stop = (Ln: 1, Col: 40) } }] })
-                    Inferred = None }
+                                         Stop = (Ln: 1, Col: 40) } }] }) }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 41) } }
           Span = { Start = (Ln: 1, Col: 1)

@@ -1063,6 +1063,11 @@ let inferDeclDefinitions
                  Name = name
                  Sig = fnSig
                  Body = Some body } as decl) ->
+        let placeholderType, _ =
+          match env.TryFindValue name with
+          | Some t -> t
+          | None -> failwith "Missing placeholder type"
+
         // NOTE: We explicitly don't generalize here because we want other
         // declarations to be able to unify with any free type variables
         // from this declaration.  We generalize things in `inferModule` and
@@ -1073,6 +1078,8 @@ let inferDeclDefinitions
         let inferredType =
           { Kind = TypeKind.Function f
             Provenance = None }
+
+        do! Unify.unify ctx env None placeholderType inferredType
 
         qns <- qns.AddValue (QualifiedIdent.Ident name) (inferredType, false)
       | FnDecl { Declare = true } ->
@@ -1305,13 +1312,14 @@ let rec inferTreeRec
     | None -> ()
 
     // Update environment to include dependencies
-    let newEnv = updateEnvWithQualifiedNamespace env partialQns
+    let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
 
     let names = Set.toList root
     let decls = names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
 
     // Infer declarations
     let! newPartialQns = inferDeclPlaceholders ctx newEnv partialQns decls
+    newEnv <- updateEnvWithQualifiedNamespace newEnv newPartialQns // mutually recursive functions
     let! newPartialQns = inferDeclDefinitions ctx newEnv newPartialQns decls
 
     // Update fullQns with new values and types

@@ -470,6 +470,38 @@ let SelfRecursiveFunctions () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let SelfRecursiveFunctionDecls () =
+  let res =
+    result {
+      let src =
+        """
+        fn fact (n) {
+          return if n == 0 { 1 } else { n * fact(n - 1) };
+        }
+        fn fib (n) {
+          return if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "fact", "fn (n: number) -> 1 | number")
+      Assert.Value(env, "fib", "fn (n: number) -> number | number")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let MutuallysRecursiveFunctions () =
   let res =
     result {
@@ -497,6 +529,42 @@ let MutuallysRecursiveFunctions () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+[<Fact>]
+let MutuallyRecursiveFunctionDecls () =
+  let res =
+    result {
+      let src =
+        """
+        fn isEven (n) {
+          return if n == 0 { true } else { isOdd(n - 1) };
+        }
+        fn isOdd (n) {
+          return if n == 0 { false } else { isEven(n - 1) };
+        }
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
+
+      Assert.Value(
+        env,
+        "isOdd",
+        "fn (n: number) -> false | true | false | true"
+      )
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
 
 [<Fact>]
 let ReturnSelfRecursiveFunction () =

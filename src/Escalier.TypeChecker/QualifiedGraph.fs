@@ -935,7 +935,6 @@ let inferDeclPlaceholders
       | FnDecl({ Declare = false
                  Sig = fnSig
                  Name = name } as decl) ->
-        printfn $"inferring placeholder for {name}"
         let! f = Infer.inferFuncSig ctx env fnSig
 
         let t =
@@ -1064,6 +1063,11 @@ let inferDeclDefinitions
                  Name = name
                  Sig = fnSig
                  Body = Some body } as decl) ->
+        let placeholderType, _ =
+          match env.TryFindValue name with
+          | Some t -> t
+          | None -> failwith "Missing placeholder type"
+
         // NOTE: We explicitly don't generalize here because we want other
         // declarations to be able to unify with any free type variables
         // from this declaration.  We generalize things in `inferModule` and
@@ -1074,6 +1078,8 @@ let inferDeclDefinitions
         let inferredType =
           { Kind = TypeKind.Function f
             Provenance = None }
+
+        do! Unify.unify ctx env None placeholderType inferredType
 
         qns <- qns.AddValue (QualifiedIdent.Ident name) (inferredType, false)
       | FnDecl { Declare = true } ->

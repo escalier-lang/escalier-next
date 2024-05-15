@@ -935,6 +935,7 @@ let inferDeclPlaceholders
       | FnDecl({ Declare = false
                  Sig = fnSig
                  Name = name } as decl) ->
+        printfn $"inferring placeholder for {name}"
         let! f = Infer.inferFuncSig ctx env fnSig
 
         let t =
@@ -1305,13 +1306,14 @@ let rec inferTreeRec
     | None -> ()
 
     // Update environment to include dependencies
-    let newEnv = updateEnvWithQualifiedNamespace env partialQns
+    let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
 
     let names = Set.toList root
     let decls = names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
 
     // Infer declarations
     let! newPartialQns = inferDeclPlaceholders ctx newEnv partialQns decls
+    newEnv <- updateEnvWithQualifiedNamespace newEnv newPartialQns // mutually recursive functions
     let! newPartialQns = inferDeclDefinitions ctx newEnv newPartialQns decls
 
     // Update fullQns with new values and types

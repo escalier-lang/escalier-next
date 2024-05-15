@@ -805,8 +805,7 @@ module rec Migrate =
 
     { Declare = declare
       Name = name
-      Class = cls
-      Inferred = None }
+      Class = cls }
 
   // This function returns a list of declarations because a single TypeScript
   // variable declaration can declare multiple variables.
@@ -852,8 +851,7 @@ module rec Migrate =
             { Declare = true // Some .d.ts files do `export function foo();`
               Name = ident.Name
               Sig = fnSig
-              Body = None
-              Inferred = None }
+              Body = None }
 
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.Var { Declare = declare; Decls = decls } ->
@@ -874,8 +872,7 @@ module rec Migrate =
         let decl: InterfaceDecl =
           { Name = ident.Name
             TypeParams = typeParams
-            Elems = elems
-            Inferred = None }
+            Elems = elems }
 
         let kind = DeclKind.InterfaceDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
@@ -892,8 +889,7 @@ module rec Migrate =
         let decl: TypeDecl =
           { Name = ident.Name
             TypeParams = typeParams
-            TypeAnn = migrateType typeAnn
-            Inferred = None }
+            TypeAnn = migrateType typeAnn }
 
         let kind = DeclKind.TypeDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]

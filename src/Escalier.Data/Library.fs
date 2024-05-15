@@ -423,8 +423,7 @@ module Syntax =
     { Declare: bool
       Name: string
       Sig: FuncSig
-      Body: option<BlockOrExpr>
-      mutable Inferred: option<Type.Type> }
+      Body: option<BlockOrExpr> }
 
   type ClassDeclInferredTypes =
     { Instance: Type.Scheme
@@ -433,20 +432,17 @@ module Syntax =
   type ClassDecl =
     { Declare: bool
       Name: string
-      Class: Class
-      mutable Inferred: option<ClassDeclInferredTypes> }
+      Class: Class }
 
   type TypeDecl =
     { Name: string
       TypeAnn: TypeAnn
-      TypeParams: option<list<TypeParam>>
-      mutable Inferred: option<Type.Scheme> }
+      TypeParams: option<list<TypeParam>> }
 
   type InterfaceDecl =
     { Name: string
       TypeParams: option<list<TypeParam>>
-      Elems: list<ObjTypeAnnElem>
-      mutable Inferred: option<Type.Scheme> }
+      Elems: list<ObjTypeAnnElem> }
 
   type EnumVariant =
     { Name: string

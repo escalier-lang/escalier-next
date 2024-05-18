@@ -56,6 +56,19 @@ type QualifiedNamespace =
 
 type SyntaxNode = Graph.SyntaxNode
 
+let rec memberToQualifiedIdent
+  (target: Expr)
+  (name: string)
+  : option<QualifiedIdent> =
+  match target.Kind with
+  | ExprKind.Member(target, innerName, _) ->
+    match memberToQualifiedIdent target innerName with
+    | Some qid -> Some(QualifiedIdent.Member(qid, name))
+    | None -> None
+  | ExprKind.Identifier innerName ->
+    Some(QualifiedIdent.Member(QualifiedIdent.Ident innerName, name))
+  | _ -> None
+
 // Find identifiers in an expression excluding function expressions.
 let findIdentifiers (expr: Expr) : list<QDeclIdent> =
   let mutable ids: list<QDeclIdent> = []
@@ -64,12 +77,14 @@ let findIdentifiers (expr: Expr) : list<QDeclIdent> =
     { ExprVisitor.VisitExpr =
         fun (expr, state) ->
           match expr.Kind with
-          // NOTE: we don't have to do any special handling for
-          // ExprKind.Member because the property is stored as a
-          // string instead of an identifier.
+          | ExprKind.Member(target, name, _) ->
+            match memberToQualifiedIdent target name with
+            | Some qid ->
+              ids <- QDeclIdent.Value qid :: ids
+              (false, state)
+            | None -> (true, state)
           | ExprKind.Identifier name ->
-            let ident = QualifiedIdent.Ident name
-            ids <- QDeclIdent.Value ident :: ids
+            ids <- QDeclIdent.Value(QualifiedIdent.Ident name) :: ids
             (false, state)
           | ExprKind.Function _ -> (false, state)
           | _ -> (true, state)
@@ -188,31 +203,45 @@ let findTypeRefIdents
 let findLocals (decls: list<Decl>) : list<QDeclIdent> =
   let mutable locals: list<QDeclIdent> = []
 
-  for decl in decls do
-    match decl.Kind with
-    | VarDecl { Pattern = pattern } ->
-      let bindingNames =
-        Helpers.findBindingNames pattern
-        |> List.map QualifiedIdent.Ident
-        |> List.map QDeclIdent.Value
+  let rec findLocalsRec
+    (decls: list<Decl>)
+    (ns: option<QualifiedIdent>)
+    : list<QDeclIdent> =
+    let mutable locals: list<QDeclIdent> = []
 
-      locals <- locals @ bindingNames
-    | FnDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
-    | ClassDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | TypeDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | InterfaceDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | EnumDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | NamespaceDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
+    for decl in decls do
+      match decl.Kind with
+      | VarDecl { Pattern = pattern } ->
+        let bindingNames =
+          Helpers.findBindingNames pattern
+          |> List.map (fun name ->
+            match ns with
+            | Some ns -> QDeclIdent.Value(QualifiedIdent.Member(ns, name))
+            | None -> QDeclIdent.Value(QualifiedIdent.Ident name))
 
-  locals
+        locals <- locals @ bindingNames
+      | FnDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
+      | ClassDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
+      | TypeDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
+      | InterfaceDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
+      | EnumDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
+      | NamespaceDecl { Name = name; Body = decls } ->
+        let newNS =
+          match ns with
+          | Some ns -> QualifiedIdent.Member(ns, name)
+          | None -> QualifiedIdent.Ident name
+
+        locals <- locals @ findLocalsRec decls (Some newNS)
+
+    locals
+
+  findLocalsRec decls None
 
 // TODO: update this function to accept a QualifiedNamespace as an argument
 // Only items in this namespace can be considered as a potential captures
@@ -493,29 +522,14 @@ let getDeclsFromModule (ast: Module) : list<Decl> =
       | _ -> None)
     ast.Items
 
-let buildGraph (env: Env) (m: Module) : QGraph =
+let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
+  let mutable nodes: Map<QDeclIdent, list<Decl>> = Map.empty
 
-  let mutable graph = { Nodes = Map.empty; Edges = Map.empty }
-
-  let decls = getDeclsFromModule m
-  // TODO: fork findLocals to instead return a list of QualifiedIdents
-  // It should also handle namespaces appropriately
-  let locals = findLocals decls
-
-  let localTypeNames =
-    List.choose
-      (fun qid ->
-        match qid with
-        | Type name -> Some name
-        | _ -> None)
-      locals
-
-  for item in m.Items do
-    match item with
-    | ModuleItem.Import _ -> ()
-    | ModuleItem.Decl decl ->
-      let nsIdent = None
-
+  let rec getNodesRec
+    (decls: list<Decl>)
+    (nsIdent: option<QualifiedIdent>)
+    : unit =
+    for decl in decls do
       match decl.Kind with
       | VarDecl { Pattern = pattern
                   Init = init
@@ -527,7 +541,79 @@ let buildGraph (env: Env) (m: Module) : QGraph =
             | Some left -> QDeclIdent.Value(QualifiedIdent.Member(left, name))
             | None -> QDeclIdent.Value(QualifiedIdent.Ident name))
 
-        // TODO: determine deps
+        for ident in idents do
+          nodes <- nodes.Add(ident, [ decl ])
+      | FnDecl { Name = name } ->
+        let key =
+          match nsIdent with
+          | Some left -> QualifiedIdent.Member(left, name)
+          | None -> QualifiedIdent.Ident name
+
+        // TODO: support function overloading
+        nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
+      | ClassDecl { Name = name }
+      | EnumDecl { Name = name } ->
+        let key =
+          match nsIdent with
+          | Some left -> QualifiedIdent.Member(left, name)
+          | None -> QualifiedIdent.Ident name
+
+        nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
+        nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
+      | TypeDecl { Name = name } ->
+        let key =
+          match nsIdent with
+          | Some left -> QualifiedIdent.Member(left, name)
+          | None -> QualifiedIdent.Ident name
+
+        nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
+      | InterfaceDecl { Name = name } ->
+        let key =
+          match nsIdent with
+          | Some left -> QualifiedIdent.Member(left, name)
+          | None -> QualifiedIdent.Ident name
+
+        let decls =
+          match nodes.TryFind(QDeclIdent.Type(key)) with
+          | Some nodes -> nodes @ [ decl ]
+          | None -> [ decl ]
+
+        nodes <- nodes.Add(QDeclIdent.Type(key), decls)
+      | NamespaceDecl { Name = name; Body = decls } ->
+        let nsIdent =
+          match nsIdent with
+          | Some left -> QualifiedIdent.Member(left, name)
+          | None -> QualifiedIdent.Ident name
+
+        getNodesRec decls (Some nsIdent)
+
+  getNodesRec decls None
+  nodes
+
+let getEdges
+  (env: Env)
+  (locals: list<QDeclIdent>)
+  (nodes: Map<QDeclIdent, list<Decl>>)
+  : Map<QDeclIdent, list<QDeclIdent>> =
+  let mutable edges: Map<QDeclIdent, list<QDeclIdent>> = Map.empty
+
+  let localTypeNames =
+    nodes.Keys
+    |> List.ofSeq
+    |> List.choose (fun qid ->
+      match qid with
+      | Type name -> Some name
+      | _ -> None)
+
+  for KeyValue(ident, decls) in nodes do
+    for decl in decls do
+      match decl.Kind with
+      | VarDecl { Pattern = pattern
+                  Init = init
+                  TypeAnn = typeAnn } ->
+
+        // TODO: cache deps computation for each declaration to optimize decls
+        // that introduce multiple bindings
         let deps =
           match init with
           | Some init ->
@@ -600,40 +686,26 @@ let buildGraph (env: Env) (m: Module) : QGraph =
 
             deps
 
-        for ident in idents do
-          graph <- graph.Add(ident, decl, deps)
-
+        edges <- edges.Add(ident, deps)
       | FnDecl { Name = name
                  Sig = fnSig
                  Body = body } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QDeclIdent.Value(QualifiedIdent.Member(left, name))
-          | None -> QDeclIdent.Value(QualifiedIdent.Ident name)
-
         let deps = getDepsForFn env locals [] fnSig body
-        graph <- graph.Add(ident, decl, deps)
+        edges <- edges.Add(ident, deps)
       | ClassDecl { Name = name } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
+        let deps =
+          match ident with
+          | Type _ ->
+            // TODO: determine instance deps
+            []
+          | Value qualifiedIdent ->
+            // TODO: determine static deps
+            []
 
-        // TODO: determine static deps
-        let staticDeps = []
-        graph <- graph.Add((Value ident), decl, staticDeps)
-
-        // TODO: determine instance deps
-        let instanceDeps = []
-        graph <- graph.Add((Type ident), decl, instanceDeps)
+        edges <- edges.Add(ident, deps)
       | TypeDecl { Name = name
                    TypeParams = typeParams
                    TypeAnn = typeAnn } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
-
         let mutable deps: list<QDeclIdent> = []
 
         let typeParamNames =
@@ -678,17 +750,10 @@ let buildGraph (env: Env) (m: Module) : QGraph =
               typeParamNames
               (SyntaxNode.TypeAnn typeAnn)
 
-        graph <- graph.Add((Type ident), decl, deps)
+        edges <- edges.Add(ident, deps)
       | InterfaceDecl { Name = name
                         TypeParams = typeParams
                         Elems = elems } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
-
-        let interfaceName = ident
-
         let interfaceTypeParamNames =
           match typeParams with
           | None -> []
@@ -776,43 +841,53 @@ let buildGraph (env: Env) (m: Module) : QGraph =
                   interfaceTypeParamNames
                   (SyntaxNode.TypeAnn typeAnn))
 
-        match graph.Edges.TryFind(QDeclIdent.Type ident) with
-        | Some existingDeps ->
-          graph <- graph.Add(QDeclIdent.Type ident, decl, existingDeps @ deps)
-        | None -> graph <- graph.Add(QDeclIdent.Type ident, decl, deps)
+        match edges.TryFind(ident) with
+        | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
+        | None -> edges <- edges.Add(ident, deps)
       | EnumDecl { Name = name } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
+        let deps =
+          match ident with
+          | Type _ ->
+            // TODO: determine instance deps
+            []
+          | Value _ ->
+            // NOTE: enums have no static deps
+            []
 
-        graph <-
-          { graph with
-              Nodes = Map.add (Value ident) [ decl ] graph.Nodes }
-
-        graph <-
-          { graph with
-              Nodes = Map.add (Type ident) [ decl ] graph.Nodes }
+        edges <- edges.Add(ident, deps)
       | NamespaceDecl { Name = name; Body = body } ->
-        // let nsIdent =
-        //   match nsIdent with
-        //   | Some left -> QualifiedIdent.Member(left, name)
-        //   | None -> QualifiedIdent.Ident name
-        // for decl in body do
-        //   let subGraph = buildGraph (Some nsIdent) decl
-        //
-        //   for KeyValue(ident, decl) in subGraph.Nodes do
-        //     graph <-
-        //       { graph with
-        //           Nodes = Map.add ident decl graph.Nodes }
-        //
-        //   for KeyValue(ident, deps) in subGraph.Edges do
-        //     graph <-
-        //       { graph with
-        //           Edges = Map.add ident deps graph.Edges }
-        failwith "TODO: buildGraph - NamespaceDecl"
+        // Namespaces are neither values or types but rather containers for
+        // values and types. We don't need to add them to the edges map.
+        ()
 
-  graph
+  edges
+
+let buildGraph (env: Env) (m: Module) : QGraph =
+
+  let mutable graph = { Nodes = Map.empty; Edges = Map.empty }
+
+  let decls = getDeclsFromModule m
+  let locals = findLocals decls
+
+  let localTypeNames =
+    List.choose
+      (fun qid ->
+        match qid with
+        | Type name -> Some name
+        | _ -> None)
+      locals
+
+  let decls =
+    m.Items
+    |> List.choose (fun item ->
+      match item with
+      | ModuleItem.Decl decl -> Some decl
+      | _ -> None)
+
+  let nodes = getNodes decls
+  let edges = getEdges env locals nodes
+
+  { Nodes = nodes; Edges = edges }
 
 // TODO: split this into separate functions
 // - one to create the namespace if it doesn't exist and update `env.Namespace` appropriately

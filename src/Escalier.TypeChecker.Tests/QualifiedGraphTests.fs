@@ -1,13 +1,38 @@
 module Escalier.TypeChecker.Tests.QualifiedGraphTests
 
+open Escalier.Data.Type
 open FsToolkit.ErrorHandling
 open Xunit
 
 open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.QualifiedGraph
 
 open TestUtils
+
+[<Fact>]
+let AddBinding () =
+  let env = Env.empty "input.esc"
+
+  let t =
+    { Kind = TypeKind.Primitive Primitive.Number
+      Provenance = None }
+
+  let ident =
+    { Namespaces = [ "Foo"; "Bar" ]
+      Name = "x" }
+
+  let newEnv = addBinding env ident (t, false)
+
+  let ident =
+    { Namespaces = [ "Foo"; "Bar" ]
+      Name = "y" }
+
+  let newEnv = addBinding newEnv ident (t, false)
+  // printfn $"newEnv = {newEnv}"
+  ()
 
 [<Fact(Skip = "TODO")>]
 let NamespaceShadowingOfVariables () =
@@ -48,8 +73,8 @@ let NamespaceShadowingOfVariables () =
 
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
-let NamespaceReferenceNamespaceValuesInOtherNamespaces () =
+[<Fact>]
+let NamespaceReferenceOtherNamespaces () =
   let res =
     result {
       let src =
@@ -76,7 +101,7 @@ let NamespaceReferenceNamespaceValuesInOtherNamespaces () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
-      Assert.Value(env, "y", "5")
+      Assert.Value(env, "y", "15")
     }
 
   printfn "res = %A" res

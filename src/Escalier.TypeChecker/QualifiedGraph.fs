@@ -49,6 +49,11 @@ type QDeclIdent =
   | Type of QualifiedIdent
   | Value of QualifiedIdent
 
+  override this.ToString() =
+    match this with
+    | Type qid -> $"Type {qid}"
+    | Value qid -> $"Value {qid}"
+
 type QGraph =
   // A type can depend on multiple interface declarations
   { Nodes: Map<QDeclIdent, list<Decl>>
@@ -102,7 +107,11 @@ let rec memberToQualifiedIdent
   | _ -> None
 
 // Find identifiers in an expression excluding function expressions.
-let findIdentifiers (expr: Expr) : list<QDeclIdent> =
+let findIdentifiers
+  (locals: list<QDeclIdent>)
+  (ident: QDeclIdent)
+  (expr: Expr)
+  : list<QDeclIdent> =
   let mutable ids: list<QDeclIdent> = []
 
   let visitor =
@@ -136,6 +145,34 @@ let findIdentifiers (expr: Expr) : list<QDeclIdent> =
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
 
   walkExpr visitor () expr
+
+  let namespaces =
+    match ident with
+    | Type { Namespaces = namespaces } -> namespaces
+    | Value { Namespaces = namespaces } -> namespaces
+
+  // TODO: loop through all ids and if there's an id that doesn't appear in locals
+  // then we need to check if it's in a namespace and if it is try adding that namespace
+  // to the id and check again
+
+  // Post-process ids to prepend namespaces if necessary
+  let ids =
+    ids
+    |> List.map (fun id ->
+      if List.contains id locals then
+        id
+      else
+        // TODO: handle situations where we only need to prepend some of the
+        // namespaces in `namespaces` instead of all of them
+        match id with
+        | Type qid ->
+          Type
+            { Namespaces = namespaces @ qid.Namespaces
+              Name = qid.Name }
+        | Value qid ->
+          Value
+            { Namespaces = namespaces @ qid.Namespaces
+              Name = qid.Name })
 
   List.rev ids
 
@@ -628,7 +665,7 @@ let getEdges
         let deps =
           match init with
           | Some init ->
-            let mutable deps = findIdentifiers init
+            let mutable deps = findIdentifiers locals ident init
 
             // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =
@@ -1069,6 +1106,32 @@ let inferDeclPlaceholders
     return qns
   }
 
+// Copies symbols from the nested namespaces listed in `namespaces` into `env`.
+// For example if `namespaces` contains `["Foo", "Bar"]` then this function will
+// copy symbols from the `Foo` and `Foo.Bar` namespaces into `env`.
+let rec openNamespaces (env: Env) (namespaces: list<string>) : Env =
+  let mutable newEnv = env
+
+  let rec openNamespace (parentNS: Namespace) (namespaces: list<string>) =
+    match namespaces with
+    | [] -> ()
+    | head :: rest ->
+      let nextNS = parentNS.Namespaces[head]
+
+      for KeyValue(name, scheme) in nextNS.Schemes do
+        newEnv <- newEnv.AddScheme name scheme
+
+      for KeyValue(name, binding) in nextNS.Values do
+        newEnv <- newEnv.AddValue name binding
+
+      for KeyValue(name, ns) in nextNS.Namespaces do
+        newEnv <- newEnv.AddNamespace name ns
+
+      openNamespace nextNS rest
+
+  openNamespace env.Namespace namespaces
+  newEnv
+
 let inferDeclDefinitions
   (ctx: Ctx)
   (env: Env)
@@ -1083,6 +1146,16 @@ let inferDeclDefinitions
     for name in names do
       let decls = graph.Nodes[name]
 
+      // TODO: check if we're inside a namespace and update the env accordingly
+      let namespaces =
+        match name with
+        | Type { Namespaces = namespaces } -> namespaces
+        | Value { Namespaces = namespaces } -> namespaces
+
+      let mutable newEnv = env
+
+      newEnv <- openNamespaces newEnv namespaces
+
       for decl in decls do
         match decl.Kind with
         | VarDecl varDecl ->
@@ -1092,7 +1165,7 @@ let inferDeclDefinitions
           // declarations to be able to unify with any free type variables
           // from this declaration.  We generalize things in `inferModule` and
           // `inferTreeRec`.
-          let! newBindings, newSchemes = Infer.inferVarDecl ctx env varDecl
+          let! newBindings, newSchemes = Infer.inferVarDecl ctx newEnv varDecl
 
           let inferredTypes = getAllBindingPatterns varDecl.Pattern
 
@@ -1102,7 +1175,7 @@ let inferDeclDefinitions
               | Some t -> t
               | None -> failwith "Missing placeholder type"
 
-            do! Unify.unify ctx env None placeholderType inferredType
+            do! Unify.unify ctx newEnv None placeholderType inferredType
 
           // Schemes can be generated for things like class expressions, e.g.
           // let Foo = class { ... }
@@ -1304,13 +1377,17 @@ let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
     | [] -> ns.AddBinding ident.Name binding
     | headNS :: restNS ->
       match ns.Namespaces.TryFind(headNS) with
-      | None -> ns.AddNamespace headNS (addValueRec Namespace.empty restNS)
-      | Some ns ->
-        ns.AddNamespace headNS (addValueRec ns.Namespaces[headNS] restNS)
+      | None ->
+        let newNS = { Namespace.empty with Name = headNS }
+        ns.AddNamespace headNS (addValueRec newNS restNS)
+      | Some existingNS ->
+        ns.AddNamespace headNS (addValueRec existingNS restNS)
 
   match ident.Namespaces with
   | [] -> env.AddValue ident.Name binding
-  | head :: rest -> env.AddNamespace head (addValueRec env.Namespace rest)
+  | namespaces ->
+    { env with
+        Namespace = addValueRec env.Namespace namespaces }
 
 let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
 

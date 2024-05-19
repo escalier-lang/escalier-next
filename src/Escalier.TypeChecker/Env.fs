@@ -289,6 +289,14 @@ module rec Env =
       IsAsync: bool
       IsPatternMatching: bool }
 
+    static member empty(filename: string) =
+      { Filename = filename
+        Namespace = Namespace.empty
+        BinaryOps = Map.empty
+        UnaryOps = Map.empty
+        IsAsync = false
+        IsPatternMatching = false }
+
     // TODO: Rename to AddBinding
     // TODO: don't curry this function
     member this.AddValue (name: string) (binding: Binding) =

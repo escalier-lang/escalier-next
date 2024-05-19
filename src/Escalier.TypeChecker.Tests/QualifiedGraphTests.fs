@@ -34,7 +34,7 @@ let AddBinding () =
   // printfn $"newEnv = {newEnv}"
   ()
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let NamespaceShadowingOfVariables () =
   let res =
     result {
@@ -55,9 +55,13 @@ let NamespaceShadowingOfVariables () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
-      printfn $"graph.Edges = {graph.Edges}"
+      printfn "graph.Edges = "
+
+      for KeyValue(key, value) in graph.Edges do
+        printfn $"{key} -> {value}"
+
       printfn "graph.Nodes.Keys = "
 
       for key in graph.Nodes.Keys do

@@ -151,16 +151,35 @@ let findIdentifiers
     | Type { Namespaces = namespaces } -> namespaces
     | Value { Namespaces = namespaces } -> namespaces
 
-  // TODO: loop through all ids and if there's an id that doesn't appear in locals
-  // then we need to check if it's in a namespace and if it is try adding that namespace
-  // to the id and check again
-
   // Post-process ids to prepend namespaces if necessary
   let ids =
     ids
     |> List.map (fun id ->
       if List.contains id locals then
-        id
+        let mutable candidateNamespaces = []
+        let mutable actualID = id
+
+        // Handles shadowing if identifiers in nested namespaces.
+        for ns in namespaces do
+          candidateNamespaces <- candidateNamespaces @ [ ns ]
+
+          // TODO: Handle the situation where an identifier is already partially
+          // qualified
+          let candidateID =
+            match id with
+            | Type qid ->
+              Type
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+            | Value qid ->
+              Value
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+
+          if List.contains candidateID locals then
+            actualID <- candidateID
+
+        actualID
       else
         // TODO: handle situations where we only need to prepend some of the
         // namespaces in `namespaces` instead of all of them

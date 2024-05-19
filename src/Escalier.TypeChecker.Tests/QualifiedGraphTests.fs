@@ -9,8 +9,8 @@ open Escalier.TypeChecker
 
 open TestUtils
 
-[<Fact(Skip = "TODO: namespaces")>]
-let BuildDeclGraph () =
+[<Fact(Skip = "TODO")>]
+let NamespaceShadowingOfVariables () =
   let res =
     result {
       let src =
@@ -22,6 +22,7 @@ let BuildDeclGraph () =
             let y = x;
           }
         }
+        let y = Foo.Bar.y;
         """
 
       let! ast =
@@ -30,13 +31,59 @@ let BuildDeclGraph () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let graph = QualifiedGraph.buildGraph env ast
-      ()
+
+      printfn $"graph.Edges = {graph.Edges}"
+      printfn "graph.Nodes.Keys = "
+
+      for key in graph.Nodes.Keys do
+        printfn $"{key}"
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "\"hello\"")
     }
 
   Assert.True(Result.isOk res)
 
 [<Fact(Skip = "TODO")>]
-let NestedNamespaceOnly () =
+let NamespaceReferenceNamespaceValuesInOtherNamespaces () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = Bar.x + 10;
+        }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = QualifiedGraph.buildGraph env ast
+
+      let! env =
+        QualifiedGraph.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "5")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let NamespaceBasics () =
   let res =
     result {
       let src =
@@ -55,8 +102,6 @@ let NestedNamespaceOnly () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let graph = QualifiedGraph.buildGraph env ast
-
-      printfn $"graph = {graph}"
 
       let! env =
         QualifiedGraph.inferGraph ctx env graph

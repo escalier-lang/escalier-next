@@ -4,11 +4,28 @@ open Escalier.Data.Type
 open Escalier.TypeChecker.Env
 open FsToolkit.ErrorHandling
 
-open Escalier.Data.Common
+open Escalier.Data
 open Escalier.Data.Syntax
 
 open Error
 open ExprVisitor
+
+type QualifiedIdent =
+  | Ident of string
+  | Member of left: QualifiedIdent * right: string
+
+  override this.ToString() =
+    match this with
+    | Ident value -> value
+    | Member(left, right) -> $"{left}.{right}"
+
+  static member FromCommonQualifiedIdent
+    (qid: Common.QualifiedIdent)
+    : QualifiedIdent =
+    match qid with
+    | Common.QualifiedIdent.Ident name -> Ident name
+    | Common.QualifiedIdent.Member(left, right) ->
+      Member(QualifiedIdent.FromCommonQualifiedIdent left, right)
 
 let start = FParsec.Position("", 0, 1, 1)
 let stop = FParsec.Position("", 0, 1, 1)
@@ -95,7 +112,10 @@ let findIdentifiers (expr: Expr) : list<QDeclIdent> =
           match typeAnn.Kind with
           | TypeAnnKind.TypeRef { Ident = ident } -> (false, state)
           | TypeAnnKind.Typeof ident ->
-            ids <- QDeclIdent.Value ident :: ids
+            ids <-
+              QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent ident)
+              :: ids
+
             (false, state)
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
@@ -140,6 +160,8 @@ let findTypeRefIdents
           let newTypeParams =
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
+              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
+
               if
                 (List.contains ident localTypeNames)
                 && not (List.contains ident typeParams)
@@ -148,7 +170,7 @@ let findTypeRefIdents
 
               []
             | TypeAnnKind.Typeof ident ->
-              let baseName = Graph.getBaseName ident
+              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
               typeRefIdents <- QDeclIdent.Value ident :: typeRefIdents
 
               []
@@ -503,6 +525,7 @@ let getPropNameDeps
           | Some(t, _) ->
             match t.Kind with
             | TypeKind.TypeRef { Name = ident } ->
+              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
               if List.contains (QDeclIdent.Type ident) topLevelDecls then
                 [ QDeclIdent.Type ident ]

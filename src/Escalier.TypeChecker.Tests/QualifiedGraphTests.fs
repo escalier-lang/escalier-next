@@ -59,16 +59,6 @@ let NamespaceShadowingOfVariables () =
 
       let graph = buildGraph env ast
 
-      printfn "graph.Edges = "
-
-      for KeyValue(key, value) in graph.Edges do
-        printfn $"{key} -> {value}"
-
-      printfn "graph.Nodes.Keys = "
-
-      for key in graph.Nodes.Keys do
-        printfn $"{key}"
-
       let! env =
         inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 

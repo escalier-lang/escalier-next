@@ -17,6 +17,8 @@
         <Compile Include="Graph.fs"/>
         <Compile Include="Infer.fs"/>
         <Compile Include="QualifiedGraph.fs"/>
+        <Compile Include="BuildGraph.fs"/>
+        <Compile Include="InferGraph.fs"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>

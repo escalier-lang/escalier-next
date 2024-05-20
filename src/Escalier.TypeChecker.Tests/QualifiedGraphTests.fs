@@ -9,6 +9,8 @@ open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.QualifiedGraph
+open Escalier.TypeChecker.BuildGraph
+open Escalier.TypeChecker.InferGraph
 
 open TestUtils
 

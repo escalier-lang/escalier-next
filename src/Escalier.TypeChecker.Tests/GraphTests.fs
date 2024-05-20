@@ -555,7 +555,7 @@ let MergeInterfaceBetweenFiles () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let OutOfOrderDepsInsideNamespace () =
   let res =
     result {

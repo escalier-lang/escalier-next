@@ -574,8 +574,7 @@ let OutOfOrderDepsInsideNamespace () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let OutOfOrderDepsOutsideNamespace () =
   let res =
     result {

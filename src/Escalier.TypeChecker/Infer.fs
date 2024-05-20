@@ -2644,7 +2644,26 @@ module rec Infer =
     : Result<Scheme, TypeError> =
 
     result {
-      let! typeParams, _ = inferTypeParams ctx env typeParams
+      let typeParams =
+        typeParams
+        |> Option.map (fun typeParams ->
+          List.map
+            (fun (typeParam: Syntax.TypeParam) ->
+              let c =
+                match typeParam.Constraint with
+                | Some(c) -> Some(ctx.FreshTypeVar None)
+                | None -> None
+
+              let d =
+                match typeParam.Default with
+                | Some(d) -> Some(ctx.FreshTypeVar None)
+                | None -> None
+
+
+              { Name = typeParam.Name
+                Constraint = c
+                Default = d })
+            typeParams)
 
       let scheme =
         { TypeParams = typeParams
@@ -3047,6 +3066,39 @@ module rec Infer =
           let! scheme =
             inferTypeDeclDefn ctx newEnv placeholder (fun env ->
               inferTypeAnn ctx env typeAnn)
+
+          // Unify types present in the type params from the placeholder and
+          // inferred schemes.  We could avoid this if we made `TypeParams`
+          // mutable on the `Scheme` struct.
+          match placeholder.TypeParams, scheme.TypeParams with
+          | Some typeParams1, Some typeParams2 ->
+            for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
+              match typeParam1.Constraint, typeParam2.Constraint with
+              | Some c1, Some c2 -> do! unify ctx env None c1 c2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a constraint type while the other doesn't"
+                  )
+
+              match typeParam1.Default, typeParam2.Default with
+              | Some d1, Some d2 -> do! unify ctx env None d1 d2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a default type while the other doesn't"
+                  )
+          | None, None -> ()
+          | _, _ ->
+            return!
+              Error(
+                TypeError.SemanticError
+                  "One scheme has type params while the other doesn't"
+              )
 
           newEnv <- newEnv.AddScheme name scheme
 

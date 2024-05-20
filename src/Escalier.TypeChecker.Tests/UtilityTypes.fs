@@ -198,7 +198,7 @@ let InferCartesianProdType () =
   Assert.False(Result.isError res)
 
 [<Fact>]
-let InfersPickUnionOfKey () =
+let InfersPickUnionOfKeyInScript () =
   let res =
     result {
       let src =
@@ -222,6 +222,34 @@ let InfersPickUnionOfKey () =
       Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
 
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersPickUnionOfKeyInModule () =
+  let res =
+    result {
+      let src =
+        """
+        type Pick<T, K: keyof T> = {
+          [P]: T[P] for P in K
+        };
+
+        type Foo = {a: number, b: string, c: boolean};
+        type Bar = Pick<Foo, "a" | "c">;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      let! result =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, c: boolean}", result.ToString())
+    }
+
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

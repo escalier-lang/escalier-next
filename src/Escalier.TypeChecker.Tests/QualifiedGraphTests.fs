@@ -1,16 +1,41 @@
 module Escalier.TypeChecker.Tests.QualifiedGraphTests
 
+open Escalier.Data.Type
 open FsToolkit.ErrorHandling
 open Xunit
 
 open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.QualifiedGraph
 
 open TestUtils
 
-[<Fact(Skip = "TODO: namespaces")>]
-let BuildDeclGraph () =
+[<Fact>]
+let AddBinding () =
+  let env = Env.empty "input.esc"
+
+  let t =
+    { Kind = TypeKind.Primitive Primitive.Number
+      Provenance = None }
+
+  let ident =
+    { Namespaces = [ "Foo"; "Bar" ]
+      Name = "x" }
+
+  let newEnv = addBinding env ident (t, false)
+
+  let ident =
+    { Namespaces = [ "Foo"; "Bar" ]
+      Name = "y" }
+
+  let newEnv = addBinding newEnv ident (t, false)
+  // printfn $"newEnv = {newEnv}"
+  ()
+
+[<Fact>]
+let NamespaceShadowingOfVariables () =
   let res =
     result {
       let src =
@@ -22,6 +47,7 @@ let BuildDeclGraph () =
             let y = x;
           }
         }
+        let y = Foo.Bar.y;
         """
 
       let! ast =
@@ -29,14 +55,111 @@ let BuildDeclGraph () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
-      ()
+      let graph = buildGraph env ast
+
+      printfn "graph.Edges = "
+
+      for KeyValue(key, value) in graph.Edges do
+        printfn $"{key} -> {value}"
+
+      printfn "graph.Nodes.Keys = "
+
+      for key in graph.Nodes.Keys do
+        printfn $"{key}"
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "\"hello\"")
     }
 
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: namespaces")>]
-let NestedNamespaceOnly () =
+[<Fact(Skip = "TODO: make this pass")>]
+let NamespaceShadowingOfTypes () =
+  let res =
+    result {
+      let src =
+        """
+        type X = 5;
+        namespace Foo {
+          type X = "hello";
+          namespace Bar {
+            type Y = X;
+          }
+        }
+        type Y = Foo.Bar.Y;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = buildGraph env ast
+
+      printfn "graph.Edges = "
+
+      for KeyValue(key, value) in graph.Edges do
+        printfn $"{key} -> {value}"
+
+      printfn "graph.Nodes.Keys = "
+
+      for key in graph.Nodes.Keys do
+        printfn $"{key}"
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "X", "5")
+      Assert.Type(env, "Y", "Foo.Bar.Y")
+
+      let! t =
+        Unify.expandScheme ctx env None (env.FindScheme "Y") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "\"hello\"")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let NamespaceReferenceOtherNamespaces () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            let x = 5;
+          }
+          let y = Bar.x + 10;
+        }
+        let x = Foo.Bar.x;
+        let y = Foo.y;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = buildGraph env ast
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
+      Assert.Value(env, "y", "15")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let NamespaceBasicValues () =
   let res =
     result {
       let src =
@@ -46,6 +169,7 @@ let NestedNamespaceOnly () =
             let x = 5;
           }
         }
+        let x = Foo.Bar.x;
         """
 
       let! ast =
@@ -53,10 +177,50 @@ let NestedNamespaceOnly () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
-      ()
+      let graph = buildGraph env ast
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "5")
     }
 
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+let NamespaceBasicTypes () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          namespace Bar {
+            type X = 5;
+          }
+        }
+        type X = Foo.Bar.X;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let graph = buildGraph env ast
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Type(env, "X", "Foo.Bar.X")
+
+      let! t =
+        Unify.expandScheme ctx env None (env.FindScheme "X") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "5")
+    }
+
+  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 [<Fact>]
@@ -74,11 +238,10 @@ let BasicGraphInferCompositeValues () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "\"hello\"")
@@ -104,11 +267,10 @@ let BasicGraphInferTypes () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Point", "{x: number, y: number}")
       Assert.Type(env, "Foo", "<T>({bar: T | Foo<T>[]})")
@@ -136,11 +298,10 @@ let BasicGraphInferFunctionDecl () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "add", "fn (x: number, y: number) -> number")
       Assert.Value(env, "fst", "fn <T, U>(x: T, y: U) -> T")
@@ -166,11 +327,10 @@ let FunctionDeclsWithLocalVariables () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
     }
@@ -199,11 +359,10 @@ let ReturnFunctionDeclWithCaptures () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
     }
@@ -227,11 +386,10 @@ let BasicDeps () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "5")
@@ -259,11 +417,10 @@ let BasicFunctionCaptures () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
@@ -292,11 +449,10 @@ let OutOfOrderFunctionCaptures () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
@@ -321,11 +477,10 @@ let OutOfOrderTypeDepsWithTypeParamConstraint () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Bar", "<T: Baz>({bar: T})")
       Assert.Type(env, "Baz", "string")
@@ -352,11 +507,10 @@ let BasicInterface () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "FooBar", "{foo: number, bar: string}")
     }
@@ -379,11 +533,10 @@ let VariableDeclWithoutInit () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\"}")
     }
@@ -406,11 +559,10 @@ let MergeInterfaceBetweenFiles () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\"}")
 
@@ -426,11 +578,10 @@ let MergeInterfaceBetweenFiles () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
 
@@ -456,11 +607,10 @@ let SelfRecursiveFunctions () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
       Assert.Value(env, "fib", "fn (arg0: number) -> number")
@@ -488,11 +638,10 @@ let SelfRecursiveFunctionDecls () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "fact", "fn (n: number) -> 1 | number")
       Assert.Value(env, "fib", "fn (n: number) -> number | number")
@@ -516,11 +665,10 @@ let MutuallysRecursiveFunctions () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
       Assert.Value(env, "isOdd", "fn (arg0: number) -> false | true")
@@ -548,11 +696,10 @@ let MutuallyRecursiveFunctionDecls () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
 
@@ -583,11 +730,10 @@ let ReturnSelfRecursiveFunction () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "ret_fact", "fn () -> fn (arg0: number) -> 1 | number")
     }
@@ -611,11 +757,10 @@ let InferFunctionDeclTypeFromBody () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
     }
@@ -639,11 +784,10 @@ let InferFunctionDeclTypeFromBodyWrongSig () =
 
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-      let graph = QualifiedGraph.buildGraph env ast
+      let graph = buildGraph env ast
 
       let! env =
-        QualifiedGraph.inferGraph ctx env graph
-        |> Result.mapError CompileError.TypeError
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       ()
     }

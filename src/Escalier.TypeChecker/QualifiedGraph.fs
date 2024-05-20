@@ -4,11 +4,36 @@ open Escalier.Data.Type
 open Escalier.TypeChecker.Env
 open FsToolkit.ErrorHandling
 
-open Escalier.Data.Common
+open Escalier.Data
 open Escalier.Data.Syntax
 
 open Error
 open ExprVisitor
+
+type QualifiedIdent =
+  { Namespaces: list<string>
+    Name: string }
+
+  override this.ToString() =
+    match this.Namespaces with
+    | [] -> this.Name
+    | namespaces ->
+      let namespaces = String.concat "." namespaces
+      $"{namespaces}.{this.Name}"
+
+  static member FromString(name: string) = { Namespaces = []; Name = name }
+
+  static member FromCommonQualifiedIdent
+    (qid: Common.QualifiedIdent)
+    : QualifiedIdent =
+    match qid with
+    | Common.QualifiedIdent.Ident name -> { Namespaces = []; Name = name }
+    | Common.QualifiedIdent.Member(left, right) ->
+      let left = QualifiedIdent.FromCommonQualifiedIdent left
+      let namespaces = left.Namespaces @ [ left.Name ]
+
+      { Namespaces = namespaces
+        Name = right }
 
 let start = FParsec.Position("", 0, 1, 1)
 let stop = FParsec.Position("", 0, 1, 1)
@@ -23,6 +48,11 @@ let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 type QDeclIdent =
   | Type of QualifiedIdent
   | Value of QualifiedIdent
+
+  override this.ToString() =
+    match this with
+    | Type qid -> $"Type {qid}"
+    | Value qid -> $"Value {qid}"
 
 type QGraph =
   // A type can depend on multiple interface declarations
@@ -56,20 +86,45 @@ type QualifiedNamespace =
 
 type SyntaxNode = Graph.SyntaxNode
 
-// Find identifiers in an expression excluding function expressions.
-let findIdentifiers (expr: Expr) : list<QDeclIdent> =
+let rec memberToQualifiedIdent
+  (target: Expr)
+  (name: string)
+  : option<QualifiedIdent> =
+  match target.Kind with
+  | ExprKind.Member(target, innerName, _) ->
+    match memberToQualifiedIdent target innerName with
+    | Some qid ->
+      Some(
+        { Namespaces = qid.Namespaces @ [ qid.Name ]
+          Name = name }
+      )
+    | None -> None
+  | ExprKind.Identifier innerName ->
+    Some(
+      { Namespaces = [ innerName ]
+        Name = name }
+    )
+  | _ -> None
+
+let findDepsForValueIdent
+  (locals: list<QDeclIdent>)
+  (ident: QDeclIdent)
+  (expr: Expr)
+  : list<QDeclIdent> =
   let mutable ids: list<QDeclIdent> = []
 
   let visitor =
     { ExprVisitor.VisitExpr =
         fun (expr, state) ->
           match expr.Kind with
-          // NOTE: we don't have to do any special handling for
-          // ExprKind.Member because the property is stored as a
-          // string instead of an identifier.
+          | ExprKind.Member(target, name, _) ->
+            match memberToQualifiedIdent target name with
+            | Some qid ->
+              ids <- QDeclIdent.Value qid :: ids
+              (false, state)
+            | None -> (true, state)
           | ExprKind.Identifier name ->
-            let ident = QualifiedIdent.Ident name
-            ids <- QDeclIdent.Value ident :: ids
+            ids <- QDeclIdent.Value(QualifiedIdent.FromString name) :: ids
             (false, state)
           | ExprKind.Function _ -> (false, state)
           | _ -> (true, state)
@@ -80,12 +135,62 @@ let findIdentifiers (expr: Expr) : list<QDeclIdent> =
           match typeAnn.Kind with
           | TypeAnnKind.TypeRef { Ident = ident } -> (false, state)
           | TypeAnnKind.Typeof ident ->
-            ids <- QDeclIdent.Value ident :: ids
+            ids <-
+              QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent ident)
+              :: ids
+
             (false, state)
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
 
   walkExpr visitor () expr
+
+  let namespaces =
+    match ident with
+    | Type { Namespaces = namespaces } -> namespaces
+    | Value { Namespaces = namespaces } -> namespaces
+
+  // Post-process ids to prepend namespaces if necessary
+  let ids =
+    ids
+    |> List.map (fun id ->
+      if List.contains id locals then
+        let mutable candidateNamespaces = []
+        let mutable actualID = id
+
+        // Handles shadowing if identifiers in nested namespaces.
+        for ns in namespaces do
+          candidateNamespaces <- candidateNamespaces @ [ ns ]
+
+          // TODO: Handle the situation where an identifier is already partially
+          // qualified
+          let candidateID =
+            match id with
+            | Type qid ->
+              Type
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+            | Value qid ->
+              Value
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+
+          if List.contains candidateID locals then
+            actualID <- candidateID
+
+        actualID
+      else
+        // TODO: handle situations where we only need to prepend some of the
+        // namespaces in `namespaces` instead of all of them
+        match id with
+        | Type qid ->
+          Type
+            { Namespaces = namespaces @ qid.Namespaces
+              Name = qid.Name }
+        | Value qid ->
+          Value
+            { Namespaces = namespaces @ qid.Namespaces
+              Name = qid.Name })
 
   List.rev ids
 
@@ -100,7 +205,7 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
         fun (typeAnn, state) ->
           match typeAnn.Kind with
           | TypeAnnKind.Infer name ->
-            idents <- QDeclIdent.Type(QualifiedIdent.Ident name) :: idents
+            idents <- QDeclIdent.Type(QualifiedIdent.FromString name) :: idents
             (false, state)
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
@@ -110,8 +215,9 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
 
 let findTypeRefIdents
   (env: Env)
-  (localTypeNames: list<QualifiedIdent>) // top-level and namespace decls
+  (possibleDeps: list<QDeclIdent>)
   (typeParams: list<QualifiedIdent>)
+  (ident: QDeclIdent)
   (syntaxNode: SyntaxNode)
   : list<QDeclIdent> =
   let mutable typeRefIdents: list<QDeclIdent> = []
@@ -125,15 +231,17 @@ let findTypeRefIdents
           let newTypeParams =
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident } ->
+              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
+
               if
-                (List.contains ident localTypeNames)
+                (List.contains (QDeclIdent.Type ident) possibleDeps)
                 && not (List.contains ident typeParams)
               then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
 
               []
             | TypeAnnKind.Typeof ident ->
-              let baseName = Graph.getBaseName ident
+              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
               typeRefIdents <- QDeclIdent.Value ident :: typeRefIdents
 
               []
@@ -155,27 +263,27 @@ let findTypeRefIdents
               | None -> []
               | Some funcTypeParams ->
                 List.map
-                  (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+                  (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
                   funcTypeParams
             | ObjTypeAnnElem.Constructor funcSig ->
               match funcSig.TypeParams with
               | None -> []
               | Some funcTypeParams ->
                 List.map
-                  (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+                  (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
                   funcTypeParams
             | ObjTypeAnnElem.Method { Type = t } ->
               match t.TypeParams with
               | None -> []
               | Some funcTypeParams ->
                 List.map
-                  (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+                  (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
                   funcTypeParams
             | ObjTypeAnnElem.Getter _ -> []
             | ObjTypeAnnElem.Setter _ -> []
             | ObjTypeAnnElem.Property _ -> []
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
-              [ QualifiedIdent.Ident typeParam.Name ]
+              [ QualifiedIdent.FromString typeParam.Name ]
 
           (true, typeParams @ newTypeParams) }
 
@@ -183,36 +291,90 @@ let findTypeRefIdents
   | SyntaxNode.TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
   | SyntaxNode.Expr expr -> walkExpr visitor typeParams expr
 
+  let namespaces =
+    match ident with
+    | Type { Namespaces = namespaces } -> namespaces
+    | Value { Namespaces = namespaces } -> namespaces
+
+  let typeRefIdents =
+    typeRefIdents
+    |> List.map (fun id ->
+      if List.contains id possibleDeps then
+        let mutable candidateNamespaces = []
+        let mutable actualID = id
+
+        // Handles shadowing if identifiers in nested namespaces.
+        for ns in namespaces do
+          candidateNamespaces <- candidateNamespaces @ [ ns ]
+
+          // TODO: Handle the situation where an identifier is already partially
+          // qualified
+          let candidateID =
+            match id with
+            | Type qid ->
+              Type
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+            | Value qid ->
+              Value
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+
+          if List.contains candidateID possibleDeps then
+            actualID <- candidateID
+
+        actualID
+      else
+        // TODO: handle situations where we only need to prepend some of the
+        // namespaces in `namespaces` instead of all of them
+        match id with
+        | Type qid ->
+          Type
+            { Namespaces = namespaces @ qid.Namespaces
+              Name = qid.Name }
+        | Value qid ->
+          Value
+            { Namespaces = namespaces @ qid.Namespaces
+              Name = qid.Name })
+
   List.rev typeRefIdents
 
 let findLocals (decls: list<Decl>) : list<QDeclIdent> =
   let mutable locals: list<QDeclIdent> = []
 
-  for decl in decls do
-    match decl.Kind with
-    | VarDecl { Pattern = pattern } ->
-      let bindingNames =
-        Helpers.findBindingNames pattern
-        |> List.map QualifiedIdent.Ident
-        |> List.map QDeclIdent.Value
+  let rec findLocalsRec
+    (decls: list<Decl>)
+    (namespaces: list<string>)
+    : list<QDeclIdent> =
+    let mutable locals: list<QDeclIdent> = []
 
-      locals <- locals @ bindingNames
-    | FnDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
-    | ClassDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | TypeDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | InterfaceDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | EnumDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
-    | NamespaceDecl { Name = name } ->
-      locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.Ident name) ]
-      locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.Ident name) ]
+    for decl in decls do
+      match decl.Kind with
+      | VarDecl { Pattern = pattern } ->
+        let bindingNames =
+          Helpers.findBindingNames pattern
+          |> List.map (fun name ->
+            QDeclIdent.Value({ Namespaces = namespaces; Name = name }))
 
-  locals
+        locals <- locals @ bindingNames
+      | FnDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.FromString name) ]
+      | ClassDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+      | TypeDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+      | InterfaceDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+      | EnumDecl { Name = name } ->
+        locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.FromString name) ]
+        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+      | NamespaceDecl { Name = name; Body = decls } ->
+
+        locals <- locals @ findLocalsRec decls (namespaces @ [ name ])
+
+    locals
+
+  findLocalsRec decls []
 
 // TODO: update this function to accept a QualifiedNamespace as an argument
 // Only items in this namespace can be considered as a potential captures
@@ -257,7 +419,7 @@ let rec findCaptures
 
   for p in f.Sig.ParamList do
     let patternIdents =
-      Helpers.findBindingNames p.Pattern |> List.map QualifiedIdent.Ident
+      Helpers.findBindingNames p.Pattern |> List.map QualifiedIdent.FromString
 
     localNames <- localNames @ patternIdents
 
@@ -271,7 +433,7 @@ let rec findCaptures
           // ExprKind.Member because the property is stored as a
           // string instead of an identifier.
           | ExprKind.Identifier name ->
-            let ident = QualifiedIdent.Ident name
+            let ident = QualifiedIdent.FromString name
 
             if
               (List.contains ident qnsNames)
@@ -311,6 +473,7 @@ let rec findCaptures
 
 let getDepsForFn
   (env: Env)
+  (ident: QDeclIdent)
   (possibleDeps: list<QDeclIdent>)
   (excludedTypeNames: list<QualifiedIdent>)
   (fnSig: FuncSig)
@@ -318,19 +481,13 @@ let getDepsForFn
   : list<QDeclIdent> =
   let mutable typeDeps = []
 
-  let possibleTypeNames =
-    List.choose
-      (fun qid ->
-        match qid with
-        | QDeclIdent.Type name -> Some name
-        | _ -> None)
-      possibleDeps
-
   let typeParamNames: list<QualifiedIdent> =
     match fnSig.TypeParams with
     | None -> []
     | Some typeParams ->
-      List.map (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name) typeParams
+      List.map
+        (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+        typeParams
 
   match fnSig.TypeParams with
   | Some typeParams ->
@@ -341,8 +498,9 @@ let getDepsForFn
           typeDeps
           @ findTypeRefIdents
               env
-              possibleTypeNames
+              possibleDeps
               (excludedTypeNames @ typeParamNames)
+              ident
               (SyntaxNode.TypeAnn c)
       | None -> ()
 
@@ -352,8 +510,9 @@ let getDepsForFn
           typeDeps
           @ findTypeRefIdents
               env
-              possibleTypeNames
+              possibleDeps
               (excludedTypeNames @ typeParamNames)
+              ident
               (SyntaxNode.TypeAnn d)
       | None -> ()
   | None -> ()
@@ -366,8 +525,9 @@ let getDepsForFn
         typeDeps
         @ findTypeRefIdents
             env
-            possibleTypeNames
+            possibleDeps
             (excludedTypeNames @ typeParamNames)
+            ident
             (SyntaxNode.TypeAnn typeAnn)
     | None -> ()
 
@@ -379,15 +539,16 @@ let getDepsForFn
       | None -> []
       | Some typeParams ->
         List.map
-          (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+          (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
           typeParams
 
     typeDeps <-
       typeDeps
       @ findTypeRefIdents
           env
-          possibleTypeNames
+          possibleDeps
           (excludedTypeNames @ typeParamNames)
+          ident
           (SyntaxNode.TypeAnn returnType)
 
   let deps =
@@ -409,16 +570,9 @@ let getDepsForInterfaceFn
   (env: Env)
   (possibleDeps: list<QDeclIdent>)
   (interfaceTypeParamNames: list<QualifiedIdent>)
+  (ident: QDeclIdent)
   (fnSig: FuncSig)
   : list<QDeclIdent> =
-
-  let localTypeNames =
-    List.choose
-      (fun id ->
-        match id with
-        | QDeclIdent.Type name -> Some name
-        | _ -> None)
-      possibleDeps
 
   let mutable deps = []
 
@@ -426,7 +580,9 @@ let getDepsForInterfaceFn
     match fnSig.TypeParams with
     | None -> []
     | Some typeParams ->
-      List.map (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name) typeParams
+      List.map
+        (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+        typeParams
 
   for param in fnSig.ParamList do
     match param.TypeAnn with
@@ -435,8 +591,9 @@ let getDepsForInterfaceFn
         deps
         @ findTypeRefIdents
             env
-            localTypeNames
+            possibleDeps
             (interfaceTypeParamNames @ typeParamNames)
+            ident
             (SyntaxNode.TypeAnn typeAnn)
     | None -> ()
 
@@ -446,8 +603,9 @@ let getDepsForInterfaceFn
       deps
       @ findTypeRefIdents
           env
-          localTypeNames
+          possibleDeps
           (interfaceTypeParamNames @ typeParamNames)
+          ident
           (SyntaxNode.TypeAnn returnType)
   | None -> ()
 
@@ -465,7 +623,7 @@ let getPropNameDeps
     | ExprKind.Member(target, name, opt_chain) ->
       match target.Kind with
       | ExprKind.Identifier name ->
-        let ident = (QualifiedIdent.Ident name)
+        let ident = (QualifiedIdent.FromString name)
 
         if List.contains (QDeclIdent.Value ident) topLevelDecls then
           [ QDeclIdent.Value ident ]
@@ -474,6 +632,7 @@ let getPropNameDeps
           | Some(t, _) ->
             match t.Kind with
             | TypeKind.TypeRef { Name = ident } ->
+              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
               if List.contains (QDeclIdent.Type ident) topLevelDecls then
                 [ QDeclIdent.Type ident ]
@@ -493,29 +652,11 @@ let getDeclsFromModule (ast: Module) : list<Decl> =
       | _ -> None)
     ast.Items
 
-let buildGraph (env: Env) (m: Module) : QGraph =
+let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
+  let mutable nodes: Map<QDeclIdent, list<Decl>> = Map.empty
 
-  let mutable graph = { Nodes = Map.empty; Edges = Map.empty }
-
-  let decls = getDeclsFromModule m
-  // TODO: fork findLocals to instead return a list of QualifiedIdents
-  // It should also handle namespaces appropriately
-  let locals = findLocals decls
-
-  let localTypeNames =
-    List.choose
-      (fun qid ->
-        match qid with
-        | Type name -> Some name
-        | _ -> None)
-      locals
-
-  for item in m.Items do
-    match item with
-    | ModuleItem.Import _ -> ()
-    | ModuleItem.Decl decl ->
-      let nsIdent = None
-
+  let rec getNodesRec (decls: list<Decl>) (namespaces: list<string>) : unit =
+    for decl in decls do
       match decl.Kind with
       | VarDecl { Pattern = pattern
                   Init = init
@@ -523,27 +664,72 @@ let buildGraph (env: Env) (m: Module) : QGraph =
         let idents =
           Helpers.findBindingNames pattern
           |> List.map (fun name ->
-            match nsIdent with
-            | Some left -> QDeclIdent.Value(QualifiedIdent.Member(left, name))
-            | None -> QDeclIdent.Value(QualifiedIdent.Ident name))
+            QDeclIdent.Value({ Namespaces = namespaces; Name = name }))
 
-        // TODO: determine deps
+        for ident in idents do
+          nodes <- nodes.Add(ident, [ decl ])
+      | FnDecl { Name = name } ->
+        let key = { Namespaces = namespaces; Name = name }
+        // TODO: support function overloading
+        nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
+      | ClassDecl { Name = name }
+      | EnumDecl { Name = name } ->
+        let key = { Namespaces = namespaces; Name = name }
+        nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
+        nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
+      | TypeDecl { Name = name } ->
+        let key = { Namespaces = namespaces; Name = name }
+        nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
+      | InterfaceDecl { Name = name } ->
+        let key = { Namespaces = namespaces; Name = name }
+
+        let decls =
+          match nodes.TryFind(QDeclIdent.Type(key)) with
+          | Some nodes -> nodes @ [ decl ]
+          | None -> [ decl ]
+
+        nodes <- nodes.Add(QDeclIdent.Type(key), decls)
+      | NamespaceDecl { Name = name; Body = decls } ->
+        getNodesRec decls (namespaces @ [ name ])
+
+  getNodesRec decls []
+  nodes
+
+let getEdges
+  (env: Env)
+  (locals: list<QDeclIdent>)
+  (nodes: Map<QDeclIdent, list<Decl>>)
+  : Map<QDeclIdent, list<QDeclIdent>> =
+  let mutable edges: Map<QDeclIdent, list<QDeclIdent>> = Map.empty
+
+  let possibleDeps = nodes.Keys |> List.ofSeq
+
+  for KeyValue(ident, decls) in nodes do
+    for decl in decls do
+      match decl.Kind with
+      | VarDecl { Pattern = pattern
+                  Init = init
+                  TypeAnn = typeAnn } ->
+
+        // TODO: cache deps computation for each declaration to optimize decls
+        // that introduce multiple bindings
         let deps =
           match init with
           | Some init ->
-            let mutable deps = findIdentifiers init
+            let mutable deps = findDepsForValueIdent locals ident init
 
             // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =
-              findTypeRefIdents env localTypeNames [] (SyntaxNode.Expr init)
+              findTypeRefIdents env possibleDeps [] ident (SyntaxNode.Expr init)
 
             let typeDeps =
               match typeAnn with
               | Some typeAnn ->
                 findTypeRefIdents
                   env
-                  localTypeNames
+                  possibleDeps
                   []
+                  ident
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> []
 
@@ -576,8 +762,9 @@ let buildGraph (env: Env) (m: Module) : QGraph =
               | Some typeAnn ->
                 findTypeRefIdents
                   env
-                  localTypeNames
+                  possibleDeps
                   []
+                  ident
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> []
 
@@ -600,40 +787,26 @@ let buildGraph (env: Env) (m: Module) : QGraph =
 
             deps
 
-        for ident in idents do
-          graph <- graph.Add(ident, decl, deps)
-
+        edges <- edges.Add(ident, deps)
       | FnDecl { Name = name
                  Sig = fnSig
                  Body = body } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QDeclIdent.Value(QualifiedIdent.Member(left, name))
-          | None -> QDeclIdent.Value(QualifiedIdent.Ident name)
-
-        let deps = getDepsForFn env locals [] fnSig body
-        graph <- graph.Add(ident, decl, deps)
+        let deps = getDepsForFn env ident locals [] fnSig body
+        edges <- edges.Add(ident, deps)
       | ClassDecl { Name = name } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
+        let deps =
+          match ident with
+          | Type _ ->
+            // TODO: determine instance deps
+            []
+          | Value qualifiedIdent ->
+            // TODO: determine static deps
+            []
 
-        // TODO: determine static deps
-        let staticDeps = []
-        graph <- graph.Add((Value ident), decl, staticDeps)
-
-        // TODO: determine instance deps
-        let instanceDeps = []
-        graph <- graph.Add((Type ident), decl, instanceDeps)
+        edges <- edges.Add(ident, deps)
       | TypeDecl { Name = name
                    TypeParams = typeParams
                    TypeAnn = typeAnn } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
-
         let mutable deps: list<QDeclIdent> = []
 
         let typeParamNames =
@@ -641,7 +814,7 @@ let buildGraph (env: Env) (m: Module) : QGraph =
           | None -> []
           | Some typeParams ->
             List.map
-              (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+              (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
         match typeParams with
@@ -654,8 +827,9 @@ let buildGraph (env: Env) (m: Module) : QGraph =
                 deps
                 @ findTypeRefIdents
                     env
-                    localTypeNames
+                    possibleDeps
                     typeParamNames
+                    ident
                     (SyntaxNode.TypeAnn c)
             | None -> ()
 
@@ -665,8 +839,9 @@ let buildGraph (env: Env) (m: Module) : QGraph =
                 deps
                 @ findTypeRefIdents
                     env
-                    localTypeNames
+                    possibleDeps
                     typeParamNames
+                    ident
                     (SyntaxNode.TypeAnn d)
             | None -> ()
 
@@ -674,27 +849,21 @@ let buildGraph (env: Env) (m: Module) : QGraph =
           deps
           @ findTypeRefIdents
               env
-              localTypeNames
+              possibleDeps
               typeParamNames
+              ident
               (SyntaxNode.TypeAnn typeAnn)
 
-        graph <- graph.Add((Type ident), decl, deps)
+        edges <- edges.Add(ident, deps)
       | InterfaceDecl { Name = name
                         TypeParams = typeParams
                         Elems = elems } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
-
-        let interfaceName = ident
-
         let interfaceTypeParamNames =
           match typeParams with
           | None -> []
           | Some typeParams ->
             List.map
-              (fun (tp: TypeParam) -> QualifiedIdent.Ident tp.Name)
+              (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
         let deps =
@@ -702,14 +871,29 @@ let buildGraph (env: Env) (m: Module) : QGraph =
           |> List.collect (fun elem ->
             match elem with
             | ObjTypeAnnElem.Callable fnSig ->
-              getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              getDepsForInterfaceFn
+                env
+                locals
+                interfaceTypeParamNames
+                ident
+                fnSig
             | ObjTypeAnnElem.Constructor fnSig ->
-              getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+              getDepsForInterfaceFn
+                env
+                locals
+                interfaceTypeParamNames
+                ident
+                fnSig
             | ObjTypeAnnElem.Method { Type = fnSig; Name = name } ->
               let propNameDeps = getPropNameDeps env locals name
 
               let fnDeps =
-                getDepsForInterfaceFn env locals interfaceTypeParamNames fnSig
+                getDepsForInterfaceFn
+                  env
+                  locals
+                  interfaceTypeParamNames
+                  ident
+                  fnSig
 
               propNameDeps @ fnDeps
             | ObjTypeAnnElem.Getter { ReturnType = returnType; Name = name } ->
@@ -720,8 +904,9 @@ let buildGraph (env: Env) (m: Module) : QGraph =
                 | Some returnType ->
                   findTypeRefIdents
                     env
-                    localTypeNames
+                    possibleDeps
                     interfaceTypeParamNames
+                    ident
                     (SyntaxNode.TypeAnn returnType)
                 | None -> []
 
@@ -735,8 +920,9 @@ let buildGraph (env: Env) (m: Module) : QGraph =
                 | Some typeAnn ->
                   findTypeRefIdents
                     env
-                    localTypeNames
+                    possibleDeps
                     interfaceTypeParamNames
+                    ident
                     (SyntaxNode.TypeAnn typeAnn)
                 | None -> []
 
@@ -747,8 +933,9 @@ let buildGraph (env: Env) (m: Module) : QGraph =
               let typeAnnDeps =
                 findTypeRefIdents
                   env
-                  localTypeNames
+                  possibleDeps
                   interfaceTypeParamNames
+                  ident
                   (SyntaxNode.TypeAnn typeAnn)
 
               propNameDeps @ typeAnnDeps
@@ -767,104 +954,64 @@ let buildGraph (env: Env) (m: Module) : QGraph =
 
               findTypeRefIdents
                 env
-                localTypeNames
+                possibleDeps
                 interfaceTypeParamNames
+                ident
                 (SyntaxNode.TypeAnn typeParam.Constraint)
               @ findTypeRefIdents
                   env
-                  localTypeNames
+                  possibleDeps
                   interfaceTypeParamNames
+                  ident
                   (SyntaxNode.TypeAnn typeAnn))
 
-        match graph.Edges.TryFind(QDeclIdent.Type ident) with
-        | Some existingDeps ->
-          graph <- graph.Add(QDeclIdent.Type ident, decl, existingDeps @ deps)
-        | None -> graph <- graph.Add(QDeclIdent.Type ident, decl, deps)
+        match edges.TryFind(ident) with
+        | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
+        | None -> edges <- edges.Add(ident, deps)
       | EnumDecl { Name = name } ->
-        let ident =
-          match nsIdent with
-          | Some left -> QualifiedIdent.Member(left, name)
-          | None -> QualifiedIdent.Ident name
+        let deps =
+          match ident with
+          | Type _ ->
+            // TODO: determine instance deps
+            []
+          | Value _ ->
+            // NOTE: enums have no static deps
+            []
 
-        graph <-
-          { graph with
-              Nodes = Map.add (Value ident) [ decl ] graph.Nodes }
-
-        graph <-
-          { graph with
-              Nodes = Map.add (Type ident) [ decl ] graph.Nodes }
+        edges <- edges.Add(ident, deps)
       | NamespaceDecl { Name = name; Body = body } ->
-        // let nsIdent =
-        //   match nsIdent with
-        //   | Some left -> QualifiedIdent.Member(left, name)
-        //   | None -> QualifiedIdent.Ident name
-        // for decl in body do
-        //   let subGraph = buildGraph (Some nsIdent) decl
-        //
-        //   for KeyValue(ident, decl) in subGraph.Nodes do
-        //     graph <-
-        //       { graph with
-        //           Nodes = Map.add ident decl graph.Nodes }
-        //
-        //   for KeyValue(ident, deps) in subGraph.Edges do
-        //     graph <-
-        //       { graph with
-        //           Edges = Map.add ident deps graph.Edges }
-        failwith "TODO: buildGraph - NamespaceDecl"
+        // Namespaces are neither values or types but rather containers for
+        // values and types. We don't need to add them to the edges map.
+        ()
 
-  graph
+  edges
 
-// TODO: split this into separate functions
-// - one to create the namespace if it doesn't exist and update `env.Namespace` appropriately
-// - one to return the existing or newly created namespace
-// - one function to add a valud to a given namespace
+let buildGraph (env: Env) (m: Module) : QGraph =
 
-let rec getOrCreateNamespace
-  (nsIdent: QualifiedIdent)
-  (ns: Namespace)
-  : Result<Namespace, TypeError> =
-  result {
-    match nsIdent with
-    | QualifiedIdent.Ident name ->
-      let childNS =
-        match Map.tryFind name ns.Namespaces with
-        | None ->
-          let ns: Namespace =
-            { Name = name
-              Namespaces = Map.empty
-              Schemes = Map.empty
-              Values = Map.empty }
+  let mutable graph = { Nodes = Map.empty; Edges = Map.empty }
 
-          ns
-        | Some ns -> ns
+  let decls = getDeclsFromModule m
+  let locals = findLocals decls
 
-      return
-        { ns with
-            Namespaces = Map.add childNS.Name childNS ns.Namespaces }
-    | QualifiedIdent.Member(left, right) ->
-      let! parentNS = getOrCreateNamespace left ns
+  let localTypeNames =
+    List.choose
+      (fun qid ->
+        match qid with
+        | Type name -> Some name
+        | _ -> None)
+      locals
 
-      let childNS =
-        match Map.tryFind right parentNS.Namespaces with
-        | None ->
-          let ns: Namespace =
-            { Name = right
-              Namespaces = Map.empty
-              Schemes = Map.empty
-              Values = Map.empty }
+  let decls =
+    m.Items
+    |> List.choose (fun item ->
+      match item with
+      | ModuleItem.Decl decl -> Some decl
+      | _ -> None)
 
-          ns
-        | Some ns -> ns
+  let nodes = getNodes decls
+  let edges = getEdges env locals nodes
 
-      let parentNS =
-        { parentNS with
-            Namespaces = Map.add right childNS parentNS.Namespaces }
-
-      return
-        { ns with
-            Namespaces = Map.add parentNS.Name parentNS ns.Namespaces }
-  }
-
+  { Nodes = nodes; Edges = edges }
 
 let getAllBindingPatterns (pattern: Pattern) : Map<string, Type> =
   let mutable result = Map.empty
@@ -907,113 +1054,131 @@ let inferDeclPlaceholders
   (ctx: Ctx)
   (env: Env)
   (qns: QualifiedNamespace)
-  (decls: list<Decl>)
+  (idents: list<QDeclIdent>)
+  (graph: QGraph)
   : Result<QualifiedNamespace, TypeError> =
 
   result {
     let mutable qns = qns
 
-    for decl in decls do
-      match decl.Kind with
-      | VarDecl { Pattern = pattern
-                  Init = init
-                  TypeAnn = _ } ->
-        // QUESTION: Should we check the type annotation as we're generating
-        // the placeholder type?
-        let! bindings, patternType = Infer.inferPattern ctx env pattern
+    for ident in idents do
+      let decls = graph.Nodes[ident]
 
-        match init with
-        | Some init ->
-          let! structuralPlacholderType =
-            Infer.inferExprStructuralPlacholder ctx env init
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl { Pattern = pattern
+                    Init = init
+                    TypeAnn = _ } ->
+          // QUESTION: Should we check the type annotation as we're generating
+          // the placeholder type?
+          let! bindings, patternType = Infer.inferPattern ctx env pattern
 
-          do! Unify.unify ctx env None patternType structuralPlacholderType
-        | None -> ()
+          match init with
+          | Some init ->
+            let! structuralPlacholderType =
+              Infer.inferExprStructuralPlacholder ctx env init
 
-        for KeyValue(name, binding) in bindings do
-          qns <- qns.AddValue (QualifiedIdent.Ident name) binding
-      | FnDecl({ Declare = false
-                 Sig = fnSig
-                 Name = name } as decl) ->
-        let! f = Infer.inferFuncSig ctx env fnSig
+            do! Unify.unify ctx env None patternType structuralPlacholderType
+          | None -> ()
 
-        let t =
-          { Kind = TypeKind.Function f
-            Provenance = None }
+          for KeyValue(name, binding) in bindings do
+            let key =
+              match ident with
+              | Type { Namespaces = namespaces } ->
+                { Namespaces = namespaces; Name = name }
+              | Value { Namespaces = namespaces } ->
+                { Namespaces = namespaces; Name = name }
 
-        qns <- qns.AddValue (QualifiedIdent.Ident name) (t, false)
-      | FnDecl({ Declare = true
-                 Sig = fnSig
-                 Name = name } as decl) ->
-        // TODO: dedupe with `inferDecl`
-        // TODO: capture these errors as diagnostics and infer the missing
-        // types as `never`
-        for p in fnSig.ParamList do
-          if p.TypeAnn.IsNone then
-            failwith "Ambient function declarations must be fully typed"
+            qns <- qns.AddValue key binding
+        | FnDecl({ Declare = false
+                   Sig = fnSig
+                   Name = name } as decl) ->
+          let! f = Infer.inferFuncSig ctx env fnSig
 
-        if fnSig.ReturnType.IsNone then
-          failwith "Ambient function declarations must be fully typed"
-
-        let! f = Infer.inferFuncSig ctx env fnSig
-
-        if fnSig.Throws.IsNone then
-          f.Throws <-
-            { Kind = TypeKind.Keyword Keyword.Never
+          let t =
+            { Kind = TypeKind.Function f
               Provenance = None }
 
-        let t =
-          { Kind = TypeKind.Function f
-            Provenance = None }
+          qns <- qns.AddValue (QualifiedIdent.FromString name) (t, false)
+        | FnDecl({ Declare = true
+                   Sig = fnSig
+                   Name = name } as decl) ->
+          // TODO: dedupe with `inferDecl`
+          // TODO: capture these errors as diagnostics and infer the missing
+          // types as `never`
+          for p in fnSig.ParamList do
+            if p.TypeAnn.IsNone then
+              failwith "Ambient function declarations must be fully typed"
 
-        qns <- qns.AddValue (QualifiedIdent.Ident name) (t, false)
-      | ClassDecl({ Name = name } as decl) ->
-        // TODO: treat ClassDecl similar to object types where we create a
-        // structural placeholder type instead of an opaque type variable.
-        // We should do this for both instance members and statics.
-        let instance: Scheme =
-          { Type = ctx.FreshTypeVar None
-            TypeParams = None // TODO: handle type params
-            IsTypeParam = false }
+          if fnSig.ReturnType.IsNone then
+            failwith "Ambient function declarations must be fully typed"
 
-        qns <- qns.AddScheme (QualifiedIdent.Ident name) instance
+          let! f = Infer.inferFuncSig ctx env fnSig
 
-        let statics: Type = ctx.FreshTypeVar None
+          if fnSig.Throws.IsNone then
+            f.Throws <-
+              { Kind = TypeKind.Keyword Keyword.Never
+                Provenance = None }
 
-        qns <- qns.AddValue (QualifiedIdent.Ident name) (statics, false)
-      | EnumDecl _ ->
-        return!
-          Error(
-            TypeError.NotImplemented "TODO: inferDeclPlaceholders - EnumDecl"
-          )
-      | TypeDecl typeDecl ->
-        // TODO: check to make sure we aren't redefining an existing type
+          let t =
+            { Kind = TypeKind.Function f
+              Provenance = None }
 
-        // TODO: replace placeholders, with a reference the actual definition
-        // once we've inferred the definition
-        let! placeholder =
-          Infer.inferTypeDeclPlaceholderScheme ctx env typeDecl.TypeParams
+          qns <- qns.AddValue (QualifiedIdent.FromString name) (t, false)
+        | ClassDecl({ Name = name } as decl) ->
+          // TODO: treat ClassDecl similar to object types where we create a
+          // structural placeholder type instead of an opaque type variable.
+          // We should do this for both instance members and statics.
+          let instance: Scheme =
+            { Type = ctx.FreshTypeVar None
+              TypeParams = None // TODO: handle type params
+              IsTypeParam = false }
 
-        qns <- qns.AddScheme (QualifiedIdent.Ident typeDecl.Name) placeholder
-      | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
-        // Instead of looking things up in the environment, we need some way to
-        // find the existing type on other declarations.
-        let! placeholder =
-          match env.TryFindScheme name with
-          | Some scheme -> Result.Ok scheme
-          | None ->
-            match qns.Schemes.TryFind(QualifiedIdent.Ident name) with
+          qns <- qns.AddScheme (QualifiedIdent.FromString name) instance
+
+          let statics: Type = ctx.FreshTypeVar None
+
+          qns <- qns.AddValue (QualifiedIdent.FromString name) (statics, false)
+        | EnumDecl _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: inferDeclPlaceholders - EnumDecl"
+            )
+        | TypeDecl { TypeParams = typeParams; Name = name } ->
+          // TODO: check to make sure we aren't redefining an existing type
+
+          // TODO: replace placeholders, with a reference the actual definition
+          // once we've inferred the definition
+          let! placeholder =
+            Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+          let key =
+            match ident with
+            | Type { Namespaces = namespaces } ->
+              { Namespaces = namespaces; Name = name }
+            | Value { Namespaces = namespaces } ->
+              { Namespaces = namespaces; Name = name }
+
+          qns <- qns.AddScheme key placeholder
+        | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
+          // Instead of looking things up in the environment, we need some way to
+          // find the existing type on other declarations.
+          let! placeholder =
+            match env.TryFindScheme name with
             | Some scheme -> Result.Ok scheme
-            | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+            | None ->
+              match qns.Schemes.TryFind(QualifiedIdent.FromString name) with
+              | Some scheme -> Result.Ok scheme
+              | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
-        qns <- qns.AddScheme (QualifiedIdent.Ident name) placeholder
-      // newEnv <- newEnv.AddScheme name placeholder
-      | NamespaceDecl nsDecl ->
-        return!
-          Error(
-            TypeError.NotImplemented
-              "TODO: inferDeclPlaceholders - NamespaceDecl"
-          )
+          qns <- qns.AddScheme (QualifiedIdent.FromString name) placeholder
+        // newEnv <- newEnv.AddScheme name placeholder
+        | NamespaceDecl nsDecl ->
+          return!
+            Error(
+              TypeError.NotImplemented
+                "TODO: inferDeclPlaceholders - NamespaceDecl"
+            )
     // let subgraph = graph.Namespaces[nsDecl.Name]
     // let! _, ns = Infer.inferDeclPlaceholders ctx env nsDecl.Body subgraph
     // let ns = { ns with Name = nsDecl.Name }
@@ -1023,163 +1188,212 @@ let inferDeclPlaceholders
     return qns
   }
 
+// Copies symbols from the nested namespaces listed in `namespaces` into `env`.
+// For example if `namespaces` contains `["Foo", "Bar"]` then this function will
+// copy symbols from the `Foo` and `Foo.Bar` namespaces into `env`.
+let rec openNamespaces (env: Env) (namespaces: list<string>) : Env =
+  let mutable newEnv = env
+
+  let rec openNamespace (parentNS: Namespace) (namespaces: list<string>) =
+    match namespaces with
+    | [] -> ()
+    | head :: rest ->
+      let nextNS = parentNS.Namespaces[head]
+
+      for KeyValue(name, scheme) in nextNS.Schemes do
+        newEnv <- newEnv.AddScheme name scheme
+
+      for KeyValue(name, binding) in nextNS.Values do
+        newEnv <- newEnv.AddValue name binding
+
+      for KeyValue(name, ns) in nextNS.Namespaces do
+        newEnv <- newEnv.AddNamespace name ns
+
+      openNamespace nextNS rest
+
+  openNamespace env.Namespace namespaces
+  newEnv
+
 let inferDeclDefinitions
   (ctx: Ctx)
   (env: Env)
   (qns: QualifiedNamespace)
-  (decls: list<Decl>)
+  (idents: list<QDeclIdent>)
+  (graph: QGraph)
   : Result<QualifiedNamespace, TypeError> =
 
   result {
     let mutable qns = qns
 
-    for decl in decls do
-      match decl.Kind with
-      | VarDecl varDecl ->
-        let placeholderTypes = getAllBindingPatterns varDecl.Pattern
+    for ident in idents do
+      let decls = graph.Nodes[ident]
 
-        // NOTE: We explicitly don't generalize here because we want other
-        // declarations to be able to unify with any free type variables
-        // from this declaration.  We generalize things in `inferModule` and
-        // `inferTreeRec`.
-        let! newBindings, newSchemes = Infer.inferVarDecl ctx env varDecl
+      // TODO: check if we're inside a namespace and update the env accordingly
+      let namespaces =
+        match ident with
+        | Type { Namespaces = namespaces } -> namespaces
+        | Value { Namespaces = namespaces } -> namespaces
 
-        let inferredTypes = getAllBindingPatterns varDecl.Pattern
+      let mutable newEnv = env
 
-        for KeyValue(name, inferredType) in inferredTypes do
-          let placeholderType =
-            match Map.tryFind name placeholderTypes with
-            | Some t -> t
-            | None -> failwith "Missing placeholder type"
+      newEnv <- openNamespaces newEnv namespaces
 
-          do! Unify.unify ctx env None placeholderType inferredType
-
-        // Schemes can be generated for things like class expressions, e.g.
-        // let Foo = class { ... }
-        for KeyValue(name, scheme) in newSchemes do
-          qns <- qns.AddScheme (QualifiedIdent.Ident name) scheme
-
-      | FnDecl({ Declare = false
-                 Name = name
-                 Sig = fnSig
-                 Body = Some body } as decl) ->
-        let placeholderType, _ =
-          match env.TryFindValue name with
-          | Some t -> t
-          | None -> failwith "Missing placeholder type"
-
-        // NOTE: We explicitly don't generalize here because we want other
-        // declarations to be able to unify with any free type variables
-        // from this declaration.  We generalize things in `inferModule` and
-        // `inferTreeRec`.
-        // NOTE: `inferFunction` also calls unify
-        let! f = Infer.inferFunction ctx env fnSig body
-
-        let inferredType =
-          { Kind = TypeKind.Function f
-            Provenance = None }
-
-        do! Unify.unify ctx env None placeholderType inferredType
-
-        qns <- qns.AddValue (QualifiedIdent.Ident name) (inferredType, false)
-      | FnDecl { Declare = true } ->
-        // Nothing to do since ambient function declarations don't have
-        // function bodies.
-        ()
-      | FnDecl fnDecl ->
-        return! Error(TypeError.SemanticError "Invalid function declaration")
-      | ClassDecl { Declare = declare
-                    Name = name
-                    Class = cls } ->
-        let! t, scheme = Infer.inferClass ctx env cls declare
-
-        // TODO: update `Statics` and `Instance` on `placeholders`
-
-        ()
-      | EnumDecl _ ->
-        return!
-          Error(
-            TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
-          )
-      | TypeDecl { Name = name; TypeAnn = typeAnn } ->
-        let placeholder = qns.Schemes[(QualifiedIdent.Ident name)]
-        // TODO: when computing the decl graph, include self-recursive types in
-        // the deps set so that we don't have to special case this here.
-        // Handles self-recursive types
-        let newEnv = env.AddScheme name placeholder
-        let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
-
-        let! scheme = Infer.inferTypeDeclDefn ctx newEnv placeholder getType
-
-        // Replace the placeholder's type with the actual type.
-        // NOTE: This is a bit hacky and we may want to change this later to use
-        // `foldType` to replace any uses of the placeholder with the actual type.
-        // Required for the following test cases:
-        // - InferRecursiveGenericObjectTypeInModule
-        // - InferNamespaceInModule
-        // placeholder.Value.Type <- scheme.Type
-        qns.Schemes[(QualifiedIdent.Ident name)].Type <- scheme.Type
-      | InterfaceDecl { Name = name
-                        TypeParams = typeParams
-                        Elems = elems } ->
-        let placeholder = qns.Schemes[(QualifiedIdent.Ident name)]
-
-        // TODO: when computing the decl graph, include self-recursive types in
-        // the deps set so that we don't have to special case this here.
-        // Handles self-recursive types
-        let newEnv = env.AddScheme name placeholder
-
-        let getType (env: Env) : Result<Type, TypeError> =
-          result {
-            let! elems =
-              List.traverseResultM (Infer.inferObjElem ctx newEnv) elems
-
-            let kind =
-              TypeKind.Object
-                { Elems = elems
-                  Immutable = false
-                  Interface = true }
-
-            return { Kind = kind; Provenance = None }
-          }
-
-        let! newScheme = Infer.inferTypeDeclDefn ctx newEnv placeholder getType
-
-        match placeholder.Type.Kind, newScheme.Type.Kind with
-        | TypeKind.Object { Elems = existingElems },
-          TypeKind.Object { Elems = newElems } ->
-          // TODO: remove duplicates
-          let mergedElems = existingElems @ newElems
-
-          let kind =
-            TypeKind.Object
-              { Elems = mergedElems
-                Immutable = false
-                Interface = false }
+      for decl in decls do
+        match decl.Kind with
+        | VarDecl varDecl ->
+          let placeholderTypes = getAllBindingPatterns varDecl.Pattern
 
           // NOTE: We explicitly don't generalize here because we want other
           // declarations to be able to unify with any free type variables
           // from this declaration.  We generalize things in `inferModule` and
           // `inferTreeRec`.
-          // TODO: suport multiple provenances
-          let t = { Kind = kind; Provenance = None }
+          let! newBindings, newSchemes = Infer.inferVarDecl ctx newEnv varDecl
 
-          // We modify the existing scheme in place so that existing values
-          // with this type are updated.
-          placeholder.Type <- t
-          qns.Schemes[(QualifiedIdent.Ident name)].Type <- t
-        | _ ->
+          let inferredTypes = getAllBindingPatterns varDecl.Pattern
+
+          for KeyValue(name, inferredType) in inferredTypes do
+            let placeholderType =
+              match Map.tryFind name placeholderTypes with
+              | Some t -> t
+              | None -> failwith "Missing placeholder type"
+
+            do! Unify.unify ctx newEnv None placeholderType inferredType
+
+          // Schemes can be generated for things like class expressions, e.g.
+          // let Foo = class { ... }
+          for KeyValue(name, scheme) in newSchemes do
+            qns <- qns.AddScheme (QualifiedIdent.FromString name) scheme
+
+        | FnDecl({ Declare = false
+                   Name = name
+                   Sig = fnSig
+                   Body = Some body } as decl) ->
+          let placeholderType, _ =
+            match env.TryFindValue name with
+            | Some t -> t
+            | None -> failwith "Missing placeholder type"
+
+          // NOTE: We explicitly don't generalize here because we want other
+          // declarations to be able to unify with any free type variables
+          // from this declaration.  We generalize things in `inferModule` and
+          // `inferTreeRec`.
+          // NOTE: `inferFunction` also calls unify
+          let! f = Infer.inferFunction ctx env fnSig body
+
+          let inferredType =
+            { Kind = TypeKind.Function f
+              Provenance = None }
+
+          do! Unify.unify ctx env None placeholderType inferredType
+
+          qns <-
+            qns.AddValue (QualifiedIdent.FromString name) (inferredType, false)
+        | FnDecl { Declare = true } ->
+          // Nothing to do since ambient function declarations don't have
+          // function bodies.
+          ()
+        | FnDecl fnDecl ->
+          return! Error(TypeError.SemanticError "Invalid function declaration")
+        | ClassDecl { Declare = declare
+                      Name = name
+                      Class = cls } ->
+          let! t, scheme = Infer.inferClass ctx env cls declare
+
+          // TODO: update `Statics` and `Instance` on `placeholders`
+
+          ()
+        | EnumDecl _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
+            )
+        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+          let key =
+            match ident with
+            | Type { Namespaces = namespaces } ->
+              { Namespaces = namespaces; Name = name }
+            | Value { Namespaces = namespaces } ->
+              { Namespaces = namespaces; Name = name }
+
+          let placeholder = qns.Schemes[key]
+          // TODO: when computing the decl graph, include self-recursive types in
+          // the deps set so that we don't have to special case this here.
+          // Handles self-recursive types
+          newEnv <- newEnv.AddScheme name placeholder
+          let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
+
+          let! scheme = Infer.inferTypeDeclDefn ctx newEnv placeholder getType
+
           // Replace the placeholder's type with the actual type.
           // NOTE: This is a bit hacky and we may want to change this later to use
           // `foldType` to replace any uses of the placeholder with the actual type.
-          placeholder.Type <- newScheme.Type
-          qns.Schemes[(QualifiedIdent.Ident name)].Type <- newScheme.Type
-      | NamespaceDecl { Name = name; Body = decls } ->
-        return!
-          Error(
-            TypeError.NotImplemented
-              "TODO: inferDeclDefinitions - NamespaceDecl"
-          )
+          // Required for the following test cases:
+          // - InferRecursiveGenericObjectTypeInModule
+          // - InferNamespaceInModule
+          // placeholder.Value.Type <- scheme.Type
+          qns.Schemes[key].Type <- scheme.Type
+        | InterfaceDecl { Name = name
+                          TypeParams = typeParams
+                          Elems = elems } ->
+          let placeholder = qns.Schemes[(QualifiedIdent.FromString name)]
+
+          // TODO: when computing the decl graph, include self-recursive types in
+          // the deps set so that we don't have to special case this here.
+          // Handles self-recursive types
+          let newEnv = env.AddScheme name placeholder
+
+          let getType (env: Env) : Result<Type, TypeError> =
+            result {
+              let! elems =
+                List.traverseResultM (Infer.inferObjElem ctx newEnv) elems
+
+              let kind =
+                TypeKind.Object
+                  { Elems = elems
+                    Immutable = false
+                    Interface = true }
+
+              return { Kind = kind; Provenance = None }
+            }
+
+          let! newScheme =
+            Infer.inferTypeDeclDefn ctx newEnv placeholder getType
+
+          match placeholder.Type.Kind, newScheme.Type.Kind with
+          | TypeKind.Object { Elems = existingElems },
+            TypeKind.Object { Elems = newElems } ->
+            // TODO: remove duplicates
+            let mergedElems = existingElems @ newElems
+
+            let kind =
+              TypeKind.Object
+                { Elems = mergedElems
+                  Immutable = false
+                  Interface = false }
+
+            // NOTE: We explicitly don't generalize here because we want other
+            // declarations to be able to unify with any free type variables
+            // from this declaration.  We generalize things in `inferModule` and
+            // `inferTreeRec`.
+            // TODO: suport multiple provenances
+            let t = { Kind = kind; Provenance = None }
+
+            // We modify the existing scheme in place so that existing values
+            // with this type are updated.
+            placeholder.Type <- t
+            qns.Schemes[(QualifiedIdent.FromString name)].Type <- t
+          | _ ->
+            // Replace the placeholder's type with the actual type.
+            // NOTE: This is a bit hacky and we may want to change this later to use
+            // `foldType` to replace any uses of the placeholder with the actual type.
+            placeholder.Type <- newScheme.Type
+            qns.Schemes[(QualifiedIdent.FromString name)].Type <- newScheme.Type
+        | NamespaceDecl { Name = name; Body = decls } ->
+          return!
+            Error(
+              TypeError.NotImplemented
+                "TODO: inferDeclDefinitions - NamespaceDecl"
+            )
 
     return qns
   }
@@ -1245,6 +1459,40 @@ let rec graphToTree (edges: Map<QDeclIdent, list<QDeclIdent>>) : QDeclTree =
   { CycleMap = cycleMap
     Edges = newEdges }
 
+let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
+
+  let rec addValueRec (ns: Namespace) (namespaces: list<string>) : Namespace =
+    match namespaces with
+    | [] -> ns.AddBinding ident.Name binding
+    | headNS :: restNS ->
+      match ns.Namespaces.TryFind(headNS) with
+      | None ->
+        let newNS = { Namespace.empty with Name = headNS }
+        ns.AddNamespace headNS (addValueRec newNS restNS)
+      | Some existingNS ->
+        ns.AddNamespace headNS (addValueRec existingNS restNS)
+
+  match ident.Namespaces with
+  | [] -> env.AddValue ident.Name binding
+  | namespaces ->
+    { env with
+        Namespace = addValueRec env.Namespace namespaces }
+
+let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
+
+  let rec addValueRec (ns: Namespace) (namespaces: list<string>) : Namespace =
+    match namespaces with
+    | [] -> ns.AddScheme ident.Name scheme
+    | headNS :: restNS ->
+      match ns.Namespaces.TryFind(headNS) with
+      | None -> ns.AddNamespace headNS (addValueRec Namespace.empty restNS)
+      | Some ns ->
+        ns.AddNamespace headNS (addValueRec ns.Namespaces[headNS] restNS)
+
+  match ident.Namespaces with
+  | [] -> env.AddScheme ident.Name scheme
+  | head :: rest -> env.AddNamespace head (addValueRec env.Namespace rest)
+
 let updateEnvWithQualifiedNamespace
   (env: Env)
   (inferredLocals: QualifiedNamespace)
@@ -1252,16 +1500,10 @@ let updateEnvWithQualifiedNamespace
   let mutable newEnv = env
 
   for KeyValue(ident, binding) in inferredLocals.Values do
-    match ident with
-    | QualifiedIdent.Ident name -> newEnv <- newEnv.AddValue name binding
-    | QualifiedIdent.Member(left, right) ->
-      failwith "TODO: inferTreeRec - Member"
+    newEnv <- addBinding newEnv ident binding
 
   for KeyValue(ident, scheme) in inferredLocals.Schemes do
-    match ident with
-    | QualifiedIdent.Ident name -> newEnv <- newEnv.AddScheme name scheme
-    | QualifiedIdent.Member(left, right) ->
-      failwith "TODO: inferTreeRec - Member"
+    newEnv <- addScheme newEnv ident scheme
 
   newEnv
 
@@ -1315,12 +1557,13 @@ let rec inferTreeRec
     let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
 
     let names = Set.toList root
-    let decls = names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
 
     // Infer declarations
-    let! newPartialQns = inferDeclPlaceholders ctx newEnv partialQns decls
+    let! newPartialQns = inferDeclPlaceholders ctx newEnv partialQns names graph
     newEnv <- updateEnvWithQualifiedNamespace newEnv newPartialQns // mutually recursive functions
-    let! newPartialQns = inferDeclDefinitions ctx newEnv newPartialQns decls
+
+    let! newPartialQns =
+      inferDeclDefinitions ctx newEnv newPartialQns names graph
 
     // Update fullQns with new values and types
     fullQns <- updateQualifiedNamespace newPartialQns fullQns true

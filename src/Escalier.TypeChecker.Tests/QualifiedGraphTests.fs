@@ -59,16 +59,6 @@ let NamespaceShadowingOfVariables () =
 
       let graph = buildGraph env ast
 
-      printfn "graph.Edges = "
-
-      for KeyValue(key, value) in graph.Edges do
-        printfn $"{key} -> {value}"
-
-      printfn "graph.Nodes.Keys = "
-
-      for key in graph.Nodes.Keys do
-        printfn $"{key}"
-
       let! env =
         inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
@@ -78,7 +68,7 @@ let NamespaceShadowingOfVariables () =
 
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: make this pass")>]
+[<Fact>]
 let NamespaceShadowingOfTypes () =
   let res =
     result {
@@ -100,16 +90,6 @@ let NamespaceShadowingOfTypes () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let graph = buildGraph env ast
-
-      printfn "graph.Edges = "
-
-      for KeyValue(key, value) in graph.Edges do
-        printfn $"{key} -> {value}"
-
-      printfn "graph.Nodes.Keys = "
-
-      for key in graph.Nodes.Keys do
-        printfn $"{key}"
 
       let! env =
         inferGraph ctx env graph |> Result.mapError CompileError.TypeError
@@ -190,6 +170,7 @@ let NamespaceBasicValues () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+[<Fact>]
 let NamespaceBasicTypes () =
   let res =
     result {

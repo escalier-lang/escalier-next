@@ -477,18 +477,22 @@ let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
 
 let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
 
-  let rec addValueRec (ns: Namespace) (namespaces: list<string>) : Namespace =
+  let rec addSchemeRec (ns: Namespace) (namespaces: list<string>) : Namespace =
     match namespaces with
     | [] -> ns.AddScheme ident.Name scheme
     | headNS :: restNS ->
       match ns.Namespaces.TryFind(headNS) with
-      | None -> ns.AddNamespace headNS (addValueRec Namespace.empty restNS)
-      | Some ns ->
-        ns.AddNamespace headNS (addValueRec ns.Namespaces[headNS] restNS)
+      | None ->
+        let newNS = { Namespace.empty with Name = headNS }
+        ns.AddNamespace headNS (addSchemeRec newNS restNS)
+      | Some existingNS ->
+        ns.AddNamespace headNS (addSchemeRec existingNS restNS)
 
   match ident.Namespaces with
   | [] -> env.AddScheme ident.Name scheme
-  | head :: rest -> env.AddNamespace head (addValueRec env.Namespace rest)
+  | namespaces ->
+    { env with
+        Namespace = addSchemeRec env.Namespace namespaces }
 
 let updateEnvWithQualifiedNamespace
   (env: Env)

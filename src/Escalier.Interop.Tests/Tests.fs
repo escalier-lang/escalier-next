@@ -475,7 +475,7 @@ let InferTypeDecls () =
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
       Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
       // TODO: infer `keyof any` as `string | number | symbol`
-      Assert.Type(env, "Omit", "<T, K: keyof t5>(Pick<T, Exclude<keyof T, K>>)")
+      Assert.Type(env, "Omit", "<T, K: keyof t7>(Pick<T, Exclude<keyof T, K>>)")
       Assert.Type(env, "Point", "{x: number, y: number}")
     }
 

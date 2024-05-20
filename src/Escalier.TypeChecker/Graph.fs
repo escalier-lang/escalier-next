@@ -582,12 +582,41 @@ module rec Graph =
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          let deps =
+          let mutable deps =
             findTypeRefIdents
               env
               localTypeNames
               typeParamNames
               (SyntaxNode.TypeAnn typeAnn)
+
+          // Add an type identifiers that appear in the constraints and defaults
+          // of type params that have them.
+          // TODO: dedupe this code with the InterfaceDecl branch above
+          match typeParams with
+          | Some typeParams ->
+            for tp in typeParams do
+              match tp.Constraint with
+              | Some c ->
+                deps <-
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      typeParamNames
+                      (SyntaxNode.TypeAnn c)
+              | None -> ()
+
+              match tp.Default with
+              | Some d ->
+                deps <-
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      typeParamNames
+                      (SyntaxNode.TypeAnn d)
+              | None -> ()
+          | None -> ()
 
           graph <- graph.Add(DeclIdent.Type name, decl, deps)
         | FnDecl { Declare = _
@@ -663,7 +692,7 @@ module rec Graph =
             | Some typeParams ->
               List.map (fun (tp: Syntax.TypeParam) -> tp.Name) typeParams
 
-          let deps =
+          let mutable deps =
             elems
             |> List.collect (fun elem ->
               match elem with
@@ -745,6 +774,35 @@ module rec Graph =
                     localTypeNames
                     interfaceTypeParamNames
                     (SyntaxNode.TypeAnn typeAnn))
+
+          // Add an type identifiers that appear in the constraints and defaults
+          // of type params that have them.
+          // TODO: dedupe this code with the TypeDecl branch above
+          match typeParams with
+          | Some typeParams ->
+            for tp in typeParams do
+              match tp.Constraint with
+              | Some c ->
+                deps <-
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      interfaceTypeParamNames
+                      (SyntaxNode.TypeAnn c)
+              | None -> ()
+
+              match tp.Default with
+              | Some d ->
+                deps <-
+                  deps
+                  @ findTypeRefIdents
+                      env
+                      localTypeNames
+                      interfaceTypeParamNames
+                      (SyntaxNode.TypeAnn d)
+              | None -> ()
+          | None -> ()
 
           match graph.Edges.TryFind(DeclIdent.Type name) with
           | Some existingDeps ->

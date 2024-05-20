@@ -2285,9 +2285,10 @@ module rec Infer =
         // Handles self-recursive types
         newEnv <- newEnv.AddScheme typeDecl.Name placeholder
 
+        let getType = (fun env -> inferTypeAnn ctx env typeDecl.TypeAnn)
+
         let! scheme =
-          inferTypeDeclDefn ctx newEnv placeholder (fun env ->
-            inferTypeAnn ctx env typeDecl.TypeAnn)
+          inferTypeDeclDefn ctx newEnv placeholder typeDecl.TypeParams getType
 
         // Replace the placeholder's type with the actual type.
         // NOTE: This is a bit hacky and we may want to change this later to use
@@ -2337,7 +2338,8 @@ module rec Infer =
             return { Kind = kind; Provenance = None }
           }
 
-        let! newScheme = inferTypeDeclDefn ctx newEnv placeholder getType
+        let! newScheme =
+          inferTypeDeclDefn ctx newEnv placeholder typeParams getType
 
         let mergedScheme =
           match existingScheme with
@@ -2644,7 +2646,26 @@ module rec Infer =
     : Result<Scheme, TypeError> =
 
     result {
-      let! typeParams, _ = inferTypeParams ctx env typeParams
+      let typeParams =
+        typeParams
+        |> Option.map (fun typeParams ->
+          List.map
+            (fun (typeParam: Syntax.TypeParam) ->
+              let c =
+                match typeParam.Constraint with
+                | Some(c) -> Some(ctx.FreshTypeVar None)
+                | None -> None
+
+              let d =
+                match typeParam.Default with
+                | Some(d) -> Some(ctx.FreshTypeVar None)
+                | None -> None
+
+
+              { Name = typeParam.Name
+                Constraint = c
+                Default = d })
+            typeParams)
 
       let scheme =
         { TypeParams = typeParams
@@ -2658,12 +2679,16 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (placeholder: Scheme)
+    (typeParams: option<list<Syntax.TypeParam>>)
     (getType: Env -> Result<Type, TypeError>)
     : Result<Scheme, TypeError> =
 
     result {
       let mutable newEnv = env
 
+      // Some of the our code checks that a scheme exists in the environment
+      // when inferring type references so we add dummy schemes here.
+      // TODO: see if we can avoid this in the future.
       match placeholder.TypeParams with
       | None -> ()
       | Some typeParams ->
@@ -2683,9 +2708,13 @@ module rec Infer =
 
       let! t = getType newEnv
 
+      // TODO: infer type param's constraints and defaults for real here
+      let! typeParams, _ = inferTypeParams ctx newEnv typeParams
+
       return
-        { placeholder with
-            Type = generalizeFunctionsInType t }
+        { TypeParams = typeParams
+          Type = generalizeFunctionsInType t
+          IsTypeParam = false }
     }
 
   let resolvePath
@@ -3038,15 +3067,51 @@ module rec Infer =
             Error(
               TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
             )
-        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+        | TypeDecl { Name = name
+                     TypeAnn = typeAnn
+                     TypeParams = typeParams } ->
           let! placeholder = placeholderNS.GetScheme name
 
           // Handles self-recursive types
           newEnv <- newEnv.AddScheme name placeholder
 
+          let getType = fun env -> inferTypeAnn ctx env typeAnn
+
           let! scheme =
-            inferTypeDeclDefn ctx newEnv placeholder (fun env ->
-              inferTypeAnn ctx env typeAnn)
+            inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+
+          // Unify types present in the type params from the placeholder and
+          // inferred schemes.  We could avoid this if we made `TypeParams`
+          // mutable on the `Scheme` struct.
+          match placeholder.TypeParams, scheme.TypeParams with
+          | Some typeParams1, Some typeParams2 ->
+            for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
+              match typeParam1.Constraint, typeParam2.Constraint with
+              | Some c1, Some c2 -> do! unify ctx env None c1 c2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a constraint type while the other doesn't"
+                  )
+
+              match typeParam1.Default, typeParam2.Default with
+              | Some d1, Some d2 -> do! unify ctx env None d1 d2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a default type while the other doesn't"
+                  )
+          | None, None -> ()
+          | _, _ ->
+            return!
+              Error(
+                TypeError.SemanticError
+                  "One scheme has type params while the other doesn't"
+              )
 
           newEnv <- newEnv.AddScheme name scheme
 
@@ -3075,7 +3140,8 @@ module rec Infer =
               return { Kind = kind; Provenance = None }
             }
 
-          let! newScheme = inferTypeDeclDefn ctx newEnv placeholder getType
+          let! newScheme =
+            inferTypeDeclDefn ctx newEnv placeholder typeParams getType
 
           match placeholder.Type.Kind, newScheme.Type.Kind with
           | TypeKind.Object { Elems = existingElems },

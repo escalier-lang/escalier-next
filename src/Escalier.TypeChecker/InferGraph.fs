@@ -304,7 +304,9 @@ let inferDeclDefinitions
             Error(
               TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
             )
-        | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+        | TypeDecl { Name = name
+                     TypeAnn = typeAnn
+                     TypeParams = typeParams } ->
           let key =
             match ident with
             | Type { Namespaces = namespaces } ->
@@ -319,7 +321,8 @@ let inferDeclDefinitions
           newEnv <- newEnv.AddScheme name placeholder
           let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
 
-          let! scheme = Infer.inferTypeDeclDefn ctx newEnv placeholder getType
+          let! scheme =
+            Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
 
           // Replace the placeholder's type with the actual type.
           // NOTE: This is a bit hacky and we may want to change this later to use
@@ -354,7 +357,7 @@ let inferDeclDefinitions
             }
 
           let! newScheme =
-            Infer.inferTypeDeclDefn ctx newEnv placeholder getType
+            Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
 
           match placeholder.Type.Kind, newScheme.Type.Kind with
           | TypeKind.Object { Elems = existingElems },

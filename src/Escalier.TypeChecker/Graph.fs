@@ -1,5 +1,6 @@
 namespace Escalier.TypeChecker
 
+open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.ExprVisitor
 open FsToolkit.ErrorHandling
 
@@ -9,7 +10,6 @@ open Escalier.Data.Syntax
 open Escalier.Data.Type
 
 open Error
-open Env
 
 module rec Graph =
   let start = FParsec.Position("", 0, 1, 1)
@@ -17,7 +17,11 @@ module rec Graph =
   let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 
   // Find identifiers in an expression excluding function expressions.
-  let findIdentifiers (expr: Expr) : list<DeclIdent> =
+  let findIdentifiers
+    (env: Env)
+    (localValueNames: list<string>)
+    (expr: Expr)
+    : list<DeclIdent> =
     let mutable ids: list<DeclIdent> = []
 
     let visitor =
@@ -28,7 +32,16 @@ module rec Graph =
             // ExprKind.Member because the property is stored as a
             // string instead of an identifier.
             | ExprKind.Identifier name ->
-              ids <- DeclIdent.Value name :: ids
+
+              // TODO:
+              if
+                (List.contains name localValueNames)
+                && not (Map.containsKey name env.Namespace.Values)
+                && not (Map.containsKey name env.Namespace.Namespaces)
+              then
+                ids <- DeclIdent.Value name :: ids
+
+              // ids <- DeclIdent.Value name :: ids
               (false, state)
             | ExprKind.Function _ -> (false, state)
             | _ -> (true, state)
@@ -85,6 +98,7 @@ module rec Graph =
   let findTypeRefIdents
     (env: Env)
     (localTypeNames: list<string>) // top-level and namespace decls
+    (localValueNames: list<string>)
     (typeParams: list<string>)
     (syntaxNode: SyntaxNode)
     : list<DeclIdent> =
@@ -112,7 +126,13 @@ module rec Graph =
                 []
               | TypeAnnKind.Typeof ident ->
                 let baseName = getBaseName ident
-                typeRefIdents <- DeclIdent.Value baseName :: typeRefIdents
+
+                if
+                  (List.contains baseName localValueNames)
+                  && not (Map.containsKey baseName env.Namespace.Values)
+                  && not (Map.containsKey baseName env.Namespace.Namespaces)
+                then
+                  typeRefIdents <- DeclIdent.Value baseName :: typeRefIdents
 
                 []
               | TypeAnnKind.Condition { Extends = extends } ->
@@ -265,7 +285,7 @@ module rec Graph =
 
     List.rev fns
 
-  let findLocals (decls: list<Decl>) : list<DeclIdent> =
+  let rec findLocals (decls: list<Decl>) : list<DeclIdent> =
     let mutable locals: list<DeclIdent> = []
 
     for decl in decls do
@@ -283,9 +303,12 @@ module rec Graph =
       | EnumDecl { Name = name } ->
         locals <- locals @ [ DeclIdent.Value name ]
         locals <- locals @ [ DeclIdent.Type name ]
-      | NamespaceDecl { Name = name } ->
-        locals <- locals @ [ DeclIdent.Value name ]
-        locals <- locals @ [ DeclIdent.Type name ]
+      | NamespaceDecl { Name = name; Body = decls } ->
+        if name = "global" then
+          locals <- locals @ findLocals decls
+        else
+          locals <- locals @ [ DeclIdent.Value name ]
+          locals <- locals @ [ DeclIdent.Type name ]
 
     locals
 
@@ -306,6 +329,14 @@ module rec Graph =
           | _ -> None)
         possibleDeps
 
+    let possibleValueNames =
+      List.choose
+        (fun id ->
+          match id with
+          | DeclIdent.Value name -> Some name
+          | _ -> None)
+        possibleDeps
+
     let typeParamNames =
       match fnSig.TypeParams with
       | None -> []
@@ -322,6 +353,7 @@ module rec Graph =
             @ findTypeRefIdents
                 env
                 possibleTypeNames
+                possibleValueNames
                 (excludedTypeNames @ typeParamNames)
                 (SyntaxNode.TypeAnn c)
         | None -> ()
@@ -333,6 +365,7 @@ module rec Graph =
             @ findTypeRefIdents
                 env
                 possibleTypeNames
+                possibleValueNames
                 (excludedTypeNames @ typeParamNames)
                 (SyntaxNode.TypeAnn d)
         | None -> ()
@@ -347,6 +380,7 @@ module rec Graph =
           @ findTypeRefIdents
               env
               possibleTypeNames
+              possibleValueNames
               (excludedTypeNames @ typeParamNames)
               (SyntaxNode.TypeAnn typeAnn)
       | None -> ()
@@ -365,6 +399,7 @@ module rec Graph =
         @ findTypeRefIdents
             env
             possibleTypeNames
+            possibleValueNames
             (excludedTypeNames @ typeParamNames)
             (SyntaxNode.TypeAnn returnType)
 
@@ -397,6 +432,14 @@ module rec Graph =
           | _ -> None)
         possibleDeps
 
+    let localValueNames =
+      List.choose
+        (fun id ->
+          match id with
+          | DeclIdent.Value name -> Some name
+          | _ -> None)
+        possibleDeps
+
     let mutable deps = []
 
     let typeParamNames =
@@ -413,6 +456,7 @@ module rec Graph =
           @ findTypeRefIdents
               env
               localTypeNames
+              localValueNames
               (interfaceTypeParamNames @ typeParamNames)
               (SyntaxNode.TypeAnn typeAnn)
       | None -> ()
@@ -424,6 +468,7 @@ module rec Graph =
         @ findTypeRefIdents
             env
             localTypeNames
+            localValueNames
             (interfaceTypeParamNames @ typeParamNames)
             (SyntaxNode.TypeAnn returnType)
     | None -> ()
@@ -483,6 +528,14 @@ module rec Graph =
             | _ -> None)
           locals
 
+      let localValueNames =
+        List.choose
+          (fun id ->
+            match id with
+            | DeclIdent.Value name -> Some name
+            | _ -> None)
+          locals
+
       for decl in decls do
         match decl.Kind with
         | VarDecl { Declare = declare
@@ -494,10 +547,15 @@ module rec Graph =
 
           match declare, init with
           | false, Some init ->
-            let mutable deps = findIdentifiers init
+            let mutable deps = findIdentifiers env localValueNames init
 
             let typeDepsInExpr =
-              findTypeRefIdents env localTypeNames [] (SyntaxNode.Expr init)
+              findTypeRefIdents
+                env
+                localTypeNames
+                localValueNames
+                []
+                (SyntaxNode.Expr init)
 
             let typeDeps =
               match typeAnn with
@@ -505,6 +563,7 @@ module rec Graph =
                 findTypeRefIdents
                   env
                   localTypeNames
+                  localValueNames
                   []
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> []
@@ -542,6 +601,7 @@ module rec Graph =
                 findTypeRefIdents
                   env
                   localTypeNames
+                  localValueNames
                   []
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> []
@@ -586,6 +646,7 @@ module rec Graph =
             findTypeRefIdents
               env
               localTypeNames
+              localValueNames
               typeParamNames
               (SyntaxNode.TypeAnn typeAnn)
 
@@ -602,6 +663,7 @@ module rec Graph =
                   @ findTypeRefIdents
                       env
                       localTypeNames
+                      localValueNames
                       typeParamNames
                       (SyntaxNode.TypeAnn c)
               | None -> ()
@@ -613,6 +675,7 @@ module rec Graph =
                   @ findTypeRefIdents
                       env
                       localTypeNames
+                      localValueNames
                       typeParamNames
                       (SyntaxNode.TypeAnn d)
               | None -> ()
@@ -647,6 +710,7 @@ module rec Graph =
                 findTypeRefIdents
                   env
                   localTypeNames
+                  localValueNames
                   classTypeParamNames
                   (SyntaxNode.TypeAnn typeAnn)
               | ClassElem.Constructor { Sig = fnSig; Body = body } ->
@@ -720,6 +784,7 @@ module rec Graph =
                     findTypeRefIdents
                       env
                       localTypeNames
+                      localValueNames
                       interfaceTypeParamNames
                       (SyntaxNode.TypeAnn returnType)
                   | None -> []
@@ -735,6 +800,7 @@ module rec Graph =
                     findTypeRefIdents
                       env
                       localTypeNames
+                      localValueNames
                       interfaceTypeParamNames
                       (SyntaxNode.TypeAnn typeAnn)
                   | None -> []
@@ -747,6 +813,7 @@ module rec Graph =
                   findTypeRefIdents
                     env
                     localTypeNames
+                    localValueNames
                     interfaceTypeParamNames
                     (SyntaxNode.TypeAnn typeAnn)
 
@@ -767,11 +834,13 @@ module rec Graph =
                 findTypeRefIdents
                   env
                   localTypeNames
+                  localValueNames
                   interfaceTypeParamNames
                   (SyntaxNode.TypeAnn typeParam.Constraint)
                 @ findTypeRefIdents
                     env
                     localTypeNames
+                    localValueNames
                     interfaceTypeParamNames
                     (SyntaxNode.TypeAnn typeAnn))
 
@@ -788,6 +857,7 @@ module rec Graph =
                   @ findTypeRefIdents
                       env
                       localTypeNames
+                      localValueNames
                       interfaceTypeParamNames
                       (SyntaxNode.TypeAnn c)
               | None -> ()
@@ -799,6 +869,7 @@ module rec Graph =
                   @ findTypeRefIdents
                       env
                       localTypeNames
+                      localValueNames
                       interfaceTypeParamNames
                       (SyntaxNode.TypeAnn d)
               | None -> ()
@@ -811,19 +882,27 @@ module rec Graph =
         | EnumDecl enumDecl -> failwith "TODO: buildGraph - EnumDecl"
         | NamespaceDecl { Name = name; Body = decls } ->
           let! subgraph = buildGraph env declared locals decls
-          let subgraphDeps = subgraph.Edges.Values |> List.concat
-          let subgraphIdents = subgraph.Nodes.Keys |> List.ofSeq
 
-          let deps =
-            List.filter
-              (fun dep -> not (List.contains dep subgraphIdents))
-              subgraphDeps
+          if name = "global" then
+            graph <-
+              { Edges = FSharpPlus.Map.union subgraph.Edges graph.Edges
+                Nodes = FSharpPlus.Map.union subgraph.Nodes graph.Nodes
+                Namespaces =
+                  FSharpPlus.Map.union subgraph.Namespaces graph.Namespaces }
+          else
+            let subgraphDeps = subgraph.Edges.Values |> List.concat
+            let subgraphIdents = subgraph.Nodes.Keys |> List.ofSeq
 
-          graph <- graph.Add(DeclIdent.Value name, decl, deps)
-          graph <- graph.Add(DeclIdent.Type name, decl, deps)
-          graph <- graph.AddNamespace(name, subgraph)
+            let deps =
+              List.filter
+                (fun dep -> not (List.contains dep subgraphIdents))
+                subgraphDeps
 
-          declared <- declared @ [ DeclIdent.Value name ]
+            graph <- graph.Add(DeclIdent.Value name, decl, deps)
+            graph <- graph.Add(DeclIdent.Type name, decl, deps)
+            graph <- graph.AddNamespace(name, subgraph)
+
+            declared <- declared @ [ DeclIdent.Value name ]
 
       return graph
     }

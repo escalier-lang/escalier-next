@@ -734,7 +734,7 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let ImportReact () =
   let result =
     result {

@@ -19,6 +19,7 @@
         <Compile Include="QualifiedGraph.fs"/>
         <Compile Include="BuildGraph.fs"/>
         <Compile Include="InferGraph.fs"/>
+        <Compile Include="StronglyConnectedComponents.fs"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>

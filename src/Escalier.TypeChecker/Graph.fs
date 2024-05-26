@@ -466,10 +466,10 @@ module rec Graph =
     (parentDeclared: list<DeclIdent>)
     (parentLocals: list<DeclIdent>)
     (decls: list<Decl>)
-    : Result<DeclGraph, TypeError> =
+    : Result<DeclGraph<Syntax.Decl>, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
-      let mutable graph = DeclGraph.Empty
+      let mutable graph: DeclGraph<Syntax.Decl> = DeclGraph.Empty
       let mutable declared: list<DeclIdent> = parentDeclared
       // These are top-level decls in the module and top-level
       // decls inside any namespaces we're inside of.
@@ -851,67 +851,6 @@ module rec Graph =
 
     cycles
 
-  type DeclTree =
-    { Edges: Map<Set<DeclIdent>, Set<Set<DeclIdent>>>
-      CycleMap: Map<DeclIdent, Set<DeclIdent>> }
-
-  let rec graphToTree (edges: Map<DeclIdent, list<DeclIdent>>) : DeclTree =
-    let mutable visited: list<DeclIdent> = []
-    let mutable stack: list<DeclIdent> = []
-    let mutable cycles: Set<Set<DeclIdent>> = Set.empty
-
-    let rec visit (node: DeclIdent) (parents: list<DeclIdent>) =
-      if List.contains node parents then
-        // find the index of node in parents
-        let index = List.findIndex (fun p -> p = node) parents
-        let cycle = List.take index parents @ [ node ] |> Set.ofList
-        cycles <- Set.add cycle cycles
-      else
-        let edgesOuts =
-          match edges.TryFind node with
-          | None -> failwith $"Couldn't find edge for {node} in {edges}"
-          | Some value -> value
-
-        for next in edgesOuts do
-          visit next (node :: parents)
-
-    for KeyValue(node, _) in edges do
-      visit node []
-
-    let mutable cycleMap: Map<DeclIdent, Set<DeclIdent>> = Map.empty
-
-    for cycle in cycles do
-      for node in cycle do
-        cycleMap <- cycleMap.Add(node, cycle)
-
-    let mutable newEdges: Map<Set<DeclIdent>, Set<Set<DeclIdent>>> = Map.empty
-
-    for KeyValue(node, deps) in edges do
-      let deps = Set.ofList deps
-
-      let src =
-        if Map.containsKey node cycleMap then
-          cycleMap[node]
-        else
-          Set.singleton node
-
-      for dep in deps do
-        if not (Set.contains dep src) then
-          let dst =
-            if Map.containsKey dep cycleMap then
-              cycleMap[dep]
-            else
-              Set.singleton dep
-
-          if Map.containsKey src newEdges then
-            let dsts = newEdges[src]
-            newEdges <- newEdges.Add(src, dsts.Add(dst))
-          else
-            newEdges <- newEdges.Add(src, Set.singleton dst)
-
-    { CycleMap = cycleMap
-      Edges = newEdges }
-
   let getExports
     (ctx: Ctx)
     (env: Env)
@@ -1065,3 +1004,112 @@ module rec Graph =
 
       { Kind = kind; Provenance = None }
     | _ -> failwith "both types must be objects to merge them"
+
+  // Based on the algorithm from https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
+  let findStronglyConnectedComponents<'T>
+    (graph: DeclGraph<'T>)
+    : list<list<DeclIdent>> =
+
+    let mutable S: list<DeclIdent> = [] // not yet assigned to a SCC
+    let mutable P: list<DeclIdent> = [] // not yet in different SCCs
+    let mutable preorder: Map<DeclIdent, int> = Map.empty
+    let mutable C: int = 0
+    let mutable components: list<list<DeclIdent>> = []
+
+    let rec visit (v: DeclIdent) : unit =
+      // 1. Set the preorder number of v to C, and increment C.
+      preorder <- Map.add v C preorder
+      C <- C + 1
+
+      // 2. Push v onto S and also onto P.
+      S <- v :: S
+      P <- v :: P
+
+      let deps =
+        match graph.Edges.TryFind v with
+        | None -> []
+        | Some deps -> deps
+
+      // 3. For each edge from v to a neighboring vertex w:
+      for dep in deps do
+        let w = dep
+
+        match preorder.TryFind w with
+        | None ->
+          // If the preorder number of w has not yet been assigned (the edge is a
+          // tree edge), recursively search w;
+          visit w
+        | Some _ ->
+          // Otherwise, if w has not yet been assigned to a strongly connected
+          // component (the edge is a forward/back/cross edge):
+          if List.contains w S then
+            // Repeatedly pop vertices from P until the top element of P has a
+            // preorder number less than or equal to the preorder number of w
+            while preorder[List.head P] > preorder[w] do
+              P <- List.tail P // pop from P
+
+      let mutable comp: list<DeclIdent> = []
+
+      // 4. If v is the top element of P:
+      if v = List.head P then
+        // Pop vertices from S until v has been popped, and assign the popped
+        // vertices to a new component.
+        while v <> List.head S do
+          comp <- List.head S :: comp
+          S <- List.tail S
+
+        comp <- List.head S :: comp
+        S <- List.tail S
+
+        // Pop v from P.
+        P <- List.tail P
+
+        components <- comp :: components
+
+    for v in graph.Nodes.Keys do
+      if not (preorder.ContainsKey v) then
+        visit v
+
+    components
+
+  type CompTree = Map<Set<DeclIdent>, Set<Set<DeclIdent>>>
+
+  let buildComponentTree<'T>
+    (graph: DeclGraph<'T>)
+    (components: list<list<DeclIdent>>)
+    : CompTree =
+
+    let comps = List.map (fun comp -> Set.ofList comp) components
+    let mutable compMap: Map<DeclIdent, Set<DeclIdent>> = Map.empty
+
+    for comp in comps do
+      for v in comp do
+        compMap <- Map.add v comp compMap
+
+    let mutable tree: CompTree = Map.empty
+
+    for comp in comps do
+      let mutable targets = Set.empty
+
+      let mutable compDepNodes = Set.empty
+
+      for node in comp do
+        let nodeDeps =
+          match graph.Edges.TryFind node with
+          | None -> Set.empty
+          | Some deps -> Set.ofList deps
+
+        compDepNodes <- Set.union (Set.difference nodeDeps comp) compDepNodes
+
+      let compDeps = Set.map (fun dep -> Map.find dep compMap) compDepNodes
+      tree <- Map.add comp compDeps tree
+
+    tree
+
+  let findEntryPoints (tree: CompTree) : Set<Set<DeclIdent>> =
+    let mutable allDeps = Set.empty
+
+    for KeyValue(_, deps) in tree do
+      allDeps <- Set.union allDeps deps
+
+    Set.difference (Set.ofSeq tree.Keys) allDeps

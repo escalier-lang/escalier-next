@@ -277,9 +277,10 @@ module rec Env =
 
     member this.Merge(other: Namespace) =
       { this with
-          Values = FSharpPlus.Map.union this.Values other.Values
-          Namespaces = FSharpPlus.Map.union this.Namespaces other.Namespaces
-          Schemes = FSharpPlus.Map.union this.Schemes other.Schemes }
+          Values = FSharpPlus.Map.union other.Values this.Values
+          // TODO: call `merge` on each namespace?
+          Namespaces = FSharpPlus.Map.union other.Namespaces this.Namespaces
+          Schemes = FSharpPlus.Map.union other.Schemes this.Schemes }
 
   type Env =
     { Filename: string

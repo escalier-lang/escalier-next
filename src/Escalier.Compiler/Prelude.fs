@@ -325,9 +325,17 @@ module Prelude =
           ("+", unaryArithmetic "+")
           ("!", unaryLogic "!") ]
 
+    let mutable ns = Namespace.empty
+
+    let t =
+      { Kind = TypeKind.Keyword Keyword.GlobalThis
+        Provenance = None }
+
+    ns <- ns.AddBinding "globalThis" (t, false)
+
     let mutable env =
       { Filename = "<empty>"
-        Namespace = Namespace.empty
+        Namespace = ns
         BinaryOps = binaryOps
         UnaryOps = unaryOps
         IsAsync = false

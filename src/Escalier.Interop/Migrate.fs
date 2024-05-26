@@ -3,7 +3,7 @@ namespace Escalier.Interop
 open Escalier.Data
 open Escalier.Data.Syntax
 
-open TypeScript
+open Escalier.Interop.TypeScript
 
 module rec Migrate =
   let start = FParsec.Position("", 0, 1, 1)
@@ -712,8 +712,45 @@ module rec Migrate =
       List.map
         (fun (elem: ClassMember) ->
           match elem with
-          | ClassMember.Constructor _ ->
-            failwith "TODO: migrateClassDecl - Constructor"
+          | ClassMember.Constructor { Params = paramList
+                                      Body = body
+                                      Accessibility = accssibility
+                                      IsOptional = optional
+                                      Loc = loc } ->
+            let selfTypeAnn: TypeAnn =
+              { Kind =
+                  TypeAnnKind.TypeRef
+                    { Ident = Common.QualifiedIdent.Ident "Self"
+                      TypeArgs = None }
+                Span = DUMMY_SPAN
+                InferredType = None }
+
+            let paramList =
+              paramList
+              |> List.map (fun p ->
+                match p with
+                | Param param -> param
+                | TsParamProp tsParamProp ->
+                  let pat =
+                    match tsParamProp.Param with
+                    | TsParamPropParam.Ident bindingIdent ->
+                      Pat.Ident bindingIdent
+                    | TsParamPropParam.Assign assignPat ->
+                      Pat.Assign assignPat
+
+                  { Pat = pat
+                    TypeAnn = tsParamProp.TypeAnn
+                    Loc = tsParamProp.Loc })
+
+            let fnSig: FuncSig =
+              { TypeParams = None
+                Self = Some(makeSelfFuncParamWithOptionalTypeann ())
+                ParamList = List.map migrateParam paramList
+                ReturnType = Some selfTypeAnn
+                Throws = None
+                IsAsync = false }
+
+            ClassElem.Constructor { Sig = fnSig; Body = None }
           | ClassMember.Method { Key = key
                                  Function = f
                                  Kind = methodKind

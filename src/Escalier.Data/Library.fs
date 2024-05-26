@@ -666,12 +666,14 @@ module Type =
     | Object
     | Unknown
     | Never
+    | GlobalThis
 
     override this.ToString() =
       match this with
       | Object -> "object"
       | Unknown -> "unknown"
       | Never -> "never"
+      | GlobalThis -> "globalThis"
 
   type Class<'T> =
     { Name: option<string>

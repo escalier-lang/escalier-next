@@ -2,6 +2,7 @@
 
 open Escalier.TypeChecker.ExprVisitor
 open FsToolkit.ErrorHandling
+open System
 open System.IO
 
 open Escalier.Data
@@ -3194,77 +3195,6 @@ module rec Infer =
       return newEnv, inferredNS
     }
 
-  let inferTreeRec
-    (ctx: Ctx)
-    (env: Env)
-    (root: Set<DeclIdent>)
-    (graph: DeclGraph<Syntax.Decl>)
-    (tree: CompTree)
-    : Result<Env, TypeError> =
-
-    result {
-      let mutable newEnv = env
-
-      match tree.TryFind root with
-      | Some deps ->
-        for dep in deps do
-          let! depEnv = inferTreeRec ctx newEnv dep graph tree
-          newEnv <- depEnv
-      | None -> ()
-
-      match List.ofSeq root with
-      | [] ->
-        return!
-          Error(
-            TypeError.SemanticError "inferTreeRec - rootSet should not be empty"
-          )
-      | [ name ] ->
-        let decls = graph.Nodes[name]
-
-        let! newEnv, placeholderNS =
-          Infer.inferDeclPlaceholders ctx newEnv decls graph
-
-        let! newEnv, inferredNS =
-          Infer.inferDeclDefinitions ctx newEnv placeholderNS decls graph
-
-        do!
-          Infer.unifyPlaceholdersAndInferredTypes
-            ctx
-            newEnv
-            placeholderNS
-            inferredNS
-
-        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
-        // so that we can avoid generalizing here.
-        let bindings = generalizeBindings inferredNS.Values
-        let newEnv = newEnv.AddBindings bindings
-
-        return newEnv
-      | names ->
-        let decls =
-          names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
-
-        let! newEnv, placeholderNS =
-          Infer.inferDeclPlaceholders ctx newEnv decls graph
-
-        let! newEnv, inferredNS =
-          Infer.inferDeclDefinitions ctx newEnv placeholderNS decls graph
-
-        do!
-          Infer.unifyPlaceholdersAndInferredTypes
-            ctx
-            newEnv
-            placeholderNS
-            inferredNS
-
-        // TODO: update `inferDeclDefinitions` to take a `generalize` flag
-        // so that we can avoid generalizing here.
-        let bindings = generalizeBindings inferredNS.Values
-        let newEnv = newEnv.AddBindings bindings
-
-        return newEnv
-    }
-
   let inferTree
     (ctx: Ctx)
     (env: Env)
@@ -3275,6 +3205,64 @@ module rec Infer =
     result {
       let mutable newEnv = env
       let entryPoints = findEntryPoints tree
+
+      let mutable processed: Set<Set<DeclIdent>> = Set.empty
+
+      let rec inferTreeRec
+        (ctx: Ctx)
+        (env: Env)
+        (root: Set<DeclIdent>)
+        (graph: DeclGraph<Syntax.Decl>)
+        (tree: CompTree)
+        : Result<Env, TypeError> =
+
+        result {
+          // Avoid processing the same set of DeclIdents multiple times
+          if Set.contains root processed then
+            return env
+          else
+            let mutable newEnv = env
+
+            match tree.TryFind root with
+            | Some deps ->
+              for dep in deps do
+                let! depEnv = inferTreeRec ctx newEnv dep graph tree
+                newEnv <- depEnv
+            | None -> ()
+
+            match List.ofSeq root with
+            | [] ->
+              return!
+                Error(
+                  TypeError.SemanticError
+                    "inferTreeRec - rootSet should not be empty"
+                )
+            | names ->
+              let decls =
+                names |> List.map (fun name -> graph.Nodes[name]) |> List.concat
+
+              let! newEnv, placeholderNS =
+                Infer.inferDeclPlaceholders ctx newEnv decls graph
+
+              let! newEnv, inferredNS =
+                Infer.inferDeclDefinitions ctx newEnv placeholderNS decls graph
+
+              do!
+                Infer.unifyPlaceholdersAndInferredTypes
+                  ctx
+                  newEnv
+                  placeholderNS
+                  inferredNS
+
+              // TODO: update `inferDeclDefinitions` to take a `generalize` flag
+              // so that we can avoid generalizing here.
+              let bindings = generalizeBindings inferredNS.Values
+              let newEnv = newEnv.AddBindings bindings
+
+              processed <- processed.Add(root)
+
+              return newEnv
+        }
 
       for set in entryPoints do
         try
@@ -3315,13 +3303,16 @@ module rec Infer =
       let decls = getDeclsFromModule ast
       let! graph = buildGraph newEnv [] [] decls
 
-      // for KeyValue(key, value) in graph.Edges do
-      //   printfn $"{key} -> {value}"
+      let start = DateTime.Now
 
       let components = findStronglyConnectedComponents graph
       let tree = buildComponentTree graph components
-      // let tree = graphToTree graph.Edges
-      return! inferTree ctx newEnv graph tree
+      let elapsed = DateTime.Now - start
+      let! newEnv = inferTree ctx newEnv graph tree
+      let filename = Path.GetFileName env.Filename
+      // printfn $"{filename}: elapsed = {elapsed}"
+
+      return newEnv
     }
 
   let unifyPlaceholdersAndInferredTypes

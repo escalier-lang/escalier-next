@@ -15,12 +15,12 @@ module rec Env =
     | Value of string
     | Type of string
 
-  type DeclGraph =
+  type DeclGraph<'T> =
     { Edges: Map<DeclIdent, list<DeclIdent>>
-      Nodes: Map<DeclIdent, list<Syntax.Decl>>
-      Namespaces: Map<string, DeclGraph> }
+      Nodes: Map<DeclIdent, list<'T>>
+      Namespaces: Map<string, DeclGraph<'T>> }
 
-    member this.Add(name: DeclIdent, decl: Syntax.Decl, deps: list<DeclIdent>) =
+    member this.Add(name: DeclIdent, decl: 'T, deps: list<DeclIdent>) =
       let decls =
         match this.Nodes.TryFind name with
         | Some nodes -> nodes @ [ decl ]
@@ -30,11 +30,11 @@ module rec Env =
           Edges = this.Edges.Add(name, deps)
           Nodes = this.Nodes.Add(name, decls) }
 
-    member this.AddNamespace(name: string, graph: DeclGraph) =
+    member this.AddNamespace(name: string, graph: DeclGraph<'T>) =
       { this with
           Namespaces = this.Namespaces.Add(name, graph) }
 
-    static member Empty =
+    static member Empty: DeclGraph<'T> =
       { Edges = Map.empty
         Nodes = Map.empty
         Namespaces = Map.empty }

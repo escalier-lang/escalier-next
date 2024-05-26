@@ -497,6 +497,7 @@ module rec Codegen =
         | Keyword.Never -> TsKeywordTypeKind.TsNeverKeyword
         | Keyword.Object -> TsKeywordTypeKind.TsObjectKeyword
         | Keyword.Unknown -> TsKeywordTypeKind.TsUnknownKeyword
+        | Keyword.GlobalThis -> failwith "TODO: buildType - GlobalThis"
 
       TsType.TsKeywordType { Kind = kind; Loc = None }
     | TypeKind.Function f ->

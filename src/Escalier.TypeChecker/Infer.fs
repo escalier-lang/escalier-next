@@ -17,7 +17,6 @@ open Poly
 open Unify
 open Helpers
 open Graph
-open StronglyConnectedComponents
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =

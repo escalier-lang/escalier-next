@@ -15,11 +15,11 @@
         <Compile Include="Unify.fs"/>
         <Compile Include="Helpers.fs"/>
         <Compile Include="Graph.fs"/>
+        <Compile Include="StronglyConnectedComponents.fs"/>
         <Compile Include="Infer.fs"/>
         <Compile Include="QualifiedGraph.fs"/>
         <Compile Include="BuildGraph.fs"/>
         <Compile Include="InferGraph.fs"/>
-        <Compile Include="StronglyConnectedComponents.fs"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>

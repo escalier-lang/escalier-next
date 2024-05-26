@@ -17,6 +17,7 @@ open Poly
 open Unify
 open Helpers
 open Graph
+open StronglyConnectedComponents
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
@@ -2894,7 +2895,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (decls: list<Decl>)
-    (graph: DeclGraph)
+    (graph: DeclGraph<Syntax.Decl>)
     : Result<Env * Namespace, TypeError> =
 
     result {
@@ -3013,7 +3014,7 @@ module rec Infer =
     // with the placeholder types.
     (placeholderNS: Namespace)
     (decls: list<Decl>)
-    (graph: DeclGraph)
+    (graph: DeclGraph<Syntax.Decl>)
     : Result<Env * Namespace, TypeError> =
 
     result {
@@ -3198,14 +3199,14 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (root: Set<DeclIdent>)
-    (graph: DeclGraph)
-    (tree: DeclTree)
+    (graph: DeclGraph<Syntax.Decl>)
+    (tree: CompTree)
     : Result<Env, TypeError> =
 
     result {
       let mutable newEnv = env
 
-      match tree.Edges.TryFind root with
+      match tree.TryFind root with
       | Some deps ->
         for dep in deps do
           let! depEnv = inferTreeRec ctx newEnv dep graph tree
@@ -3268,23 +3269,13 @@ module rec Infer =
   let inferTree
     (ctx: Ctx)
     (env: Env)
-    (graph: DeclGraph)
-    (tree: DeclTree)
+    (graph: DeclGraph<Syntax.Decl>)
+    (tree: CompTree)
     : Result<Env, TypeError> =
 
     result {
       let mutable newEnv = env
-
-      let mutable entryPoints: Set<Set<DeclIdent>> = Set.empty
-      let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
-
-      for KeyValue(key, value) in graph.Nodes do
-        match tree.CycleMap.TryFind(key) with
-        | Some set -> entryPoints <- entryPoints.Add(set)
-        | None ->
-          // Anything that appears in deps can't be an entry point
-          if not (Set.contains key deps) then
-            entryPoints <- entryPoints.Add(Set.singleton key)
+      let entryPoints = findEntryPoints tree
 
       for set in entryPoints do
         try
@@ -3328,7 +3319,9 @@ module rec Infer =
       // for KeyValue(key, value) in graph.Edges do
       //   printfn $"{key} -> {value}"
 
-      let tree = graphToTree graph.Edges
+      let components = findStronglyConnectedComponents graph
+      let tree = buildComponentTree graph components
+      // let tree = graphToTree graph.Edges
       return! inferTree ctx newEnv graph tree
     }
 

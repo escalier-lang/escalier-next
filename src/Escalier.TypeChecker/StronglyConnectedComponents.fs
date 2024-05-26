@@ -2,13 +2,9 @@ module Escalier.TypeChecker.StronglyConnectedComponents
 
 open Escalier.TypeChecker.Env
 
-type Graph<'T> =
-  { Edges: Map<DeclIdent, list<DeclIdent>>
-    Nodes: Map<DeclIdent, 'T> }
-
 // Based on the algorithm from https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
 let findStronglyConnectedComponents<'T>
-  (graph: Graph<'T>)
+  (graph: DeclGraph<'T>)
   : list<list<DeclIdent>> =
 
   let mutable S: list<DeclIdent> = [] // not yet assigned to a SCC
@@ -76,7 +72,7 @@ let findStronglyConnectedComponents<'T>
 type CompTree = Map<Set<DeclIdent>, Set<Set<DeclIdent>>>
 
 let buildComponentTree<'T>
-  (graph: Graph<'T>)
+  (graph: DeclGraph<'T>)
   (components: list<list<DeclIdent>>)
   : CompTree =
 

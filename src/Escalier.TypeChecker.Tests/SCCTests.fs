@@ -1,13 +1,16 @@
 module Escalier.TypeChecker.Tests.SCCTests
 
-open Escalier.TypeChecker.Env
 open Xunit
 
+open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.StronglyConnectedComponents
 
 [<Fact>]
 let EmptyGraph () =
-  let graph: Graph<unit> = { Nodes = Map.empty; Edges = Map.empty }
+  let graph: DeclGraph<unit> =
+    { Nodes = Map.empty
+      Edges = Map.empty
+      Namespaces = Map.empty }
 
   let components = findStronglyConnectedComponents graph
 
@@ -15,11 +18,11 @@ let EmptyGraph () =
 
 [<Fact>]
 let GraphWithSingleCycleThatIsTheEntireGraph () =
-  let nodes: Map<DeclIdent, unit> =
+  let nodes: Map<DeclIdent, list<unit>> =
     Map.ofList
-      [ DeclIdent.Value "A", ()
-        DeclIdent.Value "B", ()
-        DeclIdent.Value "C", () ]
+      [ DeclIdent.Value "A", []
+        DeclIdent.Value "B", []
+        DeclIdent.Value "C", [] ]
 
   let edges: Map<DeclIdent, list<DeclIdent>> =
     Map.ofList
@@ -27,7 +30,10 @@ let GraphWithSingleCycleThatIsTheEntireGraph () =
         DeclIdent.Value "B", [ DeclIdent.Value "C" ]
         DeclIdent.Value "C", [ DeclIdent.Value "A" ] ]
 
-  let graph = { Nodes = nodes; Edges = edges }
+  let graph =
+    { Nodes = nodes
+      Edges = edges
+      Namespaces = Map.empty }
 
   let components = findStronglyConnectedComponents graph
 
@@ -36,18 +42,21 @@ let GraphWithSingleCycleThatIsTheEntireGraph () =
 
 [<Fact>]
 let GraphWithSingleCycleThatIsntTheEntireGraph () =
-  let nodes: Map<DeclIdent, unit> =
+  let nodes: Map<DeclIdent, list<unit>> =
     Map.ofList
-      [ DeclIdent.Value "A", ()
-        DeclIdent.Value "B", ()
-        DeclIdent.Value "C", () ]
+      [ DeclIdent.Value "A", []
+        DeclIdent.Value "B", []
+        DeclIdent.Value "C", [] ]
 
   let edges: Map<DeclIdent, list<DeclIdent>> =
     Map.ofList
       [ DeclIdent.Value "A", [ DeclIdent.Value "B" ]
         DeclIdent.Value "B", [ DeclIdent.Value "A" ] ]
 
-  let graph = { Nodes = nodes; Edges = edges }
+  let graph =
+    { Nodes = nodes
+      Edges = edges
+      Namespaces = Map.empty }
 
   let actual = findStronglyConnectedComponents graph
 
@@ -58,12 +67,12 @@ let GraphWithSingleCycleThatIsntTheEntireGraph () =
 
 [<Fact>]
 let GraphWithComponentsWithMultipleDependencies () =
-  let nodes: Map<DeclIdent, unit> =
+  let nodes: Map<DeclIdent, list<unit>> =
     Map.ofList
-      [ DeclIdent.Value "A", ()
-        DeclIdent.Value "B", ()
-        DeclIdent.Value "C", ()
-        DeclIdent.Value "D", () ]
+      [ DeclIdent.Value "A", []
+        DeclIdent.Value "B", []
+        DeclIdent.Value "C", []
+        DeclIdent.Value "D", [] ]
 
   let edges: Map<DeclIdent, list<DeclIdent>> =
     Map.ofList
@@ -73,7 +82,10 @@ let GraphWithComponentsWithMultipleDependencies () =
         DeclIdent.Value "C", [ DeclIdent.Value "D" ]
         DeclIdent.Value "D", [ DeclIdent.Value "C" ] ]
 
-  let graph = { Nodes = nodes; Edges = edges }
+  let graph =
+    { Nodes = nodes
+      Edges = edges
+      Namespaces = Map.empty }
 
   let actual = findStronglyConnectedComponents graph
 
@@ -95,13 +107,13 @@ let GraphWithComponentsWithMultipleDependencies () =
 
 [<Fact>]
 let GraphWithMultipleComponents () =
-  let nodes: Map<DeclIdent, unit> =
+  let nodes: Map<DeclIdent, list<unit>> =
     Map.ofList
-      [ DeclIdent.Value "A", ()
-        DeclIdent.Value "B", ()
-        DeclIdent.Value "C", ()
-        DeclIdent.Value "D", ()
-        DeclIdent.Value "E", () ]
+      [ DeclIdent.Value "A", []
+        DeclIdent.Value "B", []
+        DeclIdent.Value "C", []
+        DeclIdent.Value "D", []
+        DeclIdent.Value "E", [] ]
 
   let edges: Map<DeclIdent, list<DeclIdent>> =
     Map.ofList
@@ -111,7 +123,10 @@ let GraphWithMultipleComponents () =
         DeclIdent.Value "D", [ DeclIdent.Value "E" ]
         DeclIdent.Value "E", [ DeclIdent.Value "D" ] ]
 
-  let graph = { Nodes = nodes; Edges = edges }
+  let graph =
+    { Nodes = nodes
+      Edges = edges
+      Namespaces = Map.empty }
 
   let actual = findStronglyConnectedComponents graph
 
@@ -133,13 +148,13 @@ let GraphWithMultipleComponents () =
 
 [<Fact>]
 let GraphWithMultipleEntryPoints () =
-  let nodes: Map<DeclIdent, unit> =
+  let nodes: Map<DeclIdent, list<unit>> =
     Map.ofList
-      [ DeclIdent.Value "A", ()
-        DeclIdent.Value "B", ()
-        DeclIdent.Value "C", ()
-        DeclIdent.Value "D", ()
-        DeclIdent.Value "E", () ]
+      [ DeclIdent.Value "A", []
+        DeclIdent.Value "B", []
+        DeclIdent.Value "C", []
+        DeclIdent.Value "D", []
+        DeclIdent.Value "E", [] ]
 
   let edges: Map<DeclIdent, list<DeclIdent>> =
     Map.ofList
@@ -149,7 +164,10 @@ let GraphWithMultipleEntryPoints () =
         DeclIdent.Value "D", [ DeclIdent.Value "E" ]
         DeclIdent.Value "E", [ DeclIdent.Value "D" ] ]
 
-  let graph = { Nodes = nodes; Edges = edges }
+  let graph =
+    { Nodes = nodes
+      Edges = edges
+      Namespaces = Map.empty }
 
   let actual = findStronglyConnectedComponents graph
 
@@ -174,15 +192,18 @@ let GraphWithMultipleEntryPoints () =
 
 [<Fact>]
 let GraphWithNoEdges () =
-  let nodes: Map<DeclIdent, unit> =
+  let nodes: Map<DeclIdent, list<unit>> =
     Map.ofList
-      [ DeclIdent.Value "A", ()
-        DeclIdent.Value "B", ()
-        DeclIdent.Value "C", () ]
+      [ DeclIdent.Value "A", []
+        DeclIdent.Value "B", []
+        DeclIdent.Value "C", [] ]
 
   let edges: Map<DeclIdent, list<DeclIdent>> = Map.empty
 
-  let graph: Graph<unit> = { Nodes = nodes; Edges = edges }
+  let graph =
+    { Nodes = nodes
+      Edges = edges
+      Namespaces = Map.empty }
 
   let actual = findStronglyConnectedComponents graph
 

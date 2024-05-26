@@ -466,10 +466,10 @@ module rec Graph =
     (parentDeclared: list<DeclIdent>)
     (parentLocals: list<DeclIdent>)
     (decls: list<Decl>)
-    : Result<DeclGraph, TypeError> =
+    : Result<DeclGraph<Syntax.Decl>, TypeError> =
     result {
       let mutable functions: list<Syntax.Function> = []
-      let mutable graph = DeclGraph.Empty
+      let mutable graph: DeclGraph<Syntax.Decl> = DeclGraph.Empty
       let mutable declared: list<DeclIdent> = parentDeclared
       // These are top-level decls in the module and top-level
       // decls inside any namespaces we're inside of.
@@ -850,67 +850,6 @@ module rec Graph =
       visit node []
 
     cycles
-
-  type DeclTree =
-    { Edges: Map<Set<DeclIdent>, Set<Set<DeclIdent>>>
-      CycleMap: Map<DeclIdent, Set<DeclIdent>> }
-
-  let rec graphToTree (edges: Map<DeclIdent, list<DeclIdent>>) : DeclTree =
-    let mutable visited: list<DeclIdent> = []
-    let mutable stack: list<DeclIdent> = []
-    let mutable cycles: Set<Set<DeclIdent>> = Set.empty
-
-    let rec visit (node: DeclIdent) (parents: list<DeclIdent>) =
-      if List.contains node parents then
-        // find the index of node in parents
-        let index = List.findIndex (fun p -> p = node) parents
-        let cycle = List.take index parents @ [ node ] |> Set.ofList
-        cycles <- Set.add cycle cycles
-      else
-        let edgesOuts =
-          match edges.TryFind node with
-          | None -> failwith $"Couldn't find edge for {node} in {edges}"
-          | Some value -> value
-
-        for next in edgesOuts do
-          visit next (node :: parents)
-
-    for KeyValue(node, _) in edges do
-      visit node []
-
-    let mutable cycleMap: Map<DeclIdent, Set<DeclIdent>> = Map.empty
-
-    for cycle in cycles do
-      for node in cycle do
-        cycleMap <- cycleMap.Add(node, cycle)
-
-    let mutable newEdges: Map<Set<DeclIdent>, Set<Set<DeclIdent>>> = Map.empty
-
-    for KeyValue(node, deps) in edges do
-      let deps = Set.ofList deps
-
-      let src =
-        if Map.containsKey node cycleMap then
-          cycleMap[node]
-        else
-          Set.singleton node
-
-      for dep in deps do
-        if not (Set.contains dep src) then
-          let dst =
-            if Map.containsKey dep cycleMap then
-              cycleMap[dep]
-            else
-              Set.singleton dep
-
-          if Map.containsKey src newEdges then
-            let dsts = newEdges[src]
-            newEdges <- newEdges.Add(src, dsts.Add(dst))
-          else
-            newEdges <- newEdges.Add(src, Set.singleton dst)
-
-    { CycleMap = cycleMap
-      Edges = newEdges }
 
   let getExports
     (ctx: Ctx)

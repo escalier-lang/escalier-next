@@ -3,7 +3,6 @@ module Escalier.TypeChecker.QualifiedGraph
 open Escalier.Data.Type
 
 open Escalier.Data
-open Escalier.Data.Syntax
 
 
 type QualifiedIdent =
@@ -46,12 +45,12 @@ type QDeclIdent =
     | Type qid -> $"Type {qid}"
     | Value qid -> $"Value {qid}"
 
-type QGraph =
+type QGraph<'T> =
   // A type can depend on multiple interface declarations
-  { Nodes: Map<QDeclIdent, list<Decl>>
+  { Nodes: Map<QDeclIdent, list<'T>>
     Edges: Map<QDeclIdent, list<QDeclIdent>> }
 
-  member this.Add(name: QDeclIdent, decl: Decl, deps: list<QDeclIdent>) =
+  member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
     let decls =
       match this.Nodes.TryFind name with
       | Some nodes -> nodes @ [ decl ]

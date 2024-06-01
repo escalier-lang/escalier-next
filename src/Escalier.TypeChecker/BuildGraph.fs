@@ -295,7 +295,6 @@ let findLocals (decls: list<Decl>) : list<QDeclIdent> =
         locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.FromString name) ]
         locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
       | NamespaceDecl { Name = name; Body = decls } ->
-
         locals <- locals @ findLocalsRec decls (namespaces @ [ name ])
 
     locals
@@ -912,9 +911,9 @@ let getEdges
 
   edges
 
-let buildGraph (env: Env) (m: Module) : QGraph =
+let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
 
-  let mutable graph = { Nodes = Map.empty; Edges = Map.empty }
+  let mutable graph: QGraph<Decl> = { Nodes = Map.empty; Edges = Map.empty }
 
   let decls = getDeclsFromModule m
   let locals = findLocals decls

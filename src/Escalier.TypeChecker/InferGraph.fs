@@ -2,13 +2,13 @@ module Escalier.TypeChecker.InferGraph
 
 open Escalier.Data.Type
 open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.QualifiedGraph
 open FsToolkit.ErrorHandling
 
 open Escalier.Data.Syntax
 
 open Error
 open ExprVisitor
-open QualifiedGraph
 
 let getAllBindingPatterns (pattern: Pattern) : Map<string, Type> =
   let mutable result = Map.empty
@@ -52,7 +52,7 @@ let inferDeclPlaceholders
   (env: Env)
   (qns: QualifiedNamespace)
   (idents: list<QDeclIdent>)
-  (graph: QGraph)
+  (graph: QGraph<Decl>)
   : Result<QualifiedNamespace, TypeError> =
 
   result {
@@ -216,7 +216,7 @@ let inferDeclDefinitions
   (env: Env)
   (qns: QualifiedNamespace)
   (idents: list<QDeclIdent>)
-  (graph: QGraph)
+  (graph: QGraph<Decl>)
   : Result<QualifiedNamespace, TypeError> =
 
   result {
@@ -402,6 +402,7 @@ type QDeclTree =
   { Edges: Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>>
     CycleMap: Map<QDeclIdent, Set<QDeclIdent>> }
 
+// TODO: replace with buildComponentTree<'T>
 let rec graphToTree (edges: Map<QDeclIdent, list<QDeclIdent>>) : QDeclTree =
   let mutable visited: list<QDeclIdent> = []
   let mutable stack: list<QDeclIdent> = []
@@ -458,6 +459,116 @@ let rec graphToTree (edges: Map<QDeclIdent, list<QDeclIdent>>) : QDeclTree =
 
   { CycleMap = cycleMap
     Edges = newEdges }
+
+// Based on the algorithm from https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
+let findStronglyConnectedComponents<'T>
+  (graph: QGraph<'T>)
+  : list<list<QDeclIdent>> =
+
+  let mutable S: list<QDeclIdent> = [] // not yet assigned to a SCC
+  let mutable P: list<QDeclIdent> = [] // not yet in different SCCs
+  let mutable preorder: Map<QDeclIdent, int> = Map.empty
+  let mutable C: int = 0
+  let mutable components: list<list<QDeclIdent>> = []
+
+  let rec visit (v: QDeclIdent) : unit =
+    // 1. Set the preorder number of v to C, and increment C.
+    preorder <- Map.add v C preorder
+    C <- C + 1
+
+    // 2. Push v onto S and also onto P.
+    S <- v :: S
+    P <- v :: P
+
+    let deps =
+      match graph.Edges.TryFind v with
+      | None -> []
+      | Some deps -> deps
+
+    // 3. For each edge from v to a neighboring vertex w:
+    for dep in deps do
+      let w = dep
+
+      match preorder.TryFind w with
+      | None ->
+        // If the preorder number of w has not yet been assigned (the edge is a
+        // tree edge), recursively search w;
+        visit w
+      | Some _ ->
+        // Otherwise, if w has not yet been assigned to a strongly connected
+        // component (the edge is a forward/back/cross edge):
+        if List.contains w S then
+          // Repeatedly pop vertices from P until the top element of P has a
+          // preorder number less than or equal to the preorder number of w
+          while preorder[List.head P] > preorder[w] do
+            P <- List.tail P // pop from P
+
+    let mutable comp: list<QDeclIdent> = []
+
+    // 4. If v is the top element of P:
+    if v = List.head P then
+      // Pop vertices from S until v has been popped, and assign the popped
+      // vertices to a new component.
+      while v <> List.head S do
+        comp <- List.head S :: comp
+        S <- List.tail S
+
+      comp <- List.head S :: comp
+      S <- List.tail S
+
+      // Pop v from P.
+      P <- List.tail P
+
+      components <- comp :: components
+
+  for v in graph.Nodes.Keys do
+    if not (preorder.ContainsKey v) then
+      visit v
+
+  components
+
+
+type QCompTree = Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>>
+
+let buildComponentTree<'T>
+  (graph: QGraph<'T>)
+  (components: list<list<QDeclIdent>>)
+  : QCompTree =
+
+  let comps = List.map (fun comp -> Set.ofList comp) components
+  let mutable compMap: Map<QDeclIdent, Set<QDeclIdent>> = Map.empty
+
+  for comp in comps do
+    for v in comp do
+      compMap <- Map.add v comp compMap
+
+  let mutable tree: QCompTree = Map.empty
+
+  for comp in comps do
+    let mutable targets = Set.empty
+
+    let mutable compDepNodes = Set.empty
+
+    for node in comp do
+      let nodeDeps =
+        match graph.Edges.TryFind node with
+        | None -> Set.empty
+        | Some deps -> Set.ofList deps
+
+      compDepNodes <- Set.union (Set.difference nodeDeps comp) compDepNodes
+
+    let compDeps = Set.map (fun dep -> Map.find dep compMap) compDepNodes
+    tree <- Map.add comp compDeps tree
+
+  tree
+
+let findEntryPoints (tree: QCompTree) : Set<Set<QDeclIdent>> =
+  let mutable allDeps = Set.empty
+
+  for KeyValue(_, deps) in tree do
+    allDeps <- Set.union allDeps deps
+
+  Set.difference (Set.ofSeq tree.Keys) allDeps
 
 let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
 
@@ -531,71 +642,77 @@ let updateQualifiedNamespace
 
   dst
 
-let rec inferTreeRec
+let inferTree
   (ctx: Ctx)
   (env: Env)
-  (root: Set<QDeclIdent>)
-  (graph: QGraph)
-  (tree: QDeclTree)
-  (fullQns: QualifiedNamespace)
-  : Result<QualifiedNamespace * QualifiedNamespace, TypeError> =
+  (graph: QGraph<Decl>)
+  (tree: QCompTree)
+  : Result<Env, TypeError> =
 
   result {
-    let mutable fullQns = fullQns
-    let mutable partialQns = QualifiedNamespace.Empty
+    let mutable newEnv = env
+    let entryPoints = findEntryPoints tree
 
-    // Infer dependencies
-    match tree.Edges.TryFind root with
-    | Some deps ->
-      for dep in deps do
-        // TODO: avoid re-inferring types if they've already been inferred
-        let! newFullQns, newPartialQns =
-          inferTreeRec ctx env dep graph tree fullQns
+    let mutable processed: Map<Set<QDeclIdent>, QualifiedNamespace> = Map.empty
 
-        // Update partialQns with new values and types
-        partialQns <- updateQualifiedNamespace newPartialQns partialQns false
+    let rec inferTreeRec
+      (ctx: Ctx)
+      (env: Env)
+      (root: Set<QDeclIdent>)
+      (graph: QGraph<Decl>)
+      (tree: QCompTree)
+      (fullQns: QualifiedNamespace)
+      : Result<QualifiedNamespace * QualifiedNamespace, TypeError> =
 
-    | None -> ()
+      result {
+        if Map.containsKey root processed then
+          return fullQns, processed[root]
+        else
+          let mutable fullQns = fullQns
+          let mutable partialQns = QualifiedNamespace.Empty
 
-    // Update environment to include dependencies
-    let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
+          // Infer dependencies
+          match tree.TryFind root with
+          | Some deps ->
+            for dep in deps do
+              // TODO: avoid re-inferring types if they've already been inferred
+              let! newFullQns, newPartialQns =
+                inferTreeRec ctx env dep graph tree fullQns
 
-    let names = Set.toList root
+              // Update partialQns with new values and types
+              partialQns <-
+                updateQualifiedNamespace newPartialQns partialQns false
 
-    // Infer declarations
-    let! newPartialQns = inferDeclPlaceholders ctx newEnv partialQns names graph
-    newEnv <- updateEnvWithQualifiedNamespace newEnv newPartialQns // mutually recursive functions
+          | None -> ()
 
-    let! newPartialQns =
-      inferDeclDefinitions ctx newEnv newPartialQns names graph
+          // Update environment to include dependencies
+          let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
 
-    // Update fullQns with new values and types
-    fullQns <- updateQualifiedNamespace newPartialQns fullQns true
+          let names = Set.toList root
 
-    return fullQns, newPartialQns
-  }
+          // Infer declarations
+          let! newPartialQns =
+            inferDeclPlaceholders ctx newEnv partialQns names graph
 
-let inferGraph (ctx: Ctx) (env: Env) (graph: QGraph) : Result<Env, TypeError> =
-  result {
-    let tree = graphToTree graph.Edges
-    let deps = tree.Edges.Values |> Set.unionMany |> Set.unionMany
+          newEnv <- updateEnvWithQualifiedNamespace newEnv newPartialQns // mutually recursive functions
 
-    let mutable entryPoints: Set<Set<QDeclIdent>> = Set.empty
+          let! newPartialQns =
+            inferDeclDefinitions ctx newEnv newPartialQns names graph
 
-    for KeyValue(key, value) in graph.Nodes do
-      match tree.CycleMap.TryFind(key) with
-      | Some set -> entryPoints <- entryPoints.Add(set)
-      | None ->
-        // Anything that appears in deps can't be an entry point
-        if not (Set.contains key deps) then
-          entryPoints <- entryPoints.Add(Set.singleton key)
+          // Update fullQns with new values and types
+          fullQns <- updateQualifiedNamespace newPartialQns fullQns true
+
+          processed <- Map.add root newPartialQns processed
+
+          return fullQns, newPartialQns
+      }
 
     let mutable qns = QualifiedNamespace.Empty
 
     // Infer entry points and all their dependencies
-    for set in entryPoints do
+    for entryPoint in entryPoints do
       try
-        let! fullQns, _ = inferTreeRec ctx env set graph tree qns
+        let! fullQns, _ = inferTreeRec ctx env entryPoint graph tree qns
         qns <- fullQns
       with e ->
         printfn $"Error: {e}"
@@ -607,4 +724,19 @@ let inferGraph (ctx: Ctx) (env: Env) (graph: QGraph) : Result<Env, TypeError> =
 
     // Update environment with all new values and types
     return updateEnvWithQualifiedNamespace env qns
+  }
+
+let inferGraph
+  (ctx: Ctx)
+  (env: Env)
+  (graph: QGraph<Decl>)
+  : Result<Env, TypeError> =
+  result {
+    // TODO: handle imports
+
+    let components = findStronglyConnectedComponents graph
+    let tree = buildComponentTree graph components
+    let! newEnv = inferTree ctx env graph tree
+
+    return newEnv
   }

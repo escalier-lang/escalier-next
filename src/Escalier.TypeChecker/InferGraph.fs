@@ -7,6 +7,7 @@ open FsToolkit.ErrorHandling
 
 open Escalier.Data.Syntax
 
+open BuildGraph
 open Error
 open ExprVisitor
 
@@ -59,6 +60,12 @@ let inferDeclPlaceholders
     let mutable qns = qns
 
     for ident in idents do
+      if not (graph.Nodes.ContainsKey ident) then
+        // TODO: make sure that the name space exists when determine if a decl
+        // is qualified with a namespace or not.
+        // printfn "ident = %A" ident
+        return! Error(TypeError.SemanticError "Missing node in graph")
+
       let decls = graph.Nodes[ident]
 
       for decl in decls do
@@ -74,6 +81,8 @@ let inferDeclPlaceholders
           | Some init ->
             let! structuralPlacholderType =
               Infer.inferExprStructuralPlacholder ctx env init
+
+            printfn $"structuralPlacholderType = {structuralPlacholderType}"
 
             do! Unify.unify ctx env None patternType structuralPlacholderType
           | None -> ()
@@ -642,6 +651,17 @@ let updateQualifiedNamespace
 
   dst
 
+let generalizeBindings
+  (bindings: Map<QualifiedIdent, Binding>)
+  : Map<QualifiedIdent, Binding> =
+  let mutable newBindings = Map.empty
+
+  for KeyValue(name, (t, isMut)) in bindings do
+    let t = Helpers.generalizeFunctionsInType t
+    newBindings <- newBindings.Add(name, (t, isMut))
+
+  newBindings
+
 let inferTree
   (ctx: Ctx)
   (env: Env)
@@ -699,6 +719,11 @@ let inferTree
           let! newPartialQns =
             inferDeclDefinitions ctx newEnv newPartialQns names graph
 
+          // Generalize bindings
+          let newPartialQns =
+            { newPartialQns with
+                Values = generalizeBindings newPartialQns.Values }
+
           // Update fullQns with new values and types
           fullQns <- updateQualifiedNamespace newPartialQns fullQns true
 
@@ -737,6 +762,35 @@ let inferGraph
     let components = findStronglyConnectedComponents graph
     let tree = buildComponentTree graph components
     let! newEnv = inferTree ctx env graph tree
+
+    return newEnv
+  }
+
+let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
+  result {
+    // TODO: update this function to accept a filename
+    let mutable newEnv = { env with Filename = "input.esc" }
+
+    let imports =
+      List.choose
+        (fun item ->
+          match item with
+          | Import import -> Some import
+          | _ -> None)
+        ast.Items
+
+    for import in imports do
+      let! importEnv = Infer.inferImport ctx newEnv import
+      newEnv <- importEnv
+
+    let decls = getDeclsFromModule ast
+    let graph = buildGraph env ast
+
+    // printfn $"Graph: {graph}"
+
+    let components = findStronglyConnectedComponents graph
+    let tree = buildComponentTree graph components
+    let! newEnv = inferTree ctx newEnv graph tree
 
     return newEnv
   }

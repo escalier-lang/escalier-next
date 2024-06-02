@@ -45,19 +45,27 @@ type QDeclIdent =
     | Type qid -> $"Type {qid}"
     | Value qid -> $"Value {qid}"
 
+  static member MakeValue (namespaces: list<string>) (name: string) =
+    QDeclIdent.Value { Namespaces = namespaces; Name = name }
+
+  static member MakeType (namespaces: list<string>) (name: string) =
+    QDeclIdent.Type { Namespaces = namespaces; Name = name }
+
 type QGraph<'T> =
   // A type can depend on multiple interface declarations
   { Nodes: Map<QDeclIdent, list<'T>>
     Edges: Map<QDeclIdent, list<QDeclIdent>> }
 
-  member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
-    let decls =
-      match this.Nodes.TryFind name with
-      | Some nodes -> nodes @ [ decl ]
-      | None -> [ decl ]
-
-    { Edges = this.Edges.Add(name, deps)
-      Nodes = this.Nodes.Add(name, decls) }
+// member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
+//   printfn $"adding {name}"
+//
+//   let decls =
+//     match this.Nodes.TryFind name with
+//     | Some nodes -> nodes @ [ decl ]
+//     | None -> [ decl ]
+//
+//   { Edges = this.Edges.Add(name, deps)
+//     Nodes = this.Nodes.Add(name, decls) }
 
 type QualifiedNamespace =
   { Values: Map<QualifiedIdent, Binding>

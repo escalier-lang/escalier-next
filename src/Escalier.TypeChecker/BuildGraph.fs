@@ -32,6 +32,75 @@ let rec memberToQualifiedIdent
     )
   | _ -> None
 
+let postProcessValueDeps
+  (locals: list<QDeclIdent>)
+  (ident: QDeclIdent)
+  (deps: list<QDeclIdent>)
+  : list<QDeclIdent> =
+
+  let identNamespaces =
+    match ident with
+    | Type { Namespaces = namespaces } -> namespaces
+    | Value { Namespaces = namespaces } -> namespaces
+
+  let deps =
+    deps
+    |> List.map (fun dep ->
+      if List.contains dep locals then
+        let mutable candidateNamespaces = []
+        let mutable actualID = dep
+
+        // Handles shadowing if identifiers in nested namespaces.
+        for ns in identNamespaces do
+          candidateNamespaces <- candidateNamespaces @ [ ns ]
+
+          // TODO: Handle the situation where an identifier is already partially
+          // qualified
+          let candidateID =
+            match dep with
+            | Type qid ->
+              Type
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+            | Value qid ->
+              Value
+                { Namespaces = candidateNamespaces @ qid.Namespaces
+                  Name = qid.Name }
+
+          if List.contains candidateID locals then
+            actualID <- candidateID
+
+        actualID
+      else
+        let depNamespaces =
+          match dep with
+          | Type { Namespaces = namespaces } -> namespaces
+          | Value { Namespaces = namespaces } -> namespaces
+
+        let minLength = min depNamespaces.Length identNamespaces.Length
+
+        let commonPrefix =
+          List.zip
+            (List.take minLength identNamespaces)
+            (List.take minLength depNamespaces)
+          |> List.takeWhile (fun (ns1, ns2) -> ns1 = ns2)
+          |> List.map (fun (ns, _) -> ns)
+
+        // remove commonPrefix from namespaces
+        let namespaces = List.skip commonPrefix.Length identNamespaces
+
+        match dep with
+        | Type { Name = name } ->
+          Type
+            { Namespaces = namespaces @ depNamespaces
+              Name = name }
+        | Value { Name = name } ->
+          Value
+            { Namespaces = namespaces @ depNamespaces
+              Name = name })
+
+  deps
+
 let findDepsForValueIdent
   (locals: list<QDeclIdent>)
   (ident: QDeclIdent)
@@ -71,54 +140,7 @@ let findDepsForValueIdent
 
   walkExpr visitor () expr
 
-  let namespaces =
-    match ident with
-    | Type { Namespaces = namespaces } -> namespaces
-    | Value { Namespaces = namespaces } -> namespaces
-
-  // Post-process ids to prepend namespaces if necessary
-  let ids =
-    ids
-    |> List.map (fun id ->
-      if List.contains id locals then
-        let mutable candidateNamespaces = []
-        let mutable actualID = id
-
-        // Handles shadowing if identifiers in nested namespaces.
-        for ns in namespaces do
-          candidateNamespaces <- candidateNamespaces @ [ ns ]
-
-          // TODO: Handle the situation where an identifier is already partially
-          // qualified
-          let candidateID =
-            match id with
-            | Type qid ->
-              Type
-                { Namespaces = candidateNamespaces @ qid.Namespaces
-                  Name = qid.Name }
-            | Value qid ->
-              Value
-                { Namespaces = candidateNamespaces @ qid.Namespaces
-                  Name = qid.Name }
-
-          if List.contains candidateID locals then
-            actualID <- candidateID
-
-        actualID
-      else
-        // TODO: handle situations where we only need to prepend some of the
-        // namespaces in `namespaces` instead of all of them
-        match id with
-        | Type qid ->
-          Type
-            { Namespaces = namespaces @ qid.Namespaces
-              Name = qid.Name }
-        | Value qid ->
-          Value
-            { Namespaces = namespaces @ qid.Namespaces
-              Name = qid.Name })
-
-  List.rev ids
+  postProcessValueDeps locals ident (List.rev ids)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
@@ -642,6 +664,8 @@ let getEdges
           match init with
           | Some init ->
             let mutable deps = findDepsForValueIdent locals ident init
+            printfn $"locals for {ident}: {locals}"
+            printfn $"deps for {ident}: {deps}"
 
             // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =

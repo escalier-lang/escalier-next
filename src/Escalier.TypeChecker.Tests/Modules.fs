@@ -66,7 +66,7 @@ let InferMutualRecursion () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "even", "fn (x: number) -> true | !boolean")
-      Assert.Value(env, "odd", "fn (x: number) -> true | !(true | !boolean)")
+      Assert.Value(env, "odd", "fn (arg0: number) -> boolean")
     }
 
   Assert.False(Result.isError res)

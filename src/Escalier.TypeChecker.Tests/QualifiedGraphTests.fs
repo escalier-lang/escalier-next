@@ -14,6 +14,19 @@ open Escalier.TypeChecker.InferGraph
 
 open TestUtils
 
+let inferModule src =
+  result {
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+    let! env =
+      InferGraph.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
+
+    return ctx, env
+  }
+
 [<Fact>]
 let AddBinding () =
   let env = Env.empty "input.esc"
@@ -22,16 +35,9 @@ let AddBinding () =
     { Kind = TypeKind.Primitive Primitive.Number
       Provenance = None }
 
-  let ident =
-    { Namespaces = [ "Foo"; "Bar" ]
-      Name = "x" }
-
+  let ident = { Parts = [ "Foo"; "Bar"; "x" ] }
   let newEnv = addBinding env ident (t, false)
-
-  let ident =
-    { Namespaces = [ "Foo"; "Bar" ]
-      Name = "y" }
-
+  let ident = { Parts = [ "Foo"; "Bar"; "y" ] }
   let newEnv = addBinding newEnv ident (t, false)
   // printfn $"newEnv = {newEnv}"
   ()
@@ -52,15 +58,7 @@ let NamespaceShadowingOfVariables () =
         let y = Foo.Bar.y;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "\"hello\"")
@@ -84,15 +82,7 @@ let NamespaceShadowingOfTypes () =
         type Y = Foo.Bar.Y;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "X", "5")
       Assert.Type(env, "Y", "Foo.Bar.Y")
@@ -123,15 +113,7 @@ let NamespaceReferenceOtherNamespaces () =
         let y = Foo.y;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "15")
@@ -154,15 +136,7 @@ let NamespaceBasicValues () =
         let x = Foo.Bar.x;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
     }
@@ -184,15 +158,7 @@ let NamespaceBasicTypes () =
         type X = Foo.Bar.X;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "X", "Foo.Bar.X")
 
@@ -216,15 +182,7 @@ let BasicGraphInferCompositeValues () =
         let {a, b} = {a: 10, b: "world"};
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "\"hello\"")
@@ -245,15 +203,7 @@ let BasicGraphInferTypes () =
         type Foo<T> = {bar: T | Foo<T>[]};
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "Point", "{x: number, y: number}")
       Assert.Type(env, "Foo", "<T>({bar: T | Foo<T>[]})")
@@ -276,15 +226,7 @@ let BasicGraphInferFunctionDecl () =
         }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "add", "fn (x: number, y: number) -> number")
       Assert.Value(env, "fst", "fn <T, U>(x: T, y: U) -> T")
@@ -305,15 +247,7 @@ let FunctionDeclsWithLocalVariables () =
         }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
     }
@@ -337,15 +271,7 @@ let ReturnFunctionDeclWithCaptures () =
         let add5 = getAdd5();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
     }
@@ -364,15 +290,7 @@ let BasicDeps () =
         let y = x;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "5")
@@ -395,15 +313,7 @@ let BasicFunctionCaptures () =
         let sum = add();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
@@ -427,15 +337,7 @@ let OutOfOrderFunctionCaptures () =
         let sum = add();
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
@@ -445,7 +347,7 @@ let OutOfOrderFunctionCaptures () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let OutOfOrderTypeDepsWithTypeParamConstraint () =
   let res =
     result {
@@ -455,15 +357,7 @@ let OutOfOrderTypeDepsWithTypeParamConstraint () =
         type Baz = string;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "Bar", "<T: Baz>({bar: T})")
       Assert.Type(env, "Baz", "string")
@@ -485,15 +379,7 @@ let BasicInterface () =
         interface FooBar { bar: string }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "FooBar", "{foo: number, bar: string}")
     }
@@ -511,15 +397,7 @@ let VariableDeclWithoutInit () =
         declare let keys: Keys;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "Keys", "{foo: \"foo\"}")
     }
@@ -537,15 +415,7 @@ let MergeInterfaceBetweenFiles () =
         declare let keys: Keys;
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "Keys", "{foo: \"foo\"}")
 
@@ -585,15 +455,7 @@ let SelfRecursiveFunctions () =
         let fib = fn (n) => if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
       Assert.Value(env, "fib", "fn (arg0: number) -> number")
@@ -616,15 +478,7 @@ let SelfRecursiveFunctionDecls () =
         }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "fact", "fn (n: number) -> 1 | number")
       Assert.Value(env, "fib", "fn (n: number) -> number | number")
@@ -643,15 +497,7 @@ let MutuallysRecursiveFunctions () =
         let isOdd = fn (n) => if n == 0 { false } else { isEven(n - 1) };
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
       Assert.Value(env, "isOdd", "fn (arg0: number) -> false | true")
@@ -674,15 +520,7 @@ let MutuallyRecursiveFunctionDecls () =
         }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
 
@@ -708,15 +546,7 @@ let ReturnSelfRecursiveFunction () =
         };
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "ret_fact", "fn () -> fn (arg0: number) -> 1 | number")
     }
@@ -735,15 +565,7 @@ let InferFunctionDeclTypeFromBody () =
         }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
     }
@@ -762,15 +584,7 @@ let InferFunctionDeclTypeFromBodyWrongSig () =
         }
         """
 
-      let! ast =
-        Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-      let graph = buildGraph env ast
-
-      let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+      let! ctx, env = inferModule src
 
       ()
     }

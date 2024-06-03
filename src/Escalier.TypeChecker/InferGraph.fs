@@ -7,6 +7,7 @@ open FsToolkit.ErrorHandling
 
 open Escalier.Data.Syntax
 
+open BuildGraph
 open Error
 open ExprVisitor
 
@@ -59,6 +60,12 @@ let inferDeclPlaceholders
     let mutable qns = qns
 
     for ident in idents do
+      if not (graph.Nodes.ContainsKey ident) then
+        // TODO: make sure that the name space exists when determine if a decl
+        // is qualified with a namespace or not.
+        // printfn "ident = %A" ident
+        return! Error(TypeError.SemanticError "Missing node in graph")
+
       let decls = graph.Nodes[ident]
 
       for decl in decls do
@@ -81,10 +88,10 @@ let inferDeclPlaceholders
           for KeyValue(name, binding) in bindings do
             let key =
               match ident with
-              | Type { Namespaces = namespaces } ->
-                { Namespaces = namespaces; Name = name }
-              | Value { Namespaces = namespaces } ->
-                { Namespaces = namespaces; Name = name }
+              | Type { Parts = parts } ->
+                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+              | Value { Parts = parts } ->
+                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
             qns <- qns.AddValue key binding
         | FnDecl({ Declare = false
@@ -151,10 +158,10 @@ let inferDeclPlaceholders
 
           let key =
             match ident with
-            | Type { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
-            | Value { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
           qns <- qns.AddScheme key placeholder
         | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
@@ -226,10 +233,12 @@ let inferDeclDefinitions
       let decls = graph.Nodes[ident]
 
       // TODO: check if we're inside a namespace and update the env accordingly
-      let namespaces =
+      let parts =
         match ident with
-        | Type { Namespaces = namespaces } -> namespaces
-        | Value { Namespaces = namespaces } -> namespaces
+        | Type { Parts = parts } -> parts
+        | Value { Parts = parts } -> parts
+
+      let namespaces = List.take (List.length parts - 1) parts
 
       let mutable newEnv = env
 
@@ -309,10 +318,10 @@ let inferDeclDefinitions
                      TypeParams = typeParams } ->
           let key =
             match ident with
-            | Type { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
-            | Value { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
           let placeholder = qns.Schemes[key]
           // TODO: when computing the decl graph, include self-recursive types in
@@ -323,6 +332,36 @@ let inferDeclDefinitions
 
           let! scheme =
             Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+
+          match placeholder.TypeParams, scheme.TypeParams with
+          | Some typeParams1, Some typeParams2 ->
+            for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
+              match typeParam1.Constraint, typeParam2.Constraint with
+              | Some c1, Some c2 -> do! Unify.unify ctx env None c1 c2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a constraint type while the other doesn't"
+                  )
+
+              match typeParam1.Default, typeParam2.Default with
+              | Some d1, Some d2 -> do! Unify.unify ctx env None d1 d2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a default type while the other doesn't"
+                  )
+          | None, None -> ()
+          | _, _ ->
+            return!
+              Error(
+                TypeError.SemanticError
+                  "One scheme has type params while the other doesn't"
+              )
 
           // Replace the placeholder's type with the actual type.
           // NOTE: This is a bit hacky and we may want to change this later to use
@@ -572,9 +611,10 @@ let findEntryPoints (tree: QCompTree) : Set<Set<QDeclIdent>> =
 
 let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
 
-  let rec addValueRec (ns: Namespace) (namespaces: list<string>) : Namespace =
-    match namespaces with
-    | [] -> ns.AddBinding ident.Name binding
+  let rec addValueRec (ns: Namespace) (parts: list<string>) : Namespace =
+    match parts with
+    | [] -> failwith "Invalid qualified ident"
+    | [ name ] -> ns.AddBinding name binding
     | headNS :: restNS ->
       match ns.Namespaces.TryFind(headNS) with
       | None ->
@@ -583,17 +623,15 @@ let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addValueRec existingNS restNS)
 
-  match ident.Namespaces with
-  | [] -> env.AddValue ident.Name binding
-  | namespaces ->
-    { env with
-        Namespace = addValueRec env.Namespace namespaces }
+  { env with
+      Namespace = addValueRec env.Namespace ident.Parts }
 
 let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
 
-  let rec addSchemeRec (ns: Namespace) (namespaces: list<string>) : Namespace =
-    match namespaces with
-    | [] -> ns.AddScheme ident.Name scheme
+  let rec addSchemeRec (ns: Namespace) (parts: list<string>) : Namespace =
+    match parts with
+    | [] -> failwith "Invalid qualified ident"
+    | [ name ] -> ns.AddScheme name scheme
     | headNS :: restNS ->
       match ns.Namespaces.TryFind(headNS) with
       | None ->
@@ -602,11 +640,8 @@ let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addSchemeRec existingNS restNS)
 
-  match ident.Namespaces with
-  | [] -> env.AddScheme ident.Name scheme
-  | namespaces ->
-    { env with
-        Namespace = addSchemeRec env.Namespace namespaces }
+  { env with
+      Namespace = addSchemeRec env.Namespace ident.Parts }
 
 let updateEnvWithQualifiedNamespace
   (env: Env)
@@ -641,6 +676,17 @@ let updateQualifiedNamespace
     dst <- dst.AddScheme key scheme
 
   dst
+
+let generalizeBindings
+  (bindings: Map<QualifiedIdent, Binding>)
+  : Map<QualifiedIdent, Binding> =
+  let mutable newBindings = Map.empty
+
+  for KeyValue(name, (t, isMut)) in bindings do
+    let t = Helpers.generalizeFunctionsInType t
+    newBindings <- newBindings.Add(name, (t, isMut))
+
+  newBindings
 
 let inferTree
   (ctx: Ctx)
@@ -699,6 +745,11 @@ let inferTree
           let! newPartialQns =
             inferDeclDefinitions ctx newEnv newPartialQns names graph
 
+          // Generalize bindings
+          let newPartialQns =
+            { newPartialQns with
+                Values = generalizeBindings newPartialQns.Values }
+
           // Update fullQns with new values and types
           fullQns <- updateQualifiedNamespace newPartialQns fullQns true
 
@@ -737,6 +788,35 @@ let inferGraph
     let components = findStronglyConnectedComponents graph
     let tree = buildComponentTree graph components
     let! newEnv = inferTree ctx env graph tree
+
+    return newEnv
+  }
+
+let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
+  result {
+    // TODO: update this function to accept a filename
+    let mutable newEnv = { env with Filename = "input.esc" }
+
+    let imports =
+      List.choose
+        (fun item ->
+          match item with
+          | Import import -> Some import
+          | _ -> None)
+        ast.Items
+
+    for import in imports do
+      let! importEnv = Infer.inferImport ctx newEnv import
+      newEnv <- importEnv
+
+    let decls = getDeclsFromModule ast
+    let graph = buildGraph env ast
+
+    // printfn $"Graph: {graph}"
+
+    let components = findStronglyConnectedComponents graph
+    let tree = buildComponentTree graph components
+    let! newEnv = inferTree ctx newEnv graph tree
 
     return newEnv
   }

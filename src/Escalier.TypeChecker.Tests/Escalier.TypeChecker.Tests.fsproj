@@ -21,6 +21,7 @@
         <Compile Include="Classes.fs"/>
         <Compile Include="Modules.fs"/>
         <Compile Include="QualifiedGraphTests.fs"/>
+        <Compile Include="BuildGraphTests.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
     <ItemGroup>

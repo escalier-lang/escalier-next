@@ -6,29 +6,20 @@ open Escalier.Data
 
 
 type QualifiedIdent =
-  { Namespaces: list<string>
-    Name: string }
+  { Parts: list<string> }
 
-  override this.ToString() =
-    match this.Namespaces with
-    | [] -> this.Name
-    | namespaces ->
-      let namespaces = String.concat "." namespaces
-      $"{namespaces}.{this.Name}"
+  override this.ToString() = String.concat "." this.Parts
 
-  static member FromString(name: string) = { Namespaces = []; Name = name }
+  static member FromString(name: string) = { Parts = [ name ] }
 
   static member FromCommonQualifiedIdent
     (qid: Common.QualifiedIdent)
     : QualifiedIdent =
     match qid with
-    | Common.QualifiedIdent.Ident name -> { Namespaces = []; Name = name }
+    | Common.QualifiedIdent.Ident name -> { Parts = [ name ] }
     | Common.QualifiedIdent.Member(left, right) ->
       let left = QualifiedIdent.FromCommonQualifiedIdent left
-      let namespaces = left.Namespaces @ [ left.Name ]
-
-      { Namespaces = namespaces
-        Name = right }
+      { Parts = left.Parts @ [ right ] }
 
 // TODO:
 // - infer types for all the declarations in each namespace
@@ -45,19 +36,32 @@ type QDeclIdent =
     | Type qid -> $"Type {qid}"
     | Value qid -> $"Value {qid}"
 
+  static member MakeValue(parts: list<string>) =
+    QDeclIdent.Value { Parts = parts }
+
+  static member MakeType(parts: list<string>) =
+    QDeclIdent.Type { Parts = parts }
+
+  member this.GetParts() =
+    match this with
+    | Type { Parts = parts } -> parts
+    | Value { Parts = parts } -> parts
+
 type QGraph<'T> =
   // A type can depend on multiple interface declarations
   { Nodes: Map<QDeclIdent, list<'T>>
     Edges: Map<QDeclIdent, list<QDeclIdent>> }
 
-  member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
-    let decls =
-      match this.Nodes.TryFind name with
-      | Some nodes -> nodes @ [ decl ]
-      | None -> [ decl ]
-
-    { Edges = this.Edges.Add(name, deps)
-      Nodes = this.Nodes.Add(name, decls) }
+// member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
+//   printfn $"adding {name}"
+//
+//   let decls =
+//     match this.Nodes.TryFind name with
+//     | Some nodes -> nodes @ [ decl ]
+//     | None -> [ decl ]
+//
+//   { Edges = this.Edges.Add(name, deps)
+//     Nodes = this.Nodes.Add(name, decls) }
 
 type QualifiedNamespace =
   { Values: Map<QualifiedIdent, Binding>

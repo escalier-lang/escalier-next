@@ -347,7 +347,7 @@ let OutOfOrderFunctionCaptures () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let OutOfOrderTypeDepsWithTypeParamConstraint () =
   let res =
     result {

@@ -335,6 +335,36 @@ let inferDeclDefinitions
           let! scheme =
             Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
 
+          match placeholder.TypeParams, scheme.TypeParams with
+          | Some typeParams1, Some typeParams2 ->
+            for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
+              match typeParam1.Constraint, typeParam2.Constraint with
+              | Some c1, Some c2 -> do! Unify.unify ctx env None c1 c2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a constraint type while the other doesn't"
+                  )
+
+              match typeParam1.Default, typeParam2.Default with
+              | Some d1, Some d2 -> do! Unify.unify ctx env None d1 d2
+              | None, None -> ()
+              | _, _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "One scheme has a default type while the other doesn't"
+                  )
+          | None, None -> ()
+          | _, _ ->
+            return!
+              Error(
+                TypeError.SemanticError
+                  "One scheme has type params while the other doesn't"
+              )
+
           // Replace the placeholder's type with the actual type.
           // NOTE: This is a bit hacky and we may want to change this later to use
           // `foldType` to replace any uses of the placeholder with the actual type.

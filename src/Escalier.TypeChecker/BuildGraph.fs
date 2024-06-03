@@ -82,7 +82,7 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
 
   getLocalForDepRec tree local
 
-let postProcessValueDeps
+let postProcessDeps
   (ns: Namespace)
   (locals: list<QDeclIdent>)
   (ident: QDeclIdent)
@@ -187,7 +187,7 @@ let findDepsForValueIdent
 
   walkExpr visitor () expr
 
-  postProcessValueDeps ns locals ident (List.rev ids)
+  postProcessDeps ns locals ident (List.rev ids)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
@@ -284,7 +284,7 @@ let findDepsForTypeIdent
   | SyntaxNode.TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
   | SyntaxNode.Expr expr -> walkExpr visitor typeParams expr
 
-  postProcessValueDeps env.Namespace possibleDeps ident (List.rev typeRefIdents)
+  postProcessDeps env.Namespace possibleDeps ident (List.rev typeRefIdents)
 
 
 let findLocals (decls: list<Decl>) : list<QDeclIdent> =

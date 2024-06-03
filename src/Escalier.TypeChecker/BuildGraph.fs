@@ -5,8 +5,8 @@ open Escalier.TypeChecker.Env
 
 open Escalier.Data.Syntax
 
+open Escalier.TypeChecker.QualifiedGraph
 open ExprVisitor
-open QualifiedGraph
 
 let start = FParsec.Position("", 0, 1, 1)
 let stop = FParsec.Position("", 0, 1, 1)
@@ -24,7 +24,66 @@ let rec memberToQualifiedIdent
   | ExprKind.Identifier innerName -> Some({ Parts = [ innerName; name ] })
   | _ -> None
 
+type QDeclTree =
+  { Decls: Map<string, QDeclIdent>
+    Namespaces: Map<string, QDeclTree> }
+
+let localsToDeclTree (locals: list<QDeclIdent>) : QDeclTree =
+
+  let mutable tree: QDeclTree =
+    { Decls = Map.empty
+      Namespaces = Map.empty }
+
+  let rec processLocal (tree: QDeclTree) (rest: QDeclIdent) (full: QDeclIdent) =
+    let parts = rest.GetParts()
+
+    match parts with
+    | [] -> tree // this shouldn't happen
+    | [ name ] ->
+      { tree with
+          Decls = Map.add name full tree.Decls }
+    | head :: tail ->
+      let ns =
+        match Map.tryFind head tree.Namespaces with
+        | Some ns -> ns
+        | None ->
+          { Decls = Map.empty
+            Namespaces = Map.empty }
+
+      // TODO: handle Types as well
+      let rest = QDeclIdent.Value({ Parts = tail })
+
+      { tree with
+          Namespaces = Map.add head (processLocal ns rest full) tree.Namespaces }
+
+  for local in locals do
+    tree <- processLocal tree local local
+
+  tree
+
+let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
+  let rec getLocalForDepRec
+    (tree: QDeclTree)
+    (local: QDeclIdent)
+    : option<QDeclIdent> =
+    let parts = local.GetParts()
+
+    match parts with
+    | [] -> None
+    | [ name ] -> Map.tryFind name tree.Decls
+    | name :: rest ->
+      match Map.tryFind name tree.Decls with
+      | Some local -> Some local
+      | None ->
+        match Map.tryFind name tree.Namespaces with
+        | Some tree ->
+          getLocalForDepRec tree (QDeclIdent.Value({ Parts = rest }))
+        | None -> None
+
+  getLocalForDepRec tree local
+
 let postProcessValueDeps
+  (ns: Namespace)
   (locals: list<QDeclIdent>)
   (ident: QDeclIdent)
   (deps: list<QDeclIdent>)
@@ -37,55 +96,59 @@ let postProcessValueDeps
 
   let identNamespaces = List.take (identNamespaces.Length - 1) identNamespaces
 
+  // Filter out deps that are in the environment
   let deps =
     deps
-    |> List.map (fun dep ->
-      if List.contains dep locals then
-        let mutable candidateNamespaces = []
-        let mutable actualID = dep
+    |> List.filter (fun dep ->
 
-        // Handles shadowing if identifiers in nested namespaces.
-        for ns in identNamespaces do
-          candidateNamespaces <- candidateNamespaces @ [ ns ]
+      match dep with
+      | Type { Parts = parts } ->
+        let head = List.head parts
 
-          // TODO: Handle the situation where an identifier is already partially
-          // qualified
-          let candidateID =
+        if
+          Map.containsKey head ns.Schemes || Map.containsKey head ns.Namespaces
+        then
+          false
+        else
+          true
+      | Value { Parts = parts } ->
+        let head = List.head parts
+
+        if
+          Map.containsKey head ns.Values || Map.containsKey head ns.Namespaces
+        then
+          false
+        else
+          true)
+
+  let tree = localsToDeclTree locals
+
+  if ident.GetParts().Length > 1 then
+    deps
+    |> List.choose (fun dep ->
+      let mutable candidateNamespaces: list<list<string>> = [ [] ]
+
+      for ns in identNamespaces do
+        let prevNS = candidateNamespaces.Head
+        candidateNamespaces <- (ns :: prevNS) :: candidateNamespaces
+
+      let mutable result = None
+
+      for ns in candidateNamespaces do
+        if result.IsNone then
+          let candidateDep =
             match dep with
-            | Type qid -> Type { Parts = candidateNamespaces @ qid.Parts }
-            | Value qid -> Value { Parts = candidateNamespaces @ qid.Parts }
+            | Type qid -> Type { Parts = ns @ qid.Parts }
+            | Value qid -> Value { Parts = ns @ qid.Parts }
 
-          if List.contains candidateID locals then
-            actualID <- candidateID
+          result <- getLocalForDep tree candidateDep
 
-        actualID
-      else
-        let depNamespaces =
-          match dep with
-          | Type { Parts = namespaces } -> namespaces
-          | Value { Parts = namespaces } -> namespaces
-
-        let depNamespaces = List.take (depNamespaces.Length - 1) depNamespaces
-
-        let minLength = min depNamespaces.Length identNamespaces.Length
-
-        let commonPrefix =
-          List.zip
-            (List.take minLength identNamespaces)
-            (List.take minLength depNamespaces)
-          |> List.takeWhile (fun (ns1, ns2) -> ns1 = ns2)
-          |> List.map (fun (ns, _) -> ns)
-
-        // remove commonPrefix from namespaces
-        let namespaces = List.skip commonPrefix.Length identNamespaces
-
-        match dep with
-        | Type { Parts = parts } -> Type { Parts = namespaces @ parts }
-        | Value { Parts = parts } -> Value { Parts = namespaces @ parts })
-
-  deps
+      result)
+  else
+    List.choose (getLocalForDep tree) deps
 
 let findDepsForValueIdent
+  (ns: Namespace)
   (locals: list<QDeclIdent>)
   (ident: QDeclIdent)
   (expr: Expr)
@@ -124,7 +187,7 @@ let findDepsForValueIdent
 
   walkExpr visitor () expr
 
-  postProcessValueDeps locals ident (List.rev ids)
+  postProcessValueDeps ns locals ident (List.rev ids)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
@@ -638,9 +701,8 @@ let getEdges
         let deps =
           match init with
           | Some init ->
-            let mutable deps = findDepsForValueIdent locals ident init
-            printfn $"locals for {ident}: {locals}"
-            printfn $"deps for {ident}: {deps}"
+            let mutable deps =
+              findDepsForValueIdent env.Namespace locals ident init
 
             // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =

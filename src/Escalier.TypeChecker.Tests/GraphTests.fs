@@ -426,7 +426,7 @@ let GraphWithFunctionCallDepsWithObjects () =
       Assert.Value(env, "y", "10")
       Assert.Value(env, "math", "{add: fn () -> 15, sub: fn () -> -5}")
       // TODO: simplify these values
-      Assert.Value(env, "values", "{sum: 15 + 0, diff: -5 + 0}")
+      Assert.Value(env, "values", "{sum: 15, diff: -5}")
       Assert.Value(env, "poly", "fn () -> -75")
     }
 

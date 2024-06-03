@@ -42,6 +42,11 @@ type QDeclIdent =
   static member MakeType(parts: list<string>) =
     QDeclIdent.Type { Parts = parts }
 
+  member this.GetParts() =
+    match this with
+    | Type { Parts = parts } -> parts
+    | Value { Parts = parts } -> parts
+
 type QGraph<'T> =
   // A type can depend on multiple interface declarations
   { Nodes: Map<QDeclIdent, list<'T>>

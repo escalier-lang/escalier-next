@@ -82,8 +82,6 @@ let inferDeclPlaceholders
             let! structuralPlacholderType =
               Infer.inferExprStructuralPlacholder ctx env init
 
-            printfn $"structuralPlacholderType = {structuralPlacholderType}"
-
             do! Unify.unify ctx env None patternType structuralPlacholderType
           | None -> ()
 

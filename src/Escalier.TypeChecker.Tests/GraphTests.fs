@@ -762,7 +762,7 @@ let MergeInterfaceBetweenFiles () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-[<Fact(Skip = "TODO: make this pass after refactoring 'findTypeRefIdents'")>]
+[<Fact>]
 let OutOfOrderDepsInsideNamespace () =
   let res =
     result {

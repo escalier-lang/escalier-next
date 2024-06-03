@@ -208,17 +208,14 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   walkTypeAnn visitor () typeAnn
   List.rev idents
 
-// TODO: split this into multiple functions
-// - one that finds all the type refs but excludes type params
-// - one that post-processes the type refs in the same way we
-//   do with value refs
-let findTypeRefIdents
+let findDepsForTypeIdent
   (env: Env)
   (possibleDeps: list<QDeclIdent>)
   (typeParams: list<QualifiedIdent>)
   (ident: QDeclIdent)
   (syntaxNode: SyntaxNode)
   : list<QDeclIdent> =
+
   let mutable typeRefIdents: list<QDeclIdent> = []
 
   let visitor: SyntaxVisitor<list<QualifiedIdent>> =
@@ -232,10 +229,7 @@ let findTypeRefIdents
             | TypeAnnKind.TypeRef { Ident = ident } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
-              if
-                (List.contains (QDeclIdent.Type ident) possibleDeps)
-                && not (List.contains ident typeParams)
-              then
+              if not (List.contains ident typeParams) then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
 
               []
@@ -290,44 +284,8 @@ let findTypeRefIdents
   | SyntaxNode.TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
   | SyntaxNode.Expr expr -> walkExpr visitor typeParams expr
 
-  let namespaces =
-    match ident with
-    | Type { Parts = namespaces } -> namespaces
-    | Value { Parts = namespaces } -> namespaces
+  postProcessValueDeps env.Namespace possibleDeps ident (List.rev typeRefIdents)
 
-  // remove the last item from the list
-  let namespaces = List.take (namespaces.Length - 1) namespaces
-
-  let typeRefIdents =
-    typeRefIdents
-    |> List.map (fun id ->
-      if List.contains id possibleDeps then
-        let mutable candidateNamespaces = []
-        let mutable actualID = id
-
-        // Handles shadowing if identifiers in nested namespaces.
-        for ns in namespaces do
-          candidateNamespaces <- candidateNamespaces @ [ ns ]
-
-          // TODO: Handle the situation where an identifier is already partially
-          // qualified
-          let candidateID =
-            match id with
-            | Type qid -> Type { Parts = candidateNamespaces @ qid.Parts }
-            | Value qid -> Value { Parts = candidateNamespaces @ qid.Parts }
-
-          if List.contains candidateID possibleDeps then
-            actualID <- candidateID
-
-        actualID
-      else
-        // TODO: handle situations where we only need to prepend some of the
-        // namespaces in `namespaces` instead of all of them
-        match id with
-        | Type qid -> Type { Parts = namespaces @ qid.Parts }
-        | Value qid -> Value { Parts = namespaces @ qid.Parts })
-
-  List.rev typeRefIdents
 
 let findLocals (decls: list<Decl>) : list<QDeclIdent> =
   let mutable locals: list<QDeclIdent> = []
@@ -492,7 +450,7 @@ let getDepsForFn
       | Some c ->
         typeDeps <-
           typeDeps
-          @ findTypeRefIdents
+          @ findDepsForTypeIdent
               env
               possibleDeps
               (excludedTypeNames @ typeParamNames)
@@ -504,7 +462,7 @@ let getDepsForFn
       | Some d ->
         typeDeps <-
           typeDeps
-          @ findTypeRefIdents
+          @ findDepsForTypeIdent
               env
               possibleDeps
               (excludedTypeNames @ typeParamNames)
@@ -519,7 +477,7 @@ let getDepsForFn
 
       typeDeps <-
         typeDeps
-        @ findTypeRefIdents
+        @ findDepsForTypeIdent
             env
             possibleDeps
             (excludedTypeNames @ typeParamNames)
@@ -540,7 +498,7 @@ let getDepsForFn
 
     typeDeps <-
       typeDeps
-      @ findTypeRefIdents
+      @ findDepsForTypeIdent
           env
           possibleDeps
           (excludedTypeNames @ typeParamNames)
@@ -585,7 +543,7 @@ let getDepsForInterfaceFn
     | Some typeAnn ->
       deps <-
         deps
-        @ findTypeRefIdents
+        @ findDepsForTypeIdent
             env
             possibleDeps
             (interfaceTypeParamNames @ typeParamNames)
@@ -597,7 +555,7 @@ let getDepsForInterfaceFn
   | Some returnType ->
     deps <-
       deps
-      @ findTypeRefIdents
+      @ findDepsForTypeIdent
           env
           possibleDeps
           (interfaceTypeParamNames @ typeParamNames)
@@ -717,12 +675,17 @@ let getEdges
 
             // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =
-              findTypeRefIdents env possibleDeps [] ident (SyntaxNode.Expr init)
+              findDepsForTypeIdent
+                env
+                possibleDeps
+                []
+                ident
+                (SyntaxNode.Expr init)
 
             let typeDeps =
               match typeAnn with
               | Some typeAnn ->
-                findTypeRefIdents
+                findDepsForTypeIdent
                   env
                   possibleDeps
                   []
@@ -757,7 +720,7 @@ let getEdges
             let deps =
               match typeAnn with
               | Some typeAnn ->
-                findTypeRefIdents
+                findDepsForTypeIdent
                   env
                   possibleDeps
                   []
@@ -822,7 +785,7 @@ let getEdges
             | Some c ->
               deps <-
                 deps
-                @ findTypeRefIdents
+                @ findDepsForTypeIdent
                     env
                     possibleDeps
                     typeParamNames
@@ -834,7 +797,7 @@ let getEdges
             | Some d ->
               deps <-
                 deps
-                @ findTypeRefIdents
+                @ findDepsForTypeIdent
                     env
                     possibleDeps
                     typeParamNames
@@ -844,7 +807,7 @@ let getEdges
 
         deps <-
           deps
-          @ findTypeRefIdents
+          @ findDepsForTypeIdent
               env
               possibleDeps
               typeParamNames
@@ -899,7 +862,7 @@ let getEdges
               let fnDeps =
                 match returnType with
                 | Some returnType ->
-                  findTypeRefIdents
+                  findDepsForTypeIdent
                     env
                     possibleDeps
                     interfaceTypeParamNames
@@ -915,7 +878,7 @@ let getEdges
               let fnDeps =
                 match typeAnn with
                 | Some typeAnn ->
-                  findTypeRefIdents
+                  findDepsForTypeIdent
                     env
                     possibleDeps
                     interfaceTypeParamNames
@@ -928,7 +891,7 @@ let getEdges
               let propNameDeps = getPropNameDeps env locals name
 
               let typeAnnDeps =
-                findTypeRefIdents
+                findDepsForTypeIdent
                   env
                   possibleDeps
                   interfaceTypeParamNames
@@ -949,13 +912,13 @@ let getEdges
                 | None -> Some [ tp ]
                 | Some typeParams -> Some(tp :: typeParams)
 
-              findTypeRefIdents
+              findDepsForTypeIdent
                 env
                 possibleDeps
                 interfaceTypeParamNames
                 ident
                 (SyntaxNode.TypeAnn typeParam.Constraint)
-              @ findTypeRefIdents
+              @ findDepsForTypeIdent
                   env
                   possibleDeps
                   interfaceTypeParamNames

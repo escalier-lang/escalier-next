@@ -19,17 +19,9 @@ let rec memberToQualifiedIdent
   match target.Kind with
   | ExprKind.Member(target, innerName, _) ->
     match memberToQualifiedIdent target innerName with
-    | Some qid ->
-      Some(
-        { Namespaces = qid.Namespaces @ [ qid.Name ]
-          Name = name }
-      )
+    | Some qid -> Some({ Parts = qid.Parts @ [ name ] })
     | None -> None
-  | ExprKind.Identifier innerName ->
-    Some(
-      { Namespaces = [ innerName ]
-        Name = name }
-    )
+  | ExprKind.Identifier innerName -> Some({ Parts = [ innerName; name ] })
   | _ -> None
 
 let postProcessValueDeps
@@ -40,8 +32,10 @@ let postProcessValueDeps
 
   let identNamespaces =
     match ident with
-    | Type { Namespaces = namespaces } -> namespaces
-    | Value { Namespaces = namespaces } -> namespaces
+    | Type { Parts = namespaces } -> namespaces
+    | Value { Parts = namespaces } -> namespaces
+
+  let identNamespaces = List.take (identNamespaces.Length - 1) identNamespaces
 
   let deps =
     deps
@@ -58,14 +52,8 @@ let postProcessValueDeps
           // qualified
           let candidateID =
             match dep with
-            | Type qid ->
-              Type
-                { Namespaces = candidateNamespaces @ qid.Namespaces
-                  Name = qid.Name }
-            | Value qid ->
-              Value
-                { Namespaces = candidateNamespaces @ qid.Namespaces
-                  Name = qid.Name }
+            | Type qid -> Type { Parts = candidateNamespaces @ qid.Parts }
+            | Value qid -> Value { Parts = candidateNamespaces @ qid.Parts }
 
           if List.contains candidateID locals then
             actualID <- candidateID
@@ -74,8 +62,10 @@ let postProcessValueDeps
       else
         let depNamespaces =
           match dep with
-          | Type { Namespaces = namespaces } -> namespaces
-          | Value { Namespaces = namespaces } -> namespaces
+          | Type { Parts = namespaces } -> namespaces
+          | Value { Parts = namespaces } -> namespaces
+
+        let depNamespaces = List.take (depNamespaces.Length - 1) depNamespaces
 
         let minLength = min depNamespaces.Length identNamespaces.Length
 
@@ -90,14 +80,8 @@ let postProcessValueDeps
         let namespaces = List.skip commonPrefix.Length identNamespaces
 
         match dep with
-        | Type { Name = name } ->
-          Type
-            { Namespaces = namespaces @ depNamespaces
-              Name = name }
-        | Value { Name = name } ->
-          Value
-            { Namespaces = namespaces @ depNamespaces
-              Name = name })
+        | Type { Parts = parts } -> Type { Parts = namespaces @ parts }
+        | Value { Parts = parts } -> Value { Parts = namespaces @ parts })
 
   deps
 
@@ -241,8 +225,11 @@ let findTypeRefIdents
 
   let namespaces =
     match ident with
-    | Type { Namespaces = namespaces } -> namespaces
-    | Value { Namespaces = namespaces } -> namespaces
+    | Type { Parts = namespaces } -> namespaces
+    | Value { Parts = namespaces } -> namespaces
+
+  // remove the last item from the list
+  let namespaces = List.take (namespaces.Length - 1) namespaces
 
   let typeRefIdents =
     typeRefIdents
@@ -259,14 +246,8 @@ let findTypeRefIdents
           // qualified
           let candidateID =
             match id with
-            | Type qid ->
-              Type
-                { Namespaces = candidateNamespaces @ qid.Namespaces
-                  Name = qid.Name }
-            | Value qid ->
-              Value
-                { Namespaces = candidateNamespaces @ qid.Namespaces
-                  Name = qid.Name }
+            | Type qid -> Type { Parts = candidateNamespaces @ qid.Parts }
+            | Value qid -> Value { Parts = candidateNamespaces @ qid.Parts }
 
           if List.contains candidateID possibleDeps then
             actualID <- candidateID
@@ -276,14 +257,8 @@ let findTypeRefIdents
         // TODO: handle situations where we only need to prepend some of the
         // namespaces in `namespaces` instead of all of them
         match id with
-        | Type qid ->
-          Type
-            { Namespaces = namespaces @ qid.Namespaces
-              Name = qid.Name }
-        | Value qid ->
-          Value
-            { Namespaces = namespaces @ qid.Namespaces
-              Name = qid.Name })
+        | Type qid -> Type { Parts = namespaces @ qid.Parts }
+        | Value qid -> Value { Parts = namespaces @ qid.Parts })
 
   List.rev typeRefIdents
 
@@ -302,7 +277,7 @@ let findLocals (decls: list<Decl>) : list<QDeclIdent> =
         let bindingNames =
           Helpers.findBindingNames pattern
           |> List.map (fun name ->
-            QDeclIdent.Value({ Namespaces = namespaces; Name = name }))
+            QDeclIdent.Value({ Parts = namespaces @ [ name ] }))
 
         locals <- locals @ bindingNames
       | FnDecl { Name = name } ->
@@ -611,24 +586,24 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
         let idents =
           Helpers.findBindingNames pattern
           |> List.map (fun name ->
-            QDeclIdent.Value({ Namespaces = namespaces; Name = name }))
+            QDeclIdent.Value({ Parts = namespaces @ [ name ] }))
 
         for ident in idents do
           nodes <- nodes.Add(ident, [ decl ])
       | FnDecl { Name = name } ->
-        let key = { Namespaces = namespaces; Name = name }
+        let key = { Parts = namespaces @ [ name ] }
         // TODO: support function overloading
         nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
       | ClassDecl { Name = name }
       | EnumDecl { Name = name } ->
-        let key = { Namespaces = namespaces; Name = name }
+        let key = { Parts = namespaces @ [ name ] }
         nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
         nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
       | TypeDecl { Name = name } ->
-        let key = { Namespaces = namespaces; Name = name }
+        let key = { Parts = namespaces @ [ name ] }
         nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
       | InterfaceDecl { Name = name } ->
-        let key = { Namespaces = namespaces; Name = name }
+        let key = { Parts = namespaces @ [ name ] }
 
         let decls =
           match nodes.TryFind(QDeclIdent.Type(key)) with

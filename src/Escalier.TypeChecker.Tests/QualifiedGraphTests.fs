@@ -35,16 +35,9 @@ let AddBinding () =
     { Kind = TypeKind.Primitive Primitive.Number
       Provenance = None }
 
-  let ident =
-    { Namespaces = [ "Foo"; "Bar" ]
-      Name = "x" }
-
+  let ident = { Parts = [ "Foo"; "Bar"; "x" ] }
   let newEnv = addBinding env ident (t, false)
-
-  let ident =
-    { Namespaces = [ "Foo"; "Bar" ]
-      Name = "y" }
-
+  let ident = { Parts = [ "Foo"; "Bar"; "y" ] }
   let newEnv = addBinding newEnv ident (t, false)
   // printfn $"newEnv = {newEnv}"
   ()

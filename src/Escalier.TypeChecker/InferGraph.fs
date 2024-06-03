@@ -90,10 +90,10 @@ let inferDeclPlaceholders
           for KeyValue(name, binding) in bindings do
             let key =
               match ident with
-              | Type { Namespaces = namespaces } ->
-                { Namespaces = namespaces; Name = name }
-              | Value { Namespaces = namespaces } ->
-                { Namespaces = namespaces; Name = name }
+              | Type { Parts = parts } ->
+                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+              | Value { Parts = parts } ->
+                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
             qns <- qns.AddValue key binding
         | FnDecl({ Declare = false
@@ -160,10 +160,10 @@ let inferDeclPlaceholders
 
           let key =
             match ident with
-            | Type { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
-            | Value { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
           qns <- qns.AddScheme key placeholder
         | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
@@ -235,10 +235,12 @@ let inferDeclDefinitions
       let decls = graph.Nodes[ident]
 
       // TODO: check if we're inside a namespace and update the env accordingly
-      let namespaces =
+      let parts =
         match ident with
-        | Type { Namespaces = namespaces } -> namespaces
-        | Value { Namespaces = namespaces } -> namespaces
+        | Type { Parts = parts } -> parts
+        | Value { Parts = parts } -> parts
+
+      let namespaces = List.take (List.length parts - 1) parts
 
       let mutable newEnv = env
 
@@ -318,10 +320,10 @@ let inferDeclDefinitions
                      TypeParams = typeParams } ->
           let key =
             match ident with
-            | Type { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
-            | Value { Namespaces = namespaces } ->
-              { Namespaces = namespaces; Name = name }
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
           let placeholder = qns.Schemes[key]
           // TODO: when computing the decl graph, include self-recursive types in
@@ -581,9 +583,10 @@ let findEntryPoints (tree: QCompTree) : Set<Set<QDeclIdent>> =
 
 let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
 
-  let rec addValueRec (ns: Namespace) (namespaces: list<string>) : Namespace =
-    match namespaces with
-    | [] -> ns.AddBinding ident.Name binding
+  let rec addValueRec (ns: Namespace) (parts: list<string>) : Namespace =
+    match parts with
+    | [] -> failwith "Invalid qualified ident"
+    | [ name ] -> ns.AddBinding name binding
     | headNS :: restNS ->
       match ns.Namespaces.TryFind(headNS) with
       | None ->
@@ -592,17 +595,15 @@ let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addValueRec existingNS restNS)
 
-  match ident.Namespaces with
-  | [] -> env.AddValue ident.Name binding
-  | namespaces ->
-    { env with
-        Namespace = addValueRec env.Namespace namespaces }
+  { env with
+      Namespace = addValueRec env.Namespace ident.Parts }
 
 let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
 
-  let rec addSchemeRec (ns: Namespace) (namespaces: list<string>) : Namespace =
-    match namespaces with
-    | [] -> ns.AddScheme ident.Name scheme
+  let rec addSchemeRec (ns: Namespace) (parts: list<string>) : Namespace =
+    match parts with
+    | [] -> failwith "Invalid qualified ident"
+    | [ name ] -> ns.AddScheme name scheme
     | headNS :: restNS ->
       match ns.Namespaces.TryFind(headNS) with
       | None ->
@@ -611,11 +612,8 @@ let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addSchemeRec existingNS restNS)
 
-  match ident.Namespaces with
-  | [] -> env.AddScheme ident.Name scheme
-  | namespaces ->
-    { env with
-        Namespace = addSchemeRec env.Namespace namespaces }
+  { env with
+      Namespace = addSchemeRec env.Namespace ident.Parts }
 
 let updateEnvWithQualifiedNamespace
   (env: Env)

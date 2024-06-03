@@ -208,6 +208,10 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   walkTypeAnn visitor () typeAnn
   List.rev idents
 
+// TODO: split this into multiple functions
+// - one that finds all the type refs but excludes type params
+// - one that post-processes the type refs in the same way we
+//   do with value refs
 let findTypeRefIdents
   (env: Env)
   (possibleDeps: list<QDeclIdent>)
@@ -344,16 +348,23 @@ let findLocals (decls: list<Decl>) : list<QDeclIdent> =
 
         locals <- locals @ bindingNames
       | FnDecl { Name = name } ->
-        locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.FromString name) ]
+        locals <-
+          locals @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] }) ]
+
       | ClassDecl { Name = name } ->
+        // TODO: handle statics
         locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
       | TypeDecl { Name = name } ->
-        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+        locals <-
+          locals @ [ QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
       | InterfaceDecl { Name = name } ->
-        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+        locals <-
+          locals @ [ QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
       | EnumDecl { Name = name } ->
-        locals <- locals @ [ QDeclIdent.Value(QualifiedIdent.FromString name) ]
-        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+        locals <-
+          locals
+          @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
+              QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
       | NamespaceDecl { Name = name; Body = decls } ->
         locals <- locals @ findLocalsRec decls (namespaces @ [ name ])
 

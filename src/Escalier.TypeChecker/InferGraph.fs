@@ -824,18 +824,10 @@ let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
       let! importEnv = Infer.inferImport ctx newEnv import
       newEnv <- importEnv
 
-    // printfn $"building graph for {env.Filename}"
-    // let start = System.DateTime.Now
     let decls = getDeclsFromModule ast
     let graph = buildGraph env ast
-    // let elapsed = System.DateTime.Now - start
-    // printfn $"buildGraph took {elapsed.TotalMilliseconds}ms"
-
-    // let start = System.DateTime.Now
     let components = findStronglyConnectedComponents graph
     let tree = buildComponentTree graph components
-    // let elapsed = System.DateTime.Now - start
-    // printfn $"buildComponentTree took {elapsed.TotalMilliseconds}ms"
 
     let! newEnv = inferTree ctx newEnv graph tree
 

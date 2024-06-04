@@ -462,7 +462,68 @@ let VariableDeclWithoutInit () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let ComputedInterfaceKeys () =
+  let res =
+    result {
+      let src =
+        """
+        interface Keys {
+          foo: "foo",
+          bar: "bar",
+        }
+        declare let keys: Keys;
+        interface Obj {
+          [keys.foo]: number,
+          [keys.bar]: number,
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let MergeInterfaceBetweenFiles () =
+  let res =
+    result {
+      let src =
+        """
+        interface Keys {foo: "foo"}
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+
+      let src =
+        """
+        interface Keys { bar: "bar"}
+        declare let keys: Keys;
+        let foo = keys.foo;
+        let bar = keys.bar;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let graph = buildGraph env ast
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "foo", "\"foo\"")
+      Assert.Value(env, "bar", "\"bar\"")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let MergeInterfaceBetweenFilesWithComputedKeys () =
   let res =
     result {
       let src =

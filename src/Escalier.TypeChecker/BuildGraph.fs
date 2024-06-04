@@ -257,9 +257,6 @@ let findDepsForTypeIdent
               if not (List.contains ident typeParams) then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
 
-              if ident = QualifiedIdent.FromString "ArrayBuffer" then
-                printfn $"typeRefIdents = {typeRefIdents}"
-
               []
             | TypeAnnKind.Typeof ident ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
@@ -612,7 +609,7 @@ let getPropNameDeps
         else
           match env.TryFindValue name with
           | Some(t, _) ->
-            match t.Kind with
+            match (prune t).Kind with
             | TypeKind.TypeRef { Name = ident } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
@@ -854,9 +851,6 @@ let getEdges
               (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
-        if name = "ArrayBufferConstructor" then
-          printfn "GET READY"
-
         let deps =
           elems
           |> List.collect (fun elem ->
@@ -955,9 +949,6 @@ let getEdges
                   interfaceTypeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn))
-
-        if name = "ArrayBufferConstructor" then
-          printfn $"ArrayBufferConstructor deps = {deps}"
 
         match edges.TryFind(ident) with
         | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)

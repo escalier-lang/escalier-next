@@ -175,10 +175,13 @@ let inferDeclPlaceholders
           // Instead of looking things up in the environment, we need some way to
           // find the existing type on other declarations.
           let! placeholder =
-            // TODO: looking up the key in the environment first
-            match qns.Schemes.TryFind(key) with
+            // TODO: handle namespaces properly here
+            match env.TryFindScheme name with
             | Some scheme -> Result.Ok scheme
-            | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+            | None ->
+              match qns.Schemes.TryFind(key) with
+              | Some scheme -> Result.Ok scheme
+              | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
           qns <- qns.AddScheme key placeholder
         // newEnv <- newEnv.AddScheme name placeholder
@@ -807,7 +810,7 @@ let inferGraph
 let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
   result {
     // TODO: update this function to accept a filename
-    let mutable newEnv = { env with Filename = "input.esc" }
+    let mutable newEnv = env // { env with Filename = "input.esc" }
 
     let imports =
       List.choose
@@ -821,13 +824,19 @@ let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
       let! importEnv = Infer.inferImport ctx newEnv import
       newEnv <- importEnv
 
+    // printfn $"building graph for {env.Filename}"
+    // let start = System.DateTime.Now
     let decls = getDeclsFromModule ast
     let graph = buildGraph env ast
+    // let elapsed = System.DateTime.Now - start
+    // printfn $"buildGraph took {elapsed.TotalMilliseconds}ms"
 
-    // printfn $"Graph: {graph}"
-
+    // let start = System.DateTime.Now
     let components = findStronglyConnectedComponents graph
     let tree = buildComponentTree graph components
+    // let elapsed = System.DateTime.Now - start
+    // printfn $"buildComponentTree took {elapsed.TotalMilliseconds}ms"
+
     let! newEnv = inferTree ctx newEnv graph tree
 
     return newEnv

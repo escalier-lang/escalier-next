@@ -752,7 +752,8 @@ let MergeInterfaceBetweenFiles () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
 

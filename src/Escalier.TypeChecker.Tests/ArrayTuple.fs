@@ -150,6 +150,7 @@ let InferForIn () =
       ()
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

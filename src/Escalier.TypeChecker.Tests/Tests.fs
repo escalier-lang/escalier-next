@@ -309,6 +309,7 @@ let InferObjProps () =
       Assert.Value(env, "c", "\"hello\"")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

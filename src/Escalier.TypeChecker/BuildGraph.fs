@@ -25,13 +25,15 @@ let rec memberToQualifiedIdent
   | _ -> None
 
 type QDeclTree =
-  { Decls: Map<string, QDeclIdent>
+  { Values: Map<string, QDeclIdent>
+    Types: Map<string, QDeclIdent>
     Namespaces: Map<string, QDeclTree> }
 
 let localsToDeclTree (locals: list<QDeclIdent>) : QDeclTree =
 
   let mutable tree: QDeclTree =
-    { Decls = Map.empty
+    { Values = Map.empty
+      Types = Map.empty
       Namespaces = Map.empty }
 
   let rec processLocal (tree: QDeclTree) (rest: QDeclIdent) (full: QDeclIdent) =
@@ -40,18 +42,28 @@ let localsToDeclTree (locals: list<QDeclIdent>) : QDeclTree =
     match parts with
     | [] -> tree // this shouldn't happen
     | [ name ] ->
-      { tree with
-          Decls = Map.add name full tree.Decls }
+      match full with
+      | Type _ ->
+        { tree with
+            Types = Map.add name full tree.Types }
+      | Value _ ->
+        { tree with
+            Values = Map.add name full tree.Values }
+    // { tree with
+    //     Decls = Map.add name full tree.Decls }
     | head :: tail ->
       let ns =
         match Map.tryFind head tree.Namespaces with
         | Some ns -> ns
         | None ->
-          { Decls = Map.empty
+          { Values = Map.empty
+            Types = Map.empty
             Namespaces = Map.empty }
 
-      // TODO: handle Types as well
-      let rest = QDeclIdent.Value({ Parts = tail })
+      let rest =
+        match full with
+        | Type _ -> QDeclIdent.Type({ Parts = tail })
+        | Value _ -> QDeclIdent.Value({ Parts = tail })
 
       { tree with
           Namespaces = Map.add head (processLocal ns rest full) tree.Namespaces }
@@ -70,21 +82,35 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
 
     match parts with
     | [] -> None
-    | [ name ] -> Map.tryFind name tree.Decls
+    | [ name ] ->
+      match local with
+      | Type _ -> Map.tryFind name tree.Types
+      | Value _ -> Map.tryFind name tree.Values
     | name :: rest ->
-      match Map.tryFind name tree.Decls with
-      | Some local -> Some local
-      | None ->
-        match Map.tryFind name tree.Namespaces with
-        | Some tree ->
-          getLocalForDepRec tree (QDeclIdent.Value({ Parts = rest }))
-        | None -> None
+      match local with
+      | Type _ ->
+        match Map.tryFind name tree.Types with
+        | Some local -> Some local
+        | None ->
+          match Map.tryFind name tree.Namespaces with
+          | Some tree ->
+            getLocalForDepRec tree (QDeclIdent.Type({ Parts = rest }))
+          | None -> None
+      | Value _ ->
+        match Map.tryFind name tree.Values with
+        | Some local -> Some local
+        | None ->
+          match Map.tryFind name tree.Namespaces with
+          | Some tree ->
+            getLocalForDepRec tree (QDeclIdent.Value({ Parts = rest }))
+          | None -> None
 
   getLocalForDepRec tree local
 
 let postProcessDeps
   (ns: Namespace)
   (locals: list<QDeclIdent>)
+  (localsTree: QDeclTree)
   (ident: QDeclIdent)
   (deps: list<QDeclIdent>)
   : list<QDeclIdent> =
@@ -121,7 +147,7 @@ let postProcessDeps
         else
           true)
 
-  let tree = localsToDeclTree locals
+  // let tree = localsToDeclTree locals
 
   if ident.GetParts().Length > 1 then
     deps
@@ -141,15 +167,16 @@ let postProcessDeps
             | Type qid -> Type { Parts = ns @ qid.Parts }
             | Value qid -> Value { Parts = ns @ qid.Parts }
 
-          result <- getLocalForDep tree candidateDep
+          result <- getLocalForDep localsTree candidateDep
 
       result)
   else
-    List.choose (getLocalForDep tree) deps
+    List.choose (getLocalForDep localsTree) deps
 
 let findDepsForValueIdent
   (ns: Namespace)
   (locals: list<QDeclIdent>)
+  (localsTree: QDeclTree)
   (ident: QDeclIdent)
   (expr: Expr)
   : list<QDeclIdent> =
@@ -187,7 +214,7 @@ let findDepsForValueIdent
 
   walkExpr visitor () expr
 
-  postProcessDeps ns locals ident (List.rev ids)
+  postProcessDeps ns locals localsTree ident (List.rev ids)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
@@ -211,6 +238,7 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
 let findDepsForTypeIdent
   (env: Env)
   (possibleDeps: list<QDeclIdent>)
+  (localsTree: QDeclTree)
   (typeParams: list<QualifiedIdent>)
   (ident: QDeclIdent)
   (syntaxNode: SyntaxNode)
@@ -284,7 +312,12 @@ let findDepsForTypeIdent
   | SyntaxNode.TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
   | SyntaxNode.Expr expr -> walkExpr visitor typeParams expr
 
-  postProcessDeps env.Namespace possibleDeps ident (List.rev typeRefIdents)
+  postProcessDeps
+    env.Namespace
+    possibleDeps
+    localsTree
+    ident
+    (List.rev typeRefIdents)
 
 
 let findLocals (decls: list<Decl>) : list<QDeclIdent> =
@@ -429,6 +462,7 @@ let getDepsForFn
   (env: Env)
   (ident: QDeclIdent)
   (possibleDeps: list<QDeclIdent>)
+  (localsTree: QDeclTree)
   (excludedTypeNames: list<QualifiedIdent>)
   (fnSig: FuncSig)
   (body: option<BlockOrExpr>)
@@ -453,6 +487,7 @@ let getDepsForFn
           @ findDepsForTypeIdent
               env
               possibleDeps
+              localsTree
               (excludedTypeNames @ typeParamNames)
               ident
               (SyntaxNode.TypeAnn c)
@@ -465,6 +500,7 @@ let getDepsForFn
           @ findDepsForTypeIdent
               env
               possibleDeps
+              localsTree
               (excludedTypeNames @ typeParamNames)
               ident
               (SyntaxNode.TypeAnn d)
@@ -480,6 +516,7 @@ let getDepsForFn
         @ findDepsForTypeIdent
             env
             possibleDeps
+            localsTree
             (excludedTypeNames @ typeParamNames)
             ident
             (SyntaxNode.TypeAnn typeAnn)
@@ -501,6 +538,7 @@ let getDepsForFn
       @ findDepsForTypeIdent
           env
           possibleDeps
+          localsTree
           (excludedTypeNames @ typeParamNames)
           ident
           (SyntaxNode.TypeAnn returnType)
@@ -523,6 +561,7 @@ let getDepsForFn
 let getDepsForInterfaceFn
   (env: Env)
   (possibleDeps: list<QDeclIdent>)
+  (localsTree: QDeclTree)
   (interfaceTypeParamNames: list<QualifiedIdent>)
   (ident: QDeclIdent)
   (fnSig: FuncSig)
@@ -546,6 +585,7 @@ let getDepsForInterfaceFn
         @ findDepsForTypeIdent
             env
             possibleDeps
+            localsTree
             (interfaceTypeParamNames @ typeParamNames)
             ident
             (SyntaxNode.TypeAnn typeAnn)
@@ -558,6 +598,7 @@ let getDepsForInterfaceFn
       @ findDepsForTypeIdent
           env
           possibleDeps
+          localsTree
           (interfaceTypeParamNames @ typeParamNames)
           ident
           (SyntaxNode.TypeAnn returnType)
@@ -584,7 +625,7 @@ let getPropNameDeps
         else
           match env.TryFindValue name with
           | Some(t, _) ->
-            match t.Kind with
+            match (prune t).Kind with
             | TypeKind.TypeRef { Name = ident } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
@@ -652,6 +693,7 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
 let getEdges
   (env: Env)
   (locals: list<QDeclIdent>)
+  (localsTree: QDeclTree)
   (nodes: Map<QDeclIdent, list<Decl>>)
   : Map<QDeclIdent, list<QDeclIdent>> =
   let mutable edges: Map<QDeclIdent, list<QDeclIdent>> = Map.empty
@@ -671,13 +713,14 @@ let getEdges
           match init with
           | Some init ->
             let mutable deps =
-              findDepsForValueIdent env.Namespace locals ident init
+              findDepsForValueIdent env.Namespace locals localsTree ident init
 
             // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =
               findDepsForTypeIdent
                 env
                 possibleDeps
+                localsTree
                 []
                 ident
                 (SyntaxNode.Expr init)
@@ -688,6 +731,7 @@ let getEdges
                 findDepsForTypeIdent
                   env
                   possibleDeps
+                  localsTree
                   []
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
@@ -723,6 +767,7 @@ let getEdges
                 findDepsForTypeIdent
                   env
                   possibleDeps
+                  localsTree
                   []
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
@@ -751,7 +796,7 @@ let getEdges
       | FnDecl { Name = name
                  Sig = fnSig
                  Body = body } ->
-        let deps = getDepsForFn env ident locals [] fnSig body
+        let deps = getDepsForFn env ident locals localsTree [] fnSig body
         edges <- edges.Add(ident, deps)
       | ClassDecl { Name = name } ->
         let deps =
@@ -788,6 +833,7 @@ let getEdges
                 @ findDepsForTypeIdent
                     env
                     possibleDeps
+                    localsTree
                     typeParamNames
                     ident
                     (SyntaxNode.TypeAnn c)
@@ -800,6 +846,7 @@ let getEdges
                 @ findDepsForTypeIdent
                     env
                     possibleDeps
+                    localsTree
                     typeParamNames
                     ident
                     (SyntaxNode.TypeAnn d)
@@ -810,6 +857,7 @@ let getEdges
           @ findDepsForTypeIdent
               env
               possibleDeps
+              localsTree
               typeParamNames
               ident
               (SyntaxNode.TypeAnn typeAnn)
@@ -834,6 +882,7 @@ let getEdges
               getDepsForInterfaceFn
                 env
                 locals
+                localsTree
                 interfaceTypeParamNames
                 ident
                 fnSig
@@ -841,6 +890,7 @@ let getEdges
               getDepsForInterfaceFn
                 env
                 locals
+                localsTree
                 interfaceTypeParamNames
                 ident
                 fnSig
@@ -851,6 +901,7 @@ let getEdges
                 getDepsForInterfaceFn
                   env
                   locals
+                  localsTree
                   interfaceTypeParamNames
                   ident
                   fnSig
@@ -865,6 +916,7 @@ let getEdges
                   findDepsForTypeIdent
                     env
                     possibleDeps
+                    localsTree
                     interfaceTypeParamNames
                     ident
                     (SyntaxNode.TypeAnn returnType)
@@ -881,6 +933,7 @@ let getEdges
                   findDepsForTypeIdent
                     env
                     possibleDeps
+                    localsTree
                     interfaceTypeParamNames
                     ident
                     (SyntaxNode.TypeAnn typeAnn)
@@ -894,6 +947,7 @@ let getEdges
                 findDepsForTypeIdent
                   env
                   possibleDeps
+                  localsTree
                   interfaceTypeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
@@ -915,12 +969,14 @@ let getEdges
               findDepsForTypeIdent
                 env
                 possibleDeps
+                localsTree
                 interfaceTypeParamNames
                 ident
                 (SyntaxNode.TypeAnn typeParam.Constraint)
               @ findDepsForTypeIdent
                   env
                   possibleDeps
+                  localsTree
                   interfaceTypeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn))
@@ -953,6 +1009,11 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
   let decls = getDeclsFromModule m
   let locals = findLocals decls
 
+  // printfn "--- LOCALS ---"
+  //
+  // for local in locals do
+  //   printfn $"{local}"
+
   let localTypeNames =
     List.choose
       (fun qid ->
@@ -969,6 +1030,13 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
       | _ -> None)
 
   let nodes = getNodes decls
-  let edges = getEdges env locals nodes
+  // We compute localsTree once here because it's expensive to compute
+  let localsTree = localsToDeclTree locals
+  let edges = getEdges env locals localsTree nodes
+
+  // printfn "--- EDGES ---"
+  //
+  // for KeyValue(k, v) in edges do
+  //   printfn $"{k} -> {v}"
 
   { Nodes = nodes; Edges = edges }

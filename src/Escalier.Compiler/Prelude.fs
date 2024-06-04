@@ -363,7 +363,7 @@ module Prelude =
       let newEnv = { env with Filename = fullPath }
 
       let! outEnv =
-        Infer.inferModule ctx newEnv ast
+        InferGraph.inferModule ctx newEnv ast
         |> Result.mapError CompileError.TypeError
 
       return outEnv, ast
@@ -493,7 +493,7 @@ module Prelude =
             // "lib.es2015.promise.d.ts"
             "lib.es2015.proxy.d.ts"
             // "lib.es2015.reflect.d.ts"
-            // "lib.dom.d.ts" // requires `globalThis` to be defined
+            // "lib.dom.d.ts"
             ]
 
         let packageRoot = findNearestAncestorWithNodeModules baseDir

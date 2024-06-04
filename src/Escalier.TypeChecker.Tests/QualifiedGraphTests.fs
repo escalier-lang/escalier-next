@@ -173,6 +173,62 @@ let NamespaceBasicTypes () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let NamespaceWithInterface () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          interface Bar {
+            msg: string
+          }
+        }
+        interface Baz {
+          bar: Foo.Bar
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Type(env, "Baz", "{bar: Foo.Bar}")
+
+      let! t =
+        Unify.expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "{bar: Foo.Bar}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InterfacesInTheSameNamespace () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          interface Bar {
+            msg: string
+          }
+          
+          interface Baz {
+            bar: Bar
+          }
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact>]
 let BasicGraphInferCompositeValues () =
   let res =
     result {
@@ -406,7 +462,68 @@ let VariableDeclWithoutInit () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let ComputedInterfaceKeys () =
+  let res =
+    result {
+      let src =
+        """
+        interface Keys {
+          foo: "foo",
+          bar: "bar",
+        }
+        declare let keys: Keys;
+        interface Obj {
+          [keys.foo]: number,
+          [keys.bar]: number,
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let MergeInterfaceBetweenFiles () =
+  let res =
+    result {
+      let src =
+        """
+        interface Keys {foo: "foo"}
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+
+      let src =
+        """
+        interface Keys { bar: "bar"}
+        declare let keys: Keys;
+        let foo = keys.foo;
+        let bar = keys.bar;
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let graph = buildGraph env ast
+
+      let! env =
+        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "foo", "\"foo\"")
+      Assert.Value(env, "bar", "\"bar\"")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let MergeInterfaceBetweenFilesWithComputedKeys () =
   let res =
     result {
       let src =

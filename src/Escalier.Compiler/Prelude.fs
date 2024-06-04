@@ -363,7 +363,7 @@ module Prelude =
       let newEnv = { env with Filename = fullPath }
 
       let! outEnv =
-        Infer.inferModule ctx newEnv ast
+        InferGraph.inferModule ctx newEnv ast
         |> Result.mapError CompileError.TypeError
 
       return outEnv, ast
@@ -483,18 +483,16 @@ module Prelude =
         let! ctx = getCtx baseDir (fun _ -> newEnv)
 
         let libs =
-          [ "lib.es5.d.ts"
-            "lib.es2015.core.d.ts"
-            "lib.es2015.symbol.d.ts"
-            "lib.es2015.symbol.wellknown.d.ts"
-            "lib.es2015.iterable.d.ts"
-            "lib.es2015.generator.d.ts"
-            // TODO: modify Promise types to include type param for rejections
-            // "lib.es2015.promise.d.ts"
-            "lib.es2015.proxy.d.ts"
-            // "lib.es2015.reflect.d.ts"
-            // "lib.dom.d.ts" // requires `globalThis` to be defined
-            ]
+          [ "lib.es5.d.ts"; "lib.es2015.core.d.ts"; "lib.es2015.symbol.d.ts" ]
+        // "lib.es2015.symbol.wellknown.d.ts"
+        // "lib.es2015.iterable.d.ts"
+        // "lib.es2015.generator.d.ts"
+        // // TODO: modify Promise types to include type param for rejections
+        // // "lib.es2015.promise.d.ts"
+        // "lib.es2015.proxy.d.ts"
+        // // "lib.es2015.reflect.d.ts"
+        // // "lib.dom.d.ts" // requires `globalThis` to be defined
+        // ]
 
         let packageRoot = findNearestAncestorWithNodeModules baseDir
         let nodeModulesDir = Path.Combine(packageRoot, "node_modules")

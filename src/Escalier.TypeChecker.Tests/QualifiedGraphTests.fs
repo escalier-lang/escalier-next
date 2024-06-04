@@ -173,6 +173,62 @@ let NamespaceBasicTypes () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let NamespaceWithInterface () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          interface Bar {
+            msg: string
+          }
+        }
+        interface Baz {
+          bar: Foo.Bar
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Type(env, "Baz", "{bar: Foo.Bar}")
+
+      let! t =
+        Unify.expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "{bar: Foo.Bar}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let InterfacesInTheSameNamespace () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          interface Bar {
+            msg: string
+          }
+          
+          interface Baz {
+            bar: Bar
+          }
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
+[<Fact>]
 let BasicGraphInferCompositeValues () =
   let res =
     result {

@@ -25,13 +25,15 @@ let rec memberToQualifiedIdent
   | _ -> None
 
 type QDeclTree =
-  { Decls: Map<string, QDeclIdent>
+  { Values: Map<string, QDeclIdent>
+    Types: Map<string, QDeclIdent>
     Namespaces: Map<string, QDeclTree> }
 
 let localsToDeclTree (locals: list<QDeclIdent>) : QDeclTree =
 
   let mutable tree: QDeclTree =
-    { Decls = Map.empty
+    { Values = Map.empty
+      Types = Map.empty
       Namespaces = Map.empty }
 
   let rec processLocal (tree: QDeclTree) (rest: QDeclIdent) (full: QDeclIdent) =
@@ -40,18 +42,28 @@ let localsToDeclTree (locals: list<QDeclIdent>) : QDeclTree =
     match parts with
     | [] -> tree // this shouldn't happen
     | [ name ] ->
-      { tree with
-          Decls = Map.add name full tree.Decls }
+      match full with
+      | Type _ ->
+        { tree with
+            Types = Map.add name full tree.Types }
+      | Value _ ->
+        { tree with
+            Values = Map.add name full tree.Values }
+    // { tree with
+    //     Decls = Map.add name full tree.Decls }
     | head :: tail ->
       let ns =
         match Map.tryFind head tree.Namespaces with
         | Some ns -> ns
         | None ->
-          { Decls = Map.empty
+          { Values = Map.empty
+            Types = Map.empty
             Namespaces = Map.empty }
 
-      // TODO: handle Types as well
-      let rest = QDeclIdent.Value({ Parts = tail })
+      let rest =
+        match full with
+        | Type _ -> QDeclIdent.Type({ Parts = tail })
+        | Value _ -> QDeclIdent.Value({ Parts = tail })
 
       { tree with
           Namespaces = Map.add head (processLocal ns rest full) tree.Namespaces }
@@ -70,15 +82,28 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
 
     match parts with
     | [] -> None
-    | [ name ] -> Map.tryFind name tree.Decls
+    | [ name ] ->
+      match local with
+      | Type _ -> Map.tryFind name tree.Types
+      | Value _ -> Map.tryFind name tree.Values
     | name :: rest ->
-      match Map.tryFind name tree.Decls with
-      | Some local -> Some local
-      | None ->
-        match Map.tryFind name tree.Namespaces with
-        | Some tree ->
-          getLocalForDepRec tree (QDeclIdent.Value({ Parts = rest }))
-        | None -> None
+      match local with
+      | Type _ ->
+        match Map.tryFind name tree.Types with
+        | Some local -> Some local
+        | None ->
+          match Map.tryFind name tree.Namespaces with
+          | Some tree ->
+            getLocalForDepRec tree (QDeclIdent.Type({ Parts = rest }))
+          | None -> None
+      | Value _ ->
+        match Map.tryFind name tree.Values with
+        | Some local -> Some local
+        | None ->
+          match Map.tryFind name tree.Namespaces with
+          | Some tree ->
+            getLocalForDepRec tree (QDeclIdent.Value({ Parts = rest }))
+          | None -> None
 
   getLocalForDepRec tree local
 
@@ -231,6 +256,9 @@ let findDepsForTypeIdent
 
               if not (List.contains ident typeParams) then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
+
+              if ident = QualifiedIdent.FromString "ArrayBuffer" then
+                printfn $"typeRefIdents = {typeRefIdents}"
 
               []
             | TypeAnnKind.Typeof ident ->
@@ -826,6 +854,9 @@ let getEdges
               (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
+        if name = "ArrayBufferConstructor" then
+          printfn "GET READY"
+
         let deps =
           elems
           |> List.collect (fun elem ->
@@ -925,6 +956,9 @@ let getEdges
                   ident
                   (SyntaxNode.TypeAnn typeAnn))
 
+        if name = "ArrayBufferConstructor" then
+          printfn $"ArrayBufferConstructor deps = {deps}"
+
         match edges.TryFind(ident) with
         | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
         | None -> edges <- edges.Add(ident, deps)
@@ -953,6 +987,11 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
   let decls = getDeclsFromModule m
   let locals = findLocals decls
 
+  // printfn "--- LOCALS ---"
+  //
+  // for local in locals do
+  //   printfn $"{local}"
+
   let localTypeNames =
     List.choose
       (fun qid ->
@@ -970,5 +1009,10 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
 
   let nodes = getNodes decls
   let edges = getEdges env locals nodes
+
+  // printfn "--- EDGES ---"
+  //
+  // for KeyValue(k, v) in edges do
+  //   printfn $"{k} -> {v}"
 
   { Nodes = nodes; Edges = edges }

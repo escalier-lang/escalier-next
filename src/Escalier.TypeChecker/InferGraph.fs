@@ -165,17 +165,22 @@ let inferDeclPlaceholders
 
           qns <- qns.AddScheme key placeholder
         | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
+          let key =
+            match ident with
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+
           // Instead of looking things up in the environment, we need some way to
           // find the existing type on other declarations.
           let! placeholder =
-            match env.TryFindScheme name with
+            // TODO: looking up the key in the environment first
+            match qns.Schemes.TryFind(key) with
             | Some scheme -> Result.Ok scheme
-            | None ->
-              match qns.Schemes.TryFind(QualifiedIdent.FromString name) with
-              | Some scheme -> Result.Ok scheme
-              | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+            | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
-          qns <- qns.AddScheme (QualifiedIdent.FromString name) placeholder
+          qns <- qns.AddScheme key placeholder
         // newEnv <- newEnv.AddScheme name placeholder
         | NamespaceDecl nsDecl ->
           return!
@@ -374,17 +379,24 @@ let inferDeclDefinitions
         | InterfaceDecl { Name = name
                           TypeParams = typeParams
                           Elems = elems } ->
-          let placeholder = qns.Schemes[(QualifiedIdent.FromString name)]
+          let key =
+            match ident with
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+
+          let placeholder = qns.Schemes[key]
 
           // TODO: when computing the decl graph, include self-recursive types in
           // the deps set so that we don't have to special case this here.
           // Handles self-recursive types
-          let newEnv = env.AddScheme name placeholder
+          let newEnv = newEnv.AddScheme name placeholder
 
           let getType (env: Env) : Result<Type, TypeError> =
             result {
               let! elems =
-                List.traverseResultM (Infer.inferObjElem ctx newEnv) elems
+                List.traverseResultM (Infer.inferObjElem ctx env) elems
 
               let kind =
                 TypeKind.Object
@@ -420,13 +432,13 @@ let inferDeclDefinitions
             // We modify the existing scheme in place so that existing values
             // with this type are updated.
             placeholder.Type <- t
-            qns.Schemes[(QualifiedIdent.FromString name)].Type <- t
+            qns.Schemes[key].Type <- t
           | _ ->
             // Replace the placeholder's type with the actual type.
             // NOTE: This is a bit hacky and we may want to change this later to use
             // `foldType` to replace any uses of the placeholder with the actual type.
             placeholder.Type <- newScheme.Type
-            qns.Schemes[(QualifiedIdent.FromString name)].Type <- newScheme.Type
+            qns.Schemes[key].Type <- newScheme.Type
         | NamespaceDecl { Name = name; Body = decls } ->
           return!
             Error(

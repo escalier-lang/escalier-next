@@ -690,6 +690,48 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
   getNodesRec decls []
   nodes
 
+let getDepsFromTypeParams
+  (env: Env)
+  (locals: list<QDeclIdent>)
+  (localsTree: QDeclTree)
+  (ident: QDeclIdent)
+  (typeParams: TypeParam list option)
+  (typeParamNames: list<QualifiedIdent>)
+  =
+  let mutable deps = []
+
+  match typeParams with
+  | None -> ()
+  | Some typeParams ->
+    for typeParam in typeParams do
+      match typeParam.Constraint with
+      | Some c ->
+        deps <-
+          deps
+          @ findDepsForTypeIdent
+              env
+              locals
+              localsTree
+              typeParamNames
+              ident
+              (SyntaxNode.TypeAnn c)
+      | None -> ()
+
+      match typeParam.Default with
+      | Some d ->
+        deps <-
+          deps
+          @ findDepsForTypeIdent
+              env
+              locals
+              localsTree
+              typeParamNames
+              ident
+              (SyntaxNode.TypeAnn d)
+      | None -> ()
+
+  deps
+
 let getEdges
   (env: Env)
   (locals: list<QDeclIdent>)
@@ -697,8 +739,6 @@ let getEdges
   (nodes: Map<QDeclIdent, list<Decl>>)
   : Map<QDeclIdent, list<QDeclIdent>> =
   let mutable edges: Map<QDeclIdent, list<QDeclIdent>> = Map.empty
-
-  let possibleDeps = nodes.Keys |> List.ofSeq
 
   for KeyValue(ident, decls) in nodes do
     for decl in decls do
@@ -719,7 +759,7 @@ let getEdges
             let typeDepsInExpr =
               findDepsForTypeIdent
                 env
-                possibleDeps
+                locals
                 localsTree
                 []
                 ident
@@ -730,7 +770,7 @@ let getEdges
               | Some typeAnn ->
                 findDepsForTypeIdent
                   env
-                  possibleDeps
+                  locals
                   localsTree
                   []
                   ident
@@ -766,7 +806,7 @@ let getEdges
               | Some typeAnn ->
                 findDepsForTypeIdent
                   env
-                  possibleDeps
+                  locals
                   localsTree
                   []
                   ident
@@ -822,51 +862,31 @@ let getEdges
               (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
-        match typeParams with
-        | None -> ()
-        | Some typeParams ->
-          for typeParam in typeParams do
-            match typeParam.Constraint with
-            | Some c ->
-              deps <-
-                deps
-                @ findDepsForTypeIdent
-                    env
-                    possibleDeps
-                    localsTree
-                    typeParamNames
-                    ident
-                    (SyntaxNode.TypeAnn c)
-            | None -> ()
+        let typeParamDeps =
+          getDepsFromTypeParams
+            env
+            locals
+            localsTree
+            ident
+            typeParams
+            typeParamNames
 
-            match typeParam.Default with
-            | Some d ->
-              deps <-
-                deps
-                @ findDepsForTypeIdent
-                    env
-                    possibleDeps
-                    localsTree
-                    typeParamNames
-                    ident
-                    (SyntaxNode.TypeAnn d)
-            | None -> ()
+        let typeDeps =
+          findDepsForTypeIdent
+            env
+            locals
+            localsTree
+            typeParamNames
+            ident
+            (SyntaxNode.TypeAnn typeAnn)
 
-        deps <-
-          deps
-          @ findDepsForTypeIdent
-              env
-              possibleDeps
-              localsTree
-              typeParamNames
-              ident
-              (SyntaxNode.TypeAnn typeAnn)
+        let deps = typeParamDeps @ typeDeps
 
         edges <- edges.Add(ident, deps)
       | InterfaceDecl { Name = name
                         TypeParams = typeParams
                         Elems = elems } ->
-        let interfaceTypeParamNames =
+        let typeParamNames =
           match typeParams with
           | None -> []
           | Some typeParams ->
@@ -874,7 +894,7 @@ let getEdges
               (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
-        let deps =
+        let mutable deps =
           elems
           |> List.collect (fun elem ->
             match elem with
@@ -883,7 +903,7 @@ let getEdges
                 env
                 locals
                 localsTree
-                interfaceTypeParamNames
+                typeParamNames
                 ident
                 fnSig
             | ObjTypeAnnElem.Constructor fnSig ->
@@ -891,7 +911,7 @@ let getEdges
                 env
                 locals
                 localsTree
-                interfaceTypeParamNames
+                typeParamNames
                 ident
                 fnSig
             | ObjTypeAnnElem.Method { Type = fnSig; Name = name } ->
@@ -902,7 +922,7 @@ let getEdges
                   env
                   locals
                   localsTree
-                  interfaceTypeParamNames
+                  typeParamNames
                   ident
                   fnSig
 
@@ -915,9 +935,9 @@ let getEdges
                 | Some returnType ->
                   findDepsForTypeIdent
                     env
-                    possibleDeps
+                    locals
                     localsTree
-                    interfaceTypeParamNames
+                    typeParamNames
                     ident
                     (SyntaxNode.TypeAnn returnType)
                 | None -> []
@@ -932,9 +952,9 @@ let getEdges
                 | Some typeAnn ->
                   findDepsForTypeIdent
                     env
-                    possibleDeps
+                    locals
                     localsTree
-                    interfaceTypeParamNames
+                    typeParamNames
                     ident
                     (SyntaxNode.TypeAnn typeAnn)
                 | None -> []
@@ -946,9 +966,9 @@ let getEdges
               let typeAnnDeps =
                 findDepsForTypeIdent
                   env
-                  possibleDeps
+                  locals
                   localsTree
-                  interfaceTypeParamNames
+                  typeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
 
@@ -968,21 +988,31 @@ let getEdges
 
               findDepsForTypeIdent
                 env
-                possibleDeps
+                locals
                 localsTree
-                interfaceTypeParamNames
+                typeParamNames
                 ident
                 (SyntaxNode.TypeAnn typeParam.Constraint)
               @ findDepsForTypeIdent
                   env
-                  possibleDeps
+                  locals
                   localsTree
-                  interfaceTypeParamNames
+                  typeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn))
 
+        let typeParamDeps =
+          getDepsFromTypeParams
+            env
+            locals
+            localsTree
+            ident
+            typeParams
+            typeParamNames
+
         match edges.TryFind(ident) with
-        | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
+        | Some existingDeps ->
+          edges <- edges.Add(ident, existingDeps @ typeParamDeps @ deps)
         | None -> edges <- edges.Add(ident, deps)
       | EnumDecl { Name = name } ->
         let deps =

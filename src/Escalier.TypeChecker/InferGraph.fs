@@ -743,8 +743,9 @@ let inferTree
               // Update partialQns with new values and types
               partialQns <-
                 updateQualifiedNamespace newPartialQns partialQns false
-
           | None -> ()
+
+          // printfn $"inferring {root}"
 
           // Update environment to include dependencies
           let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns

@@ -277,6 +277,8 @@ let findDepsForTypeIdent
           (true, typeParams @ newTypeParams)
       ExprVisitor.VisitTypeAnnObjElem =
         fun (elem, typeParams) ->
+          // TODO: extract TypeRefs from each ObjTypeAnnElem and add them to
+          // typeRefIdents
           let newTypeParams: list<QualifiedIdent> =
             match elem with
             | ObjTypeAnnElem.Callable funcSig ->
@@ -777,6 +779,10 @@ let getEdges
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> []
 
+            if ident = QDeclIdent.MakeValue([ "Intl"; "Collator" ]) then
+              printfn "found - Value Intl.Collator"
+              printfn $"typeDeps = {typeDeps}"
+
             deps <- deps @ typeDepsInExpr @ typeDeps
 
             // TODO: dedupe with the other branch
@@ -1013,7 +1019,7 @@ let getEdges
         match edges.TryFind(ident) with
         | Some existingDeps ->
           edges <- edges.Add(ident, existingDeps @ typeParamDeps @ deps)
-        | None -> edges <- edges.Add(ident, deps)
+        | None -> edges <- edges.Add(ident, typeParamDeps @ deps)
       | EnumDecl { Name = name } ->
         let deps =
           match ident with

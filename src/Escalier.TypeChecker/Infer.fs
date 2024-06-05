@@ -982,6 +982,8 @@ module rec Infer =
         t)
       r
 
+  // TODO: create a structural version of this function for use in InferGraph
+  // in `inferTypeAnnStructuralPlaceholder`
   let inferFuncSig
     (ctx: Ctx)
     (env: Env)
@@ -2661,7 +2663,6 @@ module rec Infer =
                 match typeParam.Default with
                 | Some(d) -> Some(ctx.FreshTypeVar None)
                 | None -> None
-
 
               { Name = typeParam.Name
                 Constraint = c

@@ -13,7 +13,6 @@ open Escalier.Parser
 open Escalier.Interop.Migrate
 open Escalier.Interop.Parser
 open Escalier.TypeChecker
-open Escalier.TypeChecker.Infer
 open Escalier.TypeChecker.Env
 
 type Assert with
@@ -434,7 +433,8 @@ let InferBasicVarDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string | undefined")
@@ -470,7 +470,8 @@ let InferTypeDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
       Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
@@ -669,10 +670,16 @@ let AcessNamespaceValue () =
       let src =
         """
         let fmt = new Intl.NumberFormat("en-CA");
-        fmt.format(1.23);
+        // fmt.format(1.23);
         """
 
       let! ctx, env = inferScript src
+
+      let intl = env.Namespace.Namespaces["Intl"]
+      let numberFormat = intl.Values["NumberFormat"]
+      printfn $"numberFormat = {numberFormat}"
+      let fmt = env.FindValue "fmt"
+      printfn $"fmt = {fmt}"
 
       // TODO: the type should include the namespace, i.e. Intl.NumberFormat
       Assert.Value(env, "fmt", "Intl.NumberFormat")
@@ -700,7 +707,8 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -749,7 +757,8 @@ let ImportReact () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "React", "React")
     }

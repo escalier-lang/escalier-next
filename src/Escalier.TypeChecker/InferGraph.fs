@@ -1,5 +1,6 @@
 module rec Escalier.TypeChecker.InferGraph
 
+open Escalier.Data.Common
 open Escalier.Data.Type
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.QualifiedGraph
@@ -57,13 +58,13 @@ let inferTypeParam
     let! c =
       match tp.Constraint with
       | Some(c) ->
-        inferTypeAnnStructuralPlaceholder ctx env c |> Result.map Some
+        inferTypeAnnStructuralPlaceholder ctx env c [] |> Result.map Some
       | None -> Ok None
 
     let! d =
       match tp.Default with
       | Some(d) ->
-        inferTypeAnnStructuralPlaceholder ctx env d |> Result.map Some
+        inferTypeAnnStructuralPlaceholder ctx env d [] |> Result.map Some
       | None -> Ok None
 
     return
@@ -120,6 +121,8 @@ let inferTypeParams
   }
 
 
+// TODO: update this to include typeParamNames so that we can include type params
+// from a parent class/interface type
 let inferFuncSigStructuralPlaceholder
   (ctx: Ctx)
   (env: Env)
@@ -160,6 +163,11 @@ let inferFuncSigStructuralPlaceholder
 
     let! typeParams, newEnv = inferTypeParams ctx newEnv fnSig.TypeParams
 
+    let typeParamNames =
+      match fnSig.TypeParams with
+      | Some typeParams -> List.map (fun (tp: TypeParam) -> tp.Name) typeParams
+      | None -> []
+
     let! paramList =
       List.traverseResultM
         (fun (param: FuncParam) ->
@@ -167,7 +175,11 @@ let inferFuncSigStructuralPlaceholder
             let! paramType =
               match param.TypeAnn with
               | Some(typeAnn) ->
-                inferTypeAnnStructuralPlaceholder ctx newEnv typeAnn
+                inferTypeAnnStructuralPlaceholder
+                  ctx
+                  newEnv
+                  typeAnn
+                  typeParamNames
               | None -> Result.Ok(ctx.FreshTypeVar None)
 
             // TODO: figure out a way to avoid having to call inferPattern twice
@@ -187,13 +199,14 @@ let inferFuncSigStructuralPlaceholder
 
     let! sigThrows =
       match fnSig.Throws with
-      | Some typeAnn -> inferTypeAnnStructuralPlaceholder ctx newEnv typeAnn
+      | Some typeAnn ->
+        inferTypeAnnStructuralPlaceholder ctx newEnv typeAnn typeParamNames
       | None -> Result.Ok(ctx.FreshTypeVar None)
 
     let! sigRetType =
       match fnSig.ReturnType with
       | Some(sigRetType) ->
-        inferTypeAnnStructuralPlaceholder ctx newEnv sigRetType
+        inferTypeAnnStructuralPlaceholder ctx newEnv sigRetType typeParamNames
       | None -> Result.Ok(ctx.FreshTypeVar None)
 
     let func = makeFunction typeParams self paramList sigRetType sigThrows
@@ -205,18 +218,32 @@ let rec inferTypeAnnStructuralPlaceholder
   (ctx: Ctx)
   (env: Env)
   (typeAnn: TypeAnn)
+  (typeParamNames: list<string>)
   : Result<Type, TypeError> =
 
   result {
 
     match typeAnn.Kind with
-    // | Literal literal -> failwith "todo"
+    | Literal literal ->
+      let kind = TypeKind.Literal(literal)
+      return { Kind = kind; Provenance = None }
     | Keyword keyword ->
       match keyword with
-      // | KeywordTypeAnn.Boolean -> failwith "todo"
-      // | KeywordTypeAnn.Number -> failwith "todo"
-      // | KeywordTypeAnn.String -> failwith "todo"
-      // | KeywordTypeAnn.Symbol -> failwith "todo"
+      | KeywordTypeAnn.Boolean ->
+        let kind = TypeKind.Primitive Primitive.Boolean
+        return { Kind = kind; Provenance = None }
+      | KeywordTypeAnn.Number ->
+        let kind = TypeKind.Primitive Primitive.Number
+        return { Kind = kind; Provenance = None }
+      | KeywordTypeAnn.BigInt ->
+        let kind = TypeKind.Primitive Primitive.BigInt
+        return { Kind = kind; Provenance = None }
+      | KeywordTypeAnn.String ->
+        let kind = TypeKind.Primitive Primitive.String
+        return { Kind = kind; Provenance = None }
+      | KeywordTypeAnn.Symbol ->
+        let kind = TypeKind.Primitive Primitive.Symbol
+        return { Kind = kind; Provenance = None }
       | KeywordTypeAnn.UniqueSymbol ->
         return
           { Kind = TypeKind.UniqueSymbol(ctx.FreshUniqueId())
@@ -241,7 +268,13 @@ let rec inferTypeAnnStructuralPlaceholder
                                         TypeAnn = typeAnn
                                         Optional = optional
                                         Readonly = readonly } ->
-              let! t = inferTypeAnnStructuralPlaceholder ctx env typeAnn
+              let! t =
+                inferTypeAnnStructuralPlaceholder
+                  ctx
+                  env
+                  typeAnn
+                  typeParamNames
+
               let! name = Infer.inferPropName ctx env name
 
               return
@@ -300,6 +333,7 @@ let rec inferTypeAnnStructuralPlaceholder
                   ctx
                   env
                   mapped.TypeParam.Constraint
+                  typeParamNames
 
               let param: Escalier.Data.Type.IndexParam =
                 { Name = mapped.TypeParam.Name
@@ -313,12 +347,20 @@ let rec inferTypeAnnStructuralPlaceholder
                     IsTypeParam = true }
 
               let! typeAnn =
-                inferTypeAnnStructuralPlaceholder ctx newEnv mapped.TypeAnn
+                inferTypeAnnStructuralPlaceholder
+                  ctx
+                  newEnv
+                  mapped.TypeAnn
+                  typeParamNames
 
               let! nameType =
                 match mapped.Name with
                 | Some(name) ->
-                  inferTypeAnnStructuralPlaceholder ctx newEnv name
+                  inferTypeAnnStructuralPlaceholder
+                    ctx
+                    newEnv
+                    name
+                    typeParamNames
                   |> Result.map Some
                 | None -> Ok None
 
@@ -344,7 +386,23 @@ let rec inferTypeAnnStructuralPlaceholder
     // | Range range -> failwith "todo"
     // | Union types -> failwith "todo"
     // | Intersection types -> failwith "todo"
-    // | TypeRef typeRef -> failwith "todo"
+
+    // NOTE: if it's a type ref for a type param we should infer it as usual
+    | TypeRef { Ident = ident; TypeArgs = typeArgs } ->
+      match ident with
+      | QualifiedIdent.Ident name ->
+        if List.contains name typeParamNames then
+          let kind =
+            { Name = ident
+              TypeArgs = None
+              Scheme = None }
+            |> TypeKind.TypeRef
+
+          return { Kind = kind; Provenance = None }
+        else
+          return ctx.FreshTypeVar None
+      | QualifiedIdent.Member(left, right) -> return ctx.FreshTypeVar None
+
     // | Function funcSig -> failwith "todo"
     // | Keyof target -> failwith "todo"
     // | Rest target -> failwith "todo"
@@ -388,20 +446,23 @@ let inferDeclPlaceholders
           // the placeholder type?
           let! bindings, patternType = Infer.inferPattern ctx env pattern
 
-          match init with
-          | Some init ->
+          match typeAnn, init with
+          | Some typeAnn, Some init ->
+            let! structuralPlaceholderType =
+              inferTypeAnnStructuralPlaceholder ctx env typeAnn []
+
+            do! Unify.unify ctx env None patternType structuralPlaceholderType
+          | Some typeAnn, None ->
+            let! structuralPlaceholderType =
+              inferTypeAnnStructuralPlaceholder ctx env typeAnn []
+
+            do! Unify.unify ctx env None patternType structuralPlaceholderType
+          | None, Some init ->
             let! structuralPlaceholderType =
               Infer.inferExprStructuralPlacholder ctx env init
 
             do! Unify.unify ctx env None patternType structuralPlaceholderType
-          | None ->
-            match typeAnn with
-            | Some typeAnn ->
-              let! structuralPlaceholderType =
-                inferTypeAnnStructuralPlaceholder ctx env typeAnn
-
-              do! Unify.unify ctx env None patternType structuralPlaceholderType
-            | None -> () // TODO: this should be an error
+          | None, None -> () // TODO: this should be an error
 
           for KeyValue(name, binding) in bindings do
             let key =
@@ -411,11 +472,21 @@ let inferDeclPlaceholders
               | Value { Parts = parts } ->
                 { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
+            // TODO: when adding the bindings, we can introduce new type variables
+            // where the instance is the type from `binding`.  This will allow us
+            // to swap out the instance type with the actual type later on without
+            // having to unify them.
+            // This won't work because if we have a type like:
+            // {foo: t2, bar: t3}... we want t2 and t3 to be updated as well and
+            // that requires unification.
             qns <- qns.AddValue key binding
         | FnDecl({ Declare = false
                    Sig = fnSig
                    Name = name } as decl) ->
-          let! f = Infer.inferFuncSig ctx env fnSig
+          // TODO: infer using inferFuncSigStructuralPlaceholder and unify with
+          // the actual type in `inferDeclDefinitions`
+          // let! f = Infer.inferFuncSig ctx env fnSig
+          let! f = inferFuncSigStructuralPlaceholder ctx env fnSig
 
           let t =
             { Kind = TypeKind.Function f
@@ -442,7 +513,10 @@ let inferDeclPlaceholders
           if fnSig.ReturnType.IsNone then
             failwith "Ambient function declarations must be fully typed"
 
-          let! f = Infer.inferFuncSig ctx env fnSig
+          // TODO: infer using inferFuncSigStructuralPlaceholder and unify with
+          // the actual type in `inferDeclDefinitions`
+          // let! f = Infer.inferFuncSig ctx env fnSig
+          let! f = inferFuncSigStructuralPlaceholder ctx env fnSig
 
           if fnSig.Throws.IsNone then
             f.Throws <-
@@ -521,10 +595,6 @@ let inferDeclPlaceholders
               match qns.Schemes.TryFind(key) with
               | Some scheme -> Result.Ok scheme
               | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
-
-          if name = "Module" then
-            printfn $"placeholder for 'Module' = {placeholder}"
-            printfn $"key = {key}"
 
           qns <- qns.AddScheme key placeholder
         | NamespaceDecl nsDecl ->
@@ -619,7 +689,14 @@ let inferDeclDefinitions
               | Some t -> t
               | None -> failwith "Missing placeholder type"
 
+            if name = "NumberFormat" then
+              printfn $"inferredType = {inferredType}"
+              printfn $"placeholderType = {placeholderType}"
+
             do! Unify.unify ctx newEnv None placeholderType inferredType
+
+            if name = "NumberFormat" then
+              printfn $"placeholderType (after unify) = {placeholderType}"
 
           // Schemes can be generated for things like class expressions, e.g.
           // let Foo = class { ... }
@@ -760,6 +837,9 @@ let inferDeclDefinitions
 
           let! newScheme =
             Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+
+          if name = "NumberFormat" then
+            printfn $"newScheme = {newScheme}"
 
           match placeholder.Type.Kind, newScheme.Type.Kind with
           | TypeKind.Object { Elems = existingElems },

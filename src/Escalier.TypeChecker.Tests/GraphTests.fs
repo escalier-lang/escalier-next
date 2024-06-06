@@ -670,6 +670,7 @@ let MutuallyRecursiveGraphInObjects () =
       )
     }
 
+  printfn "res = %A" res
   Assert.True(Result.isOk res)
 
 [<Fact>]

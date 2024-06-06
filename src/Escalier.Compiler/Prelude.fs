@@ -493,8 +493,7 @@ module Prelude =
             // "lib.es2015.promise.d.ts"
             "lib.es2015.proxy.d.ts"
             // "lib.es2015.reflect.d.ts"
-            // "lib.dom.d.ts"
-            ]
+            "lib.dom.d.ts" ]
 
         let packageRoot = findNearestAncestorWithNodeModules baseDir
         let nodeModulesDir = Path.Combine(packageRoot, "node_modules")

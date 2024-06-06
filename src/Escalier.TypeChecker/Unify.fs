@@ -341,6 +341,7 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
+        // TODO: unify unnamed elements
         let namedProps1 = getNamedProps obj1.Elems
         let namedProps2 = getNamedProps obj2.Elems
         do! unifyObjProps ctx env ips namedProps1 namedProps2

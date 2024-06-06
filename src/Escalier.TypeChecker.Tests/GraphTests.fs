@@ -673,7 +673,7 @@ let MutuallyRecursiveGraphInObjects () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
-let MutuallyRecursiveGraphInDeppObjects () =
+let MutuallyRecursiveGraphInDepObjects () =
   let res =
     result {
       let src =

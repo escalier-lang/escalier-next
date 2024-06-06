@@ -866,7 +866,7 @@ let getEdges
       | InterfaceDecl { Name = name
                         TypeParams = typeParams
                         Elems = elems } ->
-        let interfaceTypeParamNames =
+        let typeParamNames =
           match typeParams with
           | None -> []
           | Some typeParams ->
@@ -874,7 +874,7 @@ let getEdges
               (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
-        let deps =
+        let mutable deps =
           elems
           |> List.collect (fun elem ->
             match elem with
@@ -883,7 +883,7 @@ let getEdges
                 env
                 locals
                 localsTree
-                interfaceTypeParamNames
+                typeParamNames
                 ident
                 fnSig
             | ObjTypeAnnElem.Constructor fnSig ->
@@ -891,7 +891,7 @@ let getEdges
                 env
                 locals
                 localsTree
-                interfaceTypeParamNames
+                typeParamNames
                 ident
                 fnSig
             | ObjTypeAnnElem.Method { Type = fnSig; Name = name } ->
@@ -902,7 +902,7 @@ let getEdges
                   env
                   locals
                   localsTree
-                  interfaceTypeParamNames
+                  typeParamNames
                   ident
                   fnSig
 
@@ -917,7 +917,7 @@ let getEdges
                     env
                     possibleDeps
                     localsTree
-                    interfaceTypeParamNames
+                    typeParamNames
                     ident
                     (SyntaxNode.TypeAnn returnType)
                 | None -> []
@@ -934,7 +934,7 @@ let getEdges
                     env
                     possibleDeps
                     localsTree
-                    interfaceTypeParamNames
+                    typeParamNames
                     ident
                     (SyntaxNode.TypeAnn typeAnn)
                 | None -> []
@@ -948,7 +948,7 @@ let getEdges
                   env
                   possibleDeps
                   localsTree
-                  interfaceTypeParamNames
+                  typeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
 
@@ -970,16 +970,46 @@ let getEdges
                 env
                 possibleDeps
                 localsTree
-                interfaceTypeParamNames
+                typeParamNames
                 ident
                 (SyntaxNode.TypeAnn typeParam.Constraint)
               @ findDepsForTypeIdent
                   env
                   possibleDeps
                   localsTree
-                  interfaceTypeParamNames
+                  typeParamNames
                   ident
                   (SyntaxNode.TypeAnn typeAnn))
+
+        match typeParams with
+        | None -> ()
+        | Some typeParams ->
+          for typeParam in typeParams do
+            match typeParam.Constraint with
+            | Some c ->
+              deps <-
+                deps
+                @ findDepsForTypeIdent
+                    env
+                    possibleDeps
+                    localsTree
+                    typeParamNames
+                    ident
+                    (SyntaxNode.TypeAnn c)
+            | None -> ()
+
+            match typeParam.Default with
+            | Some d ->
+              deps <-
+                deps
+                @ findDepsForTypeIdent
+                    env
+                    possibleDeps
+                    localsTree
+                    typeParamNames
+                    ident
+                    (SyntaxNode.TypeAnn d)
+            | None -> ()
 
         match edges.TryFind(ident) with
         | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)

@@ -647,7 +647,7 @@ let InferFuncDeclInModule () =
 
       let! _, env = inferModule src
 
-      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
+      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
       Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
       Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
     }

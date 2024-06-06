@@ -72,18 +72,22 @@ let inferDeclPlaceholders
         match decl.Kind with
         | VarDecl { Pattern = pattern
                     Init = init
-                    TypeAnn = _ } ->
+                    TypeAnn = typeAnn } ->
           // QUESTION: Should we check the type annotation as we're generating
           // the placeholder type?
           let! bindings, patternType = Infer.inferPattern ctx env pattern
 
-          match init with
-          | Some init ->
+          match typeAnn, init with
+          | None, Some init ->
+            // Used by the following test cases:
+            // - MutuallyRecursiveGraphInDepObjects
+            // - MutuallyRecursiveGraphInObjects
+            // - MutuallyRecursiveGraphInObjects
             let! structuralPlacholderType =
               Infer.inferExprStructuralPlacholder ctx env init
 
             do! Unify.unify ctx env None patternType structuralPlacholderType
-          | None -> ()
+          | _, _ -> ()
 
           for KeyValue(name, binding) in bindings do
             let key =
@@ -94,41 +98,29 @@ let inferDeclPlaceholders
                 { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
             qns <- qns.AddValue key binding
-        | FnDecl({ Declare = false
+        | FnDecl({ Declare = declare
                    Sig = fnSig
-                   Name = name } as decl) ->
-          let! f = Infer.inferFuncSig ctx env fnSig
+                   Name = name }) ->
+          if declare then
+            // TODO: capture these errors as diagnostics and infer the missing
+            // types as `never`
+            for p in fnSig.ParamList do
+              if p.TypeAnn.IsNone then
+                failwith "Ambient function declarations must be fully typed"
 
-          let t =
-            { Kind = TypeKind.Function f
-              Provenance = None }
-
-          qns <- qns.AddValue (QualifiedIdent.FromString name) (t, false)
-        | FnDecl({ Declare = true
-                   Sig = fnSig
-                   Name = name } as decl) ->
-          // TODO: dedupe with `inferDecl`
-          // TODO: capture these errors as diagnostics and infer the missing
-          // types as `never`
-          for p in fnSig.ParamList do
-            if p.TypeAnn.IsNone then
+            if fnSig.ReturnType.IsNone then
               failwith "Ambient function declarations must be fully typed"
 
-          if fnSig.ReturnType.IsNone then
-            failwith "Ambient function declarations must be fully typed"
+          let t = ctx.FreshTypeVar None
 
-          let! f = Infer.inferFuncSig ctx env fnSig
+          let key =
+            match ident with
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
-          if fnSig.Throws.IsNone then
-            f.Throws <-
-              { Kind = TypeKind.Keyword Keyword.Never
-                Provenance = None }
-
-          let t =
-            { Kind = TypeKind.Function f
-              Provenance = None }
-
-          qns <- qns.AddValue (QualifiedIdent.FromString name) (t, false)
+          qns <- qns.AddValue key (t, false)
         | ClassDecl({ Name = name } as decl) ->
           // TODO: treat ClassDecl similar to object types where we create a
           // structural placeholder type instead of an opaque type variable.
@@ -150,7 +142,6 @@ let inferDeclPlaceholders
             )
         | TypeDecl { TypeParams = typeParams; Name = name } ->
           // TODO: check to make sure we aren't redefining an existing type
-
           // TODO: replace placeholders, with a reference the actual definition
           // once we've inferred the definition
           let! placeholder =
@@ -175,7 +166,8 @@ let inferDeclPlaceholders
           // Instead of looking things up in the environment, we need some way to
           // find the existing type on other declarations.
           let! placeholder =
-            // TODO: handle namespaces properly here
+            // NOTE: looking up the scheme using `name` works here because we
+            // called `openNamespaces` at the top of this function.
             match env.TryFindScheme name with
             | Some scheme -> Result.Ok scheme
             | None ->
@@ -184,18 +176,12 @@ let inferDeclPlaceholders
               | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
           qns <- qns.AddScheme key placeholder
-        // newEnv <- newEnv.AddScheme name placeholder
         | NamespaceDecl nsDecl ->
           return!
             Error(
               TypeError.NotImplemented
                 "TODO: inferDeclPlaceholders - NamespaceDecl"
             )
-    // let subgraph = graph.Namespaces[nsDecl.Name]
-    // let! _, ns = Infer.inferDeclPlaceholders ctx env nsDecl.Body subgraph
-    // let ns = { ns with Name = nsDecl.Name }
-    // placeholderNS <- placeholderNS.AddNamespace nsDecl.Name ns
-    // newEnv <- newEnv.AddNamespace nsDecl.Name ns
 
     return qns
   }
@@ -278,12 +264,12 @@ let inferDeclDefinitions
           for KeyValue(name, scheme) in newSchemes do
             qns <- qns.AddScheme (QualifiedIdent.FromString name) scheme
 
-        | FnDecl({ Declare = false
+        | FnDecl({ Declare = declare
                    Name = name
                    Sig = fnSig
-                   Body = Some body } as decl) ->
+                   Body = body } as decl) ->
           let placeholderType, _ =
-            match env.TryFindValue name with
+            match newEnv.TryFindValue name with
             | Some t -> t
             | None -> failwith "Missing placeholder type"
 
@@ -291,27 +277,30 @@ let inferDeclDefinitions
           // declarations to be able to unify with any free type variables
           // from this declaration.  We generalize things in `inferModule` and
           // `inferTreeRec`.
-          // NOTE: `inferFunction` also calls unify
-          let! f = Infer.inferFunction ctx env fnSig body
+          let! f =
+            match declare, body with
+            | false, Some body ->
+              // NOTE: `inferFunction` also calls unify
+              Infer.inferFunction ctx newEnv fnSig body
+            | true, None -> Infer.inferFuncSig ctx newEnv fnSig
+            | _, _ ->
+              Result.Error(
+                TypeError.SemanticError "Invalid function declaration"
+              )
 
           let inferredType =
             { Kind = TypeKind.Function f
               Provenance = None }
 
-          do! Unify.unify ctx env None placeholderType inferredType
+          do! Unify.unify ctx newEnv None placeholderType inferredType
 
-          qns <-
-            qns.AddValue (QualifiedIdent.FromString name) (inferredType, false)
-        | FnDecl { Declare = true } ->
-          // Nothing to do since ambient function declarations don't have
-          // function bodies.
-          ()
-        | FnDecl fnDecl ->
-          return! Error(TypeError.SemanticError "Invalid function declaration")
+          match placeholderType.Kind with
+          | TypeKind.TypeVar var -> var.Instance <- Some inferredType
+          | _ -> ()
         | ClassDecl { Declare = declare
                       Name = name
                       Class = cls } ->
-          let! t, scheme = Infer.inferClass ctx env cls declare
+          let! t, scheme = Infer.inferClass ctx newEnv cls declare
 
           // TODO: update `Statics` and `Instance` on `placeholders`
 
@@ -345,7 +334,7 @@ let inferDeclDefinitions
           | Some typeParams1, Some typeParams2 ->
             for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
               match typeParam1.Constraint, typeParam2.Constraint with
-              | Some c1, Some c2 -> do! Unify.unify ctx env None c1 c2
+              | Some c1, Some c2 -> do! Unify.unify ctx newEnv None c1 c2
               | None, None -> ()
               | _, _ ->
                 return!
@@ -355,7 +344,7 @@ let inferDeclDefinitions
                   )
 
               match typeParam1.Default, typeParam2.Default with
-              | Some d1, Some d2 -> do! Unify.unify ctx env None d1 d2
+              | Some d1, Some d2 -> do! Unify.unify ctx newEnv None d1 d2
               | None, None -> ()
               | _, _ ->
                 return!
@@ -745,6 +734,8 @@ let inferTree
                 updateQualifiedNamespace newPartialQns partialQns false
 
           | None -> ()
+
+          // printfn $"inferring {root}"
 
           // Update environment to include dependencies
           let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns

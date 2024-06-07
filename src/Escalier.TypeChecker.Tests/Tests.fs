@@ -460,13 +460,13 @@ let InferRecursiveGenericObjectTypeInModule () =
     result {
       let src =
         """
-        type Node<T> = {
+        type MyNode<T> = {
           value: T,
-          left?: Node<T>,
-          right?: Node<T>
+          left?: MyNode<T>,
+          right?: MyNode<T>
         };
 
-        let node: Node<number> = {
+        let node: MyNode<number> = {
           value: 5,
           left: {
             value: 10
@@ -483,12 +483,7 @@ let InferRecursiveGenericObjectTypeInModule () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      // TODO: figure out how to not expand type aliases by default
-      Assert.Value(
-        env,
-        "node",
-        "{value: number, left: {value: number}, right: {value: number, left: {value: number}}}"
-      )
+      Assert.Value(env, "node", "MyNode<number>")
     }
 
   printfn "result = %A" result
@@ -1263,7 +1258,7 @@ let InferInterfaceInModule () =
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")
       // TODO: figure out how to not expand type aliases by default
-      Assert.Value(env, "p", "{x: number, y: number}")
+      Assert.Value(env, "p", "Point")
     }
 
   printfn "result = %A" result

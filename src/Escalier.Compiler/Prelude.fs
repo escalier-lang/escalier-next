@@ -352,6 +352,12 @@ module Prelude =
     result {
       let input = File.ReadAllText(fullPath)
 
+      let input =
+        input.Replace(
+          "readonly readyState: typeof FileReader.EMPTY | typeof FileReader.LOADING | typeof FileReader.DONE;",
+          "readonly readyState: 0 | 1 | 2;"
+        )
+
       let! ast =
         match Parser.parseModule input with
         | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)
@@ -493,8 +499,7 @@ module Prelude =
             // "lib.es2015.promise.d.ts"
             "lib.es2015.proxy.d.ts"
             // "lib.es2015.reflect.d.ts"
-            // "lib.dom.d.ts"
-            ]
+            "lib.dom.d.ts" ]
 
         let packageRoot = findNearestAncestorWithNodeModules baseDir
         let nodeModulesDir = Path.Combine(packageRoot, "node_modules")

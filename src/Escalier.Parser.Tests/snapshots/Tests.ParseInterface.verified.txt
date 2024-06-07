@@ -20,7 +20,8 @@ output: Ok
                                                  Stop = (Ln: 3, Col: 16) }
                                         InferredType = None }
                             Optional = false
-                            Readonly = false }] }
+                            Readonly = false
+                            Static = false }] }
           Span = { Start = (Ln: 2, Col: 5)
                    Stop = (Ln: 5, Col: 5) } };
       Decl
@@ -35,6 +36,7 @@ output: Ok
                                                  Stop = (Ln: 6, Col: 16) }
                                         InferredType = None }
                             Optional = false
-                            Readonly = false }] }
+                            Readonly = false
+                            Static = false }] }
           Span = { Start = (Ln: 5, Col: 5)
                    Stop = (Ln: 8, Col: 5) } }] }

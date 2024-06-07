@@ -720,7 +720,7 @@ module rec Graph =
               | ClassElem.Getter getter ->
                 let fnSig: FuncSig =
                   { ParamList = []
-                    Self = Some getter.Self
+                    Self = getter.Self
                     ReturnType = getter.ReturnType
                     Throws = None
                     TypeParams = None
@@ -735,7 +735,7 @@ module rec Graph =
 
                 let fnSig: FuncSig =
                   { ParamList = []
-                    Self = Some setter.Self
+                    Self = setter.Self
                     ReturnType = Some undefinedTypeAnn
                     Throws = None
                     TypeParams = None

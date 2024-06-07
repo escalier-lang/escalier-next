@@ -266,6 +266,42 @@ let ParseAndInferClassDecl () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let ParseAndInferClassDeclWithStatics () =
+  let res =
+    result {
+      let input =
+        """
+        declare class Foo {
+          static bar(x: number, y: string): boolean;
+          static baz: string;
+        }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Value(
+        env,
+        "Foo",
+        "{new fn () -> Foo, bar fn (mut x: number, mut y: string) -> boolean, baz: string}"
+      )
+
+      Assert.Type(env, "Foo", "{}")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let ImportThirdPartyModules () =
   let result =
     result {

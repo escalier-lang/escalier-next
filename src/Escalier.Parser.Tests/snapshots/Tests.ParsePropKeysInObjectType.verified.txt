@@ -24,7 +24,8 @@ output: Ok
                                                        Stop = (Ln: 3, Col: 16) }
                                               InferredType = None }
                                   Optional = false
-                                  Readonly = false };
+                                  Readonly = false
+                                  Static = false };
                               Property
                                 { Name = String "hello"
                                   TypeAnn = { Kind = Keyword Number
@@ -32,7 +33,8 @@ output: Ok
                                                        Stop = (Ln: 4, Col: 22) }
                                               InferredType = None }
                                   Optional = false
-                                  Readonly = false };
+                                  Readonly = false
+                                  Static = false };
                               Property
                                 { Name =
                                    Computed
@@ -79,7 +81,8 @@ output: Ok
                                               Stop = (Ln: 5, Col: 46) }
                                      InferredType = None }
                                   Optional = false
-                                  Readonly = false }]
+                                  Readonly = false
+                                  Static = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 6, Col: 6) }

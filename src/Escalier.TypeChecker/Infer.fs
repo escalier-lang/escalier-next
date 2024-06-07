@@ -181,7 +181,8 @@ module rec Infer =
         | ClassElem.Property { Name = name
                                TypeAnn = typeAnn
                                Optional = optional
-                               Readonly = readonly } ->
+                               Readonly = readonly
+                               Static = isStatic } ->
           let! name = inferPropName ctx env name
           let! t = inferTypeAnn ctx newEnv typeAnn
 
@@ -192,7 +193,10 @@ module rec Infer =
                 Readonly = readonly
                 Type = t }
 
-          instanceElems <- prop :: instanceElems
+          if isStatic then
+            staticElems <- prop :: staticElems
+          else
+            instanceElems <- prop :: instanceElems
         | ClassElem.Constructor { Sig = fnSig; Body = body } ->
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
@@ -208,6 +212,7 @@ module rec Infer =
                              Sig = fnSig
                              Body = body } ->
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! name = inferPropName ctx env name
 
           // .d.ts files don't track whether a method throws or not so we default
           // to `never` for now.  In the future we may override the types for some
@@ -220,56 +225,64 @@ module rec Infer =
           match fnSig.Self with
           | None ->
             staticMethods <-
-              (ObjTypeElem.Method(PropName.String name, placeholderFn),
-               fnSig,
-               body)
+              (ObjTypeElem.Method(name, placeholderFn), fnSig, body)
               :: staticMethods
           | Some _ ->
             instanceMethods <-
-              (ObjTypeElem.Method(PropName.String name, placeholderFn),
-               fnSig,
-               body)
+              (ObjTypeElem.Method(name, placeholderFn), fnSig, body)
               :: instanceMethods
         | ClassElem.Getter { Name = name
                              Self = self
                              ReturnType = retType
-                             Body = body } ->
-          // TODO: handle static getters
+                             Body = body
+                             Static = isStatic } ->
           let fnSig: FuncSig =
             { TypeParams = None
-              Self = Some self
+              Self = self
               ParamList = []
               ReturnType = retType
               Throws = None
               IsAsync = false }
 
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! name = inferPropName ctx env name
 
-          instanceMethods <-
-            (ObjTypeElem.Getter(PropName.String name, placeholderFn),
-             fnSig,
-             body)
-            :: instanceMethods
+          match self, isStatic with
+          | None, true ->
+            staticMethods <-
+              (ObjTypeElem.Getter(name, placeholderFn), fnSig, body)
+              :: staticMethods
+          | Some _, false ->
+            instanceMethods <-
+              (ObjTypeElem.Getter(name, placeholderFn), fnSig, body)
+              :: instanceMethods
+          | _, _ -> failwith "Invalid getter"
         | ClassElem.Setter { Name = name
                              Self = self
                              Param = param
-                             Body = body } ->
-          // TODO: handle static setters
+                             Body = body
+                             Static = isStatic } ->
           let fnSig: FuncSig =
             { TypeParams = None
-              Self = Some self
+              Self = self
               ParamList = [ param ]
               ReturnType = None
               Throws = None
               IsAsync = false }
 
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! name = inferPropName ctx env name
 
-          instanceMethods <-
-            (ObjTypeElem.Setter(PropName.String name, placeholderFn),
-             fnSig,
-             body)
-            :: instanceMethods
+          match self, isStatic with
+          | None, true ->
+            staticMethods <-
+              (ObjTypeElem.Setter(name, placeholderFn), fnSig, body)
+              :: staticMethods
+          | Some _, false ->
+            instanceMethods <-
+              (ObjTypeElem.Setter(name, placeholderFn), fnSig, body)
+              :: instanceMethods
+          | _, _ -> failwith "Invalid setter"
 
       for elem, _, _ in instanceMethods do
         match elem with
@@ -2661,7 +2674,6 @@ module rec Infer =
                 match typeParam.Default with
                 | Some(d) -> Some(ctx.FreshTypeVar None)
                 | None -> None
-
 
               { Name = typeParam.Name
                 Constraint = c

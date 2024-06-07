@@ -38,20 +38,23 @@ output: Ok
                                                                  InferredType =
                                                                   None }
                                                               Optional = true
-                                                              Readonly = false }]
+                                                              Readonly = false
+                                                              Static = false }]
                                                         Immutable = false }
                                                    Span =
                                                     { Start = (Ln: 2, Col: 26)
                                                       Stop = (Ln: 2, Col: 38) }
                                                    InferredType = None }
                                                 Optional = true
-                                                Readonly = false }]
+                                                Readonly = false
+                                                Static = false }]
                                           Immutable = false }
                                      Span = { Start = (Ln: 2, Col: 21)
                                               Stop = (Ln: 2, Col: 39) }
                                      InferredType = None }
                                   Optional = true
-                                  Readonly = false }]
+                                  Readonly = false
+                                  Static = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 16)
                                 Stop = (Ln: 2, Col: 40) }

@@ -186,7 +186,8 @@ module rec Migrate =
         { Name = name
           TypeAnn = migrateTypeAnn typeAnn
           Optional = optional
-          Readonly = readonly }
+          Readonly = readonly
+          Static = false }
     | TsMethodSignature { Key = key
                           TypeParams = typeParams
                           Params = fnParams
@@ -757,12 +758,13 @@ module rec Migrate =
                                  Accessibility = _
                                  IsAbstract = _
                                  IsOptional = _
-                                 IsOverride = _ } ->
+                                 IsOverride = _
+                                 IsStatic = isStatic } ->
             let name =
               match key with
-              | PropName.Ident id -> id.Name
-              | PropName.Str str -> str.Value
-              | PropName.Num num -> num.Value |> string
+              | PropName.Ident id -> Syntax.PropName.Ident id.Name
+              | PropName.Str str -> Syntax.PropName.String str.Value
+              | PropName.Num num -> Syntax.PropName.Number num.Value
               | PropName.Computed computedPropName ->
                 // TODO: update `key` to handle `unique symbol`s as well
                 failwith "TODO: computed property name"
@@ -779,18 +781,28 @@ module rec Migrate =
               | None ->
                 failwith "all callable signatures must have a return type"
 
+            let self =
+              match isStatic with
+              | true -> None
+              | false -> Some(makeSelfFuncParamWithOptionalTypeann ())
+
             let fnSig: FuncSig =
               { TypeParams = typeParams
-                Self = Some(makeSelfFuncParamWithOptionalTypeann ())
+                Self = self
                 ParamList = List.map migrateParam f.Params
                 ReturnType = Some retType
                 Throws = None
                 IsAsync = false }
 
-            ClassElem.Method
-              { Name = name
-                Sig = fnSig
-                Body = None }
+            match methodKind with
+            | Method ->
+              ClassElem.Method
+                { Name = name
+                  Sig = fnSig
+                  Body = None
+                  Static = isStatic }
+            | Getter -> failwith "TODO: migrateClassDecl - Getter"
+            | Setter -> failwith "TODO: migrateClassDecl - Setter"
           | ClassMember.PrivateMethod(_) ->
             failwith "TODO: migrateClassDecl - PrivateMethod"
           | ClassMember.ClassProp { Key = key
@@ -823,7 +835,8 @@ module rec Migrate =
               { Name = name
                 TypeAnn = typeAnn
                 Optional = optional
-                Readonly = readonly }
+                Readonly = readonly
+                Static = isStatic }
           | ClassMember.PrivateProp(_) ->
             failwith "TODO: migrateClassDecl - PrivateProp"
           | ClassMember.TsIndexSignature(_) ->

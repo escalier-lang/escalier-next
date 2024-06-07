@@ -25,7 +25,8 @@ output: Ok
                                                        Stop = (Ln: 2, Col: 28) }
                                               InferredType = None }
                                   Optional = false
-                                  Readonly = false };
+                                  Readonly = false
+                                  Static = false };
                               Property
                                 { Name = String "y"
                                   TypeAnn = { Kind = Keyword Number
@@ -33,7 +34,8 @@ output: Ok
                                                        Stop = (Ln: 2, Col: 39) }
                                               InferredType = None }
                                   Optional = false
-                                  Readonly = false }]
+                                  Readonly = false
+                                  Static = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 2, Col: 40) }
@@ -62,7 +64,8 @@ output: Ok
                                               Stop = (Ln: 3, Col: 27) }
                                      InferredType = None }
                                   Optional = false
-                                  Readonly = false };
+                                  Readonly = false
+                                  Static = false };
                               Property
                                 { Name = String "p1"
                                   TypeAnn =
@@ -72,7 +75,8 @@ output: Ok
                                               Stop = (Ln: 3, Col: 38) }
                                      InferredType = None }
                                   Optional = false
-                                  Readonly = false }]
+                                  Readonly = false
+                                  Static = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 3, Col: 17)
                                 Stop = (Ln: 3, Col: 39) }

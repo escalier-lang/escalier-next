@@ -39,19 +39,21 @@ output: Ok
                                                 Stop = (Ln: 3, Col: 19) }
                                        InferredType = None }
                                     Optional = false
-                                    Readonly = false };
+                                    Readonly = false
+                                    Static = false };
                                 Getter
-                                  { Name = "msg"
+                                  { Name = String "msg"
                                     Self =
-                                     { Pattern =
-                                        { Kind = Ident { Name = "self"
-                                                         IsMut = false
-                                                         Assertion = None }
-                                          Span = { Start = (Ln: 4, Col: 15)
-                                                   Stop = (Ln: 4, Col: 19) }
-                                          InferredType = None }
-                                       TypeAnn = None
-                                       Optional = false }
+                                     Some
+                                       { Pattern =
+                                          { Kind = Ident { Name = "self"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 4, Col: 15)
+                                                     Stop = (Ln: 4, Col: 19) }
+                                            InferredType = None }
+                                         TypeAnn = None
+                                         Optional = false }
                                     Body =
                                      Some
                                        (Block
@@ -83,19 +85,21 @@ output: Ok
                                                  { Start = (Ln: 5, Col: 9)
                                                    Stop = (Ln: 6, Col: 7) } }] })
                                     ReturnType = None
-                                    Throws = None };
+                                    Throws = None
+                                    Static = false };
                                 Setter
-                                  { Name = "msg"
+                                  { Name = String "msg"
                                     Self =
-                                     { Pattern =
-                                        { Kind = Ident { Name = "self"
-                                                         IsMut = true
-                                                         Assertion = None }
-                                          Span = { Start = (Ln: 7, Col: 15)
-                                                   Stop = (Ln: 7, Col: 23) }
-                                          InferredType = None }
-                                       TypeAnn = None
-                                       Optional = false }
+                                     Some
+                                       { Pattern =
+                                          { Kind = Ident { Name = "self"
+                                                           IsMut = true
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 7, Col: 15)
+                                                     Stop = (Ln: 7, Col: 23) }
+                                            InferredType = None }
+                                         TypeAnn = None
+                                         Optional = false }
                                     Param =
                                      { Pattern =
                                         { Kind = Ident { Name = "msg"
@@ -156,7 +160,8 @@ output: Ok
                                                 Span =
                                                  { Start = (Ln: 8, Col: 9)
                                                    Stop = (Ln: 8, Col: 24) } }] })
-                                    Throws = None }] }
+                                    Throws = None
+                                    Static = false }] }
                          Span = { Start = (Ln: 2, Col: 15)
                                   Stop = (Ln: 10, Col: 6) }
                          InferredType = None }

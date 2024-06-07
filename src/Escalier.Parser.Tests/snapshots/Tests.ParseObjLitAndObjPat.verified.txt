@@ -23,7 +23,8 @@ output: Ok
                                                        Stop = (Ln: 2, Col: 28) }
                                               InferredType = None }
                                   Optional = false
-                                  Readonly = false };
+                                  Readonly = false
+                                  Static = false };
                               Property
                                 { Name = String "y"
                                   TypeAnn = { Kind = Keyword Number
@@ -31,7 +32,8 @@ output: Ok
                                                        Stop = (Ln: 2, Col: 39) }
                                               InferredType = None }
                                   Optional = false
-                                  Readonly = false }]
+                                  Readonly = false
+                                  Static = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 2, Col: 40) }

@@ -169,23 +169,26 @@ module Syntax =
       Body: option<BlockOrExpr> }
 
   type Method =
-    { Name: string
+    { Name: PropName
       Sig: FuncSig
-      Body: option<BlockOrExpr> }
+      Body: option<BlockOrExpr>
+      Static: bool }
 
   type Getter =
-    { Name: string
-      Self: FuncParam
+    { Name: PropName
+      Self: option<FuncParam>
       Body: option<BlockOrExpr>
       ReturnType: option<TypeAnn>
-      Throws: option<TypeAnn> }
+      Throws: option<TypeAnn>
+      Static: bool }
 
   type Setter =
-    { Name: string
-      Self: FuncParam
+    { Name: PropName
+      Self: option<FuncParam>
       Param: FuncParam
       Body: option<BlockOrExpr>
-      Throws: option<TypeAnn> }
+      Throws: option<TypeAnn>
+      Static: bool }
 
   type MatchCase =
     { Span: Span
@@ -474,12 +477,12 @@ module Syntax =
 
   type Stmt = { Kind: StmtKind; Span: Span }
 
-  // TODO: add support for static properties
   type Property =
     { Name: PropName
       TypeAnn: TypeAnn
       Optional: bool
-      Readonly: bool }
+      Readonly: bool
+      Static: bool }
 
   type IndexParam = { Name: string; Constraint: TypeAnn }
 

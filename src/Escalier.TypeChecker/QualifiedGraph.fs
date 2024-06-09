@@ -1,9 +1,13 @@
 module Escalier.TypeChecker.QualifiedGraph
 
-open Escalier.Data.Type
+open FsToolkit.ErrorHandling
 
+open Escalier.Data.Type
 open Escalier.Data
 
+open Env
+open Error
+open ExprVisitor
 
 type QualifiedIdent =
   { Parts: list<string> }
@@ -79,4 +83,188 @@ type QualifiedNamespace =
     { this with
         Schemes = Map.add ident scheme this.Schemes }
 
-type SyntaxNode = Graph.SyntaxNode
+type SyntaxNode =
+  | TypeAnn of Syntax.TypeAnn
+  | Expr of Syntax.Expr
+
+let findFunctions (expr: Syntax.Expr) : list<Syntax.Function> =
+  let mutable fns: list<Syntax.Function> = []
+
+  let visitor =
+    { ExprVisitor.VisitExpr =
+        fun (expr, state) ->
+          match expr.Kind with
+          | Syntax.ExprKind.Function f ->
+            fns <- f :: fns
+            (false, state)
+          | _ -> (true, state)
+      ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+      ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+      ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+      ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
+
+  walkExpr visitor () expr
+
+  List.rev fns
+
+let getExports
+  (ctx: Ctx)
+  (env: Env)
+  (name: string)
+  (items: list<Syntax.ModuleItem>)
+  : Result<Namespace, TypeError> =
+
+  result {
+    let mutable ns: Namespace =
+      { Name = name
+        Values = Map.empty
+        Schemes = Map.empty
+        Namespaces = Map.empty }
+
+    for item in items do
+      match item with
+      | Syntax.ModuleItem.Import importDecl ->
+        // We skip exports because we don't want to automatically re-export
+        // everything.
+        ()
+      | Syntax.ModuleItem.Decl decl ->
+        match decl.Kind with
+        | Syntax.DeclKind.ClassDecl classDecl ->
+          failwith "TODO: getExports - classDecl"
+        | Syntax.DeclKind.FnDecl { Name = name } ->
+          let! t = env.GetValue name
+          let isMut = false
+          ns <- ns.AddBinding name (t, isMut)
+        | Syntax.DeclKind.VarDecl { Pattern = pattern } ->
+          let names = Helpers.findBindingNames pattern
+
+          for name in names do
+            let! t = env.GetValue name
+            let isMut = false
+            ns <- ns.AddBinding name (t, isMut)
+        // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
+        | Syntax.DeclKind.InterfaceDecl { Name = name } ->
+          let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+
+          ns <- ns.AddScheme name scheme
+        | Syntax.DeclKind.TypeDecl { Name = name } ->
+          let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+
+          ns <- ns.AddScheme name scheme
+        | Syntax.DeclKind.EnumDecl tsEnumDecl ->
+          failwith "TODO: getExports - tsEnumDecl"
+        | Syntax.DeclKind.NamespaceDecl { Name = name } ->
+          if name = "global" then
+            // TODO: figure out what we want to do with globals
+            // Maybe we can add these to `env` and have `getExports` return
+            // both a namespace and an updated env
+            ()
+          else
+            match env.Namespace.Namespaces.TryFind name with
+            | Some value -> ns <- ns.AddNamespace name value
+            | None -> failwith $"Couldn't find namespace: '{name}'"
+
+    return ns
+  }
+
+// TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
+let mergeType (imutType: Type) (mutType: Type) : Type =
+  // If a method exists on both `imutType` and `mutType` then it's a mutable method
+  // If it only exists on `imutType` then it's an immutable method
+  // There should never be a method that only exists on `mutType`
+
+  match imutType.Kind, mutType.Kind with
+  | TypeKind.Object imutElems, TypeKind.Object mutElems ->
+    // TODO: figure out how to handle overloaded methods
+    let mutable imutNamedElems: Map<PropName, ObjTypeElem> =
+      imutElems.Elems
+      |> List.choose (fun elem ->
+        match elem with
+        | ObjTypeElem.Property p ->
+          match p.Name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | ObjTypeElem.Method(name, fn) ->
+          match name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | ObjTypeElem.Getter(name, fn) ->
+          match name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | ObjTypeElem.Setter(name, fn) ->
+          match name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | _ -> None)
+      |> Map.ofSeq
+
+    let mutable unnamedElems: list<ObjTypeElem> = []
+
+    let mutable mutNamedElems: Map<PropName, ObjTypeElem> =
+      mutElems.Elems
+      |> List.choose (fun elem ->
+        match elem with
+        | ObjTypeElem.Property p ->
+          match p.Name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | ObjTypeElem.Method(name, fn) ->
+          match name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | ObjTypeElem.Getter(name, fn) ->
+          match name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | ObjTypeElem.Setter(name, fn) ->
+          match name with
+          | PropName.String s -> Some(PropName.String s, elem)
+          | PropName.Number n -> Some(PropName.Number n, elem)
+          | PropName.Symbol i -> Some(PropName.Symbol i, elem)
+        | elem ->
+          // This assumes that indexed/mapped signatures are on both the
+          // readonly and non-readonly interfaces.  We ignore the readonly
+          // one because the signature isn't responsible for preventing
+          // mutation of the object in this way.  Instead we have a special
+          // check for this.
+          unnamedElems <- elem :: unnamedElems
+          None)
+      |> Map.ofSeq
+
+    let elems =
+      mutNamedElems
+      |> Map.toSeq
+      |> Seq.map (fun (key, value) ->
+        match imutNamedElems.TryFind key with
+        | Some(imutValue) -> imutValue
+        | None ->
+          match value with
+          | ObjTypeElem.Method(name, fn) ->
+            let self =
+              match fn.Self with
+              | None -> None
+              | Some self ->
+                Some
+                  { self with
+                      Pattern =
+                        Pattern.Identifier { Name = "self"; IsMut = true } }
+
+            ObjTypeElem.Method(name, { fn with Self = self })
+          | elem -> elem)
+
+    let kind =
+      TypeKind.Object
+        { Elems = List.ofSeq elems @ unnamedElems
+          Immutable = false
+          Interface = false }
+
+    { Kind = kind; Provenance = None }
+  | _ -> failwith "both types must be objects to merge them"

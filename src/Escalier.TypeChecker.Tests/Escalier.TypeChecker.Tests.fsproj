@@ -9,7 +9,6 @@
         <Compile Include="TestUtils.fs"/>
         <Compile Include="Tests.fs"/>
         <Compile Include="Functions.fs"/>
-        <Compile Include="GraphTests.fs"/>
         <Compile Include="Mutability.fs"/>
         <Compile Include="NoParseTests.fs"/>
         <Compile Include="UtilityTypes.fs"/>

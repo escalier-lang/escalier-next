@@ -48,6 +48,67 @@ let getAllBindingPatterns (pattern: Pattern) : Map<string, Type> =
 
   result
 
+let rec inferExprStructuralPlacholder
+  (ctx: Ctx)
+  (env: Env)
+  (expr: Expr)
+  : Result<Type, TypeError> =
+  result {
+    match expr.Kind with
+    | ExprKind.Object { Elems = elems } ->
+      let! elems =
+        elems
+        |> List.traverseResultM (fun elem ->
+          result {
+            match elem with
+            | ObjElem.Property(span, name, value) ->
+              let! name = Infer.inferPropName ctx env name
+              let! t = inferExprStructuralPlacholder ctx env value
+
+              return
+                ObjTypeElem.Property
+                  { Name = name
+                    Optional = false
+                    Readonly = false
+                    Type = t }
+            | ObjElem.Shorthand(span, name) ->
+              match env.TryFindValue name with
+              | Some(t, _) ->
+                return
+                  ObjTypeElem.Property
+                    { Name = Escalier.Data.Type.PropName.String name
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+              | None ->
+                return! Error(TypeError.SemanticError $"{name} not found")
+            | ObjElem.Spread(span, value) ->
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    "TODO: inferExprStructuralPlacholder - Spread"
+                )
+          })
+
+      let kind =
+        TypeKind.Object
+          { Elems = elems
+            Immutable = false
+            Interface = false }
+
+      return { Kind = kind; Provenance = None }
+    | ExprKind.Tuple { Elems = elems } ->
+      let! elems =
+        elems
+        |> List.traverseResultM (fun elem ->
+          inferExprStructuralPlacholder ctx env elem)
+
+      let kind = TypeKind.Tuple { Elems = elems; Immutable = false }
+
+      return { Kind = kind; Provenance = None }
+    | _ -> return ctx.FreshTypeVar None
+  }
+
 let inferDeclPlaceholders
   (ctx: Ctx)
   (env: Env)
@@ -84,7 +145,7 @@ let inferDeclPlaceholders
             // - MutuallyRecursiveGraphInObjects
             // - MutuallyRecursiveGraphInObjects
             let! structuralPlacholderType =
-              Infer.inferExprStructuralPlacholder ctx env init
+              inferExprStructuralPlacholder ctx env init
 
             do! Unify.unify ctx env None patternType structuralPlacholderType
           | _, _ -> ()
@@ -323,13 +384,26 @@ let inferDeclDefinitions
         | ClassDecl { Declare = declare
                       Name = name
                       Class = cls } ->
-          // TODO: lookup the placeholder type and scheme
-          // TODO: unify them with the inferred type and scheme
-          let! t, scheme = Infer.inferClass ctx newEnv cls declare
+          // TODO: figure out how to only call inferClass once instead of twice
+          let! inferredType, inferredScheme =
+            Infer.inferClass ctx newEnv cls declare
 
-          // TODO: update `Statics` and `Instance` on `placeholders`
+          match ident with
+          | Type { Parts = parts } ->
+            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            let placeholderScheme = qns.Schemes[key]
 
-          ()
+            do!
+              Unify.unify
+                ctx
+                newEnv
+                None
+                placeholderScheme.Type
+                inferredScheme.Type
+          | Value { Parts = parts } ->
+            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            let placeholderType, _ = qns.Values[key]
+            do! Unify.unify ctx newEnv None placeholderType inferredType
         | EnumDecl _ ->
           return!
             Error(

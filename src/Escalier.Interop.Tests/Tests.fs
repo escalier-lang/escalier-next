@@ -434,7 +434,7 @@ let InferBasicVarDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string | undefined")
@@ -470,7 +470,7 @@ let InferTypeDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
       Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
@@ -700,7 +700,7 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -750,7 +750,7 @@ let ImportReact () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "ElementType", "React.React.ElementType")
     }

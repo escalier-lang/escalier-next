@@ -414,7 +414,11 @@ module Prelude =
 
                 let ns =
                   match
-                    Graph.getExports ctx modEnv "<exports>" modAst.Items
+                    QualifiedGraph.getExports
+                      ctx
+                      modEnv
+                      "<exports>"
+                      modAst.Items
                   with
                   | Ok value -> value
                   | Error err ->
@@ -524,7 +528,7 @@ module Prelude =
         with
         | Some(readonlyArray), Some(array) ->
           // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
-          let merged = Graph.mergeType readonlyArray.Type array.Type
+          let merged = QualifiedGraph.mergeType readonlyArray.Type array.Type
           newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
 
           // TODO: for type definitions using Array and ReadonlyArray we need to

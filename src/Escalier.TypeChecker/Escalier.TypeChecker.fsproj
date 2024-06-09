@@ -14,7 +14,6 @@
         <Compile Include="TemplateLiteral.fs"/>
         <Compile Include="Unify.fs"/>
         <Compile Include="Helpers.fs"/>
-        <Compile Include="Graph.fs"/>
         <Compile Include="Infer.fs"/>
         <Compile Include="QualifiedGraph.fs"/>
         <Compile Include="BuildGraph.fs"/>

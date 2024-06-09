@@ -764,7 +764,7 @@ let getEdges
             //
             //       failwith $"{depIdent} has not been initialized yet"
 
-            let functions = Graph.findFunctions init
+            let functions = QualifiedGraph.findFunctions init
 
             for f in functions do
               let captures = findCaptures locals [] f

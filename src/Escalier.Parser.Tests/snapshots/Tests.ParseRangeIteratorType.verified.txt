@@ -40,7 +40,8 @@ output: Ok
                                                                  (Ln: 3, Col: 39) }
                                                              InferredType = None }
                                                           Optional = false
-                                                          Readonly = false };
+                                                          Readonly = false
+                                                          Static = false };
                                                       Property
                                                         { Name = String "value"
                                                           TypeAnn =
@@ -83,7 +84,8 @@ output: Ok
                                                                  (Ln: 3, Col: 57) }
                                                              InferredType = None }
                                                           Optional = false
-                                                          Readonly = false }]
+                                                          Readonly = false
+                                                          Static = false }]
                                                     Immutable = false }
                                                Span = { Start = (Ln: 3, Col: 24)
                                                         Stop = (Ln: 4, Col: 7) }
@@ -94,7 +96,8 @@ output: Ok
                                               Stop = (Ln: 4, Col: 7) }
                                      InferredType = None }
                                   Optional = false
-                                  Readonly = false }]
+                                  Readonly = false
+                                  Static = false }]
                             Immutable = false }
                        Span = { Start = (Ln: 2, Col: 54)
                                 Stop = (Ln: 4, Col: 8) }

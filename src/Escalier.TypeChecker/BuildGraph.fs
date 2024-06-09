@@ -122,6 +122,9 @@ let postProcessDeps
 
   let identNamespaces = List.take (identNamespaces.Length - 1) identNamespaces
 
+  let globalNS = Map.tryFind "global" ns.Namespaces
+  let maybeGlobalTree = Map.tryFind "global" localsTree.Namespaces
+
   // Filter out deps that are in the environment
   let deps =
     deps
@@ -147,8 +150,6 @@ let postProcessDeps
         else
           true)
 
-  // let tree = localsToDeclTree locals
-
   if ident.GetParts().Length > 1 then
     deps
     |> List.choose (fun dep ->
@@ -171,7 +172,15 @@ let postProcessDeps
 
       result)
   else
-    List.choose (getLocalForDep localsTree) deps
+    List.choose
+      (fun dep ->
+        match getLocalForDep localsTree dep with
+        | Some local -> Some local
+        | None ->
+          match maybeGlobalTree with
+          | Some tree -> getLocalForDep tree dep
+          | None -> None)
+      deps
 
 let findDepsForValueIdent
   (ns: Namespace)
@@ -343,8 +352,10 @@ let findLocals (decls: list<Decl>) : list<QDeclIdent> =
           locals @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] }) ]
 
       | ClassDecl { Name = name } ->
-        // TODO: handle statics
-        locals <- locals @ [ QDeclIdent.Type(QualifiedIdent.FromString name) ]
+        locals <-
+          locals
+          @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
+              QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
       | TypeDecl { Name = name } ->
         locals <-
           locals @ [ QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
@@ -798,15 +809,175 @@ let getEdges
                  Body = body } ->
         let deps = getDepsForFn env ident locals localsTree [] fnSig body
         edges <- edges.Add(ident, deps)
-      | ClassDecl { Name = name } ->
+      | ClassDecl { Name = name
+                    Class = { Elems = elems
+                              TypeParams = typeParams } } ->
+        let typeParamNames =
+          match typeParams with
+          | None -> []
+          | Some typeParams ->
+            List.map
+              (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+              typeParams
+
         let deps =
           match ident with
           | Type _ ->
-            // TODO: determine instance deps
-            []
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | ClassElem.Method { Sig = fnSig
+                                   Name = name
+                                   Static = false } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  getDepsForInterfaceFn
+                    env
+                    locals
+                    localsTree
+                    typeParamNames
+                    ident
+                    fnSig
+
+                propNameDeps @ fnDeps
+              | ClassElem.Getter { ReturnType = returnType
+                                   Name = name
+                                   Static = false } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  match returnType with
+                  | Some returnType ->
+                    findDepsForTypeIdent
+                      env
+                      possibleDeps
+                      localsTree
+                      typeParamNames
+                      ident
+                      (SyntaxNode.TypeAnn returnType)
+                  | None -> []
+
+                propNameDeps @ fnDeps
+              | ClassElem.Setter { Param = { TypeAnn = typeAnn }
+                                   Name = name
+                                   Static = false } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  match typeAnn with
+                  | Some typeAnn ->
+                    findDepsForTypeIdent
+                      env
+                      possibleDeps
+                      localsTree
+                      typeParamNames
+                      ident
+                      (SyntaxNode.TypeAnn typeAnn)
+                  | None -> []
+
+                propNameDeps @ fnDeps
+              | ClassElem.Property { TypeAnn = typeAnn
+                                     Name = name
+                                     Static = false } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let typeAnnDeps =
+                  findDepsForTypeIdent
+                    env
+                    possibleDeps
+                    localsTree
+                    typeParamNames
+                    ident
+                    (SyntaxNode.TypeAnn typeAnn)
+
+                propNameDeps @ typeAnnDeps
+              | _ -> [])
           | Value qualifiedIdent ->
-            // TODO: determine static deps
-            []
+            elems
+            |> List.collect (fun elem ->
+              match elem with
+              | ClassElem.Constructor { Sig = fnSig } ->
+                getDepsForInterfaceFn
+                  env
+                  locals
+                  localsTree
+                  typeParamNames
+                  ident
+                  fnSig
+              | ClassElem.Method { Sig = fnSig
+                                   Name = name
+                                   Static = true } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  getDepsForInterfaceFn
+                    env
+                    locals
+                    localsTree
+                    typeParamNames
+                    ident
+                    fnSig
+
+                propNameDeps @ fnDeps
+              | ClassElem.Getter { ReturnType = returnType
+                                   Name = name
+                                   Static = true } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  match returnType with
+                  | Some returnType ->
+                    findDepsForTypeIdent
+                      env
+                      possibleDeps
+                      localsTree
+                      typeParamNames
+                      ident
+                      (SyntaxNode.TypeAnn returnType)
+                  | None -> []
+
+                propNameDeps @ fnDeps
+              | ClassElem.Setter { Param = { TypeAnn = typeAnn }
+                                   Name = name
+                                   Static = true } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let fnDeps =
+                  match typeAnn with
+                  | Some typeAnn ->
+                    findDepsForTypeIdent
+                      env
+                      possibleDeps
+                      localsTree
+                      typeParamNames
+                      ident
+                      (SyntaxNode.TypeAnn typeAnn)
+                  | None -> []
+
+                propNameDeps @ fnDeps
+              | ClassElem.Property { TypeAnn = typeAnn
+                                     Name = name
+                                     Static = true } ->
+                let propNameDeps = getPropNameDeps env locals name
+
+                let typeAnnDeps =
+                  findDepsForTypeIdent
+                    env
+                    possibleDeps
+                    localsTree
+                    typeParamNames
+                    ident
+                    (SyntaxNode.TypeAnn typeAnn)
+
+                propNameDeps @ typeAnnDeps
+              | _ -> [])
+
+        // We need to infer the type and value of the class as the same time.
+        let deps =
+          match ident with
+          | Type qualifiedIdent -> QDeclIdent.Value qualifiedIdent :: deps
+          | Value qualifiedIdent -> QDeclIdent.Type qualifiedIdent :: deps
 
         edges <- edges.Add(ident, deps)
       | TypeDecl { Name = name

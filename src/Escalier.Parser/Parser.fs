@@ -322,7 +322,8 @@ module Parser =
       { Name = name
         TypeAnn = typeAnn
         Optional = optional.IsSome
-        Readonly = false }
+        Readonly = false
+        Static = false }
 
   // TODO: add support for methods, getters, and setters
   let private objTypeAnnElem =
@@ -875,9 +876,11 @@ module Parser =
             Throws = throws
             IsAsync = async.IsSome }
 
-      { Name = name
+      // TODO: handle computed names for methods
+      { Name = PropName.String name
         Sig = funcSig
-        Body = Some(BlockOrExpr.Block body) }
+        Body = Some(BlockOrExpr.Block body)
+        Static = false (* TODO *) }
 
   let private getter: Parser<Getter, unit> =
     pipe5
@@ -888,11 +891,13 @@ module Parser =
        .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
       block
     <| fun async name self (retType, throws) body ->
-      { Getter.Name = name
-        Self = self
+      // TODO: handle computed names for getters
+      { Getter.Name = PropName.String name
+        Self = Some self
         Body = Some(BlockOrExpr.Block body)
         ReturnType = retType
-        Throws = throws }
+        Throws = throws
+        Static = false (* TODO *) }
 
   // TODO: generic setters
   let private setter: Parser<Setter, unit> =
@@ -906,11 +911,13 @@ module Parser =
       (opt (ws .>> keyword "throws" >>. typeAnn))
       block
     <| fun async name (self, param) throws body ->
-      { Setter.Name = name
-        Self = self
+      // TODO: handle computed names for setters
+      { Setter.Name = PropName.String name
+        Self = Some self
         Param = param
         Body = Some(BlockOrExpr.Block body)
-        Throws = throws }
+        Throws = throws
+        Static = false (* TODO *) }
 
   let classProperty: Parser<ClassElem, unit> =
     pipe5
@@ -927,12 +934,13 @@ module Parser =
         { Name = name
           TypeAnn = typeAnn
           Optional = optional.IsSome
-          Readonly = false }
+          Readonly = false
+          Static = false (* TODO *) }
 
   let classElem: Parser<ClassElem, unit> =
     choice
-      [ attempt (classProperty .>> strWs ";")
-        constructor |>> ClassElem.Constructor
+      [ constructor |>> ClassElem.Constructor
+        attempt (classProperty .>> strWs ";")
         method |>> ClassElem.Method
         getter |>> ClassElem.Getter
         setter |>> ClassElem.Setter ]

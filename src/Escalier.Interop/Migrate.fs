@@ -6,6 +6,8 @@ open Escalier.Data.Syntax
 open Escalier.Interop.TypeScript
 
 module rec Migrate =
+  type Ctx = { Declare: bool }
+
   let start = FParsec.Position("", 0, 1, 1)
   let stop = FParsec.Position("", 0, 1, 1)
   let DUMMY_SPAN: Syntax.Span = { Start = start; Stop = stop }
@@ -186,7 +188,8 @@ module rec Migrate =
         { Name = name
           TypeAnn = migrateTypeAnn typeAnn
           Optional = optional
-          Readonly = readonly }
+          Readonly = readonly
+          Static = false }
     | TsMethodSignature { Key = key
                           TypeParams = typeParams
                           Params = fnParams
@@ -630,7 +633,10 @@ module rec Migrate =
       Span = DUMMY_SPAN
       InferredType = None }
 
-  let rec migrateModuleDecl (decl: ModuleDecl) : list<Syntax.ModuleItem> =
+  let rec migrateModuleDecl
+    (ctx: Ctx)
+    (decl: ModuleDecl)
+    : list<Syntax.ModuleItem> =
     match decl with
     | ModuleDecl.Import { Specifiers = specifiers
                           Src = src
@@ -660,7 +666,7 @@ module rec Migrate =
           { Path = src.Value
             Specifiers = specifiers } ]
     | ModuleDecl.ExportDecl { Decl = decl } ->
-      List.map Syntax.ModuleItem.Decl (migrateStmt (Stmt.Decl decl))
+      List.map Syntax.ModuleItem.Decl (migrateStmt ctx (Stmt.Decl decl))
     | ModuleDecl.ExportNamed namedExport ->
       // TODO: handle named exports with specifiers
       // The only modules that use this so far do `export {}` so the specifiers
@@ -699,7 +705,7 @@ module rec Migrate =
       TypeAnn = Option.map migrateTypeAnn param.TypeAnn
       Optional = false }
 
-  let migrateClassDecl (decl: ClassDecl) : Syntax.ClassDecl =
+  let migrateClassDecl (ctx: Ctx) (decl: ClassDecl) : Syntax.ClassDecl =
     let { Declare = declare
           Ident = { Name = name }
           Class = { TypeParams = typeParams
@@ -757,12 +763,13 @@ module rec Migrate =
                                  Accessibility = _
                                  IsAbstract = _
                                  IsOptional = _
-                                 IsOverride = _ } ->
+                                 IsOverride = _
+                                 IsStatic = isStatic } ->
             let name =
               match key with
-              | PropName.Ident id -> id.Name
-              | PropName.Str str -> str.Value
-              | PropName.Num num -> num.Value |> string
+              | PropName.Ident id -> Syntax.PropName.Ident id.Name
+              | PropName.Str str -> Syntax.PropName.String str.Value
+              | PropName.Num num -> Syntax.PropName.Number num.Value
               | PropName.Computed computedPropName ->
                 // TODO: update `key` to handle `unique symbol`s as well
                 failwith "TODO: computed property name"
@@ -779,18 +786,28 @@ module rec Migrate =
               | None ->
                 failwith "all callable signatures must have a return type"
 
+            let self =
+              match isStatic with
+              | true -> None
+              | false -> Some(makeSelfFuncParamWithOptionalTypeann ())
+
             let fnSig: FuncSig =
               { TypeParams = typeParams
-                Self = Some(makeSelfFuncParamWithOptionalTypeann ())
+                Self = self
                 ParamList = List.map migrateParam f.Params
                 ReturnType = Some retType
                 Throws = None
                 IsAsync = false }
 
-            ClassElem.Method
-              { Name = name
-                Sig = fnSig
-                Body = None }
+            match methodKind with
+            | Method ->
+              ClassElem.Method
+                { Name = name
+                  Sig = fnSig
+                  Body = None
+                  Static = isStatic }
+            | Getter -> failwith "TODO: migrateClassDecl - Getter"
+            | Setter -> failwith "TODO: migrateClassDecl - Setter"
           | ClassMember.PrivateMethod(_) ->
             failwith "TODO: migrateClassDecl - PrivateMethod"
           | ClassMember.ClassProp { Key = key
@@ -823,7 +840,8 @@ module rec Migrate =
               { Name = name
                 TypeAnn = typeAnn
                 Optional = optional
-                Readonly = readonly }
+                Readonly = readonly
+                Static = isStatic }
           | ClassMember.PrivateProp(_) ->
             failwith "TODO: migrateClassDecl - PrivateProp"
           | ClassMember.TsIndexSignature(_) ->
@@ -835,23 +853,28 @@ module rec Migrate =
             failwith "TODO: migrateClassDecl - AutoAccessor")
         body
 
+    let typeParams =
+      Option.map
+        (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+        typeParams
+
     let cls: Syntax.Class =
       { Name = Some name
-        TypeParams = None
+        TypeParams = typeParams
         Elems = elems }
 
-    { Declare = declare
+    { Declare = declare || ctx.Declare
       Name = name
       Class = cls }
 
   // This function returns a list of declarations because a single TypeScript
   // variable declaration can declare multiple variables.
-  let migrateStmt (stmt: Stmt) : list<Syntax.Decl> =
+  let migrateStmt (ctx: Ctx) (stmt: Stmt) : list<Syntax.Decl> =
     match stmt with
     | Stmt.Decl decl ->
       match decl with
       | Decl.Class decl ->
-        let decl = migrateClassDecl decl
+        let decl = migrateClassDecl ctx decl
 
         [ { Kind = DeclKind.ClassDecl decl
             Span = DUMMY_SPAN } ]
@@ -931,10 +954,12 @@ module rec Migrate =
         let kind = DeclKind.TypeDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.TsEnum _ -> failwith "TODO: migrate enum"
-      | Decl.TsModule { Declare = _declare
+      | Decl.TsModule { Declare = declare
                         Global = _global
                         Id = name
                         Body = body } ->
+        let ctx = if declare then { Declare = true } else ctx
+
         let name: string =
           match name with
           | TsModuleName.Ident ident -> ident.Name
@@ -952,7 +977,7 @@ module rec Migrate =
                   | ModuleItem.ModuleDecl decl ->
                     match decl with
                     | ModuleDecl.ExportDecl { Decl = decl } ->
-                      migrateStmt (Stmt.Decl decl)
+                      migrateStmt ctx (Stmt.Decl decl)
 
                     | ModuleDecl.Import importDecl ->
                       failwith "TODO: TsModule - Import"
@@ -971,7 +996,7 @@ module rec Migrate =
                     | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
                       failwith "TODO: TsModule - TsNamespaceExport"
 
-                  | ModuleItem.Stmt stmt -> migrateStmt stmt)
+                  | ModuleItem.Stmt stmt -> migrateStmt ctx stmt)
                 items
             | TsNamespaceDecl _tsNamespaceDecl ->
               failwith "TODO: inferModuleBlock- TsNamespaceDecl"
@@ -982,14 +1007,16 @@ module rec Migrate =
     | _ -> failwith "only declarations are supported for now"
 
   let migrateModule (m: TypeScript.Module) : Syntax.Module =
+    let ctx: Ctx = { Declare = false }
+
     let items: list<Syntax.ModuleItem> =
       List.collect
         (fun (item: ModuleItem) ->
           try
             match item with
-            | ModuleItem.ModuleDecl decl -> migrateModuleDecl decl
+            | ModuleItem.ModuleDecl decl -> migrateModuleDecl ctx decl
             | ModuleItem.Stmt stmt ->
-              List.map Syntax.ModuleItem.Decl (migrateStmt stmt)
+              List.map Syntax.ModuleItem.Decl (migrateStmt ctx stmt)
           with ex ->
             // TODO: fix all of the error messages
             printfn $"Error migrating module item: {ex.Message}"

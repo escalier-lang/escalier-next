@@ -81,6 +81,8 @@ module rec Infer =
         | _ -> return! Error(TypeError.SemanticError "Invalid key type")
     }
 
+  // TODO: support inferring class declarations without method bodies as long
+  // as the methods are fully typed.
   let inferClass
     (ctx: Ctx)
     (env: Env)
@@ -181,7 +183,8 @@ module rec Infer =
         | ClassElem.Property { Name = name
                                TypeAnn = typeAnn
                                Optional = optional
-                               Readonly = readonly } ->
+                               Readonly = readonly
+                               Static = isStatic } ->
           let! name = inferPropName ctx env name
           let! t = inferTypeAnn ctx newEnv typeAnn
 
@@ -192,7 +195,10 @@ module rec Infer =
                 Readonly = readonly
                 Type = t }
 
-          instanceElems <- prop :: instanceElems
+          if isStatic then
+            staticElems <- prop :: staticElems
+          else
+            instanceElems <- prop :: instanceElems
         | ClassElem.Constructor { Sig = fnSig; Body = body } ->
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
 
@@ -208,6 +214,7 @@ module rec Infer =
                              Sig = fnSig
                              Body = body } ->
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! name = inferPropName ctx env name
 
           // .d.ts files don't track whether a method throws or not so we default
           // to `never` for now.  In the future we may override the types for some
@@ -220,56 +227,64 @@ module rec Infer =
           match fnSig.Self with
           | None ->
             staticMethods <-
-              (ObjTypeElem.Method(PropName.String name, placeholderFn),
-               fnSig,
-               body)
+              (ObjTypeElem.Method(name, placeholderFn), fnSig, body)
               :: staticMethods
           | Some _ ->
             instanceMethods <-
-              (ObjTypeElem.Method(PropName.String name, placeholderFn),
-               fnSig,
-               body)
+              (ObjTypeElem.Method(name, placeholderFn), fnSig, body)
               :: instanceMethods
         | ClassElem.Getter { Name = name
                              Self = self
                              ReturnType = retType
-                             Body = body } ->
-          // TODO: handle static getters
+                             Body = body
+                             Static = isStatic } ->
           let fnSig: FuncSig =
             { TypeParams = None
-              Self = Some self
+              Self = self
               ParamList = []
               ReturnType = retType
               Throws = None
               IsAsync = false }
 
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! name = inferPropName ctx env name
 
-          instanceMethods <-
-            (ObjTypeElem.Getter(PropName.String name, placeholderFn),
-             fnSig,
-             body)
-            :: instanceMethods
+          match self, isStatic with
+          | None, true ->
+            staticMethods <-
+              (ObjTypeElem.Getter(name, placeholderFn), fnSig, body)
+              :: staticMethods
+          | Some _, false ->
+            instanceMethods <-
+              (ObjTypeElem.Getter(name, placeholderFn), fnSig, body)
+              :: instanceMethods
+          | _, _ -> failwith "Invalid getter"
         | ClassElem.Setter { Name = name
                              Self = self
                              Param = param
-                             Body = body } ->
-          // TODO: handle static setters
+                             Body = body
+                             Static = isStatic } ->
           let fnSig: FuncSig =
             { TypeParams = None
-              Self = Some self
+              Self = self
               ParamList = [ param ]
               ReturnType = None
               Throws = None
               IsAsync = false }
 
           let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! name = inferPropName ctx env name
 
-          instanceMethods <-
-            (ObjTypeElem.Setter(PropName.String name, placeholderFn),
-             fnSig,
-             body)
-            :: instanceMethods
+          match self, isStatic with
+          | None, true ->
+            staticMethods <-
+              (ObjTypeElem.Setter(name, placeholderFn), fnSig, body)
+              :: staticMethods
+          | Some _, false ->
+            instanceMethods <-
+              (ObjTypeElem.Setter(name, placeholderFn), fnSig, body)
+              :: instanceMethods
+          | _, _ -> failwith "Invalid setter"
 
       for elem, _, _ in instanceMethods do
         match elem with
@@ -1484,7 +1499,7 @@ module rec Infer =
 
   let start = FParsec.Position("", 0, 1, 1)
   let stop = FParsec.Position("", 0, 1, 1)
-  let DUMMY_SPAN: Syntax.Span = { Start = start; Stop = stop }
+  let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 
   let inferObjElem
     (ctx: Ctx)
@@ -2415,7 +2430,7 @@ module rec Infer =
           match env.Namespace.Namespaces.TryFind name with
           | Some value -> ns <- ns.AddNamespace name value
           | None -> failwith $"Couldn't find namespace: '{name}'"
-        | InterfaceDecl(_) ->
+        | InterfaceDecl _ ->
           failwith "TODO: getNamespaceExports - InterfaceDecl"
 
       return ns
@@ -2661,7 +2676,6 @@ module rec Infer =
                 match typeParam.Default with
                 | Some(d) -> Some(ctx.FreshTypeVar None)
                 | None -> None
-
 
               { Name = typeParam.Name
                 Constraint = c
@@ -3283,6 +3297,7 @@ module rec Infer =
         | _ -> None)
       ast.Items
 
+  // TODO: replace with InferGraph.inferModule
   let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
     result {
       // TODO: update this function to accept a filename
@@ -3552,13 +3567,18 @@ module rec Infer =
     }
 
   let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =
-    match ident with
-    | QualifiedIdent.Ident name -> env.GetValue name
-    | QualifiedIdent.Member(left, right) ->
-      result {
+    result {
+      match ident with
+      | QualifiedIdent.Ident name ->
+        match env.Namespace.Namespaces.TryFind name with
+        | None -> return! env.GetValue name
+        | Some value ->
+          let kind = TypeKind.Namespace value
+          return { Kind = kind; Provenance = None }
+      | QualifiedIdent.Member(left, right) ->
         let! left = getQualifiedIdentType ctx env left
         return! getPropType ctx env left (PropName.String right) false
-      }
+    }
 
   let rec getLvalue
     (ctx: Ctx)

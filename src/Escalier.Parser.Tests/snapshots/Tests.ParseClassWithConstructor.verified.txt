@@ -36,7 +36,8 @@ output: Ok
                                                 Stop = (Ln: 3, Col: 18) }
                                        InferredType = None }
                                     Optional = false
-                                    Readonly = false };
+                                    Readonly = false
+                                    Static = false };
                                 Constructor
                                   { Sig =
                                      { TypeParams = None

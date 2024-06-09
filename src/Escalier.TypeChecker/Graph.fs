@@ -720,7 +720,7 @@ module rec Graph =
               | ClassElem.Getter getter ->
                 let fnSig: FuncSig =
                   { ParamList = []
-                    Self = Some getter.Self
+                    Self = getter.Self
                     ReturnType = getter.ReturnType
                     Throws = None
                     TypeParams = None
@@ -735,7 +735,7 @@ module rec Graph =
 
                 let fnSig: FuncSig =
                   { ParamList = []
-                    Self = Some setter.Self
+                    Self = setter.Self
                     ReturnType = Some undefinedTypeAnn
                     Throws = None
                     TypeParams = None
@@ -947,7 +947,9 @@ module rec Graph =
       for item in items do
         match item with
         | ModuleItem.Import importDecl ->
-          failwith "TODO: getExports - importDecl"
+          // We skip exports because we don't want to automatically re-export
+          // everything.
+          ()
         | ModuleItem.Decl decl ->
           match decl.Kind with
           | DeclKind.ClassDecl classDecl ->
@@ -975,9 +977,15 @@ module rec Graph =
           | DeclKind.EnumDecl tsEnumDecl ->
             failwith "TODO: getExports - tsEnumDecl"
           | DeclKind.NamespaceDecl { Name = name } ->
-            match env.Namespace.Namespaces.TryFind name with
-            | Some value -> ns <- ns.AddNamespace name value
-            | None -> failwith $"Couldn't find namespace: '{name}'"
+            if name = "global" then
+              // TODO: figure out what we want to do with globals
+              // Maybe we can add these to `env` and have `getExports` return
+              // both a namespace and an updated env
+              ()
+            else
+              match env.Namespace.Namespaces.TryFind name with
+              | Some value -> ns <- ns.AddNamespace name value
+              | None -> failwith $"Couldn't find namespace: '{name}'"
 
       return ns
     }

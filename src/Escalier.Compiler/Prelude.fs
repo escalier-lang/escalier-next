@@ -358,6 +358,13 @@ module Prelude =
           "readonly readyState: 0 | 1 | 2;"
         )
 
+      // TODO: handle <reference path="global.d.ts" /> in @types/react/index.d.ts
+      let input =
+        input.Replace("__html: string | TrustedHTML;", "__html: string;")
+
+      // TODO: handle <reference path="global.d.ts" /> in @types/react/index.d.ts
+      let input = input.Replace("webview: ", "// webview: ")
+
       let! ast =
         match Parser.parseModule input with
         | FParsec.CharParsers.Success(value, _, _) -> Result.Ok(value)

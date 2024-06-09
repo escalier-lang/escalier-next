@@ -121,20 +121,30 @@ let inferDeclPlaceholders
               { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
           qns <- qns.AddValue key (t, false)
-        | ClassDecl({ Name = name } as decl) ->
+        | ClassDecl({ Name = name
+                      Class = { TypeParams = typeParams } } as decl) ->
           // TODO: treat ClassDecl similar to object types where we create a
           // structural placeholder type instead of an opaque type variable.
           // We should do this for both instance members and statics.
-          let instance: Scheme =
-            { Type = ctx.FreshTypeVar None
-              TypeParams = None // TODO: handle type params
-              IsTypeParam = false }
+          let! instance =
+            Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+          // let instance: Scheme =
+          //   { Type = ctx.FreshTypeVar None
+          //     TypeParams = None // TODO: handle type params
+          //     IsTypeParam = false }
 
-          qns <- qns.AddScheme (QualifiedIdent.FromString name) instance
+          let key =
+            match ident with
+            | Type { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            | Value { Parts = parts } ->
+              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+
+          qns <- qns.AddScheme key instance
 
           let statics: Type = ctx.FreshTypeVar None
 
-          qns <- qns.AddValue (QualifiedIdent.FromString name) (statics, false)
+          qns <- qns.AddValue key (statics, false)
         | EnumDecl _ ->
           return!
             Error(
@@ -163,14 +173,21 @@ let inferDeclPlaceholders
             | Value { Parts = parts } ->
               { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
+          let parts =
+            match ident with
+            | Type { Parts = parts } -> parts
+            | Value { Parts = parts } -> parts
+
           // Instead of looking things up in the environment, we need some way to
           // find the existing type on other declarations.
           let! placeholder =
             // NOTE: looking up the scheme using `name` works here because we
             // called `openNamespaces` at the top of this function.
-            match env.TryFindScheme name with
-            | Some scheme -> Result.Ok scheme
-            | None ->
+            match parts, env.TryFindScheme name with
+            // TODO: handle the case where the qualifier is `global` to handle
+            // declare global { ... } statements.
+            | [ _ ], Some scheme -> Result.Ok scheme
+            | _, _ ->
               match qns.Schemes.TryFind(key) with
               | Some scheme -> Result.Ok scheme
               | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
@@ -196,6 +213,10 @@ let rec openNamespaces (env: Env) (namespaces: list<string>) : Env =
     match namespaces with
     | [] -> ()
     | head :: rest ->
+      match parentNS.Namespaces.TryFind(head) with
+      | None -> printfn $"namespace {head} not found"
+      | Some _ -> ()
+
       let nextNS = parentNS.Namespaces[head]
 
       for KeyValue(name, scheme) in nextNS.Schemes do
@@ -209,7 +230,10 @@ let rec openNamespaces (env: Env) (namespaces: list<string>) : Env =
 
       openNamespace nextNS rest
 
-  openNamespace env.Namespace namespaces
+  match namespaces with
+  | "global" :: rest -> openNamespace env.Namespace rest
+  | namespaces -> openNamespace env.Namespace namespaces
+
   newEnv
 
 let inferDeclDefinitions
@@ -235,7 +259,6 @@ let inferDeclDefinitions
       let namespaces = List.take (List.length parts - 1) parts
 
       let mutable newEnv = env
-
       newEnv <- openNamespaces newEnv namespaces
 
       for decl in decls do
@@ -300,6 +323,8 @@ let inferDeclDefinitions
         | ClassDecl { Declare = declare
                       Name = name
                       Class = cls } ->
+          // TODO: lookup the placeholder type and scheme
+          // TODO: unify them with the inferred type and scheme
           let! t, scheme = Infer.inferClass ctx newEnv cls declare
 
           // TODO: update `Statics` and `Instance` on `placeholders`
@@ -627,8 +652,13 @@ let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addValueRec existingNS restNS)
 
+  let parts =
+    match ident.Parts with
+    | "global" :: rest -> rest
+    | parts -> parts
+
   { env with
-      Namespace = addValueRec env.Namespace ident.Parts }
+      Namespace = addValueRec env.Namespace parts }
 
 let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
 
@@ -644,8 +674,13 @@ let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addSchemeRec existingNS restNS)
 
+  let parts =
+    match ident.Parts with
+    | "global" :: rest -> rest
+    | parts -> parts
+
   { env with
-      Namespace = addSchemeRec env.Namespace ident.Parts }
+      Namespace = addSchemeRec env.Namespace parts }
 
 let updateEnvWithQualifiedNamespace
   (env: Env)
@@ -735,8 +770,6 @@ let inferTree
 
           | None -> ()
 
-          // printfn $"inferring {root}"
-
           // Update environment to include dependencies
           let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
 
@@ -816,7 +849,7 @@ let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
       newEnv <- importEnv
 
     let decls = getDeclsFromModule ast
-    let graph = buildGraph env ast
+    let graph = buildGraph newEnv ast
     let components = findStronglyConnectedComponents graph
     let tree = buildComponentTree graph components
 

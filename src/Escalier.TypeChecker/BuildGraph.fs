@@ -122,6 +122,15 @@ let postProcessDeps
 
   let identNamespaces = List.take (identNamespaces.Length - 1) identNamespaces
 
+  let globalNS = Map.tryFind "global" ns.Namespaces
+  let maybeGlobalTree = Map.tryFind "global" localsTree.Namespaces
+
+  if ident = QDeclIdent.MakeType [ "GlobalJSXElementType" ] then
+    printfn "--- GlobalJSXElementType deps ---"
+    printfn $"deps = {deps}"
+    printfn $"globalNS = {globalNS}"
+    printfn $"globalFromTree = {maybeGlobalTree}"
+
   // Filter out deps that are in the environment
   let deps =
     deps
@@ -147,8 +156,6 @@ let postProcessDeps
         else
           true)
 
-  // let tree = localsToDeclTree locals
-
   if ident.GetParts().Length > 1 then
     deps
     |> List.choose (fun dep ->
@@ -171,7 +178,15 @@ let postProcessDeps
 
       result)
   else
-    List.choose (getLocalForDep localsTree) deps
+    List.choose
+      (fun dep ->
+        match getLocalForDep localsTree dep with
+        | Some local -> Some local
+        | None ->
+          match maybeGlobalTree with
+          | Some tree -> getLocalForDep tree dep
+          | None -> None)
+      deps
 
 let findDepsForValueIdent
   (ns: Namespace)

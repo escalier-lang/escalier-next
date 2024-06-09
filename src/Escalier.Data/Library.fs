@@ -130,6 +130,8 @@ module Common =
 module Syntax =
   type Span = { Start: Position; Stop: Position }
 
+  type LineComment = { Span: Span; Text: string }
+
   type Block = { Span: Span; Stmts: list<Stmt> }
 
   type BlockOrExpr =

@@ -173,14 +173,21 @@ let inferDeclPlaceholders
             | Value { Parts = parts } ->
               { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
+          let parts =
+            match ident with
+            | Type { Parts = parts } -> parts
+            | Value { Parts = parts } -> parts
+
           // Instead of looking things up in the environment, we need some way to
           // find the existing type on other declarations.
           let! placeholder =
             // NOTE: looking up the scheme using `name` works here because we
             // called `openNamespaces` at the top of this function.
-            match env.TryFindScheme name with
-            | Some scheme -> Result.Ok scheme
-            | None ->
+            match parts, env.TryFindScheme name with
+            // TODO: handle the case where the qualifier is `global` to handle
+            // declare global { ... } statements.
+            | [ _ ], Some scheme -> Result.Ok scheme
+            | _, _ ->
               match qns.Schemes.TryFind(key) with
               | Some scheme -> Result.Ok scheme
               | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
@@ -223,7 +230,10 @@ let rec openNamespaces (env: Env) (namespaces: list<string>) : Env =
 
       openNamespace nextNS rest
 
-  openNamespace env.Namespace namespaces
+  match namespaces with
+  | "global" :: rest -> openNamespace env.Namespace rest
+  | namespaces -> openNamespace env.Namespace namespaces
+
   newEnv
 
 let inferDeclDefinitions
@@ -315,9 +325,6 @@ let inferDeclDefinitions
                       Class = cls } ->
           // TODO: lookup the placeholder type and scheme
           // TODO: unify them with the inferred type and scheme
-
-          printfn $"inferring class {name}"
-          // TODO: handle type params
           let! t, scheme = Infer.inferClass ctx newEnv cls declare
 
           // TODO: update `Statics` and `Instance` on `placeholders`
@@ -645,8 +652,13 @@ let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addValueRec existingNS restNS)
 
+  let parts =
+    match ident.Parts with
+    | "global" :: rest -> rest
+    | parts -> parts
+
   { env with
-      Namespace = addValueRec env.Namespace ident.Parts }
+      Namespace = addValueRec env.Namespace parts }
 
 let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
 
@@ -662,8 +674,13 @@ let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
       | Some existingNS ->
         ns.AddNamespace headNS (addSchemeRec existingNS restNS)
 
+  let parts =
+    match ident.Parts with
+    | "global" :: rest -> rest
+    | parts -> parts
+
   { env with
-      Namespace = addSchemeRec env.Namespace ident.Parts }
+      Namespace = addSchemeRec env.Namespace parts }
 
 let updateEnvWithQualifiedNamespace
   (env: Env)

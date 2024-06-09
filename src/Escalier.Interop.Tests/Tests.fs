@@ -734,7 +734,7 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact(Skip = "TODO: Fix 'Undefined symbol PropTypes' error")>]
 let ImportReact () =
   let result =
     result {

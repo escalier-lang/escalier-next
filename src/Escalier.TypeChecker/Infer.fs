@@ -81,6 +81,8 @@ module rec Infer =
         | _ -> return! Error(TypeError.SemanticError "Invalid key type")
     }
 
+  // TODO: support inferring class declarations without method bodies as long
+  // as the methods are fully typed.
   let inferClass
     (ctx: Ctx)
     (env: Env)
@@ -91,6 +93,8 @@ module rec Infer =
       let name = cls.Name
       let typeParams = cls.TypeParams
       let elems = cls.Elems
+
+      printfn $"cls.TypeParams = {typeParams}"
 
       let className =
         match name with
@@ -105,6 +109,8 @@ module rec Infer =
         | Some typeParams ->
           List.traverseResultM (inferTypeParam ctx newEnv) typeParams
           |> ResultOption.ofResult
+
+      printfn $"placeholderTypeParams = {placeholderTypeParams}"
 
       // TODO: add support for constraints on type params to aliases
       let placeholder =

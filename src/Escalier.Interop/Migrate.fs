@@ -6,6 +6,8 @@ open Escalier.Data.Syntax
 open Escalier.Interop.TypeScript
 
 module rec Migrate =
+  type Ctx = { Declare: bool }
+
   let start = FParsec.Position("", 0, 1, 1)
   let stop = FParsec.Position("", 0, 1, 1)
   let DUMMY_SPAN: Syntax.Span = { Start = start; Stop = stop }
@@ -631,7 +633,10 @@ module rec Migrate =
       Span = DUMMY_SPAN
       InferredType = None }
 
-  let rec migrateModuleDecl (decl: ModuleDecl) : list<Syntax.ModuleItem> =
+  let rec migrateModuleDecl
+    (ctx: Ctx)
+    (decl: ModuleDecl)
+    : list<Syntax.ModuleItem> =
     match decl with
     | ModuleDecl.Import { Specifiers = specifiers
                           Src = src
@@ -661,7 +666,7 @@ module rec Migrate =
           { Path = src.Value
             Specifiers = specifiers } ]
     | ModuleDecl.ExportDecl { Decl = decl } ->
-      List.map Syntax.ModuleItem.Decl (migrateStmt (Stmt.Decl decl))
+      List.map Syntax.ModuleItem.Decl (migrateStmt ctx (Stmt.Decl decl))
     | ModuleDecl.ExportNamed namedExport ->
       // TODO: handle named exports with specifiers
       // The only modules that use this so far do `export {}` so the specifiers
@@ -700,7 +705,7 @@ module rec Migrate =
       TypeAnn = Option.map migrateTypeAnn param.TypeAnn
       Optional = false }
 
-  let migrateClassDecl (decl: ClassDecl) : Syntax.ClassDecl =
+  let migrateClassDecl (ctx: Ctx) (decl: ClassDecl) : Syntax.ClassDecl =
     let { Declare = declare
           Ident = { Name = name }
           Class = { TypeParams = typeParams
@@ -848,23 +853,28 @@ module rec Migrate =
             failwith "TODO: migrateClassDecl - AutoAccessor")
         body
 
+    let typeParams =
+      Option.map
+        (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
+        typeParams
+
     let cls: Syntax.Class =
       { Name = Some name
-        TypeParams = None
+        TypeParams = typeParams
         Elems = elems }
 
-    { Declare = declare
+    { Declare = declare || ctx.Declare
       Name = name
       Class = cls }
 
   // This function returns a list of declarations because a single TypeScript
   // variable declaration can declare multiple variables.
-  let migrateStmt (stmt: Stmt) : list<Syntax.Decl> =
+  let migrateStmt (ctx: Ctx) (stmt: Stmt) : list<Syntax.Decl> =
     match stmt with
     | Stmt.Decl decl ->
       match decl with
       | Decl.Class decl ->
-        let decl = migrateClassDecl decl
+        let decl = migrateClassDecl ctx decl
 
         [ { Kind = DeclKind.ClassDecl decl
             Span = DUMMY_SPAN } ]
@@ -944,10 +954,12 @@ module rec Migrate =
         let kind = DeclKind.TypeDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.TsEnum _ -> failwith "TODO: migrate enum"
-      | Decl.TsModule { Declare = _declare
+      | Decl.TsModule { Declare = declare
                         Global = _global
                         Id = name
                         Body = body } ->
+        let ctx = if declare then { Declare = true } else ctx
+
         let name: string =
           match name with
           | TsModuleName.Ident ident -> ident.Name
@@ -965,7 +977,7 @@ module rec Migrate =
                   | ModuleItem.ModuleDecl decl ->
                     match decl with
                     | ModuleDecl.ExportDecl { Decl = decl } ->
-                      migrateStmt (Stmt.Decl decl)
+                      migrateStmt ctx (Stmt.Decl decl)
 
                     | ModuleDecl.Import importDecl ->
                       failwith "TODO: TsModule - Import"
@@ -984,7 +996,7 @@ module rec Migrate =
                     | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
                       failwith "TODO: TsModule - TsNamespaceExport"
 
-                  | ModuleItem.Stmt stmt -> migrateStmt stmt)
+                  | ModuleItem.Stmt stmt -> migrateStmt ctx stmt)
                 items
             | TsNamespaceDecl _tsNamespaceDecl ->
               failwith "TODO: inferModuleBlock- TsNamespaceDecl"
@@ -995,14 +1007,16 @@ module rec Migrate =
     | _ -> failwith "only declarations are supported for now"
 
   let migrateModule (m: TypeScript.Module) : Syntax.Module =
+    let ctx: Ctx = { Declare = false }
+
     let items: list<Syntax.ModuleItem> =
       List.collect
         (fun (item: ModuleItem) ->
           try
             match item with
-            | ModuleItem.ModuleDecl decl -> migrateModuleDecl decl
+            | ModuleItem.ModuleDecl decl -> migrateModuleDecl ctx decl
             | ModuleItem.Stmt stmt ->
-              List.map Syntax.ModuleItem.Decl (migrateStmt stmt)
+              List.map Syntax.ModuleItem.Decl (migrateStmt ctx stmt)
           with ex ->
             // TODO: fix all of the error messages
             printfn $"Error migrating module item: {ex.Message}"

@@ -734,13 +734,14 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: Fix 'Undefined symbol PropTypes' error")>]
+[<Fact>]
 let ImportReact () =
   let result =
     result {
       let src =
         """
         import "react" as React;
+        type ElementType = React.React.ElementType;
         """
 
       let! ast =
@@ -751,7 +752,7 @@ let ImportReact () =
       let! env =
         inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "React", "React")
+      Assert.Type(env, "ElementType", "React.React.ElementType")
     }
 
   printfn "result = %A" result

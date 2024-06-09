@@ -770,12 +770,6 @@ let inferTree
 
           | None -> ()
 
-          if
-            Set.contains (QDeclIdent.MakeType([ "React"; "Component" ])) root
-          then
-            for item in root do
-              printfn $"inferring {item}"
-
           // Update environment to include dependencies
           let mutable newEnv = updateEnvWithQualifiedNamespace env partialQns
 
@@ -855,7 +849,7 @@ let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
       newEnv <- importEnv
 
     let decls = getDeclsFromModule ast
-    let graph = buildGraph env ast
+    let graph = buildGraph newEnv ast
     let components = findStronglyConnectedComponents graph
     let tree = buildComponentTree graph components
 

@@ -219,7 +219,11 @@ module rec Env =
     member this.GetScheme(name: string) : Result<Scheme, TypeError> =
       match this.Schemes |> Map.tryFind name with
       | Some(s) -> Ok(s)
-      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+      | None ->
+        Error(
+          TypeError.SemanticError
+            $"Namespace.GetScheme - Undefined symbol {name}"
+        )
 
     member this.AddBinding (name: string) (binding: Binding) =
       { this with
@@ -228,7 +232,11 @@ module rec Env =
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
       match this.Values |> Map.tryFind name with
       | Some(var) -> Ok var
-      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+      | None ->
+        Error(
+          TypeError.SemanticError
+            $"Namespace.GetBinding - Undefined symbol {name}"
+        )
 
     member this.GetNamspace
       (ident: QualifiedIdent)
@@ -354,7 +362,9 @@ module rec Env =
         if isIntegerLiteral name then
           Ok(numType)
         else
-          Error(TypeError.SemanticError $"Undefined symbol {name}")
+          Error(
+            TypeError.SemanticError $"Env.GetValue - Undefined symbol {name}"
+          )
 
     member this.GetScheme(ident: QualifiedIdent) : Result<Scheme, TypeError> =
       result {
@@ -363,7 +373,11 @@ module rec Env =
           match this.TryFindScheme name with
           | Some(s) -> return s
           | None ->
-            return! Error(TypeError.SemanticError $"Undefined symbol {ident}")
+            return!
+              Error(
+                TypeError.SemanticError
+                  $"Env.GetScheme - Undefined symbol {ident}"
+              )
         | Member(qualifier, ident) ->
           let! ns = this.GetNamspace qualifier
           return! ns.GetScheme ident
@@ -372,7 +386,10 @@ module rec Env =
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
       match this.Namespace.Values |> Map.tryFind name with
       | Some(var) -> Ok var
-      | None -> Error(TypeError.SemanticError $"Undefined symbol {name}")
+      | None ->
+        Error(
+          TypeError.SemanticError $"Env.GetBinding - Undefined symbol {name}"
+        )
 
     member this.GetNamspace
       (ident: QualifiedIdent)

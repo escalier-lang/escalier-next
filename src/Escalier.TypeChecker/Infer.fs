@@ -94,8 +94,6 @@ module rec Infer =
       let typeParams = cls.TypeParams
       let elems = cls.Elems
 
-      printfn $"cls.TypeParams = {typeParams}"
-
       let className =
         match name with
         | Some name -> name
@@ -109,8 +107,6 @@ module rec Infer =
         | Some typeParams ->
           List.traverseResultM (inferTypeParam ctx newEnv) typeParams
           |> ResultOption.ofResult
-
-      printfn $"placeholderTypeParams = {placeholderTypeParams}"
 
       // TODO: add support for constraints on type params to aliases
       let placeholder =
@@ -1503,7 +1499,7 @@ module rec Infer =
 
   let start = FParsec.Position("", 0, 1, 1)
   let stop = FParsec.Position("", 0, 1, 1)
-  let DUMMY_SPAN: Syntax.Span = { Start = start; Stop = stop }
+  let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 
   let inferObjElem
     (ctx: Ctx)
@@ -2434,7 +2430,7 @@ module rec Infer =
           match env.Namespace.Namespaces.TryFind name with
           | Some value -> ns <- ns.AddNamespace name value
           | None -> failwith $"Couldn't find namespace: '{name}'"
-        | InterfaceDecl(_) ->
+        | InterfaceDecl _ ->
           failwith "TODO: getNamespaceExports - InterfaceDecl"
 
       return ns
@@ -3301,6 +3297,7 @@ module rec Infer =
         | _ -> None)
       ast.Items
 
+  // TODO: replace with InferGraph.inferModule
   let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
     result {
       // TODO: update this function to accept a filename
@@ -3570,13 +3567,18 @@ module rec Infer =
     }
 
   let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =
-    match ident with
-    | QualifiedIdent.Ident name -> env.GetValue name
-    | QualifiedIdent.Member(left, right) ->
-      result {
+    result {
+      match ident with
+      | QualifiedIdent.Ident name ->
+        match env.Namespace.Namespaces.TryFind name with
+        | None -> return! env.GetValue name
+        | Some value ->
+          let kind = TypeKind.Namespace value
+          return { Kind = kind; Provenance = None }
+      | QualifiedIdent.Member(left, right) ->
         let! left = getQualifiedIdentType ctx env left
         return! getPropType ctx env left (PropName.String right) false
-      }
+    }
 
   let rec getLvalue
     (ctx: Ctx)

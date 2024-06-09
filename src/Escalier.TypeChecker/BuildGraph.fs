@@ -125,12 +125,6 @@ let postProcessDeps
   let globalNS = Map.tryFind "global" ns.Namespaces
   let maybeGlobalTree = Map.tryFind "global" localsTree.Namespaces
 
-  if ident = QDeclIdent.MakeType [ "GlobalJSXElementType" ] then
-    printfn "--- GlobalJSXElementType deps ---"
-    printfn $"deps = {deps}"
-    printfn $"globalNS = {globalNS}"
-    printfn $"globalFromTree = {maybeGlobalTree}"
-
   // Filter out deps that are in the environment
   let deps =
     deps

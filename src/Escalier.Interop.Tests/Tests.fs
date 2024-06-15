@@ -506,6 +506,21 @@ let InferLibES5 () =
   Assert.True(Result.isOk result)
 
 [<Fact>]
+let InferOverloadedFunctionsFromLibDOM () =
+  let result =
+    result {
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      Assert.Value(
+        env,
+        "scroll",
+        "fn (mut options: ScrollToOptions) -> undefined & fn (mut x: number, mut y: number) -> undefined"
+      )
+    }
+
+  Assert.True(Result.isOk result)
+
+[<Fact>]
 let InferArrayPrototype () =
   let result =
     result {

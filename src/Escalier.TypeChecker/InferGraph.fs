@@ -309,6 +309,7 @@ let inferDeclDefinitions
     let mutable qns = qns
 
     for ident in idents do
+      // printfn $"inferring ident: {ident}"
       let decls = graph.Nodes[ident]
 
       // TODO: check if we're inside a namespace and update the env accordingly
@@ -318,158 +319,260 @@ let inferDeclDefinitions
         | Value { Parts = parts } -> parts
 
       let namespaces = List.take (List.length parts - 1) parts
+      let name = List.last parts
 
       let mutable newEnv = env
       newEnv <- openNamespaces newEnv namespaces
 
+      // Strategy:
+      // - separate decls into groups based on their kind
+      // - if there are multiple non-empty groups, error
+      // - if any of the groups other than FnDecl or InterfaceDecl have more
+      //   than one decl, error
+      // - infer each group
+      let mutable varDecls = []
+      let mutable fnDecls = []
+      let mutable classDecls = []
+      let mutable typeDecls = []
+      let mutable interfaceDecls = []
+      let mutable enumDecls = []
+      let mutable namespaceDecls = []
+
       for decl in decls do
         match decl.Kind with
-        | VarDecl varDecl ->
-          let placeholderTypes = getAllBindingPatterns varDecl.Pattern
+        | VarDecl varDecl -> varDecls <- varDecl :: varDecls
+        | FnDecl fnDecl -> fnDecls <- fnDecl :: fnDecls
+        | ClassDecl classDecl -> classDecls <- classDecl :: classDecls
+        | TypeDecl typeDecl -> typeDecls <- typeDecl :: typeDecls
+        | InterfaceDecl interfaceDecl ->
+          interfaceDecls <- interfaceDecl :: interfaceDecls
+        | EnumDecl enumDecl -> enumDecls <- enumDecl :: enumDecls
+        | NamespaceDecl namespaceDecl ->
+          namespaceDecls <- namespaceDecl :: namespaceDecls
 
-          // NOTE: We explicitly don't generalize here because we want other
-          // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things in `inferModule` and
-          // `inferTreeRec`.
-          let! newBindings, newSchemes = Infer.inferVarDecl ctx newEnv varDecl
+      fnDecls <- List.rev fnDecls
+      interfaceDecls <- List.rev interfaceDecls
 
-          let inferredTypes = getAllBindingPatterns varDecl.Pattern
+      let mutable count = 0
 
-          for KeyValue(name, inferredType) in inferredTypes do
-            let placeholderType =
-              match Map.tryFind name placeholderTypes with
-              | Some t -> t
-              | None -> failwith "Missing placeholder type"
+      if varDecls.Length > 0 then
+        count <- count + 1
 
-            do! Unify.unify ctx newEnv None placeholderType inferredType
+      if fnDecls.Length > 0 then
+        count <- count + 1
 
-          // Schemes can be generated for things like class expressions, e.g.
-          // let Foo = class { ... }
-          for KeyValue(name, scheme) in newSchemes do
-            qns <- qns.AddScheme (QualifiedIdent.FromString name) scheme
+      if classDecls.Length > 0 then
+        count <- count + 1
 
-        | FnDecl({ Declare = declare
-                   Name = name
-                   Sig = fnSig
-                   Body = body } as decl) ->
-          let placeholderType, _ =
-            match newEnv.TryFindValue name with
+      if typeDecls.Length > 0 then
+        count <- count + 1
+
+      if interfaceDecls.Length > 0 then
+        count <- count + 1
+
+      if enumDecls.Length > 0 then
+        count <- count + 1
+
+      if namespaceDecls.Length > 0 then
+        count <- count + 1
+
+      if count > 1 then
+        return!
+          Error(
+            TypeError.SemanticError "more than one kind of decl found for ident"
+          )
+
+      match varDecls with
+      | [] -> ()
+      | [ varDecl ] ->
+        let placeholderTypes = getAllBindingPatterns varDecl.Pattern
+
+        // NOTE: We explicitly don't generalize here because we want other
+        // declarations to be able to unify with any free type variables
+        // from this declaration.  We generalize things in `inferModule` and
+        // `inferTreeRec`.
+        let! newBindings, newSchemes = Infer.inferVarDecl ctx newEnv varDecl
+
+        let inferredTypes = getAllBindingPatterns varDecl.Pattern
+
+        for KeyValue(name, inferredType) in inferredTypes do
+          let placeholderType =
+            match Map.tryFind name placeholderTypes with
             | Some t -> t
             | None -> failwith "Missing placeholder type"
 
-          // NOTE: We explicitly don't generalize here because we want other
-          // declarations to be able to unify with any free type variables
-          // from this declaration.  We generalize things in `inferModule` and
-          // `inferTreeRec`.
-          let! f =
-            match declare, body with
-            | false, Some body ->
-              // NOTE: `inferFunction` also calls unify
-              Infer.inferFunction ctx newEnv fnSig body
-            | true, None -> Infer.inferFuncSig ctx newEnv fnSig
-            | _, _ ->
-              Result.Error(
-                TypeError.SemanticError "Invalid function declaration"
-              )
-
-          let inferredType =
-            { Kind = TypeKind.Function f
-              Provenance = None }
-
           do! Unify.unify ctx newEnv None placeholderType inferredType
 
-          match placeholderType.Kind with
-          | TypeKind.TypeVar var -> var.Instance <- Some inferredType
-          | _ -> ()
-        | ClassDecl { Declare = declare
-                      Name = name
-                      Class = cls } ->
-          // TODO: figure out how to only call inferClass once instead of twice
-          let! inferredType, inferredScheme =
-            Infer.inferClass ctx newEnv cls declare
+        // Schemes can be generated for things like class expressions, e.g.
+        // let Foo = class { ... }
+        for KeyValue(name, scheme) in newSchemes do
+          qns <- qns.AddScheme (QualifiedIdent.FromString name) scheme
+      | _ ->
+        return!
+          Error(TypeError.SemanticError "multiple var decls found for ident")
 
+      if fnDecls.Length > 0 then
+        let! fns =
+          List.traverseResultM
+            (fun (fnDecl: FnDecl) ->
+              result {
+                let! f =
+                  match fnDecl.Declare, fnDecl.Body with
+                  | false, Some body ->
+                    // NOTE: `inferFunction` also calls unify
+                    Infer.inferFunction ctx newEnv fnDecl.Sig body
+                  | true, None -> Infer.inferFuncSig ctx newEnv fnDecl.Sig
+                  | _, _ ->
+                    Result.Error(
+                      TypeError.SemanticError "Invalid function declaration"
+                    )
+
+                return f
+              })
+            fnDecls
+
+        let types =
+          fns
+          |> List.map (fun f ->
+            { Kind = TypeKind.Function f
+              Provenance = None })
+
+        let inferredType =
+          match types with
+          | [] -> failwith "No types found"
+          | [ t ] -> t
+          | _ ->
+            { Kind = TypeKind.Intersection types
+              Provenance = None }
+
+        let placeholderType, _ =
+          match newEnv.TryFindValue name with
+          | Some t -> t
+          | None -> failwith "Missing placeholder type"
+
+        // NOTE: We explicitly don't generalize here because we want other
+        // declarations to be able to unify with any free type variables
+        // from this declaration.  We generalize things in `inferModule` and
+        // `inferTreeRec`.
+        do! Unify.unify ctx newEnv None placeholderType inferredType
+
+
+      // TODO: handle remaining decl kind lists
+      match classDecls with
+      | [] -> ()
+      | [ classDecl ] ->
+        let { Declare = declare
+              Name = name
+              Class = cls } =
+          classDecl
+
+        // TODO: figure out how to only call inferClass once instead of twice
+        let! inferredType, inferredScheme =
+          Infer.inferClass ctx newEnv cls declare
+
+        match ident with
+        | Type { Parts = parts } ->
+          let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+          let placeholderScheme = qns.Schemes[key]
+
+          do!
+            Unify.unify
+              ctx
+              newEnv
+              None
+              placeholderScheme.Type
+              inferredScheme.Type
+        | Value { Parts = parts } ->
+          let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+          let placeholderType, _ = qns.Values[key]
+          do! Unify.unify ctx newEnv None placeholderType inferredType
+      | _ ->
+        return!
+          Error(TypeError.SemanticError "More than one class decl for ident")
+
+      match enumDecls with
+      | [] -> ()
+      | [ enumDecl ] -> return! Error(TypeError.NotImplemented "EnumDecl")
+      | _ -> return! Error(TypeError.SemanticError "More than one enum decl")
+
+      match typeDecls with
+      | [] -> ()
+      | [ typeDecl ] ->
+        let { Name = name
+              TypeAnn = typeAnn
+              TypeParams = typeParams } =
+          typeDecl
+
+        let key =
           match ident with
           | Type { Parts = parts } ->
-            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-            let placeholderScheme = qns.Schemes[key]
-
-            do!
-              Unify.unify
-                ctx
-                newEnv
-                None
-                placeholderScheme.Type
-                inferredScheme.Type
+            { Parts = List.take (parts.Length - 1) parts @ [ name ] }
           | Value { Parts = parts } ->
-            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-            let placeholderType, _ = qns.Values[key]
-            do! Unify.unify ctx newEnv None placeholderType inferredType
-        | EnumDecl _ ->
+            { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+
+        let placeholder = qns.Schemes[key]
+        // TODO: when computing the decl graph, include self-recursive types in
+        // the deps set so that we don't have to special case this here.
+        // Handles self-recursive types
+        newEnv <- newEnv.AddScheme name placeholder
+        let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
+
+        let! scheme =
+          Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+
+        match placeholder.TypeParams, scheme.TypeParams with
+        | Some typeParams1, Some typeParams2 ->
+          for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
+            match typeParam1.Constraint, typeParam2.Constraint with
+            | Some c1, Some c2 -> do! Unify.unify ctx newEnv None c1 c2
+            | None, None -> ()
+            | _, _ ->
+              return!
+                Error(
+                  TypeError.SemanticError
+                    "One scheme has a constraint type while the other doesn't"
+                )
+
+            match typeParam1.Default, typeParam2.Default with
+            | Some d1, Some d2 -> do! Unify.unify ctx newEnv None d1 d2
+            | None, None -> ()
+            | _, _ ->
+              return!
+                Error(
+                  TypeError.SemanticError
+                    "One scheme has a default type while the other doesn't"
+                )
+        | None, None -> ()
+        | _, _ ->
           return!
             Error(
-              TypeError.NotImplemented "TODO: inferDeclDefinitions - EnumDecl"
+              TypeError.SemanticError
+                "One scheme has type params while the other doesn't"
             )
-        | TypeDecl { Name = name
-                     TypeAnn = typeAnn
-                     TypeParams = typeParams } ->
-          let key =
-            match ident with
-            | Type { Parts = parts } ->
-              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-            | Value { Parts = parts } ->
-              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
-          let placeholder = qns.Schemes[key]
-          // TODO: when computing the decl graph, include self-recursive types in
-          // the deps set so that we don't have to special case this here.
-          // Handles self-recursive types
-          newEnv <- newEnv.AddScheme name placeholder
-          let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
+        // Replace the placeholder's type with the actual type.
+        // NOTE: This is a bit hacky and we may want to change this later to use
+        // `foldType` to replace any uses of the placeholder with the actual type.
+        // Required for the following test cases:
+        // - InferRecursiveGenericObjectTypeInModule
+        // - InferNamespaceInModule
+        // placeholder.Value.Type <- scheme.Type
+        qns.Schemes[key].Type <- scheme.Type
 
-          let! scheme =
-            Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+      | _ ->
+        return!
+          Error(TypeError.SemanticError "More than one type decl for ident")
 
-          match placeholder.TypeParams, scheme.TypeParams with
-          | Some typeParams1, Some typeParams2 ->
-            for typeParam1, typeParam2 in List.zip typeParams1 typeParams2 do
-              match typeParam1.Constraint, typeParam2.Constraint with
-              | Some c1, Some c2 -> do! Unify.unify ctx newEnv None c1 c2
-              | None, None -> ()
-              | _, _ ->
-                return!
-                  Error(
-                    TypeError.SemanticError
-                      "One scheme has a constraint type while the other doesn't"
-                  )
+      match interfaceDecls with
+      | [] -> ()
+      | interfaceDecls ->
 
-              match typeParam1.Default, typeParam2.Default with
-              | Some d1, Some d2 -> do! Unify.unify ctx newEnv None d1 d2
-              | None, None -> ()
-              | _, _ ->
-                return!
-                  Error(
-                    TypeError.SemanticError
-                      "One scheme has a default type while the other doesn't"
-                  )
-          | None, None -> ()
-          | _, _ ->
-            return!
-              Error(
-                TypeError.SemanticError
-                  "One scheme has type params while the other doesn't"
-              )
+        for interfaceDecl in interfaceDecls do
+          let { Name = name
+                TypeParams = typeParams
+                Elems = elems } =
+            interfaceDecl
 
-          // Replace the placeholder's type with the actual type.
-          // NOTE: This is a bit hacky and we may want to change this later to use
-          // `foldType` to replace any uses of the placeholder with the actual type.
-          // Required for the following test cases:
-          // - InferRecursiveGenericObjectTypeInModule
-          // - InferNamespaceInModule
-          // placeholder.Value.Type <- scheme.Type
-          qns.Schemes[key].Type <- scheme.Type
-        | InterfaceDecl { Name = name
-                          TypeParams = typeParams
-                          Elems = elems } ->
           let key =
             match ident with
             | Type { Parts = parts } ->
@@ -530,12 +633,16 @@ let inferDeclDefinitions
             // `foldType` to replace any uses of the placeholder with the actual type.
             placeholder.Type <- newScheme.Type
             qns.Schemes[key].Type <- newScheme.Type
-        | NamespaceDecl { Name = name; Body = decls } ->
-          return!
-            Error(
-              TypeError.NotImplemented
-                "TODO: inferDeclDefinitions - NamespaceDecl"
-            )
+
+      match namespaceDecls with
+      | [] -> ()
+      | [ namespaceDecl ] ->
+        return! Error(TypeError.NotImplemented "NamespaceDecl")
+      | _ ->
+        return!
+          Error(
+            TypeError.SemanticError "More than one namespace decl for ident"
+          )
 
     return qns
   }
@@ -543,64 +650,6 @@ let inferDeclDefinitions
 type QDeclTree =
   { Edges: Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>>
     CycleMap: Map<QDeclIdent, Set<QDeclIdent>> }
-
-// TODO: replace with buildComponentTree<'T>
-let rec graphToTree (edges: Map<QDeclIdent, list<QDeclIdent>>) : QDeclTree =
-  let mutable visited: list<QDeclIdent> = []
-  let mutable stack: list<QDeclIdent> = []
-  let mutable cycles: Set<Set<QDeclIdent>> = Set.empty
-
-  let rec visit (node: QDeclIdent) (parents: list<QDeclIdent>) =
-    if List.contains node parents then
-      // find the index of node in parents
-      let index = List.findIndex (fun p -> p = node) parents
-      let cycle = List.take index parents @ [ node ] |> Set.ofList
-      cycles <- Set.add cycle cycles
-    else
-      let edgesOuts =
-        match edges.TryFind node with
-        | None -> failwith $"Couldn't find edge for {node} in {edges}"
-        | Some value -> value
-
-      for next in edgesOuts do
-        visit next (node :: parents)
-
-  for KeyValue(node, _) in edges do
-    visit node []
-
-  let mutable cycleMap: Map<QDeclIdent, Set<QDeclIdent>> = Map.empty
-
-  for cycle in cycles do
-    for node in cycle do
-      cycleMap <- cycleMap.Add(node, cycle)
-
-  let mutable newEdges: Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>> = Map.empty
-
-  for KeyValue(node, deps) in edges do
-    let deps = Set.ofList deps
-
-    let src =
-      if Map.containsKey node cycleMap then
-        cycleMap[node]
-      else
-        Set.singleton node
-
-    for dep in deps do
-      if not (Set.contains dep src) then
-        let dst =
-          if Map.containsKey dep cycleMap then
-            cycleMap[dep]
-          else
-            Set.singleton dep
-
-        if Map.containsKey src newEdges then
-          let dsts = newEdges[src]
-          newEdges <- newEdges.Add(src, dsts.Add(dst))
-        else
-          newEdges <- newEdges.Add(src, Set.singleton dst)
-
-  { CycleMap = cycleMap
-    Edges = newEdges }
 
 // Based on the algorithm from https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
 let findStronglyConnectedComponents<'T>

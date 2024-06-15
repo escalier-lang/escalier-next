@@ -676,8 +676,10 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
           nodes <- nodes.Add(ident, [ decl ])
       | FnDecl { Name = name } ->
         let key = { Parts = namespaces @ [ name ] }
-        // TODO: support function overloading
-        nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
+        match nodes.TryFind(QDeclIdent.Value(key)) with
+        | Some decls ->
+          nodes <- nodes.Add(QDeclIdent.Value(key), decls @ [ decl ])
+        | None -> nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
       | ClassDecl { Name = name }
       | EnumDecl { Name = name } ->
         let key = { Parts = namespaces @ [ name ] }
@@ -808,7 +810,11 @@ let getEdges
                  Sig = fnSig
                  Body = body } ->
         let deps = getDepsForFn env ident locals localsTree [] fnSig body
-        edges <- edges.Add(ident, deps)
+
+        match edges.TryFind(ident) with
+        | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
+        | None -> edges <- edges.Add(ident, deps)
+      // edges <- edges.Add(ident, deps)
       | ClassDecl { Name = name
                     Class = { Elems = elems
                               TypeParams = typeParams } } ->

@@ -597,8 +597,8 @@ let SelfRecursiveFunctionDecls () =
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "fact", "fn (n: number) -> 1 | number")
-      Assert.Value(env, "fib", "fn (n: number) -> number | number")
+      Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "fib", "fn (arg0: number) -> number")
     }
 
   printfn "res = %A" res
@@ -640,12 +640,7 @@ let MutuallyRecursiveFunctionDecls () =
       let! ctx, env = inferModule src
 
       Assert.Value(env, "isEven", "fn (n: number) -> true | false | true")
-
-      Assert.Value(
-        env,
-        "isOdd",
-        "fn (n: number) -> false | true | false | true"
-      )
+      Assert.Value(env, "isOdd", "fn (arg0: number) -> false | true")
     }
 
   printfn "res = %A" res

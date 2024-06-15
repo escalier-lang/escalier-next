@@ -13,7 +13,6 @@ open Escalier.Parser
 open Escalier.Interop.Migrate
 open Escalier.Interop.Parser
 open Escalier.TypeChecker
-open Escalier.TypeChecker.Infer
 open Escalier.TypeChecker.Env
 
 type Assert with
@@ -434,7 +433,8 @@ let InferBasicVarDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string | undefined")
@@ -470,7 +470,8 @@ let InferTypeDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
       Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
@@ -500,6 +501,21 @@ let InferLibES5 () =
       //   printfn $"{name}"
 
       return env
+    }
+
+  Assert.True(Result.isOk result)
+
+[<Fact>]
+let InferOverloadedFunctionsFromLibDOM () =
+  let result =
+    result {
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      Assert.Value(
+        env,
+        "scroll",
+        "fn (mut options: ScrollToOptions) -> undefined & fn (mut x: number, mut y: number) -> undefined"
+      )
     }
 
   Assert.True(Result.isOk result)
@@ -700,7 +716,8 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -742,6 +759,9 @@ let ImportReact () =
         """
         import "react" as React;
         type ElementType = React.React.ElementType;
+        type ReactElement = React.React.ReactElement;
+        let createElement = React.React.createElement;
+        // let div = React.React.createElement("div", {});
         """
 
       let! ast =
@@ -750,9 +770,20 @@ let ImportReact () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "ElementType", "React.React.ElementType")
+      match env.TryFindValue "createElement" with
+      | Some(t, _) ->
+        let! t =
+          Unify.expandType ctx env None Map.empty t
+          |> Result.mapError CompileError.TypeError
+
+        printfn $"t = {t}"
+      | None -> ()
+
+      Assert.Type(env, "ReactElement", "React.React.ReactElement")
+    // Assert.Value(env, "div", "React.React.ElementType")
     }
 
   printfn "result = %A" result

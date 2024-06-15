@@ -12,6 +12,7 @@ open Env
 open ExprVisitor
 open Poly
 
+// TODO: update this function to use the type visitor/folder
 let rec generalizeFunctionsInType (t: Type) : Type =
   match (prune t).Kind with
   | TypeKind.Function f ->
@@ -49,6 +50,14 @@ let rec generalizeFunctionsInType (t: Type) : Type =
 
     { t with
         Kind = TypeKind.Tuple { tupleKind with Elems = elems } }
+  | TypeKind.Intersection types ->
+    let types = types |> List.map generalizeFunctionsInType
+
+    { t with
+        Kind = TypeKind.Intersection types }
+  | TypeKind.Union types ->
+    let types = types |> List.map generalizeFunctionsInType
+    { t with Kind = TypeKind.Union types }
   | _ -> t
 
 let generalizeBindings (bindings: Map<string, Binding>) : Map<string, Binding> =

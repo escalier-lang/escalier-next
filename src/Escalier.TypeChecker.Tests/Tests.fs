@@ -1261,5 +1261,33 @@ let InferInterfaceInModule () =
       Assert.Value(env, "p", "Point")
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferTypeParamInIntersection () =
+  let result =
+    result {
+      let src =
+        """
+        type FooElement<T> = {value: T};
+        fn foo<T: {}, U: T>(props: U & {x: number}) -> FooElement<U> {
+          return {value: props};
+        }
+        let bar = foo({x: 5, y: "hello", z: true});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(
+        env,
+        "foo",
+        "fn <T: {}>(props: T & {x: number}) -> FooElement<T>"
+      )
+
+      Assert.Value(env, "bar", "FooElement<{y: \"hello\", z: true}>")
+    }
+
   printfn "result = %A" result
   Assert.False(Result.isError result)

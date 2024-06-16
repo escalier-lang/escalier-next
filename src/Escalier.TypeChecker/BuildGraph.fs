@@ -676,6 +676,7 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
           nodes <- nodes.Add(ident, [ decl ])
       | FnDecl { Name = name } ->
         let key = { Parts = namespaces @ [ name ] }
+
         match nodes.TryFind(QDeclIdent.Value(key)) with
         | Some decls ->
           nodes <- nodes.Add(QDeclIdent.Value(key), decls @ [ decl ])

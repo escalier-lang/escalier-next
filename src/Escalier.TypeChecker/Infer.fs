@@ -1108,6 +1108,8 @@ module rec Infer =
                     Provenance = None }
               IsTypeParam = true }
 
+          printfn $"adding type param: {typeParam.Name} with scheme {scheme}"
+          printfn "scheme = %A" scheme
           newEnv <- newEnv.AddScheme typeParam.Name scheme
 
       match self with
@@ -1124,6 +1126,7 @@ module rec Infer =
         // per method (the other call is `inferFuncSig`)
         let! assumps, patternType = inferPattern ctx newEnv pattern
 
+        printfn $"unifying param types: {patternType} with {paramType}"
         do! unify ctx newEnv None patternType paramType
 
         for KeyValue(name, binding) in assumps do

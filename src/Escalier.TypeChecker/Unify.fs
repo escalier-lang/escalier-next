@@ -224,47 +224,13 @@ module rec Unify =
       | TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme }, _ ->
         match scheme with
         | Some scheme ->
-          // TODO: dedupe the same code in generalizeFunc
-          let mutable mapping: Map<string, Type> = Map.empty
-
-          match scheme.TypeParams with
-          | Some(typeParams) ->
-            match typeArgs with
-            | Some(typeArgs) ->
-              if typeArgs.Length <> typeParams.Length then
-                return! Error(TypeError.WrongNumberOfTypeArgs)
-
-              for tp, ta in List.zip typeParams typeArgs do
-                mapping <- mapping.Add(tp.Name, ta)
-            | None ->
-              for tp in typeParams do
-                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
-          | None -> ()
-
-          let! t = expandScheme ctx env ips scheme mapping typeArgs
+          let! t = expandScheme ctx env ips scheme Map.empty typeArgs
           do! unify ctx env ips t t2
         | _ -> return! unifyFallThrough ctx env ips t1 t2
       | _, TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme } ->
         match scheme with
         | Some scheme ->
-          // TODO: dedupe the same code in generalizeFunc
-          let mutable mapping: Map<string, Type> = Map.empty
-
-          match scheme.TypeParams with
-          | Some(typeParams) ->
-            match typeArgs with
-            | Some(typeArgs) ->
-              if typeArgs.Length <> typeParams.Length then
-                return! Error(TypeError.WrongNumberOfTypeArgs)
-
-              for tp, ta in List.zip typeParams typeArgs do
-                mapping <- mapping.Add(tp.Name, ta)
-            | None ->
-              for tp in typeParams do
-                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
-          | None -> ()
-
-          let! t = expandScheme ctx env ips scheme mapping typeArgs
+          let! t = expandScheme ctx env ips scheme Map.empty typeArgs
           do! unify ctx env ips t1 t
         | _ -> return! unifyFallThrough ctx env ips t1 t2
       | TypeKind.Range range1, TypeKind.Range range2 ->
@@ -364,6 +330,8 @@ module rec Unify =
             | _ ->
               printfn $"t is not an object types - {t}"
               return! Error(TypeError.TypeMismatch(t1, t2))
+          | TypeKind.TypeVar { Bound = Some bound } ->
+            restTypes <- t :: restTypes
           | _ ->
             // TODO: handle the case where `t` is a type variable
             // NOTE: we can only handle situations where one of the types is
@@ -426,7 +394,17 @@ module rec Unify =
           | TypeKind.Object { Elems = elems } ->
             combinedElems <- combinedElems @ elems
           | TypeKind.Rest t -> restTypes <- t :: restTypes
-          | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+          | TypeKind.TypeRef { Name = name } ->
+            let! t = expandType ctx env ips Map.empty t
+
+            match t.Kind with
+            | TypeKind.Object { Elems = elems } ->
+              combinedElems <- combinedElems @ elems
+            | TypeKind.Rest t -> restTypes <- t :: restTypes
+            | _ -> failwith $"TODO: handle type {t} in intersection"
+          | _ ->
+            printfn $"TODO: handle type {t} in intersection"
+            return! Error(TypeError.TypeMismatch(t1, t2))
 
         let objType =
           { Kind =

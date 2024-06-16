@@ -69,12 +69,14 @@ let InferCallGenericFuncWithComplexReturnAndWrongArg () =
         """
         let foo = fn <T: number>(x: T) => {value: x};
         let bar = foo("hello");
+        let baz = foo(5);
         """
 
       let! ctx, env = inferScript src
 
       Assert.Equal(ctx.Diagnostics.Length, 1) // foo("hello") is an error
       Assert.Value(env, "bar", "{value: number}")
+      Assert.Value(env, "baz", "{value: 5}")
     }
 
   Assert.False(Result.isError result)

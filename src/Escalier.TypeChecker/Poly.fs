@@ -121,6 +121,38 @@ module Poly =
       Return = ret
       Throws = throws }
 
+  let topoSort (edges: Map<string, Set<string>>) : list<string> =
+    let rec topoSortRec
+      (key: string)
+      (visited: Set<string>)
+      (sorted: list<string>)
+      =
+      if visited.Contains(key) then
+        sorted
+      else
+        let deps =
+          match Map.tryFind key edges with
+          | Some deps -> deps
+          | None -> Set.empty
+
+        let mutable sorted = sorted
+
+        for dep in deps do
+          sorted <- topoSortRec dep (visited.Add(key)) sorted
+
+        sorted @ [ key ]
+
+    let deps = edges.Values |> Seq.collect id |> Set.ofSeq
+    let roots = Set.difference (edges.Keys |> Set.ofSeq) deps
+
+    let mutable sortedTypeParamNames = []
+
+    for root in roots do
+      sortedTypeParamNames <-
+        sortedTypeParamNames @ topoSortRec root Set.empty []
+
+    sortedTypeParamNames
+
   let instantiateFunc
     (ctx: Ctx)
     (f: Function)
@@ -129,10 +161,18 @@ module Poly =
 
     result {
       let mutable mapping: Map<string, Type> = Map.empty
-      let mutable edges: Map<string, Set<string>> = Map.empty
+
+      let folder t =
+        match t.Kind with
+        | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
+          match Map.tryFind name mapping with
+          | Some(tv) -> Some(tv)
+          | None -> None
+        | _ -> None
 
       match f.TypeParams with
       | Some typeParams ->
+        let mutable edges: Map<string, Set<string>> = Map.empty
         let paramNames = typeParams |> List.map (fun (p: TypeParam) -> p.Name)
 
         for tp in typeParams do
@@ -155,55 +195,14 @@ module Poly =
           | None -> ()
 
           edges <- edges.Add(key, deps)
-      | None -> ()
 
-      let rec topoSort
-        (key: string)
-        (visited: Set<string>)
-        (sorted: list<string>)
-        =
-        if visited.Contains(key) then
-          sorted
-        else
-          let deps =
-            match Map.tryFind key edges with
-            | Some deps -> deps
-            | None -> Set.empty
+        let mutable typeParamMap: Map<string, TypeParam> = Map.empty
 
-          let mutable sorted = sorted
-
-          for dep in deps do
-            sorted <- topoSort dep (visited.Add(key)) sorted
-
-          sorted @ [ key ]
-
-      let deps = edges.Values |> Seq.collect id |> Set.ofSeq
-      let roots = Set.difference (edges.Keys |> Set.ofSeq) deps
-
-      let mutable sortedTypeParamNames = []
-
-      for root in roots do
-        sortedTypeParamNames <-
-          sortedTypeParamNames @ topoSort root Set.empty []
-
-      let folder t =
-        match t.Kind with
-        | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
-          match Map.tryFind name mapping with
-          | Some(tv) -> Some(tv)
-          | None -> None
-        | _ -> None
-
-      let mutable typeParamMap: Map<string, TypeParam> = Map.empty
-
-      match f.TypeParams with
-      | Some(typeParams) ->
         for tp in typeParams do
           typeParamMap <- typeParamMap.Add(tp.Name, tp)
-      | None -> ()
 
-      match f.TypeParams with
-      | Some typeParams ->
+        let sortedTypeParamNames = topoSort edges
+
         for name in sortedTypeParamNames do
           match typeArgs with
           | Some(typeArgs) ->
@@ -230,6 +229,7 @@ module Poly =
               // I think we want to use it when no type arg is explicitly
               // provided and in this case we should use the default type
               // instead of creating a fresh type parameter.
+              // TODO: check that default type is a subtype of the constraint
               let d = typeParam.Default |> Option.map (foldType folder)
 
               mapping <- mapping.Add(name, ctx.FreshTypeVar c)

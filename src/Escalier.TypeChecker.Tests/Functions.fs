@@ -737,7 +737,7 @@ let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefs () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: update BuildGraph to find type refs in type param constraints and defaults")>]
+[<Fact>]
 let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefsUsingLetFn
   ()
   =

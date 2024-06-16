@@ -953,7 +953,7 @@ let InferIfLetWithShadowing () =
 
       Assert.Empty(ctx.Diagnostics)
       // TODO: fix this shadowing issue
-      Assert.Value(env, "y", "t3:number + 1 | 0")
+      Assert.Value(env, "y", "t5:number + 1 | 0")
     }
 
   Assert.False(Result.isError result)
@@ -1257,7 +1257,6 @@ let InferInterfaceInModule () =
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")
-      // TODO: figure out how to not expand type aliases by default
       Assert.Value(env, "p", "Point")
     }
 

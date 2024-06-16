@@ -656,6 +656,109 @@ let InferFuncDeclInModule () =
   Assert.False(Result.isError result)
 
 
+[<Fact>]
+let InferGenericWithConstraint () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn<T: {}>(obj: T) => obj;
+        let bar = foo({a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: {}>(obj: T) -> T")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParam () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn<T: {}, U: T>(t: T, u: U) => u;
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: {}, U: T>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParamMisordered () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn<U: T, T: {}>(t: T, u: U) => u;
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <U: T, T: {}>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefs () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {};
+        fn foo<T: Obj, U: T>(t: T, u: U) {
+          return u;
+        }
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: Obj, U: T>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: update BuildGraph to find type refs in type param constraints and defaults")>]
+let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefsUsingLetFn
+  ()
+  =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {};
+        let foo = fn<T: Obj, U: T>(t: T, u: U) => u;
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: Obj, U: T>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  Assert.False(Result.isError result)
+
 // TODO:
 // - write tests for functions with optional params
 // - write tests for overloaded functions

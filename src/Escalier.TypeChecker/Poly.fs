@@ -129,6 +129,62 @@ module Poly =
 
     result {
       let mutable mapping: Map<string, Type> = Map.empty
+      let mutable edges: Map<string, Set<string>> = Map.empty
+
+      match f.TypeParams with
+      | Some typeParams ->
+        let paramNames = typeParams |> List.map (fun (p: TypeParam) -> p.Name)
+
+        for tp in typeParams do
+          let key = tp.Name
+          let mutable deps = Set.empty
+
+          let visit t =
+            match t.Kind with
+            | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
+              if List.contains name paramNames then
+                deps <- deps.Add(name)
+            | _ -> ()
+
+          match tp.Constraint with
+          | Some c -> TypeVisitor.walkType visit c
+          | None -> ()
+
+          match tp.Default with
+          | Some d -> TypeVisitor.walkType visit d
+          | None -> ()
+
+          edges <- edges.Add(key, deps)
+      | None -> ()
+
+      let rec topoSort
+        (key: string)
+        (visited: Set<string>)
+        (sorted: list<string>)
+        =
+        if visited.Contains(key) then
+          sorted
+        else
+          let deps =
+            match Map.tryFind key edges with
+            | Some deps -> deps
+            | None -> Set.empty
+
+          let mutable sorted = sorted
+
+          for dep in deps do
+            sorted <- topoSort dep (visited.Add(key)) sorted
+
+          sorted @ [ key ]
+
+      let deps = edges.Values |> Seq.collect id |> Set.ofSeq
+      let roots = Set.difference (edges.Keys |> Set.ofSeq) deps
+
+      let mutable sortedTypeParamNames = []
+
+      for root in roots do
+        sortedTypeParamNames <-
+          sortedTypeParamNames @ topoSort root Set.empty []
 
       let folder t =
         match t.Kind with
@@ -138,18 +194,45 @@ module Poly =
           | None -> None
         | _ -> None
 
+      let mutable typeParamMap: Map<string, TypeParam> = Map.empty
+
       match f.TypeParams with
       | Some(typeParams) ->
-        match typeArgs with
-        | Some(typeArgs) ->
-          if typeArgs.Length <> typeParams.Length then
-            return! Error(TypeError.WrongNumberOfTypeArgs)
+        for tp in typeParams do
+          typeParamMap <- typeParamMap.Add(tp.Name, tp)
+      | None -> ()
 
-          for tp, ta in List.zip typeParams typeArgs do
-            mapping <- mapping.Add(tp.Name, ta)
-        | None ->
-          for tp in typeParams do
-            mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar tp.Constraint)
+      match f.TypeParams with
+      | Some typeParams ->
+        for name in sortedTypeParamNames do
+          match typeArgs with
+          | Some(typeArgs) ->
+            if typeArgs.Length <> typeParams.Length then
+              return! Error(TypeError.WrongNumberOfTypeArgs)
+
+            for name in sortedTypeParamNames do
+              let typeParam = typeParamMap[name]
+
+              let index =
+                List.findIndex
+                  (fun (tp: TypeParam) -> tp.Name = name)
+                  typeParams
+
+              let typeArg = typeArgs[index]
+
+              mapping <- mapping.Add(name, typeArg)
+          | None ->
+            for name in sortedTypeParamNames do
+              let typeParam = typeParamMap[name]
+
+              let c = typeParam.Constraint |> Option.map (foldType folder)
+              // TODO: figure out how to use the default type param
+              // I think we want to use it when no type arg is explicitly
+              // provided and in this case we should use the default type
+              // instead of creating a fresh type parameter.
+              let d = typeParam.Default |> Option.map (foldType folder)
+
+              mapping <- mapping.Add(name, ctx.FreshTypeVar c)
       | None -> ()
 
       return

@@ -1,0 +1,31 @@
+﻿input: 
+      type Range = Min..Max;
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  { Name = "Range"
+                    TypeAnn =
+                     { Kind =
+                        Range { Min = { Kind = TypeRef { Ident = Ident "Min"
+                                                         TypeArgs = None }
+                                        Span = { Start = (Ln: 2, Col: 20)
+                                                 Stop = (Ln: 2, Col: 23) }
+                                        InferredType = None }
+                                Max = { Kind = TypeRef { Ident = Ident "Max"
+                                                         TypeArgs = None }
+                                        Span = { Start = (Ln: 2, Col: 25)
+                                                 Stop = (Ln: 2, Col: 28) }
+                                        InferredType = None } }
+                       Span = { Start = (Ln: 2, Col: 20)
+                                Stop = (Ln: 2, Col: 28) }
+                       InferredType = None }
+                    TypeParams = None }
+               Span = { Start = (Ln: 2, Col: 7)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 7)
+                   Stop = (Ln: 3, Col: 5) } }] }

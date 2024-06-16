@@ -1,0 +1,62 @@
+﻿input: 
+      type Obj = {range: Min..Max, qual: Foo.Bar};
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  { Name = "Obj"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Property
+                                { Name = String "range"
+                                  TypeAnn =
+                                   { Kind =
+                                      Range
+                                        { Min =
+                                           { Kind =
+                                              TypeRef { Ident = Ident "Min"
+                                                        TypeArgs = None }
+                                             Span = { Start = (Ln: 2, Col: 26)
+                                                      Stop = (Ln: 2, Col: 29) }
+                                             InferredType = None }
+                                          Max =
+                                           { Kind =
+                                              TypeRef { Ident = Ident "Max"
+                                                        TypeArgs = None }
+                                             Span = { Start = (Ln: 2, Col: 31)
+                                                      Stop = (Ln: 2, Col: 34) }
+                                             InferredType = None } }
+                                     Span = { Start = (Ln: 2, Col: 26)
+                                              Stop = (Ln: 2, Col: 34) }
+                                     InferredType = None }
+                                  Optional = false
+                                  Readonly = false
+                                  Static = false };
+                              Property
+                                { Name = String "qual"
+                                  TypeAnn =
+                                   { Kind =
+                                      TypeRef
+                                        { Ident = Member (Ident "Foo", "Bar")
+                                          TypeArgs = None }
+                                     Span = { Start = (Ln: 2, Col: 42)
+                                              Stop = (Ln: 2, Col: 49) }
+                                     InferredType = None }
+                                  Optional = false
+                                  Readonly = false
+                                  Static = false }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 2, Col: 18)
+                                Stop = (Ln: 2, Col: 50) }
+                       InferredType = None }
+                    TypeParams = None }
+               Span = { Start = (Ln: 2, Col: 7)
+                        Stop = (Ln: 3, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 7)
+                   Stop = (Ln: 3, Col: 5) } }] }

@@ -58,7 +58,7 @@ module Parser =
 
           match right.Status with
           | Ok -> Reply(QualifiedIdent.Member(left, right.Result))
-          | _ -> Reply(left)
+          | _ -> Reply(right.Status, right.Error) // bubbles the error up
       Precedence = precedence }
 
   qualifiedIdentPratt.RegisterInfix(".", infixQualifiedNameParselet 17)
@@ -403,14 +403,12 @@ module Parser =
   let private typeRef =
     pipe4
       getPosition
-      ident
+      qualifiedIdent
       (opt (between (strWs "<") (strWs ">") (sepEndBy typeAnn (strWs ","))))
       getPosition
     <| fun start ident typeArgs stop ->
       { TypeAnn.Kind =
-          TypeAnnKind.TypeRef
-            { Ident = QualifiedIdent.Ident ident
-              TypeArgs = typeArgs }
+          TypeAnnKind.TypeRef { Ident = ident; TypeArgs = typeArgs }
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
@@ -519,24 +517,6 @@ module Parser =
       Precedence = precedence }
 
   typeAnnParser.RegisterPrefix("(", groupingTypeAnnParselet 18)
-
-  typeAnnParser.RegisterInfix(
-    ".",
-    infixTypeAnnParselet 17 (fun left right ->
-      match left.Kind, right.Kind with
-      | TypeAnnKind.TypeRef { Ident = qualifier },
-        TypeAnnKind.TypeRef { Ident = QualifiedIdent.Ident name } ->
-        let kind =
-          TypeAnnKind.TypeRef
-            { Ident = QualifiedIdent.Member(qualifier, name)
-              TypeArgs = None }
-
-        { TypeAnn.Kind = kind
-          Span = mergeSpans left.Span right.Span
-          InferredType = None }
-      // TODO: return a Reply for this error case
-      | _ -> failwith "TODO")
-  )
 
   let indexTypeAnnParselet (precedence: int) : Pratt.InfixParselet<TypeAnn> =
     { Parse =

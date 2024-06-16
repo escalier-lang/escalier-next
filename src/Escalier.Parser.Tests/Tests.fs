@@ -599,6 +599,30 @@ let ParseRangeIteratorType () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseSimpleRangeType () =
+  let src =
+    """
+      type Range = Min..Max;
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseRangeTypeAndQualifiedTypeRefInObject () =
+  let src =
+    """
+      type Obj = {range: Min..Max, qual: Foo.Bar};
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseTemplateLiteralType () =
   let src = """type TemplateLiteral = `foo${number}`;"""
 

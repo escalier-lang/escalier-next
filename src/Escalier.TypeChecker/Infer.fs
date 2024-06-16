@@ -542,6 +542,7 @@ module rec Infer =
         | ExprKind.Call call ->
           let! callee = inferExpr ctx env call.Callee
 
+          // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
           let! result, throws = unifyCall ctx env None call.Args None callee
 
           call.Throws <- Some(throws)
@@ -2942,9 +2943,12 @@ module rec Infer =
         match bind ctx env ips callee callType with
         | Ok _ -> return (prune retType, prune throwsType)
         | Error e -> return! Error e
-      | kind -> return! Error(TypeError.NotImplemented $"kind = {kind}")
+      | kind ->
+        printfn $"callee = {callee}"
+        return! Error(TypeError.NotImplemented $"kind = {kind}")
     }
 
+  // Returns a Result with 2-tuple containing the return and throws types.
   let unifyFuncCall
     (ctx: Ctx)
     (env: Env)

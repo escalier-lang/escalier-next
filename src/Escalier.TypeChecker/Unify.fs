@@ -354,7 +354,22 @@ module rec Unify =
           | TypeKind.Object { Elems = elems } ->
             combinedElems <- combinedElems @ elems
           | TypeKind.Rest t -> restTypes <- t :: restTypes
-          | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+          | TypeKind.TypeRef _ ->
+            let! t = expandType ctx env ips Map.empty t
+
+            match t.Kind with
+            | TypeKind.Object { Elems = elems } ->
+              combinedElems <- combinedElems @ elems
+            | TypeKind.Rest t -> restTypes <- t :: restTypes
+            | _ ->
+              printfn $"t is not an object types - {t}"
+              return! Error(TypeError.TypeMismatch(t1, t2))
+          | _ ->
+            // TODO: handle the case where `t` is a type variable
+            // NOTE: we can only handle situations where one of the types is
+            // a type variable otherwise it's undecidable.
+            printfn $"t is not an object types - {t}"
+            return! Error(TypeError.TypeMismatch(t1, t2))
 
         let objType =
           { Kind =
@@ -1050,9 +1065,12 @@ module rec Unify =
                     expandScheme ctx env ips scheme mapping typeArgs
                   | None -> failwith $"{name} is not in scope"
             | Member _ ->
-              match env.GetScheme name with
-              | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
-              | Error errorValue -> failwith $"{name} is not in scope"
+              match scheme with
+              | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
+              | None ->
+                match env.GetScheme name with
+                | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
+                | Error errorValue -> failwith $"{name} is not in scope"
 
           return! expand mapping t
         | _ ->

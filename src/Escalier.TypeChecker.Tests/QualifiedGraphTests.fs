@@ -702,3 +702,69 @@ let InferFunctionDeclTypeFromBodyWrongSig () =
     }
 
   Assert.True(Result.isError res)
+
+[<Fact>]
+let InferFunctionWithTypeRefInsideNamespace () =
+  let res =
+    result {
+      let src =
+        """
+        namespace Foo {
+          type Point = {x: number, y: number};
+          fn get(p: Point, axis: keyof Point) -> number {
+            if axis == "x" {
+              return p.x;
+            } else {
+              return p.y;
+            }
+          }
+          fn get(p: Point) -> Point {
+            return p;
+          }
+        }
+        let p = {x: 5, y: 10};
+        let x = Foo.get(p, "x");
+        let y = Foo.get(p, "y");
+        let get = Foo.get;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Value(
+        env,
+        "get",
+        "fn (p: Foo.Point, axis: keyof Foo.Point) -> number & fn (p: Foo.Point) -> Foo.Point"
+      )
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact(Skip = "TODO")>]
+let InferFunctionReturningValuesFromNamespace () =
+  let res =
+    result {
+      let src =
+        """                                                                       
+        let getGet = fn () {
+          namespace Foo {
+            type Point = {x: number, y: number};
+            fn get(p: Point, axis: keyof Point) -> number {
+              return p.x;
+            }
+          }
+          return fn (p, axis) => Foo.get(p, axis);
+        };
+        let get = getGet();
+        let p = {x: 5, y: 10};
+        let x = get(p, "x");
+        let y = get(p, "y");
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Value(env, "get", "")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)

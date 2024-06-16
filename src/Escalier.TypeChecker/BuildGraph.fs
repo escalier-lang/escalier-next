@@ -1,4 +1,4 @@
-module Escalier.TypeChecker.BuildGraph
+module rec Escalier.TypeChecker.BuildGraph
 
 open Escalier.Data.Type
 open Escalier.TypeChecker.Env
@@ -183,13 +183,13 @@ let postProcessDeps
       deps
 
 let findDepsForValueIdent
-  (ns: Namespace)
+  (env: Env)
   (locals: list<QDeclIdent>)
   (localsTree: QDeclTree)
   (ident: QDeclIdent)
   (expr: Expr)
   : list<QDeclIdent> =
-  let mutable ids: list<QDeclIdent> = []
+  let mutable idents: list<QDeclIdent> = []
 
   let visitor =
     { ExprVisitor.VisitExpr =
@@ -198,13 +198,18 @@ let findDepsForValueIdent
           | ExprKind.Member(target, name, _) ->
             match memberToQualifiedIdent target name with
             | Some qid ->
-              ids <- QDeclIdent.Value qid :: ids
+              idents <- QDeclIdent.Value qid :: idents
               (false, state)
             | None -> (true, state)
           | ExprKind.Identifier name ->
-            ids <- QDeclIdent.Value(QualifiedIdent.FromString name) :: ids
+            idents <- QDeclIdent.Value(QualifiedIdent.FromString name) :: idents
             (false, state)
-          | ExprKind.Function _ -> (false, state)
+          | ExprKind.Function f ->
+            idents <-
+              idents
+              @ getDepsForFn env ident locals localsTree [] f.Sig (Some f.Body)
+
+            (false, state)
           | _ -> (true, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
@@ -213,9 +218,9 @@ let findDepsForValueIdent
           match typeAnn.Kind with
           | TypeAnnKind.TypeRef { Ident = ident } -> (false, state)
           | TypeAnnKind.Typeof ident ->
-            ids <-
+            idents <-
               QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent ident)
-              :: ids
+              :: idents
 
             (false, state)
           | _ -> (true, state)
@@ -223,7 +228,7 @@ let findDepsForValueIdent
 
   walkExpr visitor () expr
 
-  postProcessDeps ns locals localsTree ident (List.rev ids)
+  postProcessDeps env.Namespace locals localsTree ident (List.rev idents)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
@@ -676,6 +681,7 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
           nodes <- nodes.Add(ident, [ decl ])
       | FnDecl { Name = name } ->
         let key = { Parts = namespaces @ [ name ] }
+
         match nodes.TryFind(QDeclIdent.Value(key)) with
         | Some decls ->
           nodes <- nodes.Add(QDeclIdent.Value(key), decls @ [ decl ])
@@ -725,10 +731,8 @@ let getEdges
         let deps =
           match init with
           | Some init ->
-            let mutable deps =
-              findDepsForValueIdent env.Namespace locals localsTree ident init
+            let deps = findDepsForValueIdent env locals localsTree ident init
 
-            // TODO: reimplement findTypeRefIdents to only look at localTypeNames
             let typeDepsInExpr =
               findDepsForTypeIdent
                 env
@@ -750,29 +754,7 @@ let getEdges
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> []
 
-            deps <- deps @ typeDepsInExpr @ typeDeps
-
-            // TODO: dedupe with the other branch
-            // TODO: check declaration order using a separate pass
-            // for dep in deps do
-            //   match dep with
-            //   | QDeclIdent.Type _ -> ()
-            //   | QDeclIdent.Value _ ->
-            //     if not (List.contains dep declared) then
-            //       let depIdent =
-            //         match dep with
-            //         | QDeclIdent.Value ident -> ident
-            //         | QDeclIdent.Type ident -> ident
-            //
-            //       failwith $"{depIdent} has not been initialized yet"
-
-            let functions = QualifiedGraph.findFunctions init
-
-            for f in functions do
-              let captures = findCaptures locals [] f
-              deps <- deps @ captures
-
-            deps
+            deps @ typeDepsInExpr @ typeDeps
           | None ->
             let deps =
               match typeAnn with

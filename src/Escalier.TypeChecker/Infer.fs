@@ -3086,6 +3086,9 @@ module rec Infer =
         do! unify ctx env ips tuple param.Type
       | _ -> ()
 
+      // TODO: check if callee.Return is a type variable, if it is then we need
+      // to use the default value from the associated type parameter.
+
       return (callee.Return, callee.Throws)
     }
 

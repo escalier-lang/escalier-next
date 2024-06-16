@@ -624,6 +624,8 @@ module Type =
 
   // A type variable standing for an arbitrary type.
   // All type variables have a unique id, but names are only assigned lazily, when required.
+  // TODO: add a `Default` field to allow type variables to have default types
+  // This will be used by `unifyFuncCall`.
   type TypeVar =
     { Id: int
       mutable Bound: option<Type>

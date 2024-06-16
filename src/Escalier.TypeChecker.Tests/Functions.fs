@@ -656,6 +656,181 @@ let InferFuncDeclInModule () =
   Assert.False(Result.isError result)
 
 
+[<Fact>]
+let InferGenericWithConstraint () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn<T: {}>(obj: T) => obj;
+        let bar = foo({a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: {}>(obj: T) -> T")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParam () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn<T: {}, U: T>(t: T, u: U) => u;
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: {}, U: T>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParamMisordered () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = fn<U: T, T: {}>(t: T, u: U) => u;
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <U: T, T: {}>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefs () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {};
+        fn foo<T: Obj, U: T>(t: T, u: U) {
+          return u;
+        }
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: Obj, U: T>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefsUsingLetFn
+  ()
+  =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {};
+        let foo = fn<T: Obj, U: T>(t: T, u: U) => u;
+        let bar = foo({a: 5}, {a: 5, b: "hello"});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: Obj, U: T>(t: T, u: U) -> U")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: Add .Default to TypeVar and use the .Default in unifyFuncCall")>]
+let InferSimpleGenericWithDefault () =
+  let result =
+    result {
+      let src =
+        """
+        declare fn foo<T: {} = {b: 10}>(bar?: T) -> T;
+        let x = foo();
+        let y = foo({a: 5});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: {} = {b: 10}>(bar?: T) -> T")
+      Assert.Value(env, "x", "{}")
+      Assert.Value(env, "y", "{a: 5}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: check superclass when determining if class instances are assignable")>]
+let InferClassSubType () =
+  let result =
+    result {
+      let src =
+        """
+        declare let div: HTMLDivElement;
+        let elem: HTMLElement = div;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: check superclass when determining if class instances are assignable")>]
+let InferGenericWithDefault () =
+  let result =
+    result {
+      let src =
+        """
+        type Container<T, U> = {
+            element: T,
+            children: U,
+        };
+        
+        declare fn create<T: HTMLElement = HTMLDivElement, U: HTMLElement[] = T[]>(
+          element?: T,
+          children?: U
+        ) -> Container<T, U>;
+
+        declare let span: HTMLSpanElement;
+        
+        let c1 = create();
+        let c2 = create(span);
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T = number>(t: T) -> T")
+      Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
 // TODO:
 // - write tests for functions with optional params
 // - write tests for overloaded functions

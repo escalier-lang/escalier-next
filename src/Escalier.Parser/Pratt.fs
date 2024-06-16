@@ -174,9 +174,12 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
       let left = nud ()
 
       let rec led (left: Reply<'T>) =
-        match this.NextInfixOperator(stream) with
-        | Some(operator, parselets) -> parse_parselets left operator parselets
-        | None -> left
+        match left.Status with
+        | ReplyStatus.Ok ->
+          match this.NextInfixOperator(stream) with
+          | Some(operator, parselets) -> parse_parselets left operator parselets
+          | None -> left
+        | _ -> left // bubbles the error up
 
       and parse_parselets
         (left: Reply<'T>)
@@ -199,9 +202,14 @@ type PrattParser<'T>(term: Parser<'T, unit>) =
             | ReplyStatus.Ok -> reply
             | ReplyStatus.Error ->
               if parselets.IsEmpty then
-                reply
+                // None of our parselets were able to parse the operator so
+                // backtrack to the state before we tried to parse the operator
+                // and return the original `left` value.
+                stream.BacktrackTo(&state)
+                left
               else
-                // This is similar to what `attempt` does
+                // The current parselet failed to parse the operator so try the
+                // next one.
                 stream.BacktrackTo(&state)
                 parse_parselets left operator parselets
             | ReplyStatus.FatalError ->

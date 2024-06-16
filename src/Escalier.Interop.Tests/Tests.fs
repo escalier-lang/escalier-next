@@ -761,7 +761,12 @@ let ImportReact () =
         type ElementType = React.React.ElementType;
         type ReactElement = React.React.ReactElement;
         let createElement = React.React.createElement;
-        // let div = React.React.createElement("div", {});
+        let htmlAttrs: React.React.HTMLAttributes<HTMLElement> = {};
+        let classAttrs: React.React.ClassAttributes<HTMLElement> = {};
+        let attrs: React.React.HTMLAttributes<HTMLElement> & React.React.ClassAttributes<HTMLElement> = {};
+        
+        declare let myCreateElement: fn <P: React.React.HTMLAttributes<T>, T: HTMLElement>(mut type: keyof React.React.ReactHTML, mut props: React.React.ClassAttributes<T> & P | null, ...mut children: React.React.ReactNode[]) -> React.React.DetailedReactHTMLElement<P, T>;
+        let div = myCreateElement("div", {});
         """
 
       let! ast =
@@ -773,17 +778,23 @@ let ImportReact () =
         InferGraph.inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
-      match env.TryFindValue "createElement" with
-      | Some(t, _) ->
-        let! t =
-          Unify.expandType ctx env None Map.empty t
-          |> Result.mapError CompileError.TypeError
-
-        printfn $"t = {t}"
-      | None -> ()
+      let t, _ = env.FindValue "createElement"
+      printfn $"createElement = {t}"
 
       Assert.Type(env, "ReactElement", "React.React.ReactElement")
-    // Assert.Value(env, "div", "React.React.ElementType")
+      Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
+
+      Assert.Value(
+        env,
+        "classAttrs",
+        "React.React.ClassAttributes<HTMLElement>"
+      )
+
+    // Assert.Value(
+    //   env,
+    //   "div",
+    //   "React.DetailedReactHTMLElement<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>"
+    // )
     }
 
   printfn "result = %A" result

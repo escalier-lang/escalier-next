@@ -13,8 +13,15 @@ open ExprVisitor
 open Poly
 
 // TODO: update this function to use the type visitor/folder
-let rec generalizeFunctionsInType (t: Type) : Type =
+let rec generalizeType (t: Type) : Type =
   match (prune t).Kind with
+  | TypeKind.TypeVar { Instance = None; Default = Some d } -> d
+  | TypeKind.TypeVar { Instance = None; Bound = Some b } -> b
+  | TypeKind.TypeVar { Instance = None
+                       Bound = None
+                       Default = None } ->
+    { Kind = TypeKind.Keyword Keyword.Unknown
+      Provenance = None }
   | TypeKind.Function f ->
     { t with
         Kind = generalizeFunc f |> TypeKind.Function }
@@ -40,23 +47,23 @@ let rec generalizeFunctionsInType (t: Type) : Type =
             { Name = name
               Optional = optional
               Readonly = readonly
-              Type = generalizeFunctionsInType t }
+              Type = generalizeType t }
         | _ -> elem)
 
     { t with
         Kind = TypeKind.Object { objectKind with Elems = elems } }
   | TypeKind.Tuple({ Elems = elems } as tupleKind) ->
-    let elems = elems |> List.map generalizeFunctionsInType
+    let elems = elems |> List.map generalizeType
 
     { t with
         Kind = TypeKind.Tuple { tupleKind with Elems = elems } }
   | TypeKind.Intersection types ->
-    let types = types |> List.map generalizeFunctionsInType
+    let types = types |> List.map generalizeType
 
     { t with
         Kind = TypeKind.Intersection types }
   | TypeKind.Union types ->
-    let types = types |> List.map generalizeFunctionsInType
+    let types = types |> List.map generalizeType
     { t with Kind = TypeKind.Union types }
   | _ -> t
 
@@ -64,7 +71,7 @@ let generalizeBindings (bindings: Map<string, Binding>) : Map<string, Binding> =
   let mutable newBindings = Map.empty
 
   for KeyValue(name, (t, isMut)) in bindings do
-    let t = generalizeFunctionsInType t
+    let t = generalizeType t
     newBindings <- newBindings.Add(name, (t, isMut))
 
   newBindings

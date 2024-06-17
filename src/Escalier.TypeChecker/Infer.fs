@@ -2726,7 +2726,7 @@ module rec Infer =
 
       return
         { TypeParams = typeParams
-          Type = generalizeFunctionsInType t
+          Type = generalizeType t
           IsTypeParam = false }
     }
 

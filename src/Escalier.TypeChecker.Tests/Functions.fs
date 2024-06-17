@@ -765,7 +765,7 @@ let InferSimpleGenericWithDefault () =
     result {
       let src =
         """
-        declare fn foo<T: {} = {b: 10}>(bar?: T) -> T;
+        declare fn foo<T: {} = {b: 10}>(bar?: T) -> {value: T};
         let x = foo();
         let y = foo({a: 5});
         """
@@ -773,9 +773,9 @@ let InferSimpleGenericWithDefault () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "foo", "fn <T: {} = {b: 10}>(bar?: T) -> T")
-      Assert.Value(env, "x", "{b: 10}")
-      Assert.Value(env, "y", "{a: 5}")
+      Assert.Value(env, "foo", "fn <T: {} = {b: 10}>(bar?: T) -> {value: T}")
+      Assert.Value(env, "x", "{value: {b: 10}}")
+      Assert.Value(env, "y", "{value: {a: 5}}")
     }
 
   Assert.False(Result.isError result)
@@ -786,7 +786,7 @@ let InferSimpleGenericWithConstraint () =
     result {
       let src =
         """
-        declare fn foo<T: {}>(bar?: T) -> T;
+        declare fn foo<T: {}>(bar?: T) -> {value: T};
         let x = foo();
         let y = foo({a: 5});
         """
@@ -794,9 +794,9 @@ let InferSimpleGenericWithConstraint () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "foo", "fn <T: {}>(bar?: T) -> T")
-      Assert.Value(env, "x", "{}")
-      Assert.Value(env, "y", "{a: 5}")
+      Assert.Value(env, "foo", "fn <T: {}>(bar?: T) -> {value: T}")
+      Assert.Value(env, "x", "{value: {}}")
+      Assert.Value(env, "y", "{value: {a: 5}}")
     }
 
   Assert.False(Result.isError result)
@@ -807,7 +807,7 @@ let InferSimpleGenericWithoutDefaultOrConstraint () =
     result {
       let src =
         """
-        declare fn foo<T>(bar?: T) -> T;
+        declare fn foo<T>(bar?: T) -> {value: T};
         let x = foo();
         let y = foo({a: 5});
         """
@@ -815,9 +815,9 @@ let InferSimpleGenericWithoutDefaultOrConstraint () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "foo", "fn <T>(bar?: T) -> T")
-      Assert.Value(env, "x", "unknown")
-      Assert.Value(env, "y", "{a: 5}")
+      Assert.Value(env, "foo", "fn <T>(bar?: T) -> {value: T}")
+      Assert.Value(env, "x", "{value: unknown}")
+      Assert.Value(env, "y", "{value: {a: 5}}")
     }
 
   Assert.False(Result.isError result)

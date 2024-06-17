@@ -839,19 +839,7 @@ let generalizeBindings
   let mutable newBindings = Map.empty
 
   for KeyValue(name, (t, isMut)) in bindings do
-    let t =
-      match (prune t).Kind with
-      // TODO: generalize all type variables outside of functions in the type
-      | TypeKind.TypeVar { Instance = None; Default = Some d } -> d
-      | TypeKind.TypeVar { Instance = None; Bound = Some b } -> b
-      | TypeKind.TypeVar { Instance = None
-                           Bound = None
-                           Default = None } ->
-        { Kind = TypeKind.Keyword Keyword.Unknown
-          Provenance = None }
-      | _ -> Helpers.generalizeFunctionsInType t
-
-    let t = Helpers.generalizeFunctionsInType t
+    let t = Helpers.generalizeType t
     newBindings <- newBindings.Add(name, (t, isMut))
 
   newBindings

@@ -629,6 +629,7 @@ module Type =
   type TypeVar =
     { Id: int
       mutable Bound: option<Type>
+      mutable Default: option<Type>
       mutable Instance: option<Type> }
 
   // An n-ary type constructor which builds a new type from old

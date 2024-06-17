@@ -759,13 +759,13 @@ let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefsUsingLetFn
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: Add .Default to TypeVar and use the .Default in unifyFuncCall")>]
+[<Fact>]
 let InferSimpleGenericWithDefault () =
   let result =
     result {
       let src =
         """
-        declare fn foo<T: {} = {b: 10}>(bar?: T) -> T;
+        declare fn foo<T: {} = {b: 10}>(bar?: T) -> {value: T};
         let x = foo();
         let y = foo({a: 5});
         """
@@ -773,12 +773,53 @@ let InferSimpleGenericWithDefault () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "foo", "fn <T: {} = {b: 10}>(bar?: T) -> T")
-      Assert.Value(env, "x", "{}")
-      Assert.Value(env, "y", "{a: 5}")
+      Assert.Value(env, "foo", "fn <T: {} = {b: 10}>(bar?: T) -> {value: T}")
+      Assert.Value(env, "x", "{value: {b: 10}}")
+      Assert.Value(env, "y", "{value: {a: 5}}")
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSimpleGenericWithConstraint () =
+  let result =
+    result {
+      let src =
+        """
+        declare fn foo<T: {}>(bar?: T) -> {value: T};
+        let x = foo();
+        let y = foo({a: 5});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T: {}>(bar?: T) -> {value: T}")
+      Assert.Value(env, "x", "{value: {}}")
+      Assert.Value(env, "y", "{value: {a: 5}}")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSimpleGenericWithoutDefaultOrConstraint () =
+  let result =
+    result {
+      let src =
+        """
+        declare fn foo<T>(bar?: T) -> {value: T};
+        let x = foo();
+        let y = foo({a: 5});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "foo", "fn <T>(bar?: T) -> {value: T}")
+      Assert.Value(env, "x", "{value: unknown}")
+      Assert.Value(env, "y", "{value: {a: 5}}")
+    }
+
   Assert.False(Result.isError result)
 
 [<Fact(Skip = "TODO: check superclass when determining if class instances are assignable")>]

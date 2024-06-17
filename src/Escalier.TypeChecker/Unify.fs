@@ -238,7 +238,7 @@ module rec Unify =
                 mapping <- mapping.Add(tp.Name, ta)
             | None ->
               for tp in typeParams do
-                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
+                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None None)
           | None -> ()
 
           let! t = expandScheme ctx env ips scheme mapping typeArgs
@@ -261,7 +261,7 @@ module rec Unify =
                 mapping <- mapping.Add(tp.Name, ta)
             | None ->
               for tp in typeParams do
-                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None)
+                mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None None)
           | None -> ()
 
           let! t = expandScheme ctx env ips scheme mapping typeArgs
@@ -708,7 +708,8 @@ module rec Unify =
                   do! unify ctx env ips bound2 bound1
                 | None -> ()
 
-                v2.Bound <- Some(bound1)
+                v2.Bound <- v1.Bound
+                v2.Default <- v1.Default
                 v1.Instance <- Some(t2)
               | TypeKind.Keyword Keyword.Never ->
                 // TODO: figure out when the bound is never so I can write
@@ -894,7 +895,7 @@ module rec Unify =
           let mutable newMapping = mapping
 
           for name in infers do
-            let t = ctx.FreshTypeVar None
+            let t = ctx.FreshTypeVar None None
             newMapping <- Map.add name t newMapping
 
           let extends = replaceInfers extends newMapping

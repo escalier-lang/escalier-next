@@ -283,7 +283,7 @@ let fresh (ctx: Ctx) (t: Type) : Type =
   let folder: Type -> option<Type> =
     fun t ->
       match t.Kind with
-      | TypeKind.TypeVar _ -> Some(ctx.FreshTypeVar None)
+      | TypeKind.TypeVar _ -> Some(ctx.FreshTypeVar None None)
       | _ -> None
 
   Folder.foldType folder t

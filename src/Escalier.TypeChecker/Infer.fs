@@ -109,7 +109,7 @@ module rec Infer =
       // TODO: add support for constraints on type params to aliases
       let placeholder =
         { TypeParams = placeholderTypeParams
-          Type = ctx.FreshTypeVar None
+          Type = ctx.FreshTypeVar None None
           IsTypeParam = false }
 
       newEnv <- newEnv.AddScheme className placeholder
@@ -1043,7 +1043,7 @@ module rec Infer =
               let! paramType =
                 match param.TypeAnn with
                 | Some(typeAnn) -> inferTypeAnn ctx newEnv typeAnn
-                | None -> Result.Ok(ctx.FreshTypeVar None)
+                | None -> Result.Ok(ctx.FreshTypeVar None None)
 
               // TODO: figure out a way to avoid having to call inferPattern twice
               // per method (the other call is `inferFuncBody`)
@@ -1063,12 +1063,12 @@ module rec Infer =
       let! sigThrows =
         match fnSig.Throws with
         | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
-        | None -> Result.Ok(ctx.FreshTypeVar None)
+        | None -> Result.Ok(ctx.FreshTypeVar None None)
 
       let! sigRetType =
         match fnSig.ReturnType with
         | Some(sigRetType) -> inferTypeAnn ctx newEnv sigRetType
-        | None -> Result.Ok(ctx.FreshTypeVar None)
+        | None -> Result.Ok(ctx.FreshTypeVar None None)
 
       let func = makeFunction typeParams self paramList sigRetType sigThrows
 
@@ -1628,7 +1628,7 @@ module rec Infer =
           | KeywordTypeAnn.Never -> return TypeKind.Keyword Keyword.Never
           | KeywordTypeAnn.Object -> return TypeKind.Keyword Keyword.Object
           | KeywordTypeAnn.Any ->
-            let t = ctx.FreshTypeVar None
+            let t = ctx.FreshTypeVar None None
             return t.Kind
           | _ ->
             return!
@@ -1644,7 +1644,7 @@ module rec Infer =
           | None ->
             let scheme =
               { TypeParams = None
-                Type = ctx.FreshTypeVar None
+                Type = ctx.FreshTypeVar None None
                 IsTypeParam = false }
 
             newEnv <- newEnv.AddScheme "Self" scheme
@@ -1826,7 +1826,7 @@ module rec Infer =
               | _ -> failwith $"TODO: lookup type of {qi}"
 
             assertType
-          | None -> ctx.FreshTypeVar None
+          | None -> ctx.FreshTypeVar None None
 
         // TODO: check if `name` already exists in `assump`
         assump <- assump.Add(name, (t, isMut))
@@ -1870,7 +1870,7 @@ module rec Infer =
                       | _ -> failwith $"TODO: lookup type of {qi}"
 
                     assertType
-                  | None -> ctx.FreshTypeVar None
+                  | None -> ctx.FreshTypeVar None None
 
                 // TODO: check if `name` already exists in `assump`
                 assump <- assump.Add(name, (t, isMut))
@@ -2111,7 +2111,7 @@ module rec Infer =
           for { Name = name } in typeParams do
             let scheme =
               { TypeParams = None
-                Type = ctx.FreshTypeVar None // placeholder
+                Type = ctx.FreshTypeVar None None // placeholder
                 IsTypeParam = true }
 
             newEnv <- newEnv.AddScheme name scheme
@@ -2667,12 +2667,12 @@ module rec Infer =
             (fun (typeParam: Syntax.TypeParam) ->
               let c =
                 match typeParam.Constraint with
-                | Some(c) -> Some(ctx.FreshTypeVar None)
+                | Some(c) -> Some(ctx.FreshTypeVar None None)
                 | None -> None
 
               let d =
                 match typeParam.Default with
-                | Some(d) -> Some(ctx.FreshTypeVar None)
+                | Some(d) -> Some(ctx.FreshTypeVar None None)
                 | None -> None
 
               { Name = typeParam.Name
@@ -2682,7 +2682,7 @@ module rec Infer =
 
       let scheme =
         { TypeParams = typeParams
-          Type = ctx.FreshTypeVar None
+          Type = ctx.FreshTypeVar None None
           IsTypeParam = false }
 
       return scheme
@@ -2926,8 +2926,8 @@ module rec Infer =
                 Optional = false })
             argTypes
 
-        let retType = ctx.FreshTypeVar None
-        let throwsType = ctx.FreshTypeVar None
+        let retType = ctx.FreshTypeVar None None
+        let throwsType = ctx.FreshTypeVar None None
 
         let fn =
           { ParamList = paramList
@@ -3088,6 +3088,18 @@ module rec Infer =
 
       // TODO: check if callee.Return is a type variable, if it is then we need
       // to use the default value from the associated type parameter.
+
+      // TODO: instead of doing this here, do then when we generalize top-level
+      // declarations
+      // let retType =
+      //   match callee.Return.Kind with
+      //   | TypeKind.TypeVar { Instance = None; Default = d } ->
+      //     match d with
+      //     | Some t -> t
+      //     | None ->
+      //       { Kind = TypeKind.Keyword Keyword.Unknown
+      //         Provenance = None }
+      //   | _ -> callee.Return
 
       return (callee.Return, callee.Throws)
     }

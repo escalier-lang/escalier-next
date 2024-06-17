@@ -52,10 +52,11 @@ module rec Env =
     member val NextTypeVarId = nextTypeVarId with get, set
     member val NextUniqueId = nextUniqueId with get, set
 
-    member this.FreshTypeVar(bound: option<Type>) =
+    member this.FreshTypeVar (bound: option<Type>) (def: option<Type>) =
       let newVar =
         { Id = nextTypeVarId
           Bound = bound
+          Default = def
           Instance = None }
 
       nextTypeVarId <- nextTypeVarId + 1

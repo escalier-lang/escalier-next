@@ -225,14 +225,9 @@ module Poly =
               let typeParam = typeParamMap[name]
 
               let c = typeParam.Constraint |> Option.map (foldType folder)
-              // TODO: figure out how to use the default type param
-              // I think we want to use it when no type arg is explicitly
-              // provided and in this case we should use the default type
-              // instead of creating a fresh type parameter.
-              // TODO: check that default type is a subtype of the constraint
               let d = typeParam.Default |> Option.map (foldType folder)
 
-              mapping <- mapping.Add(name, ctx.FreshTypeVar c)
+              mapping <- mapping.Add(name, ctx.FreshTypeVar c d)
       | None -> ()
 
       return
@@ -277,7 +272,8 @@ module Poly =
             mapping <- mapping.Add(tp.Name, ta)
         | None ->
           for tp in typeParams do
-            mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar tp.Constraint)
+            mapping <-
+              mapping.Add(tp.Name, ctx.FreshTypeVar tp.Constraint tp.Default)
       | None -> ()
 
       return foldType folder t

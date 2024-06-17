@@ -106,7 +106,7 @@ let rec inferExprStructuralPlacholder
       let kind = TypeKind.Tuple { Elems = elems; Immutable = false }
 
       return { Kind = kind; Provenance = None }
-    | _ -> return ctx.FreshTypeVar None
+    | _ -> return ctx.FreshTypeVar None None
   }
 
 let inferDeclPlaceholders
@@ -172,7 +172,7 @@ let inferDeclPlaceholders
             if fnSig.ReturnType.IsNone then
               failwith "Ambient function declarations must be fully typed"
 
-          let t = ctx.FreshTypeVar None
+          let t = ctx.FreshTypeVar None None
 
           let key =
             match ident with
@@ -203,7 +203,7 @@ let inferDeclPlaceholders
 
           qns <- qns.AddScheme key instance
 
-          let statics: Type = ctx.FreshTypeVar None
+          let statics: Type = ctx.FreshTypeVar None None
 
           qns <- qns.AddValue key (statics, false)
         | EnumDecl _ ->
@@ -822,17 +822,11 @@ let updateEnvWithQualifiedNamespace
 let updateQualifiedNamespace
   (src: QualifiedNamespace)
   (dst: QualifiedNamespace)
-  (generalize: bool)
   : QualifiedNamespace =
   let mutable dst = dst
 
   for KeyValue(key, binding) in src.Values do
-    if generalize then
-      let t, isMut = binding
-      let t = Helpers.generalizeFunctionsInType t
-      dst <- dst.AddValue key (t, isMut)
-    else
-      dst <- dst.AddValue key binding
+    dst <- dst.AddValue key binding
 
   for KeyValue(key, scheme) in src.Schemes do
     dst <- dst.AddScheme key scheme
@@ -845,6 +839,18 @@ let generalizeBindings
   let mutable newBindings = Map.empty
 
   for KeyValue(name, (t, isMut)) in bindings do
+    let t =
+      match (prune t).Kind with
+      // TODO: generalize all type variables outside of functions in the type
+      | TypeKind.TypeVar { Instance = None; Default = Some d } -> d
+      | TypeKind.TypeVar { Instance = None; Bound = Some b } -> b
+      | TypeKind.TypeVar { Instance = None
+                           Bound = None
+                           Default = None } ->
+        { Kind = TypeKind.Keyword Keyword.Unknown
+          Provenance = None }
+      | _ -> Helpers.generalizeFunctionsInType t
+
     let t = Helpers.generalizeFunctionsInType t
     newBindings <- newBindings.Add(name, (t, isMut))
 
@@ -888,8 +894,7 @@ let inferTree
                 inferTreeRec ctx env dep graph tree fullQns
 
               // Update partialQns with new values and types
-              partialQns <-
-                updateQualifiedNamespace newPartialQns partialQns false
+              partialQns <- updateQualifiedNamespace newPartialQns partialQns
 
           | None -> ()
 
@@ -913,7 +918,7 @@ let inferTree
                 Values = generalizeBindings newPartialQns.Values }
 
           // Update fullQns with new values and types
-          fullQns <- updateQualifiedNamespace newPartialQns fullQns true
+          fullQns <- updateQualifiedNamespace newPartialQns fullQns
 
           processed <- Map.add root newPartialQns processed
 

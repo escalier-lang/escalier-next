@@ -1283,3 +1283,27 @@ let InferTypeParamInIntersection () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO")>]
+let UnifyIntersectionTypesWithIntersectionTypes () =
+  let result =
+    result {
+      let src =
+        """
+        fn foo<T: {}>(props: T & {x: number}) -> T {
+          const {x, ...rest} = props;
+          return rest;
+        };
+        let bar = foo({x: 5, y: "hello", z: true});
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      Assert.Value(env, "foo", "fn <T: {}>(props: T & {x: number}) -> T")
+      Assert.Value(env, "bar", "{y: \"hello\", z: true}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

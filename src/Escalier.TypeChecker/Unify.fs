@@ -766,6 +766,8 @@ module rec Unify =
       // We eagerly expand type args so that any union types can
       // be distributed properly across conditionals so that types
       // like `Exclude<T, U> = T extends U ? never : T` work properly.
+      // We're able to do this upfront because because the type args can't
+      // reference any TypeRefs introduced by the scheme in its type params.
       let! typeArgs =
         match typeArgs with
         | None -> ResultOption.ofOption None
@@ -778,26 +780,15 @@ module rec Unify =
       | None, None -> return! expandType ctx env ips mapping scheme.Type
       | Some(typeParams), Some(typeArgs) ->
         let mutable newEnv = env
-        let mutable mapping: Map<string, Type> = Map.empty
 
-        for typeArg, typeParam in List.zip typeArgs typeParams do
-          match typeParam.Constraint with
-          | Some c -> do! unify ctx newEnv ips typeArg c
-          | None -> ()
+        // TODO: augment the incoming mapping with this new mapping
+        // any conflicts should be resolved with the new mapping winning
+        let! mapping = buildTypeArgMapping ctx typeParams (Some typeArgs)
 
-          newEnv <-
-            newEnv.AddScheme
-              typeParam.Name
-              { Type = typeArg
-                TypeParams = None
-                IsTypeParam = true }
+        for KeyValue(name, t) in mapping do
+          newEnv <- newEnv.AddScheme name { Type = t; TypeParams = None }
 
-          mapping <- mapping.Add(typeParam.Name, typeArg)
-
-        let typeParams = List.map (fun (p: TypeParam) -> p.Name) typeParams
-        let mapping = Map.ofList (List.zip typeParams typeArgs)
-
-        return! expandType ctx env ips mapping scheme.Type
+        return! expandType ctx newEnv ips mapping scheme.Type
       | _ ->
         return!
           Error(
@@ -871,7 +862,9 @@ module rec Unify =
                     Provenance = None })
 
             return union keys
-          | _ -> return! Error(TypeError.NotImplemented "TODO: expand keyof")
+          | _ ->
+            printfn "t = %A" t
+            return! Error(TypeError.NotImplemented $"TODO: expand keyof {t}")
         | TypeKind.Index(target, index) ->
           let! target = expandType ctx env ips mapping target
           let! index = expandType ctx env ips mapping index

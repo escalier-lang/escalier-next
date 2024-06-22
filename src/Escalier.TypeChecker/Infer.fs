@@ -109,8 +109,7 @@ module rec Infer =
       // TODO: add support for constraints on type params to aliases
       let placeholder =
         { TypeParams = placeholderTypeParams
-          Type = ctx.FreshTypeVar None None
-          IsTypeParam = false }
+          Type = ctx.FreshTypeVar None None }
 
       newEnv <- newEnv.AddScheme className placeholder
 
@@ -134,10 +133,7 @@ module rec Infer =
                 Scheme = Some placeholder }
           Provenance = None }
 
-      let selfScheme =
-        { TypeParams = None
-          Type = selfType
-          IsTypeParam = false }
+      let selfScheme = { TypeParams = None; Type = selfType }
 
       // Handles self-recursive types
       newEnv <- newEnv.AddScheme "Self" selfScheme
@@ -154,10 +150,7 @@ module rec Infer =
                   { Kind = TypeKind.Keyword Keyword.Unknown
                     Provenance = None }
 
-                let scheme =
-                  { TypeParams = None
-                    Type = unknown
-                    IsTypeParam = false }
+                let scheme = { TypeParams = None; Type = unknown }
 
                 newEnv <- newEnv.AddScheme typeParam.Name scheme
                 return! inferTypeParam ctx env typeParam
@@ -1098,15 +1091,19 @@ module rec Infer =
       | Some typeParams ->
         for typeParam in typeParams do
 
+          // let scheme =
+          //   { TypeParams = None
+          //     Type =
+          //       match typeParam.Constraint with
+          //       | Some c -> c
+          //       | None ->
+          //         { Kind = TypeKind.Keyword Keyword.Unknown
+          //           Provenance = None }
+          //     IsTypeParam = true }
+
           let scheme =
             { TypeParams = None
-              Type =
-                match typeParam.Constraint with
-                | Some c -> c
-                | None ->
-                  { Kind = TypeKind.Keyword Keyword.Unknown
-                    Provenance = None }
-              IsTypeParam = true }
+              Type = ctx.FreshTypeVar typeParam.Constraint typeParam.Default }
 
           newEnv <- newEnv.AddScheme typeParam.Name scheme
 
@@ -1572,12 +1569,7 @@ module rec Infer =
           { Name = mapped.TypeParam.Name
             Constraint = c }
 
-        let newEnv =
-          env.AddScheme
-            param.Name
-            { TypeParams = None
-              Type = c
-              IsTypeParam = true }
+        let newEnv = env.AddScheme param.Name { TypeParams = None; Type = c }
 
         let! typeAnn = inferTypeAnn ctx newEnv mapped.TypeAnn
 
@@ -1644,8 +1636,7 @@ module rec Infer =
           | None ->
             let scheme =
               { TypeParams = None
-                Type = ctx.FreshTypeVar None None
-                IsTypeParam = false }
+                Type = ctx.FreshTypeVar None None }
 
             newEnv <- newEnv.AddScheme "Self" scheme
 
@@ -1668,10 +1659,10 @@ module rec Infer =
         | TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs } ->
           match env.GetScheme name with
           | Ok scheme ->
-            let scheme =
-              match scheme.IsTypeParam with
-              | true -> None
-              | false -> Some(scheme)
+            // let scheme =
+            //   match scheme.IsTypeParam with
+            //   | true -> None
+            //   | false -> Some(scheme)
 
             match typeArgs with
             | Some(typeArgs) ->
@@ -1681,14 +1672,14 @@ module rec Infer =
               return
                 { Name = name
                   TypeArgs = Some(typeArgs)
-                  Scheme = scheme }
+                  Scheme = Some scheme }
                 |> TypeKind.TypeRef
             | None ->
               // TODO: check if scheme required type args
               return
                 { Name = name
                   TypeArgs = None
-                  Scheme = scheme }
+                  Scheme = Some scheme }
                 |> TypeKind.TypeRef
           | Error _ ->
             printfn "Can't find 'Self' in env"
@@ -1756,10 +1747,7 @@ module rec Infer =
               { Kind = TypeKind.Keyword Keyword.Unknown
                 Provenance = None }
 
-            let scheme =
-              { TypeParams = None
-                Type = unknown
-                IsTypeParam = true }
+            let scheme = { TypeParams = None; Type = unknown }
 
             newEnv <- newEnv.AddScheme infer scheme
 
@@ -2111,8 +2099,7 @@ module rec Infer =
           for { Name = name } in typeParams do
             let scheme =
               { TypeParams = None
-                Type = ctx.FreshTypeVar None None // placeholder
-                IsTypeParam = true }
+                Type = ctx.FreshTypeVar None None } // placeholder
 
             newEnv <- newEnv.AddScheme name scheme
 
@@ -2128,8 +2115,7 @@ module rec Infer =
                       | Some c -> c
                       | None ->
                         { Kind = TypeKind.Keyword Keyword.Unknown
-                          Provenance = None }
-                    IsTypeParam = true }
+                          Provenance = None } }
 
                 // QUESTION: Should we updating the existing schemes or should
                 // we be updating their Type field instead?
@@ -2248,10 +2234,7 @@ module rec Infer =
 
         let t = union types
 
-        let scheme =
-          { Type = t
-            TypeParams = typeParams
-            IsTypeParam = false }
+        let scheme = { Type = t; TypeParams = typeParams }
 
         let elems =
           variants
@@ -2682,8 +2665,7 @@ module rec Infer =
 
       let scheme =
         { TypeParams = typeParams
-          Type = ctx.FreshTypeVar None None
-          IsTypeParam = false }
+          Type = ctx.FreshTypeVar None None }
 
       return scheme
     }
@@ -2713,9 +2695,7 @@ module rec Infer =
           newEnv <-
             newEnv.AddScheme
               typeParam.Name
-              { TypeParams = None
-                Type = unknown
-                IsTypeParam = true }
+              { TypeParams = None; Type = unknown }
 
       newEnv <- newEnv.AddScheme "Self" placeholder
 
@@ -2726,8 +2706,7 @@ module rec Infer =
 
       return
         { TypeParams = typeParams
-          Type = generalizeType t
-          IsTypeParam = false }
+          Type = generalizeType t }
     }
 
   let resolvePath

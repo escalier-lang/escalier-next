@@ -953,7 +953,7 @@ let InferIfLetWithShadowing () =
 
       Assert.Empty(ctx.Diagnostics)
       // TODO: fix this shadowing issue
-      Assert.Value(env, "y", "t5:number + 1 | 0")
+      Assert.Value(env, "y", "t3:number + 1 | 0")
     }
 
   Assert.False(Result.isError result)

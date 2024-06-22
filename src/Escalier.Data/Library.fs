@@ -906,7 +906,7 @@ module Type =
 
   [<CustomEquality; NoComparison>]
   type Type =
-    { mutable Kind: TypeKind // Used to rename AnonymousClass to the class name
+    { mutable Kind: TypeKind // Modified to rename AnonymousClass to the class name
       mutable Provenance: option<Provenance> }
 
     override this.Equals other =
@@ -921,10 +921,8 @@ module Type =
   type Binding = Type * bool
 
   type Scheme =
-    // TODO: allow type params to have constraints and defaults
     { TypeParams: option<list<TypeParam>>
-      mutable Type: Type // Only used when inferring type declarations
-      IsTypeParam: bool }
+      mutable Type: Type } // Modified used when inferring type declarations
 
     override this.ToString() =
       match this.TypeParams with

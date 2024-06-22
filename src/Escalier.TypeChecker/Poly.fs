@@ -153,6 +153,82 @@ module Poly =
 
     sortedTypeParamNames
 
+  let buildTypeArgMapping
+    (ctx: Ctx)
+    (typeParams: list<TypeParam>)
+    (typeArgs: option<list<Type>>)
+    : Result<Map<string, Type>, TypeError> =
+    let mutable mapping: Map<string, Type> = Map.empty
+
+    // Replaces type variables with their corresponding type arguments.
+    let folder t =
+      match t.Kind with
+      | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
+        match Map.tryFind name mapping with
+        | Some(tv) -> Some(tv)
+        | None -> None
+      | _ -> None
+
+    result {
+      let mutable edges: Map<string, Set<string>> = Map.empty
+      let paramNames = typeParams |> List.map (fun (p: TypeParam) -> p.Name)
+
+      for tp in typeParams do
+        let key = tp.Name
+        let mutable deps = Set.empty
+
+        let visit t =
+          match t.Kind with
+          | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
+            if List.contains name paramNames then
+              deps <- deps.Add(name)
+          | _ -> ()
+
+        match tp.Constraint with
+        | Some c -> TypeVisitor.walkType visit c
+        | None -> ()
+
+        match tp.Default with
+        | Some d -> TypeVisitor.walkType visit d
+        | None -> ()
+
+        edges <- edges.Add(key, deps)
+
+      // Maps type parameter names to the corresponding type parameters.
+      let mutable typeParamMap: Map<string, TypeParam> = Map.empty
+
+      for tp in typeParams do
+        typeParamMap <- typeParamMap.Add(tp.Name, tp)
+
+      let sortedTypeParamNames = topoSort edges
+
+      match typeArgs with
+      | Some(typeArgs) ->
+        // TODO: Handle typeArgs.Length < typeParams.Length
+        // by checking whether the type params which don't have a corresponding
+        // type arg have a default value.
+        if typeArgs.Length <> typeParams.Length then
+          return! Error(TypeError.WrongNumberOfTypeArgs)
+
+        for name in sortedTypeParamNames do
+          let index =
+            List.findIndex (fun (tp: TypeParam) -> tp.Name = name) typeParams
+
+          let typeArg = typeArgs[index]
+
+          mapping <- mapping.Add(name, typeArg)
+      | None ->
+        for name in sortedTypeParamNames do
+          let typeParam = typeParamMap[name]
+
+          let c = typeParam.Constraint |> Option.map (foldType folder)
+          let d = typeParam.Default |> Option.map (foldType folder)
+
+          mapping <- mapping.Add(name, ctx.FreshTypeVar c d)
+
+      return mapping
+    }
+
   let instantiateFunc
     (ctx: Ctx)
     (f: Function)
@@ -160,7 +236,10 @@ module Poly =
     : Result<Function, TypeError> =
 
     result {
-      let mutable mapping: Map<string, Type> = Map.empty
+      let! mapping =
+        match f.TypeParams with
+        | Some typeParams -> buildTypeArgMapping ctx typeParams typeArgs
+        | None -> Result.Ok Map.empty
 
       let folder t =
         match t.Kind with
@@ -169,66 +248,6 @@ module Poly =
           | Some(tv) -> Some(tv)
           | None -> None
         | _ -> None
-
-      match f.TypeParams with
-      | Some typeParams ->
-        let mutable edges: Map<string, Set<string>> = Map.empty
-        let paramNames = typeParams |> List.map (fun (p: TypeParam) -> p.Name)
-
-        for tp in typeParams do
-          let key = tp.Name
-          let mutable deps = Set.empty
-
-          let visit t =
-            match t.Kind with
-            | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) ->
-              if List.contains name paramNames then
-                deps <- deps.Add(name)
-            | _ -> ()
-
-          match tp.Constraint with
-          | Some c -> TypeVisitor.walkType visit c
-          | None -> ()
-
-          match tp.Default with
-          | Some d -> TypeVisitor.walkType visit d
-          | None -> ()
-
-          edges <- edges.Add(key, deps)
-
-        let mutable typeParamMap: Map<string, TypeParam> = Map.empty
-
-        for tp in typeParams do
-          typeParamMap <- typeParamMap.Add(tp.Name, tp)
-
-        let sortedTypeParamNames = topoSort edges
-
-        for name in sortedTypeParamNames do
-          match typeArgs with
-          | Some(typeArgs) ->
-            if typeArgs.Length <> typeParams.Length then
-              return! Error(TypeError.WrongNumberOfTypeArgs)
-
-            for name in sortedTypeParamNames do
-              let typeParam = typeParamMap[name]
-
-              let index =
-                List.findIndex
-                  (fun (tp: TypeParam) -> tp.Name = name)
-                  typeParams
-
-              let typeArg = typeArgs[index]
-
-              mapping <- mapping.Add(name, typeArg)
-          | None ->
-            for name in sortedTypeParamNames do
-              let typeParam = typeParamMap[name]
-
-              let c = typeParam.Constraint |> Option.map (foldType folder)
-              let d = typeParam.Default |> Option.map (foldType folder)
-
-              mapping <- mapping.Add(name, ctx.FreshTypeVar c d)
-      | None -> ()
 
       return
         { TypeParams = None

@@ -230,7 +230,7 @@ let InfersPickUnionOfKeyInModule () =
     result {
       let src =
         """
-        type Pick<T, K: keyof T> = {
+        type Pick<K: keyof T, T> = {
           [P]: T[P] for P in K
         };
 
@@ -277,6 +277,7 @@ let InfersPickSingleKey () =
       Assert.Equal("{a: number, c: boolean}", result.ToString())
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

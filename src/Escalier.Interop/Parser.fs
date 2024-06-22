@@ -827,18 +827,20 @@ module Parser =
       (opt extends)
       (between (strWs "{") (strWs "}") (many classMember))
     <| fun id typeParams extends members ->
-      let superCls, superTypeParams =
+      let super =
         match extends with
-        | None -> None, None
-        | Some(superCls, typeParams) -> Some(superCls), typeParams
+        | None -> None
+        | Some(superCls, typeParams) ->
+          Some
+            { Expr = superCls
+              TypeArgs = typeParams }
 
       let cls: Class =
-        { Body = members
-          SuperClass = superCls
+        { TypeParams = typeParams
+          Super = super
           IsAbstract = false
-          TypeParams = typeParams
-          SuperTypeParams = superTypeParams
-          Implements = []
+          Implements = None // TODO
+          Body = members
           Loc = None }
 
       fun declare ->

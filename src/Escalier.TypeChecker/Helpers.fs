@@ -349,8 +349,11 @@ let simplifyUnion (t: Type) : Type =
 
       let objType =
         { Kind =
+            // QUESTION: what when to properties from the super type when simplifying?
             TypeKind.Object
-              { Elems = objTypeElems
+              { Extends = None
+                Implements = None
+                Elems = objTypeElems
                 Immutable = false
                 Interface = false }
           Provenance = None }

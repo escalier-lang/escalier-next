@@ -935,7 +935,9 @@ module Parser =
 
       let kind =
         ExprKind.Class
-          { Name = None
+          { Extends = None // TODO
+            Implements = None // TODO
+            Name = None
             TypeParams = typeParams
             Elems = elems }
 

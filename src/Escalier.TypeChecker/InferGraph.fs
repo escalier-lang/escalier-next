@@ -92,7 +92,9 @@ let rec inferExprStructuralPlacholder
 
       let kind =
         TypeKind.Object
-          { Elems = elems
+          { Extends = None
+            Implements = None
+            Elems = elems
             Immutable = false
             Interface = false }
 
@@ -594,7 +596,9 @@ let inferDeclDefinitions
 
               let kind =
                 TypeKind.Object
-                  { Elems = elems
+                  { Extends = None
+                    Implements = None // TODO
+                    Elems = elems
                     Immutable = false
                     Interface = true }
 
@@ -612,7 +616,9 @@ let inferDeclDefinitions
 
             let kind =
               TypeKind.Object
-                { Elems = mergedElems
+                { Extends = None
+                  Implements = None // TODO
+                  Elems = mergedElems
                   Immutable = false
                   Interface = false }
 

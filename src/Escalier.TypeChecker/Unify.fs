@@ -375,7 +375,9 @@ module rec Unify =
         let objType =
           { Kind =
               TypeKind.Object
-                { Elems = combinedElems
+                { Extends = None
+                  Implements = None
+                  Elems = combinedElems
                   // TODO: figure out what do do with `Immutable`
                   Immutable = false
                   Interface = false }
@@ -399,7 +401,9 @@ module rec Unify =
             // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
-                  { Elems = objElems
+                  { Extends = None
+                    Implements = None
+                    Elems = objElems
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -410,7 +414,9 @@ module rec Unify =
             // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
-                  { Elems = restElems
+                  { Extends = None
+                    Implements = None
+                    Elems = restElems
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -443,7 +449,9 @@ module rec Unify =
         let objType =
           { Kind =
               TypeKind.Object
-                { Elems = combinedElems
+                { Extends = None
+                  Implements = None
+                  Elems = combinedElems
                   // TODO: figure out what do do with `Immutable`
                   Immutable = false
                   Interface = false }
@@ -467,7 +475,9 @@ module rec Unify =
             // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
-                  { Elems = objElems
+                  { Extends = None
+                    Implements = None
+                    Elems = objElems
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -478,7 +488,9 @@ module rec Unify =
             // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
-                  { Elems = restElems
+                  { Extends = None
+                    Implements = None
+                    Elems = restElems
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -1038,7 +1050,9 @@ module rec Unify =
           let t =
             { Kind =
                 TypeKind.Object
-                  { Elems = elems
+                  { Extends = None
+                    Implements = None
+                    Elems = elems
                     Immutable = immutable
                     Interface = false }
               Provenance = None // TODO: set provenance

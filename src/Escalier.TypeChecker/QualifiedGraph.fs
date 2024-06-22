@@ -262,7 +262,9 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
 
     let kind =
       TypeKind.Object
-        { Elems = List.ofSeq elems @ unnamedElems
+        { Extends = None
+          Implements = None // TODO
+          Elems = List.ofSeq elems @ unnamedElems
           Immutable = false
           Interface = false }
 

@@ -88,19 +88,15 @@ module rec Infer =
     (declare: bool)
     : Result<Type * Scheme, TypeError> =
     result {
-      let name = cls.Name
-      let typeParams = cls.TypeParams
-      let elems = cls.Elems
-
       let className =
-        match name with
+        match cls.Name with
         | Some name -> name
         | None -> "AnonymousClass" // TODO: make this unique
 
       let mutable newEnv = env
 
       let! placeholderTypeParams =
-        match typeParams with
+        match cls.TypeParams with
         | None -> ResultOption.ofOption None
         | Some typeParams ->
           List.traverseResultM (inferTypeParam ctx newEnv) typeParams
@@ -114,7 +110,7 @@ module rec Infer =
       newEnv <- newEnv.AddScheme className placeholder
 
       let typeArgs =
-        typeParams
+        cls.TypeParams
         |> Option.map (fun typeParams ->
           typeParams
           |> List.map (fun typeParam ->
@@ -139,7 +135,7 @@ module rec Infer =
       newEnv <- newEnv.AddScheme "Self" selfScheme
 
       let! typeParams =
-        match typeParams with
+        match cls.TypeParams with
         | None -> ResultOption.ofOption None
         | Some typeParams ->
           List.traverseResultM
@@ -169,7 +165,7 @@ module rec Infer =
       let mutable instanceElems: list<ObjTypeElem> = []
       let mutable staticElems: list<ObjTypeElem> = []
 
-      for elem in elems do
+      for elem in cls.Elems do
         match elem with
         | ClassElem.Property { Name = name
                                TypeAnn = typeAnn
@@ -309,7 +305,9 @@ module rec Infer =
       let objType =
         { Kind =
             TypeKind.Object
-              { Elems = instanceElems
+              { Extends = None // TODO
+                Implements = None // TODO
+                Elems = instanceElems
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -335,7 +333,9 @@ module rec Infer =
       let staticObjType =
         { Kind =
             TypeKind.Object
-              { Elems = staticElems
+              { Extends = None
+                Implements = None
+                Elems = staticElems
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -487,7 +487,9 @@ module rec Infer =
       let objType =
         { Kind =
             TypeKind.Object
-              { Elems = instanceElems
+              { Extends = None // TODO
+                Implements = None // TODO
+                Elems = instanceElems
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -504,7 +506,9 @@ module rec Infer =
 
       staticObjType.Kind <-
         TypeKind.Object
-          { Elems = staticElems
+          { Extends = None
+            Implements = None
+            Elems = staticElems
             Immutable = false
             Interface = false }
 
@@ -735,7 +739,9 @@ module rec Infer =
           let objType =
             { Kind =
                 TypeKind.Object
-                  { Elems = elems
+                  { Extends = None
+                    Implements = None
+                    Elems = elems
                     Immutable = immutable
                     Interface = false }
               Provenance = None }
@@ -1644,7 +1650,9 @@ module rec Infer =
 
           return
             TypeKind.Object
-              { Elems = elems
+              { Extends = None
+                Implements = None
+                Elems = elems
                 Immutable = immutable
                 Interface = false }
         | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
@@ -1885,7 +1893,9 @@ module rec Infer =
         let objType =
           { Kind =
               TypeKind.Object
-                { Elems = elems
+                { Extends = None
+                  Implements = None
+                  Elems = elems
                   Immutable = immutable
                   Interface = false }
             Provenance = None }
@@ -2262,7 +2272,9 @@ module rec Infer =
         let value =
           { Type.Kind =
               TypeKind.Object
-                { Elems = elems
+                { Extends = None
+                  Implements = None
+                  Elems = elems
                   Immutable = false
                   Interface = false }
             Provenance = None }
@@ -2328,7 +2340,9 @@ module rec Infer =
 
             let kind =
               TypeKind.Object
-                { Elems = elems
+                { Extends = None
+                  Implements = None // TODO
+                  Elems = elems
                   Immutable = false
                   Interface = true }
 
@@ -2348,7 +2362,9 @@ module rec Infer =
 
               let kind =
                 TypeKind.Object
-                  { Elems = mergedElems
+                  { Extends = None
+                    Implements = None // TODO
+                    Elems = mergedElems
                     Immutable = false
                     Interface = false }
 

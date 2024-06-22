@@ -66,18 +66,18 @@ module Folder =
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
-        | TypeKind.Object { Extends = super
+        | TypeKind.Object { Extends = extends
                             Implements = impls
                             Elems = elems
                             Immutable = immutable
                             Interface = int } ->
           let elems = List.map foldObjElem elems
-          let super = Option.map fold super
+          let extends = extends |> Option.map (List.map fold)
           let impls = impls |> Option.map (List.map fold)
 
           { Kind =
               TypeKind.Object
-                { Extends = super
+                { Extends = extends
                   Implements = impls
                   Elems = elems
                   Immutable = immutable

@@ -13,7 +13,11 @@ output: Success: { Body =
                         Loc = None }
               Declare = false
               Class =
-               { Body =
+               { TypeParams = None
+                 IsAbstract = false
+                 Super = None
+                 Implements = None
+                 Body =
                   [ClassProp
                      { Key = Ident { Name = "bar"
                                      Loc = None }
@@ -69,11 +73,6 @@ output: Success: { Body =
                        IsOptional = false
                        IsOverride = false
                        Loc = None }]
-                 SuperClass = None
-                 IsAbstract = false
-                 TypeParams = None
-                 SuperTypeParams = None
-                 Implements = []
                  Loc = None } }))]
   Shebang = None
   Loc = None }

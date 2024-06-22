@@ -697,12 +697,11 @@ module rec TypeScript =
     {
       // TODO: Decorators
       // Decorators: list<Decorator>
-      Body: list<ClassMember>
-      SuperClass: Option<Expr>
-      IsAbstract: bool
       TypeParams: Option<TsTypeParamDecl>
-      SuperTypeParams: Option<TsTypeParamInstantiation>
-      Implements: list<TsExprWithTypeArgs>
+      IsAbstract: bool
+      Super: option<TsExprWithTypeArgs>
+      Implements: option<list<TsExprWithTypeArgs>>
+      Body: list<ClassMember>
       Loc: option<SourceLocation> }
 
   type TsExprWithTypeArgs =

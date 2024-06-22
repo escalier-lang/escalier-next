@@ -252,7 +252,9 @@ module Syntax =
       mutable Throws: option<Type.Type> }
 
   type Class =
-    { Name: option<string>
+    { Extends: option<TypeRef>
+      Implements: option<list<TypeRef>>
+      Name: option<string>
       TypeParams: option<list<TypeParam>>
       Elems: list<ClassElem> }
 
@@ -852,8 +854,10 @@ module Type =
         $"{readonly}{name}{optional}: {type_}"
 
   type Object =
-    { Elems: list<ObjTypeElem>
-      Immutable: bool
+    { Extends: option<list<Type>> // classes can only have one, interfaces can have many
+      Implements: option<list<Type>>
+      Elems: list<ObjTypeElem>
+      Immutable: bool // True for #{...}, False for {...}
       Interface: bool }
 
   type Array =

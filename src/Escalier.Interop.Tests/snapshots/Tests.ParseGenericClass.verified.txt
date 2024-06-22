@@ -13,7 +13,19 @@ output: Success: { Body =
                         Loc = None }
               Declare = false
               Class =
-               { Body =
+               { TypeParams = Some { Params = [{ Name = { Name = "T"
+                                                          Loc = None }
+                                                 IsIn = false
+                                                 IsOut = false
+                                                 IsConst = false
+                                                 Constraint = None
+                                                 Default = None
+                                                 Loc = None }]
+                                     Loc = None }
+                 IsAbstract = false
+                 Super = None
+                 Implements = None
+                 Body =
                   [ClassProp
                      { Key = Ident { Name = "bar"
                                      Loc = None }
@@ -84,19 +96,6 @@ output: Success: { Body =
                        IsOptional = false
                        IsOverride = false
                        Loc = None }]
-                 SuperClass = None
-                 IsAbstract = false
-                 TypeParams = Some { Params = [{ Name = { Name = "T"
-                                                          Loc = None }
-                                                 IsIn = false
-                                                 IsOut = false
-                                                 IsConst = false
-                                                 Constraint = None
-                                                 Default = None
-                                                 Loc = None }]
-                                     Loc = None }
-                 SuperTypeParams = None
-                 Implements = []
                  Loc = None } }))]
   Shebang = None
   Loc = None }

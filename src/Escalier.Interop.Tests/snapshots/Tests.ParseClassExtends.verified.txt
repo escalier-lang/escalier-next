@@ -9,11 +9,7 @@ output: Success: { Body =
                         Loc = None }
               Declare = false
               Class =
-               { Body = []
-                 SuperClass = Some (Ident { Name = "Bar"
-                                            Loc = None })
-                 IsAbstract = false
-                 TypeParams = Some { Params = [{ Name = { Name = "T"
+               { TypeParams = Some { Params = [{ Name = { Name = "T"
                                                           Loc = None }
                                                  IsIn = false
                                                  IsOut = false
@@ -22,14 +18,21 @@ output: Success: { Body =
                                                  Default = None
                                                  Loc = None }]
                                      Loc = None }
-                 SuperTypeParams =
+                 IsAbstract = false
+                 Super =
                   Some
-                    { Params = [TsTypeRef { Loc = None
-                                            TypeName = Identifier { Name = "T"
-                                                                    Loc = None }
-                                            TypeParams = None }]
-                      Loc = None }
-                 Implements = []
+                    { Expr = Ident { Name = "Bar"
+                                     Loc = None }
+                      TypeArgs =
+                       Some
+                         { Params =
+                            [TsTypeRef { Loc = None
+                                         TypeName = Identifier { Name = "T"
+                                                                 Loc = None }
+                                         TypeParams = None }]
+                           Loc = None } }
+                 Implements = None
+                 Body = []
                  Loc = None } }))]
   Shebang = None
   Loc = None }

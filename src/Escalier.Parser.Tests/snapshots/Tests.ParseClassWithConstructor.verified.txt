@@ -25,7 +25,9 @@ output: Ok
                      Some
                        { Kind =
                           Class
-                            { Name = None
+                            { Extends = None
+                              Implements = None
+                              Name = None
                               TypeParams = None
                               Elems =
                                [Property

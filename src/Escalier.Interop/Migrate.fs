@@ -709,8 +709,7 @@ module rec Migrate =
     let { Declare = declare
           Ident = { Name = name }
           Class = { TypeParams = typeParams
-                    SuperClass = superClass
-                    SuperTypeParams = superTypeParams
+                    Super = super
                     Body = body } } =
       decl
 
@@ -859,7 +858,9 @@ module rec Migrate =
         typeParams
 
     let cls: Syntax.Class =
-      { Name = Some name
+      { Extends = None // TODO
+        Implements = None // TODO
+        Name = Some name
         TypeParams = typeParams
         Elems = elems }
 

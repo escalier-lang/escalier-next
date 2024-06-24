@@ -709,7 +709,7 @@ module rec Migrate =
     let { Declare = declare
           Ident = { Name = name }
           Class = { TypeParams = typeParams
-                    Super = super
+                    Super = extends
                     Body = body } } =
       decl
 
@@ -857,8 +857,22 @@ module rec Migrate =
         (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
         typeParams
 
+    let extends: option<TypeRef> =
+      match extends with
+      | Some extend ->
+        let typeArgs =
+          Option.map
+            (fun (tpi: TsTypeParamInstantiation) ->
+              List.map migrateType tpi.Params)
+            extend.TypeParams
+
+        { TypeRef.Ident = entityNameToQualifiedIdent extend.TypeName
+          TypeRef.TypeArgs = typeArgs }
+        |> Some
+      | None -> None
+
     let cls: Syntax.Class =
-      { Extends = None // TODO
+      { Extends = extends
         Implements = None // TODO
         Name = Some name
         TypeParams = typeParams

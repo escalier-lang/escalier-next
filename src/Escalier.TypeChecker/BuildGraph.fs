@@ -799,23 +799,6 @@ let getEdges
                   (SyntaxNode.TypeAnn typeAnn)
               | None -> Set.empty
 
-            // TODO: dedupe with the other branch
-            // for dep in deps do
-            //   match dep with
-            //   | Type _ -> ()
-            //   | Value _ ->
-            //     if not (List.contains dep declared) then
-            //       let depName =
-            //         match dep with
-            //         | DeclIdent.Value name -> name
-            //         | DeclIdent.Type name -> name
-            //
-            //       return!
-            //         Error(
-            //           TypeError.SemanticError
-            //             $"{depName} has not been initialized yet"
-            //         )
-
             deps
 
         edges <- edges.Add(ident, deps)
@@ -828,10 +811,10 @@ let getEdges
         | Some existingDeps ->
           edges <- edges.Add(ident, Set.union existingDeps deps)
         | None -> edges <- edges.Add(ident, deps)
-      // edges <- edges.Add(ident, deps)
       | ClassDecl { Name = name
                     Class = { Elems = elems
-                              TypeParams = typeParams } } ->
+                              TypeParams = typeParams
+                              Extends = extends } } ->
         let typeParamNames =
           match typeParams with
           | None -> []
@@ -999,6 +982,21 @@ let getEdges
         let deps =
           match ident with
           | Type qualifiedIdent ->
+
+            let deps =
+              match extends with
+              | Some typeRef ->
+                Set.union
+                  deps
+                  (findDepsForTypeIdent
+                    env
+                    possibleDeps
+                    localsTree
+                    typeParamNames
+                    ident
+                    (SyntaxNode.TypeRef typeRef))
+              | None -> deps
+
             Set.add (QDeclIdent.Value qualifiedIdent) deps
           | Value qualifiedIdent ->
             Set.add (QDeclIdent.Type qualifiedIdent) deps

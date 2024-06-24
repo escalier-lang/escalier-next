@@ -305,7 +305,7 @@ module rec Infer =
       let objType =
         { Kind =
             TypeKind.Object
-              { Extends = None // TODO
+              { Extends = None // QUESTION: Do we need this for the placeholder?
                 Implements = None // TODO
                 Elems = instanceElems
                 Immutable = false
@@ -484,17 +484,46 @@ module rec Infer =
             | _ -> elem)
           instanceElems
 
-      let objType =
-        { Kind =
-            TypeKind.Object
-              { Extends = None // TODO
-                Implements = None // TODO
-                Elems = instanceElems
-                Immutable = false
-                Interface = false }
-          Provenance = None }
+      // TODO: do the same thing we do in inferTypeDeclDefn in order to add
+      // schemes for each type param before inferring the extends clause that
+      // consumes those schemes.
 
-      placeholder.Type <- objType
+      let getType (env: Env) : Result<Type, TypeError> =
+        result {
+
+          let! extends =
+            match cls.Extends with
+            | Some typeRef ->
+              result {
+
+                let! extends = Infer.inferTypeRef ctx env typeRef
+
+                let extends =
+                  match extends with
+                  | TypeKind.TypeRef typeRef -> typeRef
+                  | _ -> failwith "Invalid type for extends"
+
+                return Some [ extends ]
+              }
+            | None -> Result.Ok None
+
+          let objType =
+            { Kind =
+                TypeKind.Object
+                  { Extends = extends
+                    Implements = None // TODO
+                    Elems = instanceElems
+                    Immutable = false
+                    Interface = false }
+              Provenance = None }
+
+          return objType
+        }
+
+      let! newScheme =
+        Infer.inferTypeDeclDefn ctx newEnv placeholder cls.TypeParams getType
+
+      placeholder.Type <- newScheme.Type
 
       let staticElems =
         List.map

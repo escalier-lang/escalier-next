@@ -692,15 +692,11 @@ module Parser =
      .>> (strWs "}"))
     |>> fun members -> { Body = members; Loc = None }
 
-  let extend: Parser<TsExprWithTypeArgs, unit> =
-    pipe2 expr (opt typeArgs)
-    <| fun cls typeArgs -> { Expr = cls; TypeArgs = typeArgs }
-
   let interfaceDecl: Parser<bool -> Decl, unit> =
     pipe4
       ((strWs "interface") >>. ident)
       (opt typeParams)
-      (opt ((strWs "extends") >>. (sepBy1 extend (strWs ","))))
+      (opt ((strWs "extends") >>. (sepBy1 typeRef (strWs ","))))
       interfaceBody
     <| fun id typeParams extends body ->
       fun declare ->
@@ -816,28 +812,16 @@ module Parser =
     .>> (opt (pstring ";"))
     .>> ws
 
-  let extends: Parser<Expr * option<TsTypeParamInstantiation>, unit> =
-    pipe2 (keyword "extends" >>. expr) (opt typeArgs)
-    <| fun superCls typeArgs -> superCls, typeArgs
-
   let classDecl: Parser<bool -> Decl, unit> =
     pipe4
       (keyword "class" >>. ident)
       (opt typeParams)
-      (opt extends)
+      (opt (keyword "extends" >>. typeRef))
       (between (strWs "{") (strWs "}") (many classMember))
     <| fun id typeParams extends members ->
-      let super =
-        match extends with
-        | None -> None
-        | Some(superCls, typeParams) ->
-          Some
-            { Expr = superCls
-              TypeArgs = typeParams }
-
       let cls: Class =
         { TypeParams = typeParams
-          Super = super
+          Super = extends
           IsAbstract = false
           Implements = None // TODO
           Body = members

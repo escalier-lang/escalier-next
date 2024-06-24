@@ -14,6 +14,7 @@ output: Ok
                                     Name = "T"
                                     Constraint = None
                                     Default = None }]
+               Extends = None
                Elems =
                 [Mapped
                    { TypeParam =

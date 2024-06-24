@@ -256,7 +256,7 @@ module rec TypeScript =
     { Id: Ident
       Declare: bool
       TypeParams: option<TsTypeParamDecl>
-      Extends: option<list<TsExprWithTypeArgs>>
+      Extends: option<list<TsTypeRef>>
       Body: TsInterfaceBody
       Loc: option<SourceLocation> }
 
@@ -699,14 +699,10 @@ module rec TypeScript =
       // Decorators: list<Decorator>
       TypeParams: Option<TsTypeParamDecl>
       IsAbstract: bool
-      Super: option<TsExprWithTypeArgs>
-      Implements: option<list<TsExprWithTypeArgs>>
+      Super: option<TsTypeRef>
+      Implements: option<list<TsTypeRef>>
       Body: list<ClassMember>
       Loc: option<SourceLocation> }
-
-  type TsExprWithTypeArgs =
-    { Expr: Expr
-      TypeArgs: Option<TsTypeParamInstantiation> }
 
   type ClassMember =
     | Constructor of Constructor

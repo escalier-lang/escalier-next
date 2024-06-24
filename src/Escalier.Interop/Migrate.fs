@@ -399,12 +399,12 @@ module rec Migrate =
           let typeAnnList = List.map migrateType types
           TypeAnnKind.Intersection typeAnnList
       | TsType.TsConditionalType { CheckType = check
-                                   ExtendsType = extens
+                                   ExtendsType = extends
                                    TrueType = trueType
                                    FalseType = falseType } ->
         TypeAnnKind.Condition
           { Check = migrateType check
-            Extends = migrateType extens
+            Extends = migrateType extends
             TrueType = migrateType trueType
             FalseType = migrateType falseType }
       | TsType.TsInferType { TypeParam = typeParam } ->
@@ -921,7 +921,7 @@ module rec Migrate =
       | Decl.TsInterface { Declare = _declare
                            Id = ident
                            TypeParams = typeParams
-                           Extends = _extends
+                           Extends = extends
                            Body = body } ->
         let typeParams =
           Option.map
@@ -930,9 +930,26 @@ module rec Migrate =
 
         let elems = List.map migrateTypeElement body.Body
 
+        let extends: option<list<TypeRef>> =
+          match extends with
+          | Some extends ->
+            extends
+            |> List.map (fun extend ->
+              let typeArgs =
+                Option.map
+                  (fun (tpi: TsTypeParamInstantiation) ->
+                    List.map migrateType tpi.Params)
+                  extend.TypeParams
+
+              { TypeRef.Ident = entityNameToQualifiedIdent extend.TypeName
+                TypeRef.TypeArgs = typeArgs })
+            |> Some
+          | None -> None
+
         let decl: InterfaceDecl =
           { Name = ident.Name
             TypeParams = typeParams
+            Extends = extends
             Elems = elems }
 
         let kind = DeclKind.InterfaceDecl decl

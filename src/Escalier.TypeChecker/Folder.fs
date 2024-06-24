@@ -32,6 +32,25 @@ module Folder =
                 TypeAnn = fold mapped.TypeAnn
                 NameType = Option.map fold mapped.NameType }
 
+      let foldTypeRef (typeRef: TypeRef) : TypeRef =
+        let { Name = name
+              TypeArgs = typeArgs
+              Scheme = scheme } =
+          typeRef
+
+        let typeArgs = Option.map (List.map fold) typeArgs
+
+        // NOTE: We explicitly don't fold the scheme type here because
+        // this can cause an infinite loop with generic rercusive types.
+        // let scheme =
+        //   Option.map
+        //     (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
+        //     scheme
+
+        { Name = name
+          TypeArgs = typeArgs
+          Scheme = scheme }
+
       let t =
         match t.Kind with
         | TypeKind.TypeVar _ -> t
@@ -45,11 +64,7 @@ module Folder =
 
           { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
             Provenance = None }
-        | TypeKind.TypeRef({ Name = name
-                             TypeArgs = typeArgs
-                             Scheme = scheme }) ->
-          let typeArgs = Option.map (List.map fold) typeArgs
-
+        | TypeKind.TypeRef typeRef ->
           // NOTE: We explicitly don't fold the scheme type here because
           // this can cause an infinite loop with generic rercusive types.
           // let scheme =
@@ -57,12 +72,7 @@ module Folder =
           //     (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
           //     scheme
 
-          { Kind =
-              TypeKind.TypeRef(
-                { Name = name
-                  TypeArgs = typeArgs
-                  Scheme = scheme }
-              )
+          { Kind = foldTypeRef typeRef |> TypeKind.TypeRef
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
@@ -72,8 +82,9 @@ module Folder =
                             Immutable = immutable
                             Interface = int } ->
           let elems = List.map foldObjElem elems
-          let extends = extends |> Option.map (List.map fold)
-          let impls = impls |> Option.map (List.map fold)
+
+          let extends = extends |> Option.map (List.map foldTypeRef)
+          let impls = impls |> Option.map (List.map foldTypeRef)
 
           { Kind =
               TypeKind.Object

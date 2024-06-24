@@ -1479,6 +1479,7 @@ module Parser =
           InterfaceDecl
             { Name = name
               TypeParams = typeParams
+              Extends = None // TODO
               Elems = objTypeElems }
         Span = span }
 

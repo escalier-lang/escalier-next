@@ -1503,6 +1503,38 @@ module rec Infer =
   let stop = FParsec.Position("", 0, 1, 1)
   let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 
+  let inferTypeRef
+    (ctx: Ctx)
+    (env: Env)
+    ({ Ident = name; TypeArgs = typeArgs }: Syntax.TypeRef)
+    : Result<TypeKind, TypeError> =
+    result {
+      match env.GetScheme name with
+      | Ok scheme ->
+        match typeArgs with
+        | Some(typeArgs) ->
+          let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
+
+          return
+            { Name = name
+              TypeArgs = Some(typeArgs)
+              Scheme = Some scheme }
+            |> TypeKind.TypeRef
+        | None ->
+          // TODO: check if scheme required type args
+          return
+            { Name = name
+              TypeArgs = None
+              Scheme = Some scheme }
+            |> TypeKind.TypeRef
+      | Error _ ->
+        printfn "Can't find 'Self' in env"
+
+        match name with
+        | QualifiedIdent.Ident "_" -> return TypeKind.Wildcard
+        | _ -> return! Error(TypeError.SemanticError $"{name} is not in scope")
+    }
+
   let inferObjElem
     (ctx: Ctx)
     (env: Env)
@@ -1664,68 +1696,7 @@ module rec Infer =
         | TypeAnnKind.Intersection types ->
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return TypeKind.Intersection types
-        | TypeAnnKind.TypeRef { Ident = name; TypeArgs = typeArgs } ->
-          match env.GetScheme name with
-          | Ok scheme ->
-            // let scheme =
-            //   match scheme.IsTypeParam with
-            //   | true -> None
-            //   | false -> Some(scheme)
-
-            match typeArgs with
-            | Some(typeArgs) ->
-              let! typeArgs =
-                List.traverseResultM (inferTypeAnn ctx env) typeArgs
-
-              return
-                { Name = name
-                  TypeArgs = Some(typeArgs)
-                  Scheme = Some scheme }
-                |> TypeKind.TypeRef
-            | None ->
-              // TODO: check if scheme required type args
-              return
-                { Name = name
-                  TypeArgs = None
-                  Scheme = Some scheme }
-                |> TypeKind.TypeRef
-          | Error _ ->
-            printfn "Can't find 'Self' in env"
-
-            match name with
-            | QualifiedIdent.Ident "_" -> return TypeKind.Wildcard
-            | _ ->
-              return! Error(TypeError.SemanticError $"{name} is not in scope")
-        // match env.Schemes.TryFind(name) with
-        // | Some(scheme) ->
-        //
-        //   let scheme =
-        //     match scheme.IsTypeParam with
-        //     | true -> None
-        //     | false -> Some(scheme)
-        //
-        //   match typeArgs with
-        //   | Some(typeArgs) ->
-        //     let! typeArgs =
-        //       List.traverseResultM (inferTypeAnn ctx env) typeArgs
-        //
-        //     return
-        //       { Name = name
-        //         TypeArgs = Some(typeArgs)
-        //         Scheme = scheme }
-        //       |> TypeKind.TypeRef
-        //   | None ->
-        //     // TODO: check if scheme required type args
-        //     return
-        //       { Name = name
-        //         TypeArgs = None
-        //         Scheme = scheme }
-        //       |> TypeKind.TypeRef
-        // | None ->
-        //   if name = "_" then
-        //     return TypeKind.Wildcard
-        //   else
-        //     return! Error(TypeError.SemanticError $"{name} is not in scope")
+        | TypeAnnKind.TypeRef typeRef -> return! inferTypeRef ctx env typeRef
         | TypeAnnKind.Function functionType ->
           let! f = inferFuncSig ctx env functionType
           return TypeKind.Function(f)
@@ -2664,6 +2635,9 @@ module rec Infer =
         |> Option.map (fun typeParams ->
           List.map
             (fun (typeParam: Syntax.TypeParam) ->
+              // The fresh type variables here eventually get unified
+              // with the real types for the Constraint and Default when
+              // we unify them later.
               let c =
                 match typeParam.Constraint with
                 | Some(c) -> Some(ctx.FreshTypeVar None None)

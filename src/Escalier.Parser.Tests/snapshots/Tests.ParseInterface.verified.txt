@@ -13,6 +13,7 @@ output: Ok
            InterfaceDecl
              { Name = "Point"
                TypeParams = None
+               Extends = None
                Elems =
                 [Property { Name = String "x"
                             TypeAnn = { Kind = Keyword Number
@@ -29,6 +30,7 @@ output: Ok
            InterfaceDecl
              { Name = "Point"
                TypeParams = None
+               Extends = None
                Elems =
                 [Property { Name = String "y"
                             TypeAnn = { Kind = Keyword Number

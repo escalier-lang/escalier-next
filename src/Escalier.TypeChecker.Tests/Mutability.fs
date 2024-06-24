@@ -102,6 +102,7 @@ let InferFnWithMutableParam () =
         let foo = fn (mut array: (number | string)[]) {
           array[0] = 5;
           array[1] = "hello";
+          array.push(10);
         };
         """
 

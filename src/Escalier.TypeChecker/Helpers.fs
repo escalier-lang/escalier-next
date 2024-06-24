@@ -76,7 +76,7 @@ let generalizeBindings (bindings: Map<string, Binding>) : Map<string, Binding> =
 
   newBindings
 
-let findBindingNames (p: Syntax.Pattern) : list<string> =
+let findBindingNames (p: Syntax.Pattern) : Set<string> =
   let mutable names: list<string> = []
 
   let visitor =
@@ -105,7 +105,7 @@ let findBindingNames (p: Syntax.Pattern) : list<string> =
 
   walkPattern visitor () p
 
-  List.rev names
+  Set.ofList names
 
 let findReturns (body: BlockOrExpr) : list<Expr> =
   let mutable returns: list<Expr> = []
@@ -243,15 +243,15 @@ let findThrowsInBlock (block: Block) : list<Type> =
 
   throws
 
-let findModuleBindingNames (m: Script) : list<string> =
-  let mutable names: list<string> = []
+let findModuleBindingNames (m: Script) : Set<string> =
+  let mutable names: Set<string> = Set.empty
 
   for item in m.Items do
     match item with
     | Stmt stmt ->
       match stmt.Kind with
       | StmtKind.Decl({ Kind = DeclKind.VarDecl { Pattern = pattern } }) ->
-        names <- List.concat [ names; findBindingNames pattern ]
+        names <- Set.union names (findBindingNames pattern)
       | _ -> ()
     | _ -> ()
 

@@ -29,7 +29,7 @@ type QDeclTree =
     Types: Map<string, QDeclIdent>
     Namespaces: Map<string, QDeclTree> }
 
-let localsToDeclTree (locals: list<QDeclIdent>) : QDeclTree =
+let localsToDeclTree (locals: Set<QDeclIdent>) : QDeclTree =
 
   let mutable tree: QDeclTree =
     { Values = Map.empty
@@ -109,11 +109,11 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
 
 let postProcessDeps
   (ns: Namespace)
-  (locals: list<QDeclIdent>)
+  (locals: Set<QDeclIdent>)
   (localsTree: QDeclTree)
   (ident: QDeclIdent)
   (deps: list<QDeclIdent>)
-  : list<QDeclIdent> =
+  : Set<QDeclIdent> =
 
   let identNamespaces =
     match ident with
@@ -171,6 +171,7 @@ let postProcessDeps
           result <- getLocalForDep localsTree candidateDep
 
       result)
+    |> Set.ofList
   else
     List.choose
       (fun dep ->
@@ -181,15 +182,16 @@ let postProcessDeps
           | Some tree -> getLocalForDep tree dep
           | None -> None)
       deps
+    |> Set.ofList
 
 let findDepsForValueIdent
   (env: Env)
-  (locals: list<QDeclIdent>)
+  (locals: Set<QDeclIdent>)
   (localsTree: QDeclTree)
   (ident: QDeclIdent)
   (expr: Expr)
-  : list<QDeclIdent> =
-  let mutable idents: list<QDeclIdent> = []
+  : Set<QDeclIdent> =
+  let mutable idents: Set<QDeclIdent> = Set.empty
 
   let visitor =
     { ExprVisitor.VisitExpr =
@@ -198,16 +200,19 @@ let findDepsForValueIdent
           | ExprKind.Member(target, name, _) ->
             match memberToQualifiedIdent target name with
             | Some qid ->
-              idents <- QDeclIdent.Value qid :: idents
+              idents <- Set.add (QDeclIdent.Value qid) idents
               (false, state)
             | None -> (true, state)
           | ExprKind.Identifier name ->
-            idents <- QDeclIdent.Value(QualifiedIdent.FromString name) :: idents
+            idents <-
+              Set.add (QDeclIdent.Value(QualifiedIdent.FromString name)) idents
+
             (false, state)
           | ExprKind.Function f ->
             idents <-
-              idents
-              @ getDepsForFn env ident locals localsTree [] f.Sig (Some f.Body)
+              Set.union
+                idents
+                (getDepsForFn env ident locals localsTree [] f.Sig (Some f.Body))
 
             (false, state)
           | _ -> (true, state)
@@ -219,8 +224,9 @@ let findDepsForValueIdent
           | TypeAnnKind.TypeRef { Ident = ident } -> (false, state)
           | TypeAnnKind.Typeof ident ->
             idents <-
-              QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent ident)
-              :: idents
+              Set.add
+                (QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent ident))
+                idents
 
             (false, state)
           | _ -> (true, state)
@@ -228,7 +234,7 @@ let findDepsForValueIdent
 
   walkExpr visitor () expr
 
-  postProcessDeps env.Namespace locals localsTree ident (List.rev idents)
+  postProcessDeps env.Namespace locals localsTree ident (Set.toList idents)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
@@ -251,12 +257,12 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
 
 let findDepsForTypeIdent
   (env: Env)
-  (possibleDeps: list<QDeclIdent>)
+  (possibleDeps: Set<QDeclIdent>)
   (localsTree: QDeclTree)
   (typeParams: list<QualifiedIdent>)
   (ident: QDeclIdent)
   (syntaxNode: SyntaxNode)
-  : list<QDeclIdent> =
+  : Set<QDeclIdent> =
 
   let mutable typeRefIdents: list<QDeclIdent> = []
 
@@ -346,46 +352,50 @@ let findDepsForTypeIdent
     (List.rev typeRefIdents)
 
 
-let findLocals (decls: list<Decl>) : list<QDeclIdent> =
+let findLocals (decls: list<Decl>) : Set<QDeclIdent> =
   let mutable locals: list<QDeclIdent> = []
 
   let rec findLocalsRec
     (decls: list<Decl>)
     (namespaces: list<string>)
-    : list<QDeclIdent> =
-    let mutable locals: list<QDeclIdent> = []
+    : Set<QDeclIdent> =
+    let mutable locals: Set<QDeclIdent> = Set.empty
 
     for decl in decls do
       match decl.Kind with
       | VarDecl { Pattern = pattern } ->
         let bindingNames =
           Helpers.findBindingNames pattern
-          |> List.map (fun name ->
+          |> Set.map (fun name ->
             QDeclIdent.Value({ Parts = namespaces @ [ name ] }))
 
-        locals <- locals @ bindingNames
+        locals <- Set.union locals bindingNames
       | FnDecl { Name = name } ->
         locals <-
-          locals @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] }) ]
+          Set.add (QDeclIdent.Value({ Parts = namespaces @ [ name ] })) locals
 
       | ClassDecl { Name = name } ->
         locals <-
-          locals
-          @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
-              QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
+          Set.union
+            locals
+            (Set.ofList
+              [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
+                QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ])
       | TypeDecl { Name = name } ->
         locals <-
-          locals @ [ QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
+          Set.add (QDeclIdent.Type({ Parts = namespaces @ [ name ] })) locals
       | InterfaceDecl { Name = name } ->
         locals <-
-          locals @ [ QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
+          Set.add (QDeclIdent.Type({ Parts = namespaces @ [ name ] })) locals
       | EnumDecl { Name = name } ->
         locals <-
-          locals
-          @ [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
-              QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ]
+          Set.union
+            locals
+            (Set.ofList
+              [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
+                QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ])
       | NamespaceDecl { Name = name; Body = decls } ->
-        locals <- locals @ findLocalsRec decls (namespaces @ [ name ])
+        locals <- Set.union locals (findLocalsRec decls (namespaces @ [ name ]))
 
     locals
 
@@ -394,13 +404,14 @@ let findLocals (decls: list<Decl>) : list<QDeclIdent> =
 // TODO: update this function to accept a QualifiedNamespace as an argument
 // Only items in this namespace can be considered as a potential captures
 let rec findCaptures
-  (qns: list<QDeclIdent>) // TODO: update this to use QualifiedNamespace
-  (parentLocals: list<QDeclIdent>)
+  (qns: Set<QDeclIdent>) // TODO: update this to use QualifiedNamespace
+  (parentLocals: Set<QDeclIdent>)
   (f: Function)
-  : list<QDeclIdent> =
+  : Set<QDeclIdent> =
 
   let qnsNames =
     qns
+    |> Set.toList
     |> List.choose (fun (qid: QDeclIdent) ->
       match qid with
       | QDeclIdent.Value name -> Some name
@@ -408,6 +419,7 @@ let rec findCaptures
 
   let parentLocalNames =
     parentLocals
+    |> Set.toList
     |> List.choose (fun (qid: QDeclIdent) ->
       match qid with
       | QDeclIdent.Value name -> Some name
@@ -427,22 +439,24 @@ let rec findCaptures
 
   let mutable localNames =
     locals
+    |> Set.toList
     |> List.choose (fun (qid: QDeclIdent) ->
       match qid with
       | QDeclIdent.Value name -> Some name
       | QDeclIdent.Type name -> None)
+    |> Set.ofList
 
   for p in f.Sig.ParamList do
     let patternIdents =
-      Helpers.findBindingNames p.Pattern |> List.map QualifiedIdent.FromString
+      Helpers.findBindingNames p.Pattern |> Set.map QualifiedIdent.FromString
 
-    localNames <- localNames @ patternIdents
+    localNames <- Set.union localNames patternIdents
 
-  let mutable captures: list<QDeclIdent> = []
+  let mutable captures: Set<QDeclIdent> = Set.empty
 
   let visitor =
     { ExprVisitor.VisitExpr =
-        fun (expr, localNames: list<QualifiedIdent>) ->
+        fun (expr, localNames: Set<QualifiedIdent>) ->
           match expr.Kind with
           // NOTE: we don't have to do any special handling for
           // ExprKind.Member because the property is stored as a
@@ -453,13 +467,13 @@ let rec findCaptures
             if
               (List.contains ident qnsNames)
               && not (List.contains ident parentLocalNames)
-              && not (List.contains ident localNames)
+              && not (Set.contains ident localNames)
             then
-              captures <- QDeclIdent.Value ident :: captures
+              captures <- Set.add (QDeclIdent.Value ident) captures
 
             (false, localNames)
           | ExprKind.Function f ->
-            captures <- findCaptures qns (parentLocals @ locals) f
+            captures <- findCaptures qns (Set.union parentLocals locals) f
             // Don't recurse since `findCaptures` already does that
             (false, localNames)
           | _ -> (true, localNames)
@@ -471,8 +485,8 @@ let rec findCaptures
               match decl.Kind with
               | DeclKind.VarDecl { Pattern = pattern } ->
                 Helpers.findBindingNames pattern
-              | _ -> [] // TODO: handle other kinds of declarations
-            | _ -> []
+              | _ -> Set.empty // TODO: handle other kinds of declarations
+            | _ -> Set.empty
 
           (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
@@ -484,18 +498,18 @@ let rec findCaptures
     List.iter (walkStmt visitor localNames) block.Stmts
   | BlockOrExpr.Expr expr -> walkExpr visitor localNames expr
 
-  List.rev captures
+  captures
 
 let getDepsForFn
   (env: Env)
   (ident: QDeclIdent)
-  (possibleDeps: list<QDeclIdent>)
+  (possibleDeps: Set<QDeclIdent>)
   (localsTree: QDeclTree)
   (excludedTypeNames: list<QualifiedIdent>)
   (fnSig: FuncSig)
   (body: option<BlockOrExpr>)
-  : list<QDeclIdent> =
-  let mutable typeDeps = []
+  : Set<QDeclIdent> =
+  let mutable typeDeps: Set<QDeclIdent> = Set.empty
 
   let typeParamNames: list<QualifiedIdent> =
     match fnSig.TypeParams with
@@ -511,43 +525,45 @@ let getDepsForFn
       match tp.Constraint with
       | Some c ->
         typeDeps <-
-          typeDeps
-          @ findDepsForTypeIdent
+          Set.union
+            typeDeps
+            (findDepsForTypeIdent
               env
               possibleDeps
               localsTree
               (excludedTypeNames @ typeParamNames)
               ident
-              (SyntaxNode.TypeAnn c)
+              (SyntaxNode.TypeAnn c))
       | None -> ()
 
       match tp.Default with
       | Some d ->
         typeDeps <-
-          typeDeps
-          @ findDepsForTypeIdent
+          Set.union
+            typeDeps
+            (findDepsForTypeIdent
               env
               possibleDeps
               localsTree
               (excludedTypeNames @ typeParamNames)
               ident
-              (SyntaxNode.TypeAnn d)
+              (SyntaxNode.TypeAnn d))
       | None -> ()
   | None -> ()
 
   for param in fnSig.ParamList do
     match param.TypeAnn with
     | Some typeAnn ->
-
       typeDeps <-
-        typeDeps
-        @ findDepsForTypeIdent
+        Set.union
+          typeDeps
+          (findDepsForTypeIdent
             env
             possibleDeps
             localsTree
             (excludedTypeNames @ typeParamNames)
             ident
-            (SyntaxNode.TypeAnn typeAnn)
+            (SyntaxNode.TypeAnn typeAnn))
     | None -> ()
 
   match fnSig.ReturnType with
@@ -562,14 +578,15 @@ let getDepsForFn
           typeParams
 
     typeDeps <-
-      typeDeps
-      @ findDepsForTypeIdent
+      Set.union
+        typeDeps
+        (findDepsForTypeIdent
           env
           possibleDeps
           localsTree
           (excludedTypeNames @ typeParamNames)
           ident
-          (SyntaxNode.TypeAnn returnType)
+          (SyntaxNode.TypeAnn returnType))
 
   let deps =
     match body with
@@ -581,21 +598,21 @@ let getDepsForFn
           Captures = None
           InferredType = None }
 
-      findCaptures possibleDeps [] f @ typeDeps
+      Set.union (findCaptures possibleDeps Set.empty f) typeDeps
 
   deps
 
 // TODO: try to reuse this for type declarations with type params
 let getDepsForInterfaceFn
   (env: Env)
-  (possibleDeps: list<QDeclIdent>)
+  (possibleDeps: Set<QDeclIdent>)
   (localsTree: QDeclTree)
   (interfaceTypeParamNames: list<QualifiedIdent>)
   (ident: QDeclIdent)
   (fnSig: FuncSig)
-  : list<QDeclIdent> =
+  : Set<QDeclIdent> =
 
-  let mutable deps = []
+  let mutable deps: Set<QDeclIdent> = Set.empty
 
   let typeParamNames =
     match fnSig.TypeParams with
@@ -609,27 +626,29 @@ let getDepsForInterfaceFn
     match param.TypeAnn with
     | Some typeAnn ->
       deps <-
-        deps
-        @ findDepsForTypeIdent
+        Set.union
+          deps
+          (findDepsForTypeIdent
             env
             possibleDeps
             localsTree
             (interfaceTypeParamNames @ typeParamNames)
             ident
-            (SyntaxNode.TypeAnn typeAnn)
+            (SyntaxNode.TypeAnn typeAnn))
     | None -> ()
 
   match fnSig.ReturnType with
   | Some returnType ->
     deps <-
-      deps
-      @ findDepsForTypeIdent
+      Set.union
+        deps
+        (findDepsForTypeIdent
           env
           possibleDeps
           localsTree
           (interfaceTypeParamNames @ typeParamNames)
           ident
-          (SyntaxNode.TypeAnn returnType)
+          (SyntaxNode.TypeAnn returnType))
   | None -> ()
 
   deps
@@ -637,9 +656,9 @@ let getDepsForInterfaceFn
 // TODO: we should be using this for more than PropName dependencies
 let getPropNameDeps
   (env: Env)
-  (topLevelDecls: list<QDeclIdent>)
+  (topLevelDecls: Set<QDeclIdent>)
   (name: PropName)
-  : list<QDeclIdent> =
+  : Set<QDeclIdent> =
   match name with
   | Computed expr ->
     match expr.Kind with
@@ -648,8 +667,8 @@ let getPropNameDeps
       | ExprKind.Identifier name ->
         let ident = (QualifiedIdent.FromString name)
 
-        if List.contains (QDeclIdent.Value ident) topLevelDecls then
-          [ QDeclIdent.Value ident ]
+        if Set.contains (QDeclIdent.Value ident) topLevelDecls then
+          Set.singleton (QDeclIdent.Value ident)
         else
           match env.TryFindValue name with
           | Some(t, _) ->
@@ -657,15 +676,15 @@ let getPropNameDeps
             | TypeKind.TypeRef { Name = ident } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
-              if List.contains (QDeclIdent.Type ident) topLevelDecls then
-                [ QDeclIdent.Type ident ]
+              if Set.contains (QDeclIdent.Type ident) topLevelDecls then
+                Set.singleton (QDeclIdent.Type ident)
               else
-                []
-            | _ -> [] // This should probably be an error
-          | None -> [] // This should probably be an error
-      | _ -> []
-    | _ -> []
-  | _ -> []
+                Set.empty
+            | _ -> Set.empty // This should probably be an error
+          | None -> Set.empty // This should probably be an error
+      | _ -> Set.empty
+    | _ -> Set.empty
+  | _ -> Set.empty
 
 let getDeclsFromModule (ast: Module) : list<Decl> =
   List.choose
@@ -686,7 +705,7 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
                   TypeAnn = typeAnn } ->
         let idents =
           Helpers.findBindingNames pattern
-          |> List.map (fun name ->
+          |> Set.map (fun name ->
             QDeclIdent.Value({ Parts = namespaces @ [ name ] }))
 
         for ident in idents do
@@ -723,15 +742,13 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
 
 let getEdges
   (env: Env)
-  (locals: list<QDeclIdent>)
+  (locals: Set<QDeclIdent>)
   (localsTree: QDeclTree)
   (nodes: Map<QDeclIdent, list<Decl>>)
-  // TODO: make the values in the return map sets instead of lists
-  // to minimize duplicate processing
-  : Map<QDeclIdent, list<QDeclIdent>> =
-  let mutable edges: Map<QDeclIdent, list<QDeclIdent>> = Map.empty
+  : Map<QDeclIdent, Set<QDeclIdent>> =
+  let mutable edges: Map<QDeclIdent, Set<QDeclIdent>> = Map.empty
 
-  let possibleDeps = nodes.Keys |> List.ofSeq
+  let possibleDeps = nodes.Keys |> Set.ofSeq
 
   for KeyValue(ident, decls) in nodes do
     for decl in decls do
@@ -766,9 +783,9 @@ let getEdges
                   []
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
-              | None -> []
+              | None -> Set.empty
 
-            deps @ typeDepsInExpr @ typeDeps
+            Set.unionMany [ deps; typeDepsInExpr; typeDeps ]
           | None ->
             let deps =
               match typeAnn with
@@ -780,7 +797,7 @@ let getEdges
                   []
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
-              | None -> []
+              | None -> Set.empty
 
             // TODO: dedupe with the other branch
             // for dep in deps do
@@ -808,7 +825,8 @@ let getEdges
         let deps = getDepsForFn env ident locals localsTree [] fnSig body
 
         match edges.TryFind(ident) with
-        | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
+        | Some existingDeps ->
+          edges <- edges.Add(ident, Set.union existingDeps deps)
         | None -> edges <- edges.Add(ident, deps)
       // edges <- edges.Add(ident, deps)
       | ClassDecl { Name = name
@@ -822,11 +840,11 @@ let getEdges
               (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
               typeParams
 
-        let deps =
+        let deps: Set<QDeclIdent> =
           match ident with
           | Type _ ->
             elems
-            |> List.collect (fun elem ->
+            |> List.map (fun elem ->
               match elem with
               | ClassElem.Method { Sig = fnSig
                                    Name = name
@@ -842,7 +860,7 @@ let getEdges
                     ident
                     fnSig
 
-                propNameDeps @ fnDeps
+                Set.union propNameDeps fnDeps
               | ClassElem.Getter { ReturnType = returnType
                                    Name = name
                                    Static = false } ->
@@ -858,9 +876,9 @@ let getEdges
                       typeParamNames
                       ident
                       (SyntaxNode.TypeAnn returnType)
-                  | None -> []
+                  | None -> Set.empty
 
-                propNameDeps @ fnDeps
+                Set.union propNameDeps fnDeps
               | ClassElem.Setter { Param = { TypeAnn = typeAnn }
                                    Name = name
                                    Static = false } ->
@@ -876,9 +894,9 @@ let getEdges
                       typeParamNames
                       ident
                       (SyntaxNode.TypeAnn typeAnn)
-                  | None -> []
+                  | None -> Set.empty
 
-                propNameDeps @ fnDeps
+                Set.union propNameDeps fnDeps
               | ClassElem.Property { TypeAnn = typeAnn
                                      Name = name
                                      Static = false } ->
@@ -893,11 +911,12 @@ let getEdges
                     ident
                     (SyntaxNode.TypeAnn typeAnn)
 
-                propNameDeps @ typeAnnDeps
-              | _ -> [])
+                Set.union propNameDeps typeAnnDeps
+              | _ -> Set.empty)
+            |> Set.unionMany
           | Value qualifiedIdent ->
             elems
-            |> List.collect (fun elem ->
+            |> List.map (fun elem ->
               match elem with
               | ClassElem.Constructor { Sig = fnSig } ->
                 getDepsForInterfaceFn
@@ -921,7 +940,7 @@ let getEdges
                     ident
                     fnSig
 
-                propNameDeps @ fnDeps
+                Set.union propNameDeps fnDeps
               | ClassElem.Getter { ReturnType = returnType
                                    Name = name
                                    Static = true } ->
@@ -937,9 +956,9 @@ let getEdges
                       typeParamNames
                       ident
                       (SyntaxNode.TypeAnn returnType)
-                  | None -> []
+                  | None -> Set.empty
 
-                propNameDeps @ fnDeps
+                Set.union propNameDeps fnDeps
               | ClassElem.Setter { Param = { TypeAnn = typeAnn }
                                    Name = name
                                    Static = true } ->
@@ -955,9 +974,9 @@ let getEdges
                       typeParamNames
                       ident
                       (SyntaxNode.TypeAnn typeAnn)
-                  | None -> []
+                  | None -> Set.empty
 
-                propNameDeps @ fnDeps
+                Set.union propNameDeps fnDeps
               | ClassElem.Property { TypeAnn = typeAnn
                                      Name = name
                                      Static = true } ->
@@ -972,20 +991,23 @@ let getEdges
                     ident
                     (SyntaxNode.TypeAnn typeAnn)
 
-                propNameDeps @ typeAnnDeps
-              | _ -> [])
+                Set.union propNameDeps typeAnnDeps
+              | _ -> Set.empty)
+            |> Set.unionMany
 
         // We need to infer the type and value of the class as the same time.
         let deps =
           match ident with
-          | Type qualifiedIdent -> QDeclIdent.Value qualifiedIdent :: deps
-          | Value qualifiedIdent -> QDeclIdent.Type qualifiedIdent :: deps
+          | Type qualifiedIdent ->
+            Set.add (QDeclIdent.Value qualifiedIdent) deps
+          | Value qualifiedIdent ->
+            Set.add (QDeclIdent.Type qualifiedIdent) deps
 
         edges <- edges.Add(ident, deps)
       | TypeDecl { Name = name
                    TypeParams = typeParams
                    TypeAnn = typeAnn } ->
-        let mutable deps: list<QDeclIdent> = []
+        let mutable deps: Set<QDeclIdent> = Set.empty
 
         let typeParamNames =
           match typeParams with
@@ -1002,38 +1024,41 @@ let getEdges
             match typeParam.Constraint with
             | Some c ->
               deps <-
-                deps
-                @ findDepsForTypeIdent
+                Set.union
+                  deps
+                  (findDepsForTypeIdent
                     env
                     possibleDeps
                     localsTree
                     typeParamNames
                     ident
-                    (SyntaxNode.TypeAnn c)
+                    (SyntaxNode.TypeAnn c))
             | None -> ()
 
             match typeParam.Default with
             | Some d ->
               deps <-
-                deps
-                @ findDepsForTypeIdent
+                Set.union
+                  deps
+                  (findDepsForTypeIdent
                     env
                     possibleDeps
                     localsTree
                     typeParamNames
                     ident
-                    (SyntaxNode.TypeAnn d)
+                    (SyntaxNode.TypeAnn d))
             | None -> ()
 
         deps <-
-          deps
-          @ findDepsForTypeIdent
+          Set.union
+            deps
+            (findDepsForTypeIdent
               env
               possibleDeps
               localsTree
               typeParamNames
               ident
-              (SyntaxNode.TypeAnn typeAnn)
+              (SyntaxNode.TypeAnn typeAnn))
 
         edges <- edges.Add(ident, deps)
       | InterfaceDecl { Name = name
@@ -1050,7 +1075,7 @@ let getEdges
 
         let mutable deps =
           elems
-          |> List.collect (fun elem ->
+          |> List.map (fun elem ->
             match elem with
             | ObjTypeAnnElem.Callable fnSig ->
               getDepsForInterfaceFn
@@ -1080,7 +1105,7 @@ let getEdges
                   ident
                   fnSig
 
-              propNameDeps @ fnDeps
+              Set.union propNameDeps fnDeps
             | ObjTypeAnnElem.Getter { ReturnType = returnType; Name = name } ->
               let propNameDeps = getPropNameDeps env locals name
 
@@ -1094,9 +1119,9 @@ let getEdges
                     typeParamNames
                     ident
                     (SyntaxNode.TypeAnn returnType)
-                | None -> []
+                | None -> Set.empty
 
-              propNameDeps @ fnDeps
+              Set.union propNameDeps fnDeps
             | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn }
                                       Name = name } ->
               let propNameDeps = getPropNameDeps env locals name
@@ -1111,9 +1136,9 @@ let getEdges
                     typeParamNames
                     ident
                     (SyntaxNode.TypeAnn typeAnn)
-                | None -> []
+                | None -> Set.empty
 
-              propNameDeps @ fnDeps
+              Set.union propNameDeps fnDeps
             | ObjTypeAnnElem.Property { TypeAnn = typeAnn; Name = name } ->
               let propNameDeps = getPropNameDeps env locals name
 
@@ -1126,7 +1151,7 @@ let getEdges
                   ident
                   (SyntaxNode.TypeAnn typeAnn)
 
-              propNameDeps @ typeAnnDeps
+              Set.union propNameDeps typeAnnDeps
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam
                                       TypeAnn = typeAnn } ->
               let tp: TypeParam =
@@ -1140,20 +1165,22 @@ let getEdges
                 | None -> Some [ tp ]
                 | Some typeParams -> Some(tp :: typeParams)
 
-              findDepsForTypeIdent
-                env
-                possibleDeps
-                localsTree
-                typeParamNames
-                ident
-                (SyntaxNode.TypeAnn typeParam.Constraint)
-              @ findDepsForTypeIdent
+              Set.union
+                (findDepsForTypeIdent
                   env
                   possibleDeps
                   localsTree
                   typeParamNames
                   ident
-                  (SyntaxNode.TypeAnn typeAnn))
+                  (SyntaxNode.TypeAnn typeParam.Constraint))
+                (findDepsForTypeIdent
+                  env
+                  possibleDeps
+                  localsTree
+                  typeParamNames
+                  ident
+                  (SyntaxNode.TypeAnn typeAnn)))
+          |> Set.unionMany
 
         match typeParams with
         | None -> ()
@@ -1162,55 +1189,59 @@ let getEdges
             match typeParam.Constraint with
             | Some c ->
               deps <-
-                deps
-                @ findDepsForTypeIdent
+                Set.union
+                  deps
+                  (findDepsForTypeIdent
                     env
                     possibleDeps
                     localsTree
                     typeParamNames
                     ident
-                    (SyntaxNode.TypeAnn c)
+                    (SyntaxNode.TypeAnn c))
             | None -> ()
 
             match typeParam.Default with
             | Some d ->
               deps <-
-                deps
-                @ findDepsForTypeIdent
+                Set.union
+                  deps
+                  (findDepsForTypeIdent
                     env
                     possibleDeps
                     localsTree
                     typeParamNames
                     ident
-                    (SyntaxNode.TypeAnn d)
+                    (SyntaxNode.TypeAnn d))
             | None -> ()
 
         match extends with
         | Some extends ->
           for typeRef in extends do
             deps <-
-              deps
-              @ findDepsForTypeIdent
+              Set.union
+                deps
+                (findDepsForTypeIdent
                   env
                   possibleDeps
                   localsTree
                   typeParamNames
                   ident
-                  (SyntaxNode.TypeRef typeRef)
+                  (SyntaxNode.TypeRef typeRef))
         | None -> ()
 
         match edges.TryFind(ident) with
-        | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)
+        | Some existingDeps ->
+          edges <- edges.Add(ident, Set.union existingDeps deps)
         | None -> edges <- edges.Add(ident, deps)
       | EnumDecl { Name = name } ->
         let deps =
           match ident with
           | Type _ ->
             // TODO: determine instance deps
-            []
+            Set.empty
           | Value _ ->
             // NOTE: enums have no static deps
-            []
+            Set.empty
 
         edges <- edges.Add(ident, deps)
       | NamespaceDecl { Name = name; Body = body } ->
@@ -1233,12 +1264,12 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
   //   printfn $"{local}"
 
   let localTypeNames =
-    List.choose
-      (fun qid ->
-        match qid with
-        | Type name -> Some name
-        | _ -> None)
-      locals
+    locals
+    |> Set.toList
+    |> List.choose (fun qid ->
+      match qid with
+      | Type name -> Some name
+      | _ -> None)
 
   let decls =
     m.Items

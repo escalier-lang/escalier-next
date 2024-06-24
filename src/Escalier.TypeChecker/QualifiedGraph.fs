@@ -54,7 +54,7 @@ type QDeclIdent =
 type QGraph<'T> =
   // A type can depend on multiple interface declarations
   { Nodes: Map<QDeclIdent, list<'T>>
-    Edges: Map<QDeclIdent, list<QDeclIdent>> }
+    Edges: Map<QDeclIdent, Set<QDeclIdent>> }
 
 // member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
 //   printfn $"adding {name}"

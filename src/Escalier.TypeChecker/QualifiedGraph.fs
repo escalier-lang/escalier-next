@@ -85,6 +85,7 @@ type QualifiedNamespace =
 
 type SyntaxNode =
   | TypeAnn of Syntax.TypeAnn
+  | TypeRef of Syntax.TypeRef
   | Expr of Syntax.Expr
 
 let findFunctions (expr: Syntax.Expr) : list<Syntax.Function> =

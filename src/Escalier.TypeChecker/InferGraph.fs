@@ -228,7 +228,9 @@ let inferDeclPlaceholders
               { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
           qns <- qns.AddScheme key placeholder
-        | InterfaceDecl({ Name = name; TypeParams = typeParams } as decl) ->
+        | InterfaceDecl({ Name = name
+                          TypeParams = typeParams
+                          Extends = extends } as decl) ->
           let key =
             match ident with
             | Type { Parts = parts } ->
@@ -254,6 +256,9 @@ let inferDeclPlaceholders
               match qns.Schemes.TryFind(key) with
               | Some scheme -> Result.Ok scheme
               | None -> Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+          if key = QualifiedIdent.FromString "Bar" then
+            printfn $"extends = {extends}"
 
           qns <- qns.AddScheme key placeholder
         | NamespaceDecl nsDecl ->
@@ -572,6 +577,7 @@ let inferDeclDefinitions
         for interfaceDecl in interfaceDecls do
           let { Name = name
                 TypeParams = typeParams
+                Extends = extends
                 Elems = elems } =
             interfaceDecl
 
@@ -594,9 +600,29 @@ let inferDeclDefinitions
               let! elems =
                 List.traverseResultM (Infer.inferObjElem ctx env) elems
 
+              let! extends =
+                match extends with
+                | Some typeRefs ->
+                  result {
+
+                    let! extends =
+                      List.traverseResultM (Infer.inferTypeRef ctx env) typeRefs
+
+                    let extends =
+                      List.map
+                        (fun kind ->
+                          match kind with
+                          | TypeKind.TypeRef typeRef -> typeRef
+                          | _ -> failwith "Invalid type for extends")
+                        extends
+
+                    return Some extends
+                  }
+                | None -> Result.Ok None
+
               let kind =
                 TypeKind.Object
-                  { Extends = None
+                  { Extends = extends
                     Implements = None // TODO
                     Elems = elems
                     Immutable = false

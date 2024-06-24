@@ -960,9 +960,51 @@ module rec Unify =
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
         // since expansion can be quite expensive
-        | TypeKind.Object { Elems = elems; Immutable = immutable } ->
+        | TypeKind.Object { Elems = elems
+                            Extends = extends
+                            Immutable = immutable } ->
+
+          let mutable allElems = elems
+
+          let rec processExtends
+            (extends: option<list<TypeRef>>)
+            : Result<unit, TypeError> =
+
+            result {
+              match extends with
+              | Some typeRefs ->
+                for typeRef in typeRefs do
+                  let { Name = typeRefName
+                        Scheme = scheme
+                        TypeArgs = typeArgs } =
+                    typeRef
+
+                  let! objType =
+                    result {
+                      match scheme with
+                      | Some scheme ->
+                        return!
+                          expandScheme ctx env None scheme Map.empty typeArgs
+                      | None ->
+                        let! scheme = env.GetScheme typeRefName
+
+                        return!
+                          expandScheme ctx env None scheme Map.empty typeArgs
+                    }
+
+                  match objType.Kind with
+                  | TypeKind.Object { Elems = elems; Extends = extends } ->
+                    allElems <- allElems @ elems
+
+                    do! processExtends extends
+                  | _ -> failwith $"expected ${objType} to be an object type"
+              | None -> ()
+            }
+
+          do! processExtends extends
+
           let! elems =
-            elems
+            allElems
             |> List.traverseResultM (fun elem ->
               result {
                 match elem with
@@ -1050,8 +1092,8 @@ module rec Unify =
           let t =
             { Kind =
                 TypeKind.Object
-                  { Extends = None
-                    Implements = None
+                  { Extends = extends
+                    Implements = None // TODO
                     Elems = elems
                     Immutable = immutable
                     Interface = false }

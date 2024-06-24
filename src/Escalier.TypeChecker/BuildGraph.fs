@@ -268,11 +268,13 @@ let findDepsForTypeIdent
         fun (typeAnn, typeParams) ->
           let newTypeParams =
             match typeAnn.Kind with
-            | TypeAnnKind.TypeRef { Ident = ident } ->
+            | TypeAnnKind.TypeRef { Ident = ident; TypeArgs = typeArgs } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 
               if not (List.contains ident typeParams) then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
+
+              // TODO: handle typeArgs
 
               []
             | TypeAnnKind.Typeof ident ->
@@ -324,6 +326,16 @@ let findDepsForTypeIdent
 
   match syntaxNode with
   | SyntaxNode.TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
+  | SyntaxNode.TypeRef typeRef ->
+    let ident = QualifiedIdent.FromCommonQualifiedIdent typeRef.Ident
+
+    typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
+
+    match typeRef.TypeArgs with
+    | Some typeArgs ->
+      for typeAnn in typeArgs do
+        walkTypeAnn visitor typeParams typeAnn
+    | None -> ()
   | SyntaxNode.Expr expr -> walkExpr visitor typeParams expr
 
   postProcessDeps
@@ -714,6 +726,8 @@ let getEdges
   (locals: list<QDeclIdent>)
   (localsTree: QDeclTree)
   (nodes: Map<QDeclIdent, list<Decl>>)
+  // TODO: make the values in the return map sets instead of lists
+  // to minimize duplicate processing
   : Map<QDeclIdent, list<QDeclIdent>> =
   let mutable edges: Map<QDeclIdent, list<QDeclIdent>> = Map.empty
 
@@ -1024,6 +1038,7 @@ let getEdges
         edges <- edges.Add(ident, deps)
       | InterfaceDecl { Name = name
                         TypeParams = typeParams
+                        Extends = extends
                         Elems = elems } ->
         let typeParamNames =
           match typeParams with
@@ -1169,6 +1184,20 @@ let getEdges
                     ident
                     (SyntaxNode.TypeAnn d)
             | None -> ()
+
+        match extends with
+        | Some extends ->
+          for typeRef in extends do
+            deps <-
+              deps
+              @ findDepsForTypeIdent
+                  env
+                  possibleDeps
+                  localsTree
+                  typeParamNames
+                  ident
+                  (SyntaxNode.TypeRef typeRef)
+        | None -> ()
 
         match edges.TryFind(ident) with
         | Some existingDeps -> edges <- edges.Add(ident, existingDeps @ deps)

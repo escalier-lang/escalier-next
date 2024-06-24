@@ -21,9 +21,10 @@ output: Success: { Body =
                  IsAbstract = false
                  Super =
                   Some
-                    { Expr = Ident { Name = "Bar"
-                                     Loc = None }
-                      TypeArgs =
+                    { Loc = None
+                      TypeName = Identifier { Name = "Bar"
+                                              Loc = None }
+                      TypeParams =
                        Some
                          { Params =
                             [TsTypeRef { Loc = None

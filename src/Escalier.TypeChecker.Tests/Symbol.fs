@@ -20,7 +20,7 @@ type Assert with
 
 type CompileError = Prelude.CompileError
 
-let inferScript src =
+let inferModule src =
   result {
     let projectRoot = __SOURCE_DIRECTORY__
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
@@ -33,16 +33,16 @@ let inferScript src =
       """
 
     let! ast =
-      Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+      Parser.parseModule prelude |> Result.mapError CompileError.ParseError
 
     let! env =
-      Infer.inferScript ctx env "/prelude.esc" ast
+      InferGraph.inferModule ctx env ast
       |> Result.mapError CompileError.TypeError
 
-    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let! env =
-      Infer.inferScript ctx env "input.esc" ast
+      InferGraph.inferModule ctx env ast
       |> Result.mapError CompileError.TypeError
 
     return ctx, env
@@ -57,7 +57,7 @@ let InfersTypeofWellknownSymbol () =
         let iterator: typeof Symbol.iterator = Symbol.iterator;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "iterator", "symbol()")
@@ -74,9 +74,10 @@ let InfersSymbolsAreUnique () =
         let iterator: Symbol.match = Symbol.iterator;
         """
 
-      let! _, _ = inferScript src
+      let! _, _ = inferModule src
 
       ()
     }
 
+  // NOTE: This test intentionally errors
   Assert.True(Result.isError res)

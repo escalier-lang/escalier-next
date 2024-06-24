@@ -12,9 +12,10 @@ output: Success: { Body =
                      Loc = None }
               Declare = false
               TypeParams = None
-              Extends = Some [{ Expr = Ident { Name = "EventInit"
-                                               Loc = None }
-                                TypeArgs = None }]
+              Extends = Some [{ Loc = None
+                                TypeName = Identifier { Name = "EventInit"
+                                                        Loc = None }
+                                TypeParams = None }]
               Body =
                { Body =
                   [TsPropertySignature

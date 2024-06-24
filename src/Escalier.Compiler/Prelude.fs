@@ -534,11 +534,14 @@ module Prelude =
           // TODO: for type definitions using Array and ReadonlyArray we need to
           // make sure that params are marked with `mut` appropriately and all
           // references to ReadonlyArray must be replaced with Array
-          newEnv <-
-            { newEnv with
-                Namespace =
-                  { newEnv.Namespace with
-                      Schemes = newEnv.Namespace.Schemes.Remove "ReadonlyArray" } }
+
+          // TODO: make it so that we can only use `ReadonlyArray` from .d.ts files
+          // newEnv <-
+          //   { newEnv with
+          //       Namespace =
+          //         { newEnv.Namespace with
+          //             Schemes = newEnv.Namespace.Schemes.Remove "ReadonlyArray" } }
+          ()
         | _ -> ()
 
         let result = Result.Ok(ctx, newEnv)

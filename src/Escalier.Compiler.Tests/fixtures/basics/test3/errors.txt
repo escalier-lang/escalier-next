@@ -1,2 +1,0 @@
-ERROR: arg type '"hello"' doesn't satisfy param 'x' type 'number' in function call
-- Type mismatch: "hello" and number

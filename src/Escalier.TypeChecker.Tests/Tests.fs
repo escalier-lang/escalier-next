@@ -599,7 +599,7 @@ let InferDeclare () =
       Assert.Value(env, "y", "string")
     }
 
-
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

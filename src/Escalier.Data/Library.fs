@@ -449,6 +449,7 @@ module Syntax =
   type InterfaceDecl =
     { Name: string
       TypeParams: option<list<TypeParam>>
+      Extends: option<list<TypeRef>>
       Elems: list<ObjTypeAnnElem> }
 
   type EnumVariant =
@@ -854,8 +855,8 @@ module Type =
         $"{readonly}{name}{optional}: {type_}"
 
   type Object =
-    { Extends: option<list<Type>> // classes can only have one, interfaces can have many
-      Implements: option<list<Type>>
+    { Extends: option<list<TypeRef>> // classes can only have one, interfaces can have many
+      Implements: option<list<TypeRef>>
       Elems: list<ObjTypeElem>
       Immutable: bool // True for #{...}, False for {...}
       Interface: bool }

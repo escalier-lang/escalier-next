@@ -705,7 +705,7 @@ let findStronglyConnectedComponents<'T>
 
     let deps =
       match graph.Edges.TryFind v with
-      | None -> []
+      | None -> Set.empty
       | Some deps -> deps
 
     // 3. For each edge from v to a neighboring vertex w:
@@ -776,7 +776,7 @@ let buildComponentTree<'T>
       let nodeDeps =
         match graph.Edges.TryFind node with
         | None -> Set.empty
-        | Some deps -> Set.ofList deps
+        | Some deps -> deps
 
       compDepNodes <- Set.union (Set.difference nodeDeps comp) compDepNodes
 

@@ -984,12 +984,12 @@ module rec Unify =
                       match scheme with
                       | Some scheme ->
                         return!
-                          expandScheme ctx env None scheme Map.empty typeArgs
+                          expandScheme ctx env None scheme mapping typeArgs
                       | None ->
                         let! scheme = env.GetScheme typeRefName
 
                         return!
-                          expandScheme ctx env None scheme Map.empty typeArgs
+                          expandScheme ctx env None scheme mapping typeArgs
                     }
 
                   match objType.Kind with

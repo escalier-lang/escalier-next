@@ -75,6 +75,55 @@ let InferInterfaceExtendsInferfaceExtendsInterface () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let InferInterfaceExtendsInferfaceExtendsInterfaceWithTypeParams () =
+  let res =
+    result {
+
+      let input =
+        """
+        interface Foo<A> { foo: A }
+        interface Bar<B> extends Foo<B> { bar: B }
+        interface Baz<C> extends Bar<C> { baz: C }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      let input =
+        """
+        let x: Baz<number> = { foo: 5, bar: 10, baz: 15 };
+        let foo = x.foo;
+        let bar = x.bar;
+        let baz = x.baz;
+        """
+
+      let! ast =
+        Parser.parseModule input |> Result.mapError CompileError.ParseError
+
+      let! env =
+        InferGraph.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "x", "Baz<number>")
+      Assert.Value(env, "foo", "number")
+      Assert.Value(env, "bar", "number")
+      Assert.Value(env, "baz", "number")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let InferInterfaceExtendsInferfaceExtendsInterfaceWithDestructuring () =
   let res =
     result {

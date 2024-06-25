@@ -1307,3 +1307,50 @@ let UnifyIntersectionTypesWithIntersectionTypes () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let ExpandSchemeDoesNotExpandValuesInObjectType () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number};
+        type Line = {p: Point, q: Point};
+        """
+
+      let! ctx, env = inferModule src
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Line") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "{p: Point, q: Point}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let ExpandSchemeDoesNotExpandValuesInObjectTypeWithGenerics () =
+  let result =
+    result {
+      let src =
+        """
+        type Point<T> = {x: T, y: T};
+        type Line<T> = {p: Point<T>, q: Point<T>};
+        declare let line: Line<number>; 
+        """
+
+      let! ctx, env = inferModule src
+
+      let t, _ = env.FindValue "line"
+
+      let! t =
+        expandType ctx env None Map.empty t
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "{p: Point<number>, q: Point<number>}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

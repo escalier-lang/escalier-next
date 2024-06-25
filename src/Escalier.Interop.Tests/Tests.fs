@@ -751,7 +751,7 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: optimize subtype checking for classes using 'extends'")>]
+[<Fact>]
 let ImportReact () =
   let result =
     result {
@@ -778,24 +778,25 @@ let ImportReact () =
         InferGraph.inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
-      // let t, _ = env.FindValue "createElement"
-      // printfn $"createElement = {t}"
-      //
-      // Assert.Type(env, "ReactElement", "React.React.ReactElement")
-      // Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
-      //
-      // Assert.Value(
-      //   env,
-      //   "classAttrs",
-      //   "React.React.ClassAttributes<HTMLElement>"
-      // )
+      let t, _ = env.FindValue "createElement"
+      printfn $"createElement = {t}"
 
-      // Assert.Value(
-      //   env,
-      //   "div",
-      //   "React.DetailedReactHTMLElement<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>"
-      // )
-      ()
+      Assert.Type(env, "ReactElement", "React.React.ReactElement")
+      Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
+
+      Assert.Value(
+        env,
+        "classAttrs",
+        "React.React.ClassAttributes<HTMLElement>"
+      )
+
+      Assert.Value(
+        env,
+        "div",
+        // NOTE: The type var id will differ dependending on whether we run
+        // just this test case or the full test suite.
+        "React.React.DetailedReactHTMLElement<{}, t2856:HTMLElement>"
+      )
     }
 
   printfn "result = %A" result

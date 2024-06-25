@@ -320,7 +320,7 @@ let InfersOmit () =
         type Exclude<T, U> = if T : U { never } else { T };
         type AnyKey = string | number | symbol;
         type Omit<T, K: AnyKey> = Pick<T, Exclude<keyof T, K>>;
-        
+
         type Foo = {a: number, b: string, c: boolean};
         type Bar = Omit<Foo, "b">;
         """

@@ -793,7 +793,9 @@ let ImportReact () =
       Assert.Value(
         env,
         "div",
-        "React.React.DetailedReactHTMLElement<{}, t23313:HTMLElement>"
+        // NOTE: The type var id will differ dependending on whether we run
+        // just this test case or the full test suite.
+        "React.React.DetailedReactHTMLElement<{}, t2856:HTMLElement>"
       )
     }
 

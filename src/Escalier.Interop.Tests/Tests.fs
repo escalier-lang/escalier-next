@@ -765,8 +765,8 @@ let ImportReact () =
         let classAttrs: React.React.ClassAttributes<HTMLElement> = {};
         let attrs: React.React.HTMLAttributes<HTMLElement> & React.React.ClassAttributes<HTMLElement> = {};
         
-        // declare let myCreateElement: fn <P: React.React.HTMLAttributes<T>, T: HTMLElement>(mut type: keyof React.React.ReactHTML, mut props: React.React.ClassAttributes<T> & P | null, ...mut children: React.React.ReactNode[]) -> React.React.DetailedReactHTMLElement<P, T>;
-        // let div = myCreateElement("div", {});
+        declare let myCreateElement: fn <P: React.React.HTMLAttributes<T>, T: HTMLElement>(mut type: keyof React.React.ReactHTML, mut props: React.React.ClassAttributes<T> & P | null, ...mut children: React.React.ReactNode[]) -> React.React.DetailedReactHTMLElement<P, T>;
+        let div = myCreateElement("div", {});
         """
 
       let! ast =
@@ -778,24 +778,23 @@ let ImportReact () =
         InferGraph.inferModule ctx env ast
         |> Result.mapError CompileError.TypeError
 
-      // let t, _ = env.FindValue "createElement"
-      // printfn $"createElement = {t}"
-      //
-      // Assert.Type(env, "ReactElement", "React.React.ReactElement")
-      // Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
-      //
-      // Assert.Value(
-      //   env,
-      //   "classAttrs",
-      //   "React.React.ClassAttributes<HTMLElement>"
-      // )
+      let t, _ = env.FindValue "createElement"
+      printfn $"createElement = {t}"
 
-      // Assert.Value(
-      //   env,
-      //   "div",
-      //   "React.DetailedReactHTMLElement<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>"
-      // )
-      ()
+      Assert.Type(env, "ReactElement", "React.React.ReactElement")
+      Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
+
+      Assert.Value(
+        env,
+        "classAttrs",
+        "React.React.ClassAttributes<HTMLElement>"
+      )
+
+      Assert.Value(
+        env,
+        "div",
+        "React.React.DetailedReactHTMLElement<{}, t23313:HTMLElement>"
+      )
     }
 
   printfn "result = %A" result

@@ -775,19 +775,6 @@ module rec Unify =
     : Result<Type, TypeError> =
 
     result {
-      // We eagerly expand type args so that any union types can
-      // be distributed properly across conditionals so that types
-      // like `Exclude<T, U> = T extends U ? never : T` work properly.
-      // We're able to do this upfront because because the type args can't
-      // reference any TypeRefs introduced by the scheme in its type params.
-      let! typeArgs =
-        match typeArgs with
-        | None -> ResultOption.ofOption None
-        | Some typeArgs ->
-          typeArgs
-          |> List.traverseResultM (fun t -> expandType ctx env ips mapping t)
-          |> ResultOption.ofResult
-
       match scheme.TypeParams, typeArgs with
       | None, None -> return! expandType ctx env ips mapping scheme.Type
       | Some(typeParams), Some(typeArgs) ->
@@ -922,8 +909,10 @@ module rec Unify =
 
           match check.Kind with
           | TypeKind.TypeRef { Name = QualifiedIdent.Ident name } ->
-            match Map.tryFind name newMapping with
-            | Some { Kind = TypeKind.Union types } ->
+            let! check = expand newMapping check
+
+            match check.Kind with
+            | TypeKind.Union types ->
               let! extends = expand newMapping extends
 
               let! types =
@@ -936,18 +925,7 @@ module rec Unify =
                   | Error _ -> expand newMapping falseType)
 
               return union types
-            | Some check ->
-              let newMapping = Map.add name check newMapping
-
-              match unify ctx env ips check extends with
-              | Ok _ -> return! expand newMapping trueType
-              | Error _ -> return! expand newMapping falseType
-
-            // failwith "TODO: replace check type with the type argument"
             | _ ->
-              failwith
-                "TODO: check if the TypeRef's scheme is defined and use it"
-
               match unify ctx env ips check extends with
               | Ok _ -> return! expand newMapping trueType
               | Error _ -> return! expand newMapping falseType
@@ -1109,6 +1087,12 @@ module rec Unify =
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
+          // Replaces type refs appearing in type args with their definitions
+          // from `mapping`.
+          let typeArgs =
+            match typeArgs with
+            | Some typeArgs -> typeArgs |> List.map (foldType fold) |> Some
+            | None -> None
 
           // TODO: Take this a setep further and update ExpandType and ExpandScheme
           // to be functions that accept an `env: Env` param.  We can then augment

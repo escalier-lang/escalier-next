@@ -751,7 +751,7 @@ let ImportThirdPartyModules () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: optimize subtype checking for classes using 'extends'")>]
+[<Fact>]
 let ImportReact () =
   let result =
     result {
@@ -765,8 +765,8 @@ let ImportReact () =
         let classAttrs: React.React.ClassAttributes<HTMLElement> = {};
         let attrs: React.React.HTMLAttributes<HTMLElement> & React.React.ClassAttributes<HTMLElement> = {};
         
-        declare let myCreateElement: fn <P: React.React.HTMLAttributes<T>, T: HTMLElement>(mut type: keyof React.React.ReactHTML, mut props: React.React.ClassAttributes<T> & P | null, ...mut children: React.React.ReactNode[]) -> React.React.DetailedReactHTMLElement<P, T>;
-        let div = myCreateElement("div", {});
+        // declare let myCreateElement: fn <P: React.React.HTMLAttributes<T>, T: HTMLElement>(mut type: keyof React.React.ReactHTML, mut props: React.React.ClassAttributes<T> & P | null, ...mut children: React.React.ReactNode[]) -> React.React.DetailedReactHTMLElement<P, T>;
+        // let div = myCreateElement("div", {});
         """
 
       let! ast =

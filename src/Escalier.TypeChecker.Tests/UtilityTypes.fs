@@ -19,7 +19,7 @@ let InferCollaspingNever () =
         type Qux = never | never;
         """
 
-      let! _, env = inferScript src
+      let! _, env = inferModule src
 
       Assert.Type(env, "Foo", "string")
       Assert.Type(env, "Bar", "string | number")
@@ -47,7 +47,7 @@ let InferSimpleConditionalType () =
         type C = Foo<boolean>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       let! a =
         expandScheme ctx env None (env.FindScheme "A") Map.empty None
@@ -90,7 +90,7 @@ let InferNestedConditionalTypes () =
         type C = Foo<boolean>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -125,7 +125,7 @@ let InferExclude () =
         type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -149,7 +149,7 @@ let InferExtract () =
         type Result = Extract<{x: 5, y: 10} | number | string, Point>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -181,7 +181,7 @@ let InferCartesianProdType () =
         type Cells = CartesianProduct<"A" | "B", 1 | 2>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -211,7 +211,7 @@ let InfersPickUnionOfKeyInScript () =
         type Bar = Pick<Foo, "a" | "c">;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -266,7 +266,7 @@ let InfersPickSingleKey () =
         type Bar = Pick<Foo, "a" | "c">;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -294,7 +294,7 @@ let InfersPickWrongKeyType () =
         type Bar = Pick<Foo, 5 | 10>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -325,7 +325,7 @@ let InfersOmit () =
         type Bar = Omit<Foo, "b">;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -352,7 +352,7 @@ let InfersRecord () =
         let p: Point = {x: 5, y: 10};
         """
 
-      let! _, env = inferScript src
+      let! _, env = inferModule src
 
       Assert.Value(env, "p", "Point")
     }
@@ -369,7 +369,7 @@ let InfersNestedConditionals () =
         type Foo = Extends<5 | 10, 2 | 3 | 5 | 7, 3 | 6 | 9>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -383,28 +383,65 @@ let InfersNestedConditionals () =
   Assert.False(Result.isError res)
 
 [<Fact>]
-let InfersReturnType () =
+let InfersStdLibReturnType () =
   let res =
     result {
       let src =
         """
-        type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never };
         type Foo = ReturnType<fn () -> number>;
         type Bar = ReturnType<fn (a: string, b: boolean) -> number>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
+      let scheme = (env.FindScheme "Foo")
+
       let! result =
-        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
+        expandScheme ctx env None scheme Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("number", result.ToString())
 
+      let scheme = (env.FindScheme "Bar")
+
       let! result =
-        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        expandScheme ctx env None scheme Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("number", result.ToString())
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InfersRedefinedReturnType () =
+  let res =
+    result {
+      let src =
+        """
+        type MyReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never };
+        type Foo = MyReturnType<fn () -> number>;
+        type Bar = MyReturnType<fn (a: string, b: boolean) -> number>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+
+      let scheme = (env.FindScheme "Foo")
+
+      let! result =
+        expandScheme ctx env None scheme Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("number", result.ToString())
+
+      let scheme = (env.FindScheme "Bar")
+
+      let! result =
+        expandScheme ctx env None scheme Map.empty None
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("number", result.ToString())
@@ -423,7 +460,7 @@ let InfersParameters () =
         type Bar = Parameters<fn (a: string, b: boolean) -> number>;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 

@@ -1560,7 +1560,9 @@ module rec Infer =
         printfn "Can't find 'Self' in env"
 
         match name with
-        | QualifiedIdent.Ident "_" -> return TypeKind.Wildcard
+        | QualifiedIdent.Ident "_" ->
+          printfn "inferring '_' as TypeKind.Wildcard"
+          return TypeKind.Wildcard
         | _ -> return! Error(TypeError.SemanticError $"{name} is not in scope")
     }
 

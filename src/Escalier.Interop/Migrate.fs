@@ -298,9 +298,7 @@ module rec Migrate =
       match t with
       | TsType.TsKeywordType t ->
         match t.Kind with
-        // TODO: introduce an `any` type kind that can only be used when
-        // migrating .d.ts files.
-        | TsAnyKeyword -> Keyword KeywordTypeAnn.Any
+        | TsAnyKeyword -> Wildcard
         | TsUnknownKeyword -> Keyword KeywordTypeAnn.Unknown
         | TsNumberKeyword -> Keyword KeywordTypeAnn.Number
         | TsObjectKeyword -> Keyword KeywordTypeAnn.Object

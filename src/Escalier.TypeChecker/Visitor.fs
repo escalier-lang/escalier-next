@@ -107,8 +107,11 @@ module rec ExprVisitor =
         | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
           List.iter walk template.Exprs
         | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
-          failwith "TODO: walkExpr - ExprWithTypeArgs"
-        | ExprKind.Class(_) -> failwith "TOOD: walkExpr - Class"
+          walk target
+          List.iter (walkTypeAnn visitor state) typeArgs
+        | ExprKind.Class(_) ->
+          // TODO: implement this so that we can find dependencies inside classes
+          ()
         | ExprKind.Range(_) -> failwith "TODO: walkExpr - Range"
         | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
           failwith "TODO: walkExpr - IfLet"

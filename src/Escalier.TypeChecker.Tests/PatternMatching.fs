@@ -20,7 +20,7 @@ let BasicPatternMatching () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -49,7 +49,7 @@ let BasicPatternMatchingInferExpr () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -86,7 +86,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -134,7 +134,7 @@ let PatternMatchingObjects () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       // TODO: Simplify all binary type in a type
@@ -180,7 +180,7 @@ let PatternMatchingObjectsWithBlockBody () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       // The `number / 2` was simplified to `number` in this case because
@@ -206,7 +206,7 @@ let PatternMatchingArrays () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
@@ -230,7 +230,7 @@ let PatternMatchingPrimitiveAssertions () =
           };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number | string | true")
@@ -251,7 +251,7 @@ let PartialPatternMatchingObject () =
         };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number | string")
@@ -276,7 +276,7 @@ let PatternMatchingImmutableTypes () =
         };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "result", "number")
@@ -297,7 +297,7 @@ let PatternMatchingDisallowsExtraProperties () =
         };
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }
@@ -320,7 +320,7 @@ let PatternMatchingDisallowsPartialMappingOfTuples () =
         };
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }

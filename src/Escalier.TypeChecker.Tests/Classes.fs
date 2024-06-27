@@ -25,7 +25,7 @@ let InferClassWithMethods () =
         let foo = new Foo();
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -111,7 +111,7 @@ let InferClassWithConstructor () =
         let foo = new Foo("hello");
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "Foo")
@@ -138,7 +138,7 @@ let DisallowCallingMethodsFromConstructor () =
         let foo = new Foo("hello");
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Equal(ctx.Diagnostics.Length, 1)
       Assert.Value(env, "foo", "Foo")
@@ -162,7 +162,7 @@ let RequireThatAllPropertiesBeAssigned () =
         let p = new Point(5, 10);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Equal(ctx.Diagnostics.Length, 1)
       Assert.Value(env, "p", "Point")
@@ -185,7 +185,7 @@ let InferClassWithTypeParamAndConstructor () =
         let foo = new Foo<string>("hello");
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "foo", "Foo<string>")
@@ -208,7 +208,7 @@ let InferClassWithTypeParams () =
         let foo = new Foo<string>();
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -251,7 +251,7 @@ let InferClassWithFluentMethods () =
         let bar = foo.bar();
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -293,7 +293,7 @@ let InferClassWithFluentMethodsWithoutTypeAnn () =
         let bar = foo.bar();
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -335,7 +335,7 @@ let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
         let bar = foo.bar();
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -386,7 +386,7 @@ let InferClassMethodsThatTakeOtherSelf () =
         let p3 = p1.add(p2);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -427,7 +427,7 @@ let InferClassMethodsThatCallsTheConstructor () =
         let p = Point.makePoint();
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -456,7 +456,7 @@ let InferGenericRecursiveClass () =
         };
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -478,7 +478,7 @@ let InferGenericMethods () =
         };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -513,7 +513,7 @@ let InferGenericRecursiveClassWithOptionalProperties () =
         };
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 

@@ -107,8 +107,6 @@ let InferModuleWithTopLevelExpressionsNoErrors () =
       Assert.Empty(ctx.Diagnostics)
     }
 
-  // TODO: infer all non-decl statements after inferring the decls
-  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -128,6 +126,22 @@ let InferModuleWithTopLevelExpressionsRecoverableErrors () =
       Assert.Equal(ctx.Diagnostics.Length, 1)
     }
 
-  // TODO: infer all non-decl statements after inferring the decls
-  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferModuleWithTopLevelAssignments () =
+  let res =
+    result {
+      let src =
+        """
+        let x: number = 5;
+        let mut y: number = 0;
+        y = x;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+    }
+
   Assert.False(Result.isError res)

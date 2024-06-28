@@ -2844,9 +2844,9 @@ module rec Infer =
 
   let getDeclsFromModule (ast: Module) : list<Decl> =
     List.choose
-      (fun item ->
+      (fun (item: ModuleItem) ->
         match item with
-        | Decl decl -> Some decl
+        | ModuleItem.Stmt { Kind = Decl decl } -> Some decl
         | _ -> None)
       ast.Items
 

@@ -664,7 +664,11 @@ module rec Migrate =
           { Path = src.Value
             Specifiers = specifiers } ]
     | ModuleDecl.ExportDecl { Decl = decl } ->
-      List.map Syntax.ModuleItem.Decl (migrateStmt ctx (Stmt.Decl decl))
+      (migrateStmt ctx (Stmt.Decl decl))
+      |> List.map (fun decl ->
+        { Kind = StmtKind.Decl decl
+          Span = decl.Span })
+      |> List.map Syntax.ModuleItem.Stmt
     | ModuleDecl.ExportNamed namedExport ->
       // TODO: handle named exports with specifiers
       // The only modules that use this so far do `export {}` so the specifiers
@@ -1046,7 +1050,11 @@ module rec Migrate =
             match item with
             | ModuleItem.ModuleDecl decl -> migrateModuleDecl ctx decl
             | ModuleItem.Stmt stmt ->
-              List.map Syntax.ModuleItem.Decl (migrateStmt ctx stmt)
+              (migrateStmt ctx stmt)
+              |> List.map (fun decl ->
+                { Kind = StmtKind.Decl decl
+                  Span = decl.Span })
+              |> List.map Syntax.ModuleItem.Stmt
           with ex ->
             // TODO: fix all of the error messages
             printfn $"Error migrating module item: {ex.Message}"

@@ -688,9 +688,9 @@ let getPropNameDeps
 
 let getDeclsFromModule (ast: Module) : list<Decl> =
   List.choose
-    (fun item ->
+    (fun (item: ModuleItem) ->
       match item with
-      | Decl decl -> Some decl
+      | ModuleItem.Stmt { Kind = StmtKind.Decl decl } -> Some decl
       | _ -> None)
     ast.Items
 
@@ -1271,9 +1271,9 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
 
   let decls =
     m.Items
-    |> List.choose (fun item ->
+    |> List.choose (fun (item: ModuleItem) ->
       match item with
-      | ModuleItem.Decl decl -> Some decl
+      | ModuleItem.Stmt { Kind = StmtKind.Decl decl } -> Some decl
       | _ -> None)
 
   let nodes = getNodes decls

@@ -1770,13 +1770,18 @@ module Parser =
     )
     |>> fun (kind, span) -> { Kind = kind; Span = span }
 
-  // TODO: update to support ambient declarations
   let private moduleItem: Parser<ModuleItem, unit> =
     ws
     >>. choice
       [ import |>> ModuleItem.Import
-        ambient |>> ModuleItem.Decl
-        decl |>> ModuleItem.Decl ]
+        ambient
+        |>> fun decl ->
+          let stmt =
+            { Kind = StmtKind.Decl decl
+              Span = decl.Span }
+
+          ModuleItem.Stmt stmt
+        _stmt |>> ModuleItem.Stmt ]
 
   // Public Exports
   let parseExpr (input: string) : Result<Expr, ParserError> =

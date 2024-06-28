@@ -248,7 +248,7 @@ let findModuleBindingNames (m: Script) : Set<string> =
 
   for item in m.Items do
     match item with
-    | Stmt stmt ->
+    | ScriptItem.Stmt stmt ->
       match stmt.Kind with
       | StmtKind.Decl({ Kind = DeclKind.VarDecl { Pattern = pattern } }) ->
         names <- Set.union names (findBindingNames pattern)

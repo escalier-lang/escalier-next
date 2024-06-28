@@ -89,3 +89,59 @@ let InferMutuallyRecursiveTypes () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferModuleWithTopLevelExpressionsNoErrors () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (x: number) {
+          console.log(x);
+        };
+        foo(5);
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferModuleWithTopLevelExpressionsRecoverableErrors () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (x: number) {
+          console.log(x);
+        };
+        foo("hello");
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Diagnostics.Length, 1)
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferModuleWithTopLevelAssignments () =
+  let res =
+    result {
+      let src =
+        """
+        let x: number = 5;
+        let mut y: number = 0;
+        y = x;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+    }
+
+  Assert.False(Result.isError res)

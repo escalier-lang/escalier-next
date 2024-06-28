@@ -29,7 +29,7 @@ module rec Codegen =
       m.Items
       |> List.choose (fun item ->
         match item with
-        | Stmt stmt -> Some stmt
+        | ScriptItem.Stmt stmt -> Some stmt
         | _ -> None)
 
     let block = { Stmts = stmts; Span = dummySpan }
@@ -388,7 +388,7 @@ module rec Codegen =
 
         let item = ModuleItem.ModuleDecl(decl)
         items <- item :: items
-      | Stmt stmt ->
+      | ScriptItem.Stmt stmt ->
         match stmt.Kind with
         | StmtKind.Decl decl ->
           match decl.Kind with

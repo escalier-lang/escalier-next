@@ -1003,5 +1003,20 @@ let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
 
     let! newEnv = inferTree ctx newEnv graph tree
 
+    for item in ast.Items do
+      match item with
+      | Import _ -> () // Already inferred
+      | Stmt stmt ->
+        match stmt.Kind with
+        | Expr expr ->
+          let! _ = Infer.inferExpr ctx newEnv expr
+          ()
+        | For(left, right, body) ->
+          // NOTE: this introduces a new scope and new variables
+          failwith "TODO: inferModule - For"
+        | Return exprOption ->
+          failwith "'return' statements aren't allowed outside of functions"
+        | Decl _ -> () // Already inferred
+
     return newEnv
   }

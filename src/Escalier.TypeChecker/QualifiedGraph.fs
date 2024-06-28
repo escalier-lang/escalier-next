@@ -1,5 +1,6 @@
 module Escalier.TypeChecker.QualifiedGraph
 
+open Escalier.Data.Syntax
 open FsToolkit.ErrorHandling
 
 open Escalier.Data.Type
@@ -124,46 +125,52 @@ let getExports
 
     for item in items do
       match item with
-      | Syntax.ModuleItem.Import importDecl ->
+      | ModuleItem.Import importDecl ->
         // We skip exports because we don't want to automatically re-export
         // everything.
         ()
-      | Syntax.ModuleItem.Decl decl ->
-        match decl.Kind with
-        | Syntax.DeclKind.ClassDecl classDecl ->
-          failwith "TODO: getExports - classDecl"
-        | Syntax.DeclKind.FnDecl { Name = name } ->
-          let! t = env.GetValue name
-          let isMut = false
-          ns <- ns.AddBinding name (t, isMut)
-        | Syntax.DeclKind.VarDecl { Pattern = pattern } ->
-          let names = Helpers.findBindingNames pattern
-
-          for name in names do
+      | ModuleItem.Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl decl ->
+          match decl.Kind with
+          | DeclKind.ClassDecl classDecl ->
+            failwith "TODO: getExports - classDecl"
+          | DeclKind.FnDecl { Name = name } ->
             let! t = env.GetValue name
             let isMut = false
             ns <- ns.AddBinding name (t, isMut)
-        // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
-        | Syntax.DeclKind.InterfaceDecl { Name = name } ->
-          let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+          | DeclKind.VarDecl { Pattern = pattern } ->
+            let names = Helpers.findBindingNames pattern
 
-          ns <- ns.AddScheme name scheme
-        | Syntax.DeclKind.TypeDecl { Name = name } ->
-          let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+            for name in names do
+              let! t = env.GetValue name
+              let isMut = false
+              ns <- ns.AddBinding name (t, isMut)
+          // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
+          | DeclKind.InterfaceDecl { Name = name } ->
+            let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
 
-          ns <- ns.AddScheme name scheme
-        | Syntax.DeclKind.EnumDecl tsEnumDecl ->
-          failwith "TODO: getExports - tsEnumDecl"
-        | Syntax.DeclKind.NamespaceDecl { Name = name } ->
-          if name = "global" then
-            // TODO: figure out what we want to do with globals
-            // Maybe we can add these to `env` and have `getExports` return
-            // both a namespace and an updated env
-            ()
-          else
-            match env.Namespace.Namespaces.TryFind name with
-            | Some value -> ns <- ns.AddNamespace name value
-            | None -> failwith $"Couldn't find namespace: '{name}'"
+            ns <- ns.AddScheme name scheme
+          | DeclKind.TypeDecl { Name = name } ->
+            let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+
+            ns <- ns.AddScheme name scheme
+          | DeclKind.EnumDecl tsEnumDecl ->
+            failwith "TODO: getExports - tsEnumDecl"
+          | DeclKind.NamespaceDecl { Name = name } ->
+            if name = "global" then
+              // TODO: figure out what we want to do with globals
+              // Maybe we can add these to `env` and have `getExports` return
+              // both a namespace and an updated env
+              ()
+            else
+              match env.Namespace.Namespaces.TryFind name with
+              | Some value -> ns <- ns.AddNamespace name value
+              | None -> failwith $"Couldn't find namespace: '{name}'"
+
+        | StmtKind.Expr expr -> failwith "todo"
+        | StmtKind.For(left, right, body) -> failwith "todo"
+        | StmtKind.Return exprOption -> failwith "todo"
 
     return ns
   }

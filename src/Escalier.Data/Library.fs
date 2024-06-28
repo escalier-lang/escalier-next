@@ -600,7 +600,7 @@ module Syntax =
 
   type ModuleItem =
     | Import of Import
-    | Decl of Decl
+    | Stmt of Stmt
 
   type Module = { Items: list<ModuleItem> }
 

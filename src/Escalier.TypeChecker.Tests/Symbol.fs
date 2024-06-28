@@ -36,14 +36,12 @@ let inferModule src =
       Parser.parseModule prelude |> Result.mapError CompileError.ParseError
 
     let! env =
-      InferGraph.inferModule ctx env ast
-      |> Result.mapError CompileError.TypeError
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let! env =
-      InferGraph.inferModule ctx env ast
-      |> Result.mapError CompileError.TypeError
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }

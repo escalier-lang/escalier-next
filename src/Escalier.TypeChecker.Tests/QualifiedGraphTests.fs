@@ -10,7 +10,6 @@ open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.QualifiedGraph
 open Escalier.TypeChecker.BuildGraph
-open Escalier.TypeChecker.InferGraph
 
 open TestUtils
 
@@ -21,8 +20,7 @@ let inferModule src =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      InferGraph.inferModule ctx env ast
-      |> Result.mapError CompileError.TypeError
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -36,9 +34,9 @@ let AddBinding () =
       Provenance = None }
 
   let ident = { Parts = [ "Foo"; "Bar"; "x" ] }
-  let newEnv = addBinding env ident (t, false)
+  let newEnv = Infer.addBinding env ident (t, false)
   let ident = { Parts = [ "Foo"; "Bar"; "y" ] }
-  let newEnv = addBinding newEnv ident (t, false)
+  let newEnv = Infer.addBinding newEnv ident (t, false)
   // printfn $"newEnv = {newEnv}"
   ()
 
@@ -513,7 +511,7 @@ let MergeInterfaceBetweenFiles () =
       let graph = buildGraph env ast
 
       let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+        Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "\"foo\"")
       Assert.Value(env, "bar", "\"bar\"")
@@ -551,7 +549,7 @@ let MergeInterfaceBetweenFilesWithComputedKeys () =
       let graph = buildGraph env ast
 
       let! env =
-        inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+        Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
 

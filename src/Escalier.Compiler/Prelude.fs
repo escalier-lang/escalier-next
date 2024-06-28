@@ -376,7 +376,7 @@ module Prelude =
       let newEnv = { env with Filename = fullPath }
 
       let! outEnv =
-        InferGraph.inferModule ctx newEnv ast
+        Infer.inferModule ctx newEnv ast
         |> Result.mapError CompileError.TypeError
 
       return outEnv, ast

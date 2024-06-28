@@ -14,10 +14,9 @@
         <Compile Include="TemplateLiteral.fs"/>
         <Compile Include="Unify.fs"/>
         <Compile Include="Helpers.fs"/>
-        <Compile Include="Infer.fs"/>
         <Compile Include="QualifiedGraph.fs"/>
         <Compile Include="BuildGraph.fs"/>
-        <Compile Include="InferGraph.fs"/>
+        <Compile Include="Infer.fs"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Escalier.Data\Escalier.Data.fsproj"/>

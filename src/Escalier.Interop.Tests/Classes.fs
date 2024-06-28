@@ -47,8 +47,7 @@ let InferClassExtendsClassExtendsClass () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -62,8 +61,7 @@ let InferClassExtendsClassExtendsClass () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        InferGraph.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
       Assert.Value(env, "foo", "number")
@@ -96,8 +94,7 @@ let InferClassExtendsClassExtendsClassWithDestructuring () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -109,8 +106,7 @@ let InferClassExtendsClassExtendsClassWithDestructuring () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        InferGraph.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
       Assert.Value(env, "foo", "number")
@@ -143,8 +139,7 @@ let InferClassExtendsClassExtendsClassWithGenerics () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        InferGraph.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -158,8 +153,7 @@ let InferClassExtendsClassExtendsClassWithGenerics () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        InferGraph.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz<number>")
       Assert.Value(env, "foo", "number")

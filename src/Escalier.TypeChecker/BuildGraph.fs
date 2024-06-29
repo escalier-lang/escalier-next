@@ -1249,11 +1249,10 @@ let getEdges
 
   edges
 
-let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
+let buildGraph (env: Env) (decls: list<Decl>) : QGraph<Decl> =
 
   let mutable graph: QGraph<Decl> = { Nodes = Map.empty; Edges = Map.empty }
 
-  let decls = getDeclsFromModule m
   let locals = findLocals decls
 
   // printfn "--- LOCALS ---"
@@ -1267,13 +1266,6 @@ let buildGraph (env: Env) (m: Module) : QGraph<Decl> =
     |> List.choose (fun qid ->
       match qid with
       | Type name -> Some name
-      | _ -> None)
-
-  let decls =
-    m.Items
-    |> List.choose (fun (item: ModuleItem) ->
-      match item with
-      | ModuleItem.Stmt { Kind = StmtKind.Decl decl } -> Some decl
       | _ -> None)
 
   let nodes = getNodes decls

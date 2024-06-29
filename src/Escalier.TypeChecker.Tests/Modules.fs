@@ -145,3 +145,24 @@ let InferModuleWithTopLevelAssignments () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferModuleWithTopLevelForLoop () =
+  let res =
+    result {
+      let src =
+        """
+        let mut sum: number = 0;
+        for x in [1, 2, 3] {
+          let square = x * x;
+          sum = sum + square;
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

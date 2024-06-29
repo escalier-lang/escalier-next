@@ -1,5 +1,6 @@
 module Escalier.TypeChecker.Tests.QualifiedGraphTests
 
+open Escalier.Data
 open Escalier.Data.Type
 open FsToolkit.ErrorHandling
 open Xunit
@@ -508,7 +509,15 @@ let MergeInterfaceBetweenFiles () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let graph = buildGraph env ast
+      let decls =
+        List.choose
+          (fun (item: Syntax.ModuleItem) ->
+            match item with
+            | Syntax.ModuleItem.Stmt { Kind = Syntax.Decl decl } -> Some decl
+            | _ -> None)
+          ast.Items
+
+      let graph = buildGraph env decls
 
       let! env =
         Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError
@@ -546,7 +555,15 @@ let MergeInterfaceBetweenFilesWithComputedKeys () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let graph = buildGraph env ast
+      let decls =
+        List.choose
+          (fun (item: Syntax.ModuleItem) ->
+            match item with
+            | Syntax.ModuleItem.Stmt { Kind = Syntax.Decl decl } -> Some decl
+            | _ -> None)
+          ast.Items
+
+      let graph = buildGraph env decls
 
       let! env =
         Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError

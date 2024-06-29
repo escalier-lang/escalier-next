@@ -496,13 +496,13 @@ let ReturnRecursivePrivateGenericObjectType () =
       let src =
         """
         let makeTree = fn () {
-          type Node<T> = {
+          type MyNode<T> = {
             value: T,
-            left?: Node<T>,
-            right?: Node<T>
+            left?: MyNode<T>,
+            right?: MyNode<T>
           };
 
-          let node: Node<number> = {
+          let node: MyNode<number> = {
             value: 5,
             left: {
               value: 10
@@ -518,10 +518,10 @@ let ReturnRecursivePrivateGenericObjectType () =
         let x = node.left?.value;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
-      Assert.Value(env, "node", "Node<number>")
+      Assert.Value(env, "node", "MyNode<number>")
       Assert.Value(env, "x", "number | undefined")
     }
 
@@ -1046,6 +1046,7 @@ let InferLetElseEarlyReturn () =
       Assert.Value(env, "foo", "fn (x: number | undefined) -> number")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

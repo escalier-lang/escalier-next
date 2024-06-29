@@ -788,7 +788,10 @@ module rec Unify =
           newEnv <- newEnv.AddScheme name { Type = t; TypeParams = None }
 
         return! expandType ctx newEnv ips mapping scheme.Type
-      | _ ->
+      | typeParams, typeArgs ->
+        printfn $"typeParams = {typeParams}"
+        printfn $"typeArgs = {typeArgs}"
+
         return!
           Error(
             TypeError.NotImplemented "TODO: expandScheme with type params/args"

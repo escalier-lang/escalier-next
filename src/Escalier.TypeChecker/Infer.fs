@@ -1494,17 +1494,22 @@ module rec Infer =
     | BlockOrExpr.Block block -> inferBlock ctx env block
     | BlockOrExpr.Expr expr -> inferExpr ctx env expr
 
+  // TODO: create a version of this that uses similar logic to `inferModule`
+  // we need to determine the dependencies between declarations within the
+  // block.  We can also add a field to `Ctx` to determine whether or not
+  // to use this new implementation of `inferBlock`.
   let inferBlock
     (ctx: Ctx)
     (env: Env)
     (block: Block)
     : Result<Type, TypeError> =
     result {
-      let mutable newEnv = env
+      // let mutable newEnv = env
 
-      for stmt in block.Stmts do
-        let! stmtEnv = inferStmt ctx newEnv stmt false
-        newEnv <- stmtEnv
+      let! newEnv = inferStmts ctx env false block.Stmts
+      // for stmt in block.Stmts do
+      //   let! stmtEnv = inferStmt ctx newEnv stmt false
+      //   newEnv <- stmtEnv
 
       let undefined =
         { Kind = TypeKind.Literal(Literal.Undefined)
@@ -4034,6 +4039,7 @@ module rec Infer =
   let inferTree
     (ctx: Ctx)
     (env: Env)
+    (shouldGeneralize: bool)
     (graph: QGraph<Decl>)
     (tree: QCompTree)
     : Result<Env, TypeError> =
@@ -4090,8 +4096,11 @@ module rec Infer =
 
             // Generalize bindings
             let newPartialQns =
-              { newPartialQns with
-                  Values = generalizeBindings newPartialQns.Values }
+              if shouldGeneralize then
+                { newPartialQns with
+                    Values = generalizeBindings newPartialQns.Values }
+              else
+                newPartialQns
 
             // Update fullQns with new values and types
             fullQns <- updateQualifiedNamespace newPartialQns fullQns
@@ -4130,7 +4139,123 @@ module rec Infer =
 
       let components = findStronglyConnectedComponents graph
       let tree = buildComponentTree graph components
-      let! newEnv = inferTree ctx env graph tree
+      let! newEnv = inferTree ctx env true graph tree
+
+      return newEnv
+    }
+
+  let inferStmts
+    (ctx: Ctx)
+    (env: Env)
+    (shouldGeneralize: bool)
+    (stmts: List<Stmt>)
+    =
+    result {
+      let decls =
+        stmts
+        |> List.choose (fun (stmt: Stmt) ->
+          match stmt.Kind with
+          | StmtKind.Decl decl -> Some decl
+          | _ -> None)
+
+      let graph = buildGraph env decls
+      let components = findStronglyConnectedComponents graph
+      let tree = buildComponentTree graph components
+
+      let! newEnv = inferTree ctx env shouldGeneralize graph tree
+
+      for stmt in stmts do
+        match stmt.Kind with
+        | StmtKind.Expr expr ->
+          let! _ = inferExpr ctx newEnv expr
+          ()
+        | StmtKind.For(pattern, right, body) ->
+          let mutable blockEnv = newEnv
+
+          let! patBindings, patType = inferPattern ctx blockEnv pattern
+          let! rightType = inferExpr ctx blockEnv right
+
+          let symbol =
+            match env.TryFindValue "Symbol" with
+            | Some scheme -> fst scheme
+            | None -> failwith "Symbol not in scope"
+
+          let! symbolIterator =
+            getPropType ctx blockEnv symbol (PropName.String "iterator") false
+
+          // TODO: only lookup Symbol.iterator on Array for arrays and tuples
+          let arrayScheme =
+            match env.TryFindScheme "Array" with
+            | Some scheme -> scheme
+            | None -> failwith "Array not in scope"
+
+          let propName =
+            match symbolIterator.Kind with
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+            | _ -> failwith "Symbol.iterator is not a unique symbol"
+
+          let! _ = getPropType ctx blockEnv arrayScheme.Type propName false
+
+          // TODO: add a variant of `ExpandType` that allows us to specify a
+          // predicate that can stop the expansion early.
+          let! expandedRightType =
+            expandType ctx blockEnv None Map.empty rightType
+
+          let! elemType =
+            result {
+              match expandedRightType.Kind with
+              | TypeKind.Array { Elem = elem; Length = _ } -> return elem
+              | TypeKind.Tuple { Elems = elems } -> return union elems
+              | TypeKind.Range _ -> return expandedRightType
+              | TypeKind.Object _ ->
+                // TODO: try using unify and/or an utility type to extract the
+                // value type from an iterator
+
+                // TODO: add a `tryGetPropType` function that returns an option
+                let! next =
+                  getPropType
+                    ctx
+                    blockEnv
+                    rightType
+                    (PropName.String "next")
+                    false
+
+                match next.Kind with
+                | TypeKind.Function f ->
+                  return!
+                    getPropType
+                      ctx
+                      blockEnv
+                      f.Return
+                      (PropName.String "value")
+                      false
+                | _ ->
+                  return!
+                    Error(
+                      TypeError.SemanticError $"{rightType} is not an iterator"
+                    )
+              | _ ->
+                return!
+                  Error(
+                    TypeError.NotImplemented
+                      "TODO: for loop over non-iterable type"
+                  )
+            }
+
+          do! unify ctx blockEnv None elemType patType
+
+          for KeyValue(name, binding) in patBindings do
+            blockEnv <- newEnv.AddValue name binding
+
+          let! _ = inferStmts ctx blockEnv false body.Stmts
+          ()
+        | StmtKind.Return expr ->
+          match expr with
+          | Some(expr) ->
+            let! _ = inferExpr ctx newEnv expr
+            ()
+          | None -> ()
+        | StmtKind.Decl _ -> () // Already inferred
 
       return newEnv
     }
@@ -4152,27 +4277,12 @@ module rec Infer =
         let! importEnv = Infer.inferImport ctx newEnv import
         newEnv <- importEnv
 
-      let decls = getDeclsFromModule ast
-      let graph = buildGraph newEnv ast
-      let components = findStronglyConnectedComponents graph
-      let tree = buildComponentTree graph components
+      let stmts =
+        ast.Items
+        |> List.choose (fun (item: ModuleItem) ->
+          match item with
+          | ModuleItem.Stmt stmt -> Some stmt
+          | _ -> None)
 
-      let! newEnv = inferTree ctx newEnv graph tree
-
-      for item in ast.Items do
-        match item with
-        | Import _ -> () // Already inferred
-        | Stmt stmt ->
-          match stmt.Kind with
-          | StmtKind.Expr expr ->
-            let! _ = Infer.inferExpr ctx newEnv expr
-            ()
-          | StmtKind.For(left, right, body) ->
-            // NOTE: this introduces a new scope and new variables
-            failwith "TODO: inferModule - For"
-          | StmtKind.Return exprOption ->
-            failwith "'return' statements aren't allowed outside of functions"
-          | StmtKind.Decl _ -> () // Already inferred
-
-      return newEnv
+      return! inferStmts ctx newEnv true stmts
     }

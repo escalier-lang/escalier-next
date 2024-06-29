@@ -3369,12 +3369,80 @@ module rec Infer =
             let statics: Type = ctx.FreshTypeVar None None
 
             qns <- qns.AddValue key (statics, false)
-          | EnumDecl _ ->
-            return!
-              Error(
-                TypeError.NotImplemented
-                  "TODO: inferDeclPlaceholders - EnumDecl"
-              )
+          | EnumDecl { Name = name
+                       TypeParams = typeParams
+                       Variants = variants } ->
+
+            match ident with
+            | Type { Parts = parts } ->
+            
+            | Value { Parts = parts } ->
+              
+            let! variants =
+              List.traverseResultM
+                (fun (variant: Syntax.EnumVariant) ->
+                  result {
+                    let name = variant.Name
+
+                    let types =
+                      List.map
+                        (fun typeAnn -> ctx.FreshTypeVar None None)
+                        variant.TypeAnns
+
+                    let variant =
+                      { Tag = ctx.FreshSymbol()
+                        Name = name
+                        Types = types }
+
+                    return variant
+                  })
+                variants
+
+            let elems =
+              variants
+              |> List.map (fun variant ->
+                ObjTypeElem.Property(
+                  { Name = PropName.String variant.Name
+                    Optional = false
+                    Readonly = true
+                    Type = ctx.FreshTypeVar None None }
+                ))
+
+            let value =
+              { Type.Kind =
+                  TypeKind.Object
+                    { Extends = None
+                      Implements = None
+                      Elems = elems
+                      Immutable = false
+                      Interface = false }
+                Provenance = None }
+
+            let key =
+              match ident with
+              | Type { Parts = parts } ->
+                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+              | Value { Parts = parts } ->
+                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+
+            let types =
+              variants
+              |> List.map (fun variant ->
+                { Type.Kind = TypeKind.EnumVariant variant
+                  Provenance = None })
+
+            // TODO: special case unification of enum decls by pairwise
+            // unifying the types in this union with those in the inferred
+            // type.
+            let t = union types
+
+            let! scheme =
+              Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+            scheme.Type <- union types
+            qns <- qns.AddScheme key scheme
+
+            qns <- qns.AddValue key (value, false)
           | TypeDecl { TypeParams = typeParams; Name = name } ->
             // TODO: check to make sure we aren't redefining an existing type
             // TODO: replace placeholders, with a reference the actual definition
@@ -3657,7 +3725,82 @@ module rec Infer =
 
         match enumDecls with
         | [] -> ()
-        | [ enumDecl ] -> return! Error(TypeError.NotImplemented "EnumDecl")
+        | [ enumDecl ] ->
+          // TODO: determine inferred types and unify with placeholder types
+          match ident with
+          | Type { Parts = parts } ->
+            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            let placeholderScheme = qns.Schemes[key]
+            printfn $"placeholderScheme = {placeholderScheme}"
+
+            let { Name = name
+                  TypeParams = typeParams
+                  Variants = variants } =
+              enumDecl
+
+            match placeholderScheme.Type.Kind with
+            | TypeKind.Union placeholderVariants ->
+              for placeholderVariant, variant in
+                List.zip placeholderVariants variants do
+                match placeholderVariant.Kind with
+                | TypeKind.EnumVariant { Types = placeholderTypes } ->
+                  let! inferredTypes =
+                    List.traverseResultM
+                      (fun typeAnn -> inferTypeAnn ctx newEnv typeAnn)
+                      variant.TypeAnns
+
+                  for placeholderType, inferredType in
+                    List.zip placeholderTypes inferredTypes do
+                    printfn $"unify({placeholderType}, {inferredType})"
+                    do! unify ctx newEnv None placeholderType inferredType
+                | _ -> () // This should never happen
+            | _ -> () // This should never happen
+
+            printfn $"placeholderScheme = {placeholderScheme}"
+            printfn $"qns.Schemes[key] = {qns.Schemes[key]}"
+
+          //   let! variants =
+          //     List.traverseResultM
+          //       (fun (variant: Syntax.EnumVariant) ->
+          //         result {
+          //           let name = variant.Name
+          //
+          //           let! types =
+          //             List.traverseResultM
+          //               (fun typeAnn ->
+          //                 result {
+          //                   let! t = inferTypeAnn ctx newEnv typeAnn
+          //                   return t
+          //                 })
+          //               variant.TypeAnns
+          //
+          //           let variant =
+          //             { Tag = ctx.FreshSymbol()
+          //               Name = name
+          //               Types = types }
+          //
+          //           return variant
+          //         })
+          //       variants
+          //
+          //   let types =
+          //     variants
+          //     |> List.map (fun variant ->
+          //       { Type.Kind = TypeKind.EnumVariant variant
+          //         Provenance = None })
+          //
+          //   match placeholderScheme.Type.Kind with
+          //   | TypeKind.Union placeholderTypes ->
+          //     for placeholderType, inferredType in
+          //       List.zip placeholderTypes types do
+          //       do! unify ctx newEnv None placeholderType inferredType
+          //   | _ -> ()
+          | Value { Parts = parts } ->
+            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            let placeholderType, _ = qns.Values[key]
+            printfn $"placeholderType = {placeholderType}"
+        // do! unify ctx newEnv None placeholderType inferredType
+        //return! Error(TypeError.NotImplemented "EnumDecl")
         | _ -> return! Error(TypeError.SemanticError "More than one enum decl")
 
         match typeDecls with

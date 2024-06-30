@@ -792,7 +792,7 @@ let ImportReact () =
         "div",
         // NOTE: The type var id will differ dependending on whether we run
         // just this test case or the full test suite.
-        "React.React.DetailedReactHTMLElement<{}, t2738:HTMLElement>"
+        "React.React.DetailedReactHTMLElement<{}, t2703:HTMLElement>"
       )
     }
 

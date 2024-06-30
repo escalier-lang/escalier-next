@@ -3272,6 +3272,16 @@ module rec Infer =
       | _ -> return ctx.FreshTypeVar None None
     }
 
+  let getKey (ident: QDeclIdent) (name: string) =
+    let key: QualifiedIdent =
+      match ident with
+      | Type { Parts = parts } ->
+        { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+      | Value { Parts = parts } ->
+        { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+
+    key
+
   let inferDeclPlaceholders
     (ctx: Ctx)
     (env: Env)
@@ -3314,14 +3324,7 @@ module rec Infer =
             | _, _ -> ()
 
             for KeyValue(name, binding) in bindings do
-              let key =
-                match ident with
-                | Type { Parts = parts } ->
-                  { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-                | Value { Parts = parts } ->
-                  { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-
-              qns <- qns.AddValue key binding
+              qns <- qns.AddValue (getKey ident name) binding
           | FnDecl({ Declare = declare
                      Sig = fnSig
                      Name = name }) ->
@@ -3336,39 +3339,22 @@ module rec Infer =
                 failwith "Ambient function declarations must be fully typed"
 
             let t = ctx.FreshTypeVar None None
-
-            let key =
-              match ident with
-              | Type { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-              | Value { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-
-            qns <- qns.AddValue key (t, false)
+            qns <- qns.AddValue (getKey ident name) (t, false)
           | ClassDecl({ Name = name
                         Class = { TypeParams = typeParams } } as decl) ->
-            // TODO: treat ClassDecl similar to object types where we create a
-            // structural placeholder type instead of an opaque type variable.
-            // We should do this for both instance members and statics.
-            let! instance =
-              Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
-            // let instance: Scheme =
-            //   { Type = ctx.FreshTypeVar None
-            //     TypeParams = None // TODO: handle type params
-            //     IsTypeParam = false }
+            let key = getKey ident name
 
-            let key =
-              match ident with
-              | Type { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-              | Value { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            if not (qns.Schemes.ContainsKey key) then
+              // TODO: treat ClassDecl similar to object types where we create a
+              // structural placeholder type instead of an opaque type variable.
+              // We should do this for both instance members and statics.
+              let! instance =
+                Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
-            qns <- qns.AddScheme key instance
+              let statics: Type = ctx.FreshTypeVar None None
 
-            let statics: Type = ctx.FreshTypeVar None None
-
-            qns <- qns.AddValue key (statics, false)
+              qns <- qns.AddScheme key instance
+              qns <- qns.AddValue key (statics, false)
           | EnumDecl _ ->
             return!
               Error(
@@ -3382,23 +3368,11 @@ module rec Infer =
             let! placeholder =
               Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
-            let key =
-              match ident with
-              | Type { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-              | Value { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-
-            qns <- qns.AddScheme key placeholder
+            qns <- qns.AddScheme (getKey ident name) placeholder
           | InterfaceDecl({ Name = name
                             TypeParams = typeParams
                             Extends = extends } as decl) ->
-            let key =
-              match ident with
-              | Type { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-              | Value { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+            let key = getKey ident name
 
             let parts =
               match ident with
@@ -3419,9 +3393,6 @@ module rec Infer =
                 | Some scheme -> Result.Ok scheme
                 | None ->
                   Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
-
-            if key = QualifiedIdent.FromString "Bar" then
-              printfn $"extends = {extends}"
 
             qns <- qns.AddScheme key placeholder
           | NamespaceDecl nsDecl ->
@@ -3478,8 +3449,11 @@ module rec Infer =
     result {
       let mutable qns = qns
 
+      // There are separate identifiers for the instance (type) and statics
+      // (value).  This set is used to avoid inferring classes more than once.
+      let mutable inferredClasses = Set.empty
+
       for ident in idents do
-        // printfn $"inferring ident: {ident}"
         let decls = graph.Nodes[ident]
 
         // TODO: check if we're inside a namespace and update the env accordingly
@@ -3637,20 +3611,19 @@ module rec Infer =
                 Class = cls } =
             classDecl
 
-          // TODO: figure out how to only call inferClass once instead of twice
-          let! inferredType, inferredScheme =
-            Infer.inferClass ctx newEnv cls declare
+          let key = getKey ident name
 
-          match ident with
-          | Type { Parts = parts } ->
-            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+          if not (inferredClasses.Contains key) then
+            let! inferredType, inferredScheme =
+              Infer.inferClass ctx newEnv cls declare
+
             let placeholderScheme = qns.Schemes[key]
+            let placeholderType, _ = qns.Values[key]
 
             do! unify ctx newEnv None placeholderScheme.Type inferredScheme.Type
-          | Value { Parts = parts } ->
-            let key = { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-            let placeholderType, _ = qns.Values[key]
             do! unify ctx newEnv None placeholderType inferredType
+
+            inferredClasses <- inferredClasses.Add key
         | _ ->
           return!
             Error(TypeError.SemanticError "More than one class decl for ident")

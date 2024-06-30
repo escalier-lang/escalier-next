@@ -37,7 +37,7 @@ let InferBasicMutability () =
         x = 10;
         """
 
-      let! _, _ = inferScript src
+      let! _, _ = inferModule src
       ()
     }
 
@@ -55,7 +55,7 @@ let InferBasicObjectMutability () =
         p.y = 10;
         """
 
-      let! _, _ = inferScript src
+      let! _, _ = inferModule src
       ()
     }
 
@@ -71,7 +71,7 @@ let InferBasicArrayMutability () =
         array[3] = 4;
         """
 
-      let! _, _ = inferScript src
+      let! _, _ = inferModule src
       ()
     }
 
@@ -87,7 +87,7 @@ let DisallowAssigningToImmutableBindings () =
         x = 10;
         """
 
-      let! _, _ = inferScript src
+      let! _, _ = inferModule src
       ()
     }
 
@@ -106,7 +106,7 @@ let InferFnWithMutableParam () =
         };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -133,7 +133,7 @@ let MutableParamsAreInvariant () =
         foo(numbers);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -160,7 +160,7 @@ let MutableParamsCantBeCovariant () =
         foo(numbers);
         """
 
-      let! ctx, _ = inferScript src
+      let! ctx, _ = inferModule src
 
       Assert.Equal(ctx.Diagnostics.Length, 1)
     }
@@ -177,7 +177,7 @@ let ImmutableAssignmentIsBeCovariant () =
         let bar: (number | string)[] = foo;
         """
 
-      let! ctx, _ = inferScript src
+      let! ctx, _ = inferModule src
 
       Assert.Equal(ctx.Diagnostics.Length, 0)
     }
@@ -194,7 +194,7 @@ let MutableAssignmentIsInvariant () =
         let mut bar: number[] = foo;
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -210,7 +210,7 @@ let MutableAssignmentCantBeCovariant () =
         let mut bar: (number | string)[] = foo;
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -227,7 +227,7 @@ let MutableTupleAssignmentCantBeCovariant () =
         let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar];
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -247,7 +247,7 @@ let CantPassImmutableArgsToMutableParams () =
         foo(numbers);
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       // TODO: update mutability checking code to report recoverable errors
       // Assert.Equal(ctx.Diagnostics.Length, 1)
       ()
@@ -268,7 +268,7 @@ let ImmutableParamsAreCovariant () =
         foo(numbers);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -299,7 +299,7 @@ let MutableObjectPartialInitialization () =
         let {p0: mut start, p1: end}: Line = {p0, p1};
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -323,7 +323,7 @@ let MutableArrayPartialInitialization () =
         let [mut start, end]: Line = [p0, p1];
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -344,7 +344,7 @@ let MutableObjectInitializationError () =
         let mut line: Line = {p0, p1};
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -365,10 +365,11 @@ let MutableArrayInitializationError () =
         let mut line: Line = [p0, p1];
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
+  printfn "result = %A" result
   Assert.True(Result.isError result)
 
 [<Fact>]
@@ -386,7 +387,7 @@ let MutableObjectPartialInitializationError () =
         let {p0: start, p1: mut end}: Line = {p0, p1};
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -407,8 +408,9 @@ let MutableArrayPartialInitializationError () =
         let [start, mut end]: Line = [p0, p1];
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
+  printfn "result = %A" result
   Assert.True(Result.isError result)

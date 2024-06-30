@@ -114,7 +114,17 @@ module rec ExprVisitor =
           ()
         | ExprKind.Range(_) -> failwith "TODO: walkExpr - Range"
         | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
-          failwith "TODO: walkExpr - IfLet"
+          walkPattern visitor state pattern
+          walk target
+          List.iter (walkStmt visitor state) thenBranch.Stmts
+
+          Option.iter
+            (fun (elseBranch: BlockOrExpr) ->
+              match elseBranch with
+              | BlockOrExpr.Block block ->
+                List.iter (walkStmt visitor state) block.Stmts
+              | BlockOrExpr.Expr expr -> walk expr)
+            elseBranch
         | ExprKind.JSXElement(_) -> failwith "TODO: walkExpr - JSXElement"
         | ExprKind.JSXFragment(_) -> failwith "TODO: walkExpr - JSXFragment"
 

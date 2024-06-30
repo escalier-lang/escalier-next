@@ -30,7 +30,7 @@ module Compiler =
         fprintf writer "- Recursive unification: {t1} and {t2}\n"
       | WrongNumberOfTypeArgs ->
         fprintf writer "- Wrong number of type arguments\n"
-      | PropertyMissing propName -> 
+      | PropertyMissing propName ->
         fprintf writer $"- Property missing: {propName}\n"
 
     fprintf writer "ERROR: %s\n" d.Description
@@ -96,11 +96,12 @@ module Compiler =
       let contents = File.ReadAllText(entry)
 
       let! m =
-        Parser.parseScript contents |> Result.mapError CompileError.ParseError
+        Parser.parseModule contents |> Result.mapError CompileError.ParseError
+
+      let env = { env with Filename = entry }
 
       let! env =
-        Infer.inferScript ctx env entry m
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env m |> Result.mapError CompileError.TypeError
 
       return (ctx, env)
     }

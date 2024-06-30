@@ -3200,7 +3200,7 @@ module rec Infer =
                   | None -> ()
                 | _ -> ()
 
-              (false, state)
+              (true, state) // visit rest RestPats and KeyValuePats
             | _ -> (true, state)
         ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
         ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
@@ -3215,51 +3215,64 @@ module rec Infer =
     (expr: Expr)
     : Result<Type, TypeError> =
     result {
+      let mutable elemTypes: list<ObjTypeElem> = []
+      let mutable spreadTypes: list<Type> = []
+
       match expr.Kind with
       | ExprKind.Object { Elems = elems } ->
-        let! elems =
-          elems
-          |> List.traverseResultM (fun elem ->
-            result {
-              match elem with
-              | ObjElem.Property(span, name, value) ->
-                let! name = Infer.inferPropName ctx env name
-                let! t = inferExprStructuralPlacholder ctx env value
+        for elem in elems do
+          match elem with
+          | ObjElem.Property(span, name, value) ->
+            let! name = Infer.inferPropName ctx env name
+            let! t = inferExprStructuralPlacholder ctx env value
 
-                return
-                  ObjTypeElem.Property
-                    { Name = name
-                      Optional = false
-                      Readonly = false
-                      Type = t }
-              | ObjElem.Shorthand(span, name) ->
-                match env.TryFindValue name with
-                | Some(t, _) ->
-                  return
-                    ObjTypeElem.Property
-                      { Name = PropName.String name
-                        Optional = false
-                        Readonly = false
-                        Type = t }
-                | None ->
-                  return! Error(TypeError.SemanticError $"{name} not found")
-              | ObjElem.Spread(span, value) ->
-                return!
-                  Error(
-                    TypeError.NotImplemented
-                      "TODO: inferExprStructuralPlacholder - Spread"
-                  )
-            })
+            elemTypes <-
+              ObjTypeElem.Property
+                { Name = name
+                  Optional = false
+                  Readonly = false
+                  Type = t }
+              :: elemTypes
+          | ObjElem.Shorthand(span, name) ->
+            match env.TryFindValue name with
+            | Some(t, _) ->
+              elemTypes <-
+                ObjTypeElem.Property
+                  { Name = PropName.String name
+                    Optional = false
+                    Readonly = false
+                    Type = t }
+                :: elemTypes
+            | None -> return! Error(TypeError.SemanticError $"{name} not found")
+          | ObjElem.Spread(span, value) ->
+            match value.Kind with
+            | ExprKind.Identifier name ->
+              match env.TryFindValue name with
+              | Some(t, _) -> spreadTypes <- t :: spreadTypes
+              | None ->
+                return! Error(TypeError.SemanticError $"{name} not found")
+            | _ ->
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    $"TODO: inferExprStructuralPlacholder - handle spread of {value}"
+                )
 
         let kind =
           TypeKind.Object
             { Extends = None
               Implements = None
-              Elems = elems
+              Elems = List.rev elemTypes
               Immutable = false
               Interface = false }
 
-        return { Kind = kind; Provenance = None }
+        let objType = { Kind = kind; Provenance = None }
+
+        match spreadTypes with
+        | [] -> return objType
+        | _ ->
+          let kind = TypeKind.Intersection(objType :: spreadTypes)
+          return { Kind = kind; Provenance = None }
       | ExprKind.Tuple { Elems = elems } ->
         let! elems =
           elems
@@ -3313,14 +3326,11 @@ module rec Infer =
 
             match typeAnn, init with
             | None, Some init ->
-              // Used by the following test cases:
-              // - MutuallyRecursiveGraphInDepObjects
-              // - MutuallyRecursiveGraphInObjects
-              // - MutuallyRecursiveGraphInObjects
-              let! structuralPlacholderType =
-                inferExprStructuralPlacholder ctx env init
-
-              do! unify ctx env None patternType structuralPlacholderType
+              // TODO: Think about whether inferExprStructuralPlacholder should
+              // be used here. In particular, do we want to support objects without
+              // type annotations, reference the object methods on the object.
+              let placeholderType = ctx.FreshTypeVar None None
+              do! unify ctx env None patternType placeholderType
             | _, _ -> ()
 
             for KeyValue(name, binding) in bindings do

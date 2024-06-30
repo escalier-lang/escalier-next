@@ -215,6 +215,18 @@ let findDepsForValueIdent
                 (getDepsForFn env ident locals localsTree [] f.Sig (Some f.Body))
 
             (false, state)
+          | ExprKind.Object { Elems = elems } ->
+            for elem in elems do
+              match elem with
+              | ObjElem.Property(span, name, value) -> () // handled by visiting `value`
+              | ObjElem.Shorthand(span, name) ->
+                idents <-
+                  Set.add
+                    (QDeclIdent.Value(QualifiedIdent.FromString name))
+                    idents
+              | ObjElem.Spread(span, value) -> () // handled by visiting `value`
+
+            (true, state)
           | _ -> (true, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)

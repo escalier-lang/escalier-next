@@ -98,7 +98,7 @@ let findBindingNames (p: Syntax.Pattern) : Set<string> =
               | Syntax.ShorthandPat { Name = name } -> names <- name :: names
               | _ -> ()
 
-            (false, state)
+            (true, state)
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }

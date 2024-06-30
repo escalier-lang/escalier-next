@@ -499,6 +499,7 @@ module rec Unify =
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | TypeKind.Intersection types1, TypeKind.Intersection types2 ->
+        printfn $"types1 = {types1}, types2 = {types2}"
         failwith "TODO: handle unify(intersection, intersection)"
 
       | TypeKind.Union(types), _ ->

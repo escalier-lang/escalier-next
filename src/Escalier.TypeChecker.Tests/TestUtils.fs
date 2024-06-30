@@ -13,19 +13,6 @@ type CompileError = Prelude.CompileError
 
 let projectRoot = __SOURCE_DIRECTORY__
 
-let inferScript src =
-  result {
-    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
-
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-    let! env =
-      Infer.inferScript ctx env "input.esc" ast
-      |> Result.mapError CompileError.TypeError
-
-    return ctx, env
-  }
-
 let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError

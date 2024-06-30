@@ -133,12 +133,6 @@ module Mutability =
     result {
       let mutable invariantPaths: list<list<string>> = []
 
-      // let patBindingPaths = getPatBindingPaths pattern
-      // let exprBindingPaths = getExprBindingPaths env init
-
-      // iterate over all of the exprBindingPaths and find the corresponding
-      // patBindingPath
-
       for KeyValue(exprName, (exprPath, exprMut)) in exprBindingPaths do
         for KeyValue(patName, (patPath, patMut)) in patBindingPaths do
 

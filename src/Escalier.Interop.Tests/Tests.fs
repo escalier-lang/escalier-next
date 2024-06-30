@@ -3,7 +3,6 @@ module Tests
 
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
-open System.IO
 open VerifyTests
 open VerifyXunit
 open Xunit
@@ -29,16 +28,14 @@ type CompileError = Prelude.CompileError
 
 let projectRoot = __SOURCE_DIRECTORY__
 
-let inferScript src =
+let inferModule src =
   result {
-    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let filename = Path.Combine(projectRoot, "input.src")
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferScript ctx env filename ast
-      |> Result.mapError CompileError.TypeError
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -561,7 +558,7 @@ let CanCallMutableMethodsOnMutableArray () =
         let b = a.map(fn (x) => x * 2);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "b", "number[]")
     }
@@ -581,7 +578,7 @@ let CanIndexOnArrays () =
         len1 = len2;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "b", "number | undefined")
       Assert.Value(env, "len1", "unique number")
@@ -601,7 +598,7 @@ let CannotCallMutableMethodsOnNonMutableArray () =
         let b = a.map(fn (x) => x * 2);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
       ()
     }
 
@@ -618,7 +615,7 @@ let CallArrayConstructor () =
         a.push(5);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "a", "number[]")
     }
@@ -636,7 +633,7 @@ let CallArrayConstructorWithTypeArgs () =
         a.push(5);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       // TODO(#259): Fix function overloads
       Assert.Value(env, "a", "_[]")
@@ -654,7 +651,7 @@ let CallArrayConstructorWithNoTypeAnnotations () =
         a.push(5);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "a", "_[]")
     }
@@ -670,7 +667,7 @@ let AcessNamespaceType () =
         type NumFmt = Intl.NumberFormat;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Type(env, "NumFmt", "Intl.NumberFormat")
     }
@@ -687,7 +684,7 @@ let AcessNamespaceValue () =
         fmt.format(1.23);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       // TODO: the type should include the namespace, i.e. Intl.NumberFormat
       Assert.Value(env, "fmt", "Intl.NumberFormat")
@@ -810,7 +807,7 @@ let LoadingNodeModules () =
         let join = path.join;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Value(env, "join", "fn (string, string) -> string")
     }

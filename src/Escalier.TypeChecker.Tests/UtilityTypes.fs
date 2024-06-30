@@ -230,12 +230,10 @@ let InfersPickUnionOfKeyInModule () =
     result {
       let src =
         """
-        type Pick<K: keyof T, T> = {
-          [P]: T[P] for P in K
-        };
+        type MyPick<T, K: keyof T> = {[P]: T[P] for P in K};
 
         type Foo = {a: number, b: string, c: boolean};
-        type Bar = Pick<Foo, "a" | "c">;
+        type Bar = MyPick<Foo, "a" | "c">;
         """
 
       let! ctx, env = inferModule src

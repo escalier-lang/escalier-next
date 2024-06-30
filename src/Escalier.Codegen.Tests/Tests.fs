@@ -152,7 +152,7 @@ let CodegenDoExpression () =
         };
         """
 
-      let! escAst = Parser.parseScript src
+      let! escAst = Parser.parseModule src
       let ctx: Ctx = { NextTempId = 0 }
       let block = buildScript ctx escAst
       let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
@@ -187,7 +187,7 @@ let CodegenNestedDoExpressions () =
         };
         """
 
-      let! escAst = Parser.parseScript src
+      let! escAst = Parser.parseModule src
       let ctx: Ctx = { NextTempId = 0 }
       let block = buildScript ctx escAst
       let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
@@ -211,7 +211,7 @@ let CodegenFunction () =
           if (n == 0) { 1 } else { n * factorial(n - 1) }; 
         """
 
-      let! escAst = Parser.parseScript src
+      let! escAst = Parser.parseModule src
       let ctx: Ctx = { NextTempId = 0 }
       let block = buildScript ctx escAst
 
@@ -241,7 +241,7 @@ let CodegenChainedIfElse () =
         };
         """
 
-      let! escAst = Parser.parseScript src
+      let! escAst = Parser.parseModule src
       let ctx: Ctx = { NextTempId = 0 }
       let block = buildScript ctx escAst
 
@@ -269,13 +269,15 @@ let CodegenDtsBasics () =
         """
 
       let! escAst =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let projectRoot = __SOURCE_DIRECTORY__
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
+      let env = { env with Filename = "input.esc" }
+
       let! env =
-        Infer.inferScript ctx env "input.esc" escAst
+        Infer.inferModule ctx env escAst
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
@@ -301,16 +303,16 @@ let CodegenDtsGeneric () =
         """
 
       let! ast =
-        Parser.parseScript src |> Result.mapError CompileError.ParseError
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let projectRoot = __SOURCE_DIRECTORY__
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
+      let env = { env with Filename = "input.esc" }
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
-        Infer.inferScript ctx env "input.esc" ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx = { NextTempId = 0 }
       let mod' = buildModuleTypes env ctx ast

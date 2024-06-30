@@ -203,12 +203,12 @@ let InferFactorial () =
   result {
     (* let factorial =
         fn n =>
-          if (zero n) 
-            then 1 
+          if (zero n)
+            then 1
             else (times n (factorial (pred n)))
         in factorial
      *)
-    let ast =
+    let fact =
       varDecl (
         "factorial",
         Some(
@@ -234,6 +234,8 @@ let InferFactorial () =
         )
       )
 
+    let ast: Module = { Items = [ fact |> ModuleItem.Stmt ] }
+
     let mutable env = getEnv ()
 
     let ctx =
@@ -242,7 +244,7 @@ let InferFactorial () =
         (fun ctx filename import -> "")
       )
 
-    let! stmtEnv = inferStmt ctx env ast false
+    let! stmtEnv = inferModule ctx env ast
     env <- stmtEnv
 
     let! t = env.GetValue "factorial"
@@ -297,9 +299,9 @@ let UndefinedSymbol () =
 let InferPair () =
   result {
     (* letrec f = (fn x => x) in [f 4, f true] *)
-    let ast: Script =
+    let ast: Module =
       { Items =
-          [ varDecl ("f", Some(fatArrow [ "x" ] (ident "x"))) |> ScriptItem.Stmt
+          [ varDecl ("f", Some(fatArrow [ "x" ] (ident "x"))) |> ModuleItem.Stmt
             varDecl (
               "pair",
               Some(
@@ -308,7 +310,7 @@ let InferPair () =
                     call (ident "f", [ boolean true ]) ]
               )
             )
-            |> ScriptItem.Stmt ] }
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -318,7 +320,8 @@ let InferPair () =
         (fun ctx filename import -> "")
       )
 
-    let! newEnv = inferScript ctx env "input.esc" ast
+    let env = { env with Filename = "input.esc" }
+    let! newEnv = inferModule ctx env ast
 
     let! f = newEnv.GetValue "f"
     let! pair = newEnv.GetValue "pair"
@@ -349,7 +352,7 @@ let RecursiveUnification () =
 [<Fact>]
 let InferGenericAndNonGeneric () =
   result {
-    let ast: Script =
+    let ast: Module =
       { Items =
           [ varDecl (
               "foo",
@@ -368,7 +371,7 @@ let InferGenericAndNonGeneric () =
                     ) ]
               )
             )
-            |> ScriptItem.Stmt ] }
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -378,7 +381,8 @@ let InferGenericAndNonGeneric () =
         (fun ctx filename import -> "")
       )
 
-    let! newEnv = inferScript ctx env "input.esc" ast
+    let env = { env with Filename = "input.esc" }
+    let! newEnv = inferModule ctx env ast
 
     let! t = newEnv.GetValue "foo"
     (* fn g => let f = fn x => g in [f 3, f true] *)
@@ -388,7 +392,7 @@ let InferGenericAndNonGeneric () =
 [<Fact>]
 let InferFuncComposition () =
   result {
-    let ast: Script =
+    let ast: Module =
       { Items =
           [ varDecl (
               "foo",
@@ -403,7 +407,7 @@ let InferFuncComposition () =
               )
 
             )
-            |> ScriptItem.Stmt ] }
+            |> ModuleItem.Stmt ] }
 
     let env = getEnv ()
 
@@ -413,7 +417,8 @@ let InferFuncComposition () =
         (fun ctx filename import -> "")
       )
 
-    let! newEnv = inferScript ctx env "input.esc" ast
+    let env = { env with Filename = "input.esc" }
+    let! newEnv = inferModule ctx env ast
 
     let! t = newEnv.GetValue "foo"
     (* fn f (fn g (fn arg (f g arg))) *)
@@ -455,11 +460,11 @@ let InferScriptSKK () =
 
     let i = call (call (ident "S", [ ident "K" ]), [ ident "K" ])
 
-    let script: Script =
+    let m: Module =
       { Items =
-          [ varDecl ("S", Some s) |> ScriptItem.Stmt
-            varDecl ("K", Some k) |> ScriptItem.Stmt
-            varDecl ("I", Some i) |> ScriptItem.Stmt ] }
+          [ varDecl ("S", Some s) |> ModuleItem.Stmt
+            varDecl ("K", Some k) |> ModuleItem.Stmt
+            varDecl ("I", Some i) |> ModuleItem.Stmt ] }
 
     let ctx =
       Ctx(
@@ -467,7 +472,8 @@ let InferScriptSKK () =
         (fun ctx filename import -> "")
       )
 
-    let! newEnv = inferScript ctx env "input.esc" script
+    let env = { env with Filename = "input.esc" }
+    let! newEnv = inferModule ctx env m
 
     let! t = newEnv.GetValue "S"
 

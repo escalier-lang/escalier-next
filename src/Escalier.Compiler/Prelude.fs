@@ -8,7 +8,6 @@ open System.IO
 open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Type
-open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.ExprVisitor
@@ -142,12 +141,12 @@ module Prelude =
     List.rev names
 
   // TODO: dedupe with Escalier.Interop.Infer
-  let private findScriptBindingNames (m: Syntax.Script) : list<string> =
+  let private findScriptBindingNames (m: Syntax.Module) : list<string> =
     let mutable names: list<string> = []
 
     for item in m.Items do
       match item with
-      | Syntax.Stmt stmt ->
+      | Syntax.ModuleItem.Stmt stmt ->
         match stmt.Kind with
         | Syntax.StmtKind.Decl({ Kind = Syntax.DeclKind.VarDecl { Pattern = pattern } }) ->
           names <- List.concat [ names; findBindingNames pattern ]
@@ -437,7 +436,7 @@ module Prelude =
                 let contents = File.ReadAllText(resolvedImportPath)
 
                 let m =
-                  match Parser.parseScript contents with
+                  match Escalier.Parser.Parser.parseModule contents with
                   | Ok value -> value
                   | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
@@ -445,7 +444,11 @@ module Prelude =
                 // TODO: update `inferScript to also return just the new symbols
                 // scriptEnv
                 let scriptEnv =
-                  match Infer.inferScript ctx (getGlobalEnv ()) filename m with
+                  let env =
+                    { getGlobalEnv () with
+                        Filename = filename }
+
+                  match Infer.inferModule ctx env m with
                   | Ok value -> value
                   | Error err ->
                     printfn "err = %A" err
@@ -465,7 +468,7 @@ module Prelude =
 
                 for item in m.Items do
                   match item with
-                  | Syntax.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
+                  | Syntax.ModuleItem.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
                     match scriptEnv.TryFindScheme name with
                     | Some(scheme) -> exports <- exports.AddScheme name scheme
                     | None -> failwith $"scheme {name} not found"

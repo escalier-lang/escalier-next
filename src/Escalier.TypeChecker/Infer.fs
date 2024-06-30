@@ -3551,7 +3551,7 @@ module rec Infer =
           // Schemes can be generated for things like class expressions, e.g.
           // let Foo = class { ... }
           for KeyValue(name, scheme) in newSchemes do
-            qns <- qns.AddScheme (QualifiedIdent.FromString name) scheme
+            qns <- qns.AddScheme (getKey ident name) scheme
         | _ ->
           return!
             Error(TypeError.SemanticError "multiple var decls found for ident")
@@ -3641,14 +3641,9 @@ module rec Infer =
                 TypeParams = typeParams } =
             typeDecl
 
-          let key =
-            match ident with
-            | Type { Parts = parts } ->
-              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-            | Value { Parts = parts } ->
-              { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-
+          let key = getKey ident name
           let placeholder = qns.Schemes[key]
+
           // TODO: when computing the decl graph, include self-recursive types in
           // the deps set so that we don't have to special case this here.
           // Handles self-recursive types
@@ -3712,13 +3707,7 @@ module rec Infer =
                   Elems = elems } =
               interfaceDecl
 
-            let key =
-              match ident with
-              | Type { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-              | Value { Parts = parts } ->
-                { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-
+            let key = getKey ident name
             let placeholder = qns.Schemes[key]
 
             // TODO: when computing the decl graph, include self-recursive types in

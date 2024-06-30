@@ -753,7 +753,7 @@ let InferEnum () =
         let value = MyEnum.Foo(5, "hello", true);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -768,6 +768,7 @@ let InferEnum () =
       Assert.Value(env, "value", "Foo(number, string, boolean)")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -784,7 +785,7 @@ let InferEnumVariantIsSubtypeOfEnum () =
         let value: MyEnum = MyEnum.Foo(5, "hello", true);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 
@@ -813,7 +814,7 @@ let InferGenericEnum () =
         let value = MyEnum.Foo(5);
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
@@ -823,6 +824,7 @@ let InferGenericEnum () =
       Assert.Value(env, "value", "Foo(5)")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -844,7 +846,7 @@ let InferGenericEnumWithSubtyping () =
         };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
@@ -852,6 +854,7 @@ let InferGenericEnumWithSubtyping () =
       Assert.Value(env, "x", "number | string | boolean")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -874,7 +877,7 @@ let InferEnumPatternMatching () =
         };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
 

@@ -1234,12 +1234,11 @@ let getEdges
       | EnumDecl { Name = name } ->
         let deps =
           match ident with
-          | Type _ ->
+          | Type qualifiedIdent ->
             // TODO: determine instance deps
-            Set.empty
-          | Value _ ->
-            // NOTE: enums have no static deps
-            Set.empty
+            Set.singleton (QDeclIdent.Value qualifiedIdent)
+          | Value qualifiedIdent ->
+            Set.singleton (QDeclIdent.Type qualifiedIdent)
 
         edges <- edges.Add(ident, deps)
       | NamespaceDecl { Name = name; Body = body } ->

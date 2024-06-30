@@ -933,6 +933,7 @@ module rec Infer =
           | TypeKind.Range { Min = _; Max = max } ->
             match target.Kind with
             | TypeKind.Array { Elem = elem; Length = length } ->
+              printfn $"max = {max}, length = {length}"
               do! unify ctx env None max length
               return elem
             | _ ->

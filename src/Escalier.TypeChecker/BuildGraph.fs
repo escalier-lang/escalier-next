@@ -125,30 +125,41 @@ let postProcessDeps
   let globalNS = Map.tryFind "global" ns.Namespaces
   let maybeGlobalTree = Map.tryFind "global" localsTree.Namespaces
 
+  let mutable hasLength = false
+
+  // TODO: we want to allow modules to declare variables that shadow globals
+  // since redeclaring variables in a module is allowed.
   // Filter out deps that are in the environment
-  let deps =
-    deps
-    |> List.filter (fun dep ->
+  // let deps =
+  //   deps
+  //   |> List.filter (fun dep ->
+  //
+  //     match dep with
+  //     | Type { Parts = parts } ->
+  //       let head = List.head parts
+  //
+  //       if
+  //         Map.containsKey head ns.Schemes || Map.containsKey head ns.Namespaces
+  //       then
+  //         false
+  //       else
+  //         true
+  //     | Value { Parts = parts } ->
+  //       let head = List.head parts
+  //
+  //       if head = "length" then
+  //         hasLength <- Map.containsKey head ns.Values
+  //         printfn $"hasLength (for length) = {hasLength}"
+  //
+  //       if
+  //         Map.containsKey head ns.Values || Map.containsKey head ns.Namespaces
+  //       then
+  //         false
+  //       else
+  //         true)
 
-      match dep with
-      | Type { Parts = parts } ->
-        let head = List.head parts
-
-        if
-          Map.containsKey head ns.Schemes || Map.containsKey head ns.Namespaces
-        then
-          false
-        else
-          true
-      | Value { Parts = parts } ->
-        let head = List.head parts
-
-        if
-          Map.containsKey head ns.Values || Map.containsKey head ns.Namespaces
-        then
-          false
-        else
-          true)
+  if hasLength then
+    printfn $"deps = {deps}"
 
   if ident.GetParts().Length > 1 then
     deps

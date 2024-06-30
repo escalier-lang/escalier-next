@@ -20,7 +20,7 @@ type Assert with
 
 type CompileError = Prelude.CompileError
 
-let inferScript src =
+let inferModule src =
   result {
     let projectRoot = __SOURCE_DIRECTORY__
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
@@ -33,17 +33,19 @@ let inferScript src =
       """
 
     let! ast =
-      Parser.parseScript prelude |> Result.mapError CompileError.ParseError
+      Parser.parseModule prelude |> Result.mapError CompileError.ParseError
+
+    let env = { env with Filename = "/prelude.esc" }
 
     let! env =
-      Infer.inferScript ctx env "/prelude.esc" ast
-      |> Result.mapError CompileError.TypeError
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-    let! ast = Parser.parseScript src |> Result.mapError CompileError.ParseError
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+    let env = { env with Filename = "input.esc" }
 
     let! env =
-      Infer.inferScript ctx env "input.esc" ast
-      |> Result.mapError CompileError.TypeError
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -58,7 +60,7 @@ let InferTupleLength () =
         let length = tuple.length;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "length", "3")
@@ -76,7 +78,7 @@ let InferArrayLength () =
         let length = array.length;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "length", "unique number")
@@ -97,7 +99,7 @@ let InferTupleIndexing () =
         let fourth = tuple[3];
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "first", "5")
@@ -121,7 +123,7 @@ let InferArrayIndexing () =
         let fourth = array[3];
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "first", "number | undefined")
@@ -145,7 +147,7 @@ let InferForIn () =
         }
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }
@@ -166,7 +168,7 @@ let InferForInRange () =
         }
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }
@@ -184,7 +186,7 @@ let InferRangeTypeAssignment () =
         let c: 0..3 = 2;
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }
@@ -200,7 +202,7 @@ let InferOutOfBoundsRangeLiteralAssignment () =
         let out_of_bounds: 0..3 = 3;
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }
@@ -217,7 +219,7 @@ let InferOutOfBoundsRangeRangeAssignment () =
         let bounds_mismatch: 0..3 = range;
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
 
       ()
     }
@@ -233,7 +235,7 @@ let InferRangeWithNegativeStart () =
         declare let range: -1..1;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "range", "-1..1")
@@ -254,7 +256,7 @@ let InferRangeMath () =
         let range_plus_range = range + range;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "inc_range", "1..4")
@@ -263,6 +265,29 @@ let InferRangeMath () =
       Assert.Value(env, "range_plus_range", "0..6")
     }
 
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferTypeofLength () =
+  let res =
+    result {
+      let src =
+        """
+        declare let array: number[];
+        let length = array.length;
+        type A = typeof length;
+        type B = typeof array.length;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Diagnostics)
+      Assert.Value(env, "length", "unique number")
+      Assert.Type(env, "A", "unique number")
+      Assert.Type(env, "B", "unique number")
+    }
+
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -284,7 +309,7 @@ let InferRangeWithArrayLength () =
         let first = array[0];
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "length", "unique number")
@@ -292,6 +317,7 @@ let InferRangeWithArrayLength () =
       Assert.Value(env, "elem", "number")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]
@@ -313,7 +339,7 @@ let InferRangeWithDifferentArrayLengths () =
         let elem2 = array2[range2];
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "elem1", "number")
@@ -341,7 +367,7 @@ let InferRangeWithDifferentArrayLengthsAreIncompatible () =
         let elem2 = array2[range1];
         """
 
-      let! _ = inferScript src
+      let! _ = inferModule src
       ()
     }
 
@@ -359,7 +385,7 @@ let InferDestructureArray () =
         let [a, ...rest] = array;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "number | undefined")
@@ -379,7 +405,7 @@ let InferDestructureTuple () =
         let [a, ...rest] = tuple;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "rest", "[string, boolean]")
@@ -397,7 +423,7 @@ let InferBasicImmutableTypes () =
         let record = #{ a: 5, b: "hello", c: true };
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "tuple", "#[5, \"hello\", true]")
@@ -419,7 +445,7 @@ let DestructuringImmutableTypes () =
         let #{g, h} = #{g: 5, h: "hello"};
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "5")
@@ -444,7 +470,7 @@ let PartialDestructuring () =
         let {b} = {a: 5, b: "hello"};
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "5")
@@ -463,7 +489,7 @@ let ImmutableTuplesAreIncompatibleWithRegularTuples () =
         foo([5, 10]);
         """
 
-      let! ctx, _ = inferScript src
+      let! ctx, _ = inferModule src
 
       Assert.Equal(ctx.Diagnostics.Length, 1)
     }
@@ -480,7 +506,7 @@ let ImmutableObjectsAreIncompatibleWithRegularObjects () =
         foo({x:5, y:10});
         """
 
-      let! ctx, _ = inferScript src
+      let! ctx, _ = inferModule src
 
       Assert.Equal(ctx.Diagnostics.Length, 1)
     }
@@ -497,7 +523,7 @@ let DescructuringArray () =
         let [a, b] = array;
         """
 
-      let! ctx, env = inferScript src
+      let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Diagnostics)
       Assert.Value(env, "a", "number | undefined")

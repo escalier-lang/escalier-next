@@ -17,7 +17,7 @@ let InferBasicModule () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "add", "fn <A: number, B: number>(a: A, b: B) -> A + B")
       Assert.Value(env, "sub", "fn <A: number, B: number>(a: A, b: B) -> A - B")
     }
@@ -36,7 +36,7 @@ let InferMutuallyRecursiveFunctions () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "fn () -> number")
       Assert.Value(env, "bar", "fn () -> number")
     }
@@ -64,7 +64,7 @@ let InferMutualRecursion () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "even", "fn (x: number) -> true | !boolean")
       Assert.Value(env, "odd", "fn (arg0: number) -> boolean")
     }
@@ -83,7 +83,7 @@ let InferMutuallyRecursiveTypes () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "Foo", "<T>({bar: Bar<T>})")
       Assert.Type(env, "Bar", "<T>({foo: Foo<T>})")
     }
@@ -104,7 +104,7 @@ let InferModuleWithTopLevelExpressionsNoErrors () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
     }
 
   Assert.False(Result.isError res)
@@ -123,7 +123,7 @@ let InferModuleWithTopLevelExpressionsRecoverableErrors () =
 
       let! ctx, env = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
     }
 
   Assert.False(Result.isError res)
@@ -141,7 +141,7 @@ let InferModuleWithTopLevelAssignments () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
     }
 
   Assert.False(Result.isError res)
@@ -161,7 +161,7 @@ let InferModuleWithTopLevelForLoop () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
     }
 
   printfn "res = %A" res

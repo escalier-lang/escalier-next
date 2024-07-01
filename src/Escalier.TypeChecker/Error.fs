@@ -26,3 +26,9 @@ module Error =
   type Diagnostic =
     { Description: string
       Reasons: list<TypeError> }
+
+  type Report =
+    { mutable Diagnostics: list<Diagnostic> }
+
+    member this.AddDiagnostic(diagnostic: Diagnostic) =
+      this.Diagnostics <- this.Diagnostics @ [ diagnostic ]

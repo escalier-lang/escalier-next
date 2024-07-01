@@ -62,7 +62,7 @@ let InferTupleLength () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "length", "3")
     }
 
@@ -80,7 +80,7 @@ let InferArrayLength () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "length", "unique number")
     }
 
@@ -101,7 +101,7 @@ let InferTupleIndexing () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "first", "5")
       Assert.Value(env, "second", "\"hello\"")
       Assert.Value(env, "third", "true")
@@ -125,7 +125,7 @@ let InferArrayIndexing () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "first", "number | undefined")
       Assert.Value(env, "fourth", "number | undefined")
     }
@@ -237,7 +237,7 @@ let InferRangeWithNegativeStart () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "range", "-1..1")
     }
 
@@ -258,7 +258,7 @@ let InferRangeMath () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "inc_range", "1..4")
       Assert.Value(env, "dec_range", "-1..2")
       Assert.Value(env, "mul_range", "0..6")
@@ -281,7 +281,7 @@ let InferTypeofLength () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "length", "unique number")
       Assert.Type(env, "A", "unique number")
       Assert.Type(env, "B", "unique number")
@@ -311,7 +311,7 @@ let InferRangeWithArrayLength () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "length", "unique number")
       Assert.Value(env, "first", "number | undefined")
       Assert.Value(env, "elem", "number")
@@ -341,7 +341,7 @@ let InferRangeWithDifferentArrayLengths () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "elem1", "number")
       Assert.Value(env, "elem2", "string")
     }
@@ -387,7 +387,7 @@ let InferDestructureArray () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "number | undefined")
       Assert.Value(env, "rest", "number[]")
     }
@@ -407,7 +407,7 @@ let InferDestructureTuple () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "rest", "[string, boolean]")
     }
 
@@ -425,7 +425,7 @@ let InferBasicImmutableTypes () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "tuple", "#[5, \"hello\", true]")
       Assert.Value(env, "record", "#{a: 5, b: \"hello\", c: true}")
     }
@@ -447,7 +447,7 @@ let DestructuringImmutableTypes () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "b", "\"hello\"")
       Assert.Value(env, "c", "5")
@@ -472,7 +472,7 @@ let PartialDestructuring () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "b", "\"hello\"")
     }
@@ -491,7 +491,7 @@ let ImmutableTuplesAreIncompatibleWithRegularTuples () =
 
       let! ctx, _ = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
     }
 
   Assert.False(Result.isError res)
@@ -508,7 +508,7 @@ let ImmutableObjectsAreIncompatibleWithRegularObjects () =
 
       let! ctx, _ = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
     }
 
   Assert.False(Result.isError res)
@@ -525,7 +525,7 @@ let DescructuringArray () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "number | undefined")
     }
 

@@ -108,7 +108,7 @@ let InferFnWithMutableParam () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -135,7 +135,7 @@ let MutableParamsAreInvariant () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -162,7 +162,7 @@ let MutableParamsCantBeCovariant () =
 
       let! ctx, _ = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
     }
 
   Assert.False(Result.isError result)
@@ -179,7 +179,7 @@ let ImmutableAssignmentIsBeCovariant () =
 
       let! ctx, _ = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 0)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 0)
     }
 
   Assert.False(Result.isError result)
@@ -249,7 +249,7 @@ let CantPassImmutableArgsToMutableParams () =
 
       let! _ = inferModule src
       // TODO: update mutability checking code to report recoverable errors
-      // Assert.Equal(ctx.Diagnostics.Length, 1)
+      // Assert.Equal(ctx.Report.Diagnostics.Length, 1)
       ()
     }
 
@@ -270,7 +270,7 @@ let ImmutableParamsAreCovariant () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,

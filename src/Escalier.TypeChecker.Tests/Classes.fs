@@ -27,7 +27,7 @@ let InferClassWithMethods () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(
         env,
@@ -71,7 +71,7 @@ let InferClassWithMethodsInModule () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(
         env,
@@ -113,7 +113,7 @@ let InferClassWithConstructor () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "Foo")
     }
 
@@ -140,7 +140,7 @@ let DisallowCallingMethodsFromConstructor () =
 
       let! ctx, env = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
       Assert.Value(env, "foo", "Foo")
     }
 
@@ -164,7 +164,7 @@ let RequireThatAllPropertiesBeAssigned () =
 
       let! ctx, env = inferModule src
 
-      Assert.Equal(ctx.Diagnostics.Length, 1)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
       Assert.Value(env, "p", "Point")
     }
 
@@ -187,7 +187,7 @@ let InferClassWithTypeParamAndConstructor () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "Foo<string>")
     }
 
@@ -210,7 +210,7 @@ let InferClassWithTypeParams () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(
         env,
@@ -253,7 +253,7 @@ let InferClassWithFluentMethods () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string}")
       Assert.Value(env, "foo", "Foo")
@@ -295,7 +295,7 @@ let InferClassWithFluentMethodsWithoutTypeAnn () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string}")
       Assert.Value(env, "foo", "Foo")
@@ -337,7 +337,7 @@ let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(env, "Foo", "<T>({bar fn (self: Self) -> Self, msg: T})")
       Assert.Value(env, "foo", "Foo<string>")
@@ -388,7 +388,7 @@ let InferClassMethodsThatTakeOtherSelf () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(env, "p1", "Point")
       Assert.Value(env, "p2", "Point")
@@ -429,7 +429,7 @@ let InferClassMethodsThatCallsTheConstructor () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(env, "p", "Point")
     }
@@ -480,7 +480,7 @@ let InferGenericMethods () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,

@@ -57,7 +57,7 @@ let InferSimpleTypeError () =
 
       let! ctx, env = inferModule src
 
-      printDiagnostics ctx.Diagnostics
+      printDiagnostics ctx.Report.Diagnostics
     }
 
   Assert.True(Result.isError result)
@@ -111,7 +111,7 @@ let InferIfElseChaining () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "5 | \"hello\" | true")
     }
 
@@ -123,7 +123,7 @@ let InferLetStatements () =
     result {
       let! ctx, env = inferModule "let foo = 5;\nlet bar =\"hello\";"
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "5")
       Assert.Value(env, "bar", "\"hello\"")
     }
@@ -143,7 +143,7 @@ let InferBinOpsOnPrimitives () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "sum", "15")
     }
 
@@ -164,7 +164,7 @@ let InferTypeDecls () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "A", "number")
       Assert.Type(env, "B", "[string, boolean]")
       Assert.Type(env, "C", "5 | \"hello\"")
@@ -192,7 +192,7 @@ let InferPrivateDecl () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
       Assert.Value(env, "p", "Point")
       Assert.Value(env, "x", "number")
@@ -213,7 +213,7 @@ let InferTypeAliasOfPrimtiveType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "Bar")
     }
 
@@ -233,7 +233,7 @@ let InferTypeAnn () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string")
       Assert.Value(env, "c", "boolean")
@@ -259,7 +259,7 @@ let InferObjectDestructuring () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
       // Assert.Value(env, "p", "Point")
@@ -282,7 +282,7 @@ let InferObjectRest () =
 
       let rest, _ = env.Namespace.Values["rest"]
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
     }
@@ -306,7 +306,7 @@ let InferObjectRestSpread () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
       Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
@@ -328,7 +328,7 @@ let InferObjProps () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "b", "5")
       Assert.Value(env, "c", "\"hello\"")
     }
@@ -354,7 +354,7 @@ let InferOptionalChaining () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "obj", "Obj")
       Assert.Value(env, "a", "{b?: {c: number}} | undefined")
       Assert.Value(env, "b", "{c: number} | undefined")
@@ -380,7 +380,7 @@ let InferRecursiveType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "Foo", "number | Foo[]")
       Assert.Value(env, "x", "Foo")
       Assert.Value(env, "y", "Foo")
@@ -404,7 +404,7 @@ let InferRecursiveTypeUnifyWithDefn () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "Foo", "number | Foo[]")
     }
 
@@ -437,7 +437,7 @@ let InferRecursiveObjectType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "node", "MyNode")
     }
 
@@ -473,7 +473,7 @@ let InferRecursiveGenericObjectType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "node", "MyNode<number>")
     }
 
@@ -507,7 +507,7 @@ let InferRecursiveGenericObjectTypeInModule () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "node", "MyNode<number>")
     }
 
@@ -545,7 +545,7 @@ let ReturnRecursivePrivateGenericObjectType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "node", "MyNode<number>")
       Assert.Value(env, "x", "number | undefined")
     }
@@ -583,7 +583,7 @@ let ReturnRecursiveGenericObjectType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "node", "MyNode<number>")
       Assert.Value(env, "x", "number | undefined")
     }
@@ -603,7 +603,7 @@ let InferTuple () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "[1, 2, 3]")
       Assert.Value(env, "bar", "fn (nums: number[]) -> number[]")
       Assert.Value(env, "baz", "number[]")
@@ -619,7 +619,7 @@ let InferDeclare () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "string")
     }
@@ -645,7 +645,7 @@ let InferTemplateLiteralType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "Foo")
       Assert.Value(env, "y", "Bar")
       Assert.Value(env, "z", "Baz")
@@ -671,7 +671,7 @@ let InferTemplateLiteralTypeWithUnions () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "Dir")
       Assert.Value(env, "b", "Dir")
       Assert.Value(env, "c", "Dir")
@@ -755,7 +755,7 @@ let InferUnaryOperations () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "-5")
       Assert.Value(env, "z", "!5")
@@ -780,7 +780,7 @@ let InferEnum () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(
         env,
@@ -812,7 +812,7 @@ let InferEnumVariantIsSubtypeOfEnum () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(
         env,
@@ -841,7 +841,7 @@ let InferGenericEnum () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
 
       // TODO: how do we include `MyEnum.` in the type?
@@ -873,7 +873,7 @@ let InferGenericEnumWithSubtyping () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
       Assert.Value(env, "value", "MyEnum<number, string, boolean>")
       Assert.Value(env, "x", "number | string | boolean")
@@ -904,7 +904,7 @@ let InferEnumPatternMatching () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Type(
         env,
@@ -934,7 +934,7 @@ let InferIfLet () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "y", "number")
     }
 
@@ -957,7 +957,7 @@ let InferIfLetWithTypeAlias () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "y", "number")
     }
 
@@ -979,7 +979,7 @@ let InferIfLetWithShadowing () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       // TODO: fix this shadowing issue
       Assert.Value(env, "y", "t6:number + 1 | 0")
     }
@@ -1002,7 +1002,7 @@ let InferIfLetWithDestructuring () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "sum", "number")
     }
 
@@ -1027,7 +1027,7 @@ let InferIfLetWithChaining () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "result", "number | string")
     }
 
@@ -1048,7 +1048,7 @@ let InferLetElse () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "y", "number")
     }
 
@@ -1070,7 +1070,7 @@ let InferLetElseEarlyReturn () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "fn (x: number | undefined) -> number")
     }
 
@@ -1095,7 +1095,7 @@ let InferLetElseWithDestructuring () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "sum", "number")
     }
 
@@ -1116,7 +1116,7 @@ let InferLetElseIsPattern () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "number")
     }
 
@@ -1137,7 +1137,7 @@ let InferLetElseWithTypeAnnotation () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "number")
     }
 
@@ -1163,7 +1163,7 @@ let InferNamespaceInScript () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "5")
       Assert.Type(env, "Baz", "Foo.Baz")
@@ -1197,7 +1197,7 @@ let InferNamespaceInModule () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "5")
       Assert.Type(env, "Baz", "Foo.Baz")
@@ -1234,7 +1234,7 @@ let InferMutuallyRecursiveNamespaces () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "Foo.Baz")
       Assert.Value(env, "y", "Bar.Qux")
     }
@@ -1259,7 +1259,7 @@ let InferInterfaceInScript () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")
       Assert.Value(env, "p", "Point")
     }
@@ -1284,7 +1284,7 @@ let InferInterfaceInModule () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Type(env, "Point", "{x: number, y: number}")
       Assert.Value(env, "p", "Point")
     }
@@ -1304,7 +1304,7 @@ let InferTypeParamInIntersection () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(env, "foo", "fn <T: {}>(props: T & {x: number}) -> T")
       Assert.Value(env, "bar", "{y: \"hello\", z: true}")
@@ -1328,7 +1328,7 @@ let UnifyIntersectionTypesWithIntersectionTypes () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(env, "foo", "fn <T: {}>(props: T & {x: number}) -> T")
       Assert.Value(env, "bar", "{y: \"hello\", z: true}")

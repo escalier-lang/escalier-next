@@ -21,7 +21,7 @@ let InfersExplicitThrow () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -44,7 +44,7 @@ let InfersThrowExpression () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -66,7 +66,7 @@ let InfersJustThrowExpression () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "fn <T: string>(exc: T) -> never throws T")
     }
 
@@ -84,7 +84,7 @@ let InfersThrowingMultipleExpressions () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -109,7 +109,7 @@ let InfersThrowsFromCall () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -145,7 +145,7 @@ let InferCatchesException () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "bar", "fn <A: number>(x: A) -> A | 0")
     }
 
@@ -171,7 +171,7 @@ let InferCatchesMultipleExceptions () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "bar", "fn <A: number>(x: A) -> 0")
     }
 
@@ -196,7 +196,7 @@ let InferCatchesOneOfManyExceptions () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -227,7 +227,7 @@ let InferTryFinally () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -260,7 +260,7 @@ let InferTryCatchFinally () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "bar", "fn <A: number>(x: A) -> A | 0")
     }
 

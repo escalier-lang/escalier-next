@@ -24,12 +24,12 @@ module rec Codegen =
     { Start = FParsec.Position("", 0, 0, 0)
       Stop = FParsec.Position("", 0, 0, 0) }
 
-  let buildScript (ctx: Ctx) (m: Script) =
+  let buildScript (ctx: Ctx) (m: Module) =
     let stmts: list<Stmt> =
       m.Items
       |> List.choose (fun item ->
         match item with
-        | ScriptItem.Stmt stmt -> Some stmt
+        | ModuleItem.Stmt stmt -> Some stmt
         | _ -> None)
 
     let block = { Stmts = stmts; Span = dummySpan }
@@ -343,12 +343,12 @@ module rec Codegen =
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
   // the exported symbols since we aren't tracking provenance consistently yet
-  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Script) : TS.Module =
+  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Module) : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
     for item in m.Items do
       match item with
-      | ScriptItem.Import { Path = path; Specifiers = specifiers } ->
+      | ModuleItem.Import { Path = path; Specifiers = specifiers } ->
         let specifiers =
           specifiers
           |> List.map (fun spec ->
@@ -388,7 +388,7 @@ module rec Codegen =
 
         let item = ModuleItem.ModuleDecl(decl)
         items <- item :: items
-      | ScriptItem.Stmt stmt ->
+      | ModuleItem.Stmt stmt ->
         match stmt.Kind with
         | StmtKind.Decl decl ->
           match decl.Kind with

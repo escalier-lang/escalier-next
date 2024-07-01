@@ -58,11 +58,12 @@ module Compiler =
       let! ctx, env = Prelude.getEnvAndCtx baseDir
 
       let! ast =
-        Parser.parseScript contents |> Result.mapError CompileError.ParseError
+        Parser.parseModule contents |> Result.mapError CompileError.ParseError
+
+      let env = { env with Filename = srcFile }
 
       let! env =
-        Infer.inferScript ctx env srcFile ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Diagnostics
 
@@ -115,11 +116,12 @@ module Compiler =
       let! ctx, env = Prelude.getEnvAndCtx baseDir
 
       let! ast =
-        Parser.parseScript srcCode |> Result.mapError CompileError.ParseError
+        Parser.parseModule srcCode |> Result.mapError CompileError.ParseError
+
+      let env = { env with Filename = "./entry.esc" }
 
       let! env =
-        Infer.inferScript ctx env "./entry.esc" ast
-        |> Result.mapError CompileError.TypeError
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Diagnostics
 

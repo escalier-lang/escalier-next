@@ -445,11 +445,10 @@ module rec Infer =
             | BlockOrExpr.Expr _expr -> failwith "TODO"
 
             if not methodsCalled.IsEmpty then
-              ctx.AddDiagnostic(
+              ctx.Report.AddDiagnostic
                 { Description =
                     $"Methods called in constructor: {methodsCalled}"
                   Reasons = [] }
-              )
 
             let instanceProps =
               instanceElems
@@ -462,7 +461,7 @@ module rec Infer =
               |> List.filter (fun p -> not (List.contains p assignedProps))
 
             if not unassignedProps.IsEmpty then
-              ctx.AddDiagnostic(
+              ctx.Report.AddDiagnostic(
                 { Description =
                     $"Unassigned properties in constructor: {unassignedProps}"
                   Reasons = [] }
@@ -552,6 +551,8 @@ module rec Infer =
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
   let inferExpr (ctx: Ctx) (env: Env) (expr: Expr) : Result<Type, TypeError> =
+    ctx.PushReport()
+
     let r =
       result {
         match expr.Kind with
@@ -1018,6 +1019,8 @@ module rec Infer =
               TypeError.NotImplemented "TODO: finish implementing infer_expr"
             )
       }
+
+    ctx.PopReport()
 
     Result.map
       (fun t ->
@@ -2552,7 +2555,7 @@ module rec Infer =
 
             do! unify ctx env ips never param.Type
 
-            ctx.AddDiagnostic(
+            ctx.Report.AddDiagnostic(
               { Description =
                   $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
                 Reasons = [ reason ] }
@@ -2587,6 +2590,8 @@ module rec Infer =
       let optionalParams = List.take minLength optionalParams
       let optionalArgs = List.take minLength optionalArgs
 
+      let mutable reasons: list<TypeError> = []
+
       for (arg, argType), param in List.zip optionalArgs optionalParams do
         if
           param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
@@ -2600,18 +2605,7 @@ module rec Infer =
 
           match unify ctx env invariantPaths argType param.Type with
           | Ok _ -> ()
-          | Error(reason) ->
-            let never =
-              { Kind = TypeKind.Keyword Keyword.Never
-                Provenance = None }
-
-            do! unify ctx env ips never param.Type
-
-            ctx.AddDiagnostic(
-              { Description =
-                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
-                Reasons = [ reason ] }
-            )
+          | Error(reason) -> reasons <- reason :: reasons
 
       match restArgs, restParam with
       | Some args, Some param ->
@@ -2621,23 +2615,17 @@ module rec Infer =
           { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
             Provenance = None }
 
+        // TODO: check the result type and add a `reason` to `reasons` if there's
+        // a type error
         do! unify ctx env ips tuple param.Type
       | _ -> ()
 
-      // TODO: check if callee.Return is a type variable, if it is then we need
-      // to use the default value from the associated type parameter.
+      if not reasons.IsEmpty then
+        let diagnostic =
+          { Description = "Calling function with incorrect args"
+            Reasons = List.rev reasons }
 
-      // TODO: instead of doing this here, do then when we generalize top-level
-      // declarations
-      // let retType =
-      //   match callee.Return.Kind with
-      //   | TypeKind.TypeVar { Instance = None; Default = d } ->
-      //     match d with
-      //     | Some t -> t
-      //     | None ->
-      //       { Kind = TypeKind.Keyword Keyword.Unknown
-      //         Provenance = None }
-      //   | _ -> callee.Return
+        ctx.Report.AddDiagnostic diagnostic
 
       return (callee.Return, callee.Throws)
     }

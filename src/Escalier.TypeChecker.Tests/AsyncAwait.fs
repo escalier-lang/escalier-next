@@ -22,7 +22,7 @@ let InfersAsyncFunc () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "foo", "fn () -> Promise<5, never>")
       Assert.Value(env, "bar", "fn () -> Promise<15, never>")
     }
@@ -40,7 +40,7 @@ let InfersAsyncError () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -66,7 +66,7 @@ let InfersPropagateAsyncError () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -101,7 +101,7 @@ let InfersTryCatchAsync () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,

@@ -22,7 +22,7 @@ let BasicPatternMatching () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -51,7 +51,7 @@ let BasicPatternMatchingInferExpr () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -88,7 +88,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       Assert.Value(
         env,
@@ -136,7 +136,7 @@ let PatternMatchingObjects () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       // TODO: Simplify all binary type in a type
       // {x: number / 2, y: number / 2} -> {x: number, y: number}
       // TODO: figure out how to have a type alias subsume a type that's the
@@ -182,7 +182,7 @@ let PatternMatchingObjectsWithBlockBody () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       // The `number / 2` was simplified to `number` in this case because
       // it's assigned to a variable before being used in the object
       Assert.Value(env, "centroid", "Point | {x: number, y: number}")
@@ -208,7 +208,7 @@ let PatternMatchingArrays () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "sum", "fn (arg0: number[]) -> number")
     }
 
@@ -232,7 +232,7 @@ let PatternMatchingPrimitiveAssertions () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "result", "number | string | true")
     }
 
@@ -253,7 +253,7 @@ let PartialPatternMatchingObject () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "result", "number | string")
     }
 
@@ -278,7 +278,7 @@ let PatternMatchingImmutableTypes () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "result", "number")
     }
 

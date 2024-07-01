@@ -92,7 +92,7 @@ let InferNestedConditionalTypes () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! a =
         expandScheme ctx env None (env.FindScheme "A") Map.empty None
@@ -127,7 +127,7 @@ let InferExclude () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Result") Map.empty None
@@ -151,7 +151,7 @@ let InferExtract () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Result") Map.empty None
@@ -183,7 +183,7 @@ let InferCartesianProdType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Cells") Map.empty None
@@ -213,7 +213,7 @@ let InfersPickUnionOfKeyInScript () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
@@ -238,7 +238,7 @@ let InfersPickUnionOfKeyInModule () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
@@ -266,7 +266,7 @@ let InfersPickSingleKey () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
@@ -294,7 +294,7 @@ let InfersPickWrongKeyType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
@@ -325,7 +325,7 @@ let InfersOmit () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
@@ -369,7 +369,7 @@ let InfersNestedConditionals () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
@@ -392,7 +392,7 @@ let InfersStdLibReturnType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let scheme = (env.FindScheme "Foo")
 
@@ -426,7 +426,7 @@ let InfersRedefinedReturnType () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let scheme = (env.FindScheme "Foo")
 
@@ -460,7 +460,7 @@ let InfersParameters () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Diagnostics)
+      Assert.Empty(ctx.Report.Diagnostics)
 
       let! result =
         expandScheme ctx env None (env.FindScheme "Foo") Map.empty None

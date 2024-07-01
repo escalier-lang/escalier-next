@@ -47,7 +47,8 @@ module rec Env =
 
     let mutable nextTypeVarId = 0
     let mutable nextUniqueId = 0
-    let mutable diagnostics: list<Diagnostic> = []
+    let mutable parentReports: list<Report> = []
+    let mutable currentReport: Report = { Diagnostics = [] }
 
     member val NextTypeVarId = nextTypeVarId with get, set
     member val NextUniqueId = nextUniqueId with get, set
@@ -75,12 +76,22 @@ module rec Env =
       { Kind = TypeKind.UniqueSymbol id
         Provenance = None }
 
-    member this.AddDiagnostic(diagnostic: Diagnostic) =
-      diagnostics <- diagnostic :: diagnostics
+    member this.Report = currentReport
 
-    member this.Diagnostics = diagnostics
+    member this.PushReport() =
+      parentReports <- currentReport :: parentReports
+      currentReport <- { Diagnostics = [] }
+
+    member this.PopReport() =
+      match parentReports with
+      | parent :: ancestors ->
+        currentReport.Diagnostics <-
+          parent.Diagnostics @ currentReport.Diagnostics
+
+        parentReports <- ancestors
+      | [] -> ()
+
     member this.GetExports = getExports this
-    // Used by `inferImport` in Escalier.TypeChecerk/Infer.fs
     member this.ResolvePath = resolvePath this
 
     member this.Clone =

@@ -65,7 +65,7 @@ module Compiler =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      printDiagnostics textwriter ctx.Diagnostics
+      printDiagnostics textwriter ctx.Report.Diagnostics
 
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 
@@ -123,7 +123,7 @@ module Compiler =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      printDiagnostics textwriter ctx.Diagnostics
+      printDiagnostics textwriter ctx.Report.Diagnostics
 
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 

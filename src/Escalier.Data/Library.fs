@@ -1,5 +1,6 @@
 ﻿namespace rec Escalier.Data
 
+open FSharp.HashCollections
 open FParsec
 open System.Globalization
 
@@ -940,15 +941,15 @@ module Type =
 
   type Namespace =
     { Name: string
-      Values: Map<string, Binding>
-      Schemes: Map<string, Scheme>
-      Namespaces: Map<string, Namespace> }
+      Values: HashMap<string, Binding>
+      Schemes: HashMap<string, Scheme>
+      Namespaces: HashMap<string, Namespace> }
 
     static member empty =
       { Name = "<root>"
-        Values = Map.empty
-        Schemes = Map.empty
-        Namespaces = Map.empty }
+        Values = HashMap.empty
+        Schemes = HashMap.empty
+        Namespaces = HashMap.empty }
 
   // TODO: Figure out how to share this code with TypeChecker.Prune
   let rec prune (t: Type) : Type =

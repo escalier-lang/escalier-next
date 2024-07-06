@@ -1,5 +1,6 @@
 namespace Escalier.TypeChecker
 
+open FSharp.HashCollections
 open FsToolkit.ErrorHandling
 
 open Escalier.TypeChecker.Error
@@ -229,16 +230,16 @@ module rec Env =
 
     member this.AddNamespace (name: string) (ns: Namespace) =
       { this with
-          Namespaces = Map.add name ns this.Namespaces }
+          Namespaces = HashMap.add name ns this.Namespaces }
 
     member this.AddScheme (name: string) (scheme: Scheme) =
       { this with
-          Schemes = Map.add name scheme this.Schemes }
+          Schemes = HashMap.add name scheme this.Schemes }
 
     member this.GetScheme(name: string) : Result<Scheme, TypeError> =
-      match this.Schemes |> Map.tryFind name with
-      | Some(s) -> Ok(s)
-      | None ->
+      match this.Schemes |> HashMap.tryFind name with
+      | ValueSome(s) -> Ok(s)
+      | ValueNone ->
         Error(
           TypeError.SemanticError
             $"Namespace.GetScheme - Undefined symbol {name}"
@@ -246,12 +247,12 @@ module rec Env =
 
     member this.AddBinding (name: string) (binding: Binding) =
       { this with
-          Values = Map.add name binding this.Values }
+          Values = HashMap.add name binding this.Values }
 
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
-      match this.Values |> Map.tryFind name with
-      | Some(var) -> Ok var
-      | None ->
+      match this.Values |> HashMap.tryFind name with
+      | ValueSome(var) -> Ok var
+      | ValueNone ->
         Error(
           TypeError.SemanticError
             $"Namespace.GetBinding - Undefined symbol {name}"
@@ -263,16 +264,16 @@ module rec Env =
       result {
         match ident with
         | Ident name ->
-          match this.Namespaces |> Map.tryFind name with
-          | Some(ns) -> return ns
-          | None ->
+          match this.Namespaces |> HashMap.tryFind name with
+          | ValueSome(ns) -> return ns
+          | ValueNone ->
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
         | Member(qualifier, name) ->
           let! ns = this.GetNamspace qualifier
 
-          match ns.Namespaces |> Map.tryFind name with
-          | Some(ns) -> return ns
-          | None ->
+          match ns.Namespaces |> HashMap.tryFind name with
+          | ValueSome(ns) -> return ns
+          | ValueNone ->
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
       }
 
@@ -304,10 +305,10 @@ module rec Env =
 
     member this.Merge(other: Namespace) =
       { this with
-          Values = FSharpPlus.Map.union other.Values this.Values
+          Values = unionWith other.Values this.Values
           // TODO: call `merge` on each namespace?
-          Namespaces = FSharpPlus.Map.union other.Namespaces this.Namespaces
-          Schemes = FSharpPlus.Map.union other.Schemes this.Schemes }
+          Namespaces = unionWith other.Namespaces this.Namespaces
+          Schemes = unionWith other.Schemes this.Schemes }
 
   type Env =
     { Filename: string
@@ -372,11 +373,11 @@ module rec Env =
     // Get the type of identifier name from the type environment env
     member this.GetValue(name: string) : Result<Type, TypeError> =
       match this.TryFindValue name with
-      | Some(var) ->
+      | ValueSome(var) ->
         // TODO: check `isMut` and return an immutable type if necessary
         let (t, isMut) = var
         Ok(t)
-      | None ->
+      | ValueNone ->
         // TODO: why do we need to check if it's an integer literal?
         if isIntegerLiteral name then
           Ok(numType)
@@ -390,8 +391,8 @@ module rec Env =
         match ident with
         | Ident name ->
           match this.TryFindScheme name with
-          | Some(s) -> return s
-          | None ->
+          | ValueSome(s) -> return s
+          | ValueNone ->
             return!
               Error(
                 TypeError.SemanticError
@@ -403,9 +404,9 @@ module rec Env =
       }
 
     member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
-      match this.Namespace.Values |> Map.tryFind name with
-      | Some(var) -> Ok var
-      | None ->
+      match this.Namespace.Values |> HashMap.tryFind name with
+      | ValueSome(var) -> Ok var
+      | ValueNone ->
         Error(
           TypeError.SemanticError $"Env.GetBinding - Undefined symbol {name}"
         )
@@ -416,16 +417,16 @@ module rec Env =
       result {
         match ident with
         | Ident name ->
-          match this.Namespace.Namespaces |> Map.tryFind name with
-          | Some(ns) -> return ns
-          | None ->
+          match this.Namespace.Namespaces |> HashMap.tryFind name with
+          | ValueSome(ns) -> return ns
+          | ValueNone ->
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
         | Member(qualifier, name) ->
           let! ns = this.GetNamspace qualifier
 
-          match ns.Namespaces |> Map.tryFind name with
-          | Some(ns) -> return ns
-          | None ->
+          match ns.Namespaces |> HashMap.tryFind name with
+          | ValueSome(ns) -> return ns
+          | ValueNone ->
             return! Error(TypeError.SemanticError $"Undefined namespace {name}")
       }
 
@@ -448,20 +449,35 @@ module rec Env =
       result {
         match expr.Kind with
         | Syntax.ExprKind.Identifier ident ->
-          match this.Namespace.Namespaces.TryFind ident with
-          | None -> return None
-          | Some ns -> return Some(ns, None)
+          match HashMap.tryFind ident this.Namespace.Namespaces with
+          | ValueNone -> return None
+          | ValueSome ns -> return Some(ns, None)
         | _ -> return None
       }
 
     member this.FindValue(name: string) : Binding =
-      Map.find name this.Namespace.Values
+      match HashMap.tryFind name this.Namespace.Values with
+      | ValueNone -> failwith $"Can't find Binding named {name} in Env"
+      | ValueSome value -> value
 
-    member this.TryFindValue(name: string) : option<Binding> =
-      Map.tryFind name this.Namespace.Values
+    member this.TryFindValue(name: string) : voption<Binding> =
+      HashMap.tryFind name this.Namespace.Values
 
     member this.FindScheme(name: string) : Scheme =
-      Map.find name this.Namespace.Schemes
+      match HashMap.tryFind name this.Namespace.Schemes with
+      | ValueNone -> failwith $"Can't find Scheme named {name} in Env"
+      | ValueSome scheme -> scheme
 
-    member this.TryFindScheme(name: string) : option<Scheme> =
-      Map.tryFind name this.Namespace.Schemes
+    member this.TryFindScheme(name: string) : voption<Scheme> =
+      HashMap.tryFind name this.Namespace.Schemes
+
+  let unionWith<'Key, 'Value>
+    (source1: HashMap<'Key, 'Value>)
+    (source2: HashMap<'Key, 'Value>)
+    : HashMap<'Key, 'Value> =
+    let mutable result = source2
+
+    for KeyValue(k, v) in source1 do
+      result <- HashMap.add k v result
+
+    result

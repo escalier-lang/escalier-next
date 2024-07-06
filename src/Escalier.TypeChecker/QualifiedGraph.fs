@@ -1,8 +1,9 @@
 module Escalier.TypeChecker.QualifiedGraph
 
-open Escalier.Data.Syntax
+open FSharp.HashCollections
 open FsToolkit.ErrorHandling
 
+open Escalier.Data.Syntax
 open Escalier.Data.Type
 open Escalier.Data
 
@@ -119,9 +120,9 @@ let getExports
   result {
     let mutable ns: Namespace =
       { Name = name
-        Values = Map.empty
-        Schemes = Map.empty
-        Namespaces = Map.empty }
+        Values = HashMap.empty
+        Schemes = HashMap.empty
+        Namespaces = HashMap.empty }
 
     for item in items do
       match item with
@@ -164,9 +165,9 @@ let getExports
               // both a namespace and an updated env
               ()
             else
-              match env.Namespace.Namespaces.TryFind name with
-              | Some value -> ns <- ns.AddNamespace name value
-              | None -> failwith $"Couldn't find namespace: '{name}'"
+              match HashMap.tryFind name env.Namespace.Namespaces with
+              | ValueSome value -> ns <- ns.AddNamespace name value
+              | ValueNone -> failwith $"Couldn't find namespace: '{name}'"
 
         | StmtKind.Expr expr -> failwith "todo"
         | StmtKind.For(left, right, body) -> failwith "todo"

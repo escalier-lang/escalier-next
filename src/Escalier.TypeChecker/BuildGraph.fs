@@ -1,9 +1,10 @@
 module rec Escalier.TypeChecker.BuildGraph
 
-open Escalier.Data.Type
-open Escalier.TypeChecker.Env
+open FSharp.HashCollections
 
+open Escalier.Data.Type
 open Escalier.Data.Syntax
+open Escalier.TypeChecker.Env
 
 open Escalier.TypeChecker.QualifiedGraph
 open ExprVisitor
@@ -122,7 +123,7 @@ let postProcessDeps
 
   let identNamespaces = List.take (identNamespaces.Length - 1) identNamespaces
 
-  let globalNS = Map.tryFind "global" ns.Namespaces
+  let globalNS = HashMap.tryFind "global" ns.Namespaces
   let maybeGlobalTree = Map.tryFind "global" localsTree.Namespaces
 
   let mutable hasLength = false
@@ -694,7 +695,7 @@ let getPropNameDeps
           Set.singleton (QDeclIdent.Value ident)
         else
           match env.TryFindValue name with
-          | Some(t, _) ->
+          | ValueSome(t, _) ->
             match (prune t).Kind with
             | TypeKind.TypeRef { Name = ident } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
@@ -704,7 +705,7 @@ let getPropNameDeps
               else
                 Set.empty
             | _ -> Set.empty // This should probably be an error
-          | None -> Set.empty // This should probably be an error
+          | ValueNone -> Set.empty // This should probably be an error
       | _ -> Set.empty
     | _ -> Set.empty
   | _ -> Set.empty

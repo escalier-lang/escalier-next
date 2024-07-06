@@ -2,12 +2,13 @@
 [<Xunit.Collection("Sequential")>]
 module NoParseTests
 
-open Escalier.Data.Type
 open Xunit
 open FParsec
+open FSharp.HashCollections
 open FsToolkit.ErrorHandling
 
 open Escalier.Compiler.Prelude
+open Escalier.Data.Type
 open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
@@ -20,28 +21,39 @@ let makeParam (name: string) (ty: Type.Type) : Type.FuncParam =
     Optional = false }
 
 let getEnv () =
-  let values =
-    Map.ofList
-      [ ("true", (boolType, false))
-        ("zero",
-         (makeFunctionType None [ makeParam "arg" numType ] boolType never,
-          false))
-        ("pred",
-         (makeFunctionType None [ makeParam "arg" numType ] numType never, false))
-        ("times",
-         (makeFunctionType
-           None
-           [ makeParam "left" numType; makeParam "right" numType ]
-           numType
-           never,
-          false)) ]
+  let mutable values: HashMap<string, Binding> = HashMap.empty
+  values <- HashMap.add "true" (boolType, false) values
+  values <- HashMap.add "false" (boolType, false) values
+
+  values <-
+    HashMap.add
+      "zero"
+      (makeFunctionType None [ makeParam "arg" numType ] boolType never, false)
+      values
+
+  values <-
+    HashMap.add
+      "pred"
+      (makeFunctionType None [ makeParam "arg" numType ] numType never, false)
+      values
+
+  values <-
+    HashMap.add
+      "times"
+      (makeFunctionType
+        None
+        [ makeParam "left" numType; makeParam "right" numType ]
+        numType
+        never,
+       false)
+      values
 
   { Filename = "<empty>"
     Namespace =
       { Name = "<root>"
         Values = values
-        Schemes = Map.empty
-        Namespaces = Map.empty }
+        Schemes = HashMap.empty
+        Namespaces = HashMap.empty }
     BinaryOps = Map.empty
     UnaryOps = Map.empty
     IsAsync = false

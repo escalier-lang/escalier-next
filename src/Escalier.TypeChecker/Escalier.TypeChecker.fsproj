@@ -23,6 +23,7 @@
         <ProjectReference Include="..\Escalier.Parser\Escalier.Parser.fsproj"/>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="FSharp.HashCollections" Version="0.3.4"/>
         <PackageReference Include="FSharpPlus" Version="1.5.0"/>
         <PackageReference Include="FsToolkit.ErrorHandling" Version="4.10.0"/>
     </ItemGroup>

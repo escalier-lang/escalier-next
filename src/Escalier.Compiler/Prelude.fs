@@ -462,16 +462,17 @@ module Prelude =
                 for name in bindings do
                   match scriptEnv.TryFindValue name with
                   // NOTE: exports are immutable
-                  | Some(t, isMut) ->
+                  | ValueSome(t, isMut) ->
                     exports <- exports.AddBinding name (t, false)
-                  | None -> failwith $"binding {name} not found"
+                  | ValueNone -> failwith $"binding {name} not found"
 
                 for item in m.Items do
                   match item with
                   | Syntax.ModuleItem.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
                     match scriptEnv.TryFindScheme name with
-                    | Some(scheme) -> exports <- exports.AddScheme name scheme
-                    | None -> failwith $"scheme {name} not found"
+                    | ValueSome(scheme) ->
+                      exports <- exports.AddScheme name scheme
+                    | ValueNone -> failwith $"scheme {name} not found"
                   | _ -> ()
 
                 exports
@@ -529,7 +530,7 @@ module Prelude =
         match
           newEnv.TryFindScheme "ReadonlyArray", newEnv.TryFindScheme "Array"
         with
-        | Some(readonlyArray), Some(array) ->
+        | ValueSome(readonlyArray), ValueSome(array) ->
           // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
           let merged = QualifiedGraph.mergeType readonlyArray.Type array.Type
           newEnv <- newEnv.AddScheme "Array" { array with Type = merged }

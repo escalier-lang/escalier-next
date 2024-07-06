@@ -1124,9 +1124,9 @@ module rec Unify =
                   expandScheme ctx env ips scheme mapping typeArgs
                 | None ->
                   match env.TryFindScheme name with
-                  | Some scheme ->
+                  | ValueSome scheme ->
                     expandScheme ctx env ips scheme mapping typeArgs
-                  | None -> failwith $"{name} is not in scope"
+                  | ValueNone -> failwith $"{name} is not in scope"
             | Member _ ->
               match scheme with
               | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs

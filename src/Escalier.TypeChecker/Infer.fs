@@ -1,5 +1,6 @@
 ﻿namespace Escalier.TypeChecker
 
+open FSharp.HashCollections
 open FsToolkit.ErrorHandling
 
 open Escalier.Data
@@ -558,9 +559,9 @@ module rec Infer =
         match expr.Kind with
         | ExprKind.Identifier(name) ->
 
-          match env.Namespace.Namespaces.TryFind name with
-          | None -> return! env.GetValue name
-          | Some value ->
+          match HashMap.tryFind name env.Namespace.Namespaces with
+          | ValueNone -> return! env.GetValue name
+          | ValueSome value ->
             let kind = TypeKind.Namespace value
             return { Kind = kind; Provenance = None }
         | ExprKind.Literal(literal) ->
@@ -959,7 +960,10 @@ module rec Infer =
           let! min = inferExpr ctx env min
           let! max = inferExpr ctx env max
 
-          let scheme = env.TryFindScheme "RangeIterator"
+          let scheme =
+            match env.TryFindScheme "RangeIterator" with
+            | ValueNone -> None
+            | ValueSome scheme -> Some scheme
 
           return
             { Kind =
@@ -1044,7 +1048,10 @@ module rec Infer =
           | Some { Pattern = pattern } ->
             match pattern.Kind with
             | PatternKind.Ident identPat ->
-              let scheme = env.TryFindScheme "Self"
+              let scheme =
+                match env.TryFindScheme "Self" with
+                | ValueNone -> None
+                | ValueSome scheme -> Some scheme
 
               let t =
                 { Kind =
@@ -1255,7 +1262,7 @@ module rec Infer =
   let qualifyTypeRefs
     (t: Type)
     (nsName: string)
-    (nsScheme: Map<string, Scheme>)
+    (nsScheme: HashMap<string, Scheme>)
     : Type =
 
     let f =
@@ -1264,8 +1271,8 @@ module rec Infer =
         | TypeKind.TypeRef { Name = QualifiedIdent.Ident name
                              Scheme = scheme
                              TypeArgs = typeArgs } ->
-          match nsScheme.TryFind name with
-          | Some _ ->
+          match HashMap.tryFind name nsScheme with
+          | ValueSome _ ->
             let name = QualifiedIdent.Member(QualifiedIdent.Ident nsName, name)
 
             let kind =
@@ -1275,7 +1282,7 @@ module rec Infer =
                   Scheme = scheme }
 
             Some { t with Kind = kind }
-          | None -> Some t
+          | ValueNone -> Some t
         | _ -> Some t
 
     Folder.foldType f t
@@ -1303,18 +1310,18 @@ module rec Infer =
                              Namespaces = namespaces } ->
         match key with
         | PropName.String s ->
-          match values.TryFind s with
-          | None ->
-            match namespaces.TryFind s with
-            | None ->
+          match HashMap.tryFind s values with
+          | ValueNone ->
+            match HashMap.tryFind s namespaces with
+            | ValueNone ->
               return! Error(TypeError.SemanticError $"Property {key} not found")
-            | Some ns ->
+            | ValueSome ns ->
               return
                 { Kind = TypeKind.Namespace ns
                   Provenance = None }
           // TODO: handle nested namespaces by adding a optional reference
           // to the parent namespace that we can follow
-          | Some(t, _) -> return qualifyTypeRefs t nsName schemes
+          | ValueSome(t, _) -> return qualifyTypeRefs t nsName schemes
         | PropName.Number _ ->
           return!
             Error(
@@ -1387,8 +1394,8 @@ module rec Infer =
         | _ ->
           let _arrayScheme =
             match env.TryFindScheme "Array" with
-            | Some scheme -> scheme
-            | None -> failwith "Array not in scope"
+            | ValueSome scheme -> scheme
+            | ValueNone -> failwith "Array not in scope"
           // TODO: lookup keys in array prototype
           return!
             Error(TypeError.NotImplemented "TODO: lookup member on tuple type")
@@ -1412,8 +1419,8 @@ module rec Infer =
           // `self` and `mut self`.
           let arrayScheme =
             match env.TryFindScheme "Array" with
-            | Some scheme -> scheme
-            | None -> failwith "Array not in scope"
+            | ValueSome scheme -> scheme
+            | ValueNone -> failwith "Array not in scope"
 
           // Instead of expanding the whole scheme which could be quite expensive
           // we get the property from the type and then only instantiate it.
@@ -1703,9 +1710,9 @@ module rec Infer =
         | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable newEnv = env
 
-          match newEnv.Namespace.Schemes.TryFind "Self" with
-          | Some _ -> ()
-          | None ->
+          match HashMap.tryFind "Self" newEnv.Namespace.Schemes with
+          | ValueSome _ -> ()
+          | ValueNone ->
             let scheme =
               { TypeParams = None
                 Type = ctx.FreshTypeVar None None }
@@ -2372,25 +2379,25 @@ module rec Infer =
             | None -> source
 
           let valueLookup =
-            match exports.Values.TryFind source with
-            | Some(binding) ->
+            match HashMap.tryFind source exports.Values with
+            | ValueSome(binding) ->
               imports <- imports.AddBinding target binding
               Ok(())
-            | None -> Error("not found")
+            | ValueNone -> Error("not found")
 
           let schemeLookup =
-            match exports.Schemes.TryFind source with
-            | Some(scheme) ->
+            match HashMap.tryFind source exports.Schemes with
+            | ValueSome(scheme) ->
               imports <- imports.AddScheme target scheme
               Ok(())
-            | None -> Error("not found")
+            | ValueNone -> Error("not found")
 
           let namespaceLookup =
-            match exports.Namespaces.TryFind source with
-            | Some(ns) ->
+            match HashMap.tryFind source exports.Namespaces with
+            | ValueSome(ns) ->
               imports <- imports.AddNamespace target ns
               Ok(())
-            | None -> Error("not found")
+            | ValueNone -> Error("not found")
 
           match valueLookup, schemeLookup, namespaceLookup with
           // If we can't find the symbol in either the values or schemes
@@ -2660,9 +2667,9 @@ module rec Infer =
     result {
       match ident with
       | QualifiedIdent.Ident name ->
-        match env.Namespace.Namespaces.TryFind name with
-        | None -> return! env.GetValue name
-        | Some value ->
+        match HashMap.tryFind name env.Namespace.Namespaces with
+        | ValueNone -> return! env.GetValue name
+        | ValueSome value ->
           let kind = TypeKind.Namespace value
           return { Kind = kind; Provenance = None }
       | QualifiedIdent.Member(left, right) ->
@@ -2771,7 +2778,7 @@ module rec Infer =
               :: elemTypes
           | ObjElem.Shorthand(span, name) ->
             match env.TryFindValue name with
-            | Some(t, _) ->
+            | ValueSome(t, _) ->
               elemTypes <-
                 ObjTypeElem.Property
                   { Name = PropName.String name
@@ -2779,13 +2786,14 @@ module rec Infer =
                     Readonly = false
                     Type = t }
                 :: elemTypes
-            | None -> return! Error(TypeError.SemanticError $"{name} not found")
+            | ValueNone ->
+              return! Error(TypeError.SemanticError $"{name} not found")
           | ObjElem.Spread(span, value) ->
             match value.Kind with
             | ExprKind.Identifier name ->
               match env.TryFindValue name with
-              | Some(t, _) -> spreadTypes <- t :: spreadTypes
-              | None ->
+              | ValueSome(t, _) -> spreadTypes <- t :: spreadTypes
+              | ValueNone ->
                 return! Error(TypeError.SemanticError $"{name} not found")
             | _ ->
               return!
@@ -2992,7 +3000,7 @@ module rec Infer =
               match parts, env.TryFindScheme name with
               // TODO: handle the case where the qualifier is `global` to handle
               // declare global { ... } statements.
-              | [ _ ], Some scheme -> Result.Ok scheme
+              | [ _ ], ValueSome scheme -> Result.Ok scheme
               | _, _ ->
                 match qns.Schemes.TryFind(key) with
                 | Some scheme -> Result.Ok scheme
@@ -3020,9 +3028,9 @@ module rec Infer =
       match namespaces with
       | [] -> ()
       | head :: rest ->
-        match parentNS.Namespaces.TryFind(head) with
-        | None -> printfn $"namespace {head} not found"
-        | Some _ -> ()
+        match HashMap.tryFind head parentNS.Namespaces with
+        | ValueNone -> printfn $"namespace {head} not found"
+        | ValueSome _ -> ()
 
         let nextNS = parentNS.Namespaces[head]
 
@@ -3198,8 +3206,8 @@ module rec Infer =
 
           let placeholderType, _ =
             match newEnv.TryFindValue name with
-            | Some t -> t
-            | None -> failwith "Missing placeholder type"
+            | ValueSome t -> t
+            | ValueNone -> failwith "Missing placeholder type"
 
           // NOTE: We explicitly don't generalize here because we want other
           // declarations to be able to unify with any free type variables
@@ -3632,11 +3640,11 @@ module rec Infer =
       | [] -> failwith "Invalid qualified ident"
       | [ name ] -> ns.AddBinding name binding
       | headNS :: restNS ->
-        match ns.Namespaces.TryFind(headNS) with
-        | None ->
+        match HashMap.tryFind headNS ns.Namespaces with
+        | ValueNone ->
           let newNS = { Namespace.empty with Name = headNS }
           ns.AddNamespace headNS (addValueRec newNS restNS)
-        | Some existingNS ->
+        | ValueSome existingNS ->
           ns.AddNamespace headNS (addValueRec existingNS restNS)
 
     let parts =
@@ -3654,11 +3662,11 @@ module rec Infer =
       | [] -> failwith "Invalid qualified ident"
       | [ name ] -> ns.AddScheme name scheme
       | headNS :: restNS ->
-        match ns.Namespaces.TryFind(headNS) with
-        | None ->
+        match HashMap.tryFind headNS ns.Namespaces with
+        | ValueNone ->
           let newNS = { Namespace.empty with Name = headNS }
           ns.AddNamespace headNS (addSchemeRec newNS restNS)
-        | Some existingNS ->
+        | ValueSome existingNS ->
           ns.AddNamespace headNS (addSchemeRec existingNS restNS)
 
     let parts =
@@ -3849,8 +3857,8 @@ module rec Infer =
 
           let symbol =
             match env.TryFindValue "Symbol" with
-            | Some scheme -> fst scheme
-            | None -> failwith "Symbol not in scope"
+            | ValueSome scheme -> fst scheme
+            | ValueNone -> failwith "Symbol not in scope"
 
           let! symbolIterator =
             getPropType ctx blockEnv symbol (PropName.String "iterator") false
@@ -3858,8 +3866,8 @@ module rec Infer =
           // TODO: only lookup Symbol.iterator on Array for arrays and tuples
           let arrayScheme =
             match env.TryFindScheme "Array" with
-            | Some scheme -> scheme
-            | None -> failwith "Array not in scope"
+            | ValueSome scheme -> scheme
+            | ValueNone -> failwith "Array not in scope"
 
           let propName =
             match symbolIterator.Kind with

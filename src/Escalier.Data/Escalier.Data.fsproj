@@ -8,5 +8,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="FParsec" Version="1.1.1"/>
+        <PackageReference Include="FSharp.HashCollections" Version="0.3.4"/>
     </ItemGroup>
 </Project>

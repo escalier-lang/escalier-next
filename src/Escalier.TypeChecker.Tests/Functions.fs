@@ -872,6 +872,46 @@ let InferGenericWithDefault () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
+[<Fact>]
+let InferOverloadsWithMatch () =
+  let result =
+    result {
+      let src =
+        """
+        declare let add: (fn(a: number, b: number) -> number) & (fn(a: string, b: string) -> string);
+
+        let num = add(5, 10);
+        let str = add("hello, ", "world");
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "num", "number")
+      Assert.Value(env, "str", "string")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferOverloadsWithNoMatch () =
+  let result =
+    result {
+      let src =
+        """
+        declare let add: (fn(a: number, b: number) -> number) & (fn(a: string, b: string) -> string);
+
+        let result = add(5, "hello");
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 2)
+      Assert.Value(env, "result", "number & string")
+    }
+
+  Assert.False(Result.isError result)
+
 // TODO:
 // - write tests for functions with optional params
 // - write tests for overloaded functions

@@ -369,6 +369,34 @@ let DontIncludeSettersInRvalues () =
   )
 
 [<Fact>]
+let DontIncludeSettersInRvaluesDestructuring () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {
+          get foo() -> string,
+          set bar(value: number),
+        };
+        declare let obj: Obj;
+        let {foo, bar} = obj;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.Equal(
+    result,
+    Result.Error(
+      Compiler.CompileError.TypeError(
+        TypeError.PropertyMissing(Escalier.Data.Type.PropName.String "bar")
+      )
+    )
+  )
+
+[<Fact>]
 let DontIncludeGettersInLvalues () =
   let result =
     result {

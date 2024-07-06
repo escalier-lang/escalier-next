@@ -325,6 +325,28 @@ module Parser =
         Readonly = false
         Static = false }
 
+  let private getterType: Parser<GetterType, unit> =
+    pipe4
+      (opt (keyword "async"))
+      (keyword "get" >>. propName)
+      ((strWs "(") >>. (strWs ")") >>. (strWs "->" >>. typeAnn))
+      (opt (ws .>> keyword "throws" >>. typeAnn))
+    <| fun async name retType throws ->
+      { GetterType.Name = name
+        ReturnType = retType
+        Throws = throws }
+
+  let private setterType: Parser<SetterType, unit> =
+    pipe4
+      (opt (keyword "async"))
+      (keyword "set" >>. propName)
+      (between (strWs "(") (strWs ")") funcParam)
+      (opt (ws .>> keyword "throws" >>. typeAnn))
+    <| fun async name param throws ->
+      { SetterType.Name = name
+        Param = param
+        Throws = throws }
+
   // TODO: add support for methods, getters, and setters
   let private objTypeAnnElem =
     choice
@@ -332,6 +354,8 @@ module Parser =
         // mappedTypeAnn must come before propertyTypeAnn because computed
         // properties conflicts with mapped types
         attempt mappedTypeAnn
+        attempt (getterType |>> ObjTypeAnnElem.Getter)
+        attempt (setterType |>> ObjTypeAnnElem.Setter)
         attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property) ]
 
   let private objectTypeAnn =

@@ -6,6 +6,7 @@ open Xunit
 
 open Escalier.Compiler
 open Escalier.Parser
+open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Infer
 open Escalier.TypeChecker.Unify
@@ -335,6 +336,66 @@ let InferObjProps () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let DontIncludeSettersInRvalues () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {
+          get foo() -> string,
+          set bar(value: number),
+        };
+        declare let obj: Obj;
+        let foo = obj.foo;
+        let bar = obj.bar;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+
+  Assert.Equal(
+    result,
+    Result.Error(
+      Compiler.CompileError.TypeError(
+        TypeError.SemanticError "Property bar not found"
+      )
+    )
+  )
+
+[<Fact>]
+let DontIncludeGettersInLvalues () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {
+          get foo() -> string,
+          set bar(value: number),
+        };
+        declare let mut obj: Obj;
+        obj.bar = 5;
+        obj.foo = "hello";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.Equal(
+    result,
+    Result.Error(
+      Compiler.CompileError.TypeError(
+        TypeError.SemanticError "Property foo not found"
+      )
+    )
+  )
 
 [<Fact>]
 let InferOptionalChaining () =

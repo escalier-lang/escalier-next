@@ -134,7 +134,7 @@ let ParseAndInferInterface () =
       Assert.Type(
         env,
         "Foo",
-        "{bar fn (self: Self) -> number, baz fn (self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn () -> undefined}"
+        "{bar fn (self: Self) -> number, baz fn (self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn (mut x: string) -> undefined}"
       )
     }
 

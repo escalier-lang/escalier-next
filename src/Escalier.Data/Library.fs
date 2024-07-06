@@ -527,13 +527,11 @@ module Syntax =
 
   type GetterType =
     { Name: PropName
-      Self: FuncParam
-      ReturnType: option<TypeAnn>
+      ReturnType: TypeAnn
       Throws: option<TypeAnn> }
 
   type SetterType =
     { Name: PropName
-      Self: FuncParam
       Param: FuncParam
       Throws: option<TypeAnn> }
 

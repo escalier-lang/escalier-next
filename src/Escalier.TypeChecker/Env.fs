@@ -85,6 +85,13 @@ module rec Env =
     member this.PopReport() =
       match parentReports with
       | parent :: ancestors ->
+        currentReport <- parent
+        parentReports <- ancestors
+      | [] -> ()
+
+    member this.MergeUpReport() =
+      match parentReports with
+      | parent :: ancestors ->
         currentReport.Diagnostics <-
           parent.Diagnostics @ currentReport.Diagnostics
 

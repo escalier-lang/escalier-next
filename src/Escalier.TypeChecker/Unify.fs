@@ -879,6 +879,7 @@ module rec Unify =
             | TypeKind.UniqueSymbol id -> PropName.Symbol id
             | _ -> failwith "TODO: expand index - key type"
 
+          // TODO: dedupe this with the getPropType and inferMemberAccess in Infer.fs
           match target.Kind with
           | TypeKind.Object { Elems = elems } ->
             let mutable t = None
@@ -886,11 +887,20 @@ module rec Unify =
             for elem in elems do
               match elem with
               | Property p when p.Name = key -> t <- Some(p.Type)
+              | Method(name, fn) when name = key ->
+                // TODO: replace `Self` with the object type
+                // TODO: check if the receiver is mutable or not
+                t <-
+                  Some(
+                    { Kind = TypeKind.Function fn
+                      Provenance = None }
+                  )
               | _ -> ()
 
             match t with
             | Some t -> return t
             | None ->
+              printfn $"target = {target}"
               return! Error(TypeError.SemanticError $"Property {key} not found")
           | _ ->
             // TODO: Handle the case where the type is a primitive and use a

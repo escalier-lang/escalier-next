@@ -1020,7 +1020,7 @@ module rec Infer =
             )
       }
 
-    ctx.PopReport()
+    ctx.MergeUpReport()
 
     Result.map
       (fun t ->
@@ -1467,8 +1467,6 @@ module rec Infer =
         | false -> Some p.Type
       | Method(_, fn) ->
         // TODO: replace `Self` with the object type
-
-
         // TODO: check if the receiver is mutable or not
         let t =
           { Kind = TypeKind.Function fn
@@ -2434,21 +2432,45 @@ module rec Infer =
       | TypeKind.Intersection types ->
         let mutable result = None
 
+        // TODO: handle an intersection of intersections
+
+        let mutable reports = []
+        let mutable retTypes = []
+        let mutable throwTypes = []
+
         for t in types do
-          match t.Kind with
-          | TypeKind.Function _ ->
+          if result.IsNone then
+            ctx.PushReport()
+
             match unifyCall ctx env ips args typeArgs t with
-            | Result.Ok value ->
-              match result with
-              | Some _ -> ()
-              | None -> result <- Some(value)
+            | Result.Ok(retType, throwType) ->
+              retTypes <- retType :: retTypes
+              throwTypes <- throwType :: throwTypes
+
+              if ctx.Report.Diagnostics.IsEmpty then
+                result <- Some(retType, throwType)
             | Result.Error _ -> ()
-          | _ -> ()
+
+            reports <- ctx.Report :: reports
+            ctx.PopReport()
 
         match result with
         | Some(value) -> return value
         | None ->
-          return! Error(TypeError.NotImplemented $"kind = {callee.Kind}")
+          let retType =
+            { Kind = TypeKind.Intersection(List.rev retTypes)
+              Provenance = None }
+
+          let throwType =
+            { Kind = TypeKind.Intersection(List.rev throwTypes)
+              Provenance = None }
+
+          // TODO: come up with a better way of merging diagnostics
+          for report in reports do
+            ctx.Report.Diagnostics <-
+              ctx.Report.Diagnostics @ report.Diagnostics
+
+          return retType, throwType
       | TypeKind.TypeVar _ ->
 
         // TODO: use a `result {}` CE here

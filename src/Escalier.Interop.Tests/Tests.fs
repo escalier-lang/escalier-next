@@ -1,6 +1,7 @@
 [<VerifyXunit.UsesVerify>]
 module Tests
 
+open Escalier.TypeChecker.Error
 open FsToolkit.ErrorHandling
 open FParsec.CharParsers
 open VerifyTests
@@ -760,8 +761,7 @@ let ImportReact () =
         let classAttrs: React.React.ClassAttributes<HTMLElement> = {};
         let attrs: React.React.HTMLAttributes<HTMLElement> & React.React.ClassAttributes<HTMLElement> = {};
         
-        declare let myCreateElement: fn <P: React.React.HTMLAttributes<T>, T: HTMLElement>(mut type: keyof React.React.ReactHTML, mut props: React.React.ClassAttributes<T> & P | null, ...mut children: React.React.ReactNode[]) -> React.React.DetailedReactHTMLElement<P, T>;
-        let div = myCreateElement("div", {});
+        let div = createElement("div", {});
         """
 
       let! ast =
@@ -773,7 +773,6 @@ let ImportReact () =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       let t, _ = env.FindValue "createElement"
-      printfn $"createElement = {t}"
 
       Assert.Type(env, "ReactElement", "React.React.ReactElement")
       Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
@@ -789,12 +788,76 @@ let ImportReact () =
         "div",
         // NOTE: The type var id will differ dependending on whether we run
         // just this test case or the full test suite.
-        "React.React.DetailedReactHTMLElement<{}, t2703:HTMLElement>"
+        // TODO: generalize top-level variable declarations
+        "React.DetailedReactHTMLElement<{}, t2695:HTMLElement>"
       )
     }
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferHTMLProps () =
+  let result =
+    result {
+      let src =
+        """
+        import "react" {React};
+        
+        let div: React.DetailedHTMLProps<
+          React.HTMLAttributes<HTMLDivElement>,
+          HTMLDivElement,
+        > = {
+          foo: "bar",
+          onClick: fn () {},
+        };
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Equal<Diagnostic list>(ctx.Report.Diagnostics, [])
+
+      Assert.Value(
+        env,
+        "div",
+        "React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>"
+      )
+    }
+
+  // printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
+[<Fact>]
+let InferAssignUnionToObjectProperty () =
+  let result =
+    result {
+      let src =
+        """
+        type Obj = {foo?: string | undefined, bar?: number | undefined};
+        let a: Obj = {foo: "hello", bar: undefined};
+        let b: Obj = {foo: undefined, bar: 5};
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      ()
+    }
+
+  Assert.False(Result.isError result)
+
 
 [<Fact(Skip = "TODO")>]
 let LoadingNodeModules () =

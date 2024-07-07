@@ -309,7 +309,7 @@ module rec ExprVisitor =
         List.iter
           (fun (param: FuncParam) -> Option.iter walk param.TypeAnn)
           f.ParamList
-      | Getter { ReturnType = retType } -> Option.iter walk retType
+      | Getter { ReturnType = retType } -> walk retType
       | Setter { Param = { TypeAnn = paramType } } -> Option.iter walk paramType
       | Property { TypeAnn = typeAnn } -> walk typeAnn
       | Mapped { TypeParam = typeParam

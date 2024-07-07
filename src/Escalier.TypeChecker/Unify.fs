@@ -13,6 +13,9 @@ open Mutability
 open Poly
 
 module rec Unify =
+  type ValueCategory =
+    | LValue
+    | RValue
 
   // Checks that t1 is assignable to t2
   let unify
@@ -342,8 +345,8 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        let namedProps1 = getNamedProps obj1.Elems
-        let namedProps2 = getNamedProps obj2.Elems
+        let namedProps1 = getNamedProps ValueCategory.RValue obj1.Elems
+        let namedProps2 = getNamedProps ValueCategory.LValue obj2.Elems
         do! unifyObjProps ctx env ips namedProps1 namedProps2
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
@@ -549,11 +552,45 @@ module rec Unify =
         return! Error(TypeError.TypeMismatch(t1, t2))
     }
 
-  let getNamedProps (elems: list<ObjTypeElem>) : Map<PropName, Property> =
+  let getNamedProps
+    (valueCategory: ValueCategory)
+    (elems: list<ObjTypeElem>)
+    : Map<PropName, Property> =
     elems
     |> List.choose (fun (elem: ObjTypeElem) ->
       match elem with
       | Property p -> Some(p.Name, p)
+      | Getter(name, fn) ->
+        match valueCategory with
+        | LValue -> None
+        | RValue ->
+          let t =
+            { Kind = TypeKind.Function fn
+              Provenance = None }
+
+          let p =
+            { Name = name
+              Optional = false
+              // TODO: check there's also a setter with the same name
+              Readonly = true
+              Type = t }
+
+          Some(name, p)
+      | Setter(name, fn) ->
+        match valueCategory with
+        | LValue ->
+          let t =
+            { Kind = TypeKind.Function fn
+              Provenance = None }
+
+          let p =
+            { Name = name
+              Optional = false
+              Readonly = false
+              Type = t }
+
+          Some(name, p)
+        | RValue -> None
       | _ -> None)
     |> Map.ofList
 

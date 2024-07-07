@@ -790,7 +790,8 @@ module rec Infer =
           let! objType = inferExpr ctx env obj
           let propKey = PropName.String(prop)
 
-          let! t = getPropType ctx env objType propKey optChain
+          let! t =
+            getPropType ctx env objType propKey optChain ValueCategory.RValue
 
           let mutable t = t
 
@@ -951,7 +952,7 @@ module rec Infer =
                 printfn "index = %A" index
                 failwith $"TODO: index can't be a {index}"
 
-            return! getPropType ctx env target key optChain
+            return! getPropType ctx env target key optChain ValueCategory.RValue
         | ExprKind.Range { Min = min; Max = max } ->
           // TODO: add a constraint that `min` and `max` must be numbers
           // We can do this by creating type variables for them with the
@@ -1286,14 +1287,14 @@ module rec Infer =
     (t: Type)
     (key: PropName)
     (optChain: bool)
+    (valueCategory: ValueCategory)
     : Result<Type, TypeError> =
     result {
-
       let t = prune t
 
       match t.Kind with
       | TypeKind.Object { Elems = elems } ->
-        match inferMemberAccess key elems with
+        match inferMemberAccess ctx key valueCategory elems with
         | Some t -> return t
         | None ->
           return! Error(TypeError.SemanticError $"Property {key} not found")
@@ -1333,11 +1334,11 @@ module rec Infer =
         match scheme with
         | Some scheme ->
           let! objType = expandScheme ctx env None scheme Map.empty typeArgs
-          return! getPropType ctx env objType key optChain
+          return! getPropType ctx env objType key optChain valueCategory
         | None ->
           let! scheme = env.GetScheme typeRefName
           let! objType = expandScheme ctx env None scheme Map.empty typeArgs
-          return! getPropType ctx env objType key optChain
+          return! getPropType ctx env objType key optChain valueCategory
       | TypeKind.Union types ->
         let undefinedTypes, definedTypes =
           List.partition
@@ -1353,7 +1354,7 @@ module rec Infer =
         else
           match definedTypes with
           | [ t ] ->
-            let! t = getPropType ctx env t key optChain
+            let! t = getPropType ctx env t key optChain valueCategory
 
             let undefined =
               { Kind = TypeKind.Literal(Literal.Undefined)
@@ -1418,7 +1419,7 @@ module rec Infer =
           // Instead of expanding the whole scheme which could be quite expensive
           // we get the property from the type and then only instantiate it.
           let t = arrayScheme.Type
-          let! prop = getPropType ctx env t key optChain
+          let! prop = getPropType ctx env t key optChain valueCategory
 
           let! prop =
             instantiateType ctx prop arrayScheme.TypeParams (Some [ elem ])
@@ -1435,18 +1436,26 @@ module rec Infer =
   // - setting: non-readonly property, setter, non-readonly mapped
   let inferMemberAccess
     // TODO: do the search first and then return the appropriate ObjTypeElem
+    (ctx: Ctx)
     (key: PropName)
+    (valueCategory: ValueCategory)
     (elems: list<ObjTypeElem>)
     : option<Type> =
 
+    // TODO: instead of using tryFind, use a for-loop with an early return
+    // we can use this to provide better error messages when trying to assign
+    // something that has a getter by no setter and similar situations.
     let elem =
       List.tryFind
         (fun (elem: ObjTypeElem) ->
           match elem with
           | Property { Name = name } -> name = key
-          | Method(name, _) -> name = key
-          | Getter(name, _) -> name = key
-          | Setter(name, _) -> name = key
+          | Method(name, _) ->
+            name = key && valueCategory = ValueCategory.RValue
+          | Getter(name, _) ->
+            name = key && valueCategory = ValueCategory.RValue
+          | Setter(name, _) ->
+            name = key && valueCategory = ValueCategory.LValue
           | Mapped _ ->
             failwith
               "TODO: inferMemberAccess - mapped (check if key is subtype of Mapped.TypeParam)"
@@ -1473,14 +1482,8 @@ module rec Infer =
             Provenance = None }
 
         Some t
-      | Getter(_name, fn) ->
-        // TODO: check if it's an lvalue
-        // TODO: handle throws
-        Some fn.Return
-      | Setter(_name, fn) ->
-        // TODO: check if it's an rvalue
-        // TODO: handle throws
-        Some fn.ParamList[0].Type
+      | Getter(_, fn) -> Some fn.Return // TODO: handle throws
+      | Setter(_, fn) -> Some fn.ParamList[0].Type // TODO: handle throws
       | Mapped _mapped -> failwith "TODO: inferMemberAccess - mapped"
       | Callable _ -> failwith "Callable signatures don't have a name"
       | Constructor _ -> failwith "Constructor signatures don't have a name"
@@ -1607,7 +1610,7 @@ module rec Infer =
           { TypeParams = None
             Self = None
             ParamList = []
-            ReturnType = retType
+            ReturnType = Some retType
             Throws = throws
             IsAsync = false }
 
@@ -1615,7 +1618,7 @@ module rec Infer =
         let! name = inferPropName ctx env name
         return Getter(name, f)
       | ObjTypeAnnElem.Setter { Name = name
-                                Param = fnParam
+                                Param = param
                                 Throws = throws } ->
 
         let undefined =
@@ -1626,7 +1629,7 @@ module rec Infer =
         let f: FuncSig =
           { TypeParams = None
             Self = None
-            ParamList = []
+            ParamList = [ param ]
             ReturnType = Some undefined
             Throws = throws
             IsAsync = false }
@@ -2667,7 +2670,15 @@ module rec Infer =
           return { Kind = kind; Provenance = None }
       | QualifiedIdent.Member(left, right) ->
         let! left = getQualifiedIdentType ctx env left
-        return! getPropType ctx env left (PropName.String right) false
+
+        return!
+          getPropType
+            ctx
+            env
+            left
+            (PropName.String right)
+            false
+            ValueCategory.RValue
     }
 
   let rec getLvalue
@@ -2692,7 +2703,7 @@ module rec Infer =
             printfn "index = %A" index
             failwith $"TODO: index can't be a {index}"
 
-        let! t = getPropType ctx env target key false
+        let! t = getPropType ctx env target key false ValueCategory.LValue
         return t, isMut
       | ExprKind.Member(target, name, _optChain) ->
         // TODO: check if `target` is a namespace
@@ -2701,7 +2712,16 @@ module rec Infer =
 
         // TODO: disallow optChain in lvalues
         let! target, isMut = getLvalue ctx env target
-        let! t = getPropType ctx env target (PropName.String name) false
+
+        let! t =
+          getPropType
+            ctx
+            env
+            target
+            (PropName.String name)
+            false
+            ValueCategory.LValue
+
         return t, isMut
       | _ ->
         return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
@@ -3853,7 +3873,13 @@ module rec Infer =
             | None -> failwith "Symbol not in scope"
 
           let! symbolIterator =
-            getPropType ctx blockEnv symbol (PropName.String "iterator") false
+            getPropType
+              ctx
+              blockEnv
+              symbol
+              (PropName.String "iterator")
+              false
+              ValueCategory.RValue
 
           // TODO: only lookup Symbol.iterator on Array for arrays and tuples
           let arrayScheme =
@@ -3866,7 +3892,14 @@ module rec Infer =
             | TypeKind.UniqueSymbol id -> PropName.Symbol id
             | _ -> failwith "Symbol.iterator is not a unique symbol"
 
-          let! _ = getPropType ctx blockEnv arrayScheme.Type propName false
+          let! _ =
+            getPropType
+              ctx
+              blockEnv
+              arrayScheme.Type
+              propName
+              false
+              ValueCategory.RValue
 
           // TODO: add a variant of `ExpandType` that allows us to specify a
           // predicate that can stop the expansion early.
@@ -3891,6 +3924,7 @@ module rec Infer =
                     rightType
                     (PropName.String "next")
                     false
+                    ValueCategory.RValue
 
                 match next.Kind with
                 | TypeKind.Function f ->
@@ -3901,6 +3935,7 @@ module rec Infer =
                       f.Return
                       (PropName.String "value")
                       false
+                      ValueCategory.RValue
                 | _ ->
                   return!
                     Error(

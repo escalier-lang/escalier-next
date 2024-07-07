@@ -1131,16 +1131,13 @@ let getEdges
               let propNameDeps = getPropNameDeps env locals name
 
               let fnDeps =
-                match returnType with
-                | Some returnType ->
-                  findDepsForTypeIdent
-                    env
-                    possibleDeps
-                    localsTree
-                    typeParamNames
-                    ident
-                    (SyntaxNode.TypeAnn returnType)
-                | None -> Set.empty
+                findDepsForTypeIdent
+                  env
+                  possibleDeps
+                  localsTree
+                  typeParamNames
+                  ident
+                  (SyntaxNode.TypeAnn returnType)
 
               Set.union propNameDeps fnDeps
             | ObjTypeAnnElem.Setter { Param = { TypeAnn = typeAnn }

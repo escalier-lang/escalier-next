@@ -263,8 +263,7 @@ module rec Migrate =
 
       ObjTypeAnnElem.Getter
         { Name = name
-          Self = makeSelfFuncParam ()
-          ReturnType = Some retType
+          ReturnType = retType
           Throws = None }
     | TsSetterSignature { Key = key
                           Param = fnParam
@@ -286,7 +285,6 @@ module rec Migrate =
 
       ObjTypeAnnElem.Setter
         { Name = name
-          Self = makeSelfFuncParam ()
           Param = fnParam
           Throws = None }
 

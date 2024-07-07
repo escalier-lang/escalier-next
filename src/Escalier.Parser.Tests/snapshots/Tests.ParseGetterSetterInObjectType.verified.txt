@@ -1,0 +1,52 @@
+﻿input: 
+    type Obj = {
+      get foo() -> string,
+      set foo(value: string),
+    };
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  { Name = "Obj"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Getter
+                                { Name = String "foo"
+                                  ReturnType =
+                                   { Kind = Keyword String
+                                     Span = { Start = (Ln: 3, Col: 20)
+                                              Stop = (Ln: 3, Col: 26) }
+                                     InferredType = None }
+                                  Throws = None };
+                              Setter
+                                { Name = String "foo"
+                                  Param =
+                                   { Pattern =
+                                      { Kind = Ident { Name = "value"
+                                                       IsMut = false
+                                                       Assertion = None }
+                                        Span = { Start = (Ln: 4, Col: 15)
+                                                 Stop = (Ln: 4, Col: 20) }
+                                        InferredType = None }
+                                     TypeAnn =
+                                      Some { Kind = Keyword String
+                                             Span = { Start = (Ln: 4, Col: 22)
+                                                      Stop = (Ln: 4, Col: 28) }
+                                             InferredType = None }
+                                     Optional = false }
+                                  Throws = None }]
+                            Immutable = false }
+                       Span = { Start = (Ln: 2, Col: 16)
+                                Stop = (Ln: 5, Col: 6) }
+                       InferredType = None }
+                    TypeParams = None }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 6, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 6, Col: 5) } }] }

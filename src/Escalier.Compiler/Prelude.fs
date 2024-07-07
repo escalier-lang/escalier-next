@@ -125,6 +125,9 @@ module Prelude =
             match expr.Kind with
             | Syntax.ExprKind.Function _ -> (false, state)
             | _ -> (true, state)
+        ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+        ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+        ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
         ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
         ExprVisitor.VisitPattern =
           fun (pat, state) ->

@@ -434,6 +434,9 @@ module rec Infer =
                       | _ -> (true, state)
                     | _ -> (true, state)
 
+                ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+                ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+                ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
                 VisitStmt = fun (_, state) -> (true, state)
                 VisitPattern = fun (_, state) -> (false, state)
                 VisitTypeAnn = fun (_, state) -> (false, state)
@@ -1012,12 +1015,20 @@ module rec Infer =
             }
 
           return! instantiate t
-        | _ ->
-          printfn "expr.Kind = %A" expr.Kind
-
+        | ExprKind.JSXElement jsxElem -> return! inferJsxElement ctx env jsxElem
+        | ExprKind.JSXFragment _ ->
+          return!
+            Error(TypeError.NotImplemented "TODO: inferExpr - JSX fragments")
+        | ExprKind.Do body ->
+          return!
+            Error(TypeError.NotImplemented "TODO: inferExpr - Do expression")
+        | ExprKind.TemplateLiteral templateLiteral ->
+          return!
+            Error(TypeError.NotImplemented "TODO: inferExpr - TemplateLiteral")
+        | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
           return!
             Error(
-              TypeError.NotImplemented "TODO: finish implementing infer_expr"
+              TypeError.NotImplemented "TODO: inferExpr - TaggedTemplateLiteral"
             )
       }
 
@@ -1029,6 +1040,105 @@ module rec Infer =
         t.Provenance <- Some(Provenance.Expr expr)
         t)
       r
+
+  let inferJsxElement
+    (ctx: Ctx)
+    (env: Env)
+    (jsxElem: JSXElement)
+    : Result<Type, TypeError> =
+    result {
+      printfn "inferJsxElement"
+
+      let { JSXElement.Opening = { Attrs = attrs }
+            Children = children } =
+        jsxElem
+
+      let t =
+        { Kind =
+            TypeKind.TypeRef
+              { Name =
+                  QualifiedIdent.Member(
+                    QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
+                    "Element"
+                  )
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
+
+      let! maybeElems =
+        attrs
+        |> List.traverseResultM (fun (attr: JSXAttr) ->
+          result {
+            match attr.Value with
+            | None -> return None
+            | Some value ->
+              let! t =
+                match value with
+                | JSXAttrValue.Str literal ->
+                  let t =
+                    { Kind = TypeKind.Literal(literal)
+                      Provenance = None }
+
+                  Result.Ok(t)
+                | JSXAttrValue.JSXExprContainer jsxExprContainer ->
+                  inferExpr ctx env jsxExprContainer.Expr
+                | JSXAttrValue.JSXElement jsxElement ->
+                  inferJsxElement ctx env jsxElement
+                | JSXAttrValue.JSXFragment jsxFragment ->
+                  Error(
+                    TypeError.NotImplemented
+                      "TODO: inferJsxElement - JSXFragment"
+                  )
+
+              return
+                Some(
+                  ObjTypeElem.Property
+                    { Name = PropName.String(attr.Name)
+                      Optional = false
+                      Readonly = false
+                      Type = t }
+                )
+          })
+
+      let elems = maybeElems |> List.choose id
+
+      // TODO: check if `children` contains any elements.  If it does, add a
+      // `children` property to `elems` with the type `ReactNode[]`.
+      let propsType =
+        { Kind =
+            TypeKind.Object
+              { Extends = None
+                Implements = None
+                Elems = elems
+                Immutable = false
+                Interface = false }
+          Provenance = None }
+
+      let intrinsics =
+        { Kind =
+            TypeKind.TypeRef
+              { Name =
+                  QualifiedIdent.Member(
+                    QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
+                    "IntrinsicElements"
+                  )
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
+
+      let key =
+        { Kind = TypeKind.Literal(Literal.String "div")
+          Provenance = None }
+
+      let div =
+        { Kind = TypeKind.Index(intrinsics, key)
+          Provenance = None }
+
+      // TODO: check for excess properties
+      do! unify ctx env None propsType div
+
+      return t
+    }
 
   let inferFuncSig
     (ctx: Ctx)
@@ -2736,6 +2846,9 @@ module rec Infer =
             match expr.Kind with
             | ExprKind.Function _ -> (false, state)
             | _ -> (true, state)
+        ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+        ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+        ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
         ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
         ExprVisitor.VisitPattern =
           fun (pat, state) ->
@@ -2844,9 +2957,9 @@ module rec Infer =
   let getKey (ident: QDeclIdent) (name: string) =
     let key: QualifiedIdent =
       match ident with
-      | Type { Parts = parts } ->
+      | QDeclIdent.Type { Parts = parts } ->
         { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-      | Value { Parts = parts } ->
+      | QDeclIdent.Value { Parts = parts } ->
         { Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
     key

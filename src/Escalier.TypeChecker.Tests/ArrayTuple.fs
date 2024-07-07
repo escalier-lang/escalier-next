@@ -8,17 +8,7 @@ open Escalier.Parser
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker
 
-type Assert with
-
-  static member inline Value(env: Env, name: string, expected: string) =
-    let t, _ = env.FindValue name
-    Assert.Equal(expected, t.ToString())
-
-  static member inline Type(env: Env, name: string, expected: string) =
-    let scheme = env.FindScheme name
-    Assert.Equal(expected, scheme.ToString())
-
-type CompileError = Prelude.CompileError
+open TestUtils
 
 let inferModule src =
   result {
@@ -530,3 +520,7 @@ let DescructuringArray () =
     }
 
   Assert.False(Result.isError res)
+
+// TODO: test .map(), .forEach(), .filter(), .reduce(), etc.
+// In particular we want to check that the type of the callback is inferred correctly
+// and that the return type of the function is inferred correctly.

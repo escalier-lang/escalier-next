@@ -239,6 +239,9 @@ let findDepsForValueIdent
 
             (true, state)
           | _ -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn =
@@ -264,6 +267,9 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
 
   let visitor: SyntaxVisitor<unit> =
     { ExprVisitor.VisitExpr = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn =
@@ -291,6 +297,9 @@ let findDepsForTypeIdent
 
   let visitor: SyntaxVisitor<list<QualifiedIdent>> =
     { ExprVisitor.VisitExpr = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn =
@@ -500,6 +509,9 @@ let rec findCaptures
             // Don't recurse since `findCaptures` already does that
             (false, localNames)
           | _ -> (true, localNames)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt =
         fun (stmt, state) ->
           let bindingNames =

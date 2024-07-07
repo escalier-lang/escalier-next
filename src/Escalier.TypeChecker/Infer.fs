@@ -2283,20 +2283,36 @@ module rec Infer =
         for KeyValue(name, binding) in patBindings do
           newEnv <- newEnv.AddValue name binding
 
-        let! initType = inferExpr ctx newEnv init
-
         match elseClause with
         | None ->
           match typeAnn with
           | Some typeAnn ->
             let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
-            do! unify ctx newEnv invariantPaths initType typeAnnType
-            do! unify ctx newEnv None typeAnnType patType
-          | None -> do! unify ctx newEnv invariantPaths initType patType
+            match init.Kind with
+            | ExprKind.Function { Sig = fnSig; Body = body } ->
+              let! fn = inferFuncSig ctx env fnSig
+
+              let initType =
+                { Kind = TypeKind.Function fn
+                  Provenance = None }
+                
+              do! unify ctx newEnv invariantPaths initType typeAnnType
+              do! unify ctx newEnv None typeAnnType patType
+              
+              let! _ = inferFuncBody ctx env fnSig fn body
+              
+              ()
+            | _ ->
+              let! initType = inferExpr ctx newEnv init
+              do! unify ctx newEnv invariantPaths initType typeAnnType
+              do! unify ctx newEnv None typeAnnType patType
+          | None ->
+            let! initType = inferExpr ctx newEnv init
+            do! unify ctx newEnv invariantPaths initType patType
         | Some elseClause ->
-          // TODO: handle elseClause
           // TODO: udpate inferBlockOrExpr to return `never` if the block contains
           // a return statement
+          let! initType = inferExpr ctx newEnv init
 
           let initType =
             match (prune initType).Kind with

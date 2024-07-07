@@ -100,6 +100,9 @@ let findFunctions (expr: Syntax.Expr) : list<Syntax.Function> =
             fns <- f :: fns
             (false, state)
           | _ -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)

@@ -6,6 +6,9 @@ module rec ExprVisitor =
 
   type SyntaxVisitor<'S> =
     { VisitExpr: Expr * 'S -> bool * 'S
+      VisitJsxElement: JSXElement * 'S -> bool * 'S
+      VisitJsxFragment: JSXFragment * 'S -> bool * 'S
+      VisitJsxText: JSXText * 'S -> bool * 'S
       VisitStmt: Stmt * 'S -> bool * 'S
       VisitPattern: Pattern * 'S -> bool * 'S
       VisitTypeAnn: TypeAnn * 'S -> bool * 'S
@@ -125,11 +128,88 @@ module rec ExprVisitor =
                 List.iter (walkStmt visitor state) block.Stmts
               | BlockOrExpr.Expr expr -> walk expr)
             elseBranch
-        | ExprKind.JSXElement(_) -> failwith "TODO: walkExpr - JSXElement"
-        | ExprKind.JSXFragment(_) -> failwith "TODO: walkExpr - JSXFragment"
+        | ExprKind.JSXElement { Opening = opening
+                                Children = children
+                                Closing = closing } ->
+          for attr in opening.Attrs do
+            match attr.Value with
+            | None -> ()
+            | Some value ->
+              match value with
+              | JSXAttrValue.Str literal -> ()
+              | JSXAttrValue.JSXExprContainer { Expr = expr } -> walk expr
+              | JSXAttrValue.JSXElement jsxElement ->
+                walkJsxElement visitor state jsxElement
+              | JSXAttrValue.JSXFragment jsxFragment ->
+                walkJsxFragment visitor state jsxFragment
+        | ExprKind.JSXFragment jsxFragment ->
+          walkJsxFragment visitor state jsxFragment
 
     walk expr
 
+  let walkJsxElement
+    (visitor: SyntaxVisitor<'S>)
+    (state: 'S)
+    (jsxElement: JSXElement)
+    : unit =
+    let rec walk (jsxElement: JSXElement) : unit =
+      let cont, state = visitor.VisitJsxElement(jsxElement, state)
+
+      if cont then
+        for attr in jsxElement.Opening.Attrs do
+          match attr.Value with
+          | None -> failwith "todo"
+          | Some value ->
+            match value with
+            | JSXAttrValue.Str literal -> ()
+            | JSXAttrValue.JSXExprContainer { Expr = expr } ->
+              walkExpr visitor state expr
+            | JSXAttrValue.JSXElement jsxElement -> walk jsxElement
+            | JSXAttrValue.JSXFragment jsxFragment ->
+              walkJsxFragment visitor state jsxFragment
+
+        for child in jsxElement.Children do
+          match child with
+          | JSXElementChild.JSXText jsxText -> walkJsxText visitor state jsxText
+          | JSXElementChild.JSXElement jsxElement -> walk jsxElement
+          | JSXElementChild.JSXFragment jsxFragment ->
+            walkJsxFragment visitor state jsxFragment
+          | JSXElementChild.JSXExprContainer { Expr = expr } ->
+            walkExpr visitor state expr
+
+    walk jsxElement
+
+  let walkJsxFragment
+    (visitor: SyntaxVisitor<'S>)
+    (state: 'S)
+    (jsxFragment: JSXFragment)
+    : unit =
+    let rec walk (jsxFragment: JSXFragment) : unit =
+      let cont, state = visitor.VisitJsxFragment(jsxFragment, state)
+
+      if cont then
+        for child in jsxFragment.Children do
+          match child with
+          | JSXElementChild.JSXText jsxText -> walkJsxText visitor state jsxText
+          | JSXElementChild.JSXElement jsxElement ->
+            walkJsxElement visitor state jsxElement
+          | JSXElementChild.JSXFragment jsxFragment -> walk jsxFragment
+          | JSXElementChild.JSXExprContainer { Expr = expr } ->
+            walkExpr visitor state expr
+
+    walk jsxFragment
+
+  let walkJsxText
+    (visitor: SyntaxVisitor<'S>)
+    (state: 'S)
+    (jsxText: JSXText)
+    : unit =
+    let cont, state = visitor.VisitJsxText(jsxText, state)
+
+    if cont then
+      ()
+
+  // TODO: update walkDecl to be more like walkExpr and walkStmt
   let walkDecl (visitor: SyntaxVisitor<'S>) (state: 'S) (decl: Decl) : unit =
     match decl.Kind with
     | DeclKind.VarDecl { Pattern = pattern

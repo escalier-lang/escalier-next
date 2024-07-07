@@ -912,6 +912,48 @@ let InferOverloadsWithNoMatch () =
 
   Assert.False(Result.isError result)
 
+[<Fact(Skip = "TODO: Infer type signature before body in this situation")>]
+let InferParamsFromCallbackType () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number};
+        declare let foo: fn (cb: fn (Point) -> number) -> number;
+
+        let result = foo(fn (p) => p.x);
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 0)
+      Assert.Value(env, "result", "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: Infer type signature before body in this situation")>]
+let InferParamsFromVarDeclTypeAnnotation () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number};
+        type Foo = fn (cb: fn (Point) -> number) -> number;
+
+        let foo: Foo = fn (p) => p.x;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 0)
+      Assert.Value(env, "result", "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
 // TODO:
 // - write tests for functions with optional params
 // - write tests for overloaded functions

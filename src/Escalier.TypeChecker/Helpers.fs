@@ -85,6 +85,9 @@ let findBindingNames (p: Syntax.Pattern) : Set<string> =
           match expr.Kind with
           | ExprKind.Function _ -> (false, state)
           | _ -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (false, state)
       ExprVisitor.VisitPattern =
         fun (pat, state) ->
@@ -116,6 +119,9 @@ let findReturns (body: BlockOrExpr) : list<Expr> =
           match expr.Kind with
           | ExprKind.Function _ -> (false, state)
           | _ -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (false, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt =
         fun (stmt, state) ->
           match stmt.Kind with
@@ -186,6 +192,9 @@ let findThrows (body: BlockOrExpr) : list<Type> =
 
             (true, state) // there might be other `throw` expressions inside
           | _ -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
@@ -234,6 +243,9 @@ let findThrowsInBlock (block: Block) : list<Type> =
 
             (true, state) // there might be other `throw` expressions inside
           | _ -> (true, state)
+      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
       ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)

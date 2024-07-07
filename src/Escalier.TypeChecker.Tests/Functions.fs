@@ -933,14 +933,14 @@ let InferParamsFromCallbackType () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: Infer type signature before body in this situation")>]
+[<Fact>]
 let InferParamsFromVarDeclTypeAnnotation () =
   let result =
     result {
       let src =
         """
         type Point = {x: number, y: number};
-        type Foo = fn (cb: fn (Point) -> number) -> number;
+        type Foo = fn (p: Point) -> number;
 
         let foo: Foo = fn (p) => p.x;
         """
@@ -948,10 +948,9 @@ let InferParamsFromVarDeclTypeAnnotation () =
       let! ctx, env = inferModule src
 
       Assert.Equal(ctx.Report.Diagnostics.Length, 0)
-      Assert.Value(env, "result", "number")
+      Assert.Value(env, "foo", "Foo")
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 // TODO:

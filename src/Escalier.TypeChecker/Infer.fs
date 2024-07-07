@@ -2288,6 +2288,7 @@ module rec Infer =
           match typeAnn with
           | Some typeAnn ->
             let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+
             match init.Kind with
             | ExprKind.Function { Sig = fnSig; Body = body } ->
               let! fn = inferFuncSig ctx env fnSig
@@ -2295,12 +2296,12 @@ module rec Infer =
               let initType =
                 { Kind = TypeKind.Function fn
                   Provenance = None }
-                
+
               do! unify ctx newEnv invariantPaths initType typeAnnType
               do! unify ctx newEnv None typeAnnType patType
-              
+
               let! _ = inferFuncBody ctx env fnSig fn body
-              
+
               ()
             | _ ->
               let! initType = inferExpr ctx newEnv init
@@ -2659,15 +2660,6 @@ module rec Infer =
             return callee
         }
 
-      let! args =
-        List.traverseResultM
-          (fun arg ->
-            result {
-              let! argType = inferExpr ctx env arg
-              return arg, argType
-            })
-          args
-
       // TODO: require the optional params come after the required params
       // TODO: require that if there is a rest param, it comes last
       let optionalParams, requiredParams =
@@ -2686,20 +2678,27 @@ module rec Infer =
 
       let requiredArgs, optionalArgs = List.splitAt requiredParams.Length args
 
-      for (arg, argType), param in List.zip requiredArgs requiredParams do
-        if
-          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
-        then
-          ()
-        else
-          let! invariantPaths =
-            checkMutability
-              (getTypePatBindingPaths param.Pattern)
-              (getExprBindingPaths env arg)
+      for arg, param in List.zip requiredArgs requiredParams do
+        let! invariantPaths =
+          checkMutability
+            (getTypePatBindingPaths param.Pattern)
+            (getExprBindingPaths env arg)
 
+        match arg.Kind with
+        | ExprKind.Function { Sig = fnSig; Body = body } ->
+          let! fn = inferFuncSig ctx env fnSig
+
+          let argType =
+            { Kind = TypeKind.Function fn
+              Provenance = None }
+
+          // TODO: dedupe with code below
           match unify ctx env invariantPaths argType param.Type with
           | Ok _ -> ()
-          | Error(reason) ->
+          | Error reason ->
+            // QUESTION: Does unifying the param with `never` actually do
+            // anything or could we skip it?  Does this have to do with
+            // params whose type annotations are or include type params?
             let never =
               { Kind = TypeKind.Keyword Keyword.Never
                 Provenance = None }
@@ -2711,6 +2710,35 @@ module rec Infer =
                   $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
                 Reasons = [ reason ] }
             )
+
+          let! _ = inferFuncBody ctx env fnSig fn body
+          ()
+        | _ ->
+          let! argType = inferExpr ctx env arg
+
+          if
+            param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+          then
+            ()
+          else
+            // TODO: dedupe with code above
+            match unify ctx env invariantPaths argType param.Type with
+            | Ok _ -> ()
+            | Error reason ->
+              // QUESTION: Does unifying the param with `never` actually do
+              // anything or could we skip it?  Does this have to do with
+              // params whose type annotations are or include type params?
+              let never =
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
+
+              do! unify ctx env ips never param.Type
+
+              ctx.Report.AddDiagnostic(
+                { Description =
+                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                  Reasons = [ reason ] }
+              )
 
       let optionalParams, restParams =
         optionalParams
@@ -2743,7 +2771,9 @@ module rec Infer =
 
       let mutable reasons: list<TypeError> = []
 
-      for (arg, argType), param in List.zip optionalArgs optionalParams do
+      for arg, param in List.zip optionalArgs optionalParams do
+        let! argType = inferExpr ctx env arg
+
         if
           param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
         then
@@ -2760,7 +2790,7 @@ module rec Infer =
 
       match restArgs, restParam with
       | Some args, Some param ->
-        let args = List.map (fun (_arg, argType) -> argType) args
+        let! args = List.traverseResultM (fun arg -> inferExpr ctx env arg) args
 
         let tuple =
           { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
@@ -3291,7 +3321,7 @@ module rec Infer =
           // declarations to be able to unify with any free type variables
           // from this declaration.  We generalize things in `inferModule` and
           // `inferTreeRec`.
-          let! newBindings, newSchemes = Infer.inferVarDecl ctx newEnv varDecl
+          let! newBindings, newSchemes = inferVarDecl ctx newEnv varDecl
 
           let inferredTypes = getAllBindingPatterns varDecl.Pattern
 

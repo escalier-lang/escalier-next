@@ -912,14 +912,14 @@ let InferOverloadsWithNoMatch () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO: Infer type signature before body in this situation")>]
+[<Fact>]
 let InferParamsFromCallbackType () =
   let result =
     result {
       let src =
         """
         type Point = {x: number, y: number};
-        declare let foo: fn (cb: fn (Point) -> number) -> number;
+        declare let foo: fn (cb: fn (p: Point) -> number) -> number;
 
         let result = foo(fn (p) => p.x);
         """

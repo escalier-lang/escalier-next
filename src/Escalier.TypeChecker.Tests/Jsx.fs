@@ -27,6 +27,32 @@ let InferJsx () =
 
   Assert.False(Result.isError res)
 
+[<Fact(Skip = "TODO")>]
+let InferJsxWithCallback () =
+  let res =
+    result {
+      let src =
+        """
+        import "react" {React};
+        let foo = <div
+          onClick={fn (event) {
+            let x = event.clientX;
+            let y = event.clientY;
+            console.log(`x: ${x}, y: ${y}`);
+          }}
+        ></div>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "foo", "React.JSX.Element")
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+
 [<Fact>]
 let InferJsxDetectsIncorrectProps () =
   let res =

@@ -830,7 +830,7 @@ let InferHTMLProps () =
       )
     }
 
-  // printfn "result = %A" result
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 

@@ -275,7 +275,7 @@ let UnificationFailure () =
     )
 
   try
-    inferExpr ctx env ast |> ignore
+    inferExpr ctx env None ast |> ignore
   with ex ->
     Assert.Equal("Type mismatch 3 != true", ex.Message)
 
@@ -291,7 +291,7 @@ let UndefinedSymbol () =
     )
 
   try
-    inferExpr ctx env ast |> ignore
+    inferExpr ctx env None ast |> ignore
   with ex ->
     Assert.Equal("Undefined symbol foo", ex.Message)
 
@@ -345,7 +345,7 @@ let RecursiveUnification () =
     )
 
   try
-    inferExpr ctx env ast |> ignore
+    inferExpr ctx env None ast |> ignore
   with ex ->
     Assert.Equal("Recursive unification", ex.Message)
 

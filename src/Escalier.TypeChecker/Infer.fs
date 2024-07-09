@@ -585,7 +585,7 @@ module rec Infer =
 
           return result
         | ExprKind.New call ->
-          let! callee = inferExpr ctx env typeAnn call.Callee
+          let! callee = inferExpr ctx env None call.Callee
           let! callee = expandType ctx env None Map.empty callee
 
           match callee.Kind with
@@ -685,7 +685,7 @@ module rec Infer =
             { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
               Provenance = None }
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-          let! conditionTy = inferExpr ctx env typeAnn condition
+          let! conditionTy = inferExpr ctx env None condition
 
           let! thenBranchTy =
             inferBlockOrExpr ctx env (thenBranch |> BlockOrExpr.Block)
@@ -714,7 +714,7 @@ module rec Infer =
           for KeyValue(name, binding) in patBindings do
             newEnv <- newEnv.AddValue name binding
 
-          let! initType = inferExpr ctx newEnv typeAnn init
+          let! initType = inferExpr ctx newEnv None init
 
           // We expand the type here so that we can filter out any
           // `undefined` types from the union if the expanded type
@@ -753,7 +753,41 @@ module rec Infer =
         | ExprKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable spreadTypes = []
 
-          // TODO: Check if `typeAnn` is an object type.
+          let! map =
+            result {
+              match typeAnn with
+              | Some typeAnn ->
+                let! t = expandType ctx env None Map.empty typeAnn
+
+                match t.Kind with
+                | TypeKind.Object { Elems = elems } ->
+                  let mutable map = Map.empty
+
+                  for elem in elems do
+                    match elem with
+                    | Callable ``function`` ->
+                      return!
+                        Error(
+                          TypeError.SemanticError
+                            "Callable signatures cannot appear in object literals"
+                        )
+                    | Constructor ``function`` ->
+                      return!
+                        Error(
+                          TypeError.SemanticError
+                            "Constructor signatures cannot appear in object literals"
+                        )
+                    | Method(name, fn) -> failwith "todo"
+                    | Getter(name, fn) -> failwith "todo"
+                    | Setter(name, fn) -> failwith "todo"
+                    | Mapped mapped -> failwith "todo"
+                    | Property { Name = name; Type = t } ->
+                      map <- Map.add name t map
+
+                  return Some(map)
+                | _ -> return None
+              | None -> return None
+            }
 
           let! elems =
             List.traverseResultM
@@ -761,8 +795,16 @@ module rec Infer =
                 result {
                   match elem with
                   | ObjElem.Property(_span, key, value) ->
-                    let! t = inferExpr ctx env None value
                     let! name = inferPropName ctx env key
+
+                    let typeAnn =
+                      match map with
+                      | None -> None
+                      | Some map ->
+                        // TODO: report an error if we can't find `name` in `map`.
+                        Map.tryFind name map
+
+                    let! t = inferExpr ctx env typeAnn value
 
                     return
                       Some(
@@ -812,7 +854,7 @@ module rec Infer =
           let! t, _ = inferClass ctx env cls false
           return t
         | ExprKind.Member(obj, prop, optChain) ->
-          let! objType = inferExpr ctx env typeAnn obj
+          let! objType = inferExpr ctx env None obj
           let propKey = PropName.String(prop)
 
           let! t =
@@ -866,7 +908,7 @@ module rec Infer =
           // TODO: remove `self` from the type of the function
           return t
         | ExprKind.Await(await) ->
-          let! t = inferExpr ctx env typeAnn await.Value
+          let! t = inferExpr ctx env None await.Value
 
           match t.Kind with
           | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise"
@@ -877,7 +919,7 @@ module rec Infer =
         | ExprKind.Throw expr ->
           // We throw the type away here because we don't need it, but
           // `expr` will still have its `InferredType` field set.
-          let _ = inferExpr ctx env typeAnn expr
+          let _ = inferExpr ctx env None expr
 
           let never =
             { Kind = TypeKind.Keyword Keyword.Never
@@ -945,12 +987,12 @@ module rec Infer =
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
-          let! exprType = inferExpr ctx env typeAnn expr
+          let! exprType = inferExpr ctx env None expr
           let! _, bodyTypes = inferMatchCases ctx env exprType cases
           return (union bodyTypes)
         | ExprKind.Index(target, index, optChain) ->
-          let! target = inferExpr ctx env typeAnn target
-          let! index = inferExpr ctx env typeAnn index
+          let! target = inferExpr ctx env None target
+          let! index = inferExpr ctx env None index
 
           let target = prune target
           let index = prune index
@@ -982,8 +1024,8 @@ module rec Infer =
           // TODO: add a constraint that `min` and `max` must be numbers
           // We can do this by creating type variables for them with the
           // proper constraint and then unifying them with the inferred types
-          let! min = inferExpr ctx env typeAnn min
-          let! max = inferExpr ctx env typeAnn max
+          let! min = inferExpr ctx env None min
+          let! max = inferExpr ctx env None max
 
           let scheme = env.TryFindScheme "RangeIterator"
 
@@ -996,7 +1038,7 @@ module rec Infer =
               Provenance = None }
         | ExprKind.Assign(_operation, left, right) ->
           // TODO: handle update assign operations
-          let! rightType = inferExpr ctx env typeAnn right
+          let! rightType = inferExpr ctx env None right
 
           let! t, isMut = getLvalue ctx env left
 
@@ -1008,7 +1050,7 @@ module rec Infer =
 
           return rightType
         | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
-          let! t = inferExpr ctx env typeAnn target
+          let! t = inferExpr ctx env None target
 
           let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
 

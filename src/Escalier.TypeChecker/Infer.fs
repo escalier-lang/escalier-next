@@ -759,6 +759,8 @@ module rec Infer =
               | Some typeAnn ->
                 let! t = expandType ctx env None Map.empty typeAnn
 
+                // TODO: extract into a helper function and dedupe with
+                // inferJsxElement
                 match t.Kind with
                 | TypeKind.Object { Elems = elems } ->
                   let mutable map = Map.empty
@@ -1117,7 +1119,7 @@ module rec Infer =
             Children = children } =
         jsxElem
 
-      let t =
+      let retType =
         { Kind =
             TypeKind.TypeRef
               { Name =
@@ -1127,55 +1129,6 @@ module rec Infer =
                   )
                 TypeArgs = None
                 Scheme = None }
-          Provenance = None }
-
-      let! maybeElems =
-        attrs
-        |> List.traverseResultM (fun (attr: JSXAttr) ->
-          result {
-            match attr.Value with
-            | None -> return None
-            | Some value ->
-              let! t =
-                match value with
-                | JSXAttrValue.Str literal ->
-                  let t =
-                    { Kind = TypeKind.Literal(literal)
-                      Provenance = None }
-
-                  Result.Ok(t)
-                | JSXAttrValue.JSXExprContainer jsxExprContainer ->
-                  inferExpr ctx env None jsxExprContainer.Expr
-                | JSXAttrValue.JSXElement jsxElement ->
-                  inferJsxElement ctx env jsxElement
-                | JSXAttrValue.JSXFragment jsxFragment ->
-                  Error(
-                    TypeError.NotImplemented
-                      "TODO: inferJsxElement - JSXFragment"
-                  )
-
-              return
-                Some(
-                  ObjTypeElem.Property
-                    { Name = PropName.String(attr.Name)
-                      Optional = false
-                      Readonly = false
-                      Type = t }
-                )
-          })
-
-      let elems = maybeElems |> List.choose id
-
-      // TODO: check if `children` contains any elements.  If it does, add a
-      // `children` property to `elems` with the type `ReactNode[]`.
-      let propsType =
-        { Kind =
-            TypeKind.Object
-              { Extends = None
-                Implements = None
-                Elems = elems
-                Immutable = false
-                Interface = false }
           Provenance = None }
 
       let intrinsics =
@@ -1190,18 +1143,97 @@ module rec Infer =
                 Scheme = None }
           Provenance = None }
 
-      let key =
-        { Kind = TypeKind.Literal(Literal.String "div")
-          Provenance = None }
+      let! componentProps =
+        match jsxElem.Opening.Name with
+        | QualifiedIdent.Ident s ->
+          if System.Char.IsLower(s, 0) then
+            let key =
+              { Kind = TypeKind.Literal(Literal.String s)
+                Provenance = None }
 
-      let div =
-        { Kind = TypeKind.Index(intrinsics, key)
-          Provenance = None }
+            let tag =
+              { Kind = TypeKind.Index(intrinsics, key)
+                Provenance = None }
 
-      // TODO: check for excess properties
-      do! unify ctx env None propsType div
+            expandType ctx env None Map.empty tag
+          else
+            Result.Error(
+              TypeError.NotImplemented
+                "TODO: inferJsxElement - handle capitalized JSXElements"
+            )
 
-      return t
+        | QualifiedIdent.Member(left, right) ->
+          failwith "TODO: inferJsxElement - handle qualified idents"
+
+      // TODO: extract into a helper function and dedupe with inferExpr
+      let! componentPropsMap =
+        result {
+          match componentProps.Kind with
+          | TypeKind.Object { Elems = elems } ->
+            let mutable map = Map.empty
+
+            for elem in elems do
+              match elem with
+              | Callable ``function`` ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "Callable signatures cannot appear in object literals"
+                  )
+              | Constructor ``function`` ->
+                return!
+                  Error(
+                    TypeError.SemanticError
+                      "Constructor signatures cannot appear in object literals"
+                  )
+              | Method(name, fn) -> failwith "todo"
+              | Getter(name, fn) -> failwith "todo"
+              | Setter(name, fn) -> failwith "todo"
+              | Mapped mapped -> failwith "todo"
+              | Property { Name = name; Type = t } -> map <- Map.add name t map
+
+            return map
+          | _ ->
+            return!
+              Error(TypeError.SemanticError "componentProps is not an object")
+        }
+
+      for attr in attrs do
+        match Map.tryFind (PropName.String(attr.Name)) componentPropsMap with
+        | None ->
+          // TODO: report as diagnostics so we can collect multiple errors
+          return!
+            Error(
+              TypeError.SemanticError
+                $"{attr.Name} is not a valid prop for this component"
+            )
+        | Some t ->
+          match attr.Value with
+          | None ->
+            failwith "TODO: inferJsxElement - attr.Value should not be optional"
+          | Some value ->
+            match value with
+            | Str literal ->
+              let prop =
+                { Kind = TypeKind.Literal literal
+                  Provenance = None }
+
+              do! unify ctx env None prop t
+            | JSXAttrValue.JSXExprContainer jsxExprContainer ->
+              let! propType = inferExpr ctx env (Some t) jsxExprContainer.Expr
+
+              // QUESTION: Do we still need to unify if we have a type annotation
+              // that we pass to `inferExpr`?
+              do! unify ctx env None propType t
+            | JSXAttrValue.JSXElement jsxElement ->
+              // We'll need to pass a type annotation to `inferJsxElement` similar
+              // to what we do for `inferExpr` to handle cases where a prop expects
+              // a certain type of JSX Element
+              failwith "TODO: inferJsxElement - JSXElement"
+            | JSXAttrValue.JSXFragment jsxFragment ->
+              failwith "TODO: inferJsxElement - JSXFragment"
+
+      return retType
     }
 
   let inferFuncSig

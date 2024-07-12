@@ -935,7 +935,7 @@ module rec Unify =
               | _ -> ()
 
             match t with
-            | Some t -> return t
+            | Some t -> return! expand mapping t
             | None ->
               printfn $"target = {target}"
               return! Error(TypeError.SemanticError $"Property {key} not found")
@@ -1041,6 +1041,8 @@ module rec Unify =
                   let! c =
                     expandType ctx env ips mapping m.TypeParam.Constraint
 
+                  // TODO: Document this because I don't remember why we need to
+                  // do this.
                   match c.Kind with
                   | TypeKind.Union types ->
                     let! elems =
@@ -1172,7 +1174,34 @@ module rec Unify =
                 | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
                 | Error errorValue -> failwith $"{name} is not in scope"
 
+          // printfn $"expanded TypeRef {name}<{typeArgs}> to {t}"
+
           return! expand mapping t
+        | TypeKind.Intersection types ->
+          let! types = types |> List.traverseResultM (expand mapping)
+          let mutable allElems = []
+          let mutable containsNonObjectType = false
+
+          for t in types do
+            match (prune t).Kind with
+            | TypeKind.Object { Elems = elems } -> allElems <- allElems @ elems
+            | _ -> containsNonObjectType <- true
+
+          if containsNonObjectType then
+            // Needed for test case: InferTypeParamInIntersection
+            return
+              { Kind = TypeKind.Intersection types
+                Provenance = None }
+          else
+            return
+              { Kind =
+                  TypeKind.Object
+                    { Extends = None
+                      Implements = None
+                      Elems = allElems
+                      Immutable = false
+                      Interface = false }
+                Provenance = None }
         | _ ->
           // Replaces type parameters with their corresponding type arguments
           // TODO: do this more consistently

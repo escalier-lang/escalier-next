@@ -553,6 +553,7 @@ module rec Infer =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
+  /// TODO(#286): Update `inferExpr` to check `typeAnn` for all expression types
   let inferExpr
     (ctx: Ctx)
     (env: Env)
@@ -775,8 +776,16 @@ module rec Infer =
                       match map with
                       | None -> None
                       | Some map ->
-                        // TODO: report an error if we can't find `name` in `map`.
-                        Map.tryFind name map
+                        match Map.tryFind name map with
+                        | Some t -> Some t
+                        | None ->
+                          // TODO(#287): Excess property checking
+                          // We need to change how getPropertyMap so that we know
+                          // when the map represents an "open" or "closed" object type.
+                          // ctx.Report.AddDiagnostic
+                          //   { Description = $"Excess property '{name}' in object literal"
+                          //     Reasons = [] }
+                          None
 
                     let! t = inferExpr ctx env typeAnn value
 
@@ -1164,9 +1173,16 @@ module rec Infer =
               | JSXAttrValue.JSXExprContainer jsxExprContainer ->
                 let! propType = inferExpr ctx env (Some t) jsxExprContainer.Expr
 
-                // QUESTION: Do we still need to unify if we have a type annotation
-                // that we pass to `inferExpr`?
-                do! unify ctx env None propType t
+                // The reason why we have to also call `unify` here is that `inferExpr`
+                // only checks the `typeAnn` param for objects and functions.
+                // TODO(#286): Update `inferExpr` to check `typeAnn` for all expression types
+                match unify ctx env None propType t with
+                | Ok _ -> ()
+                | Error reason ->
+                  ctx.Report.AddDiagnostic
+                    { Description =
+                        $"Wrong type provided for the '{attr.Name}' prop"
+                      Reasons = [ reason ] }
               | JSXAttrValue.JSXElement jsxElement ->
                 // We'll need to pass a type annotation to `inferJsxElement` similar
                 // to what we do for `inferExpr` to handle cases where a prop expects

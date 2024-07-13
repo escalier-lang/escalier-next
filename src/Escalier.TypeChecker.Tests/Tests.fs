@@ -244,6 +244,29 @@ let InferTypeAnn () =
 
   Assert.False(Result.isError result)
 
+[<Fact(Skip = "TODO(#287): Excess property checking")>]
+let InferObjectExcessPropertyCheck () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number};
+        let p: Point = {x: 5, y: 10, z: 15};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal<Diagnostic list>(
+        ctx.Report.Diagnostics,
+        [ { Description = "Excess property 'z' in object literal"
+            Reasons = [] } ]
+      )
+
+      Assert.Value(env, "p", "Point")
+    }
+
+  Assert.False(Result.isError result)
+
 [<Fact>]
 let InferObjectDestructuring () =
   let result =

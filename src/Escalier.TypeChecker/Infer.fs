@@ -71,7 +71,7 @@ module rec Infer =
       | Syntax.PropName.String value -> return PropName.String value
       | Syntax.PropName.Number value -> return PropName.Number value
       | Syntax.PropName.Computed value ->
-        let! t = inferExpr ctx env value
+        let! t = inferExpr ctx env None value
 
         match t.Kind with
         | TypeKind.Literal(Literal.String value) -> return PropName.String value
@@ -553,7 +553,13 @@ module rec Infer =
   ///language simply by having a predefined set of identifiers in the initial
   ///environment. environment; this way there is no need to change the syntax or, more
   ///importantly, the type-checking program when extending the language.
-  let inferExpr (ctx: Ctx) (env: Env) (expr: Expr) : Result<Type, TypeError> =
+  /// TODO(#286): Update `inferExpr` to check `typeAnn` for all expression types
+  let inferExpr
+    (ctx: Ctx)
+    (env: Env)
+    (typeAnn: option<Type>)
+    (expr: Expr)
+    : Result<Type, TypeError> =
     ctx.PushReport()
 
     let r =
@@ -571,7 +577,7 @@ module rec Infer =
             { Kind = TypeKind.Literal(literal)
               Provenance = Some(Provenance.Expr expr) }
         | ExprKind.Call call ->
-          let! callee = inferExpr ctx env call.Callee
+          let! callee = inferExpr ctx env None call.Callee
 
           // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
           let! result, throws = unifyCall ctx env None call.Args None callee
@@ -580,7 +586,7 @@ module rec Infer =
 
           return result
         | ExprKind.New call ->
-          let! callee = inferExpr ctx env call.Callee
+          let! callee = inferExpr ctx env None call.Callee
           let! callee = expandType ctx env None Map.empty callee
 
           match callee.Kind with
@@ -652,20 +658,35 @@ module rec Infer =
           match it with
           | Some t -> return t
           | None ->
-            let! f = inferFunction ctx env fnSig body
+            match typeAnn with
+            | Some typeAnnType ->
+              let! fn = inferFuncSig ctx env fnSig
 
-            return
-              { Kind = TypeKind.Function f
-                Provenance = None }
+              let exprType =
+                { Kind = TypeKind.Function fn
+                  Provenance = None }
+
+              let invariantPaths = None // TODO
+              do! unify ctx env invariantPaths exprType typeAnnType
+
+              let! _ = inferFuncBody ctx env fnSig fn body
+
+              return exprType
+            | None ->
+              let! f = inferFunction ctx env fnSig body
+
+              return
+                { Kind = TypeKind.Function f
+                  Provenance = None }
 
         | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
-          let! elems = List.traverseResultM (inferExpr ctx env) elems
+          let! elems = List.traverseResultM (inferExpr ctx env None) elems
 
           return
             { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
               Provenance = None }
         | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-          let! conditionTy = inferExpr ctx env condition
+          let! conditionTy = inferExpr ctx env None condition
 
           let! thenBranchTy =
             inferBlockOrExpr ctx env (thenBranch |> BlockOrExpr.Block)
@@ -694,7 +715,7 @@ module rec Infer =
           for KeyValue(name, binding) in patBindings do
             newEnv <- newEnv.AddValue name binding
 
-          let! initType = inferExpr ctx newEnv init
+          let! initType = inferExpr ctx newEnv None init
 
           // We expand the type here so that we can filter out any
           // `undefined` types from the union if the expanded type
@@ -733,14 +754,40 @@ module rec Infer =
         | ExprKind.Object { Elems = elems; Immutable = immutable } ->
           let mutable spreadTypes = []
 
+          let! map =
+            result {
+              match typeAnn with
+              | Some typeAnn ->
+                let! t = expandType ctx env None Map.empty typeAnn
+                let! map = getPropertyMap t
+                return Some map
+              | None -> return None
+            }
+
           let! elems =
             List.traverseResultM
               (fun (elem: ObjElem) ->
                 result {
                   match elem with
                   | ObjElem.Property(_span, key, value) ->
-                    let! t = inferExpr ctx env value
                     let! name = inferPropName ctx env key
+
+                    let typeAnn =
+                      match map with
+                      | None -> None
+                      | Some map ->
+                        match Map.tryFind name map with
+                        | Some t -> Some t
+                        | None ->
+                          // TODO(#287): Excess property checking
+                          // We need to change how getPropertyMap so that we know
+                          // when the map represents an "open" or "closed" object type.
+                          // ctx.Report.AddDiagnostic
+                          //   { Description = $"Excess property '{name}' in object literal"
+                          //     Reasons = [] }
+                          None
+
+                    let! t = inferExpr ctx env typeAnn value
 
                     return
                       Some(
@@ -762,7 +809,7 @@ module rec Infer =
                             Type = value }
                       )
                   | ObjElem.Spread(_span, value) ->
-                    let! t = inferExpr ctx env value
+                    let! t = inferExpr ctx env None value
                     spreadTypes <- t :: spreadTypes
                     return None
                 })
@@ -790,7 +837,7 @@ module rec Infer =
           let! t, _ = inferClass ctx env cls false
           return t
         | ExprKind.Member(obj, prop, optChain) ->
-          let! objType = inferExpr ctx env obj
+          let! objType = inferExpr ctx env None obj
           let propKey = PropName.String(prop)
 
           let! t =
@@ -844,7 +891,7 @@ module rec Infer =
           // TODO: remove `self` from the type of the function
           return t
         | ExprKind.Await(await) ->
-          let! t = inferExpr ctx env await.Value
+          let! t = inferExpr ctx env None await.Value
 
           match t.Kind with
           | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise"
@@ -855,7 +902,7 @@ module rec Infer =
         | ExprKind.Throw expr ->
           // We throw the type away here because we don't need it, but
           // `expr` will still have its `InferredType` field set.
-          let _ = inferExpr ctx env expr
+          let _ = inferExpr ctx env None expr
 
           let never =
             { Kind = TypeKind.Keyword Keyword.Never
@@ -923,12 +970,12 @@ module rec Infer =
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
         | ExprKind.Match(expr, cases) ->
-          let! exprType = inferExpr ctx env expr
+          let! exprType = inferExpr ctx env None expr
           let! _, bodyTypes = inferMatchCases ctx env exprType cases
           return (union bodyTypes)
         | ExprKind.Index(target, index, optChain) ->
-          let! target = inferExpr ctx env target
-          let! index = inferExpr ctx env index
+          let! target = inferExpr ctx env None target
+          let! index = inferExpr ctx env None index
 
           let target = prune target
           let index = prune index
@@ -960,8 +1007,8 @@ module rec Infer =
           // TODO: add a constraint that `min` and `max` must be numbers
           // We can do this by creating type variables for them with the
           // proper constraint and then unifying them with the inferred types
-          let! min = inferExpr ctx env min
-          let! max = inferExpr ctx env max
+          let! min = inferExpr ctx env None min
+          let! max = inferExpr ctx env None max
 
           let scheme = env.TryFindScheme "RangeIterator"
 
@@ -974,7 +1021,7 @@ module rec Infer =
               Provenance = None }
         | ExprKind.Assign(_operation, left, right) ->
           // TODO: handle update assign operations
-          let! rightType = inferExpr ctx env right
+          let! rightType = inferExpr ctx env None right
 
           let! t, isMut = getLvalue ctx env left
 
@@ -986,7 +1033,7 @@ module rec Infer =
 
           return rightType
         | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
-          let! t = inferExpr ctx env target
+          let! t = inferExpr ctx env None target
 
           let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
 
@@ -1046,99 +1093,110 @@ module rec Infer =
     (env: Env)
     (jsxElem: JSXElement)
     : Result<Type, TypeError> =
-    result {
-      printfn "inferJsxElement"
+    ctx.PushReport()
 
-      let { JSXElement.Opening = { Attrs = attrs }
-            Children = children } =
-        jsxElem
+    let r =
+      result {
 
-      let t =
-        { Kind =
-            TypeKind.TypeRef
-              { Name =
-                  QualifiedIdent.Member(
-                    QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
-                    "Element"
-                  )
-                TypeArgs = None
-                Scheme = None }
-          Provenance = None }
+        let { JSXElement.Opening = { Attrs = attrs }
+              Children = children } =
+          jsxElem
 
-      let! maybeElems =
-        attrs
-        |> List.traverseResultM (fun (attr: JSXAttr) ->
-          result {
+        let retType =
+          { Kind =
+              TypeKind.TypeRef
+                { Name =
+                    QualifiedIdent.Member(
+                      QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
+                      "Element"
+                    )
+                  TypeArgs = None
+                  Scheme = None }
+            Provenance = None }
+
+        let intrinsics =
+          { Kind =
+              TypeKind.TypeRef
+                { Name =
+                    QualifiedIdent.Member(
+                      QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
+                      "IntrinsicElements"
+                    )
+                  TypeArgs = None
+                  Scheme = None }
+            Provenance = None }
+
+        let! componentProps =
+          match jsxElem.Opening.Name with
+          | QualifiedIdent.Ident s ->
+            if System.Char.IsLower(s, 0) then
+              let key =
+                { Kind = TypeKind.Literal(Literal.String s)
+                  Provenance = None }
+
+              let tag =
+                { Kind = TypeKind.Index(intrinsics, key)
+                  Provenance = None }
+
+              expandType ctx env None Map.empty tag
+            else
+              Result.Error(
+                TypeError.NotImplemented
+                  "TODO: inferJsxElement - handle capitalized JSXElements"
+              )
+
+          | QualifiedIdent.Member(left, right) ->
+            failwith "TODO: inferJsxElement - handle qualified idents"
+
+        let! componentPropsMap = getPropertyMap componentProps
+
+        for attr in attrs do
+          match Map.tryFind (PropName.String(attr.Name)) componentPropsMap with
+          | None ->
+            ctx.Report.AddDiagnostic
+              { Description =
+                  $"No prop named '{attr.Name}' exists in {jsxElem.Opening.Name}'s props"
+                Reasons = [] }
+          | Some t ->
             match attr.Value with
-            | None -> return None
+            | None ->
+              failwith
+                "TODO: inferJsxElement - attr.Value should not be optional"
             | Some value ->
-              let! t =
-                match value with
-                | JSXAttrValue.Str literal ->
-                  let t =
-                    { Kind = TypeKind.Literal(literal)
-                      Provenance = None }
+              match value with
+              | Str literal ->
+                let prop =
+                  { Kind = TypeKind.Literal literal
+                    Provenance = None }
 
-                  Result.Ok(t)
-                | JSXAttrValue.JSXExprContainer jsxExprContainer ->
-                  inferExpr ctx env jsxExprContainer.Expr
-                | JSXAttrValue.JSXElement jsxElement ->
-                  inferJsxElement ctx env jsxElement
-                | JSXAttrValue.JSXFragment jsxFragment ->
-                  Error(
-                    TypeError.NotImplemented
-                      "TODO: inferJsxElement - JSXFragment"
-                  )
+                do! unify ctx env None prop t
+              | JSXAttrValue.JSXExprContainer jsxExprContainer ->
+                let! propType = inferExpr ctx env (Some t) jsxExprContainer.Expr
 
-              return
-                Some(
-                  ObjTypeElem.Property
-                    { Name = PropName.String(attr.Name)
-                      Optional = false
-                      Readonly = false
-                      Type = t }
-                )
-          })
+                // The reason why we have to also call `unify` here is that `inferExpr`
+                // only checks the `typeAnn` param for objects and functions.
+                // TODO(#286): Update `inferExpr` to check `typeAnn` for all expression types
+                match unify ctx env None propType t with
+                | Ok _ -> ()
+                | Error reason ->
+                  ctx.Report.AddDiagnostic
+                    { Description =
+                        $"Wrong type provided for the '{attr.Name}' prop"
+                      Reasons = [ reason ] }
+              | JSXAttrValue.JSXElement jsxElement ->
+                // We'll need to pass a type annotation to `inferJsxElement` similar
+                // to what we do for `inferExpr` to handle cases where a prop expects
+                // a certain type of JSX Element
+                failwith "TODO: inferJsxElement - JSXElement"
+              | JSXAttrValue.JSXFragment jsxFragment ->
+                failwith "TODO: inferJsxElement - JSXFragment"
 
-      let elems = maybeElems |> List.choose id
+        return retType
+      }
 
-      // TODO: check if `children` contains any elements.  If it does, add a
-      // `children` property to `elems` with the type `ReactNode[]`.
-      let propsType =
-        { Kind =
-            TypeKind.Object
-              { Extends = None
-                Implements = None
-                Elems = elems
-                Immutable = false
-                Interface = false }
-          Provenance = None }
+    ctx.MergeUpReport()
 
-      let intrinsics =
-        { Kind =
-            TypeKind.TypeRef
-              { Name =
-                  QualifiedIdent.Member(
-                    QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
-                    "IntrinsicElements"
-                  )
-                TypeArgs = None
-                Scheme = None }
-          Provenance = None }
-
-      let key =
-        { Kind = TypeKind.Literal(Literal.String "div")
-          Provenance = None }
-
-      let div =
-        { Kind = TypeKind.Index(intrinsics, key)
-          Provenance = None }
-
-      // TODO: check for excess properties
-      do! unify ctx env None propsType div
-
-      return t
-    }
+    r
 
   let inferFuncSig
     (ctx: Ctx)
@@ -1606,7 +1664,7 @@ module rec Infer =
     : Result<Type, TypeError> =
     match blockOrExpr with
     | BlockOrExpr.Block block -> inferBlock ctx env block
-    | BlockOrExpr.Expr expr -> inferExpr ctx env expr
+    | BlockOrExpr.Expr expr -> inferExpr ctx env None expr
 
   // TODO: create a version of this that uses similar logic to `inferModule`
   // we need to determine the dependencies between declarations within the
@@ -2172,7 +2230,7 @@ module rec Infer =
 
               match case.Guard with
               | Some guard ->
-                let! _ = inferExpr ctx newEnv guard
+                let! _ = inferExpr ctx newEnv None guard
                 ()
               | None -> ()
 
@@ -2288,32 +2346,16 @@ module rec Infer =
           match typeAnn with
           | Some typeAnn ->
             let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
-
-            match init.Kind with
-            | ExprKind.Function { Sig = fnSig; Body = body } ->
-              let! fn = inferFuncSig ctx env fnSig
-
-              let initType =
-                { Kind = TypeKind.Function fn
-                  Provenance = None }
-
-              do! unify ctx newEnv invariantPaths initType typeAnnType
-              do! unify ctx newEnv None typeAnnType patType
-
-              let! _ = inferFuncBody ctx env fnSig fn body
-
-              ()
-            | _ ->
-              let! initType = inferExpr ctx newEnv init
-              do! unify ctx newEnv invariantPaths initType typeAnnType
-              do! unify ctx newEnv None typeAnnType patType
+            let! initType = inferExpr ctx newEnv (Some typeAnnType) init
+            do! unify ctx newEnv invariantPaths initType typeAnnType
+            do! unify ctx newEnv None typeAnnType patType
           | None ->
-            let! initType = inferExpr ctx newEnv init
+            let! initType = inferExpr ctx newEnv None init
             do! unify ctx newEnv invariantPaths initType patType
         | Some elseClause ->
           // TODO: udpate inferBlockOrExpr to return `never` if the block contains
           // a return statement
-          let! initType = inferExpr ctx newEnv init
+          let! initType = inferExpr ctx newEnv None init
 
           let initType =
             match (prune initType).Kind with
@@ -2604,7 +2646,7 @@ module rec Infer =
       | TypeKind.TypeVar _ ->
 
         // TODO: use a `result {}` CE here
-        let! argTypes = List.traverseResultM (inferExpr ctx env) args
+        let! argTypes = List.traverseResultM (inferExpr ctx env None) args
 
         let paramList =
           List.mapi
@@ -2684,15 +2726,13 @@ module rec Infer =
             (getTypePatBindingPaths param.Pattern)
             (getExprBindingPaths env arg)
 
-        match arg.Kind with
-        | ExprKind.Function { Sig = fnSig; Body = body } ->
-          let! fn = inferFuncSig ctx env fnSig
+        let! argType = inferExpr ctx env (Some param.Type) arg
 
-          let argType =
-            { Kind = TypeKind.Function fn
-              Provenance = None }
-
-          // TODO: dedupe with code below
+        if
+          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+        then
+          ()
+        else
           match unify ctx env invariantPaths argType param.Type with
           | Ok _ -> ()
           | Error reason ->
@@ -2710,35 +2750,6 @@ module rec Infer =
                   $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
                 Reasons = [ reason ] }
             )
-
-          let! _ = inferFuncBody ctx env fnSig fn body
-          ()
-        | _ ->
-          let! argType = inferExpr ctx env arg
-
-          if
-            param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
-          then
-            ()
-          else
-            // TODO: dedupe with code above
-            match unify ctx env invariantPaths argType param.Type with
-            | Ok _ -> ()
-            | Error reason ->
-              // QUESTION: Does unifying the param with `never` actually do
-              // anything or could we skip it?  Does this have to do with
-              // params whose type annotations are or include type params?
-              let never =
-                { Kind = TypeKind.Keyword Keyword.Never
-                  Provenance = None }
-
-              do! unify ctx env ips never param.Type
-
-              ctx.Report.AddDiagnostic(
-                { Description =
-                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
-                  Reasons = [ reason ] }
-              )
 
       let optionalParams, restParams =
         optionalParams
@@ -2772,7 +2783,7 @@ module rec Infer =
       let mutable reasons: list<TypeError> = []
 
       for arg, param in List.zip optionalArgs optionalParams do
-        let! argType = inferExpr ctx env arg
+        let! argType = inferExpr ctx env None arg
 
         if
           param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
@@ -2790,7 +2801,7 @@ module rec Infer =
 
       match restArgs, restParam with
       | Some args, Some param ->
-        let! args = List.traverseResultM (fun arg -> inferExpr ctx env arg) args
+        let! args = List.traverseResultM (inferExpr ctx env None) args
 
         let tuple =
           { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
@@ -2848,7 +2859,7 @@ module rec Infer =
       | ExprKind.Index(target, index, _optChain) ->
         // TODO: disallow optChain in lvalues
         let! target, isMut = getLvalue ctx env target
-        let! index = inferExpr ctx env index
+        let! index = inferExpr ctx env None index
 
         let key =
           match index.Kind with
@@ -4018,13 +4029,13 @@ module rec Infer =
       for stmt in stmts do
         match stmt.Kind with
         | StmtKind.Expr expr ->
-          let! _ = inferExpr ctx newEnv expr
+          let! _ = inferExpr ctx newEnv None expr
           ()
         | StmtKind.For(pattern, right, body) ->
           let mutable blockEnv = newEnv
 
           let! patBindings, patType = inferPattern ctx blockEnv pattern
-          let! rightType = inferExpr ctx blockEnv right
+          let! rightType = inferExpr ctx blockEnv None right
 
           let symbol =
             match env.TryFindValue "Symbol" with
@@ -4118,7 +4129,7 @@ module rec Infer =
         | StmtKind.Return expr ->
           match expr with
           | Some(expr) ->
-            let! _ = inferExpr ctx newEnv expr
+            let! _ = inferExpr ctx newEnv None expr
             ()
           | None -> ()
         | StmtKind.Decl _ -> () // Already inferred

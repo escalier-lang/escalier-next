@@ -22,7 +22,7 @@ let infer src =
     let projectRoot = __SOURCE_DIRECTORY__
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-    let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
+    let! t = Result.mapError CompileError.TypeError (inferExpr ctx env None ast)
 
     return simplify t
   }

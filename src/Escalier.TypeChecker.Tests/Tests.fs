@@ -24,7 +24,7 @@ let infer src =
     let projectRoot = __SOURCE_DIRECTORY__
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
-    let! t = Result.mapError CompileError.TypeError (inferExpr ctx env ast)
+    let! t = Result.mapError CompileError.TypeError (inferExpr ctx env None ast)
 
     return simplify t
   }
@@ -240,6 +240,29 @@ let InferTypeAnn () =
       Assert.Value(env, "c", "boolean")
       Assert.Value(env, "x", "number")
       Assert.Value(env, "y", "number")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO(#287): Excess property checking")>]
+let InferObjectExcessPropertyCheck () =
+  let result =
+    result {
+      let src =
+        """
+        type Point = {x: number, y: number};
+        let p: Point = {x: 5, y: 10, z: 15};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal<Diagnostic list>(
+        ctx.Report.Diagnostics,
+        [ { Description = "Excess property 'z' in object literal"
+            Reasons = [] } ]
+      )
+
+      Assert.Value(env, "p", "Point")
     }
 
   Assert.False(Result.isError result)

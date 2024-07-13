@@ -386,3 +386,50 @@ let rec getIsMut (ctx: Ctx) (env: Env) (expr: Expr) : Result<bool, TypeError> =
     | _ ->
       return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
   }
+
+// Return a structure which indicates whether the object represented by the property
+// map is open or closed.  A type like `{foo: string}` is closed but something like
+// `{foo: string} & T` is open as long as `T` is open.
+let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
+  result {
+    let mutable map = Map.empty
+
+    match t.Kind with
+    | TypeKind.Object { Elems = elems } ->
+      for elem in elems do
+        match elem with
+        | Callable ``function`` ->
+          return!
+            Error(
+              TypeError.SemanticError
+                "Callable signatures cannot appear in object literals"
+            )
+        | Constructor ``function`` ->
+          return!
+            Error(
+              TypeError.SemanticError
+                "Constructor signatures cannot appear in object literals"
+            )
+        | Method(name, fn) ->
+          let t =
+            { Kind = TypeKind.Function fn
+              Provenance = None }
+
+          map <- Map.add name t map
+        | Getter(name, fn) ->
+          failwith "TODO: getPropertyMap - ObjElemType.Getter"
+        | Setter(name, fn) ->
+          failwith "TODO: getPropertyMap - ObjElemType.Setter"
+        // We'll need a different solution for looking up properties in mapped
+        // types because their key could have a type like `string` or `number`
+        // which is unbounded.
+        | Mapped mapped -> failwith "TODO: getPropertyMap - ObjElemType.Mapped"
+        | Property { Name = name; Type = t } -> map <- Map.add name t map
+    | TypeKind.Intersection types ->
+      for t in types do
+        let! subMap = getPropertyMap t
+        map <- FSharpPlus.Map.union subMap map
+    | _ -> ()
+
+    return map
+  }

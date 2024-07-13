@@ -82,23 +82,23 @@ let InferJsxWithExtraProps () =
       let src =
         """
         import "react" {React};
-        let foo = <div bar="baz"></div>;
+        let foo = <div bar={5} baz="hello"></div>;
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Equal<Diagnostic list>(
+        ctx.Report.Diagnostics,
+        [ { Description = "No prop named 'bar' exists in div's props"
+            Reasons = [] }
+          { Description = "No prop named 'baz' exists in div's props"
+            Reasons = [] } ]
+      )
+
       Assert.Value(env, "foo", "React.JSX.Element")
     }
 
-  Assert.Equal(
-    res,
-    Result.Error(
-      CompileError.TypeError(
-        TypeError.SemanticError "bar is not a valid prop for this component"
-      )
-    )
-  )
+  Assert.False(Result.isError res)
 
 [<Fact(Skip = "TODO")>]
 let InferPropsTypeObject () =

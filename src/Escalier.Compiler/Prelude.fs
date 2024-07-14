@@ -99,7 +99,8 @@ module Prelude =
         elif packageJsonHasTypes pkgJsonPath2 then
           pkgJsonPath2
         else
-          failwith $"package.json not found for module {moduleName}"
+          failwith
+            $"package.json not found for module {moduleName}, rootDir = {rootDir}, nodeModulesDir = {nodeModulesDir}."
 
       // read package.json and parse it
       let pkgJson = File.ReadAllText(pkgJsonPath)
@@ -394,6 +395,8 @@ module Prelude =
       envMemoized <- Some(env)
       env
 
+  let mutable cachedModules: Map<string, Namespace> = Map.empty
+
   let getCtx
     (projectRoot: string)
     (getGlobalEnv: unit -> Env)
@@ -407,27 +410,31 @@ module Prelude =
 
             let exportNs =
               if resolvedPath.EndsWith(".d.ts") then
-                let modEnv, modAst =
-                  match inferLib ctx (getGlobalEnv ()) resolvedPath with
-                  | Ok value -> value
-                  | Error err ->
-                    printfn "err = %A" err
-                    failwith $"failed to infer {resolvedPath}"
+                if cachedModules.ContainsKey resolvedPath then
+                  cachedModules.[resolvedPath]
+                else
+                  let modEnv, modAst =
+                    match inferLib ctx (getGlobalEnv ()) resolvedPath with
+                    | Ok value -> value
+                    | Error err ->
+                      printfn "err = %A" err
+                      failwith $"failed to infer {resolvedPath}"
 
-                let ns =
-                  match
-                    QualifiedGraph.getExports
-                      ctx
-                      modEnv
-                      "<exports>"
-                      modAst.Items
-                  with
-                  | Ok value -> value
-                  | Error err ->
-                    printfn "err = %A" err
-                    failwith $"failed to get exports from {resolvedPath}"
+                  let ns =
+                    match
+                      QualifiedGraph.getExports
+                        ctx
+                        modEnv
+                        "<exports>"
+                        modAst.Items
+                    with
+                    | Ok value -> value
+                    | Error err ->
+                      printfn "err = %A" err
+                      failwith $"failed to get exports from {resolvedPath}"
 
-                ns
+                  cachedModules <- cachedModules.Add(resolvedPath, ns)
+                  ns
               else
                 // TODO: extract into a separate function
                 let resolvedImportPath =

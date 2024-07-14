@@ -789,7 +789,7 @@ let ImportReact () =
         // NOTE: The type var id will differ dependending on whether we run
         // just this test case or the full test suite.
         // TODO: generalize top-level variable declarations
-        "React.DetailedReactHTMLElement<{}, t2695:HTMLElement>"
+        "React.DetailedReactHTMLElement<{}, t1137:HTMLElement>"
       )
     }
 

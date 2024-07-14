@@ -66,7 +66,7 @@ let InferJsxAssignElementToReactNode () =
   printfn "res = %A" res
   Assert.False(Result.isError res)
 
-[<Fact(Skip = "TODO: infer and use defaults in type params correctly")>]
+[<Fact>]
 let InferJsxWithCallback () =
   let res =
     result {
@@ -77,7 +77,7 @@ let InferJsxWithCallback () =
           onClick={fn (event) {
             let x = event.clientX;
             let y = event.clientY;
-            console.log(`x: ${x}, y: ${y}`);
+            let slope = y / x;
           }}
         ></div>;
         """
@@ -138,7 +138,7 @@ let InferJsxWithExtraProps () =
 
   Assert.False(Result.isError res)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let InferPropsTypeObject () =
   let res =
     result {
@@ -164,4 +164,26 @@ let InferPropsTypeObject () =
     }
 
   printfn "res = %A" res
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let InferHandler () =
+  let res =
+    result {
+      let src =
+        """
+        import "react" {React};
+
+        let handler: React.MouseEventHandler = fn (e) {
+          let x = e.clientX;
+          let y = e.clientY;
+          let slope = y / x;
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
   Assert.False(Result.isError res)

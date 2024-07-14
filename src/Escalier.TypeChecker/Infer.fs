@@ -1102,13 +1102,13 @@ module rec Infer =
               Children = children } =
           jsxElem
 
-        let retType =
+        let reactNode =
           { Kind =
               TypeKind.TypeRef
                 { Name =
                     QualifiedIdent.Member(
-                      QualifiedIdent.Member(QualifiedIdent.Ident "React", "JSX"),
-                      "Element"
+                      QualifiedIdent.Ident "React",
+                      "ReactNode"
                     )
                   TypeArgs = None
                   Scheme = None }
@@ -1191,7 +1191,18 @@ module rec Infer =
               | JSXAttrValue.JSXFragment jsxFragment ->
                 failwith "TODO: inferJsxElement - JSXFragment"
 
-        return retType
+        for child in children do
+          match child with
+          | JSXText jsxText -> () // nothing to infer
+          | JSXExprContainer jsxExprContainer ->
+            let! child = inferExpr ctx env None jsxExprContainer.Expr
+            do! unify ctx env None child reactNode
+          | JSXElement jsxElement ->
+            let! child = inferJsxElement ctx env jsxElement
+            do! unify ctx env None child reactNode
+          | JSXFragment jsxFragment -> failwith "todo"
+
+        return reactNode
       }
 
     ctx.MergeUpReport()

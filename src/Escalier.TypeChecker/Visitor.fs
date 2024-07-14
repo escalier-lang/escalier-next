@@ -142,6 +142,14 @@ module rec ExprVisitor =
                 walkJsxElement visitor state jsxElement
               | JSXAttrValue.JSXFragment jsxFragment ->
                 walkJsxFragment visitor state jsxFragment
+
+          for child in children do
+            match child with
+            | JSXText jsxText -> ()
+            | JSXExprContainer { Expr = expr } -> walk expr
+            | JSXElement jsxElement -> walkJsxElement visitor state jsxElement
+            | JSXFragment jsxFragment ->
+              walkJsxFragment visitor state jsxFragment
         | ExprKind.JSXFragment jsxFragment ->
           walkJsxFragment visitor state jsxFragment
 

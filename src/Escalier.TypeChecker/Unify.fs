@@ -817,22 +817,55 @@ module rec Unify =
       | None, None -> return! expandType ctx env ips mapping scheme.Type
       | Some(typeParams), Some(typeArgs) ->
         let mutable newEnv = env
-
-        // TODO: augment the incoming mapping with this new mapping
-        // any conflicts should be resolved with the new mapping winning
+        let mutable typeArgs = typeArgs
+        
+        // Fill in any missing type args with defaults from the type params
+        if typeParams.Length > typeArgs.Length then
+          let defaults =
+            typeParams
+            |> List.skip typeArgs.Length
+            |> List.choose (fun tp ->
+              match tp.Default with
+              | Some t -> Some(t)
+              | None -> None)
+            
+          if defaults.Length = (typeParams.Length - typeArgs.Length) then
+            typeArgs <- typeArgs @ defaults
+          
         let! mapping = buildTypeArgMapping ctx typeParams (Some typeArgs)
 
         for KeyValue(name, t) in mapping do
           newEnv <- newEnv.AddScheme name { Type = t; TypeParams = None }
 
         return! expandType ctx newEnv ips mapping scheme.Type
-      | typeParams, typeArgs ->
-        printfn $"typeParams = {typeParams}"
-        printfn $"typeArgs = {typeArgs}"
+      | Some(typeParams), None ->
+        let mutable newEnv = env
 
+        let defaults =
+          typeParams
+          |> List.choose (fun tp ->
+            match tp.Default with
+            | Some t -> Some(t)
+            | None -> None)
+
+        if defaults.Length = typeParams.Length then
+          let! mapping = buildTypeArgMapping ctx typeParams (Some defaults)
+
+          for KeyValue(name, t) in mapping do
+            newEnv <- newEnv.AddScheme name { Type = t; TypeParams = None }
+
+          return! expandType ctx newEnv ips mapping scheme.Type
+        else
+          return!
+            Error(
+              TypeError.NotImplemented
+                "TODO: expandScheme with type params/args"
+            )
+      | None, Some(typeArgs) ->
         return!
           Error(
-            TypeError.NotImplemented "TODO: expandScheme with type params/args"
+            TypeError.SemanticError
+              "Scheme has no type params but type args were provided"
           )
     }
 

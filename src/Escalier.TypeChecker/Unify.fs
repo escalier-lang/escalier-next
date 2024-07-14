@@ -345,8 +345,12 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
+        // TODO: rework how we check if an object is a subtype of another object
+        // setters should have reversed variance
+        // For now we're use `RValue` since we don't have many test cases
+        // involving setters
         let namedProps1 = getNamedProps ValueCategory.RValue obj1.Elems
-        let namedProps2 = getNamedProps ValueCategory.LValue obj2.Elems
+        let namedProps2 = getNamedProps ValueCategory.RValue obj2.Elems
         do! unifyObjProps ctx env ips namedProps1 namedProps2
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
@@ -511,6 +515,7 @@ module rec Unify =
         return ()
       | _, TypeKind.Union(types) ->
 
+        // TODO: check if ctx.Report.Diagnostics is empty
         let unifier =
           List.tryFind (fun t -> unify ctx env ips t1 t |> Result.isOk) types
 
@@ -560,6 +565,21 @@ module rec Unify =
     |> List.choose (fun (elem: ObjTypeElem) ->
       match elem with
       | Property p -> Some(p.Name, p)
+      | Method(name, fn) ->
+        match valueCategory with
+        | LValue -> None
+        | RValue ->
+          let t =
+            { Kind = TypeKind.Function fn
+              Provenance = None }
+
+          let p =
+            { Name = name
+              Optional = false
+              Readonly = false
+              Type = t }
+
+          Some(name, p)
       | Getter(name, fn) ->
         match valueCategory with
         | LValue -> None
@@ -818,7 +838,7 @@ module rec Unify =
       | Some(typeParams), Some(typeArgs) ->
         let mutable newEnv = env
         let mutable typeArgs = typeArgs
-        
+
         // Fill in any missing type args with defaults from the type params
         if typeParams.Length > typeArgs.Length then
           let defaults =
@@ -828,10 +848,10 @@ module rec Unify =
               match tp.Default with
               | Some t -> Some(t)
               | None -> None)
-            
+
           if defaults.Length = (typeParams.Length - typeArgs.Length) then
             typeArgs <- typeArgs @ defaults
-          
+
         let! mapping = buildTypeArgMapping ctx typeParams (Some typeArgs)
 
         for KeyValue(name, t) in mapping do
@@ -942,41 +962,48 @@ module rec Unify =
           let! target = expandType ctx env ips mapping target
           let! index = expandType ctx env ips mapping index
 
-          let key =
-            match index.Kind with
-            | TypeKind.Literal(Literal.String s) -> PropName.String s
-            | TypeKind.Literal(Literal.Number n) -> PropName.Number n
-            | TypeKind.UniqueSymbol id -> PropName.Symbol id
-            | _ -> failwith "TODO: expand index - key type"
-
-          // TODO: dedupe this with the getPropType and inferMemberAccess in Infer.fs
-          match target.Kind with
-          | TypeKind.Object { Elems = elems } ->
-            let mutable t = None
-
-            for elem in elems do
-              match elem with
-              | Property p when p.Name = key -> t <- Some(p.Type)
-              | Method(name, fn) when name = key ->
-                // TODO: replace `Self` with the object type
-                // TODO: check if the receiver is mutable or not
-                t <-
-                  Some(
-                    { Kind = TypeKind.Function fn
-                      Provenance = None }
-                  )
-              | _ -> ()
-
-            match t with
-            | Some t -> return! expand mapping t
-            | None ->
-              printfn $"target = {target}"
-              return! Error(TypeError.SemanticError $"Property {key} not found")
+          match index.Kind with
+          | TypeKind.Keyword Keyword.Never -> return index
           | _ ->
-            // TODO: Handle the case where the type is a primitive and use a
-            // special function to expand the type
-            // TODO: Handle different kinds of index types, e.g. number, symbol
-            return! Error(TypeError.NotImplemented "TODO: expand index")
+            let key =
+              match index.Kind with
+              | TypeKind.Literal(Literal.String s) -> PropName.String s
+              | TypeKind.Literal(Literal.Number n) -> PropName.Number n
+              | TypeKind.UniqueSymbol id -> PropName.Symbol id
+              | _ ->
+                printfn $"target = {target}, index = {index}"
+                failwith "TODO: expand index - key type"
+
+            // TODO: dedupe this with the getPropType and inferMemberAccess in Infer.fs
+            match target.Kind with
+            | TypeKind.Object { Elems = elems } ->
+              let mutable t = None
+
+              for elem in elems do
+                match elem with
+                | Property p when p.Name = key -> t <- Some(p.Type)
+                | Method(name, fn) when name = key ->
+                  // TODO: replace `Self` with the object type
+                  // TODO: check if the receiver is mutable or not
+                  t <-
+                    Some(
+                      { Kind = TypeKind.Function fn
+                        Provenance = None }
+                    )
+                | _ -> ()
+
+              match t with
+              | Some t -> return! expand mapping t
+              | None ->
+                printfn $"target = {target}"
+
+                return!
+                  Error(TypeError.SemanticError $"Property {key} not found")
+            | _ ->
+              // TODO: Handle the case where the type is a primitive and use a
+              // special function to expand the type
+              // TODO: Handle different kinds of index types, e.g. number, symbol
+              return! Error(TypeError.NotImplemented "TODO: expand index")
         | TypeKind.Condition { Check = check
                                Extends = extends
                                TrueType = trueType

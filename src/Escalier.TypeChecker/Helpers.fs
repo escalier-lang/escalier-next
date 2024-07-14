@@ -394,7 +394,7 @@ let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
   result {
     let mutable map = Map.empty
 
-    match t.Kind with
+    match (prune t).Kind with
     | TypeKind.Object { Elems = elems } ->
       for elem in elems do
         match elem with

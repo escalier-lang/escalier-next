@@ -1127,9 +1127,9 @@ module rec Infer =
             Provenance = None }
 
         let! componentProps =
-          match jsxElem.Opening.Name with
-          | QualifiedIdent.Ident s ->
-            if System.Char.IsLower(s, 0) then
+          result {
+            match jsxElem.Opening.Name with
+            | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
               let key =
                 { Kind = TypeKind.Literal(Literal.String s)
                   Provenance = None }
@@ -1138,16 +1138,32 @@ module rec Infer =
                 { Kind = TypeKind.Index(intrinsics, key)
                   Provenance = None }
 
-              expandType ctx env None Map.empty tag
-            else
-              Result.Error(
-                TypeError.NotImplemented
-                  "TODO: inferJsxElement - handle capitalized JSXElements"
-              )
+              return! expandType ctx env None Map.empty tag
+            | ident ->
+              let! t = getQualifiedIdentType ctx env ident
 
-          | QualifiedIdent.Member(left, right) ->
-            failwith "TODO: inferJsxElement - handle qualified idents"
+              match t.Kind with
+              | TypeKind.Function { TypeParams = typeParams
+                                    ParamList = paramsList
+                                    Return = retType } ->
+                do! unify ctx env None retType reactNode
+                return! expandType ctx env None Map.empty paramsList[0].Type
+              | TypeKind.Object _ ->
+                // TODO: check that the object extends React.Component
+                return!
+                  Result.Error(
+                    TypeError.NotImplemented
+                      "TODO: inferJsxElement - handle class-based components"
+                  )
+              | _ ->
+                return!
+                  Result.Error(
+                    TypeError.SemanticError
+                      $"'{jsxElem.Opening.Name}' is not a component"
+                  )
+          }
 
+        // NOTE: `componentProps` must be expanded before calling `getPropertyMap`
         let! componentPropsMap = getPropertyMap componentProps
 
         for attr in attrs do
@@ -1610,9 +1626,6 @@ module rec Infer =
           Error(TypeError.NotImplemented $"TODO: lookup member on type - {t}")
     }
 
-  // TODO: differentiate between getting and setting
-  // - getting: property, method, getter, mapped
-  // - setting: non-readonly property, setter, non-readonly mapped
   let inferMemberAccess
     // TODO: do the search first and then return the appropriate ObjTypeElem
     (ctx: Ctx)

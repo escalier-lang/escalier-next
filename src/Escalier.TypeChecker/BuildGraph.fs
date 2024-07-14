@@ -239,7 +239,16 @@ let findDepsForValueIdent
 
             (true, state)
           | _ -> (true, state)
-      ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
+      ExprVisitor.VisitJsxElement =
+        fun (jsxElement, state) ->
+          let name = jsxElement.Opening.Name
+
+          idents <-
+            Set.add
+              (QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent name))
+              idents
+
+          (true, state)
       ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
       ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)

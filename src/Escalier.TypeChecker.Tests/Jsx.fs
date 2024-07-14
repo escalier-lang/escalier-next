@@ -210,3 +210,32 @@ let InferHandler () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let InferFunctionalComponent () =
+  let res =
+    result {
+      let src =
+        """
+        import "react" {React};
+
+        type Props = {
+          message: string,
+        };
+        
+        let Comp = fn (props: Props) {
+          return <div>
+            <p>{props.message}</p>
+          </div>;
+        };
+
+        let comp = <Comp message="Hello, world!" />;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "res = %A" res
+  Assert.False(Result.isError res)

@@ -128,28 +128,8 @@ module rec ExprVisitor =
                 List.iter (walkStmt visitor state) block.Stmts
               | BlockOrExpr.Expr expr -> walk expr)
             elseBranch
-        | ExprKind.JSXElement { Opening = opening
-                                Children = children
-                                Closing = closing } ->
-          for attr in opening.Attrs do
-            match attr.Value with
-            | None -> ()
-            | Some value ->
-              match value with
-              | JSXAttrValue.Str literal -> ()
-              | JSXAttrValue.JSXExprContainer { Expr = expr } -> walk expr
-              | JSXAttrValue.JSXElement jsxElement ->
-                walkJsxElement visitor state jsxElement
-              | JSXAttrValue.JSXFragment jsxFragment ->
-                walkJsxFragment visitor state jsxFragment
-
-          for child in children do
-            match child with
-            | JSXText jsxText -> ()
-            | JSXExprContainer { Expr = expr } -> walk expr
-            | JSXElement jsxElement -> walkJsxElement visitor state jsxElement
-            | JSXFragment jsxFragment ->
-              walkJsxFragment visitor state jsxFragment
+        | ExprKind.JSXElement jsxElement ->
+          walkJsxElement visitor state jsxElement
         | ExprKind.JSXFragment jsxFragment ->
           walkJsxFragment visitor state jsxFragment
 
@@ -166,7 +146,7 @@ module rec ExprVisitor =
       if cont then
         for attr in jsxElement.Opening.Attrs do
           match attr.Value with
-          | None -> failwith "todo"
+          | None -> failwith "TODO: walkJsxElement - attr.Value = None"
           | Some value ->
             match value with
             | JSXAttrValue.Str literal -> ()

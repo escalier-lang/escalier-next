@@ -1140,14 +1140,34 @@ module rec Infer =
 
               expandType ctx env None Map.empty tag
             else
-              Result.Error(
-                TypeError.NotImplemented
-                  "TODO: inferJsxElement - handle capitalized JSXElements"
-              )
+              match env.TryFindValue s with
+              | Some(t, _) ->
+                match t.Kind with
+                | TypeKind.Function { TypeParams = typeParams
+                                      ParamList = paramsList
+                                      Return = retType } ->
+                  // do! unify ctx env None retType reactNode
+                  expandType ctx env None Map.empty paramsList[0].Type
+                | TypeKind.Object _ ->
+                  // TODO: check that the object extends React.Component
+                  Result.Error(
+                    TypeError.NotImplemented
+                      "TODO: inferJsxElement - handle class-based components"
+                  )
+                | _ ->
+                  Result.Error(
+                    TypeError.SemanticError $"'{s}' is not a component"
+                  )
+              | None ->
+                Result.Error(
+                  TypeError.SemanticError
+                    $"Couldn't find component named {s} in environment"
+                )
 
           | QualifiedIdent.Member(left, right) ->
             failwith "TODO: inferJsxElement - handle qualified idents"
 
+        // NOTE: `componentProps` must be expanded before calling `getPropertyMap`
         let! componentPropsMap = getPropertyMap componentProps
 
         for attr in attrs do

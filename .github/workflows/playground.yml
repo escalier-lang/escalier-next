@@ -40,7 +40,20 @@ jobs:
       - name: Copy .d.ts files
         run: |
           mkdir -p dist/node_modules/typescript/lib
+          mkdir -p dist/node_modules/csstype
+          mkdir -p dist/node_modules/@types/prop-types
+          mkdir -p dist/node_modules/@types/react
+          mkdir -p dist/node_modules/@types/scheduler
           cp node_modules/typescript/lib/*.d.ts dist/node_modules/typescript/lib
+          cp node_modules/csstype/package.json dist/node_modules/csstype/package.json
+          cp node_modules/csstype/index.d.ts dist/node_modules/csstype/index.d.ts
+          cp node_modules/@types/prop-types/package.json dist/node_modules/@types/prop-types/package.json
+          cp node_modules/@types/prop-types/index.d.ts dist/node_modules/@types/prop-types/index.d.ts
+          cp node_modules/@types/react/package.json dist/node_modules/@types/react/package.json
+          cp node_modules/@types/react/index.d.ts dist/node_modules/@types/react/index.d.ts
+          cp node_modules/@types/scheduler/package.json dist/node_modules/@types/scheduler/package.json
+          cp node_modules/@types/scheduler/index.d.ts dist/node_modules/@types/scheduler/index.d.ts
+          cp node_modules/@types/scheduler/tracing.d.ts dist/node_modules/@types/scheduler/tracing.d.ts
       - name: List files
         run: ls -R dist
       - name: Upload Page Artifact

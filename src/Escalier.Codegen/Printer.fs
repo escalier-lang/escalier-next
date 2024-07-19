@@ -36,7 +36,7 @@ module rec Printer =
 
   let printLit (lit: Lit) : string =
     match lit with
-    | Lit.Str { Value = value } -> value
+    | Lit.Str { Value = value } -> $"\"{value}\"" // TODO: escape special characters
     | Lit.Num { Value = value } -> value.ToString()
     | Lit.Bool { Value = value } -> if value then "true" else "false"
     | Lit.Regex { Exp = exp; Flags = flags } -> $"/{exp}/{flags}"

@@ -69,15 +69,14 @@ module Compiler =
 
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 
-      let mod' = Codegen.buildModuleTypes env { NextTempId = 0 } ast
+      let mod' =
+        Codegen.buildModuleTypes env { NextTempId = 0; HasJSX = false } ast
+
       let dts = Printer.printModule printCtx mod'
 
-      let block = Codegen.buildScript { NextTempId = 0 } ast
+      let mod' = Codegen.buildModule { NextTempId = 0; HasJSX = false } ast
 
-      let js =
-        block.Body
-        |> List.map (Printer.printStmt printCtx)
-        |> String.concat "\n"
+      let js = Printer.printModule printCtx mod'
 
       let outJsName = Path.ChangeExtension(filename, ".js")
       File.WriteAllText(outJsName, js)
@@ -127,15 +126,14 @@ module Compiler =
 
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 
-      let mod' = Codegen.buildModuleTypes env { NextTempId = 0 } ast
+      let mod' =
+        Codegen.buildModuleTypes env { NextTempId = 0; HasJSX = false } ast
+
       let dts = Printer.printModule printCtx mod'
 
-      let block = Codegen.buildScript { NextTempId = 0 } ast
+      let mod' = Codegen.buildModule { NextTempId = 0; HasJSX = false } ast
 
-      let js =
-        block.Body
-        |> List.map (Printer.printStmt printCtx)
-        |> String.concat "\n"
+      let js = Printer.printModule printCtx mod'
 
       return (js, dts)
     }

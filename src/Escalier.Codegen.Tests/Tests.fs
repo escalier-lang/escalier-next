@@ -153,9 +153,9 @@ let CodegenDoExpression () =
         """
 
       let! escAst = Parser.parseModule src
-      let ctx: Ctx = { NextTempId = 0 }
-      let block = buildScript ctx escAst
-      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
+      let mod' = buildModule ctx escAst
+      let js = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -188,9 +188,9 @@ let CodegenNestedDoExpressions () =
         """
 
       let! escAst = Parser.parseModule src
-      let ctx: Ctx = { NextTempId = 0 }
-      let block = buildScript ctx escAst
-      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
+      let mod' = buildModule ctx escAst
+      let js = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -212,10 +212,10 @@ let CodegenFunction () =
         """
 
       let! escAst = Parser.parseModule src
-      let ctx: Ctx = { NextTempId = 0 }
-      let block = buildScript ctx escAst
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
+      let mod' = buildModule ctx escAst
 
-      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
+      let js = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -242,10 +242,10 @@ let CodegenChainedIfElse () =
         """
 
       let! escAst = Parser.parseModule src
-      let ctx: Ctx = { NextTempId = 0 }
-      let block = buildScript ctx escAst
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
+      let mod' = buildModule ctx escAst
 
-      let js = block.Body |> List.map (printStmt printCtx) |> String.concat "\n"
+      let js = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -255,6 +255,34 @@ let CodegenChainedIfElse () =
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"
+
+[<Fact>]
+let CodegenJsx () =
+  let res =
+    result {
+      let src =
+        """
+        import "react" {React};
+        let foo = <div id="foo" class="bar">
+          <p>hello</p>
+        </div>;
+        """
+
+      let! escAst = Parser.parseModule src
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
+      let mod' = buildModule ctx escAst
+
+      let js = printModule printCtx mod'
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
 
 type CompileError = Prelude.CompileError
 
@@ -280,7 +308,7 @@ let CodegenDtsBasics () =
         Infer.inferModule ctx env escAst
         |> Result.mapError CompileError.TypeError
 
-      let ctx: Ctx = { NextTempId = 0 }
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
       let mod' = buildModuleTypes env ctx escAst
       let dts = printModule printCtx mod'
 
@@ -314,7 +342,7 @@ let CodegenDtsGeneric () =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      let ctx: Ctx = { NextTempId = 0 }
+      let ctx: Ctx = { NextTempId = 0; HasJSX = false }
       let mod' = buildModuleTypes env ctx ast
       let dts = printModule printCtx mod'
 

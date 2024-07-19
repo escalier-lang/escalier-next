@@ -1,6 +1,5 @@
 namespace Escalier.Codegen
 
-
 open Escalier.Interop
 open Escalier.Interop.TypeScript
 open Escalier.Data
@@ -13,7 +12,9 @@ open Escalier.TypeChecker.Env
 module rec Codegen =
   module TS = TypeScript
 
-  type Ctx = { mutable NextTempId: int }
+  type Ctx =
+    { mutable NextTempId: int
+      mutable HasJSX: bool }
 
   type Finalizer =
     | Assign of string
@@ -24,8 +25,8 @@ module rec Codegen =
     { Start = FParsec.Position("", 0, 0, 0)
       Stop = FParsec.Position("", 0, 0, 0) }
 
-  let buildScript (ctx: Ctx) (m: Module) =
-    let stmts: list<Stmt> =
+  let buildModule (ctx: Ctx) (m: Module) : TS.Module =
+    let mutable stmts: list<Stmt> =
       m.Items
       |> List.choose (fun item ->
         match item with
@@ -33,7 +34,38 @@ module rec Codegen =
         | _ -> None)
 
     let block = { Stmts = stmts; Span = dummySpan }
-    buildBlock ctx block Finalizer.Empty
+    let block = buildBlock ctx block Finalizer.Empty
+
+    let mutable items: list<TS.ModuleItem> =
+      List.map TS.ModuleItem.Stmt block.Body
+
+    if ctx.HasJSX then
+      items <-
+        ModuleItem.ModuleDecl(
+          ModuleDecl.Import
+            { Specifiers =
+                [ TS.ImportSpecifier.Named
+                    { Local = { Name = "_jsx"; Loc = None }
+                      Imported =
+                        Some(
+                          ModuleExportName.Ident { Name = "jsx"; Loc = None }
+                        )
+                      IsTypeOnly = false
+                      Loc = None } ]
+              Src =
+                { Value = "react"
+                  Raw = None
+                  Loc = None }
+              IsTypeOnly = false
+              With = None
+              Loc = None }
+        )
+        :: items
+
+    { Body = items
+      Shebang = None
+      Loc = None }
+
 
   let buildExpr (ctx: Ctx) (expr: Expr) : TS.Expr * list<TS.Stmt> =
 
@@ -255,7 +287,123 @@ module rec Codegen =
       let expr = Expr.Object obj
 
       (expr, [])
-    | _ -> failwith (sprintf "TODO: buildExpr - %A" expr)
+    | ExprKind.New ``new`` -> failwith "TODO: buildExpr - New"
+    | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
+      failwith "TODO: buildExpr - ExprWithTypeArgs"
+    | ExprKind.Class ``class`` -> failwith "TODO: buildExpr - Class"
+    | ExprKind.Tuple tuple -> failwith "TODO: buildExpr - Tuple"
+    | ExprKind.Range range -> failwith "TODO: buildExpr - Range"
+    | ExprKind.Index(target, index, optChain) ->
+      failwith "TODO: buildExpr - Index"
+    | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
+      failwith "TODO: buildExpr - IfLet"
+    | ExprKind.Match(target, cases) -> failwith "TODO: buildExpr - Match"
+    | ExprKind.Assign(op, left, right) -> failwith "TODO: buildExpr - Assign"
+    | ExprKind.Unary(op, value) -> failwith "TODO: buildExpr - Unary"
+    | ExprKind.Try ``try`` -> failwith "TODO: buildExpr - Try"
+    | ExprKind.Await await -> failwith "TODO: buildExpr - Await"
+    | ExprKind.Throw value -> failwith "TODO: buildExpr - Throw"
+    | ExprKind.TemplateLiteral templateLiteral ->
+      failwith "TODO: buildExpr - TemplateLiteral"
+    | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
+      failwith "TODO: buildExpr - TaggedTemplateLiteral"
+    | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
+    | ExprKind.JSXFragment jsxFragment ->
+      failwith "TODO: buildExpr - JSXFragment"
+
+  let buildJsxElement
+    (ctx: Ctx)
+    (jsxElement: JSXElement)
+    : TS.Expr * list<TS.Stmt> =
+    ctx.HasJSX <- true
+
+    let { JSXElement.Opening = { Name = name; Attrs = attrs }
+          Children = children } =
+      jsxElement
+
+    let mutable stmts: list<TS.Stmt> = []
+
+    let mutable properties: list<TS.Property> =
+      attrs
+      |> List.map (fun attr ->
+        let value =
+          match attr.Value with
+          | None -> failwith "TODO: treat this the same as `obj = {x, y}`"
+          | Some value ->
+            match value with
+            | Str(Common.Literal.String s) ->
+              Lit.Str { Value = s; Raw = None; Loc = None } |> Expr.Lit
+            | Str _ -> failwith "Not a valid string literal"
+            | JSXAttrValue.JSXExprContainer jsxExprContainer ->
+              let expr, exprStmts = buildExpr ctx jsxExprContainer.Expr
+              stmts <- stmts @ exprStmts
+              expr
+            | JSXAttrValue.JSXElement jsxElement ->
+              let jsxElementExpr, jsxElementStmts =
+                buildJsxElement ctx jsxElement
+
+              stmts <- stmts @ jsxElementStmts
+              jsxElementExpr
+            | JSXAttrValue.JSXFragment jsxFragment -> failwith "todo"
+
+        { Key = PropertyKey.Ident { Name = attr.Name; Loc = None }
+          Value = value
+          Kind = PropertyKind.Init
+          Loc = None })
+
+    let children: list<option<ExprOrSpread>> =
+      children
+      |> List.map (fun child ->
+        match child with
+        | JSXElementChild.JSXElement jsxElement ->
+          let jsxElementExpr, jsxElementStmts = buildJsxElement ctx jsxElement
+
+          stmts <- stmts @ jsxElementStmts
+
+          Some(
+            { Spread = false
+              Expr = jsxElementExpr }
+          )
+        | JSXElementChild.JSXFragment jsxFragment -> failwith "todo"
+        | JSXElementChild.JSXText { Text = text } ->
+          let jsxTextExpr =
+            Lit.Str { Value = text; Raw = None; Loc = None } |> Expr.Lit
+
+          Some({ Spread = false; Expr = jsxTextExpr })
+        | JSXElementChild.JSXExprContainer jsxExprContainer ->
+          let expr, exprStmts = buildExpr ctx jsxExprContainer.Expr
+          stmts <- stmts @ exprStmts
+          Some({ Spread = false; Expr = expr }))
+
+    if not children.IsEmpty then
+      let childrenValue = Expr.Array { Elements = children; Loc = None }
+
+      let childrenProp =
+        { Key = PropertyKey.Ident { Name = "children"; Loc = None }
+          Value = childrenValue
+          Kind = PropertyKind.Init
+          Loc = None }
+
+      properties <- properties @ [ childrenProp ]
+
+    let propsObj = Expr.Object { Properties = properties; Loc = None }
+
+    match name with
+    | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
+
+      let calleeExpr = Expr.Ident { Name = "_jsx"; Loc = None }
+
+      let componentExpr =
+        Expr.Lit(Lit.Str { Value = s; Raw = None; Loc = None })
+
+      let callExpr =
+        Expr.Call
+          { Callee = calleeExpr
+            Arguments = [ componentExpr; propsObj ]
+            Loc = None }
+
+      (callExpr, stmts)
+    | _ -> failwith "TODO: buildExpr - JSXElement"
 
   let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
     // TODO: check if the last statement is an expression statement
@@ -291,16 +439,13 @@ module rec Codegen =
             let declStmt = Stmt.Decl(Decl.Var decl)
 
             initStmts @ [ declStmt ]
-          | TypeDecl _ -> []
+          | TypeDecl _ -> [] // Ignore types when generating JS code
           | VarDecl(_) -> failwith "TODO: buildBlock - VarDecl"
           | FnDecl(_) -> failwith "TODO: buildBlock - FnDecl"
-          // Ignore types when generating JS code
           | ClassDecl(_) -> failwith "TODO: buildBlock - ClassDecl"
-          // Ignore types when generating JS code
           | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
-          // Ignore types when generating JS code
           | NamespaceDecl(_) -> failwith "TODO: buildBlock - NamespaceDecl"
-          | InterfaceDecl(_) -> failwith "TODO: buildBlock - InterfaceDecl"
+          | InterfaceDecl(_) -> [] // Ignore types when generating JS code
         | StmtKind.Return expr -> failwith "TODO: buildBlock - Return"
         | StmtKind.For(left, right, body) -> failwith "TODO: buildBlock - For"
 

@@ -73,8 +73,7 @@ module Compiler =
         Codegen.buildModuleTypes
           env
           { NextTempId = 0
-            UsesJsx = false
-            UsesJsxs = false }
+            AutoImports = Set.empty }
           ast
 
       let dts = Printer.printModule printCtx mod'
@@ -82,8 +81,7 @@ module Compiler =
       let mod' =
         Codegen.buildModule
           { NextTempId = 0
-            UsesJsx = false
-            UsesJsxs = false }
+            AutoImports = Set.empty }
           ast
 
       let js = Printer.printModule printCtx mod'
@@ -140,8 +138,7 @@ module Compiler =
         Codegen.buildModuleTypes
           env
           { NextTempId = 0
-            UsesJsx = false
-            UsesJsxs = false }
+            AutoImports = Set.empty }
           ast
 
       let dts = Printer.printModule printCtx mod'
@@ -149,8 +146,7 @@ module Compiler =
       let mod' =
         Codegen.buildModule
           { NextTempId = 0
-            UsesJsx = false
-            UsesJsxs = false }
+            AutoImports = Set.empty }
           ast
 
       let js = Printer.printModule printCtx mod'

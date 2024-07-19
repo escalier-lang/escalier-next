@@ -14,8 +14,7 @@ module rec Codegen =
 
   type Ctx =
     { mutable NextTempId: int
-      mutable UsesJsx: bool
-      mutable UsesJsxs: bool }
+      mutable AutoImports: Set<string> }
 
   type Finalizer =
     | Assign of string
@@ -40,11 +39,11 @@ module rec Codegen =
     let mutable items: list<TS.ModuleItem> =
       List.map TS.ModuleItem.Stmt block.Body
 
-    if ctx.UsesJsx || ctx.UsesJsxs then
+    if not ctx.AutoImports.IsEmpty then
       items <-
         let mutable specifiers = []
 
-        if ctx.UsesJsx then
+        if ctx.AutoImports.Contains "_jsx" then
           specifiers <-
             TS.ImportSpecifier.Named
               { Local = { Name = "_jsx"; Loc = None }
@@ -54,12 +53,22 @@ module rec Codegen =
                 Loc = None }
             :: specifiers
 
-        if ctx.UsesJsxs then
+        if ctx.AutoImports.Contains "_jsxs" then
           specifiers <-
             TS.ImportSpecifier.Named
               { Local = { Name = "_jsxs"; Loc = None }
                 Imported =
                   Some(ModuleExportName.Ident { Name = "jsxs"; Loc = None })
+                IsTypeOnly = false
+                Loc = None }
+            :: specifiers
+
+        if ctx.AutoImports.Contains "_Fragment" then
+          specifiers <-
+            TS.ImportSpecifier.Named
+              { Local = { Name = "_Fragment"; Loc = None }
+                Imported =
+                  Some(ModuleExportName.Ident { Name = "Fragment"; Loc = None })
                 IsTypeOnly = false
                 Loc = None }
             :: specifiers
@@ -408,10 +417,10 @@ module rec Codegen =
     let callExpr =
       let name =
         if children.Length > 1 then
-          ctx.UsesJsx <- true
+          ctx.AutoImports <- Set.add "_jsxs" ctx.AutoImports
           "_jsxs"
         else
-          ctx.UsesJsxs <- true
+          ctx.AutoImports <- Set.add "_jsx" ctx.AutoImports
           "_jsx"
 
       Expr.Call
@@ -480,15 +489,18 @@ module rec Codegen =
     let callExpr =
       let name =
         if children.Length > 1 then
-          ctx.UsesJsx <- true
+          ctx.AutoImports <- Set.add "_jsxs" ctx.AutoImports
           "_jsxs"
         else
-          ctx.UsesJsxs <- true
+          ctx.AutoImports <- Set.add "_jsx" ctx.AutoImports
           "_jsx"
+
+      let componentExpr = Expr.Ident { Name = "_Fragment"; Loc = None }
+      ctx.AutoImports <- Set.add "_Fragment" ctx.AutoImports
 
       Expr.Call
         { Callee = Expr.Ident { Name = name; Loc = None }
-          Arguments = [ propsObj ]
+          Arguments = [ componentExpr; propsObj ]
           Loc = None }
 
     (callExpr, stmts)

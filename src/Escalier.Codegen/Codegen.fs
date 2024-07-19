@@ -39,47 +39,50 @@ module rec Codegen =
     let mutable items: list<TS.ModuleItem> =
       List.map TS.ModuleItem.Stmt block.Body
 
-    if not ctx.AutoImports.IsEmpty then
+    let mutable importMap = Map.empty
+    importMap <- Map.add "_jsx" "react/jsx-runtime" importMap
+    importMap <- Map.add "_jsxs" "react/jsx-runtime" importMap
+    importMap <- Map.add "_Fragment" "react/jsx-runtime" importMap
+    importMap <- Map.add "Record" "@bloomberg/record-tuple-polyfill" importMap
+    importMap <- Map.add "Tuple" "@bloomberg/record-tuple-polyfill" importMap
+
+    let mutable importsByPath: Map<string, Set<string>> = Map.empty
+
+    for import in ctx.AutoImports do
+      let path = Map.find import importMap
+
+      let imports =
+        match Map.tryFind path importsByPath with
+        | Some imports -> imports
+        | None -> Set.empty
+
+      importsByPath <- Map.add path (Set.add import imports) importsByPath
+
+    for KeyValue(path, imports) in importsByPath do
+      let specifiers =
+        imports
+        |> Set.toList
+        |> List.map (fun localName ->
+          let importName =
+            if localName.[0] = '_' then localName.[1..] else localName
+
+          TS.ImportSpecifier.Named
+            { Local = { Name = localName; Loc = None }
+              Imported =
+                if localName = importName then
+                  None
+                else
+                  Some(
+                    ModuleExportName.Ident { Name = importName; Loc = None }
+                  )
+              IsTypeOnly = false
+              Loc = None })
+
       items <-
-        let mutable specifiers = []
-
-        if ctx.AutoImports.Contains "_jsx" then
-          specifiers <-
-            TS.ImportSpecifier.Named
-              { Local = { Name = "_jsx"; Loc = None }
-                Imported =
-                  Some(ModuleExportName.Ident { Name = "jsx"; Loc = None })
-                IsTypeOnly = false
-                Loc = None }
-            :: specifiers
-
-        if ctx.AutoImports.Contains "_jsxs" then
-          specifiers <-
-            TS.ImportSpecifier.Named
-              { Local = { Name = "_jsxs"; Loc = None }
-                Imported =
-                  Some(ModuleExportName.Ident { Name = "jsxs"; Loc = None })
-                IsTypeOnly = false
-                Loc = None }
-            :: specifiers
-
-        if ctx.AutoImports.Contains "_Fragment" then
-          specifiers <-
-            TS.ImportSpecifier.Named
-              { Local = { Name = "_Fragment"; Loc = None }
-                Imported =
-                  Some(ModuleExportName.Ident { Name = "Fragment"; Loc = None })
-                IsTypeOnly = false
-                Loc = None }
-            :: specifiers
-
         ModuleItem.ModuleDecl(
           ModuleDecl.Import
             { Specifiers = specifiers
-              Src =
-                { Value = "react/jsx-runtime"
-                  Raw = None
-                  Loc = None }
+              Src = { Value = path; Raw = None; Loc = None }
               IsTypeOnly = false
               With = None
               Loc = None }
@@ -308,14 +311,46 @@ module rec Codegen =
 
       let obj: TS.ObjectLit = { Properties = properties; Loc = None }
 
-      let expr = Expr.Object obj
+      let expr =
+        if immutable then
+          ctx.AutoImports <- Set.add "Record" ctx.AutoImports
+
+          Expr.Call
+            { Callee = Expr.Ident { Name = "Record"; Loc = None }
+              Arguments = [ Expr.Object obj ]
+              Loc = None }
+        else
+          Expr.Object obj
 
       (expr, [])
     | ExprKind.New ``new`` -> failwith "TODO: buildExpr - New"
     | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
       failwith "TODO: buildExpr - ExprWithTypeArgs"
     | ExprKind.Class ``class`` -> failwith "TODO: buildExpr - Class"
-    | ExprKind.Tuple tuple -> failwith "TODO: buildExpr - Tuple"
+    | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
+      let mutable stmts: list<TS.Stmt> = []
+
+      let elems: list<option<TS.ExprOrSpread>> =
+        elems
+        |> List.map (fun elem ->
+          let elemExpr, elemStmts = buildExpr ctx elem
+          stmts <- stmts @ elemStmts
+          Some({ Expr = elemExpr; Spread = false }))
+
+      let tuple = TS.Expr.Array { Elements = elems; Loc = None }
+
+      let tuple =
+        if immutable then
+          ctx.AutoImports <- Set.add "Tuple" ctx.AutoImports
+
+          Expr.Call
+            { Callee = Expr.Ident { Name = "Tuple"; Loc = None }
+              Arguments = [ tuple ]
+              Loc = None }
+        else
+          tuple
+
+      (tuple, stmts)
     | ExprKind.Range range -> failwith "TODO: buildExpr - Range"
     | ExprKind.Index(target, index, optChain) ->
       failwith "TODO: buildExpr - Index"
@@ -361,12 +396,13 @@ module rec Codegen =
               stmts <- stmts @ exprStmts
               expr
             | JSXAttrValue.JSXElement jsxElement ->
-              let jsxElementExpr, jsxElementStmts =
-                buildJsxElement ctx jsxElement
-
-              stmts <- stmts @ jsxElementStmts
-              jsxElementExpr
-            | JSXAttrValue.JSXFragment jsxFragment -> failwith "todo"
+              let jsxElemExpr, jsxElemStmts = buildJsxElement ctx jsxElement
+              stmts <- stmts @ jsxElemStmts
+              jsxElemExpr
+            | JSXAttrValue.JSXFragment jsxFragment ->
+              let jsxFragExpr, jsxFragStmts = buildJsxFragment ctx jsxFragment
+              stmts <- stmts @ jsxFragStmts
+              jsxFragExpr
 
         { Key = PropertyKey.Ident { Name = attr.Name; Loc = None }
           Value = value

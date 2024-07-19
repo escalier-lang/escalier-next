@@ -747,11 +747,7 @@ module Parser =
       // TODO: handle parsing computed properties
       match value with
       | Some(value) ->
-        ObjElem.Property(
-          span = span,
-          name = PropName.String name,
-          value = value
-        )
+        ObjElem.Property(span = span, name = PropName.Ident name, value = value)
       | None -> ObjElem.Shorthand(span = span, name = name)
 
   let objElemSpread: Parser<ObjElem, unit> =

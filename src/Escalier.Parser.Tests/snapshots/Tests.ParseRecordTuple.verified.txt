@@ -60,14 +60,14 @@ output: Ok
                             { Elems =
                                [Property
                                   ({ Start = (Ln: 3, Col: 16)
-                                     Stop = (Ln: 3, Col: 20) }, String "x",
+                                     Stop = (Ln: 3, Col: 20) }, Ident "x",
                                    { Kind = Literal (Number (Int 5))
                                      Span = { Start = (Ln: 3, Col: 19)
                                               Stop = (Ln: 3, Col: 20) }
                                      InferredType = None });
                                 Property
                                   ({ Start = (Ln: 3, Col: 22)
-                                     Stop = (Ln: 3, Col: 27) }, String "y",
+                                     Stop = (Ln: 3, Col: 27) }, Ident "y",
                                    { Kind = Literal (Number (Int 10))
                                      Span = { Start = (Ln: 3, Col: 25)
                                               Stop = (Ln: 3, Col: 27) }

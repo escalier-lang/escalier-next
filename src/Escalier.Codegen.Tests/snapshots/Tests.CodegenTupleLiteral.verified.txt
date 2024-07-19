@@ -1,0 +1,5 @@
+﻿input: 
+        let tuple = ["hello", 5, true];
+        
+output:
+var tuple = ["hello", 5, true];

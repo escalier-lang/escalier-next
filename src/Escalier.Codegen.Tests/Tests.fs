@@ -156,8 +156,7 @@ let CodegenDoExpression () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModule ctx escAst
       let js = printModule printCtx mod'
@@ -196,8 +195,7 @@ let CodegenNestedDoExpressions () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModule ctx escAst
       let js = printModule printCtx mod'
@@ -225,8 +223,7 @@ let CodegenFunction () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModule ctx escAst
 
@@ -260,8 +257,7 @@ let CodegenChainedIfElse () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModule ctx escAst
 
@@ -292,8 +288,7 @@ let CodegenJsxElement () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModule ctx escAst
 
@@ -325,8 +320,7 @@ let CodegenJsxFragment () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModule ctx escAst
 
@@ -368,8 +362,7 @@ let CodegenDtsBasics () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModuleTypes env ctx escAst
       let dts = printModule printCtx mod'
@@ -406,8 +399,7 @@ let CodegenDtsGeneric () =
 
       let ctx: Ctx =
         { NextTempId = 0
-          UsesJsx = false
-          UsesJsxs = false }
+          AutoImports = Set.empty }
 
       let mod' = buildModuleTypes env ctx ast
       let dts = printModule printCtx mod'

@@ -266,7 +266,7 @@ module rec Codegen =
       let stmts = objStmts
 
       (expr, stmts)
-    | ExprKind.Object { Elems = elems; Immutable = immutable } ->
+    | ExprKind.Object { Elems = elems; Immutable = false } ->
       let mutable stmts: list<TS.Stmt> = []
 
       let properties: list<TS.Property> =
@@ -311,11 +311,27 @@ module rec Codegen =
       let expr = Expr.Object obj
 
       (expr, [])
+    | ExprKind.Object { Elems = elems; Immutable = true } ->
+      failwith "TODO: buildExpr - handle immutable object literals (aka records)"
     | ExprKind.New ``new`` -> failwith "TODO: buildExpr - New"
     | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
       failwith "TODO: buildExpr - ExprWithTypeArgs"
     | ExprKind.Class ``class`` -> failwith "TODO: buildExpr - Class"
-    | ExprKind.Tuple tuple -> failwith "TODO: buildExpr - Tuple"
+    | ExprKind.Tuple { Elems = elems; Immutable = false } ->
+      let mutable stmts: list<TS.Stmt> = []
+
+      let elems: list<option<TS.ExprOrSpread>> =
+        elems
+        |> List.map (fun elem ->
+          let elemExpr, elemStmts = buildExpr ctx elem
+          stmts <- stmts @ elemStmts
+          Some({ Expr = elemExpr; Spread = false }))
+
+      let tuple = TS.Expr.Array { Elements = elems; Loc = None }
+
+      (tuple, stmts)
+    | ExprKind.Tuple { Elems = _; Immutable = true } ->
+      failwith "TODO: buildExpr - handle immutable tuple literals"
     | ExprKind.Range range -> failwith "TODO: buildExpr - Range"
     | ExprKind.Index(target, index, optChain) ->
       failwith "TODO: buildExpr - Index"

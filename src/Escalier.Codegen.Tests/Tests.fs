@@ -20,6 +20,20 @@ settings.DisableDiff()
 
 let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
 
+let parseAndCodegenJS (src: string) =
+  result {
+    let! escAst = Parser.parseModule src
+
+    let ctx: Ctx =
+      { NextTempId = 0
+        AutoImports = Set.empty }
+
+    let mod' = buildModule ctx escAst
+    let js = printModule printCtx mod'
+    
+    return js
+  }
+
 [<Fact>]
 let CodegenIdent () =
   let ident: Ident = { Name = "foo"; Loc = None }
@@ -219,16 +233,7 @@ let CodegenFunction () =
           if (n == 0) { 1 } else { n * factorial(n - 1) }; 
         """
 
-      let! escAst = Parser.parseModule src
-
-      let ctx: Ctx =
-        { NextTempId = 0
-          AutoImports = Set.empty }
-
-      let mod' = buildModule ctx escAst
-
-      let js = printModule printCtx mod'
-
+      let! js = parseAndCodegenJS src
       return $"input: %s{src}\noutput:\n{js}"
     }
 
@@ -253,16 +258,45 @@ let CodegenChainedIfElse () =
         };
         """
 
-      let! escAst = Parser.parseModule src
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
 
-      let ctx: Ctx =
-        { NextTempId = 0
-          AutoImports = Set.empty }
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
 
-      let mod' = buildModule ctx escAst
+[<Fact>]
+let CodegenTupleLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = ["hello", 5, true];
+        """
 
-      let js = printModule printCtx mod'
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
 
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenObjectLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let object = {a: "hello", b: 5, c: true};
+        """
+
+      let! js = parseAndCodegenJS src
       return $"input: %s{src}\noutput:\n{js}"
     }
 
@@ -284,16 +318,7 @@ let CodegenJsxElement () =
         </div>;
         """
 
-      let! escAst = Parser.parseModule src
-
-      let ctx: Ctx =
-        { NextTempId = 0
-          AutoImports = Set.empty }
-
-      let mod' = buildModule ctx escAst
-
-      let js = printModule printCtx mod'
-
+      let! js = parseAndCodegenJS src
       return $"input: %s{src}\noutput:\n{js}"
     }
 
@@ -316,16 +341,7 @@ let CodegenJsxFragment () =
         </>;
         """
 
-      let! escAst = Parser.parseModule src
-
-      let ctx: Ctx =
-        { NextTempId = 0
-          AutoImports = Set.empty }
-
-      let mod' = buildModule ctx escAst
-
-      let js = printModule printCtx mod'
-
+      let! js = parseAndCodegenJS src
       return $"input: %s{src}\noutput:\n{js}"
     }
 

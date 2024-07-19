@@ -1,0 +1,5 @@
+﻿input: 
+        let object = {a: "hello", b: 5, c: true};
+        
+output:
+var object = {a: "hello", b: 5, c: true};

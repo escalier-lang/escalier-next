@@ -1,0 +1,9 @@
+﻿input: 
+        import "react" {React};
+        let foo = <div id="foo" class="bar">
+          <p>hello</p>
+        </div>;
+        
+output:
+import {jsx as jsxs} from "react"
+var foo = _jsx("div", {id: "foo", class: "bar", children: [_jsx("p", {children: ["hello"]})]});

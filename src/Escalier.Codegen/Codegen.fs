@@ -45,26 +45,30 @@ module rec Codegen =
         let mutable specifiers = []
 
         if ctx.UsesJsx then
-          specifiers <- "jsx" :: specifiers
-
-        if ctx.UsesJsxs then
-          specifiers <- "jsxs" :: specifiers
-
-        let specifiers =
-          specifiers
-          |> List.map (fun name ->
+          specifiers <-
             TS.ImportSpecifier.Named
-              { Local = { Name = name; Loc = None }
+              { Local = { Name = "_jsx"; Loc = None }
                 Imported =
                   Some(ModuleExportName.Ident { Name = "jsx"; Loc = None })
                 IsTypeOnly = false
-                Loc = None })
+                Loc = None }
+            :: specifiers
+
+        if ctx.UsesJsxs then
+          specifiers <-
+            TS.ImportSpecifier.Named
+              { Local = { Name = "_jsxs"; Loc = None }
+                Imported =
+                  Some(ModuleExportName.Ident { Name = "jsxs"; Loc = None })
+                IsTypeOnly = false
+                Loc = None }
+            :: specifiers
 
         ModuleItem.ModuleDecl(
           ModuleDecl.Import
             { Specifiers = specifiers
               Src =
-                { Value = "react"
+                { Value = "react/jsx-runtime"
                   Raw = None
                   Loc = None }
               IsTypeOnly = false

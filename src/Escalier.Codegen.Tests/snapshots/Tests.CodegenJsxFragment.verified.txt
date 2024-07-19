@@ -6,5 +6,5 @@
         </>;
         
 output:
-import {jsx as jsxs, jsx as jsx} from "react"
+import {jsxs as _jsxs, jsx as _jsx} from "react/jsx-runtime"
 var foo = _jsxs({children: [_jsx("p", {children: ["hello"]}), _jsx("p", {children: ["world"]})]});

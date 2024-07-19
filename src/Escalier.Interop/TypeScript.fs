@@ -1076,6 +1076,7 @@ module rec TypeScript =
       Optional: bool
       Loc: option<SourceLocation> }
 
+  [<RequireQualifiedAccess>]
   type ObjectPatProp =
     | KeyValue of KeyValuePatProp
     | Assign of AssignPatProp

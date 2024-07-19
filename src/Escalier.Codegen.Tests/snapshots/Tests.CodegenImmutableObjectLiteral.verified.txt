@@ -1,0 +1,6 @@
+﻿input: 
+        let object = #{a: "hello", b: 5, c: true};
+        
+output:
+import {Record} from "@bloomberg/record-tuple-polyfill"
+var object = Record({a: "hello", b: 5, c: true});

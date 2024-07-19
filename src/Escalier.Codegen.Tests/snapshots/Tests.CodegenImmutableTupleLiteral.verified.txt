@@ -1,0 +1,6 @@
+﻿input: 
+        let tuple = #["hello", 5, true];
+        
+output:
+import {Tuple} from "@bloomberg/record-tuple-polyfill"
+var tuple = Tuple(["hello", 5, true]);

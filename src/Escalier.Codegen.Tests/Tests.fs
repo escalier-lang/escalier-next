@@ -30,7 +30,7 @@ let parseAndCodegenJS (src: string) =
 
     let mod' = buildModule ctx escAst
     let js = printModule printCtx mod'
-    
+
     return js
   }
 
@@ -288,12 +288,50 @@ let CodegenTupleLiteral () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenImmutableTupleLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = #["hello", 5, true];
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenObjectLiteral () =
   let res =
     result {
       let src =
         """
         let object = {a: "hello", b: 5, c: true};
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenImmutableObjectLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let object = #{a: "hello", b: 5, c: true};
         """
 
       let! js = parseAndCodegenJS src

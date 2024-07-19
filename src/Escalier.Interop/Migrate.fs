@@ -520,7 +520,7 @@ module rec Migrate =
           List.map
             (fun (prop: TypeScript.ObjectPatProp) ->
               match prop with
-              | KeyValue { Key = key; Value = value } ->
+              | ObjectPatProp.KeyValue { Key = key; Value = value } ->
                 let key =
                   match key with
                   | PropName.Ident id -> id.Name
@@ -535,7 +535,7 @@ module rec Migrate =
                     Value = migratePat value
                     Default = None // TODO
                     Span = DUMMY_SPAN }
-              | Assign { Key = key; Value = value } ->
+              | ObjectPatProp.Assign { Key = key; Value = value } ->
                 ShorthandPat
                   { Name = key.Name
                     IsMut = true
@@ -543,7 +543,7 @@ module rec Migrate =
                     Default = None // TODO
                     Span = DUMMY_SPAN
                     Inferred = None }
-              | Rest { Arg = arg } ->
+              | ObjectPatProp.Rest { Arg = arg } ->
                 RestPat
                   { Target = migratePat arg
                     IsMut = true
@@ -591,7 +591,7 @@ module rec Migrate =
           List.map
             (fun (prop: TypeScript.ObjectPatProp) ->
               match prop with
-              | KeyValue { Key = key; Value = value } ->
+              | ObjectPatProp.KeyValue { Key = key; Value = value } ->
                 let key =
                   match key with
                   | PropName.Ident id -> id.Name
@@ -606,7 +606,7 @@ module rec Migrate =
                     Value = migratePat value
                     Default = None // TODO
                     Span = DUMMY_SPAN }
-              | Assign { Key = key; Value = value } ->
+              | ObjectPatProp.Assign { Key = key; Value = value } ->
                 ShorthandPat
                   { Name = key.Name
                     IsMut = true
@@ -614,7 +614,7 @@ module rec Migrate =
                     Default = None // TODO
                     Span = DUMMY_SPAN
                     Inferred = None }
-              | Rest { Arg = arg } ->
+              | ObjectPatProp.Rest { Arg = arg } ->
                 RestPat
                   { Target = migratePat arg
                     IsMut = true

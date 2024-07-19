@@ -6,5 +6,5 @@
         </>;
         
 output:
-import {Fragment as _Fragment, jsxs as _jsxs, jsx as _jsx} from "react/jsx-runtime"
+import {Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs} from "react/jsx-runtime"
 var foo = _jsxs(_Fragment, {children: [_jsx("p", {children: ["hello"]}), _jsx("p", {children: ["world"]})]});

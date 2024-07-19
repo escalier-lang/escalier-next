@@ -70,11 +70,21 @@ module Compiler =
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 
       let mod' =
-        Codegen.buildModuleTypes env { NextTempId = 0; HasJSX = false } ast
+        Codegen.buildModuleTypes
+          env
+          { NextTempId = 0
+            UsesJsx = false
+            UsesJsxs = false }
+          ast
 
       let dts = Printer.printModule printCtx mod'
 
-      let mod' = Codegen.buildModule { NextTempId = 0; HasJSX = false } ast
+      let mod' =
+        Codegen.buildModule
+          { NextTempId = 0
+            UsesJsx = false
+            UsesJsxs = false }
+          ast
 
       let js = Printer.printModule printCtx mod'
 
@@ -127,11 +137,21 @@ module Compiler =
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 
       let mod' =
-        Codegen.buildModuleTypes env { NextTempId = 0; HasJSX = false } ast
+        Codegen.buildModuleTypes
+          env
+          { NextTempId = 0
+            UsesJsx = false
+            UsesJsxs = false }
+          ast
 
       let dts = Printer.printModule printCtx mod'
 
-      let mod' = Codegen.buildModule { NextTempId = 0; HasJSX = false } ast
+      let mod' =
+        Codegen.buildModule
+          { NextTempId = 0
+            UsesJsx = false
+            UsesJsxs = false }
+          ast
 
       let js = Printer.printModule printCtx mod'
 

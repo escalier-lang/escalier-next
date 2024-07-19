@@ -14,7 +14,8 @@ module rec Codegen =
 
   type Ctx =
     { mutable NextTempId: int
-      mutable HasJSX: bool }
+      mutable UsesJsx: bool
+      mutable UsesJsxs: bool }
 
   type Finalizer =
     | Assign of string
@@ -39,19 +40,29 @@ module rec Codegen =
     let mutable items: list<TS.ModuleItem> =
       List.map TS.ModuleItem.Stmt block.Body
 
-    if ctx.HasJSX then
+    if ctx.UsesJsx || ctx.UsesJsxs then
       items <-
+        let mutable specifiers = []
+
+        if ctx.UsesJsx then
+          specifiers <- "jsx" :: specifiers
+
+        if ctx.UsesJsxs then
+          specifiers <- "jsxs" :: specifiers
+
+        let specifiers =
+          specifiers
+          |> List.map (fun name ->
+            TS.ImportSpecifier.Named
+              { Local = { Name = name; Loc = None }
+                Imported =
+                  Some(ModuleExportName.Ident { Name = "jsx"; Loc = None })
+                IsTypeOnly = false
+                Loc = None })
+
         ModuleItem.ModuleDecl(
           ModuleDecl.Import
-            { Specifiers =
-                [ TS.ImportSpecifier.Named
-                    { Local = { Name = "_jsx"; Loc = None }
-                      Imported =
-                        Some(
-                          ModuleExportName.Ident { Name = "jsx"; Loc = None }
-                        )
-                      IsTypeOnly = false
-                      Loc = None } ]
+            { Specifiers = specifiers
               Src =
                 { Value = "react"
                   Raw = None
@@ -308,14 +319,12 @@ module rec Codegen =
     | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
       failwith "TODO: buildExpr - TaggedTemplateLiteral"
     | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
-    | ExprKind.JSXFragment jsxFragment ->
-      failwith "TODO: buildExpr - JSXFragment"
+    | ExprKind.JSXFragment jsxFragment -> buildJsxFragment ctx jsxFragment
 
   let buildJsxElement
     (ctx: Ctx)
     (jsxElement: JSXElement)
     : TS.Expr * list<TS.Stmt> =
-    ctx.HasJSX <- true
 
     let { JSXElement.Opening = { Name = name; Attrs = attrs }
           Children = children } =
@@ -356,15 +365,13 @@ module rec Codegen =
       |> List.map (fun child ->
         match child with
         | JSXElementChild.JSXElement jsxElement ->
-          let jsxElementExpr, jsxElementStmts = buildJsxElement ctx jsxElement
-
-          stmts <- stmts @ jsxElementStmts
-
-          Some(
-            { Spread = false
-              Expr = jsxElementExpr }
-          )
-        | JSXElementChild.JSXFragment jsxFragment -> failwith "todo"
+          let jsxElemExpr, jsxElemStmts = buildJsxElement ctx jsxElement
+          stmts <- stmts @ jsxElemStmts
+          Some({ Spread = false; Expr = jsxElemExpr })
+        | JSXElementChild.JSXFragment jsxFragment ->
+          let jsxFragExpr, jsxFragStmts = buildJsxFragment ctx jsxFragment
+          stmts <- stmts @ jsxFragStmts
+          Some({ Spread = false; Expr = jsxFragExpr })
         | JSXElementChild.JSXText { Text = text } ->
           let jsxTextExpr =
             Lit.Str { Value = text; Raw = None; Loc = None } |> Expr.Lit
@@ -388,22 +395,99 @@ module rec Codegen =
 
     let propsObj = Expr.Object { Properties = properties; Loc = None }
 
-    match name with
-    | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
-
-      let calleeExpr = Expr.Ident { Name = "_jsx"; Loc = None }
-
-      let componentExpr =
+    let componentExpr =
+      match name with
+      | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
         Expr.Lit(Lit.Str { Value = s; Raw = None; Loc = None })
+      | _ -> failwith "TODO: buildExpr - JSXElement"
 
-      let callExpr =
-        Expr.Call
-          { Callee = calleeExpr
-            Arguments = [ componentExpr; propsObj ]
-            Loc = None }
+    let callExpr =
+      let name =
+        if children.Length > 1 then
+          ctx.UsesJsx <- true
+          "_jsxs"
+        else
+          ctx.UsesJsxs <- true
+          "_jsx"
 
-      (callExpr, stmts)
-    | _ -> failwith "TODO: buildExpr - JSXElement"
+      Expr.Call
+        { Callee = Expr.Ident { Name = name; Loc = None }
+          Arguments = [ componentExpr; propsObj ]
+          Loc = None }
+
+    (callExpr, stmts)
+
+  let buildJsxFragment
+    (ctx: Ctx)
+    (jsxFragment: JSXFragment)
+    : TS.Expr * list<TS.Stmt> =
+    let mutable stmts: list<TS.Stmt> = []
+
+    let { Children = children } = jsxFragment
+
+    let children: list<option<ExprOrSpread>> =
+      children
+      |> List.map (fun child ->
+        match child with
+        | JSXElementChild.JSXElement jsxElement ->
+          let jsxElementExpr, jsxElementStmts = buildJsxElement ctx jsxElement
+
+          stmts <- stmts @ jsxElementStmts
+
+          Some(
+            { Spread = false
+              Expr = jsxElementExpr }
+          )
+        | JSXElementChild.JSXFragment jsxFragment ->
+          let jsxElementExpr, jsxElementStmts =
+            buildJsxFragment ctx jsxFragment
+
+          stmts <- stmts @ jsxElementStmts
+
+          Some(
+            { Spread = false
+              Expr = jsxElementExpr }
+          )
+        | JSXElementChild.JSXText { Text = text } ->
+          let jsxTextExpr =
+            Lit.Str { Value = text; Raw = None; Loc = None } |> Expr.Lit
+
+          Some({ Spread = false; Expr = jsxTextExpr })
+        | JSXElementChild.JSXExprContainer jsxExprContainer ->
+          let expr, exprStmts = buildExpr ctx jsxExprContainer.Expr
+          stmts <- stmts @ exprStmts
+          Some({ Spread = false; Expr = expr }))
+
+    let mutable properties: list<TS.Property> = []
+
+    if not children.IsEmpty then
+      let childrenValue = Expr.Array { Elements = children; Loc = None }
+
+      let childrenProp =
+        { Key = PropertyKey.Ident { Name = "children"; Loc = None }
+          Value = childrenValue
+          Kind = PropertyKind.Init
+          Loc = None }
+
+      properties <- properties @ [ childrenProp ]
+
+    let propsObj = Expr.Object { Properties = properties; Loc = None }
+
+    let callExpr =
+      let name =
+        if children.Length > 1 then
+          ctx.UsesJsx <- true
+          "_jsxs"
+        else
+          ctx.UsesJsxs <- true
+          "_jsx"
+
+      Expr.Call
+        { Callee = Expr.Ident { Name = name; Loc = None }
+          Arguments = [ propsObj ]
+          Loc = None }
+
+    (callExpr, stmts)
 
   let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
     // TODO: check if the last statement is an expression statement

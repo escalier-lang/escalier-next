@@ -5,5 +5,5 @@
         </div>;
         
 output:
-import {jsx as _jsx} from "react"
+import {jsx as jsxs} from "react"
 var foo = _jsx("div", {id: "foo", class: "bar", children: [_jsx("p", {children: ["hello"]})]});

@@ -1,0 +1,10 @@
+﻿input: 
+        import "react" {React};
+        let foo = <>
+          <p>hello</p>
+          <p>world</p>
+        </>;
+        
+output:
+import {jsx as jsxs, jsx as jsx} from "react"
+var foo = _jsxs({children: [_jsx("p", {children: ["hello"]}), _jsx("p", {children: ["world"]})]});

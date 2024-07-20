@@ -280,29 +280,33 @@ module rec Printer =
         |> String.concat ", "
 
       if innerPrec < outerPrec then $"({exprs})" else exprs
-    | Expr.SuperProp(_) -> failwith "TODO: printExpr - SuperProp"
-    | Expr.Tpl(_) -> failwith "TODO: printExpr - Tpl"
-    | Expr.TaggedTpl(_) -> failwith "TODO: printExpr - TaggedTpl"
-    | Expr.Class(_) -> failwith "TODO: printExpr - Class"
-    | Expr.Yield(_) -> failwith "TODO: printExpr - Yield"
-    | Expr.MetaProp(_) -> failwith "TODO: printExpr - MetaProp"
-    | Expr.Await(_) -> failwith "TODO: printExpr - Await"
-    | Expr.Paren(_) -> failwith "TODO: printExpr - Paren"
-    | Expr.JSXMember(_) -> failwith "TODO: printExpr - JSXMember"
-    | Expr.JSXNamespacedName(_) ->
-      failwith "TOOD: printExpr - JSXNamespacedName"
-    | Expr.JSXEmpty(_) -> failwith "TODO: printExpr - JSXEmpty"
-    | Expr.JSXElement(_) -> failwith "TODO: printExpr - JSXElement"
-    | Expr.JSXFragment(_) -> failwith "TODO: printExpr - JSXFragment"
-    | Expr.TsTypeAssertion(_) -> failwith "TODO: printExpr - TsTypeAssertion"
-    | Expr.TsConstAssertion(_) -> failwith "TODO: printExpr - TsConstAssertion"
-    | Expr.TsNonNull(_) -> failwith "TODO: printExpr - TsNonNull"
-    | Expr.TsAs(_) -> failwith "TODO: printExpr - TsAs"
-    | Expr.TsInstantiation(_) -> failwith "TODO: printExpr - TsInstantiation"
-    | Expr.TsSatisfies(_) -> failwith "TODO: printExpr - TsSatisfies"
-    | Expr.PrivateName(_) -> failwith "TODO: printExpr - PrivateName"
-    | Expr.OptChain(_) -> failwith "TODO: printExpr - OptChain"
-    | Expr.Invalid(_) -> failwith "TODO: printExpr - Invalid"
+    | Expr.SuperProp _ -> failwith "TODO: printExpr - SuperProp"
+    | Expr.Tpl _ -> failwith "TODO: printExpr - Tpl"
+    | Expr.TaggedTpl _ -> failwith "TODO: printExpr - TaggedTpl"
+    | Expr.Class _ -> failwith "TODO: printExpr - Class"
+    | Expr.Yield _ -> failwith "TODO: printExpr - Yield"
+    | Expr.MetaProp _ -> failwith "TODO: printExpr - MetaProp"
+    | Expr.Await { Arg = arg } ->
+      let outerPrec = ctx.Precedence
+      let innerPrec = 14 // prefix operators
+      let arg = printExpr { ctx with Precedence = innerPrec } arg
+      let expr = $"await {arg}"
+      if innerPrec < outerPrec then $"({expr})" else expr
+    | Expr.Paren _ -> failwith "TODO: printExpr - Paren"
+    | Expr.JSXMember _ -> failwith "TODO: printExpr - JSXMember"
+    | Expr.JSXNamespacedName _ -> failwith "TOOD: printExpr - JSXNamespacedName"
+    | Expr.JSXEmpty _ -> failwith "TODO: printExpr - JSXEmpty"
+    | Expr.JSXElement _ -> failwith "TODO: printExpr - JSXElement"
+    | Expr.JSXFragment _ -> failwith "TODO: printExpr - JSXFragment"
+    | Expr.TsTypeAssertion _ -> failwith "TODO: printExpr - TsTypeAssertion"
+    | Expr.TsConstAssertion _ -> failwith "TODO: printExpr - TsConstAssertion"
+    | Expr.TsNonNull _ -> failwith "TODO: printExpr - TsNonNull"
+    | Expr.TsAs _ -> failwith "TODO: printExpr - TsAs"
+    | Expr.TsInstantiation _ -> failwith "TODO: printExpr - TsInstantiation"
+    | Expr.TsSatisfies _ -> failwith "TODO: printExpr - TsSatisfies"
+    | Expr.PrivateName _ -> failwith "TODO: printExpr - PrivateName"
+    | Expr.OptChain _ -> failwith "TODO: printExpr - OptChain"
+    | Expr.Invalid _ -> failwith "TODO: printExpr - Invalid"
 
   let printStmt (ctx: PrintCtx) (stmt: TypeScript.Stmt) : string =
     match stmt with

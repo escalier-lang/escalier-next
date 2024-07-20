@@ -123,32 +123,29 @@ module rec Codegen =
 
       lit, []
     | ExprKind.Binary(op, left, right) ->
-      let binaryOp =
+      let op =
         match op with
-        | "+" -> Some(BinOp.Add)
-        | "-" -> Some(BinOp.Sub)
-        | "*" -> Some(BinOp.Mul)
-        | "/" -> Some(BinOp.Div)
-        | "==" -> Some(BinOp.EqEq)
-        | "!=" -> Some(BinOp.NotEq)
-        | "<" -> Some(BinOp.Lt)
-        | "<=" -> Some(BinOp.LtEq)
-        | ">" -> Some(BinOp.Gt)
-        | ">=" -> Some(BinOp.GtEq)
-        | _ -> None
+        | "+" -> BinOp.Add
+        | "-" -> BinOp.Sub
+        | "*" -> BinOp.Mul
+        | "/" -> BinOp.Div
+        | "==" -> BinOp.EqEq
+        | "!=" -> BinOp.NotEq
+        | "<" -> BinOp.Lt
+        | "<=" -> BinOp.LtEq
+        | ">" -> BinOp.Gt
+        | ">=" -> BinOp.GtEq
+        | _ -> failwith $"Invalid binary operator: {op}"
 
       let leftExpr, leftStmts = buildExpr ctx left
       let rightExpr, rightStmts = buildExpr ctx right
 
       let binExpr =
-        match binaryOp with
-        | Some(op) ->
-          Expr.Bin
-            { Operator = op
-              Left = leftExpr
-              Right = rightExpr
-              Loc = None }
-        | None -> failwith "TODO"
+        Expr.Bin
+          { Operator = op
+            Left = leftExpr
+            Right = rightExpr
+            Loc = None }
 
       (binExpr, leftStmts @ rightStmts)
     | ExprKind.Do block ->
@@ -353,14 +350,75 @@ module rec Codegen =
       (tuple, stmts)
     | ExprKind.Range range -> failwith "TODO: buildExpr - Range"
     | ExprKind.Index(target, index, optChain) ->
-      failwith "TODO: buildExpr - Index"
+      let targetExpr, targetStmts = buildExpr ctx target
+      let indexExpr, indexStmts = buildExpr ctx index
+
+      let expr =
+        Expr.Member
+          { Object = targetExpr
+            Property = indexExpr
+            Computed = true
+            Loc = None }
+
+      (expr, targetStmts @ indexStmts)
     | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
       failwith "TODO: buildExpr - IfLet"
     | ExprKind.Match(target, cases) -> failwith "TODO: buildExpr - Match"
-    | ExprKind.Assign(op, left, right) -> failwith "TODO: buildExpr - Assign"
-    | ExprKind.Unary(op, value) -> failwith "TODO: buildExpr - Unary"
+    | ExprKind.Assign(op, left, right) ->
+      let leftExpr, leftStmts = buildExpr ctx left
+      let rightExpr, rightStmts = buildExpr ctx right
+
+      let op =
+        match op with
+        | "=" -> AssignOp.Assign
+        | "+=" -> AssignOp.PlusAssign
+        | "-=" -> AssignOp.MinusAssign
+        | "*=" -> AssignOp.MultiplyAssign
+        | "/=" -> AssignOp.DivideAssign
+        | "%=" -> AssignOp.ModuloAssign
+        | "&=" -> AssignOp.BitwiseAndAssign
+        | "|=" -> AssignOp.BitwiseOrAssign
+        | "^=" -> AssignOp.BitwiseXorAssign
+        | "<<=" -> AssignOp.LeftShiftAssign
+        | ">>=" -> AssignOp.RightShiftAssign
+        | ">>>=" -> AssignOp.UnsignedRightShiftAssign
+        | _ -> failwith $"Invalid assignment operator: {op}"
+
+      let assign =
+        Expr.Assign
+          { Operator = op
+            Left = leftExpr
+            Right = rightExpr
+            Loc = None }
+
+      (assign, leftStmts @ rightStmts)
+    | ExprKind.Unary(op, value) ->
+      let valueExpr, valueStmts = buildExpr ctx value
+
+      let op =
+        match op with
+        | "-" -> UnaryOperator.Minus
+        | "+" -> UnaryOperator.Plus
+        | "!" -> UnaryOperator.Not
+        | "~" -> UnaryOperator.BitwiseNot
+        | "typeof" -> UnaryOperator.Typeof
+        | "void" -> UnaryOperator.Void
+        | "delete" -> UnaryOperator.Delete
+        | _ -> failwith $"Invalid unary operator: {op}"
+
+      let unaryExpr =
+        Expr.Unary
+          { Operator = op
+            Prefix = false
+            Argument = valueExpr
+            Loc = None }
+
+      (unaryExpr, valueStmts)
     | ExprKind.Try ``try`` -> failwith "TODO: buildExpr - Try"
-    | ExprKind.Await await -> failwith "TODO: buildExpr - Await"
+    | ExprKind.Await { Value = value } ->
+      let valueExpr, valueStmts = buildExpr ctx value
+      let expr = Expr.Await { Arg = valueExpr; Loc = None }
+      (expr, valueStmts)
     | ExprKind.Throw value -> failwith "TODO: buildExpr - Throw"
     | ExprKind.TemplateLiteral templateLiteral ->
       failwith "TODO: buildExpr - TemplateLiteral"
@@ -553,11 +611,12 @@ module rec Codegen =
         match stmt.Kind with
         | StmtKind.Expr expr ->
           let expr, stmts = buildExpr ctx expr
+          let stmtExpr = Stmt.Expr { Expr = expr; Loc = None }
 
-          if stmt = lastStmt then
+          if stmt = lastStmt && finalizer <> Finalizer.Empty then
             stmts @ buildFinalizer ctx expr finalizer
           else
-            stmts
+            stmts @ [ stmtExpr ]
         | StmtKind.Decl decl ->
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = Some init } ->
@@ -582,7 +641,13 @@ module rec Codegen =
           | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
           | NamespaceDecl(_) -> failwith "TODO: buildBlock - NamespaceDecl"
           | InterfaceDecl(_) -> [] // Ignore types when generating JS code
-        | StmtKind.Return expr -> failwith "TODO: buildBlock - Return"
+        | StmtKind.Return expr ->
+          match expr with
+          | Some expr ->
+            let expr, stmts = buildExpr ctx expr
+            let retStmt = Stmt.Return { Argument = Some expr; Loc = None }
+            stmts @ [ retStmt ]
+          | None -> [ Stmt.Return { Argument = None; Loc = None } ]
         | StmtKind.For(left, right, body) -> failwith "TODO: buildBlock - For"
 
       stmts <- stmts @ stmts'

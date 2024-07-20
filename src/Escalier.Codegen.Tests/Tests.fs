@@ -54,7 +54,7 @@ let CodegenLiteral () =
   Assert.Equal("1.23", code.ToString())
 
 [<Fact>]
-let CodegenAddition () =
+let CodegenBinaryExpression () =
   let a: Ident = { Name = "a"; Loc = None }
   let b: Ident = { Name = "b"; Loc = None }
 
@@ -68,6 +68,21 @@ let CodegenAddition () =
   let code = printExpr printCtx sum
 
   Assert.Equal("a + b", code.ToString())
+
+[<Fact>]
+let CodegenUnaryExpression () =
+  let a: Ident = { Name = "a"; Loc = None }
+
+  let sum =
+    Expr.Unary
+      { Operator = UnaryOperator.Minus
+        Argument = Expr.Ident a
+        Prefix = false
+        Loc = None }
+
+  let code = printExpr printCtx sum
+
+  Assert.Equal("-a", code.ToString())
 
 [<Fact>]
 let CodegenExpressRequiresParens () =
@@ -154,6 +169,48 @@ let CodegenNoParensExpression () =
   Assert.Equal("a * 1 + b / 2", code.ToString())
 
 [<Fact>]
+let CodegenAssignment () =
+  let res =
+    result {
+      let src =
+        """
+        let mut x: number = 5;
+        x = 10;
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+    
+[<Fact>]
+let CodegenIndexing () =
+  let res =
+    result {
+      let src =
+        """
+        let mut arr: number[] = [1, 2];
+        arr[2] = arr[0] + arr[1];
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenDoExpression () =
   let res =
     result {
@@ -166,14 +223,7 @@ let CodegenDoExpression () =
         };
         """
 
-      let! escAst = Parser.parseModule src
-
-      let ctx: Ctx =
-        { NextTempId = 0
-          AutoImports = Set.empty }
-
-      let mod' = buildModule ctx escAst
-      let js = printModule printCtx mod'
+      let! js = parseAndCodegenJS src
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -205,14 +255,7 @@ let CodegenNestedDoExpressions () =
         };
         """
 
-      let! escAst = Parser.parseModule src
-
-      let ctx: Ctx =
-        { NextTempId = 0
-          AutoImports = Set.empty }
-
-      let mod' = buildModule ctx escAst
-      let js = printModule printCtx mod'
+      let! js = parseAndCodegenJS src
 
       return $"input: %s{src}\noutput:\n{js}"
     }
@@ -242,6 +285,29 @@ let CodegenFunction () =
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"
+
+[<Fact>]
+let CodegenAsyncFunction () =
+  let res =
+    result {
+      let src =
+        """
+        let fetchJSON = async fn (url: string) {
+          let res = await fetch(url);
+          return res.json();
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
 
 [<Fact>]
 let CodegenChainedIfElse () =

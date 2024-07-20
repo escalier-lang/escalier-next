@@ -1,0 +1,7 @@
+﻿input: 
+        let mut arr: number[] = [1, 2];
+        arr[2] = arr[0] + arr[1];
+        
+output:
+var arr = [1, 2];
+arr[2] = arr[0] + arr[1];

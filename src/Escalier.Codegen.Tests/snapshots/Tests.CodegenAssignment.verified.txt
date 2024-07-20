@@ -1,0 +1,7 @@
+﻿input: 
+        let mut x: number = 5;
+        x = 10;
+        
+output:
+var x = 5;
+x = 10;

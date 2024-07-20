@@ -1,0 +1,11 @@
+﻿input: 
+        let fetchJSON = async fn (url: string) {
+          let res = await fetch(url);
+          return res.json();
+        };
+        
+output:
+var fetchJSON = function (url) {
+  var res = await fetch(url);
+  return res.json();
+};

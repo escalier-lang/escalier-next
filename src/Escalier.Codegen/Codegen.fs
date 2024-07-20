@@ -795,13 +795,56 @@ module rec Codegen =
     | Finalizer.Return -> [ Stmt.Return { Argument = None; Loc = None } ]
     | Finalizer.Empty -> []
 
+  // TODO: also return boolean expressions that need to be checked when codegen'ing
+  // pattern matching and if-let
   let buildPattern (ctx: Ctx) (pattern: Syntax.Pattern) : TS.Pat =
     match pattern.Kind with
     | PatternKind.Ident { Name = name } ->
       Pat.Ident
         { Id = { Name = name; Loc = None }
           Loc = None }
-    | _ -> failwith "TODO"
+    | PatternKind.Object { Elems = elems } ->
+      let props =
+        elems
+        |> List.map (fun elem ->
+          match elem with
+          | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                            Value = value
+                                            Default = _ } ->
+            let pat = buildPattern ctx value
+
+            // TODO: add support for default values in ObjectPatProp.KeyValue
+            ObjectPatProp.KeyValue
+              { Key = TS.PropName.Ident { Name = key; Loc = None }
+                Value = pat
+                Loc = None }
+          | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                             Default = init
+                                             Assertion = _ } ->
+            ObjectPatProp.Assign
+              { Key = { Name = name; Loc = None }
+                Value = None // TODO: handle default values
+                Loc = None }
+          | Syntax.ObjPatElem.RestPat { Target = target } ->
+            ObjectPatProp.Rest
+              { Arg = buildPattern ctx target
+                Loc = None })
+
+      Pat.Object { Props = props; Loc = None }
+    | PatternKind.Tuple { Elems = elems } ->
+      let elems =
+        elems
+        |> List.map (fun elem ->
+          let pat = buildPattern ctx elem
+          Some pat)
+
+      Pat.Array { Elems = elems; Loc = None }
+    | PatternKind.Enum enumVariantPattern ->
+      failwith "TODO: buildPattern - Enum"
+    | PatternKind.Wildcard wildcardPattern ->
+      failwith "TODO: buildPattern - Wildcard"
+    | PatternKind.Literal literal -> failwith "TODO: buildPattern - Literal"
+    | PatternKind.Rest pattern -> failwith "TODO: buildPattern - Rest"
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of

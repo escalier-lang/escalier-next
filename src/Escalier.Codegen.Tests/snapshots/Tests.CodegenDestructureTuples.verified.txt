@@ -1,0 +1,7 @@
+﻿input: 
+        let tuple = ["hello", [5, true]];
+        let [msg, [num, flag]] = tuple;
+        
+output:
+var tuple = ["hello", [5, true]];
+var [msg, [num, flag]] = tuple;

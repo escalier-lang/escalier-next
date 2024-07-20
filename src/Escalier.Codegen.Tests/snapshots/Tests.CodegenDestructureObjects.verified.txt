@@ -1,0 +1,7 @@
+﻿input: 
+        let object = {point: {x: 5, y: 10}, color: "red"};
+        let {point: {x, y}, color} = object;
+        
+output:
+var object = {point: {x: 5, y: 10}, color: "red"};
+var {point: {x, y}, color} = object;

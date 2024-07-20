@@ -188,7 +188,7 @@ let CodegenAssignment () =
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"
-    
+
 [<Fact>]
 let CodegenIndexing () =
   let res =
@@ -220,6 +220,37 @@ let CodegenDoExpression () =
           let x = 5;
           let y = 10;
           x + y
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenDoExpressionWithReturn () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = fn (bar: number) {
+          let res = do {
+            if (bar == 0) {
+              "none";
+            } else if (bar > 1) {
+              "many";
+            } else {
+              return null;
+            }
+          };
+          return res;
         };
         """
 
@@ -325,6 +356,53 @@ let CodegenChainedIfElse () =
         """
 
       let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenLogicalOperators () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = a || b || c;
+        let bar = x && y && z;
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenLogicalOperatorsWithDoExpressions () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = do {
+          let x = Math.random();
+          if x > 0.5 { true } else { false }
+        } || do {
+          let y = Math.random();
+          if y > 0.5 { true } else { false }
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+
       return $"input: %s{src}\noutput:\n{js}"
     }
 

@@ -93,6 +93,119 @@ module rec Codegen =
       Shebang = None
       Loc = None }
 
+  let flattenLogicalOr (expr: Expr) : list<Expr> =
+    match expr.Kind with
+    | ExprKind.Binary("||", left, right) ->
+      flattenLogicalOr left @ flattenLogicalOr right
+    | _ -> [ expr ]
+
+  let flattenLogicalAnd (expr: Expr) : list<Expr> =
+    match expr.Kind with
+    | ExprKind.Binary("&&", left, right) ->
+      flattenLogicalAnd left @ flattenLogicalAnd right
+    | _ -> [ expr ]
+
+  // TODO: dedupe with ExprKind.IfElse
+  let buildLogicalOrRec
+    (ctx: Ctx)
+    (exprs: list<Expr>)
+    : TS.Expr * list<TS.Stmt> =
+    match exprs with
+    | [] -> failwith "Empty list of expressions"
+    | [ expr ] -> buildExpr ctx expr
+    | head :: tail ->
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
+      let finalizer = Finalizer.Assign tempId
+
+      let tempDecl =
+        { Decls =
+            [ { Id =
+                  Pat.Ident
+                    { Id = { Name = tempId; Loc = None }
+                      Loc = None }
+                TypeAnn = None
+                Init = None } ]
+          Declare = false
+          Kind = VariableDeclarationKind.Var }
+
+      let headExpr, headStmts = buildExpr ctx head
+      let tailExpr, tailStmts = buildLogicalOrRec ctx tail
+
+      let ifStmt =
+        Stmt.If
+          { Test = headExpr
+            Consequent =
+              Stmt.Block
+                { Body = buildFinalizer ctx headExpr finalizer
+                  Loc = None }
+            Alternate =
+              Some(
+                Stmt.Block
+                  { Body = tailStmts @ (buildFinalizer ctx tailExpr finalizer)
+                    Loc = None }
+              )
+            Loc = None }
+
+      let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ headStmts @ [ ifStmt ]
+      let expr = Expr.Ident { Name = tempId; Loc = None }
+
+      (expr, stmts)
+
+  // TODO: dedupe with ExprKind.IfElse
+  let buildLogicalAndRec
+    (ctx: Ctx)
+    (exprs: list<Expr>)
+    : TS.Expr * list<TS.Stmt> =
+    match exprs with
+    | [] -> failwith "Empty list of expressions"
+    | [ expr ] -> buildExpr ctx expr
+    | head :: tail ->
+      // TODO: dedupe with ExprKind.IfElse
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
+      let finalizer = Finalizer.Assign tempId
+
+      let tempDecl =
+        { Decls =
+            [ { Id =
+                  Pat.Ident
+                    { Id = { Name = tempId; Loc = None }
+                      Loc = None }
+                TypeAnn = None
+                Init = None } ]
+          Declare = false
+          Kind = VariableDeclarationKind.Var }
+
+      let headExpr, headStmts = buildExpr ctx head
+      let tailExpr, tailStmts = buildLogicalAndRec ctx tail
+
+      let cond =
+        Expr.Unary
+          { Operator = UnaryOperator.Not
+            Prefix = true
+            Argument = headExpr
+            Loc = None }
+
+      let ifStmt =
+        Stmt.If
+          { Test = cond
+            Consequent =
+              Stmt.Block
+                { Body = headStmts @ (buildFinalizer ctx headExpr finalizer)
+                  Loc = None }
+            Alternate =
+              Some(
+                Stmt.Block
+                  { Body = tailStmts @ (buildFinalizer ctx tailExpr finalizer)
+                    Loc = None }
+              )
+            Loc = None }
+
+      let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ headStmts @ [ ifStmt ]
+      let expr = Expr.Ident { Name = tempId; Loc = None }
+
+      (expr, stmts)
 
   let buildExpr (ctx: Ctx) (expr: Expr) : TS.Expr * list<TS.Stmt> =
 
@@ -123,31 +236,36 @@ module rec Codegen =
 
       lit, []
     | ExprKind.Binary(op, left, right) ->
-      let op =
-        match op with
-        | "+" -> BinOp.Add
-        | "-" -> BinOp.Sub
-        | "*" -> BinOp.Mul
-        | "/" -> BinOp.Div
-        | "==" -> BinOp.EqEq
-        | "!=" -> BinOp.NotEq
-        | "<" -> BinOp.Lt
-        | "<=" -> BinOp.LtEq
-        | ">" -> BinOp.Gt
-        | ">=" -> BinOp.GtEq
-        | _ -> failwith $"Invalid binary operator: {op}"
+      if op = "&&" then
+        buildLogicalAndRec ctx (flattenLogicalAnd expr)
+      elif op = "||" then
+        buildLogicalOrRec ctx (flattenLogicalOr expr)
+      else
+        let op =
+          match op with
+          | "+" -> BinOp.Add
+          | "-" -> BinOp.Sub
+          | "*" -> BinOp.Mul
+          | "/" -> BinOp.Div
+          | "==" -> BinOp.EqEq
+          | "!=" -> BinOp.NotEq
+          | "<" -> BinOp.Lt
+          | "<=" -> BinOp.LtEq
+          | ">" -> BinOp.Gt
+          | ">=" -> BinOp.GtEq
+          | _ -> failwith $"Invalid binary operator: {op}"
 
-      let leftExpr, leftStmts = buildExpr ctx left
-      let rightExpr, rightStmts = buildExpr ctx right
+        let leftExpr, leftStmts = buildExpr ctx left
+        let rightExpr, rightStmts = buildExpr ctx right
 
-      let binExpr =
-        Expr.Bin
-          { Operator = op
-            Left = leftExpr
-            Right = rightExpr
-            Loc = None }
+        let binExpr =
+          Expr.Bin
+            { Operator = op
+              Left = leftExpr
+              Right = rightExpr
+              Loc = None }
 
-      (binExpr, leftStmts @ rightStmts)
+        (binExpr, leftStmts @ rightStmts)
     | ExprKind.Do block ->
       let tempId = $"temp{ctx.NextTempId}"
       ctx.NextTempId <- ctx.NextTempId + 1
@@ -246,7 +364,6 @@ module rec Codegen =
             Loc = None }
 
       let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ conditionStmts @ [ ifStmt ]
-
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
@@ -409,7 +526,7 @@ module rec Codegen =
       let unaryExpr =
         Expr.Unary
           { Operator = op
-            Prefix = false
+            Prefix = true
             Argument = valueExpr
             Loc = None }
 

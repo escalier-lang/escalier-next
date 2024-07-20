@@ -1,0 +1,31 @@
+﻿input: 
+        let foo = a || b || c;
+        let bar = x && y && z;
+        
+output:
+var temp0;
+if (a) {
+  temp0 = a;
+} else {
+  var temp1;
+  if (b) {
+    temp1 = b;
+  } else {
+    temp1 = c;
+  }
+  temp0 = temp1;
+}
+var foo = temp0;
+var temp2;
+if (!x) {
+  temp2 = x;
+} else {
+  var temp3;
+  if (!y) {
+    temp3 = y;
+  } else {
+    temp3 = z;
+  }
+  temp2 = temp3;
+}
+var bar = temp2;

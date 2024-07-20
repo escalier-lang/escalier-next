@@ -1,0 +1,35 @@
+﻿input: 
+        let foo = fn (bar: number) {
+          let res = do {
+            if (bar == 0) {
+              "none";
+            } else if (bar > 1) {
+              "many";
+            } else {
+              return null;
+            }
+          };
+          return res;
+        };
+        
+output:
+var foo = function (bar) {
+  var temp0;
+  {
+    var temp1;
+    if (bar == 0) {
+      temp1 = "none";
+    } else {
+      var temp2;
+      if (bar > 1) {
+        temp2 = "many";
+      } else {
+        return null;
+      }
+      temp1 = temp2;
+    }
+    temp0 = temp1;
+  }
+  var res = temp0;
+  return res;
+};

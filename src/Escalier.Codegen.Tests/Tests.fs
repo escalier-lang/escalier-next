@@ -387,6 +387,32 @@ let CodegenLogicalOperators () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenLogicalOperatorsWithDoExpressions () =
+  let res =
+    result {
+      let src =
+        """
+        let foo = do {
+          let x = Math.random();
+          if x > 0.5 { true } else { false }
+        } || do {
+          let y = Math.random();
+          if y > 0.5 { true } else { false }
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenTupleLiteral () =
   let res =
     result {

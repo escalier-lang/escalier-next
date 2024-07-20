@@ -1,0 +1,39 @@
+﻿input: 
+        let foo = do {
+          let x = Math.random();
+          if x > 0.5 { true } else { false }
+        } || do {
+          let y = Math.random();
+          if y > 0.5 { true } else { false }
+        };
+        
+output:
+var temp0;
+var temp1;
+{
+  var x = Math.random();
+  var temp2;
+  if (x > 0.5) {
+    temp2 = true;
+  } else {
+    temp2 = false;
+  }
+  temp1 = temp2;
+}
+if (temp1) {
+  temp0 = temp1;
+} else {
+  var temp3;
+  {
+    var y = Math.random();
+    var temp4;
+    if (y > 0.5) {
+      temp4 = true;
+    } else {
+      temp4 = false;
+    }
+    temp3 = temp4;
+  }
+  temp0 = temp3;
+}
+var foo = temp0;

@@ -137,7 +137,7 @@ module rec Codegen =
           { Test = headExpr
             Consequent =
               Stmt.Block
-                { Body = headStmts @ (buildFinalizer ctx headExpr finalizer)
+                { Body = buildFinalizer ctx headExpr finalizer
                   Loc = None }
             Alternate =
               Some(

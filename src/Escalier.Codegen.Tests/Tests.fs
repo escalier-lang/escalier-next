@@ -489,6 +489,86 @@ let CodegenImmutableObjectLiteral () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenDestructureObjects () =
+  let res =
+    result {
+      let src =
+        """
+        let object = {point: {x: 5, y: 10}, color: "red"};
+        let {point: {x, y}, color} = object;
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenDestructureObjectWithRest () =
+  let res =
+    result {
+      let src =
+        """
+        let object = {foo: 5, bar: "hello", baz: true};
+        let {foo, ...rest} = object;
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenDestructureTuples () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = ["hello", [5, true]];
+        let [msg, [num, flag]] = tuple;
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenDestructureTupleWithRest () =
+  let res =
+    result {
+      let src =
+        """
+        let tuple = [5, "hello", true];
+        let [foo, ...rest] = tuple;
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenJsxElement () =
   let res =
     result {

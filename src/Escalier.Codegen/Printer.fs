@@ -501,10 +501,47 @@ module rec Printer =
     | Stmt.ForOf(_) -> failwith "TODO: printStmt - ForOf"
 
   let printPattern (ctx: PrintCtx) (p: Pat) : string =
-
     match p with
     | Pat.Ident { Id = id } -> id.Name
-    | _ -> failwith "TODO"
+    | Pat.Array { Elems = elems } ->
+      let elems =
+        elems
+        |> List.map (fun elem ->
+          match elem with
+          | None -> " "
+          | Some pat -> printPattern ctx pat)
+        |> String.concat ", "
+
+      $"[{elems}]"
+    | Pat.Rest { Arg = arg } ->
+      let arg = printPattern ctx arg
+      $"...{arg}"
+    | Pat.Object { Props = props } ->
+      let props =
+        props
+        |> List.map (fun prop ->
+          match prop with
+          | ObjectPatProp.Rest { Arg = arg } ->
+            let arg = printPattern ctx arg
+            $"...{arg}"
+          | ObjectPatProp.Assign { Key = key; Value = _ } -> key.Name
+          | ObjectPatProp.KeyValue { Key = key; Value = value } ->
+            let key =
+              match key with
+              | PropName.Ident id -> id.Name
+              | PropName.Str { Value = value } -> $"\"{value}\""
+              | PropName.Num { Value = value } -> $"{value}"
+              | Computed { Expr = expr } ->
+                let expr = printExpr ctx expr
+                $"[{expr}]"
+
+            let value = printPattern ctx value
+            $"{key}: {value}")
+        |> String.concat ", "
+
+      $"{{{props}}}"
+    | Pat.Assign assignPat -> failwith "TODO: printPattern - Assign"
+    | Pat.Invalid invalid -> failwith "TODO: printPattern - Invalid"
 
   let printBlock (ctx: PrintCtx) (block: BlockStmt) =
     let oldIdent = String.replicate ctx.Indent " "

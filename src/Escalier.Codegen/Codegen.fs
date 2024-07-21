@@ -514,7 +514,19 @@ module rec Codegen =
               Right = check
               Loc = None })
 
+      let decl =
+        { Decls =
+            [ { Id = pattern
+                TypeAnn = None
+                Init = Some targetExpr } ]
+          Declare = false
+          Kind = VariableDeclarationKind.Var }
+
       let thenBlock = buildBlock ctx thenBranch finalizer
+
+      let thenBlock =
+        { thenBlock with
+            Body = Stmt.Decl(Decl.Var decl) :: thenBlock.Body }
 
       let alt =
         Option.map

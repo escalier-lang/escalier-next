@@ -1,0 +1,31 @@
+﻿input: 
+        type Shape = {kind: "circle", radius: number} | {kind: "rect", width: number, height: number};
+        let getCount = fn(shape: Shape) {
+          return match shape {
+            | {kind: "circle", radius: r} => {
+              let area = Math.PI * r * r;
+              area
+            }
+            | {kind: "rect", width: w, height: h} => {
+              let area = w * h;
+              area
+            }
+          };
+        };
+        
+output:
+var getCount = function (shape) {
+  var temp0;
+  if (typeof shape == "object" && "kind" in shape && shape["kind"] == "circle" && "radius" in shape) {
+    var area = Math.PI * r * r;
+    temp0 = area;
+  } else {
+    var temp1;
+    if (typeof shape == "object" && "kind" in shape && shape["kind"] == "rect" && "width" in shape && "height" in shape) {
+      var area = w * h;
+      temp1 = area;
+    }
+    temp0 = temp1;
+  }
+  return temp0;
+};

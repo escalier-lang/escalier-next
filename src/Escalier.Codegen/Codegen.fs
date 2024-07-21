@@ -207,6 +207,95 @@ module rec Codegen =
 
       (expr, stmts)
 
+  // TODO: dedupe with ExprKind.IfElse
+  let buildMatchRec
+    (ctx: Ctx)
+    (target: Expr)
+    (cases: list<MatchCase>)
+    : option<TS.Expr> * list<TS.Stmt> =
+    match cases with
+    | [] -> None, []
+    | head :: tail ->
+      // TODO: dedupe with ExprKind.IfElse
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
+      let finalizer = Finalizer.Assign tempId
+
+      let tempDecl =
+        { Decls =
+            [ { Id =
+                  Pat.Ident
+                    { Id = { Name = tempId; Loc = None }
+                      Loc = None }
+                TypeAnn = None
+                Init = None } ]
+          Declare = false
+          Kind = VariableDeclarationKind.Var }
+
+      let targetExpr, targetStmts = buildExpr ctx target
+      let pattern, checks = buildPattern ctx head.Pattern (Some targetExpr)
+      let checkExprs = checks |> List.map (buildPatternCheck ctx)
+
+      let conditionExpr =
+        match checkExprs with
+        | [] ->
+          // TODO: Don't bother processing the `tail` since this is catch-all
+          Expr.Lit(Lit.Bool { Value = true; Loc = None })
+        | _ ->
+          checkExprs
+          |> List.reduce (fun acc check ->
+            Expr.Bin
+              { Operator = BinOp.LogicalAnd
+                Left = acc
+                Right = check
+                Loc = None })
+
+      let consequent =
+        match head.Body with
+        | BlockOrExpr.Block block ->
+          buildBlock ctx block finalizer |> Stmt.Block
+        | BlockOrExpr.Expr expr ->
+          let headExpr, headStmts = buildExpr ctx expr
+
+          Stmt.Block
+            { Body = headStmts @ (buildFinalizer ctx headExpr finalizer)
+              Loc = None }
+
+      let tailExpr, tailStmts = buildMatchRec ctx target tail
+
+      let alternative =
+        match tailExpr with
+        | Some tailExpr ->
+          Some(
+            Stmt.Block
+              { Body = tailStmts @ (buildFinalizer ctx tailExpr finalizer)
+                Loc = None }
+          )
+        | None -> None
+
+      let ifStmt =
+        Stmt.If
+          { Test = conditionExpr
+            Consequent = consequent
+            Alternate = alternative
+            Loc = None }
+
+      let stmts = [ Stmt.Decl(Decl.Var tempDecl); ifStmt ]
+      let expr = Expr.Ident { Name = tempId; Loc = None }
+
+      (Some expr, stmts)
+
+  let buildLiteral (lit: Literal) : TS.Expr =
+    match lit with
+    | Literal.Boolean b -> Lit.Bool { Value = b; Loc = None } |> Expr.Lit
+    | Literal.String s ->
+      Lit.Str { Value = s; Raw = None; Loc = None } |> Expr.Lit
+    | Literal.Number n ->
+      Lit.Num { Value = n; Raw = None; Loc = None } |> Expr.Lit
+    | Literal.Null -> Lit.Null { Loc = None } |> Expr.Lit
+    | Literal.Undefined ->
+      { Ident.Name = "undefined"; Loc = None } |> Expr.Ident
+
   let buildExpr (ctx: Ctx) (expr: Expr) : TS.Expr * list<TS.Stmt> =
 
     match expr.Kind with
@@ -550,7 +639,10 @@ module rec Codegen =
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
-    | ExprKind.Match(target, cases) -> failwith "TODO: buildExpr - Match"
+    | ExprKind.Match(target, cases) ->
+      match buildMatchRec ctx target cases with
+      | Some expr, stmts -> (expr, stmts)
+      | None, stmts -> failwith "Failure compiling 'match' expression"
     | ExprKind.Assign(op, left, right) ->
       let leftExpr, leftStmts = buildExpr ctx left
       let rightExpr, rightStmts = buildExpr ctx right
@@ -822,7 +914,7 @@ module rec Codegen =
 
             initStmts @ [ declStmt ]
           | TypeDecl _ -> [] // Ignore types when generating JS code
-          | VarDecl(_) -> failwith "TODO: buildBlock - VarDecl"
+          | VarDecl _ -> [] // Nothing to generate because `init` is `None`
           | FnDecl(_) -> failwith "TODO: buildBlock - FnDecl"
           | ClassDecl(_) -> failwith "TODO: buildBlock - ClassDecl"
           | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
@@ -869,6 +961,7 @@ module rec Codegen =
     | ObjectCheck of TS.Expr
     | PropertyCheck of TS.Expr * string // parent, property
     | ArrayCheck of TS.Expr * int // parent, length
+    | ValueCheck of TS.Expr * TS.Expr
     | InstanceOfCheck of TS.Expr * TS.Expr
     | TypeOfCheck of TS.Expr * string
 
@@ -903,13 +996,7 @@ module rec Codegen =
       let exprDotLength =
         Expr.Member
           { Object = expr
-            Property =
-              Expr.Lit(
-                Lit.Str
-                  { Value = "length"
-                    Raw = None
-                    Loc = None }
-              )
+            Property = Expr.Ident { Name = "length"; Loc = None }
             Computed = false
             Loc = None }
 
@@ -925,6 +1012,12 @@ module rec Codegen =
         { Operator = BinOp.EqEq
           Left = exprDotLength
           Right = length
+          Loc = None }
+    | ValueCheck(left, right) ->
+      Expr.Bin
+        { Operator = BinOp.EqEq
+          Left = left
+          Right = right
           Loc = None }
     | InstanceOfCheck(expr, expr1) -> failwith "todo"
     | TypeOfCheck(expr, s) -> failwith "todo"
@@ -950,7 +1043,7 @@ module rec Codegen =
 
       let props =
         elems
-        |> List.map (fun elem ->
+        |> List.choose (fun elem ->
           match elem with
           | Syntax.ObjPatElem.KeyValuePat { Key = key
                                             Value = value
@@ -972,11 +1065,16 @@ module rec Codegen =
             let keyValuePat, keyValueChecks = buildPattern ctx value parent
             checks <- checks @ keyValueChecks
 
-            // TODO: add support for default values in ObjectPatProp.KeyValue
-            ObjectPatProp.KeyValue
-              { Key = TS.PropName.Ident { Name = key; Loc = None }
-                Value = keyValuePat
-                Loc = None }
+            match keyValuePat with
+            | Pat.Invalid _ -> None
+            | _ ->
+              // TODO: add support for default values in ObjectPatProp.KeyValue
+              Some(
+                ObjectPatProp.KeyValue
+                  { Key = TS.PropName.Ident { Name = key; Loc = None }
+                    Value = keyValuePat
+                    Loc = None }
+              )
           | Syntax.ObjPatElem.ShorthandPat { Name = name
                                              Default = init
                                              Assertion = _ } ->
@@ -985,14 +1083,19 @@ module rec Codegen =
             |> Option.iter (fun parent ->
               checks <- checks @ [ PropertyCheck(parent, name) ])
 
-            ObjectPatProp.Assign
-              { Key = { Name = name; Loc = None }
-                Value = None // TODO: handle default values
-                Loc = None }
+            Some(
+              ObjectPatProp.Assign
+                { Key = { Name = name; Loc = None }
+                  Value = None // TODO: handle default values
+                  Loc = None }
+            )
           | Syntax.ObjPatElem.RestPat { Target = target } ->
             let argPat, argExprs = buildPattern ctx target parent
             checks <- checks @ argExprs
-            ObjectPatProp.Rest { Arg = argPat; Loc = None })
+
+            match argPat with
+            | Pat.Invalid _ -> None
+            | _ -> Some(ObjectPatProp.Rest { Arg = argPat; Loc = None }))
 
       Pat.Object { Props = props; Loc = None }, checks
     | PatternKind.Tuple { Elems = elems } ->
@@ -1024,14 +1127,23 @@ module rec Codegen =
 
           let elemPat, elemChecks = buildPattern ctx elem parent
           checks <- checks @ elemChecks
-          Some elemPat)
+
+          match elemPat with
+          | Pat.Invalid _ -> None
+          | _ -> Some elemPat)
 
       Pat.Array { Elems = elems; Loc = None }, checks
     | PatternKind.Enum enumVariantPattern ->
       failwith "TODO: buildPattern - Enum"
     | PatternKind.Wildcard wildcardPattern ->
       failwith "TODO: buildPattern - Wildcard"
-    | PatternKind.Literal literal -> failwith "TODO: buildPattern - Literal"
+    | PatternKind.Literal literal ->
+      let checks =
+        match parent with
+        | Some parent -> [ ValueCheck(parent, buildLiteral literal) ]
+        | None -> []
+
+      Pat.Invalid { Loc = None }, checks
     | PatternKind.Rest pattern ->
       let argPat, argExprs = buildPattern ctx pattern parent
 

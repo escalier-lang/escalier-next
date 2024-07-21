@@ -294,7 +294,7 @@ module rec Codegen =
         let ps: list<Param> =
           s.ParamList
           |> List.map (fun (p: Syntax.FuncParam) ->
-            let pat = buildPattern ctx p.Pattern
+            let pat, _ = buildPattern ctx p.Pattern None
 
             { Pat = pat
               TypeAnn = None
@@ -316,7 +316,12 @@ module rec Codegen =
 
         (expr, stmts)
       | BlockOrExpr.Expr expr ->
-        let ps = s.ParamList |> List.map (fun p -> buildPattern ctx p.Pattern)
+        let ps =
+          s.ParamList
+          |> List.map (fun p ->
+            let pat, _ = buildPattern ctx p.Pattern None
+            pat)
+
         let bodyExpr, bodyStmts = buildExpr ctx expr
 
         let body =
@@ -479,7 +484,60 @@ module rec Codegen =
 
       (expr, targetStmts @ indexStmts)
     | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
-      failwith "TODO: buildExpr - IfLet"
+      // TODO: dedupe with ExprKind.IfElse
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
+      let finalizer = Finalizer.Assign tempId
+
+      let tempDecl =
+        { Decls =
+            [ { Id =
+                  Pat.Ident
+                    { Id = { Name = tempId; Loc = None }
+                      Loc = None }
+                TypeAnn = None
+                Init = None } ]
+          Declare = false
+          Kind = VariableDeclarationKind.Var }
+
+      let targetExpr, targetStmts = buildExpr ctx target
+      let pattern, checks = buildPattern ctx pattern (Some targetExpr)
+
+      let checkExprs = checks |> List.map (buildPatternCheck ctx)
+
+      let conditionExpr =
+        checkExprs
+        |> List.reduce (fun acc check ->
+          Expr.Bin
+            { Operator = BinOp.LogicalAnd
+              Left = acc
+              Right = check
+              Loc = None })
+
+      let thenBlock = buildBlock ctx thenBranch finalizer
+
+      let alt =
+        Option.map
+          (fun elseBranch ->
+            match elseBranch with
+            | BlockOrExpr.Block block -> buildBlock ctx block finalizer
+            | BlockOrExpr.Expr expr ->
+              let expr, stmts = buildExpr ctx expr
+              let finalizer = buildFinalizer ctx expr finalizer
+              { Body = stmts @ finalizer; Loc = None })
+          elseBranch
+
+      let ifStmt =
+        Stmt.If
+          { Test = conditionExpr
+            Consequent = Stmt.Block thenBlock
+            Alternate = Option.map Stmt.Block alt
+            Loc = None }
+
+      let stmts = [ Stmt.Decl(Decl.Var tempDecl); ifStmt ]
+      let expr = Expr.Ident { Name = tempId; Loc = None }
+
+      (expr, stmts)
     | ExprKind.Match(target, cases) -> failwith "TODO: buildExpr - Match"
     | ExprKind.Assign(op, left, right) ->
       let leftExpr, leftStmts = buildExpr ctx left
@@ -737,7 +795,7 @@ module rec Codegen =
         | StmtKind.Decl decl ->
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = Some init } ->
-            let pattern = buildPattern ctx pattern
+            let pattern, _ = buildPattern ctx pattern None
             let initExpr, initStmts = buildExpr ctx init
 
             let decl =
@@ -795,15 +853,89 @@ module rec Codegen =
     | Finalizer.Return -> [ Stmt.Return { Argument = None; Loc = None } ]
     | Finalizer.Empty -> []
 
-  // TODO: also return boolean expressions that need to be checked when codegen'ing
-  // pattern matching and if-let
-  let buildPattern (ctx: Ctx) (pattern: Syntax.Pattern) : TS.Pat =
+  type PatternCheck =
+    | ObjectCheck of TS.Expr
+    | PropertyCheck of TS.Expr * string // parent, property
+    | ArrayCheck of TS.Expr * int // parent, length
+    | InstanceOfCheck of TS.Expr * TS.Expr
+    | TypeOfCheck of TS.Expr * string
+
+  let buildPatternCheck (ctx: Ctx) (check: PatternCheck) : TS.Expr =
+    match check with
+    | ObjectCheck expr ->
+      let typeof =
+        Expr.Unary
+          { Operator = UnaryOperator.Typeof
+            Prefix = true
+            Argument = expr
+            Loc = None }
+
+      Expr.Bin
+        { Operator = BinOp.EqEq
+          Left = typeof
+          Right =
+            Expr.Lit(
+              Lit.Str
+                { Value = "object"
+                  Raw = None
+                  Loc = None }
+            )
+          Loc = None }
+    | PropertyCheck(expr, s) ->
+      Expr.Bin
+        { Operator = BinOp.In
+          Left = Expr.Lit(Lit.Str { Value = s; Raw = None; Loc = None })
+          Right = expr
+          Loc = None }
+    | ArrayCheck(expr, i) ->
+      let exprDotLength =
+        Expr.Member
+          { Object = expr
+            Property =
+              Expr.Lit(
+                Lit.Str
+                  { Value = "length"
+                    Raw = None
+                    Loc = None }
+              )
+            Computed = false
+            Loc = None }
+
+      let length =
+        Expr.Lit(
+          Lit.Num
+            { Value = Int i
+              Raw = None
+              Loc = None }
+        )
+
+      Expr.Bin
+        { Operator = BinOp.EqEq
+          Left = exprDotLength
+          Right = length
+          Loc = None }
+    | InstanceOfCheck(expr, expr1) -> failwith "todo"
+    | TypeOfCheck(expr, s) -> failwith "todo"
+
+  let buildPattern
+    (ctx: Ctx)
+    (pattern: Syntax.Pattern)
+    (parent: option<TS.Expr>)
+    : TS.Pat * list<PatternCheck> =
     match pattern.Kind with
     | PatternKind.Ident { Name = name } ->
-      Pat.Ident
-        { Id = { Name = name; Loc = None }
-          Loc = None }
+      let pat =
+        Pat.Ident
+          { Id = { Name = name; Loc = None }
+            Loc = None }
+
+      pat, []
     | PatternKind.Object { Elems = elems } ->
+      let mutable checks: list<PatternCheck> = []
+
+      parent
+      |> Option.iter (fun parent -> checks <- checks @ [ ObjectCheck parent ])
+
       let props =
         elems
         |> List.map (fun elem ->
@@ -811,43 +943,87 @@ module rec Codegen =
           | Syntax.ObjPatElem.KeyValuePat { Key = key
                                             Value = value
                                             Default = _ } ->
-            let pat = buildPattern ctx value
+            let parent =
+              parent
+              |> Option.map (fun parent ->
+                checks <- checks @ [ PropertyCheck(parent, key) ]
+
+                TS.Expr.Member
+                  { Object = parent
+                    Property =
+                      TS.Expr.Lit(
+                        Lit.Str { Value = key; Raw = None; Loc = None }
+                      )
+                    Computed = true
+                    Loc = None })
+
+            let keyValuePat, keyValueChecks = buildPattern ctx value parent
+            checks <- checks @ keyValueChecks
 
             // TODO: add support for default values in ObjectPatProp.KeyValue
             ObjectPatProp.KeyValue
               { Key = TS.PropName.Ident { Name = key; Loc = None }
-                Value = pat
+                Value = keyValuePat
                 Loc = None }
           | Syntax.ObjPatElem.ShorthandPat { Name = name
                                              Default = init
                                              Assertion = _ } ->
+
+            parent
+            |> Option.iter (fun parent ->
+              checks <- checks @ [ PropertyCheck(parent, name) ])
+
             ObjectPatProp.Assign
               { Key = { Name = name; Loc = None }
                 Value = None // TODO: handle default values
                 Loc = None }
           | Syntax.ObjPatElem.RestPat { Target = target } ->
-            ObjectPatProp.Rest
-              { Arg = buildPattern ctx target
-                Loc = None })
+            let argPat, argExprs = buildPattern ctx target parent
+            checks <- checks @ argExprs
+            ObjectPatProp.Rest { Arg = argPat; Loc = None })
 
-      Pat.Object { Props = props; Loc = None }
+      Pat.Object { Props = props; Loc = None }, checks
     | PatternKind.Tuple { Elems = elems } ->
+      let mutable checks: list<PatternCheck> = []
+
+      parent
+      |> Option.iter (fun parent ->
+        checks <- checks @ [ ArrayCheck(parent, elems.Length) ])
+
       let elems =
         elems
-        |> List.map (fun elem ->
-          let pat = buildPattern ctx elem
-          Some pat)
+        |> List.mapi (fun index elem ->
 
-      Pat.Array { Elems = elems; Loc = None }
+          let parent =
+            parent
+            |> Option.map (fun parent ->
+
+              TS.Expr.Member
+                { Object = parent
+                  Property =
+                    TS.Expr.Lit(
+                      Lit.Num
+                        { Value = Int index
+                          Raw = None
+                          Loc = None }
+                    )
+                  Computed = true
+                  Loc = None })
+
+          let elemPat, elemChecks = buildPattern ctx elem parent
+          checks <- checks @ elemChecks
+          Some elemPat)
+
+      Pat.Array { Elems = elems; Loc = None }, checks
     | PatternKind.Enum enumVariantPattern ->
       failwith "TODO: buildPattern - Enum"
     | PatternKind.Wildcard wildcardPattern ->
       failwith "TODO: buildPattern - Wildcard"
     | PatternKind.Literal literal -> failwith "TODO: buildPattern - Literal"
     | PatternKind.Rest pattern ->
-      Pat.Rest
-        { Arg = buildPattern ctx pattern
-          Loc = None }
+      let argPat, argExprs = buildPattern ctx pattern parent
+
+      Pat.Rest { Arg = argPat; Loc = None }, argExprs
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of

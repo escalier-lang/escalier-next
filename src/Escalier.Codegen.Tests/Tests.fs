@@ -569,6 +569,30 @@ let CodegenDestructureTupleWithRest () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenIfLetObject () =
+  let res =
+    result {
+      let src =
+        """
+        let object = {point: {x: 5, y: 10}, color: "red"};
+        let mag = if let {point: {x, y}} = object {
+          Math.sqrt(x * x + y * y)
+        } else {
+          0
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenJsxElement () =
   let res =
     result {

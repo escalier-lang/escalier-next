@@ -504,22 +504,26 @@ module rec Printer =
     match p with
     | Pat.Ident { Id = id } -> id.Name
     | Pat.Array { Elems = elems } ->
-      let elems = 
+      let elems =
         elems
         |> List.map (fun elem ->
           match elem with
           | None -> " "
           | Some pat -> printPattern ctx pat)
         |> String.concat ", "
-      
+
       $"[{elems}]"
-    | Pat.Rest restPat -> failwith "TODO: printPattern - Rest"
+    | Pat.Rest { Arg = arg } ->
+      let arg = printPattern ctx arg
+      $"...{arg}"
     | Pat.Object { Props = props } ->
       let props =
         props
         |> List.map (fun prop ->
           match prop with
-          | ObjectPatProp.Rest restPat -> failwith "TODO: printPattern - Rest"
+          | ObjectPatProp.Rest { Arg = arg } ->
+            let arg = printPattern ctx arg
+            $"...{arg}"
           | ObjectPatProp.Assign { Key = key; Value = _ } -> key.Name
           | ObjectPatProp.KeyValue { Key = key; Value = value } ->
             let key =

@@ -844,7 +844,10 @@ module rec Codegen =
     | PatternKind.Wildcard wildcardPattern ->
       failwith "TODO: buildPattern - Wildcard"
     | PatternKind.Literal literal -> failwith "TODO: buildPattern - Literal"
-    | PatternKind.Rest pattern -> failwith "TODO: buildPattern - Rest"
+    | PatternKind.Rest pattern ->
+      Pat.Rest
+        { Arg = buildPattern ctx pattern
+          Loc = None }
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of

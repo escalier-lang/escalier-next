@@ -1,0 +1,36 @@
+﻿input: 
+        let getCount = fn<T>(array: T[]) {
+          return match array {
+            | [] => "none"
+            | [x] => "one"
+            | [x, y] => "a couple"
+            | _ => "many"
+          };
+        };
+        
+output:
+var getCount = function (array) {
+  var temp0;
+  if (array.length == 0) {
+    temp0 = "none";
+  } else {
+    var temp1;
+    if (array.length == 1) {
+      temp1 = "one";
+    } else {
+      var temp2;
+      if (array.length == 2) {
+        temp2 = "a couple";
+      } else {
+        var temp3;
+        if (true) {
+          temp3 = "many";
+        }
+        temp2 = temp3;
+      }
+      temp1 = temp2;
+    }
+    temp0 = temp1;
+  }
+  return temp0;
+};

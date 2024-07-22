@@ -593,6 +593,63 @@ let CodegenIfLetObject () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenMatchArray () =
+  let res =
+    result {
+      let src =
+        """
+        let getCount = fn<T>(array: T[]) {
+          return match array {
+            | [] => "none"
+            | [x] => "one"
+            | [x, y] => "a couple"
+            | _ => "many"
+          };
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenMatchUnion () =
+  let res =
+    result {
+      let src =
+        """
+        type Shape = {kind: "circle", radius: number} | {kind: "rect", width: number, height: number};
+        let getCount = fn(shape: Shape) {
+          return match shape {
+            | {kind: "circle", radius: r} => {
+              let area = Math.PI * r * r;
+              area
+            }
+            | {kind: "rect", width: w, height: h} => {
+              let area = w * h;
+              area
+            }
+          };
+        };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenJsxElement () =
   let res =
     result {

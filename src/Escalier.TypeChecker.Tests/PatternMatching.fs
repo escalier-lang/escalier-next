@@ -13,10 +13,10 @@ let BasicPatternMatching () =
         """
         let foo = fn (x: number) =>
           match x {
-            | 0 => "none"
-            | 1 => "one"
-            | n if n < 0 => "negative"
-            | _ => "other"
+            0 => "none",
+            1 => "one",
+            n if n < 0 => "negative",
+            _ => "other",
           };
         """
 
@@ -42,10 +42,10 @@ let BasicPatternMatchingInferExpr () =
         """
         let foo = fn (x) =>
           match x {
-            | 0 => "none"
-            | 1 => "one"
-            | n if n < 0 => "negative"
-            | _ => "other"
+            0 => "none",
+            1 => "one",
+            n if n < 0 => "negative",
+            _ => "other",
           };
         """
 
@@ -71,18 +71,18 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
         """
         let foo = fn (x, y) =>
           match {x, y} {
-            | {x: 0, y: 0} => "origin"
-            | {x is number, y: 0} => "x-axis"
-            | {x: 0, y is number} => "y-axis"
-            | _ => "other"
+            {x: 0, y: 0} => "origin",
+            {x is number, y: 0} => "x-axis",
+            {x: 0, y is number} => "y-axis",
+            _ => "other",
           };
           
         let bar = fn (x, y) =>
           match {x, y} {
-            | {x: 0, y: 0} => "origin"
-            | {x is number, y: 0} => "x-axis"
-            | {x: 0, y is number} => "y-axis"
-            | {x is number, y is number} => "other"
+            {x: 0, y: 0} => "origin",
+            {x is number, y: 0} => "x-axis",
+            {x: 0, y is number} => "y-axis",
+            {x is number, y is number} => "other",
           };
         """
 
@@ -126,11 +126,11 @@ let PatternMatchingObjects () =
         
         let centroid =
           match shape {
-            | {type: "circle", ...rest} => rest.center
-            | {type: "line", start, end} => ({
+            {type: "circle", ...rest} => rest.center,
+            {type: "line", start, end} => ({
               x: (start.x + end.x) / 2,
               y: (start.y + end.y) / 2
-            })
+            }),
           };
         """
 
@@ -171,8 +171,8 @@ let PatternMatchingObjectsWithBlockBody () =
         
         let centroid =
           match shape {
-            | {type: "circle", ...rest} => rest.center
-            | {type: "line", start, end} => {
+            {type: "circle", ...rest} => rest.center,
+            {type: "line", start, end} => {
               let x = (start.x + end.x) / 2;
               let y = (start.y + end.y) / 2;
               {x, y}
@@ -198,11 +198,11 @@ let PatternMatchingArrays () =
         """
         let sum = fn (array: number[]) =>
           match array {
-            | [] => 0
-            | [x] => x
-            | [x, y] => x + y
-            | [x, y, z] => x + y + z
-            | [x, y, z, ...rest] => x + y + z + sum(rest)
+            [] => 0,
+            [x] => x,
+            [x, y] => x + y,
+            [x, y, z] => x + y + z,
+            [x, y, z, ...rest] => x + y + z + sum(rest),
           };
         """
 
@@ -224,9 +224,9 @@ let PatternMatchingPrimitiveAssertions () =
         
         let result =
           match value {
-            | n is number => n + 1
-            | s is string => s ++ "!"
-            | _ is boolean => true
+            n is number => n + 1,
+            s is string => s ++ "!",
+            _ is boolean => true,
           };
         """
 
@@ -246,8 +246,8 @@ let PartialPatternMatchingObject () =
         """
         declare let value: {a: number, b: string} | [number, string];
         let result = match value {
-          | [a, _] => a
-          | {b} => b
+          [a, _] => a,
+          {b} => b,
         };
         """
 
@@ -271,8 +271,8 @@ let PatternMatchingImmutableTypes () =
         """
         declare let value: #[number, string] | #{a: number, b: string};
         let result = match value {
-          | #[a, b] => a
-          | #{a, b} => a
+          #[a, b] => a,
+          #{a, b} => a,
         };
         """
 
@@ -293,7 +293,7 @@ let PatternMatchingDisallowsExtraProperties () =
         """
         declare let value: {a: number, b: string};
         let result = match value {
-          | {a, b: _, c: _} => a
+          {a, b: _, c: _} => a,
         };
         """
 
@@ -316,7 +316,7 @@ let PatternMatchingDisallowsPartialMappingOfTuples () =
         """
         declare let value: [number, string];
         let result = match value {
-          | [a] => a
+          [a] => a,
         };
         """
 

@@ -1,8 +1,8 @@
 ﻿input: 
     enum MyEnum<A, B, C> {
-      | Foo(A)
-      | Bar(B)
-      | Baz(C)
+      Foo(A),
+      Bar(B),
+      Baz(C),
     }
     
 output: Ok
@@ -33,20 +33,20 @@ output: Ok
                      [{ Name = "Foo"
                         TypeAnns = [{ Kind = TypeRef { Ident = Ident "A"
                                                        TypeArgs = None }
-                                      Span = { Start = (Ln: 3, Col: 13)
-                                               Stop = (Ln: 3, Col: 14) }
+                                      Span = { Start = (Ln: 3, Col: 11)
+                                               Stop = (Ln: 3, Col: 12) }
                                       InferredType = None }] };
                       { Name = "Bar"
                         TypeAnns = [{ Kind = TypeRef { Ident = Ident "B"
                                                        TypeArgs = None }
-                                      Span = { Start = (Ln: 4, Col: 13)
-                                               Stop = (Ln: 4, Col: 14) }
+                                      Span = { Start = (Ln: 4, Col: 11)
+                                               Stop = (Ln: 4, Col: 12) }
                                       InferredType = None }] };
                       { Name = "Baz"
                         TypeAnns = [{ Kind = TypeRef { Ident = Ident "C"
                                                        TypeArgs = None }
-                                      Span = { Start = (Ln: 5, Col: 13)
-                                               Stop = (Ln: 5, Col: 14) }
+                                      Span = { Start = (Ln: 5, Col: 11)
+                                               Stop = (Ln: 5, Col: 12) }
                                       InferredType = None }] }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }

@@ -799,10 +799,11 @@ module Parser =
   let matchCase: Parser<MatchCase, unit> =
     pipe5
       getPosition
-      (strWs "|" >>. pattern)
+      pattern
       (opt ((keyword "if") >>. expr))
       (strWs "=>"
-       >>. ((block |>> BlockOrExpr.Block) <|> (expr |>> BlockOrExpr.Expr)))
+       >>. ((block |>> BlockOrExpr.Block)
+            <|> (expr .>> strWs "," |>> BlockOrExpr.Expr)))
       getPosition
     <| fun start pattern guard body stop ->
 
@@ -1506,9 +1507,9 @@ module Parser =
   let private enumVariant: Parser<EnumVariant, unit> =
     pipe4
       getPosition
-      (strWs "|" >>. ident)
+      ident
       (between (strWs "(") (strWs ")") (sepEndBy typeAnn (strWs ",")))
-      getPosition
+      (strWs "," >>. getPosition)
     <| fun start name typeAnns stop ->
 
       let span = { Start = start; Stop = stop }

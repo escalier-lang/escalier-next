@@ -1,10 +1,10 @@
 ﻿input: 
         let getCount = fn<T>(array: T[]) {
           return match array {
-            | [] => "none"
-            | [x] => "one"
-            | [x, y] => "a couple"
-            | _ => "many"
+            [] => "none",
+            [x] => "one",
+            [x, y] => "a couple",
+            _ => "many",
           };
         };
         

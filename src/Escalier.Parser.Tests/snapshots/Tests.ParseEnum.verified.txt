@@ -1,8 +1,8 @@
 ﻿input: 
     enum MyEnum {
-      | Foo(number, string, boolean)
-      | Bar([number, number])
-      | Baz(number | string)
+      Foo(number, string, boolean),
+      Bar([number, number]),
+      Baz(number | string),
     }
     let value = MyEnum.Foo(5, "hello", true);
     
@@ -19,16 +19,16 @@ output: Ok
                      [{ Name = "Foo"
                         TypeAnns =
                          [{ Kind = Keyword Number
-                            Span = { Start = (Ln: 3, Col: 13)
-                                     Stop = (Ln: 3, Col: 19) }
+                            Span = { Start = (Ln: 3, Col: 11)
+                                     Stop = (Ln: 3, Col: 17) }
                             InferredType = None };
                           { Kind = Keyword String
-                            Span = { Start = (Ln: 3, Col: 21)
-                                     Stop = (Ln: 3, Col: 27) }
+                            Span = { Start = (Ln: 3, Col: 19)
+                                     Stop = (Ln: 3, Col: 25) }
                             InferredType = None };
                           { Kind = Keyword Boolean
-                            Span = { Start = (Ln: 3, Col: 29)
-                                     Stop = (Ln: 3, Col: 36) }
+                            Span = { Start = (Ln: 3, Col: 27)
+                                     Stop = (Ln: 3, Col: 34) }
                             InferredType = None }] };
                       { Name = "Bar"
                         TypeAnns =
@@ -36,31 +36,31 @@ output: Ok
                              Tuple
                                { Elems =
                                   [{ Kind = Keyword Number
-                                     Span = { Start = (Ln: 4, Col: 14)
-                                              Stop = (Ln: 4, Col: 20) }
+                                     Span = { Start = (Ln: 4, Col: 12)
+                                              Stop = (Ln: 4, Col: 18) }
                                      InferredType = None };
                                    { Kind = Keyword Number
-                                     Span = { Start = (Ln: 4, Col: 22)
-                                              Stop = (Ln: 4, Col: 28) }
+                                     Span = { Start = (Ln: 4, Col: 20)
+                                              Stop = (Ln: 4, Col: 26) }
                                      InferredType = None }]
                                  Immutable = false }
-                            Span = { Start = (Ln: 4, Col: 13)
-                                     Stop = (Ln: 4, Col: 29) }
+                            Span = { Start = (Ln: 4, Col: 11)
+                                     Stop = (Ln: 4, Col: 27) }
                             InferredType = None }] };
                       { Name = "Baz"
                         TypeAnns =
                          [{ Kind =
                              Union
                                [{ Kind = Keyword Number
-                                  Span = { Start = (Ln: 5, Col: 13)
-                                           Stop = (Ln: 5, Col: 20) }
+                                  Span = { Start = (Ln: 5, Col: 11)
+                                           Stop = (Ln: 5, Col: 18) }
                                   InferredType = None };
                                 { Kind = Keyword String
-                                  Span = { Start = (Ln: 5, Col: 22)
-                                           Stop = (Ln: 5, Col: 28) }
+                                  Span = { Start = (Ln: 5, Col: 20)
+                                           Stop = (Ln: 5, Col: 26) }
                                   InferredType = None }]
-                            Span = { Start = (Ln: 5, Col: 13)
-                                     Stop = (Ln: 5, Col: 28) }
+                            Span = { Start = (Ln: 5, Col: 11)
+                                     Stop = (Ln: 5, Col: 26) }
                             InferredType = None }] }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }

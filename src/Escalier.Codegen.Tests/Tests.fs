@@ -600,10 +600,10 @@ let CodegenMatchArray () =
         """
         let getCount = fn<T>(array: T[]) {
           return match array {
-            | [] => "none"
-            | [x] => "one"
-            | [x, y] => "a couple"
-            | _ => "many"
+            [] => "none",
+            [x] => "one",
+            [x, y] => "a couple",
+            _ => "many",
           };
         };
         """
@@ -627,11 +627,11 @@ let CodegenMatchUnion () =
         type Shape = {kind: "circle", radius: number} | {kind: "rect", width: number, height: number};
         let getCount = fn(shape: Shape) {
           return match shape {
-            | {kind: "circle", radius: r} => {
+            {kind: "circle", radius: r} => {
               let area = Math.PI * r * r;
               area
             }
-            | {kind: "rect", width: w, height: h} => {
+            {kind: "rect", width: w, height: h} => {
               let area = w * h;
               area
             }

@@ -1,8 +1,8 @@
 ﻿input: 
     match value {
-      | MyEnum.Foo(a, b, c) => a + b + c
-      | MyEnum.Bar([x, y]) => x * y
-      | MyEnum.Baz(z) => z
+      MyEnum.Foo(a, b, c) => a + b + c,
+      MyEnum.Bar([x, y]) => x * y,
+      MyEnum.Baz(z) => z,
     }
     
 output: Ok
@@ -27,23 +27,23 @@ output: Ok
                                  [{ Kind = Ident { Name = "a"
                                                    IsMut = false
                                                    Assertion = None }
-                                    Span = { Start = (Ln: 3, Col: 20)
-                                             Stop = (Ln: 3, Col: 21) }
+                                    Span = { Start = (Ln: 3, Col: 18)
+                                             Stop = (Ln: 3, Col: 19) }
                                     InferredType = None };
                                   { Kind = Ident { Name = "b"
                                                    IsMut = false
                                                    Assertion = None }
-                                    Span = { Start = (Ln: 3, Col: 23)
-                                             Stop = (Ln: 3, Col: 24) }
+                                    Span = { Start = (Ln: 3, Col: 21)
+                                             Stop = (Ln: 3, Col: 22) }
                                     InferredType = None };
                                   { Kind = Ident { Name = "c"
                                                    IsMut = false
                                                    Assertion = None }
-                                    Span = { Start = (Ln: 3, Col: 26)
-                                             Stop = (Ln: 3, Col: 27) }
+                                    Span = { Start = (Ln: 3, Col: 24)
+                                             Stop = (Ln: 3, Col: 25) }
                                     InferredType = None }] }
-                         Span = { Start = (Ln: 3, Col: 9)
-                                  Stop = (Ln: 3, Col: 29) }
+                         Span = { Start = (Ln: 3, Col: 7)
+                                  Stop = (Ln: 3, Col: 27) }
                          InferredType = None }
                       Guard = None
                       Body =
@@ -54,22 +54,22 @@ output: Ok
                                { Kind =
                                   Binary
                                     ("+", { Kind = Identifier "a"
-                                            Span = { Start = (Ln: 3, Col: 32)
-                                                     Stop = (Ln: 3, Col: 34) }
+                                            Span = { Start = (Ln: 3, Col: 30)
+                                                     Stop = (Ln: 3, Col: 32) }
                                             InferredType = None },
                                      { Kind = Identifier "b"
-                                       Span = { Start = (Ln: 3, Col: 36)
-                                                Stop = (Ln: 3, Col: 38) }
+                                       Span = { Start = (Ln: 3, Col: 34)
+                                                Stop = (Ln: 3, Col: 36) }
                                        InferredType = None })
-                                 Span = { Start = (Ln: 3, Col: 32)
-                                          Stop = (Ln: 3, Col: 38) }
+                                 Span = { Start = (Ln: 3, Col: 30)
+                                          Stop = (Ln: 3, Col: 36) }
                                  InferredType = None },
                                { Kind = Identifier "c"
-                                 Span = { Start = (Ln: 3, Col: 40)
-                                          Stop = (Ln: 4, Col: 7) }
+                                 Span = { Start = (Ln: 3, Col: 38)
+                                          Stop = (Ln: 3, Col: 39) }
                                  InferredType = None })
-                           Span = { Start = (Ln: 3, Col: 32)
-                                    Stop = (Ln: 4, Col: 7) }
+                           Span = { Start = (Ln: 3, Col: 30)
+                                    Stop = (Ln: 3, Col: 39) }
                            InferredType = None } };
                     { Span = { Start = (Ln: 4, Col: 7)
                                Stop = (Ln: 5, Col: 7) }
@@ -85,21 +85,21 @@ output: Ok
                                           [{ Kind = Ident { Name = "x"
                                                             IsMut = false
                                                             Assertion = None }
-                                             Span = { Start = (Ln: 4, Col: 21)
-                                                      Stop = (Ln: 4, Col: 22) }
+                                             Span = { Start = (Ln: 4, Col: 19)
+                                                      Stop = (Ln: 4, Col: 20) }
                                              InferredType = None };
                                            { Kind = Ident { Name = "y"
                                                             IsMut = false
                                                             Assertion = None }
-                                             Span = { Start = (Ln: 4, Col: 24)
-                                                      Stop = (Ln: 4, Col: 25) }
+                                             Span = { Start = (Ln: 4, Col: 22)
+                                                      Stop = (Ln: 4, Col: 23) }
                                              InferredType = None }]
                                          Immutable = false }
-                                    Span = { Start = (Ln: 4, Col: 20)
-                                             Stop = (Ln: 4, Col: 26) }
+                                    Span = { Start = (Ln: 4, Col: 18)
+                                             Stop = (Ln: 4, Col: 24) }
                                     InferredType = None }] }
-                         Span = { Start = (Ln: 4, Col: 9)
-                                  Stop = (Ln: 4, Col: 28) }
+                         Span = { Start = (Ln: 4, Col: 7)
+                                  Stop = (Ln: 4, Col: 26) }
                          InferredType = None }
                       Guard = None
                       Body =
@@ -107,15 +107,15 @@ output: Ok
                          { Kind =
                             Binary
                               ("*", { Kind = Identifier "x"
-                                      Span = { Start = (Ln: 4, Col: 31)
-                                               Stop = (Ln: 4, Col: 33) }
+                                      Span = { Start = (Ln: 4, Col: 29)
+                                               Stop = (Ln: 4, Col: 31) }
                                       InferredType = None },
                                { Kind = Identifier "y"
-                                 Span = { Start = (Ln: 4, Col: 35)
-                                          Stop = (Ln: 5, Col: 7) }
+                                 Span = { Start = (Ln: 4, Col: 33)
+                                          Stop = (Ln: 4, Col: 34) }
                                  InferredType = None })
-                           Span = { Start = (Ln: 4, Col: 31)
-                                    Stop = (Ln: 5, Col: 7) }
+                           Span = { Start = (Ln: 4, Col: 29)
+                                    Stop = (Ln: 4, Col: 34) }
                            InferredType = None } };
                     { Span = { Start = (Ln: 5, Col: 7)
                                Stop = (Ln: 6, Col: 5) }
@@ -126,16 +126,16 @@ output: Ok
                               Args = Some [{ Kind = Ident { Name = "z"
                                                             IsMut = false
                                                             Assertion = None }
-                                             Span = { Start = (Ln: 5, Col: 20)
-                                                      Stop = (Ln: 5, Col: 21) }
+                                             Span = { Start = (Ln: 5, Col: 18)
+                                                      Stop = (Ln: 5, Col: 19) }
                                              InferredType = None }] }
-                         Span = { Start = (Ln: 5, Col: 9)
-                                  Stop = (Ln: 5, Col: 23) }
+                         Span = { Start = (Ln: 5, Col: 7)
+                                  Stop = (Ln: 5, Col: 21) }
                          InferredType = None }
                       Guard = None
                       Body = Expr { Kind = Identifier "z"
-                                    Span = { Start = (Ln: 5, Col: 26)
-                                             Stop = (Ln: 6, Col: 5) }
+                                    Span = { Start = (Ln: 5, Col: 24)
+                                             Stop = (Ln: 5, Col: 25) }
                                     InferredType = None } }])
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) }

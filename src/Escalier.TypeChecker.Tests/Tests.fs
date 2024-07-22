@@ -883,9 +883,9 @@ let InferEnum () =
       let src =
         """
         enum MyEnum {
-          | Foo(number, string, boolean)
-          | Bar([number, number])
-          | Baz(number | string)
+          Foo(number, string, boolean),
+          Bar([number, number]),
+          Baz(number | string),
         }
         let value = MyEnum.Foo(5, "hello", true);
         """
@@ -915,9 +915,9 @@ let InferEnumVariantIsSubtypeOfEnum () =
       let src =
         """
         enum MyEnum {
-          | Foo(number, string, boolean)
-          | Bar([number, number])
-          | Baz(number | string)
+          Foo(number, string, boolean),
+          Bar([number, number]),
+          Baz(number | string),
         }
         let value: MyEnum = MyEnum.Foo(5, "hello", true);
         """
@@ -944,9 +944,9 @@ let InferGenericEnum () =
       let src =
         """
         enum MyEnum<A, B, C> {
-          | Foo(A)
-          | Bar(B)
-          | Baz(C)
+          Foo(A),
+          Bar(B),
+          Baz(C),
         }
         let value = MyEnum.Foo(5);
         """
@@ -971,15 +971,15 @@ let InferGenericEnumWithSubtyping () =
       let src =
         """
         enum MyEnum<A, B, C> {
-          | Foo(A)
-          | Bar(B)
-          | Baz(C)
+          Foo(A),
+          Bar(B),
+          Baz(C),
         }
         let value: MyEnum<number, string, boolean> = MyEnum.Foo(5);
         let x = match value {
-          | MyEnum.Foo(a) => a
-          | MyEnum.Bar(b) => b
-          | MyEnum.Baz(c) => c
+          MyEnum.Foo(a) => a,
+          MyEnum.Bar(b) => b,
+          MyEnum.Baz(c) => c,
         };
         """
 
@@ -1001,16 +1001,16 @@ let InferEnumPatternMatching () =
       let src =
         """
         enum MyEnum {
-          | Foo(number, string, boolean)
-          | Bar([number, number])
-          | Baz({x: number, y: number})
+          Foo(number, string, boolean),
+          Bar([number, number]),
+          Baz({x: number, y: number}),
         }
         let value: MyEnum = MyEnum.Foo(5, "hello", true);
 
         let x = match value {
-          | MyEnum.Foo(x, y, z) => x
-          | MyEnum.Bar([x, y]) => x
-          | MyEnum.Baz({x, y}) => x
+          MyEnum.Foo(x, y, z) => x,
+          MyEnum.Bar([x, y]) => x,
+          MyEnum.Baz({x, y}) => x,
         };
         """
 

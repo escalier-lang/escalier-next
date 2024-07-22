@@ -139,7 +139,7 @@ let InferCatchesException () =
           try {
             foo(x);
           } catch {
-            | "RangeError" => 0
+            "RangeError" => 0,
           };
         """
 
@@ -164,8 +164,8 @@ let InferCatchesMultipleExceptions () =
           try {
             foo(x);
           } catch {
-            | "RangeError" => 0
-            | "BoundsError" => 0
+            "RangeError" => 0,
+            "BoundsError" => 0,
           };
         """
 
@@ -190,7 +190,7 @@ let InferCatchesOneOfManyExceptions () =
           try {
             foo(x);
           } catch {
-            | "RangeError" => 0
+            "RangeError" => 0,
           };
         """
 
@@ -252,7 +252,7 @@ let InferTryCatchFinally () =
           try {
             foo(x);
           } catch {
-            | "RangeError" => 0
+            "RangeError" => 0,
           } finally {
             cleanup();
           };

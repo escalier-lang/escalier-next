@@ -428,10 +428,10 @@ let ParsePatternMatching () =
     """
     let foo = fn (x) =>
       match x {
-        | 0 => "none"
-        | 1 => "one"
-        | n if n < 0 => "negative"
-        | _ => "other"
+        0 => "none",
+        1 => "one",
+        n if n < 0 => "negative",
+        _ => "other",
       };
     """
 
@@ -445,12 +445,12 @@ let ParseComplexPatternMatching () =
   let src =
     """
     match node {
-      | {x, y: b} => 1
-      | {x is number, y: b is number} => 2
-      | {x: _, y: _ is number} => 3
-      | {type: "circle", center: {x, y}, radius} => 4
-      | {x = 0, y: b = 0} => 5
-      | {x is number = 0, y: b is number = 0} => 6
+      {x, y: b} => 1,
+      {x is number, y: b is number} => 2,
+      {x: _, y: _ is number} => 3,
+      {type: "circle", center: {x, y}, radius} => 4,
+      {x = 0, y: b = 0} => 5,
+      {x is number = 0, y: b is number = 0} => 6,
     }
     """
 
@@ -469,9 +469,9 @@ let ParseEnum () =
   let src =
     """
     enum MyEnum {
-      | Foo(number, string, boolean)
-      | Bar([number, number])
-      | Baz(number | string)
+      Foo(number, string, boolean),
+      Bar([number, number]),
+      Baz(number | string),
     }
     let value = MyEnum.Foo(5, "hello", true);
     """
@@ -486,9 +486,9 @@ let ParseGenericEnum () =
   let src =
     """
     enum MyEnum<A, B, C> {
-      | Foo(A)
-      | Bar(B)
-      | Baz(C)
+      Foo(A),
+      Bar(B),
+      Baz(C),
     }
     """
 
@@ -502,9 +502,9 @@ let ParseEnumPatternMatching () =
   let src =
     """
     match value {
-      | MyEnum.Foo(a, b, c) => a + b + c
-      | MyEnum.Bar([x, y]) => x * y
-      | MyEnum.Baz(z) => z
+      MyEnum.Foo(a, b, c) => a + b + c,
+      MyEnum.Bar([x, y]) => x * y,
+      MyEnum.Baz(z) => z,
     }
     """
 

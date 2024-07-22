@@ -95,7 +95,7 @@ let InfersTryCatchAsync () =
             let y = await foo(x);
             y + await 10;
           } catch {
-            | "RangeError" => 0
+            "RangeError" => 0,
           };
         """
 

@@ -374,27 +374,20 @@ module rec Printer =
                  Finalizer = finalizer } ->
       let ctx = { ctx with Precedence = 0 }
 
-      let block = block.Body |> List.map (printStmt ctx) |> String.concat "\n"
-      let block = $"try {{\n{block}\n}}"
+      let block = $"try {printBlock ctx block}"
 
       let handler =
         match handler with
         | Some(handler) ->
           let param = printPattern ctx handler.Param
+          let body = printBlock ctx handler.Body
 
-          let body =
-            handler.Body.Body |> List.map (printStmt ctx) |> String.concat "\n"
-
-          $"catch ({param}) {{\n{body}\n}}"
+          $"catch ({param}) {body}"
         | None -> ""
 
       let finalizer =
         match finalizer with
-        | Some(finalizer) ->
-          let body =
-            finalizer.Body |> List.map (printStmt ctx) |> String.concat "\n"
-
-          $"finally {{\n{body}\n}}"
+        | Some(finalizer) -> $"finally {printBlock ctx finalizer}"
         | None -> ""
 
       $"{block}{handler}{finalizer}"

@@ -650,6 +650,82 @@ let CodegenMatchUnion () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenTryCatch () =
+  let res =
+    result {
+      let src =
+        """
+        let result =
+          try {
+            JSON.parse(input);
+          } catch {
+            "SyntaxError" => null,
+            "RangeError" => null,
+          };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenTryFinally () =
+  let res =
+    result {
+      let src =
+        """
+        let result =
+          try {
+            JSON.parse(input);
+          } finally {
+            cleanup();
+          };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenTryCatchFinally () =
+  let res =
+    result {
+      let src =
+        """
+        let result =
+          try {
+            JSON.parse(input);
+          } catch {
+            "SyntaxError" => null,
+            "RangeError" => null,
+          } finally {
+            cleanup();
+          };
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenJsxElement () =
   let res =
     result {

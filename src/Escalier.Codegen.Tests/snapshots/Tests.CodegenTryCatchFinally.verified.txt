@@ -12,7 +12,7 @@
 output:
 try {
   temp0 = JSON.parse(input);
-}catch (__error__) {
+} catch (__error__) {
   var temp1;
   if (__error__ == "SyntaxError") {
     temp1 = null;
@@ -23,7 +23,7 @@ try {
     }
     temp1 = temp2;
   }
-}finally {
+} finally {
   cleanup();
 }
 var result = temp0;

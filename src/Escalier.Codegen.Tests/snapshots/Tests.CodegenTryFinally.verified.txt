@@ -9,7 +9,7 @@
 output:
 try {
   temp0 = JSON.parse(input);
-}finally {
+} finally {
   cleanup();
 }
 var result = temp0;

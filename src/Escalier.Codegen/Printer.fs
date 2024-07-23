@@ -382,12 +382,12 @@ module rec Printer =
           let param = printPattern ctx handler.Param
           let body = printBlock ctx handler.Body
 
-          $"catch ({param}) {body}"
+          $" catch ({param}) {body}"
         | None -> ""
 
       let finalizer =
         match finalizer with
-        | Some(finalizer) -> $"finally {printBlock ctx finalizer}"
+        | Some(finalizer) -> $" finally {printBlock ctx finalizer}"
         | None -> ""
 
       $"{block}{handler}{finalizer}"

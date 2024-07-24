@@ -8,6 +8,7 @@
           };
         
 output:
+var temp0;
 try {
   temp0 = JSON.parse(input);
 } catch (__error__) {

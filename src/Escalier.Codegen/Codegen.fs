@@ -16,6 +16,11 @@ module rec Codegen =
     { mutable NextTempId: int
       mutable AutoImports: Set<string> }
 
+    member this.GetTempId() =
+      let tempId = $"temp{this.NextTempId}"
+      this.NextTempId <- this.NextTempId + 1
+      tempId
+
   type Finalizer =
     | Assign of string
     | Return
@@ -105,36 +110,53 @@ module rec Codegen =
       flattenLogicalAnd left @ flattenLogicalAnd right
     | _ -> [ expr ]
 
-  // TODO: dedupe with ExprKind.IfElse
-  let buildLogicalOrRec
+  let buildTempDecl (ctx: Ctx) (tempId: string) : TS.Stmt =
+    let tempDecl =
+      { Decls =
+          [ { Id =
+                Pat.Ident
+                  { Id = { Name = tempId; Loc = None }
+                    Loc = None }
+              TypeAnn = None
+              Init = None } ]
+        Declare = false
+        Kind = VariableDeclarationKind.Var }
+
+    tempDecl |> Decl.Var |> Stmt.Decl
+
+  type Logical =
+    | And
+    | Or
+
+  let buildLogicalRec
     (ctx: Ctx)
+    (op: Logical)
     (exprs: list<Expr>)
     : TS.Expr * list<TS.Stmt> =
     match exprs with
     | [] -> failwith "Empty list of expressions"
     | [ expr ] -> buildExpr ctx expr
     | head :: tail ->
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
+      let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
+      let tempDecl = buildTempDecl ctx tempId
 
       let headExpr, headStmts = buildExpr ctx head
-      let tailExpr, tailStmts = buildLogicalOrRec ctx tail
+      let tailExpr, tailStmts = buildLogicalRec ctx op tail
+
+      let cond =
+        match op with
+        | Logical.Or -> headExpr
+        | Logical.And ->
+          Expr.Unary
+            { Operator = UnaryOperator.Not
+              Prefix = true
+              Argument = headExpr
+              Loc = None }
 
       let ifStmt =
         Stmt.If
-          { Test = headExpr
+          { Test = cond
             Consequent =
               Stmt.Block
                 { Body = buildFinalizer ctx headExpr finalizer
@@ -147,67 +169,11 @@ module rec Codegen =
               )
             Loc = None }
 
-      let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ headStmts @ [ ifStmt ]
+      let stmts = [ tempDecl ] @ headStmts @ [ ifStmt ]
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
 
-  // TODO: dedupe with ExprKind.IfElse
-  let buildLogicalAndRec
-    (ctx: Ctx)
-    (exprs: list<Expr>)
-    : TS.Expr * list<TS.Stmt> =
-    match exprs with
-    | [] -> failwith "Empty list of expressions"
-    | [ expr ] -> buildExpr ctx expr
-    | head :: tail ->
-      // TODO: dedupe with ExprKind.IfElse
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
-      let finalizer = Finalizer.Assign tempId
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
-
-      let headExpr, headStmts = buildExpr ctx head
-      let tailExpr, tailStmts = buildLogicalAndRec ctx tail
-
-      let cond =
-        Expr.Unary
-          { Operator = UnaryOperator.Not
-            Prefix = true
-            Argument = headExpr
-            Loc = None }
-
-      let ifStmt =
-        Stmt.If
-          { Test = cond
-            Consequent =
-              Stmt.Block
-                { Body = headStmts @ (buildFinalizer ctx headExpr finalizer)
-                  Loc = None }
-            Alternate =
-              Some(
-                Stmt.Block
-                  { Body = tailStmts @ (buildFinalizer ctx tailExpr finalizer)
-                    Loc = None }
-              )
-            Loc = None }
-
-      let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ headStmts @ [ ifStmt ]
-      let expr = Expr.Ident { Name = tempId; Loc = None }
-
-      (expr, stmts)
-
-  // TODO: dedupe with ExprKind.IfElse
   let buildMatchRec
     (ctx: Ctx)
     (target: Expr)
@@ -216,21 +182,9 @@ module rec Codegen =
     match cases with
     | [] -> None, []
     | head :: tail ->
-      // TODO: dedupe with ExprKind.IfElse
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
+      let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
+      let tempDecl = buildTempDecl ctx tempId
 
       let targetExpr, targetStmts = buildExpr ctx target
       let pattern, checks = buildPattern ctx head.Pattern (Some targetExpr)
@@ -280,7 +234,7 @@ module rec Codegen =
             Alternate = alternative
             Loc = None }
 
-      let stmts = [ Stmt.Decl(Decl.Var tempDecl); ifStmt ]
+      let stmts = [ tempDecl; ifStmt ]
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (Some expr, stmts)
@@ -326,9 +280,9 @@ module rec Codegen =
       lit, []
     | ExprKind.Binary(op, left, right) ->
       if op = "&&" then
-        buildLogicalAndRec ctx (flattenLogicalAnd expr)
+        buildLogicalRec ctx Logical.And (flattenLogicalAnd expr)
       elif op = "||" then
-        buildLogicalOrRec ctx (flattenLogicalOr expr)
+        buildLogicalRec ctx Logical.Or (flattenLogicalOr expr)
       else
         let op =
           match op with
@@ -356,25 +310,14 @@ module rec Codegen =
 
         (binExpr, leftStmts @ rightStmts)
     | ExprKind.Do block ->
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
-
+      let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
+      let tempDecl = buildTempDecl ctx tempId
+
       let blockStmt = buildBlock ctx block finalizer
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
-      let stmts = [ Stmt.Decl(Decl.Var tempDecl); Stmt.Block blockStmt ]
+      let stmts = [ tempDecl; Stmt.Block blockStmt ]
 
       (expr, stmts)
     | ExprKind.Function { Sig = s; Body = body } ->
@@ -421,20 +364,9 @@ module rec Codegen =
 
         (expr, [])
     | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
+      let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
+      let tempDecl = buildTempDecl ctx tempId
 
       let conditionExpr, conditionStmts = buildExpr ctx condition
       let thenBlock = buildBlock ctx thenBranch finalizer
@@ -457,7 +389,7 @@ module rec Codegen =
             Alternate = Option.map Stmt.Block alt
             Loc = None }
 
-      let stmts = [ Stmt.Decl(Decl.Var tempDecl) ] @ conditionStmts @ [ ifStmt ]
+      let stmts = [ tempDecl ] @ conditionStmts @ [ ifStmt ]
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
@@ -573,21 +505,9 @@ module rec Codegen =
 
       (expr, targetStmts @ indexStmts)
     | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
-      // TODO: dedupe with ExprKind.IfElse
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
+      let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
+      let tempDecl = buildTempDecl ctx tempId
 
       let targetExpr, targetStmts = buildExpr ctx target
       let pattern, checks = buildPattern ctx pattern (Some targetExpr)
@@ -610,12 +530,14 @@ module rec Codegen =
                 Init = Some targetExpr } ]
           Declare = false
           Kind = VariableDeclarationKind.Var }
+        |> Decl.Var
+        |> Stmt.Decl
 
       let thenBlock = buildBlock ctx thenBranch finalizer
 
       let thenBlock =
         { thenBlock with
-            Body = Stmt.Decl(Decl.Var decl) :: thenBlock.Body }
+            Body = decl :: thenBlock.Body }
 
       let alt =
         Option.map
@@ -635,7 +557,7 @@ module rec Codegen =
             Alternate = Option.map Stmt.Block alt
             Loc = None }
 
-      let stmts = [ Stmt.Decl(Decl.Var tempDecl); ifStmt ]
+      let stmts = [ tempDecl; ifStmt ]
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
@@ -696,20 +618,9 @@ module rec Codegen =
     | ExprKind.Try { Body = body
                      Catch = catchBlock
                      Finally = finallyBlock } ->
-      let tempId = $"temp{ctx.NextTempId}"
-      ctx.NextTempId <- ctx.NextTempId + 1
+      let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
-
-      let tempDecl =
-        { Decls =
-            [ { Id =
-                  Pat.Ident
-                    { Id = { Name = tempId; Loc = None }
-                      Loc = None }
-                TypeAnn = None
-                Init = None } ]
-          Declare = false
-          Kind = VariableDeclarationKind.Var }
+      let tempDecl = buildTempDecl ctx tempId
 
       let bodyBlock = buildBlock ctx body finalizer
 
@@ -746,7 +657,7 @@ module rec Codegen =
 
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
-      expr, [ tryStmt ]
+      expr, [ tempDecl; tryStmt ]
     | ExprKind.Await { Value = value } ->
       let valueExpr, valueStmts = buildExpr ctx value
       let expr = Expr.Await { Arg = valueExpr; Loc = None }

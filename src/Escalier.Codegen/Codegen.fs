@@ -177,10 +177,14 @@ module rec Codegen =
   let buildMatchRec
     (ctx: Ctx)
     (target: Expr)
+    (defaultBlock: option<BlockStmt>)
     (cases: list<MatchCase>)
     : option<TS.Expr> * list<TS.Stmt> =
     match cases with
-    | [] -> None, []
+    | [] ->
+      match defaultBlock with
+      | None -> None, []
+      | Some defaultBlock -> None, defaultBlock.Body
     | head :: tail ->
       let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
@@ -215,7 +219,7 @@ module rec Codegen =
             { Body = headStmts @ (buildFinalizer ctx headExpr finalizer)
               Loc = None }
 
-      let tailExpr, tailStmts = buildMatchRec ctx target tail
+      let tailExpr, tailStmts = buildMatchRec ctx target defaultBlock tail
 
       let alternative =
         match tailExpr with
@@ -225,7 +229,10 @@ module rec Codegen =
               { Body = tailStmts @ (buildFinalizer ctx tailExpr finalizer)
                 Loc = None }
           )
-        | None -> None
+        | None ->
+          match tailStmts with
+          | [] -> None
+          | _ -> Some(Stmt.Block { Body = tailStmts; Loc = None })
 
       let ifStmt =
         Stmt.If
@@ -562,7 +569,7 @@ module rec Codegen =
 
       (expr, stmts)
     | ExprKind.Match(target, cases) ->
-      match buildMatchRec ctx target cases with
+      match buildMatchRec ctx target None cases with
       | Some expr, stmts -> (expr, stmts)
       | None, stmts -> failwith "Failure compiling 'match' expression"
     | ExprKind.Assign(op, left, right) ->
@@ -632,7 +639,16 @@ module rec Codegen =
       let handler =
         match catchBlock with
         | Some cases ->
-          let catchExpr, catchStmts = buildMatchRec ctx target cases
+          // Rethrow the error if it doesn't match any of the cases.
+          let throwBlock: BlockStmt =
+            { Body =
+                [ Stmt.Throw
+                    { Argument = Expr.Ident { Name = "__error__"; Loc = None }
+                      Loc = None } ]
+              Loc = None }
+
+          let catchExpr, catchStmts =
+            buildMatchRec ctx target (Some throwBlock) cases
 
           let handler =
             { Param =

@@ -21,6 +21,8 @@ try {
     var temp2;
     if (__error__ == "RangeError") {
       temp2 = null;
+    } else {
+      throw __error__;
     }
     temp1 = temp2;
   }

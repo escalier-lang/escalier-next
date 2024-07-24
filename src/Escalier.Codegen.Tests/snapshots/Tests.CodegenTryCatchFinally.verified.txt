@@ -1,0 +1,29 @@
+﻿input: 
+        let result =
+          try {
+            JSON.parse(input);
+          } catch {
+            "SyntaxError" => null,
+            "RangeError" => null,
+          } finally {
+            cleanup();
+          };
+        
+output:
+try {
+  temp0 = JSON.parse(input);
+} catch (__error__) {
+  var temp1;
+  if (__error__ == "SyntaxError") {
+    temp1 = null;
+  } else {
+    var temp2;
+    if (__error__ == "RangeError") {
+      temp2 = null;
+    }
+    temp1 = temp2;
+  }
+} finally {
+  cleanup();
+}
+var result = temp0;

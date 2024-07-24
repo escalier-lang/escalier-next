@@ -1,0 +1,15 @@
+﻿input: 
+        let result =
+          try {
+            JSON.parse(input);
+          } finally {
+            cleanup();
+          };
+        
+output:
+try {
+  temp0 = JSON.parse(input);
+} finally {
+  cleanup();
+}
+var result = temp0;

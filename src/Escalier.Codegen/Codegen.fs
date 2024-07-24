@@ -693,7 +693,60 @@ module rec Codegen =
             Loc = None }
 
       (unaryExpr, valueStmts)
-    | ExprKind.Try ``try`` -> failwith "TODO: buildExpr - Try"
+    | ExprKind.Try { Body = body
+                     Catch = catchBlock
+                     Finally = finallyBlock } ->
+      let tempId = $"temp{ctx.NextTempId}"
+      ctx.NextTempId <- ctx.NextTempId + 1
+      let finalizer = Finalizer.Assign tempId
+
+      let tempDecl =
+        { Decls =
+            [ { Id =
+                  Pat.Ident
+                    { Id = { Name = tempId; Loc = None }
+                      Loc = None }
+                TypeAnn = None
+                Init = None } ]
+          Declare = false
+          Kind = VariableDeclarationKind.Var }
+
+      let bodyBlock = buildBlock ctx body finalizer
+
+      let target: Expr =
+        { Kind = ExprKind.Identifier "__error__"
+          Span = dummySpan
+          InferredType = None }
+
+      let handler =
+        match catchBlock with
+        | Some cases ->
+          let catchExpr, catchStmts = buildMatchRec ctx target cases
+
+          let handler =
+            { Param =
+                Pat.Ident
+                  { Id = { Name = "__error__"; Loc = None }
+                    Loc = None }
+              TypeAnn = None
+              Body = { Body = catchStmts; Loc = None } }
+
+          Some handler
+        | None -> None
+
+      let finallyBlock =
+        finallyBlock
+        |> Option.map (fun block -> buildBlock ctx block Finalizer.Empty)
+
+      let tryStmt: TS.Stmt =
+        Stmt.Try
+          { Block = bodyBlock
+            Handler = handler
+            Finalizer = finallyBlock }
+
+      let expr = Expr.Ident { Name = tempId; Loc = None }
+
+      expr, [ tryStmt ]
     | ExprKind.Await { Value = value } ->
       let valueExpr, valueStmts = buildExpr ctx value
       let expr = Expr.Await { Arg = valueExpr; Loc = None }

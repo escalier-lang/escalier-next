@@ -360,6 +360,26 @@ let CodegenAsyncFunction () =
     printfn "error = %A" error
     failwith "ParseError"
 
+[<Fact>]
+let CodegenCalls () =
+  let res =
+    result {
+      let src =
+        """
+        let num = parseInt("123");
+        let array = new Array(1, 2, 3);
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
 
 [<Fact>]
 let CodegenChainedIfElse () =

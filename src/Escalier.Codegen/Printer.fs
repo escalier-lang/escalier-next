@@ -1,5 +1,7 @@
 namespace Escalier.Codegen
 
+open System.Text
+
 open Escalier.Interop
 open Escalier.Interop.TypeScript
 
@@ -286,8 +288,11 @@ module rec Printer =
 
       if innerPrec < outerPrec then $"({exprs})" else exprs
     | Expr.SuperProp _ -> failwith "TODO: printExpr - SuperProp"
-    | Expr.Tpl _ -> failwith "TODO: printExpr - Tpl"
-    | Expr.TaggedTpl _ -> failwith "TODO: printExpr - TaggedTpl"
+    | Expr.Tpl template -> printTemplateLiteral ctx template
+    | Expr.TaggedTpl { Tag = tag
+                       TypeParams = _
+                       Tpl = template } ->
+      $"{printExpr ctx tag}{printTemplateLiteral ctx template}"
     | Expr.Class _ -> failwith "TODO: printExpr - Class"
     | Expr.Yield _ -> failwith "TODO: printExpr - Yield"
     | Expr.MetaProp _ -> failwith "TODO: printExpr - MetaProp"
@@ -313,6 +318,19 @@ module rec Printer =
     | Expr.OptChain _ -> failwith "TODO: printExpr - OptChain"
     | Expr.Invalid _ -> failwith "TODO: printExpr - Invalid"
 
+  let printTemplateLiteral (ctx: PrintCtx) (template: Tpl): string =
+    let {Exprs=exprs; Quasis=quasis} = template
+    let mutable sb = StringBuilder()
+    sb <- sb.Append("`")
+
+    for quasi, expr in List.zip (List.take exprs.Length quasis) exprs do
+      let expr = printExpr ctx expr
+      sb <- sb.Append(quasi.Raw).Append("${").Append(expr).Append("}")
+
+    sb <- sb.Append(quasis.[quasis.Length - 1].Raw).Append("`")
+
+    sb.ToString()
+  
   let printStmt (ctx: PrintCtx) (stmt: TypeScript.Stmt) : string =
     match stmt with
     | Stmt.Block block -> printBlock ctx block

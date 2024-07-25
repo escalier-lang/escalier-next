@@ -1,0 +1,34 @@
+﻿input: let foo = gql`query { hello }`;
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "foo"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 1, Col: 5)
+                                         Stop = (Ln: 1, Col: 9) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     Some
+                       { Kind =
+                          TaggedTemplateLiteral
+                            ({ Kind = Identifier "gql"
+                               Span = { Start = (Ln: 1, Col: 11)
+                                        Stop = (Ln: 1, Col: 14) }
+                               InferredType = None },
+                             { Parts = ["query { hello }"]
+                               Exprs = [] }, None)
+                         Span = { Start = (Ln: 1, Col: 11)
+                                  Stop = (Ln: 1, Col: 31) }
+                         InferredType = None }
+                    Else = None }
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 32) } }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 32) } }] }

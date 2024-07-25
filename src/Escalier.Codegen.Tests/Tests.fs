@@ -169,6 +169,54 @@ let CodegenNoParensExpression () =
   Assert.Equal("a * 1 + b / 2", code.ToString())
 
 [<Fact>]
+let CodegenTemplateLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let x = 5;
+        let y = 10;
+        let p = `(${x}, ${y})`;
+        let escapes = `"hello"\n\r\t'world'`;
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
+let CodegenTaggedTemplateLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let query = gql`query {
+          user(id: ${id}) {
+            username
+            password
+          }
+        }`;
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenAssignment () =
   let res =
     result {

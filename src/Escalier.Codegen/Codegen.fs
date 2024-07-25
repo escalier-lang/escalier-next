@@ -273,10 +273,12 @@ module rec Codegen =
       (callExpr, calleeStmts @ (argStmts |> List.concat))
     | ExprKind.New { Callee = callee; Args = args } ->
       let calleeExpr, calleeStmts = buildExpr ctx callee
+
       let args =
         match args with
         | Some args -> args
         | None -> []
+
       let argExprs, argStmts = args |> List.map (buildExpr ctx) |> List.unzip
 
       let callExpr =
@@ -696,12 +698,52 @@ module rec Codegen =
       let expr = Expr.Await { Arg = valueExpr; Loc = None }
       (expr, valueStmts)
     | ExprKind.Throw value -> failwith "TODO: buildExpr - Throw"
-    | ExprKind.TemplateLiteral templateLiteral ->
-      failwith "TODO: buildExpr - TemplateLiteral"
-    | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
-      failwith "TODO: buildExpr - TaggedTemplateLiteral"
+    | ExprKind.TemplateLiteral template ->
+      let tpl, stmts = buildTemplateLiteral ctx template
+      (Expr.Tpl tpl, stmts)
+    | ExprKind.TaggedTemplateLiteral(tag, template, _throws) ->
+      let tagExpr, tagStmts = buildExpr ctx tag
+      let tpl, tplStmts = buildTemplateLiteral ctx template
+
+      let taggedTplExpr =
+        Expr.TaggedTpl
+          { Tag = tagExpr
+            TypeParams = None
+            Tpl = tpl
+            Loc = None }
+
+      (taggedTplExpr, tagStmts @ tplStmts)
     | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
     | ExprKind.JSXFragment jsxFragment -> buildJsxFragment ctx jsxFragment
+
+  let buildTemplateLiteral
+    (ctx: Ctx)
+    (template: Common.TemplateLiteral<Expr>)
+    : TS.Tpl * list<TS.Stmt> =
+    let { Exprs = exprs; Parts = parts } = template
+    let mutable stmts = []
+
+    let exprs =
+      exprs
+      |> List.map (fun expr ->
+        let expr, exprStmts = buildExpr ctx expr
+        stmts <- stmts @ exprStmts
+        expr)
+
+    let quasis =
+      parts
+      |> List.map (fun part ->
+        { Tail = false
+          Cooked = None
+          Raw = part
+          Loc = None })
+
+    let tpl =
+      { Exprs = exprs
+        Quasis = quasis
+        Loc = None }
+
+    (tpl, stmts)
 
   let buildJsxElement
     (ctx: Ctx)
@@ -782,7 +824,7 @@ module rec Codegen =
       match name with
       | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
         Expr.Lit(Lit.Str { Value = s; Raw = None; Loc = None })
-      | _ -> failwith "TODO: buildExpr - JSXElement"
+      | _ -> failwith "TODO: buildJsxElement - JSXElement"
 
     let callExpr =
       let name =

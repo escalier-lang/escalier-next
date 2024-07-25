@@ -1,0 +1,11 @@
+﻿input: 
+        let x = 5;
+        let y = 10;
+        let p = `(${x}, ${y})`;
+        let escapes = `"hello"\n\r\t'world'`;
+        
+output:
+var x = 5;
+var y = 10;
+var p = `(${x}, ${y})`;
+var escapes = `"hello"\n\r\t'world'`;

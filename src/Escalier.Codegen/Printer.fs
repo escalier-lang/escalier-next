@@ -1,5 +1,7 @@
 namespace Escalier.Codegen
 
+open System.Text
+
 open Escalier.Interop
 open Escalier.Interop.TypeScript
 
@@ -286,7 +288,18 @@ module rec Printer =
 
       if innerPrec < outerPrec then $"({exprs})" else exprs
     | Expr.SuperProp _ -> failwith "TODO: printExpr - SuperProp"
-    | Expr.Tpl _ -> failwith "TODO: printExpr - Tpl"
+    | Expr.Tpl { Exprs = exprs; Quasis = quasis } ->
+      let mutable sb = StringBuilder()
+
+      sb <- sb.Append("`")
+
+      for quasi, expr in List.zip (List.take exprs.Length quasis) exprs do
+        let expr = printExpr ctx expr
+        sb <- sb.Append(quasi.Raw).Append("${").Append(expr).Append("}")
+
+      sb <- sb.Append(quasis.[quasis.Length - 1].Raw).Append("`")
+
+      sb.ToString()
     | Expr.TaggedTpl _ -> failwith "TODO: printExpr - TaggedTpl"
     | Expr.Class _ -> failwith "TODO: printExpr - Class"
     | Expr.Yield _ -> failwith "TODO: printExpr - Yield"

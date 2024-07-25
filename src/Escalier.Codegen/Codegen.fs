@@ -698,35 +698,52 @@ module rec Codegen =
       let expr = Expr.Await { Arg = valueExpr; Loc = None }
       (expr, valueStmts)
     | ExprKind.Throw value -> failwith "TODO: buildExpr - Throw"
-    | ExprKind.TemplateLiteral { Parts = parts; Exprs = exprs } ->
-      let mutable stmts = []
+    | ExprKind.TemplateLiteral template ->
+      let tpl, stmts = buildTemplateLiteral ctx template
+      (Expr.Tpl tpl, stmts)
+    | ExprKind.TaggedTemplateLiteral(tag, template, _throws) ->
+      let tagExpr, tagStmts = buildExpr ctx tag
+      let tpl, tplStmts = buildTemplateLiteral ctx template
 
-      let exprs =
-        exprs
-        |> List.map (fun expr ->
-          let expr, exprStmts = buildExpr ctx expr
-          stmts <- stmts @ exprStmts
-          expr)
-
-      let quasis =
-        parts
-        |> List.map (fun part ->
-          { Tail = false
-            Cooked = None
-            Raw = part
-            Loc = None })
-
-      let expr =
-        Expr.Tpl
-          { Exprs = exprs
-            Quasis = quasis
+      let taggedTplExpr =
+        Expr.TaggedTpl
+          { Tag = tagExpr
+            TypeParams = None
+            Tpl = tpl
             Loc = None }
 
-      (expr, stmts)
-    | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
-      failwith "TODO: buildExpr - TaggedTemplateLiteral"
+      (taggedTplExpr, tagStmts @ tplStmts)
     | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
     | ExprKind.JSXFragment jsxFragment -> buildJsxFragment ctx jsxFragment
+
+  let buildTemplateLiteral
+    (ctx: Ctx)
+    (template: Common.TemplateLiteral<Expr>)
+    : TS.Tpl * list<TS.Stmt> =
+    let { Exprs = exprs; Parts = parts } = template
+    let mutable stmts = []
+
+    let exprs =
+      exprs
+      |> List.map (fun expr ->
+        let expr, exprStmts = buildExpr ctx expr
+        stmts <- stmts @ exprStmts
+        expr)
+
+    let quasis =
+      parts
+      |> List.map (fun part ->
+        { Tail = false
+          Cooked = None
+          Raw = part
+          Loc = None })
+
+    let tpl =
+      { Exprs = exprs
+        Quasis = quasis
+        Loc = None }
+
+    (tpl, stmts)
 
   let buildJsxElement
     (ctx: Ctx)

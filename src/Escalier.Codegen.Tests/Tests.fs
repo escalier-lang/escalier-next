@@ -211,6 +211,27 @@ let CodegenIndexing () =
     failwith "ParseError"
 
 [<Fact>]
+let CodegenMemberAccess () =
+  let res =
+    result {
+      let src =
+        """
+        foo.bar = "baz";
+        let c = a?.b?.c;
+        """
+
+      let! js = parseAndCodegenJS src
+
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) ->
+    printfn "error = %A" error
+    failwith "ParseError"
+
+[<Fact>]
 let CodegenDoExpression () =
   let res =
     result {

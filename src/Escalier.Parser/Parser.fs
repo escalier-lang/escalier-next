@@ -656,6 +656,7 @@ module Parser =
         let start = stream.Position
         stream.Skip() // '`'
 
+        // TODO: dedupe with taggedTemplateParselet
         while stream.Peek() <> '`' && reply = ValueNone do
           if stream.PeekString(2) = "${" then
             stream.Skip(2) // '${'
@@ -1202,6 +1203,54 @@ module Parser =
           | _ -> Reply(reply.Status, reply.Error)
       Precedence = precedence }
 
+  let taggedTemplateParselet (precedence: int) : Pratt.InfixParselet<Expr> =
+    { Parse =
+        fun (parser, stream, left, operator) ->
+          let sb = StringBuilder()
+          let mutable parts: list<string> = []
+          let mutable exprs: list<Expr> = []
+          let mutable reply: voption<Reply<Expr>> = ValueNone
+
+          // TODO: dedupe with templateStringLiteral
+          while stream.Peek() <> '`' && reply = ValueNone do
+            if stream.PeekString(2) = "${" then
+              stream.Skip(2) // '${'
+              parts <- sb.ToString() :: parts
+              sb.Clear() |> ignore
+              let e = expr stream
+
+              if e.Status = ReplyStatus.Ok then
+                if stream.Peek() = '}' then
+                  stream.Skip()
+                  exprs <- e.Result :: exprs
+                else
+                  reply <- ValueSome(Reply(Error, messageError "Expected '}'"))
+              else
+                reply <- ValueSome(e)
+            else
+              sb.Append(stream.Read()) |> ignore
+
+          match reply with
+          | ValueNone ->
+            stream.Skip() // '`'
+            let stop = stream.Position
+            parts <- sb.ToString() :: parts
+
+            let template =
+              { Parts = List.rev parts
+                Exprs = List.rev exprs }
+
+            let result: Expr =
+              { Expr.Kind = ExprKind.TaggedTemplateLiteral(left, template, None)
+                Span =
+                  { Start = left.Span.Start
+                    Stop = stream.Position }
+                InferredType = None }
+
+            Reply(result)
+          | ValueSome(value) -> value
+      Precedence = precedence }
+
   let memberOp =
     fun (optChain: bool) (obj: Expr) (prop: Expr) ->
       match prop.Kind with
@@ -1222,6 +1271,7 @@ module Parser =
   )
 
   exprParser.RegisterInfix("[", indexParselet 17)
+  exprParser.RegisterInfix("`", taggedTemplateParselet 17)
 
   let callParselet (precedence: int) : Pratt.InfixParselet<Expr> =
     { Parse =

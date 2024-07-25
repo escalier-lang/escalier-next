@@ -191,7 +191,7 @@ let CodegenTemplateLiteral () =
     printfn "error = %A" error
     failwith "ParseError"
 
-[<Fact(Skip = "TODO: Update parser to handle tagged template literals")>]
+[<Fact>]
 let CodegenTaggedTemplateLiteral () =
   let res =
     result {

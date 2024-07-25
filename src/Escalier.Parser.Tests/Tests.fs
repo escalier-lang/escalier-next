@@ -45,8 +45,16 @@ let ParseOtherLiterals () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseTemplateString () =
+let ParseTemplateLiteral () =
   let src = """let msg = `foo ${`bar ${baz}`}`;"""
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseTaggedTemplateLiteral () =
+  let src = """let foo = gql`query { hello }`;"""
   let ast = Parser.parseScript src
   let result = $"input: %s{src}\noutput: %A{ast}"
 

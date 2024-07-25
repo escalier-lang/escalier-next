@@ -1,0 +1,7 @@
+﻿input: 
+        foo.bar = "baz";
+        let c = a?.b?.c;
+        
+output:
+foo.bar = "baz";
+var c = a?.b?.c;

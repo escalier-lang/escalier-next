@@ -404,6 +404,7 @@ module rec Codegen =
 
       // TODO: support outputting optional chaining
       let object, objStmts = buildExpr ctx target
+
       let property = Expr.Ident { Name = name; Loc = None }
 
       let expr =
@@ -411,6 +412,7 @@ module rec Codegen =
           { Object = object
             Property = property
             Computed = false
+            OptChain = opt_chain
             Loc = None }
 
       let stmts = objStmts
@@ -508,6 +510,7 @@ module rec Codegen =
           { Object = targetExpr
             Property = indexExpr
             Computed = true
+            OptChain = optChain
             Loc = None }
 
       (expr, targetStmts @ indexStmts)
@@ -978,6 +981,7 @@ module rec Codegen =
           { Object = expr
             Property = Expr.Ident { Name = "length"; Loc = None }
             Computed = false
+            OptChain = false
             Loc = None }
 
       let length =
@@ -1040,6 +1044,7 @@ module rec Codegen =
                         Lit.Str { Value = key; Raw = None; Loc = None }
                       )
                     Computed = true
+                    OptChain = false
                     Loc = None })
 
             let keyValuePat, keyValueChecks = buildPattern ctx value parent
@@ -1103,6 +1108,7 @@ module rec Codegen =
                           Loc = None }
                     )
                   Computed = true
+                  OptChain = false
                   Loc = None })
 
           let elemPat, elemChecks = buildPattern ctx elem parent

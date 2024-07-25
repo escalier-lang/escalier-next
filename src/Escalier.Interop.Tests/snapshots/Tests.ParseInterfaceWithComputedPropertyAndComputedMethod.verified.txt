@@ -22,6 +22,7 @@ output: Success: { Body =
                                       Property = Ident { Name = "Baz"
                                                          Loc = None }
                                       Computed = false
+                                      OptChain = false
                                       Loc = None }
                        Computed = true
                        Optional = false
@@ -36,6 +37,7 @@ output: Success: { Body =
                                       Property = Ident { Name = "toPrimitive"
                                                          Loc = None }
                                       Computed = false
+                                      OptChain = false
                                       Loc = None }
                        Computed = true
                        Optional = false

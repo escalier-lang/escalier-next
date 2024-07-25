@@ -157,6 +157,7 @@ module Parser =
           { Object = obj
             Property = prop
             Computed = false
+            OptChain = false
             Loc = None }
       | _ -> failwith "Expected identifier"
 

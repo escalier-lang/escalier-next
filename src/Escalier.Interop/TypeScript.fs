@@ -610,6 +610,7 @@ module rec TypeScript =
     { Object: Expr
       Property: Expr
       Computed: bool
+      OptChain: bool
       Loc: option<SourceLocation> }
 
   // TODO: SuperPropExpr

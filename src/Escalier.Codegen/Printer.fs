@@ -216,14 +216,19 @@ module rec Printer =
 
     | Expr.Member { Object = obj
                     Property = prop
-                    Computed = computed } ->
+                    Computed = computed
+                    OptChain = optChain } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 18
 
       let obj = printExpr { ctx with Precedence = innerPrec } obj
       let prop = printExpr { ctx with Precedence = innerPrec } prop
-      let expr = if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
+
+      let expr =
+        match optChain with
+        | true -> if computed then $"{obj}?.[{prop}]" else $"{obj}?.{prop}"
+        | false -> if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
 
       if innerPrec < outerPrec then $"({expr})" else expr
     | Expr.Cond { Test = test

@@ -1,0 +1,7 @@
+﻿input: 
+        let num = parseInt("123");
+        let array = new Array(1, 2, 3);
+        
+output:
+var num = parseInt("123");
+var array = Array(1, 2, 3);

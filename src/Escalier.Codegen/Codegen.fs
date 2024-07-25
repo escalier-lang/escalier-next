@@ -271,6 +271,21 @@ module rec Codegen =
             Loc = None }
 
       (callExpr, calleeStmts @ (argStmts |> List.concat))
+    | ExprKind.New { Callee = callee; Args = args } ->
+      let calleeExpr, calleeStmts = buildExpr ctx callee
+      let args =
+        match args with
+        | Some args -> args
+        | None -> []
+      let argExprs, argStmts = args |> List.map (buildExpr ctx) |> List.unzip
+
+      let callExpr =
+        Expr.New
+          { Callee = calleeExpr
+            Arguments = argExprs
+            Loc = None }
+
+      (callExpr, calleeStmts @ (argStmts |> List.concat))
     | ExprKind.Identifier name -> Expr.Ident { Name = name; Loc = None }, []
     | ExprKind.Literal lit ->
       let lit =
@@ -472,7 +487,6 @@ module rec Codegen =
           Expr.Object obj
 
       (expr, [])
-    | ExprKind.New ``new`` -> failwith "TODO: buildExpr - New"
     | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
       failwith "TODO: buildExpr - ExprWithTypeArgs"
     | ExprKind.Class ``class`` -> failwith "TODO: buildExpr - Class"

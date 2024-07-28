@@ -1,8 +1,8 @@
 ﻿input: 
     enum MyEnum<A, B, C> {
-      Foo(A),
-      Bar(B),
-      Baz(C),
+      Foo[A],
+      Bar[B],
+      Baz[C],
     }
     
 output: Ok

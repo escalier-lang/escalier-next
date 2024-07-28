@@ -477,7 +477,7 @@ let ParseEnum () =
   let src =
     """
     enum MyEnum {
-      Foo(number, string, boolean),
+      Foo[number, string, boolean],
       Bar {x: number, y: number},
     }
     let value = MyEnum.Foo(5, "hello", true);
@@ -494,7 +494,7 @@ let ParseOptionEnum () =
     """
     enum Option<T> {
       None,
-      Some(T),
+      Some[T],
     }
     let value: Option<string> = Option.Some("hello");
     """
@@ -509,9 +509,9 @@ let ParseGenericEnum () =
   let src =
     """
     enum MyEnum<A, B, C> {
-      Foo(A),
-      Bar(B),
-      Baz(C),
+      Foo[A],
+      Bar[B],
+      Baz[C],
     }
     """
 

@@ -1564,7 +1564,7 @@ module Parser =
         InferredType = None }
 
   let private tupleVariant: Parser<TypeAnn, unit> =
-    between (strWs "(") (strWs ")") (sepEndBy typeAnn (strWs ",")) |> withSpan
+    between (strWs "[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
     |>> fun (typeAnns, span) ->
       { Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
         Span = span

@@ -1,7 +1,7 @@
 ﻿input: 
     enum Option<T> {
       None,
-      Some(T),
+      Some[T],
     }
     let value: Option<string> = Option.Some("hello");
     

@@ -1,6 +1,6 @@
 ﻿input: 
     enum MyEnum {
-      Foo(number, string, boolean),
+      Foo[number, string, boolean],
       Bar {x: number, y: number},
     }
     let value = MyEnum.Foo(5, "hello", true);

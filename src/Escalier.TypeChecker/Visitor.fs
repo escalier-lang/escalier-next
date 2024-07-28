@@ -1,8 +1,9 @@
 namespace Escalier.TypeChecker
 
+open Escalier.Data.Syntax
+
 // TODO: move to Escalier.Data.Visitor
 module rec ExprVisitor =
-  open Escalier.Data.Syntax
 
   type SyntaxVisitor<'S> =
     { VisitExpr: Expr * 'S -> bool * 'S
@@ -237,7 +238,7 @@ module rec ExprVisitor =
     | DeclKind.EnumDecl { Variants = variants } ->
       List.iter
         (fun (variant: EnumVariant) ->
-          List.iter (walkTypeAnn visitor state) variant.TypeAnns)
+          Option.iter (walkTypeAnn visitor state) variant.TypeAnn)
         variants
     | DeclKind.NamespaceDecl { Body = body } ->
       List.iter (walkDecl visitor state) body
@@ -287,8 +288,7 @@ module rec ExprVisitor =
         | PatternKind.Wildcard _ -> ()
         | PatternKind.Literal _ -> ()
         | PatternKind.Rest arg -> (walk state) arg
-        | PatternKind.Enum { Args = args } ->
-          Option.iter (List.iter (walk state)) args
+        | PatternKind.Enum { Arg = arg } -> Option.iter (walk state) arg
 
     walk state pat
 
@@ -436,7 +436,6 @@ module rec TypeVisitor =
       | TypeKind.Array { Elem = elem; Length = length } ->
         walk elem
         walk length
-      | TypeKind.EnumVariant { Types = types } -> List.iter walk types
       | TypeKind.KeyOf t -> walk t
       | TypeKind.Index(target, index) ->
         walk target

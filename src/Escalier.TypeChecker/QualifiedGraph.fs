@@ -32,6 +32,7 @@ type QualifiedIdent =
 // - infer them in the correct order
 
 // TODO: use a list instead of QualifiedIdent which is recursive
+[<RequireQualifiedAccess>]
 type QDeclIdent =
   | Type of QualifiedIdent
   | Value of QualifiedIdent

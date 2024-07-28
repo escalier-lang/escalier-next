@@ -94,11 +94,6 @@ module Folder =
                   Immutable = immutable
                   Interface = int }
             Provenance = None }
-        | TypeKind.EnumVariant variant ->
-          let types = List.map fold variant.Types
-
-          { Kind = TypeKind.EnumVariant { variant with Types = types }
-            Provenance = None }
         | TypeKind.Rest t ->
           { Kind = TypeKind.Rest(fold t)
             Provenance = None }

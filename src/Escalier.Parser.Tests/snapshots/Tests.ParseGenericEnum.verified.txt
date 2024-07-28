@@ -31,23 +31,53 @@ output: Ok
                           Default = None }]
                     Variants =
                      [{ Name = "Foo"
-                        TypeAnns = [{ Kind = TypeRef { Ident = Ident "A"
-                                                       TypeArgs = None }
-                                      Span = { Start = (Ln: 3, Col: 11)
-                                               Stop = (Ln: 3, Col: 12) }
-                                      InferredType = None }] };
+                        TypeAnn =
+                         Some
+                           { Kind =
+                              Tuple
+                                { Elems = [{ Kind = TypeRef { Ident = Ident "A"
+                                                              TypeArgs = None }
+                                             Span = { Start = (Ln: 3, Col: 11)
+                                                      Stop = (Ln: 3, Col: 12) }
+                                             InferredType = None }]
+                                  Immutable = false }
+                             Span = { Start = (Ln: 3, Col: 10)
+                                      Stop = (Ln: 3, Col: 13) }
+                             InferredType = None }
+                        Span = { Start = (Ln: 3, Col: 7)
+                                 Stop = (Ln: 4, Col: 7) } };
                       { Name = "Bar"
-                        TypeAnns = [{ Kind = TypeRef { Ident = Ident "B"
-                                                       TypeArgs = None }
-                                      Span = { Start = (Ln: 4, Col: 11)
-                                               Stop = (Ln: 4, Col: 12) }
-                                      InferredType = None }] };
+                        TypeAnn =
+                         Some
+                           { Kind =
+                              Tuple
+                                { Elems = [{ Kind = TypeRef { Ident = Ident "B"
+                                                              TypeArgs = None }
+                                             Span = { Start = (Ln: 4, Col: 11)
+                                                      Stop = (Ln: 4, Col: 12) }
+                                             InferredType = None }]
+                                  Immutable = false }
+                             Span = { Start = (Ln: 4, Col: 10)
+                                      Stop = (Ln: 4, Col: 13) }
+                             InferredType = None }
+                        Span = { Start = (Ln: 4, Col: 7)
+                                 Stop = (Ln: 5, Col: 7) } };
                       { Name = "Baz"
-                        TypeAnns = [{ Kind = TypeRef { Ident = Ident "C"
-                                                       TypeArgs = None }
-                                      Span = { Start = (Ln: 5, Col: 11)
-                                               Stop = (Ln: 5, Col: 12) }
-                                      InferredType = None }] }] }
+                        TypeAnn =
+                         Some
+                           { Kind =
+                              Tuple
+                                { Elems = [{ Kind = TypeRef { Ident = Ident "C"
+                                                              TypeArgs = None }
+                                             Span = { Start = (Ln: 5, Col: 11)
+                                                      Stop = (Ln: 5, Col: 12) }
+                                             InferredType = None }]
+                                  Immutable = false }
+                             Span = { Start = (Ln: 5, Col: 10)
+                                      Stop = (Ln: 5, Col: 13) }
+                             InferredType = None }
+                        Span = { Start = (Ln: 5, Col: 7)
+                                 Stop = (Ln: 6, Col: 5) } }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)

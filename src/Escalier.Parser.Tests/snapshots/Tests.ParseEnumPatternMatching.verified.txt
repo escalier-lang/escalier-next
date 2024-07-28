@@ -1,8 +1,8 @@
 ﻿input: 
     match value {
-      MyEnum.Foo(a, b, c) => a + b + c,
-      MyEnum.Bar([x, y]) => x * y,
-      MyEnum.Baz(z) => z,
+      MyEnum.Foo[a, b, c] => a + b + c,
+      MyEnum.Bar[x, y] => x * y,
+      MyEnum.Baz[z] => z,
     }
     
 output: Ok
@@ -22,26 +22,33 @@ output: Ok
                        { Kind =
                           Enum
                             { Ident = Member (Ident "MyEnum", "Foo")
-                              Args =
+                              Arg =
                                Some
-                                 [{ Kind = Ident { Name = "a"
-                                                   IsMut = false
-                                                   Assertion = None }
-                                    Span = { Start = (Ln: 3, Col: 18)
-                                             Stop = (Ln: 3, Col: 19) }
-                                    InferredType = None };
-                                  { Kind = Ident { Name = "b"
-                                                   IsMut = false
-                                                   Assertion = None }
-                                    Span = { Start = (Ln: 3, Col: 21)
-                                             Stop = (Ln: 3, Col: 22) }
-                                    InferredType = None };
-                                  { Kind = Ident { Name = "c"
-                                                   IsMut = false
-                                                   Assertion = None }
-                                    Span = { Start = (Ln: 3, Col: 24)
-                                             Stop = (Ln: 3, Col: 25) }
-                                    InferredType = None }] }
+                                 { Kind =
+                                    Tuple
+                                      { Elems =
+                                         [{ Kind = Ident { Name = "a"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 3, Col: 18)
+                                                     Stop = (Ln: 3, Col: 19) }
+                                            InferredType = None };
+                                          { Kind = Ident { Name = "b"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 3, Col: 21)
+                                                     Stop = (Ln: 3, Col: 22) }
+                                            InferredType = None };
+                                          { Kind = Ident { Name = "c"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 3, Col: 24)
+                                                     Stop = (Ln: 3, Col: 25) }
+                                            InferredType = None }]
+                                        Immutable = false }
+                                   Span = { Start = (Ln: 3, Col: 17)
+                                            Stop = (Ln: 3, Col: 27) }
+                                   InferredType = None } }
                          Span = { Start = (Ln: 3, Col: 7)
                                   Stop = (Ln: 3, Col: 27) }
                          InferredType = None }
@@ -77,29 +84,29 @@ output: Ok
                        { Kind =
                           Enum
                             { Ident = Member (Ident "MyEnum", "Bar")
-                              Args =
+                              Arg =
                                Some
-                                 [{ Kind =
-                                     Tuple
-                                       { Elems =
-                                          [{ Kind = Ident { Name = "x"
-                                                            IsMut = false
-                                                            Assertion = None }
-                                             Span = { Start = (Ln: 4, Col: 19)
-                                                      Stop = (Ln: 4, Col: 20) }
-                                             InferredType = None };
-                                           { Kind = Ident { Name = "y"
-                                                            IsMut = false
-                                                            Assertion = None }
-                                             Span = { Start = (Ln: 4, Col: 22)
-                                                      Stop = (Ln: 4, Col: 23) }
-                                             InferredType = None }]
-                                         Immutable = false }
-                                    Span = { Start = (Ln: 4, Col: 18)
-                                             Stop = (Ln: 4, Col: 24) }
-                                    InferredType = None }] }
+                                 { Kind =
+                                    Tuple
+                                      { Elems =
+                                         [{ Kind = Ident { Name = "x"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 4, Col: 18)
+                                                     Stop = (Ln: 4, Col: 19) }
+                                            InferredType = None };
+                                          { Kind = Ident { Name = "y"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 4, Col: 21)
+                                                     Stop = (Ln: 4, Col: 22) }
+                                            InferredType = None }]
+                                        Immutable = false }
+                                   Span = { Start = (Ln: 4, Col: 17)
+                                            Stop = (Ln: 4, Col: 24) }
+                                   InferredType = None } }
                          Span = { Start = (Ln: 4, Col: 7)
-                                  Stop = (Ln: 4, Col: 26) }
+                                  Stop = (Ln: 4, Col: 24) }
                          InferredType = None }
                       Guard = None
                       Body =
@@ -107,15 +114,15 @@ output: Ok
                          { Kind =
                             Binary
                               ("*", { Kind = Identifier "x"
-                                      Span = { Start = (Ln: 4, Col: 29)
-                                               Stop = (Ln: 4, Col: 31) }
+                                      Span = { Start = (Ln: 4, Col: 27)
+                                               Stop = (Ln: 4, Col: 29) }
                                       InferredType = None },
                                { Kind = Identifier "y"
-                                 Span = { Start = (Ln: 4, Col: 33)
-                                          Stop = (Ln: 4, Col: 34) }
+                                 Span = { Start = (Ln: 4, Col: 31)
+                                          Stop = (Ln: 4, Col: 32) }
                                  InferredType = None })
-                           Span = { Start = (Ln: 4, Col: 29)
-                                    Stop = (Ln: 4, Col: 34) }
+                           Span = { Start = (Ln: 4, Col: 27)
+                                    Stop = (Ln: 4, Col: 32) }
                            InferredType = None } };
                     { Span = { Start = (Ln: 5, Col: 7)
                                Stop = (Ln: 6, Col: 5) }
@@ -123,12 +130,21 @@ output: Ok
                        { Kind =
                           Enum
                             { Ident = Member (Ident "MyEnum", "Baz")
-                              Args = Some [{ Kind = Ident { Name = "z"
-                                                            IsMut = false
-                                                            Assertion = None }
-                                             Span = { Start = (Ln: 5, Col: 18)
-                                                      Stop = (Ln: 5, Col: 19) }
-                                             InferredType = None }] }
+                              Arg =
+                               Some
+                                 { Kind =
+                                    Tuple
+                                      { Elems =
+                                         [{ Kind = Ident { Name = "z"
+                                                           IsMut = false
+                                                           Assertion = None }
+                                            Span = { Start = (Ln: 5, Col: 18)
+                                                     Stop = (Ln: 5, Col: 19) }
+                                            InferredType = None }]
+                                        Immutable = false }
+                                   Span = { Start = (Ln: 5, Col: 17)
+                                            Stop = (Ln: 5, Col: 21) }
+                                   InferredType = None } }
                          Span = { Start = (Ln: 5, Col: 7)
                                   Stop = (Ln: 5, Col: 21) }
                          InferredType = None }

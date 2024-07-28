@@ -1,5 +1,6 @@
 ﻿namespace Escalier.TypeChecker
 
+open Escalier.TypeChecker.QualifiedGraph
 open FsToolkit.ErrorHandling
 
 open Escalier.Data
@@ -16,7 +17,6 @@ open Unify
 open Helpers
 open BuildGraph
 open ExprVisitor
-open QualifiedGraph
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
@@ -577,14 +577,30 @@ module rec Infer =
             { Kind = TypeKind.Literal(literal)
               Provenance = Some(Provenance.Expr expr) }
         | ExprKind.Call call ->
-          let! callee = inferExpr ctx env None call.Callee
+          let callee = call.Callee
 
-          // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
-          let! result, throws = unifyCall ctx env None call.Args None callee
+          match maybeEnumForExpr ctx env callee with
+          | Some variantType ->
+            match variantType.Kind with
+            | TypeKind.Intersection [ tagType
+                                      { Kind = TypeKind.Tuple { Elems = elems } } ] ->
+              for arg, elem in List.zip call.Args elems do
+                let! argType = inferExpr ctx env None arg
 
-          call.Throws <- Some(throws)
+                do! unify ctx env None argType elem
 
-          return result
+              return variantType
+            | _ -> return! Error(TypeError.SemanticError "Invalid variant type")
+          | None ->
+            // If it's a QualifiedIdent, check if it's a enum.  If it is, call
+            // the `inferEnumVariant` function instead.
+            let! callee = inferExpr ctx env None call.Callee
+            // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
+            let! result, throws = unifyCall ctx env None call.Args None callee
+
+            call.Throws <- Some(throws)
+
+            return result
         | ExprKind.New call ->
           let! callee = inferExpr ctx env None call.Callee
           let! callee = expandType ctx env None Map.empty callee
@@ -2111,8 +2127,38 @@ module rec Infer =
         { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
           Provenance = None }
       | PatternKind.Enum variant ->
-        let argTypes =
-          variant.Args |> Option.defaultValue [] |> List.map infer_pattern_rec
+        printfn $"Looking up tag for {variant.Ident}"
+        let tagType = getQualifiedIdentType ctx env variant.Ident
+
+        let tagType =
+          match tagType with
+          | Result.Ok t ->
+            let elems: list<ObjTypeElem> =
+              [ ObjTypeElem.Property
+                  { Name = PropName.String "__TAG__"
+                    Optional = false
+                    Readonly = true
+                    Type = t } ]
+
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = elems
+                    Immutable = true
+                    Interface = false }
+              Provenance = None }
+          | Result.Error _ -> failwith "Can't find enum type"
+
+        let argType = variant.Arg |> Option.map infer_pattern_rec
+
+        // This is the type inferred from the enum pattern
+        let patternType =
+          match argType with
+          | Some argType ->
+            { Kind = TypeKind.Intersection [ tagType; argType ]
+              Provenance = None }
+          | None -> tagType
 
         // TODO: stop using QualifiedIdent for Enum variants
         let enumName, variantName =
@@ -2130,32 +2176,12 @@ module rec Infer =
             | Ok t -> t
             | Error _ -> failwith "Failed to instantiate enum scheme"
 
-          match t.Kind with
-          | TypeKind.Union types ->
-            let variantType =
-              types
-              |> List.tryFind (fun t ->
-                match t.Kind with
-                | TypeKind.EnumVariant v -> v.Name = variantName
-                | _ -> false)
+          let result = unify ctx env None patternType t
 
-            match variantType with
-            | Some t ->
-              match t.Kind with
-              | TypeKind.EnumVariant variant ->
-                let paramTypes = variant.Types
+          match result with
+          | Ok _ -> patternType
+          | Error _ -> failwith $"Failed to unify {patternType} and {t}"
 
-                for t1, t2 in List.zip argTypes paramTypes do
-                  let result = unify ctx env None t1 t2
-
-                  match result with
-                  | Ok _ -> ()
-                  | Error _ -> failwith $"Failed to unify {t1} and {t2}"
-              | _ -> failwith "Can't find variant type in enum"
-
-              t
-            | None -> failwith "Can't find variant type in enum"
-          | _ -> failwith "enum scheme type is not a union type"
         | Error _ -> failwith $"Can't find scheme for {variant.Ident}"
 
       | PatternKind.Wildcard { Assertion = assertion } ->
@@ -3035,8 +3061,11 @@ module rec Infer =
       | _ -> return ctx.FreshTypeVar None None
     }
 
-  let getKey (ident: QDeclIdent) (name: string) =
-    let key: QualifiedIdent =
+  let getKey
+    (ident: QDeclIdent)
+    (name: string)
+    : QualifiedGraph.QualifiedIdent =
+    let key: QualifiedGraph.QualifiedIdent =
       match ident with
       | QDeclIdent.Type { Parts = parts } ->
         { Parts = List.take (parts.Length - 1) parts @ [ name ] }
@@ -3122,64 +3151,12 @@ module rec Infer =
             let key = getKey ident name
 
             if not (qns.Schemes.ContainsKey key) then
-              let! variants =
-                List.traverseResultM
-                  (fun (variant: Syntax.EnumVariant) ->
-                    result {
-                      let name = variant.Name
-
-                      let types =
-                        List.map
-                          (fun typeAnn -> ctx.FreshTypeVar None None)
-                          variant.TypeAnns
-
-                      let variant =
-                        { Tag = ctx.FreshSymbol()
-                          Name = name
-                          Types = types }
-
-                      return variant
-                    })
-                  variants
-
-              let elems =
-                variants
-                |> List.map (fun variant ->
-                  ObjTypeElem.Property(
-                    { Name = PropName.String variant.Name
-                      Optional = false
-                      Readonly = true
-                      Type = ctx.FreshTypeVar None None }
-                  ))
-
-              let value =
-                { Type.Kind =
-                    TypeKind.Object
-                      { Extends = None
-                        Implements = None
-                        Elems = elems
-                        Immutable = false
-                        Interface = false }
-                  Provenance = None }
-
-              let types =
-                variants
-                |> List.map (fun variant ->
-                  { Type.Kind = TypeKind.EnumVariant variant
-                    Provenance = None })
-
-              // TODO: special case unification of enum decls by pairwise
-              // unifying the types in this union with those in the inferred
-              // type.
-              let t = union types
 
               let! scheme =
                 Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
-              scheme.Type <- union types
-
               qns <- qns.AddScheme key scheme
-              qns <- qns.AddValue key (value, false)
+              qns <- qns.AddValue key (ctx.FreshTypeVar None None, false)
           | TypeDecl { TypeParams = typeParams; Name = name } ->
             // TODO: check to make sure we aren't redefining an existing type
             // TODO: replace placeholders, with a reference the actual definition
@@ -3195,8 +3172,8 @@ module rec Infer =
 
             let parts =
               match ident with
-              | Type { Parts = parts } -> parts
-              | Value { Parts = parts } -> parts
+              | QDeclIdent.Type { Parts = parts } -> parts
+              | QDeclIdent.Value { Parts = parts } -> parts
 
             // Instead of looking things up in the environment, we need some way to
             // find the existing type on other declarations.
@@ -3279,8 +3256,8 @@ module rec Infer =
         // TODO: check if we're inside a namespace and update the env accordingly
         let parts =
           match ident with
-          | Type { Parts = parts } -> parts
-          | Value { Parts = parts } -> parts
+          | QDeclIdent.Type { Parts = parts } -> parts
+          | QDeclIdent.Value { Parts = parts } -> parts
 
         let namespaces = List.take (List.length parts - 1) parts
         let name = List.last parts
@@ -3458,6 +3435,7 @@ module rec Infer =
 
           let key = getKey ident name
 
+          // Prevents inferring the enum more than once
           if not (inferredEnums.Contains key) then
             let placeholderScheme = qns.Schemes[key]
 
@@ -3466,8 +3444,7 @@ module rec Infer =
                   Variants = variants } =
               enumDecl
 
-            let mutable variantTypes = Map.empty
-
+            // TODO: do the same thing we do for type decls
             match placeholderScheme.TypeParams with
             | None -> ()
             | Some typeParams ->
@@ -3481,80 +3458,71 @@ module rec Infer =
                     typeParam.Name
                     { TypeParams = None; Type = unknown }
 
-            // Instead of unifying the whole union of enum variants, we unify
-            // them one by one.  This is because each variant's `Tag` is a
-            // unique symbol which has to match exactly.
-            match placeholderScheme.Type.Kind with
-            | TypeKind.Union placeholderVariants ->
-              for placeholderVariant, variant in
-                List.zip placeholderVariants variants do
-                match placeholderVariant.Kind with
-                | TypeKind.EnumVariant { Name = name
-                                         Types = placeholderTypes } ->
-                  let! inferredTypes =
-                    List.traverseResultM
-                      (fun typeAnn -> inferTypeAnn ctx newEnv typeAnn)
-                      variant.TypeAnns
+            let mutable variantTypes = []
+            let mutable variantTags = []
 
-                  for placeholderType, inferredType in
-                    List.zip placeholderTypes inferredTypes do
-                    do! unify ctx newEnv None placeholderType inferredType
-                | _ -> () // This should never happen
+            for variant in variants do
+              let tag = ctx.FreshSymbol()
 
-                variantTypes <-
-                  variantTypes.Add(variant.Name, placeholderVariant)
+              variantTags <-
+                ObjTypeElem.Property
+                  { Name = PropName.String variant.Name
+                    Optional = false
+                    Readonly = true
+                    Type = tag }
+                :: variantTags
 
-              let! _, _ = inferTypeParams ctx newEnv typeParams
-              ()
-            | _ -> () // This should never happen
+              let elems =
+                [ ObjTypeElem.Property
+                    { Name = PropName.String "__TAG__"
+                      Optional = false
+                      Readonly = true
+                      Type = tag } ]
 
+              let tagType =
+                { Kind =
+                    TypeKind.Object
+                      { Elems = elems
+                        Immutable = false
+                        Extends = None
+                        Implements = None
+                        Interface = false }
+                  Provenance = None }
+
+              let! variantType =
+                result {
+                  match variant.TypeAnn with
+                  | Some typeAnn ->
+                    let! inferredType = Infer.inferTypeAnn ctx newEnv typeAnn
+
+                    return
+                      { Kind = TypeKind.Intersection [ tagType; inferredType ]
+                        Provenance = None }
+                  | None -> return tagType
+                }
+
+              variantTypes <- variantType :: variantTypes
+
+            let unionType = List.rev variantTypes |> union
+
+            let inferredType =
+              { Kind =
+                  TypeKind.Object
+                    { Elems = variantTags
+                      Immutable = false
+                      Extends = None
+                      Implements = None
+                      Interface = false }
+                Provenance = None }
+
+            let placeholderScheme = qns.Schemes[key]
             let placeholderType, _ = qns.Values[key]
-            let! typeParams, enumEnv = inferTypeParams ctx newEnv typeParams
 
-            // Instead of unifying the whole object of enum variants, we unify
-            // them one by one.  This is because each variant's `Tag` is a
-            // unique symbol which has to match exactly.
-            match placeholderType.Kind with
-            | TypeKind.Object { Elems = elems } ->
-              for elem, variant in List.zip elems variants do
-                match elem with
-                | ObjTypeElem.Property { Name = name; Type = t1 } ->
-                  let! types =
-                    List.traverseResultM
-                      (fun typeAnn ->
-                        result {
-                          let! t = inferTypeAnn ctx enumEnv typeAnn
-                          return t
-                        })
-                      variant.TypeAnns
+            placeholderScheme.Type <- unionType
+            do! unify ctx newEnv None placeholderType inferredType
 
-                  let paramList: list<FuncParam> =
-                    types
-                    |> List.mapi (fun i t ->
-                      { Pattern =
-                          Pattern.Identifier
-                            { Name = $"arg{i}"; IsMut = false }
-                        Type = t
-                        Optional = false })
-
-                  let retType = variantTypes[variant.Name]
-
-                  let never =
-                    { Kind = TypeKind.Keyword Keyword.Never
-                      Provenance = None }
-
-                  let fn = makeFunction typeParams None paramList retType never
-
-                  let t2 =
-                    { Kind = TypeKind.Function fn
-                      Provenance = None }
-
-                  do! unify ctx enumEnv None t1 t2
-                | _ -> () // This should never happen
-            | _ -> () // This should never happen
-
+            // avoid inferring the enum more than once
             inferredEnums <- inferredEnums.Add key
-
         | _ -> return! Error(TypeError.SemanticError "More than one enum decl")
 
         match typeDecls with
@@ -3725,6 +3693,88 @@ module rec Infer =
       return qns
     }
 
+  let maybeEnumForExpr (ctx: Ctx) (env: Env) (expr: Expr) : option<Type> =
+    let res =
+      result {
+        match expr.Kind with
+        | ExprKind.Member(target, variantName, _) ->
+          match target.Kind with
+          | ExprKind.Identifier targetName ->
+            let! t = env.GetValue targetName
+            let! scheme = env.GetScheme(QualifiedIdent.Ident targetName)
+
+            // TODO: add a property to Object types that indicates that the object is a enum
+            // we could even link to the scheme for the enum so we don't have to look it up.
+            match t.Kind with
+            | TypeKind.Object { Elems = elems } ->
+              let mutable tagType = None
+
+              for elem in elems do
+                match elem with
+                | ObjTypeElem.Property { Name = name; Type = t } ->
+                  if name = PropName.String variantName then
+                    tagType <- Some t
+                | _ -> ()
+
+              match tagType with
+              | Some tagType ->
+                match scheme.Type.Kind with
+                | TypeKind.Union types ->
+                  let mutable variantType: option<Type> = None
+
+                  for vt in types do
+                    match vt.Kind with
+                    | TypeKind.Intersection types ->
+                      let first = List.head types
+
+                      match first.Kind with
+                      | TypeKind.Object { Elems = elems } ->
+                        let firstElem = List.head elems
+
+                        match firstElem with
+                        | ObjTypeElem.Property { Name = name; Type = t } ->
+                          if
+                            name = PropName.String "__TAG__" && t = tagType
+                          then
+                            variantType <- Some vt
+                        | _ -> ()
+                      | _ -> ()
+                    | TypeKind.Object { Elems = elems } ->
+                      let firstElem = List.head elems
+
+                      match firstElem with
+                      | ObjTypeElem.Property { Name = name; Type = t } ->
+                        if name = PropName.String "__TAG__" then
+                          let never =
+                            { Kind = TypeKind.Keyword Keyword.Never
+                              Provenance = None }
+
+                          variantType <- Some vt
+                      | _ ->
+                        return!
+                          Error(TypeError.SemanticError "Invalid variant type")
+                    | _ ->
+                      return!
+                        Error(TypeError.SemanticError "Invalid variant type")
+
+                  match variantType with
+                  | Some t ->
+                    let! t = instantiateType ctx t scheme.TypeParams None
+                    return Some t
+                  | None -> return None
+                | _ ->
+                  return! Error(TypeError.SemanticError "Invalid enum type")
+              | _ ->
+                return! Error(TypeError.SemanticError "Invalid variant name")
+            | _ -> return! Error(TypeError.SemanticError "Invalid enum name")
+          | _ -> return! Error(TypeError.SemanticError "Invalid enum target")
+        | _ -> return! Error(TypeError.SemanticError "expr is not an enum")
+      }
+
+    match res with
+    | Result.Ok value -> value
+    | Result.Error _ -> None
+
   type QDeclTree =
     { Edges: Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>>
       CycleMap: Map<QDeclIdent, Set<QDeclIdent>> }
@@ -3839,7 +3889,11 @@ module rec Infer =
 
     Set.difference (Set.ofSeq tree.Keys) allDeps
 
-  let addBinding (env: Env) (ident: QualifiedIdent) (binding: Binding) : Env =
+  let addBinding
+    (env: Env)
+    (ident: QualifiedGraph.QualifiedIdent)
+    (binding: Binding)
+    : Env =
 
     let rec addValueRec (ns: Namespace) (parts: list<string>) : Namespace =
       match parts with
@@ -3861,7 +3915,11 @@ module rec Infer =
     { env with
         Namespace = addValueRec env.Namespace parts }
 
-  let addScheme (env: Env) (ident: QualifiedIdent) (scheme: Scheme) : Env =
+  let addScheme
+    (env: Env)
+    (ident: QualifiedGraph.QualifiedIdent)
+    (scheme: Scheme)
+    : Env =
 
     let rec addSchemeRec (ns: Namespace) (parts: list<string>) : Namespace =
       match parts with
@@ -3912,8 +3970,8 @@ module rec Infer =
     dst
 
   let generalizeBindings
-    (bindings: Map<QualifiedIdent, Binding>)
-    : Map<QualifiedIdent, Binding> =
+    (bindings: Map<QualifiedGraph.QualifiedIdent, Binding>)
+    : Map<QualifiedGraph.QualifiedIdent, Binding> =
     let mutable newBindings = Map.empty
 
     for KeyValue(name, (t, isMut)) in bindings do

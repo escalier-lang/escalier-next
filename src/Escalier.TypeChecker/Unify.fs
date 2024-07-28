@@ -332,15 +332,6 @@ module rec Unify =
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
         ()
       | TypeKind.UniqueNumber _, TypeKind.Primitive Primitive.Number -> ()
-      | TypeKind.EnumVariant v1, TypeKind.EnumVariant v2 when v1.Tag = v2.Tag ->
-        if v1.Types.Length <> v2.Types.Length then
-          return!
-            Error(TypeError.SemanticError "Enum variant types don't match")
-
-        for t1, t2 in List.zip v1.Types v2.Types do
-          do! unify ctx env ips t1 t2
-
-        ()
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
@@ -506,9 +497,14 @@ module rec Unify =
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | TypeKind.Intersection types1, TypeKind.Intersection types2 ->
-        printfn $"types1 = {types1}, types2 = {types2}"
-        failwith "TODO: handle unify(intersection, intersection)"
-
+        if types1.Length <> types2.Length then
+          failwith "TODO: handle unify(intersection, intersection)"
+        // return! Error(TypeError.TypeMismatch(t1, t2))
+        else
+          // NOTE: this doesn't handle all cases correctly but is sufficient
+          // for enum variants
+          for t1, t2 in List.zip types1 types2 do
+            do! unify ctx env ips t1 t2
       | TypeKind.Union(types), _ ->
         let! _ = types |> List.traverseResultM (fun t -> unify ctx env ips t t2)
 

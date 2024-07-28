@@ -1,0 +1,99 @@
+﻿input: 
+    enum Option<T> {
+      None,
+      Some(T),
+    }
+    let value: Option<string> = Option.Some("hello");
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                EnumDecl
+                  { Name = "Option"
+                    TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 17)
+                                                  Stop = (Ln: 2, Col: 18) }
+                                         Name = "T"
+                                         Constraint = None
+                                         Default = None }]
+                    Variants =
+                     [{ Name = "None"
+                        TypeAnn = None
+                        Span = { Start = (Ln: 3, Col: 7)
+                                 Stop = (Ln: 4, Col: 7) } };
+                      { Name = "Some"
+                        TypeAnn =
+                         Some
+                           { Kind =
+                              Tuple
+                                { Elems = [{ Kind = TypeRef { Ident = Ident "T"
+                                                              TypeArgs = None }
+                                             Span = { Start = (Ln: 4, Col: 12)
+                                                      Stop = (Ln: 4, Col: 13) }
+                                             InferredType = None }]
+                                  Immutable = false }
+                             Span = { Start = (Ln: 4, Col: 11)
+                                      Stop = (Ln: 4, Col: 14) }
+                             InferredType = None }
+                        Span = { Start = (Ln: 4, Col: 7)
+                                 Stop = (Ln: 5, Col: 5) } }] }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 6, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 6, Col: 5) } };
+      Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Declare = false
+                    Pattern = { Kind = Ident { Name = "value"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 6, Col: 9)
+                                         Stop = (Ln: 6, Col: 14) }
+                                InferredType = None }
+                    TypeAnn =
+                     Some
+                       { Kind =
+                          TypeRef
+                            { Ident = Ident "Option"
+                              TypeArgs =
+                               Some [{ Kind = Keyword String
+                                       Span = { Start = (Ln: 6, Col: 23)
+                                                Stop = (Ln: 6, Col: 29) }
+                                       InferredType = None }] }
+                         Span = { Start = (Ln: 6, Col: 16)
+                                  Stop = (Ln: 6, Col: 31) }
+                         InferredType = None }
+                    Init =
+                     Some
+                       { Kind =
+                          Call
+                            { Callee =
+                               { Kind =
+                                  Member
+                                    ({ Kind = Identifier "Option"
+                                       Span = { Start = (Ln: 6, Col: 33)
+                                                Stop = (Ln: 6, Col: 39) }
+                                       InferredType = None }, "Some", false)
+                                 Span = { Start = (Ln: 6, Col: 33)
+                                          Stop = (Ln: 6, Col: 44) }
+                                 InferredType = None }
+                              TypeArgs = None
+                              Args = [{ Kind = Literal (String "hello")
+                                        Span = { Start = (Ln: 6, Col: 45)
+                                                 Stop = (Ln: 6, Col: 52) }
+                                        InferredType = None }]
+                              OptChain = false
+                              Throws = None }
+                         Span = { Start = (Ln: 6, Col: 33)
+                                  Stop = (Ln: 6, Col: 53) }
+                         InferredType = None }
+                    Else = None }
+               Span = { Start = (Ln: 6, Col: 5)
+                        Stop = (Ln: 7, Col: 5) } }
+          Span = { Start = (Ln: 6, Col: 5)
+                   Stop = (Ln: 7, Col: 5) } }] }

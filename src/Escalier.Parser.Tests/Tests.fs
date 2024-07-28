@@ -478,10 +478,25 @@ let ParseEnum () =
     """
     enum MyEnum {
       Foo(number, string, boolean),
-      Bar([number, number]),
-      Baz(number | string),
+      Bar {x: number, y: number},
     }
     let value = MyEnum.Foo(5, "hello", true);
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseOptionEnum () =
+  let src =
+    """
+    enum Option<T> {
+      None,
+      Some(T),
+    }
+    let value: Option<string> = Option.Some("hello");
     """
 
   let ast = Parser.parseScript src
@@ -510,9 +525,9 @@ let ParseEnumPatternMatching () =
   let src =
     """
     match value {
-      MyEnum.Foo(a, b, c) => a + b + c,
-      MyEnum.Bar([x, y]) => x * y,
-      MyEnum.Baz(z) => z,
+      MyEnum.Foo[a, b, c] => a + b + c,
+      MyEnum.Bar[x, y] => x * y,
+      MyEnum.Baz[z] => z,
     }
     """
 
@@ -728,7 +743,7 @@ let ParseTypeof () =
 let ParseIfLet () =
   let src =
     """
-    if let Option.Some(x) = maybe {
+    if let Option.Some[x] = maybe {
       print(x);
     };
     """
@@ -760,7 +775,7 @@ let ParseIfLetChaining () =
     """
     if let x = maybe1?.x {
       print(x);
-    } else if let Result.Ok(y) = result {
+    } else if let Result.Ok[y] = result {
       print(y);
     };
     """

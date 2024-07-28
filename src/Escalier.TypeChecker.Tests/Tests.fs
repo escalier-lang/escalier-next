@@ -1065,6 +1065,46 @@ let InferEnumPatternMatching () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferGenericEnumPatternMatching () =
+  let result =
+    result {
+      let src =
+        """
+        enum Option<T> {
+          Some[T],
+          None,
+        }
+        declare let value: Option<number>;
+
+        let x = match value {
+          Option.Some[value] => value,
+          Option.None => 0,
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! enumType =
+        env.GetScheme(QualifiedIdent.Ident "Option")
+        |> Result.mapError CompileError.TypeError
+
+      printfn $"enumType = {enumType}"
+
+      Assert.Type(
+        env,
+        "Option",
+        "<T>({readonly __TAG__: unique symbol} & [T] | {readonly __TAG__: unique symbol})"
+      )
+
+      Assert.Value(env, "x", "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferIfLet () =
   let result =
     result {

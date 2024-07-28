@@ -58,7 +58,7 @@ let InfersTypeofWellknownSymbol () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "iterator", "symbol()")
+      Assert.Value(env, "iterator", "unique symbol")
     }
 
   Assert.False(Result.isError res)

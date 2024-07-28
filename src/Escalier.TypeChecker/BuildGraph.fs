@@ -43,10 +43,10 @@ let localsToDeclTree (locals: Set<QDeclIdent>) : QDeclTree =
     | [] -> tree // this shouldn't happen
     | [ name ] ->
       match full with
-      | Type _ ->
+      | QDeclIdent.Type _ ->
         { tree with
             Types = Map.add name full tree.Types }
-      | Value _ ->
+      | QDeclIdent.Value _ ->
         { tree with
             Values = Map.add name full tree.Values }
     // { tree with
@@ -62,8 +62,8 @@ let localsToDeclTree (locals: Set<QDeclIdent>) : QDeclTree =
 
       let rest =
         match full with
-        | Type _ -> QDeclIdent.Type({ Parts = tail })
-        | Value _ -> QDeclIdent.Value({ Parts = tail })
+        | QDeclIdent.Type _ -> QDeclIdent.Type({ Parts = tail })
+        | QDeclIdent.Value _ -> QDeclIdent.Value({ Parts = tail })
 
       { tree with
           Namespaces = Map.add head (processLocal ns rest full) tree.Namespaces }
@@ -84,11 +84,11 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
     | [] -> None
     | [ name ] ->
       match local with
-      | Type _ -> Map.tryFind name tree.Types
-      | Value _ -> Map.tryFind name tree.Values
+      | QDeclIdent.Type _ -> Map.tryFind name tree.Types
+      | QDeclIdent.Value _ -> Map.tryFind name tree.Values
     | name :: rest ->
       match local with
-      | Type _ ->
+      | QDeclIdent.Type _ ->
         match Map.tryFind name tree.Types with
         | Some local -> Some local
         | None ->
@@ -96,7 +96,7 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
           | Some tree ->
             getLocalForDepRec tree (QDeclIdent.Type({ Parts = rest }))
           | None -> None
-      | Value _ ->
+      | QDeclIdent.Value _ ->
         match Map.tryFind name tree.Values with
         | Some local -> Some local
         | None ->
@@ -117,8 +117,8 @@ let postProcessDeps
 
   let identNamespaces =
     match ident with
-    | Type { Parts = namespaces } -> namespaces
-    | Value { Parts = namespaces } -> namespaces
+    | QDeclIdent.Type { Parts = namespaces } -> namespaces
+    | QDeclIdent.Value { Parts = namespaces } -> namespaces
 
   let identNamespaces = List.take (identNamespaces.Length - 1) identNamespaces
 
@@ -176,8 +176,9 @@ let postProcessDeps
         if result.IsNone then
           let candidateDep =
             match dep with
-            | Type qid -> Type { Parts = ns @ qid.Parts }
-            | Value qid -> Value { Parts = ns @ qid.Parts }
+            | QDeclIdent.Type qid -> QDeclIdent.Type { Parts = ns @ qid.Parts }
+            | QDeclIdent.Value qid ->
+              QDeclIdent.Value { Parts = ns @ qid.Parts }
 
           result <- getLocalForDep localsTree candidateDep
 
@@ -869,7 +870,7 @@ let getEdges
 
         let deps: Set<QDeclIdent> =
           match ident with
-          | Type _ ->
+          | QDeclIdent.Type _ ->
             elems
             |> List.map (fun elem ->
               match elem with
@@ -941,7 +942,7 @@ let getEdges
                 Set.union propNameDeps typeAnnDeps
               | _ -> Set.empty)
             |> Set.unionMany
-          | Value qualifiedIdent ->
+          | QDeclIdent.Value qualifiedIdent ->
             elems
             |> List.map (fun elem ->
               match elem with
@@ -1025,7 +1026,7 @@ let getEdges
         // We need to infer the type and value of the class as the same time.
         let deps =
           match ident with
-          | Type qualifiedIdent ->
+          | QDeclIdent.Type qualifiedIdent ->
 
             let deps =
               match extends with
@@ -1042,7 +1043,7 @@ let getEdges
               | None -> deps
 
             Set.add (QDeclIdent.Value qualifiedIdent) deps
-          | Value qualifiedIdent ->
+          | QDeclIdent.Value qualifiedIdent ->
             Set.add (QDeclIdent.Type qualifiedIdent) deps
 
         edges <- edges.Add(ident, deps)
@@ -1275,10 +1276,10 @@ let getEdges
       | EnumDecl { Name = name } ->
         let deps =
           match ident with
-          | Type qualifiedIdent ->
+          | QDeclIdent.Type qualifiedIdent ->
             // TODO: determine instance deps
             Set.singleton (QDeclIdent.Value qualifiedIdent)
-          | Value qualifiedIdent ->
+          | QDeclIdent.Value qualifiedIdent ->
             Set.singleton (QDeclIdent.Type qualifiedIdent)
 
         edges <- edges.Add(ident, deps)
@@ -1305,7 +1306,7 @@ let buildGraph (env: Env) (decls: list<Decl>) : QGraph<Decl> =
     |> Set.toList
     |> List.choose (fun qid ->
       match qid with
-      | Type name -> Some name
+      | QDeclIdent.Type name -> Some name
       | _ -> None)
 
   let nodes = getNodes decls

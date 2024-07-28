@@ -1498,7 +1498,6 @@ module rec Codegen =
       // TODO: Use `any`?
       failwith "TODO: buildType - Wildcard"
     | TypeKind.Namespace(_) -> failwith "TODO: buildType - Namespace"
-    | TypeKind.EnumVariant(_) -> failwith "TODO: buildType - EnumVariant"
     | TypeKind.Range(_) -> failwith "TODO: buildType - Range"
     | TypeKind.UniqueSymbol(id) -> failwith "TODO: buildType - UniqueSymbol"
     | TypeKind.UniqueNumber(id) -> failwith "TODO: buildType - UniqueNumber"

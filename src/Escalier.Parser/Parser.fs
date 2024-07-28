@@ -1554,17 +1554,33 @@ module Parser =
               Elems = objTypeElems }
         Span = span }
 
+  let private objectVariant: Parser<TypeAnn, unit> =
+    withSpan (
+      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
+    )
+    |>> fun (objElems, span) ->
+      { Kind = TypeAnnKind.Object { Elems = objElems; Immutable = false }
+        Span = span
+        InferredType = None }
+
+  let private tupleVariant: Parser<TypeAnn, unit> =
+    between (strWs "[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
+    |>> fun (typeAnns, span) ->
+      { Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
+        Span = span
+        InferredType = None }
+
   let private enumVariant: Parser<EnumVariant, unit> =
     pipe4
       getPosition
       ident
-      (between (strWs "(") (strWs ")") (sepEndBy typeAnn (strWs ",")))
+      (opt (choice [ objectVariant; tupleVariant ]))
       (strWs "," >>. getPosition)
-    <| fun start name typeAnns stop ->
+    <| fun start name kind stop ->
 
-      let span = { Start = start; Stop = stop }
-
-      { Name = name; TypeAnns = typeAnns }
+      { Name = name
+        TypeAnn = kind
+        Span = { Start = start; Stop = stop } }
 
   let private enumDecl: Parser<Decl, unit> =
     pipe5
@@ -1729,12 +1745,12 @@ module Parser =
       tuple3
         ident
         (strWs "." >>. ident)
-        (opt (between (strWs "(") (strWs ")") (sepEndBy pattern (strWs ","))))
+        (opt (choice [ objectPattern; tuplePattern ]))
     )
-    |>> fun ((qualifier, ident, args), span) ->
+    |>> fun ((qualifier, ident, arg), span) ->
       let ident = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, ident)
 
-      { Pattern.Kind = PatternKind.Enum { Ident = ident; Args = args }
+      { Pattern.Kind = PatternKind.Enum { Ident = ident; Arg = arg }
         Span = span
         InferredType = None }
 

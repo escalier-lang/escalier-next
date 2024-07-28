@@ -1,5 +1,6 @@
 module Tests
 
+open Escalier.Data.Common
 open FParsec
 open FsToolkit.ErrorHandling
 open Xunit
@@ -883,9 +884,9 @@ let InferEnum () =
       let src =
         """
         enum MyEnum {
-          Foo(number, string, boolean),
-          Bar([number, number]),
-          Baz(number | string),
+          Foo[number, string, boolean],
+          Bar[[number, number]],
+          Baz[number | string],
         }
         let value = MyEnum.Foo(5, "hello", true);
         """
@@ -897,12 +898,16 @@ let InferEnum () =
       Assert.Type(
         env,
         "MyEnum",
-        "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
+        "{readonly __TAG__: unique symbol} & [number, string, boolean] | {readonly __TAG__: unique symbol} & [[number, number]] | {readonly __TAG__: unique symbol} & [number | string]"
       )
 
       // TODO: how do we include `MyEnum.` in the type?
       // What does this mean in the context of creating new enums from existings enums
-      Assert.Value(env, "value", "Foo(number, string, boolean)")
+      Assert.Value(
+        env,
+        "value",
+        "{readonly __TAG__: unique symbol} & [number, string, boolean]"
+      )
     }
 
   printfn "result = %A" result
@@ -915,9 +920,9 @@ let InferEnumVariantIsSubtypeOfEnum () =
       let src =
         """
         enum MyEnum {
-          Foo(number, string, boolean),
-          Bar([number, number]),
-          Baz(number | string),
+          Foo[number, string, boolean],
+          Bar[[number, number]],
+          Baz[number | string],
         }
         let value: MyEnum = MyEnum.Foo(5, "hello", true);
         """
@@ -929,7 +934,7 @@ let InferEnumVariantIsSubtypeOfEnum () =
       Assert.Type(
         env,
         "MyEnum",
-        "Foo(number, string, boolean) | Bar([number, number]) | Baz((number | string))"
+        "{readonly __TAG__: unique symbol} & [number, string, boolean] | {readonly __TAG__: unique symbol} & [[number, number]] | {readonly __TAG__: unique symbol} & [number | string]"
       )
 
       Assert.Value(env, "value", "MyEnum")
@@ -944,9 +949,9 @@ let InferGenericEnum () =
       let src =
         """
         enum MyEnum<A, B, C> {
-          Foo(A),
-          Bar(B),
-          Baz(C),
+          Foo[A],
+          Bar[B],
+          Baz[C],
         }
         let value = MyEnum.Foo(5);
         """
@@ -954,11 +959,22 @@ let InferGenericEnum () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
+
+      let! enumType =
+        env.GetScheme(QualifiedIdent.Ident "MyEnum")
+        |> Result.mapError CompileError.TypeError
+
+      printfn $"enumType = {enumType}"
+
+      Assert.Type(
+        env,
+        "MyEnum",
+        "<A, B, C>({readonly __TAG__: unique symbol} & [A] | {readonly __TAG__: unique symbol} & [B] | {readonly __TAG__: unique symbol} & [C])"
+      )
 
       // TODO: how do we include `MyEnum.` in the type?
       // What does this mean in the context of creating new enums from existings enums
-      Assert.Value(env, "value", "Foo(5)")
+      Assert.Value(env, "value", "{readonly __TAG__: unique symbol} & [5]")
     }
 
   printfn "result = %A" result
@@ -971,22 +987,34 @@ let InferGenericEnumWithSubtyping () =
       let src =
         """
         enum MyEnum<A, B, C> {
-          Foo(A),
-          Bar(B),
-          Baz(C),
+          Foo[A],
+          Bar[B],
+          Baz[C],
         }
         let value: MyEnum<number, string, boolean> = MyEnum.Foo(5);
         let x = match value {
-          MyEnum.Foo(a) => a,
-          MyEnum.Bar(b) => b,
-          MyEnum.Baz(c) => c,
+          MyEnum.Foo[a] => a,
+          MyEnum.Bar[b] => b,
+          MyEnum.Baz[c] => c,
         };
         """
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Type(env, "MyEnum", "<A, B, C>(Foo(A) | Bar(B) | Baz(C))")
+
+      let! enumType =
+        env.GetScheme(QualifiedIdent.Ident "MyEnum")
+        |> Result.mapError CompileError.TypeError
+
+      printfn $"enumType = {enumType}"
+
+      Assert.Type(
+        env,
+        "MyEnum",
+        "<A, B, C>({readonly __TAG__: unique symbol} & [A] | {readonly __TAG__: unique symbol} & [B] | {readonly __TAG__: unique symbol} & [C])"
+      )
+
       Assert.Value(env, "value", "MyEnum<number, string, boolean>")
       Assert.Value(env, "x", "number | string | boolean")
     }
@@ -1001,16 +1029,16 @@ let InferEnumPatternMatching () =
       let src =
         """
         enum MyEnum {
-          Foo(number, string, boolean),
-          Bar([number, number]),
-          Baz({x: number, y: number}),
+          Foo[number, string, boolean],
+          Bar[[number, number]],
+          Baz {x: number, y: number},
         }
         let value: MyEnum = MyEnum.Foo(5, "hello", true);
 
         let x = match value {
-          MyEnum.Foo(x, y, z) => x,
-          MyEnum.Bar([x, y]) => x,
-          MyEnum.Baz({x, y}) => x,
+          MyEnum.Foo[x, y, z] => x,
+          MyEnum.Bar[[x, y]] => x,
+          MyEnum.Baz {x, y} => x,
         };
         """
 
@@ -1018,10 +1046,56 @@ let InferEnumPatternMatching () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
+      let! enumType =
+        env.GetScheme(QualifiedIdent.Ident "MyEnum")
+        |> Result.mapError CompileError.TypeError
+
+      printfn $"enumType = {enumType}"
+
       Assert.Type(
         env,
         "MyEnum",
-        "Foo(number, string, boolean) | Bar([number, number]) | Baz({x: number, y: number})"
+        "{readonly __TAG__: unique symbol} & [number, string, boolean] | {readonly __TAG__: unique symbol} & [[number, number]] | {readonly __TAG__: unique symbol} & {x: number, y: number}"
+      )
+
+      Assert.Value(env, "x", "number")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGenericEnumPatternMatching () =
+  let result =
+    result {
+      let src =
+        """
+        enum Option<T> {
+          Some[T],
+          None,
+        }
+        declare let value: Option<number>;
+
+        let x = match value {
+          Option.Some[value] => value,
+          Option.None => 0,
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! enumType =
+        env.GetScheme(QualifiedIdent.Ident "Option")
+        |> Result.mapError CompileError.TypeError
+
+      printfn $"enumType = {enumType}"
+
+      Assert.Type(
+        env,
+        "Option",
+        "<T>({readonly __TAG__: unique symbol} & [T] | {readonly __TAG__: unique symbol})"
       )
 
       Assert.Value(env, "x", "number")

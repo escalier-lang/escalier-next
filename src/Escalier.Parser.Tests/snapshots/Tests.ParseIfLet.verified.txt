@@ -1,5 +1,5 @@
 ﻿input: 
-    if let Option.Some(x) = maybe {
+    if let Option.Some[x] = maybe {
       print(x);
     };
     
@@ -11,13 +11,23 @@ output: Ok
              { Kind =
                 IfLet
                   ({ Kind =
-                      Enum { Ident = Member (Ident "Option", "Some")
-                             Args = Some [{ Kind = Ident { Name = "x"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 2, Col: 24)
-                                                     Stop = (Ln: 2, Col: 25) }
-                                            InferredType = None }] }
+                      Enum
+                        { Ident = Member (Ident "Option", "Some")
+                          Arg =
+                           Some
+                             { Kind =
+                                Tuple
+                                  { Elems =
+                                     [{ Kind = Ident { Name = "x"
+                                                       IsMut = false
+                                                       Assertion = None }
+                                        Span = { Start = (Ln: 2, Col: 24)
+                                                 Stop = (Ln: 2, Col: 25) }
+                                        InferredType = None }]
+                                    Immutable = false }
+                               Span = { Start = (Ln: 2, Col: 23)
+                                        Stop = (Ln: 2, Col: 27) }
+                               InferredType = None } }
                      Span = { Start = (Ln: 2, Col: 12)
                               Stop = (Ln: 2, Col: 27) }
                      InferredType = None }, { Kind = Identifier "maybe"

@@ -392,7 +392,7 @@ module Syntax =
 
   type EnumVariantPattern =
     { Ident: Common.QualifiedIdent
-      Args: option<list<Pattern>> }
+      Arg: option<Pattern> }
 
   type WildcardPattern =
     { Assertion: option<Common.QualifiedIdent> }
@@ -452,9 +452,15 @@ module Syntax =
       Extends: option<list<TypeRef>>
       Elems: list<ObjTypeAnnElem> }
 
+  type EnumVariantKind =
+    | Object of TypeAnn
+    | Tuple of TypeAnn
+    | Empty
+
   type EnumVariant =
     { Name: string
-      TypeAnns: list<TypeAnn> }
+      TypeAnn: option<TypeAnn> // Must only be an object or tuple type
+      Span: Span }
 
   type EnumDecl =
     { Name: string
@@ -865,13 +871,6 @@ module Type =
 
     override this.ToString() = $"{this.Elem}[]"
 
-  type EnumVariant =
-    { Tag: Type
-      Name: string
-      Types: list<Type> } // TODO: consider making these named like function params
-
-  type Enum = { Variants: Map<string, EnumVariant> }
-
   type Condition =
     { Check: Type
       Extends: Type
@@ -889,7 +888,6 @@ module Type =
     | Object of Object
     | Tuple of Common.Tuple<Type>
     | Array of Array
-    | EnumVariant of EnumVariant
     | Rest of Type
     | Literal of Common.Literal
     | Range of Common.Range<Type>
@@ -970,7 +968,6 @@ module Type =
     | TypeKind.Object _ -> 100
     | TypeKind.Tuple _ -> 100
     | TypeKind.Array _ -> 17
-    | TypeKind.EnumVariant _ -> 100
     | TypeKind.Rest _ -> 100
     | TypeKind.Literal _ -> 100
     | TypeKind.Range _ -> 2
@@ -1054,18 +1051,11 @@ module Type =
         | false -> $"[{elems}]"
       | TypeKind.Array { Elem = elem; Length = length } ->
         $"{printType ctx elem}[]"
-      | TypeKind.EnumVariant variant ->
-        match variant.Types with
-        | [] -> variant.Name
-        | types ->
-          let types = types |> List.map (printType ctx) |> String.concat ", "
-
-          $"{variant.Name}({types})"
       | TypeKind.Rest t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
       | TypeKind.Range { Min = min; Max = max } ->
         $"{printType ctx min}..{printType ctx max}"
-      | TypeKind.UniqueSymbol id -> "symbol()"
+      | TypeKind.UniqueSymbol id -> "unique symbol"
       | TypeKind.UniqueNumber id -> "unique number"
       | TypeKind.Union types ->
         List.map (printType ctx) types |> String.concat " | "

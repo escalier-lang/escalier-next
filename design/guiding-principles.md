@@ -85,7 +85,7 @@ more things than are currently inferred at the moment.
 
 ## Future JavaScript Language Features
 
-- 🟢 Pattern matching (there is a TC39 proposal, but it's overly complicated)
+- 🟢 Pattern matching (this doesn't follow the TC39 proposal which I found to be overly complicated)
 - 🟢 Immutable Records & Tuples
 - 🟢 do-expressions
 

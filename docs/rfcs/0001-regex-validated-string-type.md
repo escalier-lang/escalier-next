@@ -48,6 +48,12 @@ let pinkColor: HexColor = pinkString; // error, `string` is not assignable to `H
 let anyString: string = orangeColor;
 ```
 
+## Regex Syntax
+
+Regexes used in this type will conform to RE2's syntax and be parsed by the RE2
+library. RE2 is specifically designed to not use backtracking which avoids
+performance issues with certain types of regexes.
+
 ## Subtyping
 
 Regex validated string types are only assignable to each other if the regexes
@@ -61,8 +67,8 @@ of complexity and slow down type checking.
 
 Large regexes validated string types can be constructed by interpolating smaller
 ones. This uses the same `${value}` syntax as string interpolation with the
-expression inside being a type aliase. The type alias must point to a regex
-validated string type.
+expression inside being a type aliase. The type alias must point to a string or
+regex validated string type.
 
 ```ts
 type HexDigit = /^[0-9a-f]$/i;
@@ -79,6 +85,12 @@ let foo: DelimitedWord = "(foo)";
 let bar: DelimitedWord = "(1 bar 3)";
 let baz: DelimitedWord = "(1 2 3)"; // error, missing \w+ in the middle
 ```
+
+If the interpolated type is a string, it will be escaped as needed so that it's
+treated as an exact match. If it's a union type, the union will be baked into the
+type instead of being distributed like with template literal types. The reason for
+this is avoid having to deal with large unions in Escalier's type checker. Instead
+we can lean on RE2 to keep things performant.
 
 ## Usage Guidance
 
@@ -129,3 +141,14 @@ that should be saved for post-MVP.
 
 - [Template Literal Types](https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html)
 - [#6579: Suggestion: Regex-validated string type](https://github.com/microsoft/TypeScript/issues/6579)
+
+# Implementation Tasks
+
+- [#317: Add support for basic regex validated string type](https://github.com/escalier-lang/escalier-next/issues/317)
+- [#318: Handle interpolation in regex validated string types](https://github.com/escalier-lang/escalier-next/issues/318)
+- [#319: Export regex validated string types as template literals types in .d.ts](https://github.com/escalier-lang/escalier-next/issues/319)
+
+# Future Work
+
+Figure out how this should work with pattern matching, `if`-`let`, and `else`-`if`
+such that the values of capture groups are accessible.

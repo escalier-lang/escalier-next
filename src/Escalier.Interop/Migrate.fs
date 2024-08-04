@@ -377,7 +377,11 @@ module rec Migrate =
         TypeAnnKind.Typeof name
       | TsType.TsTypeLit { Members = members } ->
         let elems: list<ObjTypeAnnElem> = List.map migrateTypeElement members
-        TypeAnnKind.Object { Elems = elems; Immutable = false }
+
+        TypeAnnKind.Object
+          { Elems = elems
+            Immutable = false
+            Exact = false }
       | TsType.TsArrayType { ElemType = elem } ->
         TypeAnnKind.Array(migrateType elem)
       | TsType.TsTupleType { ElemTypes = elems } ->
@@ -462,7 +466,11 @@ module rec Migrate =
             TypeAnn = migrateType typeAnn }
 
         let elem: ObjTypeAnnElem = ObjTypeAnnElem.Mapped mapped
-        TypeAnnKind.Object { Elems = [ elem ]; Immutable = false }
+
+        TypeAnnKind.Object
+          { Elems = [ elem ]
+            Immutable = false
+            Exact = false }
       | TsType.TsLitType { Lit = lit } ->
         match lit with
         | TsLit.Number { Value = value } ->

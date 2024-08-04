@@ -41,7 +41,8 @@ output: Ok
                                              InferredType = None }
                                      Optional = false }
                                   Throws = None }]
-                            Immutable = false }
+                            Immutable = false
+                            Exact = true }
                        Span = { Start = (Ln: 2, Col: 16)
                                 Stop = (Ln: 5, Col: 6) }
                        InferredType = None }

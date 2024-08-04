@@ -360,20 +360,33 @@ module Parser =
 
   let private objectTypeAnn =
     withSpan (
-      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
+      between
+        (strWs "{")
+        (strWs "}")
+        ((sepEndBy objTypeAnnElem (strWs ",")) .>>. (opt (strWs "...")))
     )
-    |>> fun (objElems, span) ->
+    |>> fun ((objElems, inexact), span) ->
       { TypeAnn.Kind =
-          TypeAnnKind.Object { Elems = objElems; Immutable = false }
+          TypeAnnKind.Object
+            { Elems = objElems
+              Immutable = false
+              Exact = inexact.IsNone }
         Span = span
         InferredType = None }
 
   let private imObjectTypeAnn =
     withSpan (
-      between (strWs "#{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
+      between
+        (strWs "#{")
+        (strWs "}")
+        ((sepEndBy objTypeAnnElem (strWs ",")) .>>. (opt (strWs "...")))
     )
-    |>> fun (objElems, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Object { Elems = objElems; Immutable = true }
+    |>> fun ((objElems, inexact), span) ->
+      { TypeAnn.Kind =
+          TypeAnnKind.Object
+            { Elems = objElems
+              Immutable = true
+              Exact = inexact.IsNone }
         Span = span
         InferredType = None }
 
@@ -1559,7 +1572,11 @@ module Parser =
       between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
     )
     |>> fun (objElems, span) ->
-      { Kind = TypeAnnKind.Object { Elems = objElems; Immutable = false }
+      { Kind =
+          TypeAnnKind.Object
+            { Elems = objElems
+              Immutable = false
+              Exact = true }
         Span = span
         InferredType = None }
 

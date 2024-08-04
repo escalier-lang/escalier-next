@@ -514,6 +514,8 @@ module Syntax =
     | Property of Property
     | Mapped of Mapped
 
+  type ObjTypeAnn = { Elems: list<ObjTypeAnnElem>; Immutable: bool; Exact: bool }  
+
   type KeywordTypeAnn =
     | Boolean
     | Number
@@ -556,7 +558,7 @@ module Syntax =
   type TypeAnnKind =
     | Literal of Common.Literal
     | Keyword of keyword: KeywordTypeAnn
-    | Object of Common.Object<ObjTypeAnnElem>
+    | Object of ObjTypeAnn    
     | Tuple of Common.Tuple<TypeAnn>
     | Array of elem: TypeAnn
     | Range of Common.Range<TypeAnn>

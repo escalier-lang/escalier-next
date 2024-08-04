@@ -83,7 +83,8 @@ output: Ok
                                   Optional = false
                                   Readonly = false
                                   Static = false }]
-                            Immutable = false }
+                            Immutable = false
+                            Exact = true }
                        Span = { Start = (Ln: 2, Col: 18)
                                 Stop = (Ln: 6, Col: 6) }
                        InferredType = None }

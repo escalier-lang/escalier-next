@@ -430,7 +430,7 @@ module rec TypeVisitor =
               failwith "TODO: walkType - ObjTypeElem")
           elems
 
-      | TypeKind.Rest t -> walk t
+      | TypeKind.RestSpread t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types
       | TypeKind.Array { Elem = elem; Length = length } ->

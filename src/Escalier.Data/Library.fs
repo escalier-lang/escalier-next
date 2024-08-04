@@ -514,7 +514,10 @@ module Syntax =
     | Property of Property
     | Mapped of Mapped
 
-  type ObjTypeAnn = { Elems: list<ObjTypeAnnElem>; Immutable: bool; Exact: bool }  
+  type ObjTypeAnn =
+    { Elems: list<ObjTypeAnnElem>
+      Immutable: bool
+      Exact: bool }
 
   type KeywordTypeAnn =
     | Boolean
@@ -558,7 +561,7 @@ module Syntax =
   type TypeAnnKind =
     | Literal of Common.Literal
     | Keyword of keyword: KeywordTypeAnn
-    | Object of ObjTypeAnn    
+    | Object of ObjTypeAnn
     | Tuple of Common.Tuple<TypeAnn>
     | Array of elem: TypeAnn
     | Range of Common.Range<TypeAnn>
@@ -864,6 +867,7 @@ module Type =
     { Extends: option<list<TypeRef>> // classes can only have one, interfaces can have many
       Implements: option<list<TypeRef>>
       Elems: list<ObjTypeElem>
+      Exact: bool // Can't be true if any of Interface, Implements, or Extends are true
       Immutable: bool // True for #{...}, False for {...}
       Interface: bool }
 
@@ -890,7 +894,7 @@ module Type =
     | Object of Object
     | Tuple of Common.Tuple<Type>
     | Array of Array
-    | Rest of Type
+    | RestSpread of Type // whether it's rest or spread depends on how the type is being used
     | Literal of Common.Literal
     | Range of Common.Range<Type>
     | UniqueSymbol of id: int
@@ -970,7 +974,7 @@ module Type =
     | TypeKind.Object _ -> 100
     | TypeKind.Tuple _ -> 100
     | TypeKind.Array _ -> 17
-    | TypeKind.Rest _ -> 100
+    | TypeKind.RestSpread _ -> 100
     | TypeKind.Literal _ -> 100
     | TypeKind.Range _ -> 2
     | TypeKind.UniqueSymbol _ -> 15 // because `unique` is a keyword operator
@@ -1053,7 +1057,7 @@ module Type =
         | false -> $"[{elems}]"
       | TypeKind.Array { Elem = elem; Length = length } ->
         $"{printType ctx elem}[]"
-      | TypeKind.Rest t -> $"...{printType ctx t}"
+      | TypeKind.RestSpread t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
       | TypeKind.Range { Min = min; Max = max } ->
         $"{printType ctx min}..{printType ctx max}"

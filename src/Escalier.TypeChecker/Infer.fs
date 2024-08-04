@@ -309,6 +309,7 @@ module rec Infer =
               { Extends = None // QUESTION: Do we need this for the placeholder?
                 Implements = None // TODO
                 Elems = instanceElems
+                Exact = false
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -337,6 +338,7 @@ module rec Infer =
               { Extends = None
                 Implements = None
                 Elems = staticElems
+                Exact = true
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -516,6 +518,7 @@ module rec Infer =
                   { Extends = extends
                     Implements = None // TODO
                     Elems = instanceElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -541,6 +544,7 @@ module rec Infer =
           { Extends = None
             Implements = None
             Elems = staticElems
+            Exact = true
             Immutable = false
             Interface = false }
 
@@ -839,6 +843,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None
                     Elems = elems
+                    Exact = true
                     Immutable = immutable
                     Interface = false }
               Provenance = None }
@@ -846,6 +851,7 @@ module rec Infer =
           match spreadTypes with
           | [] -> return objType
           | _ ->
+            // TODO: replace intersection type with spread types
             return
               { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
                 Provenance = None }
@@ -1911,7 +1917,9 @@ module rec Infer =
                 TypeError.NotImplemented
                   $"TODO: unhandled keyword type - {keyword}"
               )
-        | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
+        | TypeAnnKind.Object { Elems = elems
+                               Immutable = immutable
+                               Exact = exact } ->
           let mutable newEnv = env
 
           match newEnv.Namespace.Schemes.TryFind "Self" with
@@ -1930,6 +1938,7 @@ module rec Infer =
               { Extends = None
                 Implements = None
                 Elems = elems
+                Exact = exact
                 Immutable = immutable
                 Interface = false }
         | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
@@ -1948,7 +1957,7 @@ module rec Infer =
         | TypeAnnKind.Keyof target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.KeyOf
         | TypeAnnKind.Rest target ->
-          return! inferTypeAnn ctx env target |> Result.map TypeKind.Rest
+          return! inferTypeAnn ctx env target |> Result.map TypeKind.RestSpread
         | TypeAnnKind.Typeof target ->
           let! t = getQualifiedIdentType ctx env target
           return t.Kind
@@ -2099,7 +2108,7 @@ module rec Infer =
               | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
                 restType <-
                   Some(
-                    { Kind = infer_pattern_rec target |> TypeKind.Rest
+                    { Kind = infer_pattern_rec target |> TypeKind.RestSpread
                       Provenance = None }
                   )
 
@@ -2112,6 +2121,7 @@ module rec Infer =
                 { Extends = None
                   Implements = None
                   Elems = elems
+                  Exact = true // TODO: This should depend what the pattern is matching/destructuring
                   Immutable = immutable
                   Interface = false }
             Provenance = None }
@@ -2145,6 +2155,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None
                     Elems = elems
+                    Exact = true // TODO: This should depend what the pattern is matching/destructuring
                     Immutable = true
                     Interface = false }
               Provenance = None }
@@ -2199,7 +2210,7 @@ module rec Infer =
           { Kind = TypeKind.Wildcard
             Provenance = None }
       | PatternKind.Rest pat ->
-        { Kind = TypeKind.Rest(infer_pattern_rec pat)
+        { Kind = TypeKind.RestSpread(infer_pattern_rec pat)
           Provenance = None }
 
     // | PatternKind.Is(span, binding, isName, isMut) ->
@@ -2294,7 +2305,7 @@ module rec Infer =
       else
         // TODO: simplify the union before unifying with `exprType`
         let t = union newExprTypes
-        let t = simplifyUnion t
+        // let t = simplifyUnion t
         do! unify ctx env None t exprType
         return newExprTypes, bodyTypes
     }
@@ -3039,6 +3050,7 @@ module rec Infer =
             { Extends = None
               Implements = None
               Elems = List.rev elemTypes
+              Exact = true
               Immutable = false
               Interface = false }
 
@@ -3483,6 +3495,7 @@ module rec Infer =
                 { Kind =
                     TypeKind.Object
                       { Elems = elems
+                        Exact = true
                         Immutable = false
                         Extends = None
                         Implements = None
@@ -3509,6 +3522,7 @@ module rec Infer =
               { Kind =
                   TypeKind.Object
                     { Elems = variantTags
+                      Exact = true
                       Immutable = false
                       Extends = None
                       Implements = None
@@ -3639,6 +3653,7 @@ module rec Infer =
                     { Extends = extends
                       Implements = None // TODO
                       Elems = elems
+                      Exact = false
                       Immutable = false
                       Interface = true }
 
@@ -3659,6 +3674,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None // TODO
                     Elems = mergedElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
 

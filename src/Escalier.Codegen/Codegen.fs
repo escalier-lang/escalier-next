@@ -1401,7 +1401,7 @@ module rec Codegen =
     | TypeKind.Object { Elems = elems } ->
       let members = elems |> List.map (buildObjTypeElem ctx)
       TsType.TsTypeLit { Members = members; Loc = None }
-    | TypeKind.Rest rest ->
+    | TypeKind.RestSpread rest ->
       TsType.TsRestType
         { TypeAnn = buildType ctx rest
           Loc = None }

@@ -277,6 +277,7 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
         { Extends = None
           Implements = None // TODO
           Elems = List.ofSeq elems @ unnamedElems
+          Exact = false // MergeType should only be used with interfaces which can't be exact
           Immutable = false
           Interface = false }
 

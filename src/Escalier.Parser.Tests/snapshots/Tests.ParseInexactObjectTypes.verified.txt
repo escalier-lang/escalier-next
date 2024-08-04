@@ -1,0 +1,47 @@
+﻿input: 
+    type Obj = {
+      msg: string,
+      flag: boolean,
+      ...
+    };
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                TypeDecl
+                  { Name = "Obj"
+                    TypeAnn =
+                     { Kind =
+                        Object
+                          { Elems =
+                             [Property
+                                { Name = String "msg"
+                                  TypeAnn = { Kind = Keyword String
+                                              Span = { Start = (Ln: 3, Col: 12)
+                                                       Stop = (Ln: 3, Col: 18) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false
+                                  Static = false };
+                              Property
+                                { Name = String "flag"
+                                  TypeAnn = { Kind = Keyword Boolean
+                                              Span = { Start = (Ln: 4, Col: 13)
+                                                       Stop = (Ln: 4, Col: 20) }
+                                              InferredType = None }
+                                  Optional = false
+                                  Readonly = false
+                                  Static = false }]
+                            Immutable = false
+                            Exact = false }
+                       Span = { Start = (Ln: 2, Col: 16)
+                                Stop = (Ln: 6, Col: 6) }
+                       InferredType = None }
+                    TypeParams = None }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 7, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 7, Col: 5) } }] }

@@ -38,7 +38,8 @@ output: Ok
                                           InferredType = None }
                                   Throws = None
                                   IsAsync = false }]
-                            Immutable = false }
+                            Immutable = false
+                            Exact = true }
                        Span = { Start = (Ln: 2, Col: 21)
                                 Stop = (Ln: 5, Col: 6) }
                        InferredType = None }

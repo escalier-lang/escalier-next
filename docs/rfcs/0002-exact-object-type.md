@@ -1,7 +1,7 @@
 # Summary
 
-Exact object types will prevent this issue by not allowing the assignment of
-any object with extra fields to a variable that's an exact object.
+Exact object are not allowed to have extra properties that aren't present in
+their inferred types.
 
 # Motivation
 
@@ -14,6 +14,22 @@ type Point = { x: number; y: number }; // current, inexact object type
 let pointAndFlag = { x: 5, y: 10, flag: true };
 let point: Point = pointAndFlag; // allowed with inexect object types
 ```
+
+Having extra properties in an object can also lead to objects ending up with
+the incorrect values in them.
+
+```ts
+type Point = { x: number; y: number }; // current, inexact object type
+
+let pointAndFlag1 = { x: 5, y: 10, flag: true };
+let point: Point = pointAndFlag1; // allowed with inexect object types
+
+type PointAndFlag = { x: number; y: number; flag?: string };
+let pointAndFlag2: PointAndFlag = point;
+```
+
+`pointAndFlag2.flag` is typed as an optional `string`, but it contains a `boolean`
+value.
 
 # Explanation
 

@@ -1,2 +1,2 @@
-let factorial = fn (n) =>
+let factorial = fn (n: number) =>
   if (n == 0) { 1 } else { n * factorial(n - 1) };

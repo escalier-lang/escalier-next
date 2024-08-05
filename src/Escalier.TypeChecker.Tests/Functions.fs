@@ -12,7 +12,7 @@ let InferCallFuncWithSingleWrongArg () =
     result {
       let src =
         """
-        let add = fn (x, y) => {value: x + y};
+        let add = fn <A: number, B: number>(x: A, y: B) => {value: x + y};
         let sum = add("hello", "world");
         """
 
@@ -31,13 +31,13 @@ let InferCallFuncWithWrongArgs () =
     result {
       let src =
         """
-        let add = fn (x, y) => x + y;
+        let add = fn <A: number, B: number>(x: A, y: B) => x + y;
         let sum = "hello" + "world";
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Equal(ctx.Report.Diagnostics.Length, 2) // can't add strings with `+`
+      Assert.Equal(2, ctx.Report.Diagnostics.Length) // can't add strings with `+`
       Assert.Value(env, "sum", "number")
     }
 
@@ -106,7 +106,7 @@ let PassingTooManyArgsIsOkay () =
     result {
       let src =
         """
-        let add = fn (x, y) => x + y;
+        let add = fn <A: number, B: number>(x: A, y: B) => x + y;
         let sum = add(5, 10, "hello");
         """
 
@@ -124,7 +124,7 @@ let PassingTooFewArgsIsAnError () =
     result {
       let src =
         """
-        let add = fn (x, y) => x + y;
+        let add = fn (x: number, y: number) => x + y;
         let sum = add(5);
         """
 
@@ -141,7 +141,7 @@ let InferBasicFunction () =
     result {
       let src =
         """
-        let add = fn (a, b) => a + b;
+        let add = fn <A: number, B: number>(a: A, b: B) => a + b;
         """
 
       let! ctx, env = inferModule src
@@ -234,12 +234,12 @@ let PassingIncorrectArgsAsRestParm () =
 let InferFuncGeneralization () =
   let result =
     result {
-      let src = "let fst = fn (x, y) => x;"
+      let src = "let fst = fn <A, B>(x: A, y: B) => x;"
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
     }
 
   Assert.False(Result.isError result)
@@ -251,7 +251,7 @@ let InferFactorial () =
 
       let src =
         """
-        let factorial = fn (n) =>
+        let factorial = fn (n: number) =>
           if (n == 0) { 1 } else { n * factorial(n - 1) };
         """
 
@@ -259,7 +259,7 @@ let InferFactorial () =
 
       Assert.Empty(ctx.Report.Diagnostics)
       // TODO: figure out how to get the param name back
-      Assert.Value(env, "factorial", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "factorial", "fn (arg0: number) -> number")
     }
 
   Assert.False(Result.isError result)
@@ -337,7 +337,7 @@ let InferTypeAliasOfTypeParam () =
 let InferLambda () =
   let result =
     result {
-      let src = "let add = fn (x, y) => x + y;"
+      let src = "let add = fn <A: number, B: number>(x: A, y: B) => x + y;"
 
       let! ctx, env = inferModule src
 
@@ -348,43 +348,15 @@ let InferLambda () =
   Assert.False(Result.isError result)
 
 [<Fact>]
-let InferSKK () =
-  let result =
-    result {
-      let src =
-        """
-          let S = fn (f) => fn (g) => fn (x) => f(x)(g(x));
-          let K = fn (x) => fn (y) => x;
-          let I = S(K)(K);
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Report.Diagnostics)
-
-      Assert.Value(
-        env,
-        "S",
-        "fn <A, C, B>(f: fn (arg0: A) -> fn (arg0: B) -> C) -> fn (g: fn (arg0: A) -> B) -> fn (x: A) -> C"
-      )
-
-      Assert.Value(env, "K", "fn <B, A>(x: A) -> fn (y: B) -> A")
-      Assert.Value(env, "I", "fn <A>(x: A) -> A")
-    }
-
-  Assert.False(Result.isError result)
-
-
-[<Fact>]
 let InferFuncParams () =
   let result =
     result {
       let src =
         """
-          let addNums = fn (x, y) {
+          let addNums = fn <A: number, B: number>(x: A, y: B) {
             return x + y;
           };
-          let addStrs = fn (x, y) {
+          let addStrs = fn <A: string, B: string>(x: A, y: B) {
             return x ++ y;
           };
           let msg = addStrs("Hello, ", "world!");
@@ -420,13 +392,13 @@ let InferBinaryOpStressTest () =
     result {
       let src =
         """
-          let foo = fn (a, b, c) {
+          let foo = fn <A: number, B: number, C: number>(a: A, b: B, c: C) {
             return a * b + c;
           };
-          let double = fn (x) {
+          let double = fn <A: number>(x: A) {
             return 2 * x;
           };
-          let inc = fn (x) {
+          let inc = fn <A: number>(x: A) {
             return x + 1;
           };
           let bar = foo(double(1), inc(2), 3);
@@ -441,7 +413,7 @@ let InferBinaryOpStressTest () =
       Assert.Value(
         env,
         "foo",
-        "fn <C: number, A: number, B: number>(a: A, b: B, c: C) -> A * B + C"
+        "fn <A: number, B: number, C: number>(a: A, b: B, c: C) -> A * B + C"
       )
 
       Assert.Value(env, "double", "fn <A: number>(x: A) -> 2 * A")
@@ -506,7 +478,7 @@ let InferFuncGenericFunc () =
     result {
       let src =
         """
-          let foo = fn (x) {
+          let foo = fn <A>(x: A) {
             return x;
           };
           let bar = foo(5);
@@ -530,7 +502,7 @@ let ApplyGenericTypeArgWithoutCallingFunction () =
     result {
       let src =
         """
-        let foo = fn (x) {
+        let foo = fn <A>(x: A) {
           return x;
         };
         let bar = foo<number>;
@@ -614,7 +586,7 @@ let InferFuncDecl () =
     result {
       let src =
         """
-        fn fst (x, y) {
+        fn fst <A, B>(x: A, y: B) {
           return x;
         }
         declare fn snd<A, B>(x: A, y: B) -> B;
@@ -622,7 +594,7 @@ let InferFuncDecl () =
 
       let! _, env = inferModule src
 
-      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
       Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
     }
 
@@ -635,19 +607,19 @@ let InferFuncDeclInModule () =
     result {
       let src =
         """
-        fn fst (x, y) {
+        fn fst <A, B>(x: A, y: B) {
           return x;
         }
         declare fn snd<A, B>(x: A, y: B) -> B;
         type Point = {x: number, y: number};
-        fn makePoint (x, y) -> Point {
+        fn makePoint (x: number, y: number) -> Point {
           return {x, y};
         }
         """
 
       let! _, env = inferModule src
 
-      Assert.Value(env, "fst", "fn <B, A>(x: A, y: B) -> A")
+      Assert.Value(env, "fst", "fn <A, B>(x: A, y: B) -> A")
       Assert.Value(env, "snd", "fn <A, B>(x: A, y: B) -> B")
       Assert.Value(env, "makePoint", "fn (x: number, y: number) -> Point")
     }

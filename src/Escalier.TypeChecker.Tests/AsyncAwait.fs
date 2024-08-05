@@ -35,7 +35,7 @@ let InfersAsyncError () =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
+        let foo = async fn<A: number>(x: A) => if x < 0 { throw "RangeError" } else { x };
         """
 
       let! ctx, env = inferModule src
@@ -57,8 +57,8 @@ let InfersPropagateAsyncError () =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
-        let bar = async fn (x) {
+        let foo = async fn<A: number>(x: A) => if x < 0 { throw "RangeError" } else { x };
+        let bar = async fn<A: number>(x: A) {
           let y = await foo(x);
           return y + await 10;
         };
@@ -89,8 +89,8 @@ let InfersTryCatchAsync () =
     result {
       let src =
         """
-        let foo = async fn (x) => if x < 0 { throw "RangeError" } else { x };
-        let bar = async fn (x) =>
+        let foo = async fn<A: number>(x: A) => if x < 0 { throw "RangeError" } else { x };
+        let bar = async fn<A: number>(x: A) =>
           try {
             let y = await foo(x);
             y + await 10;

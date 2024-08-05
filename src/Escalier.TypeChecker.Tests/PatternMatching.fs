@@ -40,7 +40,7 @@ let BasicPatternMatchingInferExpr () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn (x: number) =>
           match x {
             0 => "none",
             1 => "one",
@@ -56,7 +56,7 @@ let BasicPatternMatchingInferExpr () =
       Assert.Value(
         env,
         "foo",
-        "fn <B, A: number>(x: 0 | 1 | A | B) -> \"none\" | \"one\" | \"negative\" | \"other\""
+        "fn (x: number) -> \"none\" | \"one\" | \"negative\" | \"other\""
       )
     }
 
@@ -69,7 +69,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
     result {
       let src =
         """
-        let foo = fn (x, y) =>
+        let foo = fn (x: number, y: number) =>
           match {x, y} {
             {x: 0, y: 0} => "origin",
             {x is number, y: 0} => "x-axis",
@@ -77,7 +77,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
             _ => "other",
           };
           
-        let bar = fn (x, y) =>
+        let bar = fn (x: number, y: number) =>
           match {x, y} {
             {x: 0, y: 0} => "origin",
             {x is number, y: 0} => "x-axis",
@@ -93,7 +93,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
       Assert.Value(
         env,
         "foo",
-        "fn <A, B>(x: A | number, y: B | number) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
+        "fn (x: number, y: number) -> \"origin\" | \"x-axis\" | \"y-axis\" | \"other\""
       )
 
       Assert.Value(

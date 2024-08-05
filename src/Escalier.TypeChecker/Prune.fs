@@ -57,9 +57,24 @@ module rec Prune =
 
         { Kind = TypeKind.Literal result
           Provenance = None }
-      // TODO: Check `op` when collapsing binary expressions involving numbers
-      | _, TypeKind.Primitive Primitive.Number -> right
-      | TypeKind.Primitive Primitive.Number, _ -> left
+      | TypeKind.Primitive Primitive.Number, _
+      | _, TypeKind.Primitive Primitive.Number ->
+        let result =
+          match op with
+          | "+" -> Primitive.Number
+          | "-" -> Primitive.Number
+          | "*" -> Primitive.Number
+          | "/" -> Primitive.Number
+          | "%" -> Primitive.Number
+          | "**" -> Primitive.Number
+          | ">" -> Primitive.Boolean
+          | ">=" -> Primitive.Boolean
+          | "<" -> Primitive.Boolean
+          | "<=" -> Primitive.Boolean
+          | _ -> failwith "TODO: simplify binary"
+
+        { Kind = TypeKind.Primitive result
+          Provenance = None }
       | TypeKind.Literal(Literal.String s1), TypeKind.Literal(Literal.String s2) ->
 
         let result =

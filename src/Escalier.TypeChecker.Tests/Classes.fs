@@ -155,7 +155,7 @@ let RequireThatAllPropertiesBeAssigned () =
         let Point = class {
           x: number;
           y: number;
-          new (mut self, x, y) {
+          new (mut self, x: number, y: number) {
             self.x = x;
           }
         };
@@ -370,11 +370,11 @@ let InferClassMethodsThatTakeOtherSelf () =
         let Point = class {
           x: number;
           y: number;
-          new (mut self, x, y) {
+          new (mut self, x: number, y: number) {
             self.x = x;
             self.y = y;
           }
-          fn makePoint(x, y) {
+          fn makePoint(x: number, y: number) {
             return new Self(x, y);
           }
           fn add(self, other: Self) -> Self {
@@ -469,10 +469,10 @@ let InferGenericMethods () =
       let src =
         """
         let Foo = class {
-          fn fst(self, a, b) {
+          fn fst<A, B>(self, a: A, b: B) {
             return a;
           }
-          fn snd(a, b) {
+          fn snd<A, B>(a: A, b: B) {
             return b;
           }
         };
@@ -488,7 +488,7 @@ let InferGenericMethods () =
         "{new fn () -> Foo, snd fn <A, B>(a: A, b: B) -> B}"
       )
 
-      Assert.Type(env, "Foo", "{fst fn <B, A>(self: Self, a: A, b: B) -> A}")
+      Assert.Type(env, "Foo", "{fst fn <A, B>(self: Self, a: A, b: B) -> A}")
     }
 
   Assert.False(Result.isError res)

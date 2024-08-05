@@ -296,7 +296,7 @@ let FunctionDeclsWithLocalVariables () =
     result {
       let src =
         """
-        fn add5(x) {
+        fn add5<A: number>(x: A) {
           let y = 5;
           return x + y;
         }
@@ -319,7 +319,7 @@ let ReturnFunctionDeclWithCaptures () =
         """
         let getAdd5 = fn () {
           let y = 5;
-          return fn (x) {
+          return fn<A: number>(x: A) {
             return x + y;
           };
         };
@@ -583,13 +583,13 @@ let SelfRecursiveFunctions () =
     result {
       let src =
         """
-        let fact = fn (n) => if n == 0 { 1 } else { n * fact(n - 1) };
-        let fib = fn (n) => if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
+        let fact = fn (n: number) => if n == 0 { 1 } else { n * fact(n - 1) };
+        let fib = fn (n: number) => if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "fact", "fn (arg0: number) -> number")
       Assert.Value(env, "fib", "fn (arg0: number) -> number")
     }
 
@@ -602,17 +602,17 @@ let SelfRecursiveFunctionDecls () =
     result {
       let src =
         """
-        fn fact (n) {
+        fn fact (n: number) {
           return if n == 0 { 1 } else { n * fact(n - 1) };
         }
-        fn fib (n) {
+        fn fib (n: number) {
           return if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
         }
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "fact", "fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "fact", "fn (arg0: number) -> number")
       Assert.Value(env, "fib", "fn (arg0: number) -> number")
     }
 
@@ -625,8 +625,8 @@ let MutuallysRecursiveFunctions () =
     result {
       let src =
         """
-        let isEven = fn (n) => if n == 0 { true } else { isOdd(n - 1) };
-        let isOdd = fn (n) => if n == 0 { false } else { isEven(n - 1) };
+        let isEven = fn (n: number) => if n == 0 { true } else { isOdd(n - 1) };
+        let isOdd = fn (n: number) => if n == 0 { false } else { isEven(n - 1) };
         """
 
       let! ctx, env = inferModule src
@@ -644,10 +644,10 @@ let MutuallyRecursiveFunctionDecls () =
     result {
       let src =
         """
-        fn isEven (n) {
+        fn isEven (n: number) {
           return if n == 0 { true } else { isOdd(n - 1) };
         }
-        fn isOdd (n) {
+        fn isOdd (n: number) {
           return if n == 0 { false } else { isEven(n - 1) };
         }
         """
@@ -668,14 +668,14 @@ let ReturnSelfRecursiveFunction () =
       let src =
         """
         let ret_fact = fn () {
-          let fact = fn (n) => if n == 0 { 1 } else { n * fact(n - 1) };
+          let fact = fn (n: number) => if n == 0 { 1 } else { n * fact(n - 1) };
           return fact;
         };
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "ret_fact", "fn () -> fn (arg0: number) -> 1 | number")
+      Assert.Value(env, "ret_fact", "fn () -> fn (arg0: number) -> number")
     }
 
   printfn "res = %A" res
@@ -687,7 +687,7 @@ let InferFunctionDeclTypeFromBody () =
     result {
       let src =
         """
-        fn add(x, y) {
+        fn add<A: number, B: number>(x: A, y: B) {
           return x + y;
         }
         """

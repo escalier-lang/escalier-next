@@ -183,7 +183,7 @@ let InferPrivateDecl () =
     result {
       let src =
         """
-          let makePoint = fn (x, y) {
+          let makePoint = fn (x: number, y: number) {
             type Point = {x: number, y: number};
             let point: Point = {x, y};
             return point;

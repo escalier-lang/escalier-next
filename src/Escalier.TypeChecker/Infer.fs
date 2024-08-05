@@ -188,7 +188,7 @@ module rec Infer =
           else
             instanceElems <- prop :: instanceElems
         | ClassElem.Constructor { Sig = fnSig; Body = body } ->
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
 
           let placeholderFn =
             { placeholderFn with
@@ -201,7 +201,7 @@ module rec Infer =
         | ClassElem.Method { Name = name
                              Sig = fnSig
                              Body = body } ->
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
           let! name = inferPropName ctx env name
 
           // .d.ts files don't track whether a method throws or not so we default
@@ -234,7 +234,7 @@ module rec Infer =
               Throws = None
               IsAsync = false }
 
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
           let! name = inferPropName ctx env name
 
           match self, isStatic with
@@ -260,7 +260,7 @@ module rec Infer =
               Throws = None
               IsAsync = false }
 
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig
+          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
           let! name = inferPropName ctx env name
 
           match self, isStatic with
@@ -676,7 +676,7 @@ module rec Infer =
           | None ->
             match typeAnn with
             | Some typeAnnType ->
-              let! fn = inferFuncSig ctx env fnSig
+              let! fn = inferFuncSig ctx env fnSig (Some typeAnnType)
 
               let exprType =
                 { Kind = TypeKind.Function fn
@@ -1241,10 +1241,13 @@ module rec Infer =
 
     r
 
+  // TODO: update this to unify inferred function type with the typeAnnType if
+  // one is provided
   let inferFuncSig
     (ctx: Ctx)
     (env: Env)
     (fnSig: FuncSig)
+    (typeAnnType: option<Type>)
     : Result<Function, TypeError> =
 
     result {
@@ -1288,7 +1291,14 @@ module rec Infer =
               let! paramType =
                 match param.TypeAnn with
                 | Some(typeAnn) -> inferTypeAnn ctx newEnv typeAnn
-                | None -> Result.Ok(ctx.FreshTypeVar None None)
+                | None ->
+                  match typeAnnType with
+                  | Some _ -> Result.Ok(ctx.FreshTypeVar None None)
+                  | None ->
+                    Result.Ok(
+                      { Kind = TypeKind.Keyword Keyword.Unknown
+                        Provenance = None }
+                    )
 
               // TODO: figure out a way to avoid having to call inferPattern twice
               // per method (the other call is `inferFuncBody`)
@@ -1460,7 +1470,7 @@ module rec Infer =
     : Result<Function, TypeError> =
 
     result {
-      let! placeholderFn = inferFuncSig ctx env fnSig
+      let! placeholderFn = inferFuncSig ctx env fnSig None
       return! inferFuncBody ctx env fnSig placeholderFn body
     }
 
@@ -1802,13 +1812,13 @@ module rec Infer =
               Optional = optional
               Readonly = readonly }
       | ObjTypeAnnElem.Callable functionType ->
-        let! f = inferFuncSig ctx env functionType
+        let! f = inferFuncSig ctx env functionType None
         return Callable f
       | ObjTypeAnnElem.Constructor functionType ->
-        let! f = inferFuncSig ctx env functionType
+        let! f = inferFuncSig ctx env functionType None
         return Constructor f
       | ObjTypeAnnElem.Method { Name = name; Type = methodType } ->
-        let! f = inferFuncSig ctx env methodType
+        let! f = inferFuncSig ctx env methodType None
         let! name = inferPropName ctx env name
         return Method(name, f)
       | ObjTypeAnnElem.Getter { Name = name
@@ -1822,7 +1832,7 @@ module rec Infer =
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFuncSig ctx env f
+        let! f = inferFuncSig ctx env f None
         let! name = inferPropName ctx env name
         return Getter(name, f)
       | ObjTypeAnnElem.Setter { Name = name
@@ -1842,7 +1852,7 @@ module rec Infer =
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFuncSig ctx env f
+        let! f = inferFuncSig ctx env f None
         let! name = inferPropName ctx env name
         return Setter(name, f)
       | ObjTypeAnnElem.Mapped mapped ->
@@ -1943,7 +1953,7 @@ module rec Infer =
           return TypeKind.Intersection types
         | TypeAnnKind.TypeRef typeRef -> return! inferTypeRef ctx env typeRef
         | TypeAnnKind.Function functionType ->
-          let! f = inferFuncSig ctx env functionType
+          let! f = inferFuncSig ctx env functionType None
           return TypeKind.Function(f)
         | TypeAnnKind.Keyof target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.KeyOf
@@ -3363,7 +3373,8 @@ module rec Infer =
                     | false, Some body ->
                       // NOTE: `inferFunction` also calls unify
                       Infer.inferFunction ctx newEnv fnDecl.Sig body
-                    | true, None -> Infer.inferFuncSig ctx newEnv fnDecl.Sig
+                    | true, None ->
+                      Infer.inferFuncSig ctx newEnv fnDecl.Sig None
                     | _, _ ->
                       Result.Error(
                         TypeError.SemanticError "Invalid function declaration"
@@ -4223,6 +4234,11 @@ module rec Infer =
     result {
       // TODO: update this function to accept a filename
       let mutable newEnv = env // { env with Filename = "input.esc" }
+
+      // TODO: traverse the AST and flag all function params that don't have a
+      // type annotation.
+      // TODO: in order to allow type checking to proceed when there is a function
+      // param without a type annotation, we can infer it as `never` or `unknown`
 
       let imports =
         List.choose

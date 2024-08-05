@@ -11,7 +11,7 @@ let InfersExplicitThrow () =
     result {
       let src =
         """
-        let foo = fn (x) {
+        let foo = fn<A: number>(x: A) {
           if x < 0 {
             throw "RangeError";
           }
@@ -38,7 +38,7 @@ let InfersThrowExpression () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn<A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { x };
         """
 
@@ -101,10 +101,10 @@ let InfersThrowsFromCall () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn<A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { x };
           
-        let bar = fn (x) => foo(x);
+        let bar = fn<A: number>(x: A) => foo(x);
         """
 
       let! ctx, env = inferModule src
@@ -132,10 +132,10 @@ let InferCatchesException () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn<A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { x };
           
-        let bar = fn (x) =>
+        let bar = fn<A: number>(x: A) =>
           try {
             foo(x);
           } catch {
@@ -160,7 +160,7 @@ let InferCatchesMultipleExceptions () =
         let foo = fn <A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" };
           
-        let bar = fn (x) =>
+        let bar = fn<A: number>(x: A) =>
           try {
             foo(x);
           } catch {
@@ -186,7 +186,7 @@ let InferCatchesOneOfManyExceptions () =
         let foo = fn <A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { throw "BoundsError" };
           
-        let bar = fn (x) =>
+        let bar = fn<A: number>(x: A) =>
           try {
             foo(x);
           } catch {
@@ -213,11 +213,11 @@ let InferTryFinally () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn<A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { x };
         let cleanup = fn () => {};
 
-        let bar = fn (x) =>
+        let bar = fn<A: number>(x: A) =>
           try {
             foo(x)
           } finally {
@@ -244,11 +244,11 @@ let InferTryCatchFinally () =
     result {
       let src =
         """
-        let foo = fn (x) =>
+        let foo = fn<A: number>(x: A) =>
           if x < 0 { throw "RangeError" } else { x };
         let cleanup = fn () => {};
 
-        let bar = fn (x) =>
+        let bar = fn<A: number>(x: A) =>
           try {
             foo(x);
           } catch {

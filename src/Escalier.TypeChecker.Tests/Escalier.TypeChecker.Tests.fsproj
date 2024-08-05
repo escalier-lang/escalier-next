@@ -10,7 +10,6 @@
         <Compile Include="Tests.fs"/>
         <Compile Include="Functions.fs"/>
         <Compile Include="Mutability.fs"/>
-        <Compile Include="NoParseTests.fs"/>
         <Compile Include="UtilityTypes.fs"/>
         <Compile Include="AsyncAwait.fs"/>
         <Compile Include="Exceptions.fs"/>

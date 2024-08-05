@@ -61,6 +61,20 @@ let ParseTaggedTemplateLiteral () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseRecursiveFunction () =
+  let src =
+    """
+    let fib = fn (n: number) {
+      return if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
+    };
+    """
+
+  let ast = Parser.parseScript src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseFunctionCall () =
   let src = "add(x, y);"
   let ast = Parser.parseScript src

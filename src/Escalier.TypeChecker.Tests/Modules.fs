@@ -11,8 +11,8 @@ let InferBasicModule () =
     result {
       let src =
         """
-        let add = fn(a, b) => a + b;
-        let sub = fn(a, b) => a - b;
+        let add = fn<A: number, B: number>(a: A, b: B) => a + b;
+        let sub = fn<A: number, B: number>(a: A, b: B) => a - b;
         """
 
       let! ctx, env = inferModule src
@@ -49,13 +49,13 @@ let InferMutualRecursion () =
     result {
       let src =
         """
-        let even = fn (x) => if (x == 0) {
+        let even = fn (x: number) => if (x == 0) {
             true
         } else {
             !odd(x - 1)
         };
 
-        let odd = fn (x) => if (x == 1) {
+        let odd = fn (x: number) => if (x == 1) {
             true
         } else {
             !even(x - 1)

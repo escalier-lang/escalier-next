@@ -2299,9 +2299,7 @@ module rec Infer =
       if newExprTypes.IsEmpty then
         return patternTypes, bodyTypes
       else
-        // TODO: simplify the union before unifying with `exprType`
         let t = union newExprTypes
-        // let t = simplifyUnion t
         do! unify ctx env None t exprType
         return newExprTypes, bodyTypes
     }

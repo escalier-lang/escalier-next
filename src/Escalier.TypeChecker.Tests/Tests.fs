@@ -357,7 +357,6 @@ let InferObjectRestSpread () =
       Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
-      // TODO: obj2's type should be {a: 5, b: "hello", c: true}
       Assert.Value(env, "obj2", "{a: 5, b: \"hello\", c: true}")
     }
 

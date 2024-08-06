@@ -105,7 +105,7 @@ let BasicPatternMatchingInferExprWithMultipleTypeVariables () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip="TODO")>]
+[<Fact>]
 let PatternMatchingObjects () =
   let result =
     result {
@@ -150,7 +150,7 @@ let PatternMatchingObjects () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let PatternMatchingObjectsWithBlockBody () =
   let result =
     result {

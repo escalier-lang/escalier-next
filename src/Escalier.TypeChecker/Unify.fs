@@ -336,9 +336,6 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        if env.IsPatternMatching then
-          printfn $"pattern matching, t1 = {t1}, t2 = {t2}"
-
         do! unifyObjProps ctx env ips obj1 obj2
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
@@ -657,7 +654,6 @@ module rec Unify =
           Provenance = None }
 
       if env.IsPatternMatching then
-        // TODO: handle rest/spread
         for elem in obj2.Elems do
           match elem with
           | ObjTypeElem.RestSpread t -> rest <- Some(t)
@@ -688,6 +684,30 @@ module rec Unify =
             // TODO: double check that this is correct
             if not prop1.Optional then
               return! Error(TypeError.PropertyMissing(name))
+
+        let mutable spreadProps = []
+
+        for KeyValue(name, prop2) in namedProps2 do
+          match namedProps1.TryFind name with
+          | Some _ -> ()
+          | None ->
+            spreadProps <- (prop2 |> ObjTypeElem.Property) :: spreadProps
+
+        match spread with
+        | Some t ->
+          let spreadObj =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = List.rev spreadProps
+                    Exact = false // TODO
+                    Immutable = false // TODO
+                    Interface = false }
+              Provenance = None }
+
+          do! unify ctx env ips spreadObj t
+        | None -> ()
       else
         for elem in obj2.Elems do
           match elem with

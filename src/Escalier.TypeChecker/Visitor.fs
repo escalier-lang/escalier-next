@@ -425,9 +425,9 @@ module rec TypeVisitor =
             | Constructor fn -> walkFunction walk fn
             | Callable fn -> walkFunction walk fn
             | Method(_, fn) -> walkFunction walk fn
-            | _ ->
-              printfn "elem = %A" elem
-              failwith "TODO: walkType - ObjTypeElem")
+            | Getter(_, fn) -> walkFunction walk fn
+            | Setter(_, fn) -> walkFunction walk fn
+            | RestSpread t -> walk t)
           elems
 
       | TypeKind.RestSpread t -> walk t

@@ -424,6 +424,7 @@ let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
         // types because their key could have a type like `string` or `number`
         // which is unbounded.
         | Mapped mapped -> failwith "TODO: getPropertyMap - ObjElemType.Mapped"
+        | RestSpread t -> failwith "TODO: getPropertyMap - ObjElemType.Rest"
         | Property { Name = name; Type = t } -> map <- Map.add name t map
     | TypeKind.Intersection types ->
       for t in types do

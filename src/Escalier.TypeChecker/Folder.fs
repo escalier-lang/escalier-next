@@ -31,6 +31,7 @@ module Folder =
             { mapped with
                 TypeAnn = fold mapped.TypeAnn
                 NameType = Option.map fold mapped.NameType }
+        | RestSpread t -> RestSpread(fold t)
 
       let foldTypeRef (typeRef: TypeRef) : TypeRef =
         let { Name = name

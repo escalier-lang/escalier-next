@@ -336,13 +336,10 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        // TODO: rework how we check if an object is a subtype of another object
-        // setters should have reversed variance
-        // For now we're use `RValue` since we don't have many test cases
-        // involving setters
-        let namedProps1 = getNamedProps ValueCategory.RValue obj1.Elems
-        let namedProps2 = getNamedProps ValueCategory.RValue obj2.Elems
-        do! unifyObjProps ctx env ips namedProps1 namedProps2
+        if env.IsPatternMatching then
+          printfn $"pattern matching, t1 = {t1}, t2 = {t2}"
+
+        do! unifyObjProps ctx env ips obj1 obj2
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
@@ -641,15 +638,36 @@ module rec Unify =
     (ctx: Ctx)
     (env: Env)
     (ips: option<list<list<string>>>)
-    (namedProps1: Map<PropName, Property>)
-    (namedProps2: Map<PropName, Property>)
+    (obj1: Object)
+    (obj2: Object)
     : Result<unit, TypeError> =
     result {
+      // TODO: rework how we check if an object is a subtype of another object
+      // setters should have reversed variance
+      // For now we're use `RValue` since we don't have many test cases
+      // involving setters
+      let namedProps1 = getNamedProps ValueCategory.RValue obj1.Elems
+      let namedProps2 = getNamedProps ValueCategory.RValue obj2.Elems
+
+      let mutable rest: option<Type> = None
+      let mutable spread: option<Type> = None
+
       let undefined =
         { Kind = TypeKind.Literal(Literal.Undefined)
           Provenance = None }
 
       if env.IsPatternMatching then
+        // TODO: handle rest/spread
+        for elem in obj2.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> rest <- Some(t)
+          | _ -> ()
+
+        for elem in obj1.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> spread <- Some(t)
+          | _ -> ()
+
         // Allow partial unification of object types when pattern matching
         for KeyValue(name, prop1) in namedProps1 do
           match namedProps2.TryFind name with
@@ -671,6 +689,21 @@ module rec Unify =
             if not prop1.Optional then
               return! Error(TypeError.PropertyMissing(name))
       else
+        for elem in obj2.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> rest <- Some(t)
+          | _ -> ()
+
+        for elem in obj1.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> spread <- Some(t)
+          | _ -> ()
+
+        // TODO: collect all prop2's that don't have a matcher in namedProps1
+        // and stuff them into the rest element type if there is one
+
+        let mutable spreadProps = []
+
         for KeyValue(name, prop2) in namedProps2 do
           match namedProps1.TryFind name with
           | Some(prop1) ->
@@ -687,8 +720,49 @@ module rec Unify =
             let newIps = tryFindPathTails (name.ToString()) ips
             do! unify ctx env newIps p1Type p2Type
           | None ->
-            if not prop2.Optional then
+            if spread.IsSome then
+              spreadProps <- (prop2 |> ObjTypeElem.Property) :: spreadProps
+            else if not prop2.Optional then
               return! Error(TypeError.PropertyMissing(name))
+
+        let mutable restProps = []
+
+        for KeyValue(name, prop1) in namedProps1 do
+          match namedProps2.TryFind name with
+          | Some _ -> ()
+          | None -> restProps <- (prop1 |> ObjTypeElem.Property) :: restProps
+
+        match rest with
+        | Some t ->
+          let restObj =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = List.rev restProps
+                    Exact = false // TODO
+                    Immutable = false // TODO
+                    Interface = false }
+              Provenance = None }
+
+          do! unify ctx env ips t restObj
+        | None -> ()
+
+        match spread with
+        | Some t ->
+          let spreadObj =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = List.rev spreadProps
+                    Exact = false // TODO
+                    Immutable = false // TODO
+                    Interface = false }
+              Provenance = None }
+
+          do! unify ctx env ips spreadObj t
+        | None -> ()
     }
 
   // TODO: don't allow `mut` on variables whose type is a literal or primitive

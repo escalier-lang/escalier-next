@@ -721,6 +721,7 @@ module Type =
 
   type IdentPat = { Name: string; IsMut: bool }
 
+  [<RequireQualifiedAccess>]
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
@@ -845,6 +846,7 @@ module Type =
     | Setter of name: PropName * fn: Function
     | Mapped of Mapped
     | Property of Property
+    | RestSpread of Type
 
     override this.ToString() =
       match this with
@@ -862,6 +864,7 @@ module Type =
         let readonly = if readonly then "readonly " else ""
 
         $"{readonly}{name}{optional}: {type_}"
+      | RestSpread t -> $"...{t}"
 
   type Object =
     { Extends: option<list<TypeRef>> // classes can only have one, interfaces can have many
@@ -1117,7 +1120,8 @@ module Type =
           | Getter(name, fn) -> $"get {name} {fn}"
           | Setter(name, fn) -> $"set {name} {fn}"
           | Callable func -> func.ToString()
-          | Constructor func -> $"new {func}")
+          | Constructor func -> $"new {func}"
+          | RestSpread t -> $"...{t}")
         obj.Elems
 
     let elems = String.concat ", " elems

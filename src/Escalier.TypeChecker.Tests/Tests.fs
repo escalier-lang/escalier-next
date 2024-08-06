@@ -315,6 +315,29 @@ let InferObjectRest () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
+[<Fact>]
+let InferObjectRestWithTypeAnnotations () =
+  let result =
+    result {
+      let src =
+        """
+        let obj1 = {a: 5, b: "hello", c: true};
+        let {a, ...rest}: {a: number, b: string, c: boolean} = obj1;
+        """
+
+      let! ctx, env = inferModule src
+
+      let rest, _ = env.Namespace.Values["rest"]
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "rest", "{b: string, c: boolean}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
 
 [<Fact>]
 let InferObjectRestSpread () =
@@ -334,7 +357,8 @@ let InferObjectRestSpread () =
       Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
-      Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
+      // TODO: obj2's type should be {a: 5, b: "hello", c: true}
+      Assert.Value(env, "obj2", "{a: 5, b: \"hello\", c: true}")
     }
 
   printfn "result = %A" result
@@ -1484,7 +1508,7 @@ let InferTypeParamInIntersection () =
     result {
       let src =
         """
-        declare fn foo<T: {}>(props: T & {x: number}) -> T;
+        declare fn foo<T: {...}>(props: T & {x: number, ...}) -> T;
         let bar = foo({x: 5, y: "hello", z: true});
         """
 

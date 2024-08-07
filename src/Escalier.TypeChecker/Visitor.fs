@@ -384,6 +384,7 @@ module rec ExprVisitor =
                  TypeAnn = typeAnn } ->
         walk typeParam.Constraint
         walk typeAnn
+      | Spread { Arg = arg } -> walk arg
 
 module rec TypeVisitor =
   open Escalier.Data.Type

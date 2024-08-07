@@ -111,11 +111,11 @@ module Mutability =
               | Computed expr -> failwith "TODO: handle computed property names"
 
             walkExpr value (name :: path)
-          | Shorthand(span, name) ->
+          | ObjElem.Shorthand(span, name) ->
             match env.GetBinding name with
             | Ok(_, mut) -> result <- Map.add name ((name :: path), mut) result
             | Error _ -> failwith $"{name} isn't in scope"
-          | Spread(span, value) ->
+          | ObjElem.Spread(span, value) ->
             // TODO: What should be the path for the spread expression?
             // It should be multiple paths, one for each property in the object
             // We could use a "wildcard" path element to model this as long as

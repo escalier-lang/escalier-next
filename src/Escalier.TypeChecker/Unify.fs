@@ -1171,15 +1171,25 @@ module rec Unify =
                             Extends = extends
                             Immutable = immutable } ->
 
-          let mutable allElems = elems
+          let found =
+            elems
+            |> List.tryFind (fun elem ->
+              match elem with
+              | Property p when
+                p.Name = PropName.String "aria-activedescendant"
+                ->
+                true
+              | _ -> false)
 
           let rec processExtends
             (extends: option<list<TypeRef>>)
-            : Result<unit, TypeError> =
+            : Result<list<ObjTypeElem>, TypeError> =
 
             result {
               match extends with
               | Some typeRefs ->
+                let mutable allElems = []
+
                 for typeRef in typeRefs do
                   let { Name = typeRefName
                         Scheme = scheme
@@ -1202,13 +1212,16 @@ module rec Unify =
                   match objType.Kind with
                   | TypeKind.Object { Elems = elems; Extends = extends } ->
                     allElems <- allElems @ elems
-
-                    do! processExtends extends
+                    let! moreElems = processExtends extends
+                    allElems <- allElems @ moreElems
                   | _ -> failwith $"expected ${objType} to be an object type"
-              | None -> ()
+
+                return allElems
+              | None -> return []
             }
 
-          do! processExtends extends
+          let! elemsFromExtends = processExtends extends
+          let allElems = elems @ elemsFromExtends
 
           let! elems =
             allElems
@@ -1251,13 +1264,24 @@ module rec Unify =
                             let typeAnn = foldType folder typeAnn
                             let! t = expandType ctx env ips mapping typeAnn
 
+                            let optional =
+                              match m.Optional with
+                              | None -> false // TODO: copy value from typeAnn if it's an index access type
+                              | Some MappedModifier.Add -> true
+                              | Some MappedModifier.Remove -> false
+
+                            let readonly =
+                              match m.Readonly with
+                              | None -> false // TODO: copy value from typeAnn if it's an index access type
+                              | Some MappedModifier.Add -> true
+                              | Some MappedModifier.Remove -> false
+
                             return
                               Property
                                 { Name = PropName.String name
                                   Type = t
-                                  Optional = false // TODO
-                                  Readonly = false // TODO
-                                }
+                                  Optional = optional
+                                  Readonly = readonly }
                           // TODO: handle other valid key types, e.g. number, symbol
                           | _ ->
                             return!
@@ -1293,15 +1317,88 @@ module rec Unify =
                 // printfn $"constraint - c = {c}"
                 // printfn $"mapped type - m = {m}"
                 // failwith "TODO: expand mapped type - constraint type"
+                | RestSpread t ->
+                  let! t = expand mapping t
+
+                  match t.Kind with
+                  | TypeKind.Object { Elems = elems } ->
+                    return
+                      elems
+                      |> List.filter (fun elem ->
+                        match elem with
+                        | Callable _ -> false
+                        | Constructor _ -> false
+                        | _ -> true)
+                  | _ ->
+                    return!
+                      Error(
+                        TypeError.SemanticError "Can't spread non-object type"
+                      )
                 | _ -> return [ elem ]
               })
 
           let elems = List.collect id elems
 
+          let callableElems, namedElems =
+            elems
+            |> List.partition (fun elem ->
+              match elem with
+              | Callable _ -> true
+              | Constructor _ -> true
+              | _ -> false)
+
+          // TODO: build this map while iterating over allElems
+          let mutable namedElemsMap = Map.empty
+
+          for elem in namedElems do
+            match elem with
+            | Property p ->
+              // match Map.tryFind p.Name namedElemsMap with
+              // | Some otherElem -> printfn $"duplicate elems: {p.Name}"
+              // | None -> ()
+              //
+              // namedElemsMap <- Map.add p.Name elem namedElemsMap
+              match Map.tryFind p.Name namedElemsMap with
+              | Some otherElem ->
+                if p.Optional then
+                  let otherType =
+                    match otherElem with
+                    | Property { Type = t } -> Some t
+                    | Method(_, fn) ->
+                      Some
+                        { Kind = TypeKind.Function fn
+                          Provenance = None }
+                    | Getter(_, fn) -> Some fn.Return
+                    | Setter(_, fn) -> None // can't spread what can't be read
+                    | _ -> None
+
+                  match otherType with
+                  | None -> ()
+                  | Some t ->
+                    let newP =
+                      { Name = p.Name
+                        Optional = false // TODO
+                        Readonly = false // TODO
+                        Type = union [ t; p.Type ] }
+
+                    namedElemsMap <-
+                      Map.add p.Name (Property newP) namedElemsMap
+                else
+                  namedElemsMap <- Map.add p.Name elem namedElemsMap
+              | None -> namedElemsMap <- Map.add p.Name elem namedElemsMap
+            | Getter(name, fn) ->
+              namedElemsMap <- Map.add name elem namedElemsMap
+            | Setter(name, fn) -> () // can't spread what can't be read
+            | Method(name, fn) ->
+              namedElemsMap <- Map.add name elem namedElemsMap
+            | _ -> ()
+
+          let elems = callableElems @ (Map.values namedElemsMap |> List.ofSeq)
+
           let t =
             { Kind =
                 TypeKind.Object
-                  { Extends = extends
+                  { Extends = None // because we've expanded the `extends` above
                     Implements = None // TODO
                     Elems = elems
                     Exact = exact
@@ -1319,6 +1416,7 @@ module rec Unify =
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
+
           // Replaces type refs appearing in type args with their definitions
           // from `mapping`.
           let typeArgs =

@@ -463,11 +463,12 @@ let DontIncludeGettersInLvalues () =
       Assert.Empty(ctx.Report.Diagnostics)
     }
 
+  printfn "result = %A" result
   Assert.Equal(
     result,
     Result.Error(
       Compiler.CompileError.TypeError(
-        TypeError.SemanticError "Property foo not found"
+        TypeError.SemanticError "Property bar not found"
       )
     )
   )
@@ -1588,6 +1589,138 @@ let ExpandSchemeDoesNotExpandValuesInObjectTypeWithGenerics () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(t.ToString(), "{p: Point<number>, q: Point<number>}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnn () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {foo: number};
+        type Bar = {bar: string};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{bar: string, foo: number}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithOverlap () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {a: number, b: number};
+        type Bar = {b: string, c: string};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: string, c: string}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithMappedOverlap () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {[P]: number for P in "a" | "b"};
+        type Bar = {[P]: string for P in "b" | "c"};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: string, c: string}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithOptionalOverlap () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {a: number, b: number};
+        type Bar = {b?: string, c: string};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "Bar", "{b?: string, c: string}")
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: number | string, c: string}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithOptionalOverlapMapped () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {[P]: number for P in "a" | "b"};
+        type Bar = {[P]?: string for P in "b" | "c"};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "Bar", "{[P]+?: string for P in \"b\" | \"c\"}")
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: number | string, c?: string}", t.ToString())
     }
 
   printfn "result = %A" result

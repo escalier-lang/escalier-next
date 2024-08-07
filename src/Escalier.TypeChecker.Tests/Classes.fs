@@ -228,7 +228,7 @@ let InferClassWithTypeParams () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
-        "{map fn <U>(self: Self, callback: fn (bar: string) -> U) -> U, bar: string}",
+        "{bar: string, map fn <U>(self: Self, callback: fn (bar: string) -> U) -> U}",
         fooType.ToString()
       )
     }

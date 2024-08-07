@@ -504,6 +504,8 @@ module Syntax =
       Optional: option<Common.MappedModifier>
       Readonly: option<Common.MappedModifier> }
 
+  type Spread = { Arg: TypeAnn }
+
   // TODO: add location information
   type ObjTypeAnnElem =
     | Callable of FuncSig
@@ -513,6 +515,7 @@ module Syntax =
     | Setter of SetterType
     | Property of Property
     | Mapped of Mapped
+    | Spread of Spread
 
   type ObjTypeAnn =
     { Elems: list<ObjTypeAnnElem>

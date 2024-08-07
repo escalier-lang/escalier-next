@@ -1882,6 +1882,11 @@ module rec Infer =
               TypeAnn = typeAnn
               Optional = mapped.Optional
               Readonly = mapped.Readonly }
+
+      | ObjTypeAnnElem.Spread spread ->
+        let! typeAnn = inferTypeAnn ctx env spread.Arg
+
+        return RestSpread typeAnn
     }
 
   let inferTypeAnn

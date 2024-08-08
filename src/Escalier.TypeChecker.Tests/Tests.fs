@@ -1782,6 +1782,35 @@ let InferMappedTupleType () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferMappedArrayType () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo<T> = {
+          [K]: T[K][] for K in keyof T
+        };
+        type Bar = string[];
+        type Baz = Foo<Bar>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "Baz", "Foo<Bar>")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      // TODO: this should be string[][]
+      Assert.Equal("{[K]: string[] for K in number}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferMappedObjectType () =
   let result =
     result {

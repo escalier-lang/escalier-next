@@ -1080,6 +1080,10 @@ module rec Unify =
                   Provenance = None })
 
             return union keys
+          | TypeKind.Array { Elem = elem } ->
+            return
+              { Kind = TypeKind.Primitive Primitive.Number
+                Provenance = None }
           | _ ->
             printfn "t = %A" t
             return! Error(TypeError.NotImplemented $"TODO: expand keyof {t}")
@@ -1090,18 +1094,20 @@ module rec Unify =
           match index.Kind with
           | TypeKind.Keyword Keyword.Never -> return index
           | _ ->
-            let key =
-              match index.Kind with
-              | TypeKind.Literal(Literal.String s) -> PropName.String s
-              | TypeKind.Literal(Literal.Number n) -> PropName.Number n
-              | TypeKind.UniqueSymbol id -> PropName.Symbol id
-              | _ ->
-                printfn $"target = {target}, index = {index}"
-                failwith "TODO: expand index - key type"
-
             // TODO: dedupe this with the getPropType and inferMemberAccess in Infer.fs
             match target.Kind with
             | TypeKind.Object { Elems = elems } ->
+              let key =
+                match index.Kind with
+                | TypeKind.Literal(Literal.String s) -> PropName.String s
+                | TypeKind.Literal(Literal.Number n) -> PropName.Number n
+                | TypeKind.UniqueSymbol id -> PropName.Symbol id
+                | TypeKind.Primitive Primitive.String ->
+                  failwith "TODO: expand string index"
+                | TypeKind.Primitive Primitive.Number ->
+                  failwith "TODO: expand number index"
+                | _ -> failwith $"Invalid index type {index} for Object"
+
               let mutable t = None
 
               for elem in elems do
@@ -1128,10 +1134,19 @@ module rec Unify =
               match index.Kind with
               | TypeKind.Literal(Literal.Number(Number.Int n)) ->
                 if n >= 0 && n < elems.Length then
-                  return! expand mapping elems.[n]
+                  return! expand mapping elems[n]
                 else
                   return!
                     Error(TypeError.SemanticError $"Index {n} out of bounds")
+              | _ ->
+                return!
+                  Error(
+                    TypeError.NotImplemented $"Invalid index for extanding {t}"
+                  )
+            | TypeKind.Array { Elem = elem } ->
+              match index.Kind with
+              | TypeKind.Primitive Primitive.Number ->
+                return! expand mapping elem
               | _ ->
                 return!
                   Error(
@@ -1253,6 +1268,8 @@ module rec Unify =
                   let! c =
                     expandType ctx env ips mapping m.TypeParam.Constraint
 
+                  printfn $"constraint - c = {c}"
+
                   // TODO: Document this because I don't remember why we need to
                   // do this.
                   match c.Kind with
@@ -1325,6 +1342,33 @@ module rec Unify =
                             Optional = false // TODO
                             Readonly = false // TODO
                           } ]
+                  | TypeKind.Primitive Primitive.Number ->
+                    let typeAnn = m.TypeAnn
+
+                    let folder t =
+                      match t.Kind with
+                      | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
+                        name = m.TypeParam.Name
+                        ->
+                        Some(m.TypeParam.Constraint)
+                      | _ -> None
+
+                    let typeAnn = foldType folder typeAnn
+                    let! t = expandType ctx env ips mapping typeAnn
+
+                    let c =
+                      { Kind = TypeKind.Primitive Primitive.Number
+                        Provenance = None }
+
+                    let typeParam =
+                      { Name = m.TypeParam.Name
+                        Constraint = c }
+
+                    return
+                      [ Mapped
+                          { m with
+                              TypeAnn = t
+                              TypeParam = typeParam } ]
                   | _ -> return [ elem ]
                 // printfn $"constraint - c = {c}"
                 // printfn $"mapped type - m = {m}"
@@ -1361,6 +1405,7 @@ module rec Unify =
 
           // TODO: build this map while iterating over allElems
           let mutable namedElemsMap = Map.empty
+          let mutable mappedElems = []
 
           for elem in namedElems do
             match elem with
@@ -1403,9 +1448,10 @@ module rec Unify =
             | Setter(name, fn) -> () // can't spread what can't be read
             | Method(name, fn) ->
               namedElemsMap <- Map.add name elem namedElemsMap
+            | Mapped m -> mappedElems <- elem :: mappedElems
             | _ -> ()
 
-          let elems = callableElems @ (Map.values namedElemsMap |> List.ofSeq)
+          let elems = callableElems @ (Map.values namedElemsMap |> List.ofSeq) @ mappedElems
 
           let t =
             { Kind =

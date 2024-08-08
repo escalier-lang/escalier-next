@@ -1072,6 +1072,14 @@ module rec Unify =
                     Provenance = None })
 
             return union keys
+          | TypeKind.Tuple { Elems = elems } ->
+            let keys =
+              elems
+              |> List.mapi (fun i _ ->
+                { Kind = TypeKind.Literal(Literal.Number(Number.Int i))
+                  Provenance = None })
+
+            return union keys
           | _ ->
             printfn "t = %A" t
             return! Error(TypeError.NotImplemented $"TODO: expand keyof {t}")
@@ -1116,6 +1124,19 @@ module rec Unify =
 
                 return!
                   Error(TypeError.SemanticError $"Property {key} not found")
+            | TypeKind.Tuple { Elems = elems } ->
+              match index.Kind with
+              | TypeKind.Literal(Literal.Number(Number.Int n)) ->
+                if n >= 0 && n < elems.Length then
+                  return! expand mapping elems.[n]
+                else
+                  return!
+                    Error(TypeError.SemanticError $"Index {n} out of bounds")
+              | _ ->
+                return!
+                  Error(
+                    TypeError.NotImplemented $"Invalid index for extanding {t}"
+                  )
             | _ ->
               // TODO: Handle the case where the type is a primitive and use a
               // special function to expand the type
@@ -1240,55 +1261,46 @@ module rec Unify =
                       types
                       |> List.traverseResultM (fun keyType ->
                         result {
-                          // let key =
-                          //   match keyType.Kind with
-                          //   | TypeKind.Literal(Literal.String s) ->
-                          //     PropKey.String s
-                          //   | TypeKind.Literal(Literal.Number n) ->
-                          //     PropKey.Number n
-                          //   | TypeKind.UniqueSymbol id -> PropKey.Symbol id
-                          //   | _ -> failwith "TODO: expand mapped type - key type"
+                          let propName =
+                            match keyType.Kind with
+                            | TypeKind.Literal(Literal.String name) ->
+                              PropName.String name
+                            | TypeKind.Literal(Literal.Number name) ->
+                              PropName.Number name
+                            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+                            | _ -> failwith $"Invalid key type {keyType}"
 
-                          match keyType.Kind with
-                          | TypeKind.Literal(Literal.String name) ->
-                            let typeAnn = m.TypeAnn
+                          let typeAnn = m.TypeAnn
 
-                            let folder t =
-                              match t.Kind with
-                              | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
-                                name = m.TypeParam.Name
-                                ->
-                                Some(keyType)
-                              | _ -> None
+                          let folder t =
+                            match t.Kind with
+                            | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
+                              name = m.TypeParam.Name
+                              ->
+                              Some(keyType)
+                            | _ -> None
 
-                            let typeAnn = foldType folder typeAnn
-                            let! t = expandType ctx env ips mapping typeAnn
+                          let typeAnn = foldType folder typeAnn
+                          let! t = expandType ctx env ips mapping typeAnn
 
-                            let optional =
-                              match m.Optional with
-                              | None -> false // TODO: copy value from typeAnn if it's an index access type
-                              | Some MappedModifier.Add -> true
-                              | Some MappedModifier.Remove -> false
+                          let optional =
+                            match m.Optional with
+                            | None -> false // TODO: copy value from typeAnn if it's an index access type
+                            | Some MappedModifier.Add -> true
+                            | Some MappedModifier.Remove -> false
 
-                            let readonly =
-                              match m.Readonly with
-                              | None -> false // TODO: copy value from typeAnn if it's an index access type
-                              | Some MappedModifier.Add -> true
-                              | Some MappedModifier.Remove -> false
+                          let readonly =
+                            match m.Readonly with
+                            | None -> false // TODO: copy value from typeAnn if it's an index access type
+                            | Some MappedModifier.Add -> true
+                            | Some MappedModifier.Remove -> false
 
-                            return
-                              Property
-                                { Name = PropName.String name
-                                  Type = t
-                                  Optional = optional
-                                  Readonly = readonly }
-                          // TODO: handle other valid key types, e.g. number, symbol
-                          | _ ->
-                            return!
-                              Error(
-                                TypeError.NotImplemented
-                                  "TODO: expand mapped type - key type"
-                              )
+                          return
+                            Property
+                              { Name = propName
+                                Type = t
+                                Optional = optional
+                                Readonly = readonly }
                         })
 
                     return elems
@@ -1487,6 +1499,18 @@ module rec Unify =
                       Immutable = false
                       Interface = false }
                 Provenance = None }
+        | TypeKind.Array { Elem = elem; Length = length } ->
+          let! elem = expandType ctx env ips mapping elem
+
+          return
+            { Kind = TypeKind.Array { Elem = elem; Length = length }
+              Provenance = None }
+        | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
+          let! elems = elems |> List.traverseResultM (expand mapping)
+
+          return
+            { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+              Provenance = None }
         | _ ->
           // Replaces type parameters with their corresponding type arguments
           // TODO: do this more consistently

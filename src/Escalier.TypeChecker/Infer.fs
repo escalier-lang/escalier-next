@@ -309,6 +309,7 @@ module rec Infer =
               { Extends = None // QUESTION: Do we need this for the placeholder?
                 Implements = None // TODO
                 Elems = instanceElems
+                Exact = false
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -337,6 +338,7 @@ module rec Infer =
               { Extends = None
                 Implements = None
                 Elems = staticElems
+                Exact = true
                 Immutable = false
                 Interface = false }
           Provenance = None }
@@ -516,6 +518,7 @@ module rec Infer =
                   { Extends = extends
                     Implements = None // TODO
                     Elems = instanceElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -541,6 +544,7 @@ module rec Infer =
           { Extends = None
             Implements = None
             Elems = staticElems
+            Exact = true
             Immutable = false
             Interface = false }
 
@@ -768,8 +772,6 @@ module rec Infer =
               { Kind = TypeKind.Literal(Literal.Undefined)
                 Provenance = None }
         | ExprKind.Object { Elems = elems; Immutable = immutable } ->
-          let mutable spreadTypes = []
-
           let! map =
             result {
               match typeAnn with
@@ -806,32 +808,31 @@ module rec Infer =
                     let! t = inferExpr ctx env typeAnn value
 
                     return
-                      Some(
-                        Property
+                      [ Property
                           { Name = name
                             Optional = false
                             Readonly = false
-                            Type = t }
-                      )
+                            Type = t } ]
                   | ObjElem.Shorthand(_span, key) ->
                     let! value = env.GetValue key
 
                     return
-                      Some(
-                        Property
+                      [ Property
                           { Name = PropName.String key
                             Optional = false
                             Readonly = false
-                            Type = value }
-                      )
+                            Type = value } ]
                   | ObjElem.Spread(_span, value) ->
                     let! t = inferExpr ctx env None value
-                    spreadTypes <- t :: spreadTypes
-                    return None
+
+                    match (prune t).Kind with
+                    | TypeKind.Object { Elems = elems; Exact = exact } ->
+                      return elems
+                    | _ -> return [ RestSpread t ]
                 })
               elems
 
-          let elems = elems |> List.choose id
+          let elems = elems |> List.concat
 
           let objType =
             { Kind =
@@ -839,16 +840,12 @@ module rec Infer =
                   { Extends = None
                     Implements = None
                     Elems = elems
+                    Exact = true
                     Immutable = immutable
                     Interface = false }
               Provenance = None }
 
-          match spreadTypes with
-          | [] -> return objType
-          | _ ->
-            return
-              { Kind = TypeKind.Intersection([ objType ] @ spreadTypes)
-                Provenance = None }
+          return objType
         | ExprKind.Class cls ->
           let! t, _ = inferClass ctx env cls false
           return t
@@ -864,7 +861,7 @@ module rec Infer =
           match t.Kind with
           | TypeKind.Function({ Self = Some(self) } as fn) ->
             match self.Pattern with
-            | Identifier identPat ->
+            | Pattern.Identifier identPat ->
               let! isObjMut = getIsMut ctx env obj
 
               if identPat.IsMut && not isObjMut then
@@ -1306,7 +1303,13 @@ module rec Infer =
                 inferPattern ctx newEnv param.Pattern
 
               // TODO: figure out how to handle unifying `...rest` and `infer _`
-              // do! unify ctx newEnv None patternType paramType
+              // match patternType.Kind, paramType.Kind with
+              // | TypeKind.RestSpread _, _ -> ()
+              // | _, _ ->
+              //   // Checks if paramType is assignable to the patternType.
+              //   // It's okay paramType has extra properties.  Also, all bindings
+              //   // in patternType are type variables.
+              //   do! unify ctx newEnv None patternType paramType
 
               return
                 { Pattern = patternToPattern param.Pattern
@@ -1372,7 +1375,7 @@ module rec Infer =
       match self with
       | Some { Pattern = pattern; Type = t } ->
         match pattern with
-        | Identifier identPat ->
+        | Pattern.Identifier identPat ->
           newEnv <- newEnv.AddValue identPat.Name (t, identPat.IsMut)
         | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
       | _ -> ()
@@ -1703,6 +1706,7 @@ module rec Infer =
       | Getter(_, fn) -> Some fn.Return // TODO: handle throws
       | Setter(_, fn) -> Some fn.ParamList[0].Type // TODO: handle throws
       | Mapped _mapped -> failwith "TODO: inferMemberAccess - mapped"
+      | RestSpread _ -> failwith "TODO: inferMemberAccess - rest"
       | Callable _ -> failwith "Callable signatures don't have a name"
       | Constructor _ -> failwith "Constructor signatures don't have a name"
     | None -> None
@@ -1878,6 +1882,11 @@ module rec Infer =
               TypeAnn = typeAnn
               Optional = mapped.Optional
               Readonly = mapped.Readonly }
+
+      | ObjTypeAnnElem.Spread spread ->
+        let! typeAnn = inferTypeAnn ctx env spread.Arg
+
+        return RestSpread typeAnn
     }
 
   let inferTypeAnn
@@ -1921,7 +1930,9 @@ module rec Infer =
                 TypeError.NotImplemented
                   $"TODO: unhandled keyword type - {keyword}"
               )
-        | TypeAnnKind.Object { Elems = elems; Immutable = immutable } ->
+        | TypeAnnKind.Object { Elems = elems
+                               Immutable = immutable
+                               Exact = exact } ->
           let mutable newEnv = env
 
           match newEnv.Namespace.Schemes.TryFind "Self" with
@@ -1940,6 +1951,7 @@ module rec Infer =
               { Extends = None
                 Implements = None
                 Elems = elems
+                Exact = exact
                 Immutable = immutable
                 Interface = false }
         | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
@@ -1958,7 +1970,7 @@ module rec Infer =
         | TypeAnnKind.Keyof target ->
           return! inferTypeAnn ctx env target |> Result.map TypeKind.KeyOf
         | TypeAnnKind.Rest target ->
-          return! inferTypeAnn ctx env target |> Result.map TypeKind.Rest
+          return! inferTypeAnn ctx env target |> Result.map TypeKind.RestSpread
         | TypeAnnKind.Typeof target ->
           let! t = getQualifiedIdentType ctx env target
           return t.Kind
@@ -2058,8 +2070,6 @@ module rec Infer =
         { Kind = TypeKind.Literal lit
           Provenance = None }
       | PatternKind.Object { Elems = elems; Immutable = immutable } ->
-        let mutable restType: option<Type> = None
-
         let elems: list<ObjTypeElem> =
           List.choose
             (fun (elem: Syntax.ObjPatElem) ->
@@ -2107,13 +2117,7 @@ module rec Infer =
                 )
 
               | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
-                restType <-
-                  Some(
-                    { Kind = infer_pattern_rec target |> TypeKind.Rest
-                      Provenance = None }
-                  )
-
-                None)
+                Some(ObjTypeElem.RestSpread(infer_pattern_rec target)))
             elems
 
         let objType =
@@ -2122,15 +2126,12 @@ module rec Infer =
                 { Extends = None
                   Implements = None
                   Elems = elems
+                  Exact = true // TODO: This should depend what the pattern is matching/destructuring
                   Immutable = immutable
                   Interface = false }
             Provenance = None }
 
-        match restType with
-        | Some(restType) ->
-          { Kind = TypeKind.Intersection([ objType; restType ])
-            Provenance = None }
-        | None -> objType
+        objType
       | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
         let elems = List.map infer_pattern_rec elems
 
@@ -2155,6 +2156,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None
                     Elems = elems
+                    Exact = true // TODO: This should depend what the pattern is matching/destructuring
                     Immutable = true
                     Interface = false }
               Provenance = None }
@@ -2209,7 +2211,7 @@ module rec Infer =
           { Kind = TypeKind.Wildcard
             Provenance = None }
       | PatternKind.Rest pat ->
-        { Kind = TypeKind.Rest(infer_pattern_rec pat)
+        { Kind = TypeKind.RestSpread(infer_pattern_rec pat)
           Provenance = None }
 
     // | PatternKind.Is(span, binding, isName, isMut) ->
@@ -2302,9 +2304,7 @@ module rec Infer =
       if newExprTypes.IsEmpty then
         return patternTypes, bodyTypes
       else
-        // TODO: simplify the union before unifying with `exprType`
         let t = union newExprTypes
-        let t = simplifyUnion t
         do! unify ctx env None t exprType
         return newExprTypes, bodyTypes
     }
@@ -2768,7 +2768,7 @@ module rec Infer =
         callee.ParamList
         |> List.partition (fun p ->
           match p.Pattern with
-          | Rest _ -> true
+          | Pattern.Rest _ -> true
           | _ -> p.Optional)
 
       if args.Length < requiredParams.Length then
@@ -2815,7 +2815,7 @@ module rec Infer =
         optionalParams
         |> List.partition (fun p ->
           match p.Pattern with
-          | Rest _ -> false
+          | Pattern.Rest _ -> false
           | _ -> true)
 
       let! restParam =
@@ -3049,6 +3049,7 @@ module rec Infer =
             { Extends = None
               Implements = None
               Elems = List.rev elemTypes
+              Exact = true
               Immutable = false
               Interface = false }
 
@@ -3494,6 +3495,7 @@ module rec Infer =
                 { Kind =
                     TypeKind.Object
                       { Elems = elems
+                        Exact = true
                         Immutable = false
                         Extends = None
                         Implements = None
@@ -3520,6 +3522,7 @@ module rec Infer =
               { Kind =
                   TypeKind.Object
                     { Elems = variantTags
+                      Exact = true
                       Immutable = false
                       Extends = None
                       Implements = None
@@ -3650,6 +3653,7 @@ module rec Infer =
                     { Extends = extends
                       Implements = None // TODO
                       Elems = elems
+                      Exact = false
                       Immutable = false
                       Interface = true }
 
@@ -3670,6 +3674,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None // TODO
                     Elems = mergedElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
 

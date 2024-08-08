@@ -347,7 +347,10 @@ module Parser =
         Param = param
         Throws = throws }
 
-  // TODO: add support for methods, getters, and setters
+  let private spreadTypeAnn =
+    withSpan (strWs "..." >>. typeAnn)
+    |>> fun (typeAnn, span) -> { Arg = typeAnn }
+
   let private objTypeAnnElem =
     choice
       [ attempt callableSignature
@@ -356,7 +359,10 @@ module Parser =
         attempt mappedTypeAnn
         attempt (getterType |>> ObjTypeAnnElem.Getter)
         attempt (setterType |>> ObjTypeAnnElem.Setter)
-        attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property) ]
+        attempt (propertyTypeAnn |>> ObjTypeAnnElem.Property)
+        // TODO: add support for methods
+        // attempt (methodTypeAnn |>> ObjTypeAnnElem.Method)
+        attempt (spreadTypeAnn |>> ObjTypeAnnElem.Spread) ]
 
   let private objectTypeAnn =
     withSpan (

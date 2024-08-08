@@ -369,6 +369,7 @@ let findDepsForTypeIdent
             | ObjTypeAnnElem.Property _ -> []
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
               [ QualifiedIdent.FromString typeParam.Name ]
+            | ObjTypeAnnElem.Spread _ -> []
 
           (true, typeParams @ newTypeParams) }
 
@@ -1219,7 +1220,19 @@ let getEdges
                   localsTree
                   typeParamNames
                   ident
-                  (SyntaxNode.TypeAnn typeAnn)))
+                  (SyntaxNode.TypeAnn typeAnn))
+
+            | ObjTypeAnnElem.Spread { Arg = typeAnn } ->
+              let typeAnnDeps =
+                findDepsForTypeIdent
+                  env
+                  possibleDeps
+                  localsTree
+                  typeParamNames
+                  ident
+                  (SyntaxNode.TypeAnn typeAnn)
+
+              typeAnnDeps)
           |> Set.unionMany
 
         match typeParams with

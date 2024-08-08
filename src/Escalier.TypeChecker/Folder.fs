@@ -31,6 +31,7 @@ module Folder =
             { mapped with
                 TypeAnn = fold mapped.TypeAnn
                 NameType = Option.map fold mapped.NameType }
+        | RestSpread t -> RestSpread(fold t)
 
       let foldTypeRef (typeRef: TypeRef) : TypeRef =
         let { Name = name
@@ -79,6 +80,7 @@ module Folder =
         | TypeKind.Object { Extends = extends
                             Implements = impls
                             Elems = elems
+                            Exact = exact
                             Immutable = immutable
                             Interface = int } ->
           let elems = List.map foldObjElem elems
@@ -91,11 +93,12 @@ module Folder =
                 { Extends = extends
                   Implements = impls
                   Elems = elems
+                  Exact = exact
                   Immutable = immutable
                   Interface = int }
             Provenance = None }
-        | TypeKind.Rest t ->
-          { Kind = TypeKind.Rest(fold t)
+        | TypeKind.RestSpread t ->
+          { Kind = TypeKind.RestSpread(fold t)
             Provenance = None }
         | TypeKind.Union types ->
           { Kind = TypeKind.Union(List.map fold types)

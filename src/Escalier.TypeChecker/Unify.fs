@@ -59,7 +59,7 @@ module rec Unify =
           List.partition
             (fun (elem: Type) ->
               match elem.Kind with
-              | TypeKind.Rest _ -> false
+              | TypeKind.RestSpread _ -> false
               | _ -> true)
             tuple2.Elems
 
@@ -75,7 +75,7 @@ module rec Unify =
 
             let newIps = tryFindPathTails (i.ToString()) ips
             do! unify ctx env newIps elem1 elem2
-        | [ { Kind = TypeKind.Rest t } ] ->
+        | [ { Kind = TypeKind.RestSpread t } ] ->
           // TODO: verify that the rest element comes last in the tuple
 
           let elems1, restElems1 = List.splitAt elemTypes.Length tuple1.Elems
@@ -113,7 +113,7 @@ module rec Unify =
           List.partition
             (fun (elem: Type) ->
               match elem.Kind with
-              | TypeKind.Rest _ -> false
+              | TypeKind.RestSpread _ -> false
               | _ -> true)
             tuple.Elems
 
@@ -125,7 +125,7 @@ module rec Unify =
           List.map
             (fun (t: Type) ->
               match t.Kind with
-              | TypeKind.Rest t -> t
+              | TypeKind.RestSpread t -> t
               | _ -> t)
             spreadTypes
 
@@ -136,7 +136,7 @@ module rec Unify =
           List.partition
             (fun (elem: Type) ->
               match elem.Kind with
-              | TypeKind.Rest _ -> false
+              | TypeKind.RestSpread _ -> false
               | _ -> true)
             tuple.Elems
 
@@ -151,7 +151,7 @@ module rec Unify =
           for i in 0 .. elemTypes.Length - 1 do
             let newIps = tryFindPathTails (i.ToString()) ips
             do! unify ctx env newIps arrayElem elemTypes[i]
-        | [ { Kind = TypeKind.Rest t } ] ->
+        | [ { Kind = TypeKind.RestSpread t } ] ->
           let arrayElem = union [ array.Elem; undefined ]
 
           for i in 0 .. elemTypes.Length - 1 do
@@ -163,7 +163,7 @@ module rec Unify =
           // Multiple rest elements in undeciable
           // TODO: create an Undecable error type
           return! Error(TypeError.SemanticError("Too many rest elements!"))
-      | TypeKind.Rest rest, TypeKind.Array array ->
+      | TypeKind.RestSpread rest, TypeKind.Array array ->
         do! unify ctx env ips rest t2
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
@@ -336,33 +336,30 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        // TODO: rework how we check if an object is a subtype of another object
-        // setters should have reversed variance
-        // For now we're use `RValue` since we don't have many test cases
-        // involving setters
-        let namedProps1 = getNamedProps ValueCategory.RValue obj1.Elems
-        let namedProps2 = getNamedProps ValueCategory.RValue obj2.Elems
-        do! unifyObjProps ctx env ips namedProps1 namedProps2
+        do! unifyObjProps ctx env ips obj1 obj2
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
-        let mutable restTypes = []
+        let mutable spreadTypes = []
+        let mutable hasExactObjects = false
 
         // TODO: dedupe with TypeKind.Intersection, TypeKind.Object case
         for t in types do
           match t.Kind with
-          | TypeKind.Object { Elems = elems } ->
+          | TypeKind.Object { Elems = elems; Exact = exact } ->
             combinedElems <- combinedElems @ elems
-          | TypeKind.Rest t -> restTypes <- t :: restTypes
+            hasExactObjects <- hasExactObjects || exact
+          | TypeKind.RestSpread t -> spreadTypes <- t :: spreadTypes
           | TypeKind.TypeVar { Bound = Some bound } ->
-            restTypes <- t :: restTypes
+            spreadTypes <- t :: spreadTypes
           | TypeKind.TypeRef _ ->
             let! t = expandType ctx env ips Map.empty t
 
             match t.Kind with
-            | TypeKind.Object { Elems = elems } ->
+            | TypeKind.Object { Elems = elems; Exact = exact } ->
               combinedElems <- combinedElems @ elems
-            | TypeKind.Rest t -> restTypes <- t :: restTypes
+              hasExactObjects <- hasExactObjects || exact
+            | TypeKind.RestSpread t -> spreadTypes <- t :: spreadTypes
             | _ ->
               printfn $"t is not an object types - {t}"
               return! Error(TypeError.TypeMismatch(t1, t2))
@@ -370,20 +367,31 @@ module rec Unify =
             printfn $"t is not an object types - {t}"
             return! Error(TypeError.TypeMismatch(t1, t2))
 
-        let objType =
-          { Kind =
-              TypeKind.Object
-                { Extends = None
-                  Implements = None
-                  Elems = combinedElems
-                  // TODO: figure out what do do with `Immutable`
-                  Immutable = false
-                  Interface = false }
-            Provenance = None }
+        // TODO: Figure out how to check if the types wrapped by RestSpread are
+        // exact or not
 
-        match restTypes with
+        let objType =
+          if hasExactObjects then
+            // Intersections with exact objects can't be satisfied unless all of
+            // the types are exact and have the same properties.
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+          else
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = combinedElems
+                    Exact = false
+                    Immutable = false // TODO: figure out what do do with `Immutable`
+                    Interface = false }
+              Provenance = None }
+
+        match spreadTypes with
         | [] -> do! unify ctx env ips t1 objType
-        | [ restType ] ->
+        | [ spreadType ] ->
+          // objElems contains all the properties that exist in the t1 object
+          // type and also in properties that are in one of the intersection types.
           let objElems, restElems =
             List.partition
               (fun (ae: ObjTypeElem) ->
@@ -396,13 +404,13 @@ module rec Unify =
               obj.Elems
 
           let newObjType =
-            // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
                   { Extends = None
                     Implements = None
                     Elems = objElems
-                    Immutable = false
+                    Exact = false
+                    Immutable = false // TODO: figure out what do do with `Immutable`
                     Interface = false }
               Provenance = None }
 
@@ -415,45 +423,56 @@ module rec Unify =
                   { Extends = None
                     Implements = None
                     Elems = restElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
               Provenance = None }
 
-          do! unify ctx env ips newRestType restType
+          do! unify ctx env ips newRestType spreadType
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | TypeKind.Intersection types, TypeKind.Object obj ->
         let mutable combinedElems = []
         let mutable restTypes = []
+        let mutable hasExactObjects = false
 
         // TODO: dedupe with TypeKind.Object, TypeKind.Intersection case
         for t in types do
           match t.Kind with
-          | TypeKind.Object { Elems = elems } ->
+          | TypeKind.Object { Elems = elems; Exact = exact } ->
             combinedElems <- combinedElems @ elems
-          | TypeKind.Rest t -> restTypes <- t :: restTypes
+            hasExactObjects <- hasExactObjects || exact
+          | TypeKind.RestSpread t -> restTypes <- t :: restTypes
           | TypeKind.TypeVar { Bound = Some bound } ->
             restTypes <- t :: restTypes
           | TypeKind.TypeRef { Name = name } ->
             let! t = expandType ctx env ips Map.empty t
 
             match t.Kind with
-            | TypeKind.Object { Elems = elems } ->
+            | TypeKind.Object { Elems = elems; Exact = exact } ->
               combinedElems <- combinedElems @ elems
-            | TypeKind.Rest t -> restTypes <- t :: restTypes
+              hasExactObjects <- hasExactObjects || exact
+            | TypeKind.RestSpread t -> restTypes <- t :: restTypes
             | _ -> failwith $"TODO: handle type {t} in intersection"
           | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
+        // TODO: Figure out how to check if the types wrapped by RestSpread are
+        // exact or not
+
         let objType =
-          { Kind =
-              TypeKind.Object
-                { Extends = None
-                  Implements = None
-                  Elems = combinedElems
-                  // TODO: figure out what do do with `Immutable`
-                  Immutable = false
-                  Interface = false }
-            Provenance = None }
+          if hasExactObjects then
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
+          else
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = combinedElems
+                    Exact = false
+                    Immutable = false // TODO: figure out what do do with `Immutable`
+                    Interface = false }
+              Provenance = None }
 
         match restTypes with
         | [] -> do! unify ctx env ips objType t2
@@ -476,6 +495,7 @@ module rec Unify =
                   { Extends = None
                     Implements = None
                     Elems = objElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -489,6 +509,7 @@ module rec Unify =
                   { Extends = None
                     Implements = None
                     Elems = restElems
+                    Exact = false
                     Immutable = false
                     Interface = false }
               Provenance = None }
@@ -614,15 +635,35 @@ module rec Unify =
     (ctx: Ctx)
     (env: Env)
     (ips: option<list<list<string>>>)
-    (namedProps1: Map<PropName, Property>)
-    (namedProps2: Map<PropName, Property>)
+    (obj1: Object)
+    (obj2: Object)
     : Result<unit, TypeError> =
     result {
+      // TODO: rework how we check if an object is a subtype of another object
+      // setters should have reversed variance
+      // For now we're use `RValue` since we don't have many test cases
+      // involving setters
+      let namedProps1 = getNamedProps ValueCategory.RValue obj1.Elems
+      let namedProps2 = getNamedProps ValueCategory.RValue obj2.Elems
+
+      let mutable rest: option<Type> = None
+      let mutable spread: option<Type> = None
+
       let undefined =
         { Kind = TypeKind.Literal(Literal.Undefined)
           Provenance = None }
 
       if env.IsPatternMatching then
+        for elem in obj2.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> rest <- Some(t)
+          | _ -> ()
+
+        for elem in obj1.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> spread <- Some(t)
+          | _ -> ()
+
         // Allow partial unification of object types when pattern matching
         for KeyValue(name, prop1) in namedProps1 do
           match namedProps2.TryFind name with
@@ -643,7 +684,46 @@ module rec Unify =
             // TODO: double check that this is correct
             if not prop1.Optional then
               return! Error(TypeError.PropertyMissing(name))
+
+        let mutable spreadProps = []
+
+        for KeyValue(name, prop2) in namedProps2 do
+          match namedProps1.TryFind name with
+          | Some _ -> ()
+          | None ->
+            spreadProps <- (prop2 |> ObjTypeElem.Property) :: spreadProps
+
+        match spread with
+        | Some t ->
+          let spreadObj =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = List.rev spreadProps
+                    Exact = false // TODO
+                    Immutable = false // TODO
+                    Interface = false }
+              Provenance = None }
+
+          do! unify ctx env ips spreadObj t
+        | None -> ()
       else
+        for elem in obj2.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> rest <- Some(t)
+          | _ -> ()
+
+        for elem in obj1.Elems do
+          match elem with
+          | ObjTypeElem.RestSpread t -> spread <- Some(t)
+          | _ -> ()
+
+        // TODO: collect all prop2's that don't have a matcher in namedProps1
+        // and stuff them into the rest element type if there is one
+
+        let mutable spreadProps = []
+
         for KeyValue(name, prop2) in namedProps2 do
           match namedProps1.TryFind name with
           | Some(prop1) ->
@@ -660,8 +740,49 @@ module rec Unify =
             let newIps = tryFindPathTails (name.ToString()) ips
             do! unify ctx env newIps p1Type p2Type
           | None ->
-            if not prop2.Optional then
+            if spread.IsSome then
+              spreadProps <- (prop2 |> ObjTypeElem.Property) :: spreadProps
+            else if not prop2.Optional then
               return! Error(TypeError.PropertyMissing(name))
+
+        let mutable restProps = []
+
+        for KeyValue(name, prop1) in namedProps1 do
+          match namedProps2.TryFind name with
+          | Some _ -> ()
+          | None -> restProps <- (prop1 |> ObjTypeElem.Property) :: restProps
+
+        match rest with
+        | Some t ->
+          let restObj =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = List.rev restProps
+                    Exact = false // TODO
+                    Immutable = false // TODO
+                    Interface = false }
+              Provenance = None }
+
+          do! unify ctx env ips t restObj
+        | None -> ()
+
+        match spread with
+        | Some t ->
+          let spreadObj =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None
+                    Implements = None
+                    Elems = List.rev spreadProps
+                    Exact = false // TODO
+                    Immutable = false // TODO
+                    Interface = false }
+              Provenance = None }
+
+          do! unify ctx env ips spreadObj t
+        | None -> ()
     }
 
   // TODO: don't allow `mut` on variables whose type is a literal or primitive
@@ -1046,18 +1167,29 @@ module rec Unify =
         // look up properties on the object type without expanding it
         // since expansion can be quite expensive
         | TypeKind.Object { Elems = elems
+                            Exact = exact
                             Extends = extends
                             Immutable = immutable } ->
 
-          let mutable allElems = elems
+          let found =
+            elems
+            |> List.tryFind (fun elem ->
+              match elem with
+              | Property p when
+                p.Name = PropName.String "aria-activedescendant"
+                ->
+                true
+              | _ -> false)
 
           let rec processExtends
             (extends: option<list<TypeRef>>)
-            : Result<unit, TypeError> =
+            : Result<list<ObjTypeElem>, TypeError> =
 
             result {
               match extends with
               | Some typeRefs ->
+                let mutable allElems = []
+
                 for typeRef in typeRefs do
                   let { Name = typeRefName
                         Scheme = scheme
@@ -1080,13 +1212,16 @@ module rec Unify =
                   match objType.Kind with
                   | TypeKind.Object { Elems = elems; Extends = extends } ->
                     allElems <- allElems @ elems
-
-                    do! processExtends extends
+                    let! moreElems = processExtends extends
+                    allElems <- allElems @ moreElems
                   | _ -> failwith $"expected ${objType} to be an object type"
-              | None -> ()
+
+                return allElems
+              | None -> return []
             }
 
-          do! processExtends extends
+          let! elemsFromExtends = processExtends extends
+          let allElems = elems @ elemsFromExtends
 
           let! elems =
             allElems
@@ -1129,13 +1264,24 @@ module rec Unify =
                             let typeAnn = foldType folder typeAnn
                             let! t = expandType ctx env ips mapping typeAnn
 
+                            let optional =
+                              match m.Optional with
+                              | None -> false // TODO: copy value from typeAnn if it's an index access type
+                              | Some MappedModifier.Add -> true
+                              | Some MappedModifier.Remove -> false
+
+                            let readonly =
+                              match m.Readonly with
+                              | None -> false // TODO: copy value from typeAnn if it's an index access type
+                              | Some MappedModifier.Add -> true
+                              | Some MappedModifier.Remove -> false
+
                             return
                               Property
                                 { Name = PropName.String name
                                   Type = t
-                                  Optional = false // TODO
-                                  Readonly = false // TODO
-                                }
+                                  Optional = optional
+                                  Readonly = readonly }
                           // TODO: handle other valid key types, e.g. number, symbol
                           | _ ->
                             return!
@@ -1171,17 +1317,91 @@ module rec Unify =
                 // printfn $"constraint - c = {c}"
                 // printfn $"mapped type - m = {m}"
                 // failwith "TODO: expand mapped type - constraint type"
+                | RestSpread t ->
+                  let! t = expand mapping t
+
+                  match t.Kind with
+                  | TypeKind.Object { Elems = elems } ->
+                    return
+                      elems
+                      |> List.filter (fun elem ->
+                        match elem with
+                        | Callable _ -> false
+                        | Constructor _ -> false
+                        | _ -> true)
+                  | _ ->
+                    return!
+                      Error(
+                        TypeError.SemanticError "Can't spread non-object type"
+                      )
                 | _ -> return [ elem ]
               })
 
           let elems = List.collect id elems
 
+          let callableElems, namedElems =
+            elems
+            |> List.partition (fun elem ->
+              match elem with
+              | Callable _ -> true
+              | Constructor _ -> true
+              | _ -> false)
+
+          // TODO: build this map while iterating over allElems
+          let mutable namedElemsMap = Map.empty
+
+          for elem in namedElems do
+            match elem with
+            | Property p ->
+              // match Map.tryFind p.Name namedElemsMap with
+              // | Some otherElem -> printfn $"duplicate elems: {p.Name}"
+              // | None -> ()
+              //
+              // namedElemsMap <- Map.add p.Name elem namedElemsMap
+              match Map.tryFind p.Name namedElemsMap with
+              | Some otherElem ->
+                if p.Optional then
+                  let otherType =
+                    match otherElem with
+                    | Property { Type = t } -> Some t
+                    | Method(_, fn) ->
+                      Some
+                        { Kind = TypeKind.Function fn
+                          Provenance = None }
+                    | Getter(_, fn) -> Some fn.Return
+                    | Setter(_, fn) -> None // can't spread what can't be read
+                    | _ -> None
+
+                  match otherType with
+                  | None -> ()
+                  | Some t ->
+                    let newP =
+                      { Name = p.Name
+                        Optional = false // TODO
+                        Readonly = false // TODO
+                        Type = union [ t; p.Type ] }
+
+                    namedElemsMap <-
+                      Map.add p.Name (Property newP) namedElemsMap
+                else
+                  namedElemsMap <- Map.add p.Name elem namedElemsMap
+              | None -> namedElemsMap <- Map.add p.Name elem namedElemsMap
+            | Getter(name, fn) ->
+              namedElemsMap <- Map.add name elem namedElemsMap
+            | Setter(name, fn) -> () // can't spread what can't be read
+            | Method(name, fn) ->
+              namedElemsMap <- Map.add name elem namedElemsMap
+            | _ -> ()
+
+          let elems = callableElems @ (Map.values namedElemsMap |> List.ofSeq)
+
           let t =
             { Kind =
                 TypeKind.Object
-                  { Extends = extends
+                  { Extends = None // because we've expanded the `extends` above
                     Implements = None // TODO
                     Elems = elems
+                    Exact = exact
                     Immutable = immutable
                     Interface = false }
               Provenance = None // TODO: set provenance
@@ -1196,6 +1416,7 @@ module rec Unify =
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
+
           // Replaces type refs appearing in type args with their definitions
           // from `mapping`.
           let typeArgs =
@@ -1237,16 +1458,23 @@ module rec Unify =
           let! types = types |> List.traverseResultM (expand mapping)
           let mutable allElems = []
           let mutable containsNonObjectType = false
+          let mutable hasExactObjects = false
 
           for t in types do
             match (prune t).Kind with
-            | TypeKind.Object { Elems = elems } -> allElems <- allElems @ elems
+            | TypeKind.Object { Elems = elems; Exact = exact } ->
+              allElems <- allElems @ elems
+              hasExactObjects <- hasExactObjects || exact
             | _ -> containsNonObjectType <- true
 
           if containsNonObjectType then
             // Needed for test case: InferTypeParamInIntersection
             return
               { Kind = TypeKind.Intersection types
+                Provenance = None }
+          else if hasExactObjects then
+            return
+              { Kind = TypeKind.Keyword Keyword.Never
                 Provenance = None }
           else
             return
@@ -1255,6 +1483,7 @@ module rec Unify =
                     { Extends = None
                       Implements = None
                       Elems = allElems
+                      Exact = false
                       Immutable = false
                       Interface = false }
                 Provenance = None }

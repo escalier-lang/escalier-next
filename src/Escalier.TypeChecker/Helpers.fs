@@ -307,72 +307,6 @@ let fresh (ctx: Ctx) (t: Type) : Type =
 
   Folder.foldType folder t
 
-let simplifyUnion (t: Type) : Type =
-  match (prune t).Kind with
-  | TypeKind.Union types ->
-    let objTypes, otherTypes =
-      List.partition
-        (fun t ->
-          match t.Kind with
-          | TypeKind.Object _ -> true
-          | _ -> false)
-        types
-
-    if objTypes.IsEmpty then
-      t
-    else
-      // Collect the types of each named property into a map of lists
-      let mutable namedTypes: Map<string, list<Type>> = Map.empty
-
-      // TODO: handle other object element types
-      for objType in objTypes do
-        match objType.Kind with
-        | TypeKind.Object { Elems = elems; Immutable = _ } ->
-          for elem in elems do
-            match elem with
-            | ObjTypeElem.Property { Name = PropName.String name
-                                     Optional = _
-                                     Readonly = _
-                                     Type = t } ->
-
-              let types =
-                match Map.tryFind name namedTypes with
-                | Some(types) -> types
-                | None -> []
-
-              namedTypes <- Map.add name (t :: types) namedTypes
-            | _ -> ()
-        | _ -> ()
-
-      // Simplify each list of types
-      let namedTypes = namedTypes |> Map.map (fun _name types -> union types)
-
-      // Create a new object type from the simplified named properties
-      let objTypeElems =
-        namedTypes
-        |> Map.map (fun name t ->
-          ObjTypeElem.Property
-            { Name = PropName.String name
-              Optional = false
-              Readonly = false
-              Type = t })
-        |> Map.values
-        |> Seq.toList
-
-      let objType =
-        { Kind =
-            // QUESTION: what when to properties from the super type when simplifying?
-            TypeKind.Object
-              { Extends = None
-                Implements = None
-                Elems = objTypeElems
-                Immutable = false
-                Interface = false }
-          Provenance = None }
-
-      union (objType :: otherTypes)
-  | _ -> t
-
 let rec getIsMut (ctx: Ctx) (env: Env) (expr: Expr) : Result<bool, TypeError> =
   result {
     match expr.Kind with
@@ -424,6 +358,7 @@ let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
         // types because their key could have a type like `string` or `number`
         // which is unbounded.
         | Mapped mapped -> failwith "TODO: getPropertyMap - ObjElemType.Mapped"
+        | RestSpread t -> failwith "TODO: getPropertyMap - ObjElemType.Rest"
         | Property { Name = name; Type = t } -> map <- Map.add name t map
     | TypeKind.Intersection types ->
       for t in types do

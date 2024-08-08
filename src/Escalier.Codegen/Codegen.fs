@@ -1401,7 +1401,7 @@ module rec Codegen =
     | TypeKind.Object { Elems = elems } ->
       let members = elems |> List.map (buildObjTypeElem ctx)
       TsType.TsTypeLit { Members = members; Loc = None }
-    | TypeKind.Rest rest ->
+    | TypeKind.RestSpread rest ->
       TsType.TsRestType
         { TypeAnn = buildType ctx rest
           Loc = None }
@@ -1521,10 +1521,11 @@ module rec Codegen =
             TypeAnn = buildTypeAnn ctx prop.Type
             Loc = None }
       | _ -> failwith "TODO: buildObjTypeElem - Property"
-    | Method(name, fn) -> failwith "todo"
-    | Getter(name, fn) -> failwith "todo"
-    | Setter(name, fn) -> failwith "todo"
-    | Mapped mapped -> failwith "todo"
+    | Method(name, fn) -> failwith "TODO: buildObjTypeElem - Method"
+    | Getter(name, fn) -> failwith "TODO: buildObjTypeElem - Getter"
+    | Setter(name, fn) -> failwith "TODO: buildObjTypeElem - Setter"
+    | Mapped mapped -> failwith "TODO: buildObjTypeElem - Mapped"
+    | RestSpread t -> failwith "TODO: buildObjTypeElem - Rest"
 
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>

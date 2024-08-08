@@ -504,6 +504,8 @@ module Syntax =
       Optional: option<Common.MappedModifier>
       Readonly: option<Common.MappedModifier> }
 
+  type Spread = { Arg: TypeAnn }
+
   // TODO: add location information
   type ObjTypeAnnElem =
     | Callable of FuncSig
@@ -513,8 +515,12 @@ module Syntax =
     | Setter of SetterType
     | Property of Property
     | Mapped of Mapped
+    | Spread of Spread
 
-  type ObjTypeAnn = { Elems: list<ObjTypeAnnElem>; Immutable: bool; Exact: bool }  
+  type ObjTypeAnn =
+    { Elems: list<ObjTypeAnnElem>
+      Immutable: bool
+      Exact: bool }
 
   type KeywordTypeAnn =
     | Boolean
@@ -558,7 +564,7 @@ module Syntax =
   type TypeAnnKind =
     | Literal of Common.Literal
     | Keyword of keyword: KeywordTypeAnn
-    | Object of ObjTypeAnn    
+    | Object of ObjTypeAnn
     | Tuple of Common.Tuple<TypeAnn>
     | Array of elem: TypeAnn
     | Range of Common.Range<TypeAnn>
@@ -718,6 +724,7 @@ module Type =
 
   type IdentPat = { Name: string; IsMut: bool }
 
+  [<RequireQualifiedAccess>]
   type Pattern =
     | Identifier of IdentPat
     | Object of Common.Object<ObjPatElem>
@@ -842,6 +849,7 @@ module Type =
     | Setter of name: PropName * fn: Function
     | Mapped of Mapped
     | Property of Property
+    | RestSpread of Type
 
     override this.ToString() =
       match this with
@@ -859,11 +867,13 @@ module Type =
         let readonly = if readonly then "readonly " else ""
 
         $"{readonly}{name}{optional}: {type_}"
+      | RestSpread t -> $"...{t}"
 
   type Object =
     { Extends: option<list<TypeRef>> // classes can only have one, interfaces can have many
       Implements: option<list<TypeRef>>
       Elems: list<ObjTypeElem>
+      Exact: bool // Can't be true if any of Interface, Implements, or Extends are true
       Immutable: bool // True for #{...}, False for {...}
       Interface: bool }
 
@@ -890,7 +900,7 @@ module Type =
     | Object of Object
     | Tuple of Common.Tuple<Type>
     | Array of Array
-    | Rest of Type
+    | RestSpread of Type // whether it's rest or spread depends on how the type is being used
     | Literal of Common.Literal
     | Range of Common.Range<Type>
     | UniqueSymbol of id: int
@@ -970,7 +980,7 @@ module Type =
     | TypeKind.Object _ -> 100
     | TypeKind.Tuple _ -> 100
     | TypeKind.Array _ -> 17
-    | TypeKind.Rest _ -> 100
+    | TypeKind.RestSpread _ -> 100
     | TypeKind.Literal _ -> 100
     | TypeKind.Range _ -> 2
     | TypeKind.UniqueSymbol _ -> 15 // because `unique` is a keyword operator
@@ -1053,7 +1063,7 @@ module Type =
         | false -> $"[{elems}]"
       | TypeKind.Array { Elem = elem; Length = length } ->
         $"{printType ctx elem}[]"
-      | TypeKind.Rest t -> $"...{printType ctx t}"
+      | TypeKind.RestSpread t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
       | TypeKind.Range { Min = min; Max = max } ->
         $"{printType ctx min}..{printType ctx max}"
@@ -1113,7 +1123,8 @@ module Type =
           | Getter(name, fn) -> $"get {name} {fn}"
           | Setter(name, fn) -> $"set {name} {fn}"
           | Callable func -> func.ToString()
-          | Constructor func -> $"new {func}")
+          | Constructor func -> $"new {func}"
+          | RestSpread t -> $"...{t}")
         obj.Elems
 
     let elems = String.concat ", " elems

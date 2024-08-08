@@ -315,6 +315,29 @@ let InferObjectRest () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
+[<Fact>]
+let InferObjectRestWithTypeAnnotations () =
+  let result =
+    result {
+      let src =
+        """
+        let obj1 = {a: 5, b: "hello", c: true};
+        let {a, ...rest}: {a: number, b: string, c: boolean} = obj1;
+        """
+
+      let! ctx, env = inferModule src
+
+      let rest, _ = env.Namespace.Values["rest"]
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "a", "number")
+      Assert.Value(env, "rest", "{b: string, c: boolean}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+
 
 [<Fact>]
 let InferObjectRestSpread () =
@@ -334,7 +357,7 @@ let InferObjectRestSpread () =
       Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
       Assert.Value(env, "rest", "{b: \"hello\", c: true}")
-      Assert.Value(env, "obj2", "{a: 5} & {b: \"hello\", c: true}")
+      Assert.Value(env, "obj2", "{a: 5, b: \"hello\", c: true}")
     }
 
   printfn "result = %A" result
@@ -440,11 +463,12 @@ let DontIncludeGettersInLvalues () =
       Assert.Empty(ctx.Report.Diagnostics)
     }
 
+  printfn "result = %A" result
   Assert.Equal(
     result,
     Result.Error(
       Compiler.CompileError.TypeError(
-        TypeError.SemanticError "Property foo not found"
+        TypeError.SemanticError "Property bar not found"
       )
     )
   )
@@ -1484,7 +1508,7 @@ let InferTypeParamInIntersection () =
     result {
       let src =
         """
-        declare fn foo<T: {}>(props: T & {x: number}) -> T;
+        declare fn foo<T: {...}>(props: T & {x: number, ...}) -> T;
         let bar = foo({x: 5, y: "hello", z: true});
         """
 
@@ -1565,6 +1589,138 @@ let ExpandSchemeDoesNotExpandValuesInObjectTypeWithGenerics () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(t.ToString(), "{p: Point<number>, q: Point<number>}")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnn () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {foo: number};
+        type Bar = {bar: string};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{bar: string, foo: number}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithOverlap () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {a: number, b: number};
+        type Bar = {b: string, c: string};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: string, c: string}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithMappedOverlap () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {[P]: number for P in "a" | "b"};
+        type Bar = {[P]: string for P in "b" | "c"};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: string, c: string}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithOptionalOverlap () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {a: number, b: number};
+        type Bar = {b?: string, c: string};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "Bar", "{b?: string, c: string}")
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: number | string, c: string}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferSpreadTypeAnnWithOptionalOverlapMapped () =
+  let result =
+    result {
+      let src =
+        """
+        type Foo = {[P]: number for P in "a" | "b"};
+        type Bar = {[P]?: string for P in "b" | "c"};
+        type FooBar = {...Foo, ...Bar};
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Type(env, "Bar", "{[P]+?: string for P in \"b\" | \"c\"}")
+      Assert.Type(env, "FooBar", "{...Foo, ...Bar}")
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{a: number, b: number | string, c?: string}", t.ToString())
     }
 
   printfn "result = %A" result

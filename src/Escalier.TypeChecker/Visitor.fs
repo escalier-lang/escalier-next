@@ -384,6 +384,7 @@ module rec ExprVisitor =
                  TypeAnn = typeAnn } ->
         walk typeParam.Constraint
         walk typeAnn
+      | Spread { Arg = arg } -> walk arg
 
 module rec TypeVisitor =
   open Escalier.Data.Type
@@ -425,12 +426,12 @@ module rec TypeVisitor =
             | Constructor fn -> walkFunction walk fn
             | Callable fn -> walkFunction walk fn
             | Method(_, fn) -> walkFunction walk fn
-            | _ ->
-              printfn "elem = %A" elem
-              failwith "TODO: walkType - ObjTypeElem")
+            | Getter(_, fn) -> walkFunction walk fn
+            | Setter(_, fn) -> walkFunction walk fn
+            | RestSpread t -> walk t)
           elems
 
-      | TypeKind.Rest t -> walk t
+      | TypeKind.RestSpread t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types
       | TypeKind.Array { Elem = elem; Length = length } ->

@@ -189,13 +189,13 @@ let NamespaceWithInterface () =
 
       let! ctx, env = inferModule src
 
-      Assert.Type(env, "Baz", "{bar: Foo.Bar}")
+      Assert.Type(env, "Baz", "{bar: Foo.Bar, ...}")
 
       let! t =
         Unify.expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
         |> Result.mapError CompileError.TypeError
 
-      Assert.Equal(t.ToString(), "{bar: Foo.Bar}")
+      Assert.Equal(t.ToString(), "{bar: Foo.Bar, ...}")
     }
 
   printfn "res = %A" res
@@ -436,7 +436,7 @@ let BasicInterface () =
 
       let! ctx, env = inferModule src
 
-      Assert.Type(env, "FooBar", "{foo: number, bar: string}")
+      Assert.Type(env, "FooBar", "{foo: number, bar: string, ...}")
     }
 
   printfn "res = %A" res
@@ -454,7 +454,7 @@ let VariableDeclWithoutInit () =
 
       let! ctx, env = inferModule src
 
-      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+      Assert.Type(env, "Keys", "{foo: \"foo\", ...}")
     }
 
   printfn "res = %A" res
@@ -479,7 +479,7 @@ let ComputedInterfaceKeys () =
 
       let! ctx, env = inferModule src
 
-      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
+      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\", ...}")
     }
 
   printfn "res = %A" res
@@ -496,11 +496,11 @@ let MergeInterfaceBetweenFiles () =
 
       let! ctx, env = inferModule src
 
-      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+      Assert.Type(env, "Keys", "{foo: \"foo\", ...}")
 
       let src =
         """
-        interface Keys { bar: "bar"}
+        interface Keys {bar: "bar"}
         declare let keys: Keys;
         let foo = keys.foo;
         let bar = keys.bar;
@@ -541,11 +541,11 @@ let MergeInterfaceBetweenFilesWithComputedKeys () =
 
       let! ctx, env = inferModule src
 
-      Assert.Type(env, "Keys", "{foo: \"foo\"}")
+      Assert.Type(env, "Keys", "{foo: \"foo\", ...}")
 
       let src =
         """
-        interface Keys { bar: "bar"}
+        interface Keys {bar: "bar"}
         interface Obj {
           [keys.foo]: number,
           [keys.bar]: number,
@@ -568,9 +568,9 @@ let MergeInterfaceBetweenFilesWithComputedKeys () =
       let! env =
         Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\"}")
+      Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\", ...}")
 
-      Assert.Type(env, "Obj", "{foo: number, bar: number}")
+      Assert.Type(env, "Obj", "{foo: number, bar: number, ...}")
     }
 
   printfn "res = %A" res

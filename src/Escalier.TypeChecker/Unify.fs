@@ -722,7 +722,7 @@ module rec Unify =
         // TODO: collect all prop2's that don't have a matcher in namedProps1
         // and stuff them into the rest element type if there is one
 
-        let mutable spreadProps = []
+        let mutable leftoverProperties = []
 
         for KeyValue(name, prop2) in namedProps2 do
           match namedProps1.TryFind name with
@@ -741,7 +741,8 @@ module rec Unify =
             do! unify ctx env newIps p1Type p2Type
           | None ->
             if spread.IsSome then
-              spreadProps <- (prop2 |> ObjTypeElem.Property) :: spreadProps
+              leftoverProperties <-
+                (prop2 |> ObjTypeElem.Property) :: leftoverProperties
             else if not prop2.Optional then
               return! Error(TypeError.PropertyMissing(name))
 
@@ -760,7 +761,7 @@ module rec Unify =
                   { Extends = None
                     Implements = None
                     Elems = List.rev restProps
-                    Exact = false // TODO
+                    Exact = obj1.Exact
                     Immutable = false // TODO
                     Interface = false }
               Provenance = None }
@@ -769,19 +770,19 @@ module rec Unify =
         | None -> ()
 
         match spread with
-        | Some t ->
-          let spreadObj =
+        | Some spreadType ->
+          let leftoverObjType =
             { Kind =
                 TypeKind.Object
                   { Extends = None
                     Implements = None
-                    Elems = List.rev spreadProps
+                    Elems = List.rev leftoverProperties
                     Exact = false // TODO
                     Immutable = false // TODO
                     Interface = false }
               Provenance = None }
 
-          do! unify ctx env ips spreadObj t
+          do! unify ctx env ips leftoverObjType spreadType
         | None -> ()
     }
 
@@ -1207,16 +1208,6 @@ module rec Unify =
                             Extends = extends
                             Immutable = immutable } ->
 
-          let found =
-            elems
-            |> List.tryFind (fun elem ->
-              match elem with
-              | Property p when
-                p.Name = PropName.String "aria-activedescendant"
-                ->
-                true
-              | _ -> false)
-
           let rec processExtends
             (extends: option<list<TypeRef>>)
             : Result<list<ObjTypeElem>, TypeError> =
@@ -1267,8 +1258,6 @@ module rec Unify =
                 | Mapped m ->
                   let! c =
                     expandType ctx env ips mapping m.TypeParam.Constraint
-
-                  printfn $"constraint - c = {c}"
 
                   // TODO: Document this because I don't remember why we need to
                   // do this.
@@ -1370,9 +1359,6 @@ module rec Unify =
                               TypeAnn = t
                               TypeParam = typeParam } ]
                   | _ -> return [ elem ]
-                // printfn $"constraint - c = {c}"
-                // printfn $"mapped type - m = {m}"
-                // failwith "TODO: expand mapped type - constraint type"
                 | RestSpread t ->
                   let! t = expand mapping t
 
@@ -1451,7 +1437,10 @@ module rec Unify =
             | Mapped m -> mappedElems <- elem :: mappedElems
             | _ -> ()
 
-          let elems = callableElems @ (Map.values namedElemsMap |> List.ofSeq) @ mappedElems
+          let elems =
+            callableElems
+            @ (Map.values namedElemsMap |> List.ofSeq)
+            @ mappedElems
 
           let t =
             { Kind =

@@ -1471,7 +1471,7 @@ let InferInterfaceInScript () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Type(env, "Point", "{x: number, y: number}")
+      Assert.Type(env, "Point", "{x: number, y: number, ...}")
       Assert.Value(env, "p", "Point")
     }
 
@@ -1496,7 +1496,7 @@ let InferInterfaceInModule () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Type(env, "Point", "{x: number, y: number}")
+      Assert.Type(env, "Point", "{x: number, y: number, ...}")
       Assert.Value(env, "p", "Point")
     }
 
@@ -1517,8 +1517,13 @@ let InferTypeParamInIntersection () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Value(env, "foo", "fn <T: {}>(props: T & {x: number}) -> T")
-      Assert.Value(env, "bar", "{y: \"hello\", z: true}")
+      Assert.Value(
+        env,
+        "foo",
+        "fn <T: {...}>(props: T & {x: number, ...}) -> T"
+      )
+
+      Assert.Value(env, "bar", "{y: \"hello\", z: true, ...}")
     }
 
   printfn "result = %A" result
@@ -1530,7 +1535,7 @@ let UnifyIntersectionTypesWithIntersectionTypes () =
     result {
       let src =
         """
-        fn foo<T: {}>(props: T & {x: number}) -> T {
+        fn foo<T: {...}>(props: T & {x: number}) -> T {
           const {x, ...rest} = props;
           return rest;
         };
@@ -1541,7 +1546,7 @@ let UnifyIntersectionTypesWithIntersectionTypes () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Value(env, "foo", "fn <T: {}>(props: T & {x: number}) -> T")
+      Assert.Value(env, "foo", "fn <T: {...}>(props: T & {x: number}) -> T")
       Assert.Value(env, "bar", "{y: \"hello\", z: true}")
     }
 

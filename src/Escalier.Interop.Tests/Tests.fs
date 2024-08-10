@@ -469,11 +469,11 @@ let InferTypeDecls () =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K})")
+      Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K, ...})")
       Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
       // TODO: infer `keyof any` as `string | number | symbol`
       Assert.Type(env, "Omit", "<T, K: keyof _>(Pick<T, Exclude<keyof T, K>>)")
-      Assert.Type(env, "Point", "{x: number, y: number}")
+      Assert.Type(env, "Point", "{x: number, y: number, ...}")
     }
 
   printfn "res = %A" res
@@ -726,7 +726,7 @@ let ImportThirdPartyModules () =
       Assert.Type(
         env,
         "SchedulerInteraction",
-        "{__count: number, id: number, name: string, timestamp: number}"
+        "{__count: number, id: number, name: string, timestamp: number, ...}"
       )
 
       Assert.Type(env, "AccentColor", "Property.AccentColor")
@@ -789,7 +789,7 @@ let ImportReact () =
         // NOTE: The type var id will differ dependending on whether we run
         // just this test case or the full test suite.
         // TODO: generalize top-level variable declarations
-        "React.DetailedReactHTMLElement<{}, t1137:HTMLElement>"
+        "React.DetailedReactHTMLElement<{...}, t1137:HTMLElement>"
       )
     }
 

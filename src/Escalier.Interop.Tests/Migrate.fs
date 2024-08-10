@@ -99,7 +99,7 @@ let ParseAndInferTypeAliases () =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string")
-      Assert.Type(env, "Bar", "<T>({value: T, next?: Bar<T>})")
+      Assert.Type(env, "Bar", "<T>({value: T, next?: Bar<T>, ...})")
     }
 
   Assert.True(Result.isOk res)
@@ -134,7 +134,7 @@ let ParseAndInferInterface () =
       Assert.Type(
         env,
         "Foo",
-        "{bar fn (self: Self) -> number, baz fn (self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn (mut x: string) -> undefined}"
+        "{bar fn (self: Self) -> number, baz fn (self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn (mut x: string) -> undefined, ...}"
       )
     }
 
@@ -164,7 +164,7 @@ let ParseAndInferMappedType () =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T})")
+      Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T, ...})")
     }
 
   Assert.True(Result.isOk res)
@@ -195,7 +195,7 @@ let ParseAndInferUnorderedTypeParams () =
       Assert.Type(
         env,
         "MyObjectConstructor",
-        "{freeze fn <T: {[idx]+?: U | null | undefined | object for idx in string}, U: string | bigint | number | boolean | symbol>(self: Self, mut o: T) -> Readonly<T>}"
+        "{freeze fn <T: {[idx]+?: U | null | undefined | object for idx in string, ...}, U: string | bigint | number | boolean | symbol>(self: Self, mut o: T) -> Readonly<T>, ...}"
       )
     }
 
@@ -257,7 +257,7 @@ let ParseAndInferClassDecl () =
       Assert.Type(
         env,
         "Foo",
-        "{bar fn (self: Self, mut x: number, mut y: string) -> boolean, baz: string}"
+        "{bar fn (self: Self, mut x: number, mut y: string) -> boolean, baz: string, ...}"
       )
     }
 
@@ -294,7 +294,7 @@ let ParseAndInferClassDeclWithStatics () =
         "{new fn () -> Foo, bar fn (mut x: number, mut y: string) -> boolean, baz: string}"
       )
 
-      Assert.Type(env, "Foo", "{}")
+      Assert.Type(env, "Foo", "{...}")
     }
 
   printfn "res = %A" res
@@ -334,7 +334,7 @@ let ImportThirdPartyModules () =
       Assert.Type(
         env,
         "SchedulerInteraction",
-        "{__count: number, id: number, name: string, timestamp: number}"
+        "{__count: number, id: number, name: string, timestamp: number, ...}"
       )
 
       Assert.Type(env, "AccentColor", "Property.AccentColor")
@@ -392,7 +392,7 @@ let ParseAndInferPropertyKey () =
       Assert.Type(
         env,
         "MyPropertyDescriptorMap",
-        "{[key]+?: MyPropertyDescriptor for key in MyPropertyKey}"
+        "{[key]+?: MyPropertyDescriptor for key in MyPropertyKey, ...}"
       )
     }
 

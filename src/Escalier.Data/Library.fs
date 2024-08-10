@@ -1127,7 +1127,16 @@ module Type =
           | RestSpread t -> $"...{t}")
         obj.Elems
 
-    let elems = String.concat ", " elems
+    let elems =
+      match elems with
+      | [] ->
+        match obj.Exact with
+        | true -> ""
+        | false -> "..."
+      | elems ->
+        match obj.Exact with
+        | true -> String.concat ", " elems
+        | false -> (String.concat ", " elems) + ", ..."
 
     match obj.Immutable with
     | true -> $"#{{{elems}}}"

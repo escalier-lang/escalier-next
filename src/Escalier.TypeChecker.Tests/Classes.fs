@@ -32,7 +32,7 @@ let InferClassWithMethods () =
       Assert.Type(
         env,
         "Foo",
-        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string}"
+        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string, ...}"
       )
 
       Assert.Value(env, "foo", "Foo")
@@ -44,7 +44,7 @@ let InferClassWithMethods () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
-        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string}",
+        "{bar fn (self: Self) -> string, baz fn (mut self: Self, msg: string) -> undefined, msg: string, ...}",
         fooType.ToString()
       )
     }
@@ -215,7 +215,7 @@ let InferClassWithTypeParams () =
       Assert.Type(
         env,
         "Foo",
-        "<T>({map fn <U>(self: Self, callback: fn (bar: T) -> U) -> U, bar: T})"
+        "<T>({map fn <U>(self: Self, callback: fn (bar: T) -> U) -> U, bar: T, ...})"
       )
 
       Assert.Value(env, "Foo", "{new fn <T>() -> Foo<T>}")
@@ -228,7 +228,7 @@ let InferClassWithTypeParams () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
-        "{bar: string, map fn <U>(self: Self, callback: fn (bar: string) -> U) -> U}",
+        "{bar: string, map fn <U>(self: Self, callback: fn (bar: string) -> U) -> U, ...}",
         fooType.ToString()
       )
     }
@@ -255,7 +255,7 @@ let InferClassWithFluentMethods () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string}")
+      Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string, ...}")
       Assert.Value(env, "foo", "Foo")
       Assert.Value(env, "bar", "Foo")
 
@@ -270,7 +270,7 @@ let InferClassWithFluentMethods () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
-        "{bar fn (self: Self) -> Self, msg: string}",
+        "{bar fn (self: Self) -> Self, msg: string, ...}",
         fooType.ToString()
       )
     }
@@ -297,7 +297,7 @@ let InferClassWithFluentMethodsWithoutTypeAnn () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string}")
+      Assert.Type(env, "Foo", "{bar fn (self: Self) -> Self, msg: string, ...}")
       Assert.Value(env, "foo", "Foo")
       Assert.Value(env, "bar", "Foo")
 
@@ -312,7 +312,7 @@ let InferClassWithFluentMethodsWithoutTypeAnn () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
-        "{bar fn (self: Self) -> Self, msg: string}",
+        "{bar fn (self: Self) -> Self, msg: string, ...}",
         fooType.ToString()
       )
     }
@@ -339,7 +339,7 @@ let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Type(env, "Foo", "<T>({bar fn (self: Self) -> Self, msg: T})")
+      Assert.Type(env, "Foo", "<T>({bar fn (self: Self) -> Self, msg: T, ...})")
       Assert.Value(env, "foo", "Foo<string>")
       Assert.Value(env, "bar", "Foo<string>")
 
@@ -354,7 +354,7 @@ let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
-        "{bar fn (self: Self) -> Self, msg: string}",
+        "{bar fn (self: Self) -> Self, msg: string, ...}",
         fooType.ToString()
       )
     }
@@ -397,7 +397,7 @@ let InferClassMethodsThatTakeOtherSelf () =
       Assert.Type(
         env,
         "Point",
-        "{add fn (self: Self, other: Self) -> Self, y: number, x: number}"
+        "{add fn (self: Self, other: Self) -> Self, y: number, x: number, ...}"
       )
 
       Assert.Value(
@@ -488,7 +488,11 @@ let InferGenericMethods () =
         "{new fn () -> Foo, snd fn <A, B>(a: A, b: B) -> B}"
       )
 
-      Assert.Type(env, "Foo", "{fst fn <A, B>(self: Self, a: A, b: B) -> A}")
+      Assert.Type(
+        env,
+        "Foo",
+        "{fst fn <A, B>(self: Self, a: A, b: B) -> A, ...}"
+      )
     }
 
   Assert.False(Result.isError res)

@@ -2242,10 +2242,6 @@ module rec Infer =
     result {
       let mutable patternTypes = []
 
-      // TODO: do two passes
-      // 1. unify all of the patterns with `exprType`
-      // 2. infer the types of all of the bodies
-
       // Infer all pattern types
       let! assumps =
         List.traverseResultM
@@ -2259,8 +2255,13 @@ module rec Infer =
 
       let mutable newExprTypes: list<Type> = []
 
-      // TODO: check mutability when unifying by computing invariant paths
-      // using checkMutability
+      // TODO(#335): Check mutability when unifying by computing invariant paths
+      // using checkMutability.
+
+      // TODO(#332): Prevent pattern matching of unions of untagged inexact object
+      // types. Untagged inexact object types can have extra properties that we
+      // can't account for that could result in a different pattern being matched
+      // than the intended one.
 
       // NOTE: the direction of assignability for patternType and exprType is
       // reversed.  This is because the type of the expression being assigned is

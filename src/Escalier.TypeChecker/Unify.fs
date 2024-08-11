@@ -1304,6 +1304,7 @@ module rec Unify =
 
           let! elemsFromExtends = processExtends extends
           let allElems = elems @ elemsFromExtends
+          let mutable exact = exact
 
           let! elems =
             allElems
@@ -1311,6 +1312,21 @@ module rec Unify =
               result {
                 match elem with
                 | Mapped m ->
+                  match m.TypeParam.Constraint.Kind with
+                  | TypeKind.KeyOf t ->
+                    match t.Kind with
+                    | TypeKind.TypeRef { Name = QualifiedIdent.Ident ident } ->
+                      match Map.tryFind ident mapping with
+                      | Some t ->
+                        let! t = expandType ctx env ips Map.empty t
+
+                        match t.Kind with
+                        | TypeKind.Object { Exact = e } -> exact <- e
+                        | _ -> ()
+                      | None -> ()
+                    | _ -> ()
+                  | _ -> ()
+
                   let! c =
                     expandType ctx env ips mapping m.TypeParam.Constraint
 

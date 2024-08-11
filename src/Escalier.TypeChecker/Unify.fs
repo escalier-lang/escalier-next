@@ -336,7 +336,12 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        do! unifyObjProps ctx env ips obj1 obj2
+        let isPattern =
+          match t2.Provenance with
+          | Some(Provenance.Pattern _) -> true
+          | _ -> false
+
+        do! unifyObjProps ctx env ips obj1 obj2 isPattern
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
@@ -637,8 +642,16 @@ module rec Unify =
     (ips: option<list<list<string>>>)
     (obj1: Object)
     (obj2: Object)
+    (isPattern: bool)
     : Result<unit, TypeError> =
     result {
+      if not obj1.Exact && obj2.Exact && not isPattern then
+        return!
+          Error(
+            TypeError.SemanticError
+              "Inexact object can't assigned to an exact object"
+          )
+
       // TODO: rework how we check if an object is a subtype of another object
       // setters should have reversed variance
       // For now we're use `RValue` since we don't have many test cases
@@ -653,6 +666,10 @@ module rec Unify =
         { Kind = TypeKind.Literal(Literal.Undefined)
           Provenance = None }
 
+      // When `IsPatternMatching` is true, the direction of assignability for
+      // obj1 and obj2 is reversed.  This is because the type of the expression
+      // being assigned is a union of types and the pattern we're assigning it
+      // to is only one of those types.
       if env.IsPatternMatching then
         for elem in obj2.Elems do
           match elem with
@@ -664,7 +681,6 @@ module rec Unify =
           | ObjTypeElem.RestSpread t -> spread <- Some(t)
           | _ -> ()
 
-        // Allow partial unification of object types when pattern matching
         for KeyValue(name, prop1) in namedProps1 do
           match namedProps2.TryFind name with
           | Some(prop2) ->
@@ -767,7 +783,14 @@ module rec Unify =
               Provenance = None }
 
           do! unify ctx env ips t restObj
-        | None -> ()
+        | None ->
+          if obj2.Exact && restProps.Length > 0 && not isPattern then
+            return!
+              Error(
+                TypeError.SemanticError("Exact object has extra properties")
+              )
+
+          ()
 
         match spread with
         | Some spreadType ->
@@ -897,6 +920,38 @@ module rec Unify =
               // printfn $"unify({t2}, {bound1})"
               // If t2 is a TypeVar then we want to check if the bounds
               // unify
+
+              // If `bound1` is a type variable with a bound that's an inexact
+              // object type, we make the instance also inexact.  This is to
+              // handle cases like:
+              //   let foo = fn<U: T, T: {...}>(t: T, u: U) => u;
+              //   let bar = foo({a: 5}, {a: 5, b: "hello"});
+              let! bound1 =
+                result {
+                  match bound1.Kind with
+                  | TypeKind.TypeVar({ Bound = Some b
+                                       Instance = Some i
+                                       Default = d } as tv) ->
+                    let! b = expandType ctx env ips Map.empty b
+
+                    match b.Kind, i.Kind with
+                    | TypeKind.Object bObj, TypeKind.Object iObj ->
+                      if not bObj.Exact then
+                        // Force the instance to be an inexact object type to
+                        // match the exactness of bound1's bound.
+                        let i =
+                          { i with
+                              Kind = TypeKind.Object { iObj with Exact = false } }
+
+                        return
+                          { bound1 with
+                              Kind =
+                                TypeKind.TypeVar { tv with Instance = Some i } }
+                      else
+                        return bound1
+                    | _ -> return bound1
+                  | _ -> return bound1
+                }
 
               // Type params are contravariant for similar reasons to
               // why function params are contravariant
@@ -1362,7 +1417,7 @@ module rec Unify =
                 | RestSpread t ->
                   let! t = expand mapping t
 
-                  match t.Kind with
+                  match (prune t).Kind with
                   | TypeKind.Object { Elems = elems } ->
                     return
                       elems

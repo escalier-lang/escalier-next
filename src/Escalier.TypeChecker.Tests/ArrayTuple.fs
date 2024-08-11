@@ -467,6 +467,7 @@ let PartialDestructuring () =
       Assert.Value(env, "b", "\"hello\"")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

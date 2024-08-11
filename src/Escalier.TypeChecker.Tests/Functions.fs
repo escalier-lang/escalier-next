@@ -685,6 +685,7 @@ let InferGenericWithConstraintRefrencingOtherTypeParamMisordered () =
       Assert.Value(env, "bar", "{a: 5, b: \"hello\"}")
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -693,7 +694,7 @@ let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefs () =
     result {
       let src =
         """
-        type Obj = {};
+        type Obj = {...};
         fn foo<T: Obj, U: T>(t: T, u: U) {
           return u;
         }
@@ -717,7 +718,7 @@ let InferGenericWithConstraintRefrencingOtherTypeParamAndOtherTypeRefsUsingLetFn
     result {
       let src =
         """
-        type Obj = {};
+        type Obj = {...};
         let foo = fn<T: Obj, U: T>(t: T, u: U) => u;
         let bar = foo({a: 5}, {a: 5, b: "hello"});
         """

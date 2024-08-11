@@ -782,6 +782,8 @@ module rec Infer =
               | None -> return None
             }
 
+          let mutable exact = true
+
           let! elems =
             List.traverseResultM
               (fun (elem: ObjElem) ->
@@ -826,7 +828,10 @@ module rec Infer =
                     let! t = inferExpr ctx env None value
 
                     match (prune t).Kind with
-                    | TypeKind.Object { Elems = elems; Exact = exact } ->
+                    | TypeKind.Object { Elems = elems; Exact = e } ->
+                      if not e then
+                        exact <- false
+
                       return elems
                     | _ -> return [ RestSpread t ]
                 })
@@ -840,7 +845,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None
                     Elems = elems
-                    Exact = true
+                    Exact = exact
                     Immutable = immutable
                     Interface = false }
               Provenance = None }
@@ -2129,7 +2134,7 @@ module rec Infer =
                   Exact = true // TODO: This should depend what the pattern is matching/destructuring
                   Immutable = immutable
                   Interface = false }
-            Provenance = None }
+            Provenance = Some(Provenance.Pattern pat) }
 
         objType
       | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
@@ -2252,23 +2257,27 @@ module rec Infer =
             })
           cases
 
-      // TODO: We have to unify one pattern at a time, but in order to do
-      // that we need to replace the type params in `exprType` with fresh types
-      // and then union the results together afterwards.  We'll need to have
-      // some sort of mapping to keep track of all of these type variables.
-
-      // TODO: write a function that checks if something has type variables in it
-
       let mutable newExprTypes: list<Type> = []
 
       // TODO: check mutability when unifying by computing invariant paths
       // using checkMutability
 
-      // Unify all pattern types with `exprType`
+      // NOTE: the direction of assignability for patternType and exprType is
+      // reversed.  This is because the type of the expression being assigned is
+      // a union of types and the pattern we're assigning it to is only one of
+      // those types.
       if hasTypeVars exprType then
         for patternType in patternTypes do
           let newExprType = fresh ctx exprType
-          do! unify ctx env None patternType newExprType
+
+          do!
+            unify
+              ctx
+              { env with IsPatternMatching = true }
+              None
+              patternType
+              newExprType
+
           newExprTypes <- newExprType :: newExprTypes
       else
         for patternType in patternTypes do

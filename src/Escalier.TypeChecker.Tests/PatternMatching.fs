@@ -330,3 +330,30 @@ let PatternMatchingDisallowsPartialMappingOfTuples () =
   | Error errorValue -> printfn $"res = Error({errorValue})"
 
   Assert.True(Result.isError res)
+
+[<Fact>]
+let PatternMatchingNestedTypes () =
+  let res =
+    result {
+      let src =
+        """
+        declare let value: {a: [number] | {x: number}} | {b: [number] | {y: number}};
+        let result = match value {
+          {a: [x]} => x,
+          {a: {x}} => x,
+          {b: [y]} => y,
+          {b: {y}} => y,
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "result", "number")
+    }
+
+  match res with
+  | Ok resultValue -> printfn $"res = Ok({resultValue})"
+  | Error errorValue -> printfn $"res = Error({errorValue})"
+
+  Assert.False(Result.isError res)

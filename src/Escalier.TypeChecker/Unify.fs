@@ -336,7 +336,12 @@ module rec Unify =
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
 
-        do! unifyObjProps ctx env ips obj1 obj2
+        let isPattern =
+          match t2.Provenance with
+          | Some(Provenance.Pattern _) -> true
+          | _ -> false
+
+        do! unifyObjProps ctx env ips obj1 obj2 isPattern
 
       | TypeKind.Object obj, TypeKind.Intersection types ->
         let mutable combinedElems = []
@@ -637,9 +642,10 @@ module rec Unify =
     (ips: option<list<list<string>>>)
     (obj1: Object)
     (obj2: Object)
+    (isPattern: bool)
     : Result<unit, TypeError> =
     result {
-      if not obj1.Exact && obj2.Exact then
+      if not obj1.Exact && obj2.Exact && not isPattern then
         return!
           Error(
             TypeError.SemanticError
@@ -660,6 +666,10 @@ module rec Unify =
         { Kind = TypeKind.Literal(Literal.Undefined)
           Provenance = None }
 
+      // When `IsPatternMatching` is true, the direction of assignability for
+      // obj1 and obj2 is reversed.  This is because the type of the expression
+      // being assigned is a union of types and the pattern we're assigning it
+      // to is only one of those types.
       if env.IsPatternMatching then
         for elem in obj2.Elems do
           match elem with
@@ -671,7 +681,6 @@ module rec Unify =
           | ObjTypeElem.RestSpread t -> spread <- Some(t)
           | _ -> ()
 
-        // Allow partial unification of object types when pattern matching
         for KeyValue(name, prop1) in namedProps1 do
           match namedProps2.TryFind name with
           | Some(prop2) ->
@@ -775,7 +784,7 @@ module rec Unify =
 
           do! unify ctx env ips t restObj
         | None ->
-          if obj2.Exact && restProps.Length > 0 then
+          if obj2.Exact && restProps.Length > 0 && not isPattern then
             return!
               Error(
                 TypeError.SemanticError("Exact object has extra properties")

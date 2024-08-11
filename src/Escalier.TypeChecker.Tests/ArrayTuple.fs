@@ -457,7 +457,7 @@ let PartialDestructuring () =
       let src =
         """
         let [a] = [5, "hello"];
-        let {a: _, b} = {a: 5, b: "hello"};
+        let {b} = {a: 5, b: "hello"};
         """
 
       let! ctx, env = inferModule src

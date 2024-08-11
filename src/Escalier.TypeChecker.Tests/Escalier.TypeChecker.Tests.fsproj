@@ -21,6 +21,7 @@
         <Compile Include="QualifiedGraphTests.fs"/>
         <Compile Include="BuildGraphTests.fs"/>
         <Compile Include="Jsx.fs"/>
+        <Compile Include="Exact.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
     <ItemGroup>

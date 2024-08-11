@@ -639,6 +639,13 @@ module rec Unify =
     (obj2: Object)
     : Result<unit, TypeError> =
     result {
+      if not obj1.Exact && obj2.Exact then
+        return!
+          Error(
+            TypeError.SemanticError
+              "Inexact object can't assigned to an exact object"
+          )
+
       // TODO: rework how we check if an object is a subtype of another object
       // setters should have reversed variance
       // For now we're use `RValue` since we don't have many test cases
@@ -767,7 +774,14 @@ module rec Unify =
               Provenance = None }
 
           do! unify ctx env ips t restObj
-        | None -> ()
+        | None ->
+          if obj2.Exact && restProps.Length > 0 then
+            return!
+              Error(
+                TypeError.SemanticError("Exact object has extra properties")
+              )
+
+          ()
 
         match spread with
         | Some spreadType ->
@@ -897,6 +911,38 @@ module rec Unify =
               // printfn $"unify({t2}, {bound1})"
               // If t2 is a TypeVar then we want to check if the bounds
               // unify
+
+              // If `bound1` is a type variable with a bound that's an inexact
+              // object type, we make the instance also inexact.  This is to
+              // handle cases like:
+              //   let foo = fn<U: T, T: {...}>(t: T, u: U) => u;
+              //   let bar = foo({a: 5}, {a: 5, b: "hello"});
+              let! bound1 =
+                result {
+                  match bound1.Kind with
+                  | TypeKind.TypeVar({ Bound = Some b
+                                       Instance = Some i
+                                       Default = d } as tv) ->
+                    let! b = expandType ctx env ips Map.empty b
+
+                    match b.Kind, i.Kind with
+                    | TypeKind.Object bObj, TypeKind.Object iObj ->
+                      if not bObj.Exact then
+                        // Force the instance to be an inexact object type to
+                        // match the exactness of bound1's bound.
+                        let i =
+                          { i with
+                              Kind = TypeKind.Object { iObj with Exact = false } }
+
+                        return
+                          { bound1 with
+                              Kind =
+                                TypeKind.TypeVar { tv with Instance = Some i } }
+                      else
+                        return bound1
+                    | _ -> return bound1
+                  | _ -> return bound1
+                }
 
               // Type params are contravariant for similar reasons to
               // why function params are contravariant
@@ -1362,7 +1408,7 @@ module rec Unify =
                 | RestSpread t ->
                   let! t = expand mapping t
 
-                  match t.Kind with
+                  match (prune t).Kind with
                   | TypeKind.Object { Elems = elems } ->
                     return
                       elems

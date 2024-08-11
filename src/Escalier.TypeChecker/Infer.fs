@@ -782,6 +782,8 @@ module rec Infer =
               | None -> return None
             }
 
+          let mutable exact = true
+
           let! elems =
             List.traverseResultM
               (fun (elem: ObjElem) ->
@@ -826,7 +828,10 @@ module rec Infer =
                     let! t = inferExpr ctx env None value
 
                     match (prune t).Kind with
-                    | TypeKind.Object { Elems = elems; Exact = exact } ->
+                    | TypeKind.Object { Elems = elems; Exact = e } ->
+                      if not e then
+                        exact <- false
+
                       return elems
                     | _ -> return [ RestSpread t ]
                 })
@@ -840,7 +845,7 @@ module rec Infer =
                   { Extends = None
                     Implements = None
                     Elems = elems
-                    Exact = true
+                    Exact = exact
                     Immutable = immutable
                     Interface = false }
               Provenance = None }

@@ -457,7 +457,7 @@ let PartialDestructuring () =
       let src =
         """
         let [a] = [5, "hello"];
-        let {b} = {a: 5, b: "hello"};
+        let {a: _, b} = {a: 5, b: "hello"};
         """
 
       let! ctx, env = inferModule src
@@ -467,6 +467,7 @@ let PartialDestructuring () =
       Assert.Value(env, "b", "\"hello\"")
     }
 
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

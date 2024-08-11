@@ -1591,6 +1591,12 @@ module rec Unify =
               { Kind = TypeKind.Intersection types
                 Provenance = None }
           else if hasExactObjects then
+            // The intersection of exact types is never unless the types are
+            // exactly the same.  Checking if two object types are exactly the
+            // same is expensive so we just return `never` for now.  Spread
+            // types should be used instead of intersection types when working
+            // with object types since it actually corresponds to a real value-
+            // level operation.
             return
               { Kind = TypeKind.Keyword Keyword.Never
                 Provenance = None }

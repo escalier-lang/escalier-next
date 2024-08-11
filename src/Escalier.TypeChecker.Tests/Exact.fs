@@ -187,7 +187,7 @@ let InexactMappedTypesPreserveExactness () =
 
   Assert.False(Result.isError res)
 
-
+[<Fact>]
 let ExactMappedTypesPreserveExactness () =
   let res =
     result {
@@ -222,6 +222,31 @@ let ExactMappedTypesPreserveExactness () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(t.ToString(), "{flag?: boolean, msg?: string, ...}")
+    }
+
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let IntersectionOfExactTypesIsNever () =
+  let res =
+    result {
+      let src =
+        """
+        type Foo = {foo: string};
+        type Bar = {bar: number, ...};
+        
+        type FooAndBar = Foo & Bar;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "FooAndBar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(t.ToString(), "never")
     }
 
   Assert.False(Result.isError res)

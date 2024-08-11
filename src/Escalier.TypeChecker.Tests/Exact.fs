@@ -250,3 +250,29 @@ let IntersectionOfExactTypesIsNever () =
     }
 
   Assert.False(Result.isError res)
+
+[<Fact>]
+let RestInheritsExactness () =
+  let res =
+    result {
+      let src =
+        """
+        type Exact = {foo: string, bar: number};
+        type Inexact = {foo: string, bar: number, ...};
+        
+        declare let exact: Exact;
+        declare let inexact: Inexact;
+        
+        let {foo, ...exactRest} = exact;
+        let {foo, ...inexactRest} = inexact;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      Assert.Value(env, "exactRest", "{bar: number}")
+      Assert.Value(env, "inexactRest", "{bar: number, ...}")
+    }
+
+  Assert.False(Result.isError res)

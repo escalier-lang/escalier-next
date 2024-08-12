@@ -22,6 +22,7 @@
         <Compile Include="BuildGraphTests.fs"/>
         <Compile Include="Jsx.fs"/>
         <Compile Include="Exact.fs"/>
+        <Compile Include="Primitives.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
     <ItemGroup>

@@ -1654,8 +1654,40 @@ module rec Infer =
             instantiateType ctx prop arrayScheme.TypeParams (Some [ elem ])
 
           return prop
-      // TODO: intersection types
+      | TypeKind.Literal(Literal.String _)
+      | TypeKind.Primitive Primitive.String ->
+        let scheme =
+          match env.TryFindScheme "String" with
+          | Some scheme -> scheme
+          | None -> failwith "String not in scope"
+
+        return! getPropType ctx env scheme.Type key optChain valueCategory
+      | TypeKind.Literal(Literal.Number _)
+      | TypeKind.Primitive Primitive.Number ->
+        let scheme =
+          match env.TryFindScheme "Number" with
+          | Some scheme -> scheme
+          | None -> failwith "Number not in scope"
+
+        return! getPropType ctx env scheme.Type key optChain valueCategory
+      | TypeKind.Literal(Literal.Boolean _)
+      | TypeKind.Primitive Primitive.Boolean ->
+        let scheme =
+          match env.TryFindScheme "Boolean" with
+          | Some scheme -> scheme
+          | None -> failwith "Boolean not in scope"
+
+        return! getPropType ctx env scheme.Type key optChain valueCategory
+      | TypeKind.Primitive Primitive.Symbol
+      | TypeKind.UniqueSymbol _ ->
+        let scheme =
+          match env.TryFindScheme "Symbol" with
+          | Some scheme -> scheme
+          | None -> failwith "Symbol not in scope"
+
+        return! getPropType ctx env scheme.Type key optChain valueCategory
       | _ ->
+        // TODO: intersection types
         return!
           Error(TypeError.NotImplemented $"TODO: lookup member on type - {t}")
     }
@@ -2671,6 +2703,37 @@ module rec Infer =
       match callee.Kind with
       | TypeKind.Function func ->
         return! unifyFuncCall ctx env ips args typeArgs func
+      | TypeKind.TypeRef { Name = name; Scheme = scheme } ->
+        let callee =
+          match scheme with
+          | Some scheme ->
+            // TODO: handle typeArgs
+            scheme.Type
+          | None ->
+            match env.GetScheme(name) with
+            | Result.Ok scheme ->
+              // TODO: handle typeArgs
+              scheme.Type
+            | Result.Error _ -> failwith "'{name}' is not in scope"
+
+        return! unifyCall ctx env ips args typeArgs callee
+      | TypeKind.Object { Elems = elems } ->
+        let mutable callable = None
+
+        for elem in elems do
+          match elem with
+          | Callable c ->
+            callable <-
+              Some
+                { Kind = TypeKind.Function c
+                  Provenance = None }
+          | _ -> ()
+
+        match callable with
+        | Some c -> return! unifyCall ctx env ips args typeArgs c
+        | None ->
+          return!
+            Error(TypeError.SemanticError $"No callable signature in {callee}")
       | TypeKind.Intersection types ->
         let mutable result = None
 

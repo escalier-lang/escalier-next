@@ -29,6 +29,25 @@ let StringLiteralProperties () =
   Assert.False(Result.isError res)
 
 [<Fact>]
+let StringPropertyOnDirectLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let len = "hello".length;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      Assert.Value(env, "len", "number")
+    }
+
+  Assert.False(Result.isError res)
+
+
+[<Fact>]
 let StringPrimitiveProperties () =
   let res =
     result {
@@ -66,6 +85,25 @@ let NumberLiteralProperties () =
       Assert.Value(env, "currency", "string")
     }
 
+  Assert.False(Result.isError res)
+
+[<Fact>]
+let NumberPropertyDirectOnLiteral () =
+  let res =
+    result {
+      let src =
+        """
+        let currency = (5).toFixed(2);
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      Assert.Value(env, "currency", "string")
+    }
+
+  printfn "res = %A" res
   Assert.False(Result.isError res)
 
 [<Fact>]

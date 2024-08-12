@@ -313,12 +313,16 @@ let rec getIsMut (ctx: Ctx) (env: Env) (expr: Expr) : Result<bool, TypeError> =
     | ExprKind.Identifier name ->
       let! _, isMut = env.GetBinding name
       return isMut
+    | ExprKind.Literal _ -> return false
+    | ExprKind.Object _ -> return true
+    | ExprKind.Tuple _ -> return true
     | ExprKind.Index(target, _index, _optChain) ->
       return! getIsMut ctx env target
     | ExprKind.Member(target, _name, _optChain) ->
       return! getIsMut ctx env target
     | _ ->
-      return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
+      return!
+        Error(TypeError.NotImplemented $"determine the mutability of {expr}")
   }
 
 // Return a structure which indicates whether the object represented by the property

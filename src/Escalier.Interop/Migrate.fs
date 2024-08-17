@@ -968,7 +968,23 @@ module rec Migrate =
             (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
             typeParams
 
-        let isMutable = not (ident.Name.Contains "Readonly")
+        let isReadonly =
+          ident.Name.StartsWith "Readonly"
+          || ident.Name.EndsWith "ReadOnly"
+          || (List.contains
+            ident.Name
+            [ "Boolean"
+              "Number"
+              "String"
+              "Symbol"
+              "BigInt"
+              // TODO: Track what namespace we're inside of if any
+              // TODO: Track what node_module we're inside of it any
+              // TODO: Maintain a full qualified list of interfaces that are
+              // known to be "readonly" like `Intl.NumberFormatOptions`
+              "NumberFormat" ])
+
+        let isMutable = not isReadonly
         let elems = List.map (migrateTypeElement isMutable) body.Body
 
         let extends: option<list<TypeRef>> =

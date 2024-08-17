@@ -546,8 +546,6 @@ module Prelude =
           let name =
             readonlyName.Replace("Readonly", "").Replace("ReadOnly", "")
 
-          printfn $"merging {name} with {readonlyName}"
-
           match newEnv.TryFindScheme name with
           | Some(scheme) ->
             let merged =

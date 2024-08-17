@@ -523,6 +523,23 @@ module rec Migrate =
     (isMutable: bool)
     (fnParam: TypeScript.TsFnParam)
     : Syntax.FuncParam =
+    let typeAnn =
+      match fnParam.TypeAnn with
+      | Some typeAnn -> Some(migrateTypeAnn typeAnn)
+      | None -> failwith "all function parameters must have a type annotation"
+
+    let isMutable =
+      match typeAnn with
+      | None -> isMutable
+      | Some typeAnn ->
+        match typeAnn.Kind with
+        | TypeAnnKind.Literal _ -> false
+        | TypeAnnKind.Keyword _ -> false
+        | TypeAnnKind.Function _ -> false
+        | TypeAnnKind.Keyof _ -> false
+        | TypeAnnKind.TemplateLiteral _ -> false
+        | _ -> isMutable
+
     { Pattern = migrateFnParamPattern isMutable fnParam.Pat
       TypeAnn =
         match fnParam.TypeAnn with

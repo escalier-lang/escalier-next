@@ -435,7 +435,7 @@ let InferBasicVarDecls () =
 
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string | undefined")
-      Assert.Value(env, "c", "fn (mut a: number) -> string")
+      Assert.Value(env, "c", "fn (a: number) -> string")
       Assert.Value(env, "d", "fn <T>(mut x: T) -> T")
       Assert.Value(env, "e", "[5, \"hello\", true]")
     }

@@ -515,6 +515,7 @@ module Prelude =
         let libs =
           [ "lib.es5.d.ts"
             "lib.es2015.core.d.ts"
+            "lib.es2015.collection.d.ts"
             "lib.es2015.symbol.d.ts"
             "lib.es2015.symbol.wellknown.d.ts"
             "lib.es2015.iterable.d.ts"
@@ -534,28 +535,29 @@ module Prelude =
           let! env, _ = inferLib ctx newEnv fullPath
           newEnv <- env
 
-        // TODO: look for more (Readonly)Foo pairs once we parse lib.es6.d.ts and
-        // future versions of the JavaScript standard library type defs
-        match
-          newEnv.TryFindScheme "ReadonlyArray", newEnv.TryFindScheme "Array"
-        with
-        | Some(readonlyArray), Some(array) ->
-          // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
-          let merged = QualifiedGraph.mergeType readonlyArray.Type array.Type
-          newEnv <- newEnv.AddScheme "Array" { array with Type = merged }
+        // TODO: handle schemes within namespaces
+        let readonlySchemes =
+          newEnv.Namespace.Schemes
+          |> Map.filter (fun k _ ->
+            (k.StartsWith "Readonly" || k.EndsWith "ReadOnly")
+            && k <> "Readonly")
 
-          // TODO: for type definitions using Array and ReadonlyArray we need to
-          // make sure that params are marked with `mut` appropriately and all
-          // references to ReadonlyArray must be replaced with Array
+        for KeyValue(readonlyName, readonlyScheme) in readonlySchemes do
+          let name =
+            readonlyName.Replace("Readonly", "").Replace("ReadOnly", "")
 
-          // TODO: make it so that we can only use `ReadonlyArray` from .d.ts files
-          // newEnv <-
-          //   { newEnv with
-          //       Namespace =
-          //         { newEnv.Namespace with
-          //             Schemes = newEnv.Namespace.Schemes.Remove "ReadonlyArray" } }
-          ()
-        | _ -> ()
+          printfn $"merging {name} with {readonlyName}"
+
+          match newEnv.TryFindScheme name with
+          | Some(scheme) ->
+            let merged =
+              QualifiedGraph.mergeType readonlyScheme.Type scheme.Type
+
+            // TODO: track which TypeScript interface decls each of the properties
+            // come from in the merged type.
+            newEnv <- newEnv.AddScheme name { scheme with Type = merged }
+            ()
+          | _ -> ()
 
         let result = Result.Ok(ctx, newEnv)
         memoizedEnvAndCtx <- memoizedEnvAndCtx.Add(baseDir, result)

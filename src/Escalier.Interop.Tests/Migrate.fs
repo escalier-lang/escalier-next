@@ -134,7 +134,7 @@ let ParseAndInferInterface () =
       Assert.Type(
         env,
         "Foo",
-        "{bar fn (self: Self) -> number, baz fn (self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn (mut x: string) -> undefined, ...}"
+        "{bar fn (mut self: Self) -> number, baz fn (mut self: Self, mut x: string) -> boolean, get qux fn () -> string, set qux fn (mut x: string) -> undefined, ...}"
       )
     }
 
@@ -195,7 +195,7 @@ let ParseAndInferUnorderedTypeParams () =
       Assert.Type(
         env,
         "MyObjectConstructor",
-        "{freeze fn <T: {[idx]+?: U | null | undefined | object for idx in string, ...}, U: string | bigint | number | boolean | symbol>(self: Self, mut o: T) -> Readonly<T>, ...}"
+        "{freeze fn <T: {[idx]+?: U | null | undefined | object for idx in string, ...}, U: string | bigint | number | boolean | symbol>(mut self: Self, mut o: T) -> Readonly<T>, ...}"
       )
     }
 

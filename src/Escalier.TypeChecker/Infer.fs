@@ -3740,6 +3740,8 @@ module rec Infer =
             | TypeKind.Object { Elems = existingElems },
               TypeKind.Object { Elems = newElems } ->
               // TODO: remove duplicates
+              // TODO: track which TypeScript interface decls each of the properties
+              // come from in the merged type.
               let mergedElems = existingElems @ newElems
 
               let kind =

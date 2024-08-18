@@ -52,6 +52,9 @@ module TemplateLiteral =
         // This produces the same behaviour as `*.?` would in a regex
         many (notFollowedBy parser >>. anyChar) |>> ignore
       | TypeKind.Union elems -> choice (List.map fold elems)
+      | TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs } ->
+        failwith "TODO: parserForType - IntrinsicInstance"
+
       | _ -> failwith $"TODO: parserForType - t = {t}"
 
     fold t .>> parser
@@ -87,3 +90,16 @@ module TemplateLiteral =
     match run parser s with
     | Success((), _, pos) -> true
     | Failure _ -> false
+
+  let isUppercase (s: string) : bool = s |> Seq.forall isUpper
+  let isLowercase (s: string) : bool = s |> Seq.forall isLower
+
+  let isCapitalize (s: string) : bool =
+    match s with
+    | "" -> true
+    | _ -> isUpper s.[0]
+
+  let isUncapitalize (s: string) : bool =
+    match s with
+    | "" -> true
+    | _ -> isLower s.[0]

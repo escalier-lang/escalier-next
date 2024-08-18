@@ -224,53 +224,12 @@ module rec Unify =
 
           List.map2 (unify ctx env ips) types1 types2 |> ignore
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
-      | TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme }, _ ->
-        match scheme with
-        | Some scheme ->
-          // // TODO: dedupe the same code in generalizeFunc
-          // let mutable mapping: Map<string, Type> = Map.empty
-          //
-          // match scheme.TypeParams with
-          // | Some(typeParams) ->
-          //   match typeArgs with
-          //   | Some(typeArgs) ->
-          //     if typeArgs.Length <> typeParams.Length then
-          //       return! Error(TypeError.WrongNumberOfTypeArgs)
-          //
-          //     for tp, ta in List.zip typeParams typeArgs do
-          //       mapping <- mapping.Add(tp.Name, ta)
-          //   | None ->
-          //     for tp in typeParams do
-          //       mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None None)
-          // | None -> ()
-          // let! t = expandScheme ctx env ips scheme mapping typeArgs
-          let! t = expandScheme ctx env ips scheme Map.empty typeArgs
-          do! unify ctx env ips t t2
-        | _ -> return! unifyFallThrough ctx env ips t1 t2
-      | _, TypeKind.TypeRef { TypeArgs = typeArgs; Scheme = scheme } ->
-        match scheme with
-        | Some scheme ->
-          // // TODO: dedupe the same code in generalizeFunc
-          // let mutable mapping: Map<string, Type> = Map.empty
-          //
-          // match scheme.TypeParams with
-          // | Some(typeParams) ->
-          //   match typeArgs with
-          //   | Some(typeArgs) ->
-          //     if typeArgs.Length <> typeParams.Length then
-          //       return! Error(TypeError.WrongNumberOfTypeArgs)
-          //
-          //     for tp, ta in List.zip typeParams typeArgs do
-          //       mapping <- mapping.Add(tp.Name, ta)
-          //   | None ->
-          //     for tp in typeParams do
-          //       mapping <- mapping.Add(tp.Name, ctx.FreshTypeVar None None)
-          // | None -> ()
-          //
-          // let! t = expandScheme ctx env ips scheme mapping typeArgs
-          let! t = expandScheme ctx env ips scheme Map.empty typeArgs
-          do! unify ctx env ips t1 t
-        | _ -> return! unifyFallThrough ctx env ips t1 t2
+      | TypeKind.TypeRef _, _ ->
+        let! t = expandType ctx env ips Map.empty t1
+        do! unify ctx env ips t t2
+      | _, TypeKind.TypeRef _ ->
+        let! t = expandType ctx env ips Map.empty t2
+        do! unify ctx env ips t1 t
       | TypeKind.Range range1, TypeKind.Range range2 ->
         match
           range1.Min.Kind, range1.Max.Kind, range2.Min.Kind, range2.Max.Kind
@@ -327,6 +286,38 @@ module rec Unify =
           ()
         else
           return! Error(TypeError.TypeMismatch(t1, t2))
+      | TypeKind.Literal(Literal.String s1),
+        TypeKind.IntrinsicInstance { Name = name
+                                     TypeArgs = Some typeArgs } ->
+        match typeArgs[0].Kind with
+        | TypeKind.Literal(Literal.String s2) ->
+          let s2 =
+            match name with
+            | Ident "Uppercase" -> s2.ToUpper()
+            | Ident "Lowercase" -> s2.ToLower()
+            | Ident "Capitalize" ->
+              match s2 with
+              | "" -> ""
+              | _ -> s2.[0].ToString().ToUpper() + s2.[1..].ToLower()
+            | Ident "Uncapitalize" ->
+              match s2 with
+              | "" -> ""
+              | _ -> s2.[0].ToString().ToLower() + s2.[1..].ToUpper()
+            | _ -> failwith $"Invalid intrinsic: {name}"
+
+          if s1 = s2 then
+            ()
+          else
+            return! Error(TypeError.TypeMismatch(t1, t2))
+        | TypeKind.Primitive(Primitive.String) ->
+          match name with
+          | Ident "Uppercase" when TemplateLiteral.isUppercase s1 -> ()
+          | Ident "Lowercase" when TemplateLiteral.isLowercase s1 -> ()
+          | Ident "Capitalize" when TemplateLiteral.isCapitalize s1 -> ()
+          | Ident "Uncapitalize" when TemplateLiteral.isUncapitalize s1 -> ()
+          | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+        | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+
       | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
         ()
       | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
@@ -1569,9 +1560,14 @@ module rec Unify =
                 | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
                 | Error errorValue -> failwith $"{name} is not in scope"
 
-          // printfn $"expanded TypeRef {name}<{typeArgs}> to {t}"
-
-          return! expand mapping t
+          match t.Kind with
+          | TypeKind.Intrinsic ->
+            return
+              { Kind =
+                  TypeKind.IntrinsicInstance
+                    { Name = name; TypeArgs = typeArgs }
+                Provenance = None }
+          | _ -> return! expand mapping t
         | TypeKind.Intersection types ->
           let! types = types |> List.traverseResultM (expand mapping)
           let mutable allElems = []

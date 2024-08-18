@@ -879,6 +879,49 @@ let InferTemplateLiteralTypeErrorWithUnion () =
   Assert.True(Result.isError result)
 
 [<Fact>]
+let InferIntrinsicsBasicUsageLiterals () =
+  let result =
+    result {
+
+      let src =
+        """
+        type A = Uppercase<"HeLlo">;
+        let a: A = "HELLO";
+        let b: Lowercase<"HeLlo"> = "hello";
+        let c: Capitalize<"HeLlo"> = "Hello";
+        let d: Uncapitalize<"HeLlo"> = "hELLO";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIntrinsicsBasicUsageStringPrimitive () =
+  let result =
+    result {
+
+      let src =
+        """
+        type A = Uppercase<string>;
+        let a: A = "HELLO";
+        let b: Lowercase<string> = "hello";
+        let c: Capitalize<string> = "Hello";
+        let d: Uncapitalize<string> = "hELLO";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferUnaryOperations () =
   let result =
     result {

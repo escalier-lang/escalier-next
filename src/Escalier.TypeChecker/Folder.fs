@@ -34,12 +34,7 @@ module Folder =
         | RestSpread t -> RestSpread(fold t)
 
       let foldTypeRef (typeRef: TypeRef) : TypeRef =
-        let { Name = name
-              TypeArgs = typeArgs
-              Scheme = scheme } =
-          typeRef
-
-        let typeArgs = Option.map (List.map fold) typeArgs
+        let typeArgs = Option.map (List.map fold) typeRef.TypeArgs
 
         // NOTE: We explicitly don't fold the scheme type here because
         // this can cause an infinite loop with generic rercusive types.
@@ -48,9 +43,7 @@ module Folder =
         //     (fun (scheme: Scheme) -> { scheme with Type = fold scheme.Type })
         //     scheme
 
-        { Name = name
-          TypeArgs = typeArgs
-          Scheme = scheme }
+        { typeRef with TypeArgs = typeArgs }
 
       let t =
         match t.Kind with
@@ -147,7 +140,15 @@ module Folder =
                 { Exprs = List.map fold exprs
                   Parts = parts }
             Provenance = None }
-        | _ -> failwith $"TODO: foldType - {t.Kind}"
+        | TypeKind.Namespace _ -> failwith "TODO: foldType - Namespace"
+        | TypeKind.Typeof _ -> t
+        | TypeKind.Intrinsic -> t
+        | TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs } ->
+          let typeArgs = Option.map (List.map fold) typeArgs
+
+          { Kind =
+              TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs }
+            Provenance = None }
 
       match f t with
       | Some(t) -> t

@@ -1,6 +1,7 @@
 namespace Escalier.TypeChecker
 
 open FsToolkit.ErrorHandling
+open FParsec.CharParsers
 
 open Escalier.Data.Common
 open Escalier.Data.Type
@@ -282,24 +283,26 @@ module rec Unify =
         | Literal.Undefined, Literal.Undefined -> ()
         | _, _ -> return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Literal(Literal.String s), TypeKind.TemplateLiteral tl ->
-        if TemplateLiteral.check s tl then
+        if checkTemplateLiteral ctx env s tl then
           ()
         else
           return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Literal(Literal.String s1),
         TypeKind.IntrinsicInstance { Name = name
                                      TypeArgs = Some typeArgs } ->
+        // TODO: if the type arg is a union then we have to distribute the
+        // intrinsic over the union.
         match typeArgs[0].Kind with
         | TypeKind.Literal(Literal.String s2) ->
           let s2 =
             match name with
-            | Ident "Uppercase" -> s2.ToUpper()
-            | Ident "Lowercase" -> s2.ToLower()
-            | Ident "Capitalize" ->
+            | QualifiedIdent.Ident "Uppercase" -> s2.ToUpper()
+            | QualifiedIdent.Ident "Lowercase" -> s2.ToLower()
+            | QualifiedIdent.Ident "Capitalize" ->
               match s2 with
               | "" -> ""
               | _ -> s2.[0].ToString().ToUpper() + s2.[1..].ToLower()
-            | Ident "Uncapitalize" ->
+            | QualifiedIdent.Ident "Uncapitalize" ->
               match s2 with
               | "" -> ""
               | _ -> s2.[0].ToString().ToLower() + s2.[1..].ToUpper()
@@ -311,10 +314,10 @@ module rec Unify =
             return! Error(TypeError.TypeMismatch(t1, t2))
         | TypeKind.Primitive(Primitive.String) ->
           match name with
-          | Ident "Uppercase" when TemplateLiteral.isUppercase s1 -> ()
-          | Ident "Lowercase" when TemplateLiteral.isLowercase s1 -> ()
-          | Ident "Capitalize" when TemplateLiteral.isCapitalize s1 -> ()
-          | Ident "Uncapitalize" when TemplateLiteral.isUncapitalize s1 -> ()
+          | QualifiedIdent.Ident "Uppercase" when isUppercase s1 -> ()
+          | QualifiedIdent.Ident "Lowercase" when isLowercase s1 -> ()
+          | QualifiedIdent.Ident "Capitalize" when isCapitalize s1 -> ()
+          | QualifiedIdent.Ident "Uncapitalize" when isUncapitalize s1 -> ()
           | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
@@ -1562,6 +1565,10 @@ module rec Unify =
 
           match t.Kind with
           | TypeKind.Intrinsic ->
+            // If the TypeRef is an intrinsic type, we expand it to an intrinsic
+            // instance which includes the name and type args from the TypeRef.
+            // These are used by `unify` to determine if a given string literal
+            // conforms to the given intrinsic.
             return
               { Kind =
                   TypeKind.IntrinsicInstance
@@ -1659,3 +1666,147 @@ module rec Unify =
         Some(result)
 
     foldType fold t
+
+  let number: FParsec.Primitives.Parser<Number, unit> =
+    fun stream ->
+      let intReply = many1Satisfy isDigit stream
+
+      match intReply.Status with
+      | FParsec.Primitives.Ok ->
+        if stream.PeekString(2) = ".." then
+          FParsec.Reply(Number.Int(int intReply.Result))
+        else if stream.PeekString(1) = "." then
+          let index = stream.Index
+          stream.Skip(1)
+          let decReply = many1Satisfy isDigit stream
+
+          match decReply.Status with
+          | FParsec.Primitives.Ok ->
+            let number = intReply.Result + "." + decReply.Result
+            FParsec.Reply(Number.Float(float number))
+          | FParsec.Primitives.Error ->
+            stream.Seek(index)
+            FParsec.Reply(Number.Int(int intReply.Result))
+          | _ -> FParsec.Reply(decReply.Status, decReply.Error)
+        else
+          FParsec.Reply(Number.Int(int intReply.Result))
+      | _ -> FParsec.Reply(intReply.Status, intReply.Error)
+
+  let (|>>) = FParsec.Primitives.(|>>)
+  let (<|>) = FParsec.Primitives.(<|>)
+  let (.>>) = FParsec.Primitives.(.>>)
+  let (>>.) = FParsec.Primitives.(>>.)
+
+  let parserForType
+    (ctx: Ctx)
+    (env: Env)
+    (parser: FParsec.Primitives.Parser<unit, unit>)
+    (t: Type)
+    : FParsec.Primitives.Parser<unit, unit> =
+
+    let rec fold (t: Type) : FParsec.Primitives.Parser<unit, unit> =
+      match t.Kind with
+      | TypeKind.Literal lit ->
+        match lit with
+        | Literal.String s -> pstring s
+        | Literal.Boolean b -> pstring (string b)
+        | Literal.Number n -> pstring (string n)
+        | _ -> failwith $"TODO: parserForType - lit = ${lit}"
+        |>> ignore
+      | TypeKind.Primitive Primitive.Number -> number |>> ignore
+      | TypeKind.Primitive Primitive.Boolean ->
+        (pstring "true" <|> pstring "false") |>> ignore
+      | TypeKind.Primitive Primitive.String ->
+        // This produces the same behaviour as `*.?` would in a regex
+        FParsec.Primitives.many (
+          FParsec.Primitives.notFollowedBy parser >>. anyChar
+        )
+        |>> ignore
+      | TypeKind.Union elems -> FParsec.Primitives.choice (List.map fold elems)
+      | TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs } ->
+        match name with
+        | QualifiedIdent.Ident "Uppercase" ->
+          FParsec.Primitives.many (
+            FParsec.Primitives.notFollowedBy parser >>. satisfy isUpper
+          )
+          |>> ignore
+        | QualifiedIdent.Ident "Lowercase" ->
+          FParsec.Primitives.many (
+            FParsec.Primitives.notFollowedBy parser >>. satisfy isLower
+          )
+          |>> ignore
+        | QualifiedIdent.Ident "Capitalize" ->
+          satisfy isUpper
+          >>. FParsec.Primitives.many (
+            FParsec.Primitives.notFollowedBy parser >>. satisfy isLower
+          )
+          |>> ignore
+        | QualifiedIdent.Ident "Uncapitalize" ->
+          satisfy isLower
+          >>. FParsec.Primitives.many (
+            FParsec.Primitives.notFollowedBy parser >>. satisfy isUpper
+          )
+          |>> ignore
+        | _ ->
+          fun (stream: FParsec.CharStream<_>) ->
+            FParsec.Reply(
+              FParsec.Primitives.Error,
+              FParsec.Error.messageError ($"Invalid intrinsic instance: {name}")
+            )
+      | TypeKind.TypeRef _ ->
+        match expandType ctx env None Map.empty t with
+        | Ok t -> fold t
+        | Error _ ->
+          fun (stream: FParsec.CharStream<_>) ->
+            FParsec.Reply(
+              FParsec.Primitives.Error,
+              FParsec.Error.messageError ($"Failed to expand type: {t}")
+            )
+      | _ -> failwith $"TODO: parserForType - t = {t}"
+
+    fold t .>> parser
+
+  let checkTemplateLiteral
+    (ctx: Ctx)
+    (env: Env)
+    (s: string)
+    (tl: TemplateLiteral<Type>)
+    : bool =
+    let { Parts = parts; Exprs = exprs } = tl
+
+    let firstPart, restParts = List.head parts, List.tail parts
+    let pairs = List.zip exprs restParts
+
+    let mutable parser: FParsec.Primitives.Parser<unit, unit> = eof
+
+    for expr, part in List.rev pairs do
+      if part.Length > 0 then
+        parser <- (pstring part |>> ignore) .>> parser
+
+      parser <- parserForType ctx env parser expr
+
+    if firstPart.Length > 0 then
+      parser <- (pstring firstPart |>> ignore) .>> parser
+
+    match run parser s with
+    | Success((), _, pos) -> true
+    | Failure(str, err, state) ->
+      // TODO: Do a better job of bubbling up errors from the parser so that
+      // they can be reported to the user.
+      printfn $"failed to parse {str}"
+      let head = err.Messages.Head
+      printfn $"message: {head}"
+      false
+
+  let isUppercase (s: string) : bool = s |> Seq.forall isUpper
+  let isLowercase (s: string) : bool = s |> Seq.forall isLower
+
+  let isCapitalize (s: string) : bool =
+    match s with
+    | "" -> true
+    | _ -> isUpper s.[0]
+
+  let isUncapitalize (s: string) : bool =
+    match s with
+    | "" -> true
+    | _ -> isLower s.[0]

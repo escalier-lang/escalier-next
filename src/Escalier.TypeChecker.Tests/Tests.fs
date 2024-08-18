@@ -922,6 +922,29 @@ let InferIntrinsicsBasicUsageStringPrimitive () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let InferIntrinsicsInTemplateLiteralTypes () =
+  let result =
+    result {
+
+      let src =
+        """
+        type FooBar1 = `foo${Uppercase<string>}bar`;
+        let foobar1: FooBar1 = "fooHELLObar";
+        type FooBar2 = `foo${Lowercase<string>}bar`;
+        let foobar2: FooBar2 = "fooworldbar";
+        type FooBar3 = `foo${Capitalize<string>}bar`;
+        let foobar3: FooBar3 = "fooHellobar";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferUnaryOperations () =
   let result =
     result {

@@ -2000,13 +2000,7 @@ module rec Infer =
         | TypeAnnKind.Intersection types ->
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return TypeKind.Intersection types
-        | TypeAnnKind.TypeRef typeRef ->
-          let! typeAnn = inferTypeRef ctx env typeRef
-
-          // if typeRef.Ident = QualifiedIdent.Ident "Uppercase" then
-          //   printfn $"typeAnn: {typeAnn}"
-
-          return typeAnn
+        | TypeAnnKind.TypeRef typeRef -> return! inferTypeRef ctx env typeRef
         | TypeAnnKind.Function functionType ->
           let! f = inferFuncSig ctx env functionType None
           return TypeKind.Function(f)

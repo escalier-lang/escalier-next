@@ -290,9 +290,12 @@ module rec Unify =
       | TypeKind.Literal(Literal.String s1),
         TypeKind.IntrinsicInstance { Name = name
                                      TypeArgs = Some typeArgs } ->
+
+        let! t = expandType ctx env ips Map.empty typeArgs[0]
+
         // TODO: if the type arg is a union then we have to distribute the
         // intrinsic over the union.
-        match typeArgs[0].Kind with
+        match t.Kind with
         | TypeKind.Literal(Literal.String s2) ->
           let s2 =
             match name with
@@ -319,6 +322,21 @@ module rec Unify =
           | QualifiedIdent.Ident "Capitalize" when isCapitalize s1 -> ()
           | QualifiedIdent.Ident "Uncapitalize" when isUncapitalize s1 -> ()
           | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+        | TypeKind.Union types ->
+          let types =
+            types
+            |> List.map (fun t ->
+              let kind =
+                TypeKind.IntrinsicInstance
+                  { Name = name; TypeArgs = Some [ t ] }
+
+              { Kind = kind; Provenance = None })
+
+          let t2 =
+            { Kind = TypeKind.Union types
+              Provenance = None }
+
+          do! unify ctx env ips t1 t2
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
       | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
@@ -1724,29 +1742,77 @@ module rec Unify =
         |>> ignore
       | TypeKind.Union elems -> FParsec.Primitives.choice (List.map fold elems)
       | TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs } ->
-        match name with
-        | QualifiedIdent.Ident "Uppercase" ->
-          FParsec.Primitives.many (
-            FParsec.Primitives.notFollowedBy parser >>. satisfy isUpper
-          )
-          |>> ignore
-        | QualifiedIdent.Ident "Lowercase" ->
-          FParsec.Primitives.many (
-            FParsec.Primitives.notFollowedBy parser >>. satisfy isLower
-          )
-          |>> ignore
-        | QualifiedIdent.Ident "Capitalize" ->
-          satisfy isUpper
-          >>. FParsec.Primitives.many (
-            FParsec.Primitives.notFollowedBy parser >>. satisfy isLower
-          )
-          |>> ignore
-        | QualifiedIdent.Ident "Uncapitalize" ->
-          satisfy isLower
-          >>. FParsec.Primitives.many (
-            FParsec.Primitives.notFollowedBy parser >>. satisfy isUpper
-          )
-          |>> ignore
+
+        let t =
+          match typeArgs with
+          | Some [ t ] -> t
+          | _ -> failwith $"TODO: parserForType - typeArgs = {typeArgs}"
+
+        let t =
+          match expandType ctx env None Map.empty t with
+          | Ok t -> t
+          | Error _ -> failwith $"parserForType - failed to expand type {t}"
+
+        match t.Kind with
+        | TypeKind.Primitive Primitive.String ->
+          match name with
+          | QualifiedIdent.Ident "Uppercase" ->
+            FParsec.Primitives.many (
+              FParsec.Primitives.notFollowedBy parser >>. satisfy isUpper
+            )
+            |>> ignore
+          | QualifiedIdent.Ident "Lowercase" ->
+            FParsec.Primitives.many (
+              FParsec.Primitives.notFollowedBy parser >>. satisfy isLower
+            )
+            |>> ignore
+          | QualifiedIdent.Ident "Capitalize" ->
+            satisfy isUpper
+            >>. FParsec.Primitives.many (
+              FParsec.Primitives.notFollowedBy parser >>. satisfy isLower
+            )
+            |>> ignore
+          | QualifiedIdent.Ident "Uncapitalize" ->
+            satisfy isLower
+            >>. FParsec.Primitives.many (
+              FParsec.Primitives.notFollowedBy parser >>. satisfy isUpper
+            )
+            |>> ignore
+          | _ ->
+            fun (stream: FParsec.CharStream<_>) ->
+              FParsec.Reply(
+                FParsec.Primitives.Error,
+                FParsec.Error.messageError (
+                  $"Invalid intrinsic instance: {name}"
+                )
+              )
+        | TypeKind.Literal(Literal.String s) ->
+          match name with
+          | QualifiedIdent.Ident "Uppercase" -> pstring (s.ToUpper()) |>> ignore
+          | QualifiedIdent.Ident "Lowercase" -> pstring (s.ToUpper()) |>> ignore
+          | QualifiedIdent.Ident "Capitalize" ->
+            pstring (s[0].ToString().ToUpper() + s[1..].ToLower()) |>> ignore
+          | QualifiedIdent.Ident "Uncapitalize" ->
+            pstring (s[0].ToString().ToLower() + s[1..].ToUpper()) |>> ignore
+          | _ ->
+            fun (stream: FParsec.CharStream<_>) ->
+              FParsec.Reply(
+                FParsec.Primitives.Error,
+                FParsec.Error.messageError (
+                  $"Invalid intrinsic instance: {name}"
+                )
+              )
+        | TypeKind.Union types ->
+          let types =
+            types
+            |> List.map (fun t ->
+              let kind =
+                TypeKind.IntrinsicInstance
+                  { Name = name; TypeArgs = Some [ t ] }
+
+              { Kind = kind; Provenance = None })
+
+          fold (union types)
         | _ ->
           fun (stream: FParsec.CharStream<_>) ->
             FParsec.Reply(

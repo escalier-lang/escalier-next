@@ -342,6 +342,7 @@ module rec ExprVisitor =
           walk state max
         | TypeAnnKind.TemplateLiteral { Exprs = expr } ->
           List.iter (walk state) expr
+        | TypeAnnKind.Intrinsic -> ()
 
     walk state typeAnn
 

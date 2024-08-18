@@ -582,6 +582,7 @@ module Syntax =
     | Wildcard
     | Binary of left: TypeAnn * op: string * right: TypeAnn // TODO: BinaryOp
     | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
+    | Intrinsic
 
   [<CustomEquality; NoComparison>]
   type TypeAnn =
@@ -889,6 +890,10 @@ module Type =
       TrueType: Type
       FalseType: Type }
 
+  type IntrinsicInstance =
+    { Name: Common.QualifiedIdent
+      TypeArgs: option<list<Type>> }
+
   [<RequireQualifiedAccess>]
   type TypeKind =
     | TypeVar of TypeVar
@@ -916,6 +921,8 @@ module Type =
     | Unary of op: string * arg: Type
     | Wildcard
     | TemplateLiteral of Common.TemplateLiteral<Type>
+    | Intrinsic
+    | IntrinsicInstance of IntrinsicInstance
 
   [<CustomEquality; NoComparison>]
   type Type =
@@ -1019,6 +1026,8 @@ module Type =
       | _ -> failwith $"Invalid unary operator '{op}'"
     | TypeKind.Wildcard -> 100
     | TypeKind.TemplateLiteral _ -> 100
+    | TypeKind.Intrinsic -> 100
+    | TypeKind.IntrinsicInstance _ -> 100
     | TypeKind.Typeof(_) -> failwith "TODO: getPrecedence - TypeKind.Typeof"
 
   let rec printType (ctx: PrintCtx) (t: Type) : string =
@@ -1088,6 +1097,17 @@ module Type =
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         failwith "TODO: printType - TypeKind.TemplateLiteral"
+      | TypeKind.Intrinsic -> "intrinsic"
+      | TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs } ->
+        let typeArgs =
+          match typeArgs with
+          | Some(typeArgs) ->
+            let sep = ", "
+            let ctx = { Precedence = 0 }
+            $"<{typeArgs |> List.map (printType ctx) |> String.concat sep}>"
+          | None -> ""
+
+        $"**{name}{typeArgs}**"
       | TypeKind.Typeof(qualifiedIdent) -> $"typeof {qualifiedIdent}"
 
     if innerPrec < outerPrec then $"({result})" else result

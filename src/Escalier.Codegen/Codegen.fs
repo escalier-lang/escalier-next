@@ -1497,14 +1497,15 @@ module rec Codegen =
     | TypeKind.Wildcard ->
       // TODO: Use `any`?
       failwith "TODO: buildType - Wildcard"
-    | TypeKind.Namespace(_) -> failwith "TODO: buildType - Namespace"
-    | TypeKind.Range(_) -> failwith "TODO: buildType - Range"
-    | TypeKind.UniqueSymbol(id) -> failwith "TODO: buildType - UniqueSymbol"
-    | TypeKind.UniqueNumber(id) -> failwith "TODO: buildType - UniqueNumber"
-    | TypeKind.Typeof(_) -> failwith "TODO: buildType - Typeof"
+    | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
+    | TypeKind.Range _ -> failwith "TODO: buildType - Range"
+    | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
+    | TypeKind.UniqueNumber id -> failwith "TODO: buildType - UniqueNumber"
+    | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
     | TypeKind.Unary(op, arg) -> failwith "TODO: buildType - Unary"
-    | TypeKind.TemplateLiteral(_) ->
-      failwith "TODO: buildType - TemplateLiteral"
+    | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
+    | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"
+    | TypeKind.IntrinsicInstance _ -> failwith "TODO: buildType - IntrinsicInstance"
 
   let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
     match elem with

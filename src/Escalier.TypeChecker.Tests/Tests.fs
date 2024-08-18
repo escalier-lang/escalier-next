@@ -879,6 +879,117 @@ let InferTemplateLiteralTypeErrorWithUnion () =
   Assert.True(Result.isError result)
 
 [<Fact>]
+let InferIntrinsicsBasicUsageLiterals () =
+  let result =
+    result {
+
+      let src =
+        """
+        type A = Uppercase<"HeLlo">;
+        let a: A = "HELLO";
+        let b: Lowercase<"HeLlo"> = "hello";
+        let c: Capitalize<"HeLlo"> = "Hello";
+        let d: Uncapitalize<"HeLlo"> = "hELLO";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIntrinsicsBasicUsageStringPrimitive () =
+  let result =
+    result {
+
+      let src =
+        """
+        type A = Uppercase<string>;
+        let a: A = "HELLO";
+        let b: Lowercase<string> = "hello";
+        let c: Capitalize<string> = "Hello";
+        let d: Uncapitalize<string> = "hELLO";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIntrinsicsBasicUsageUnionOfStrings () =
+  let result =
+    result {
+
+      let src =
+        """
+        type A = "HeLlo" | "wOrLd";
+        type B = Uppercase<A>;
+        let x: B = "HELLO";
+        let y: B = "WORLD";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIntrinsicsInTemplateLiteralTypes () =
+  let result =
+    result {
+
+      let src =
+        """
+        type FooBar1 = `foo${Uppercase<string>}bar`;
+        let foobar1: FooBar1 = "fooHELLObar";
+        type FooBar2 = `foo${Lowercase<string>}bar`;
+        let foobar2: FooBar2 = "fooworldbar";
+        type FooBar3 = `foo${Capitalize<string>}bar`;
+        let foobar3: FooBar3 = "fooHellobar";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferIntrinsicsInTemplateLiteralTypesWithUnion () =
+  let result =
+    result {
+
+      let src =
+        """
+        type A = "foo" | "bar";
+        type B = `${Uppercase<A>}123`;
+        let b1: B = "FOO123";
+        let b2: B = "BAR123";
+        type C = `${Capitalize<A>}123`;
+        let c1: C = "Foo123";
+        let c2: C = "Bar123";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferUnaryOperations () =
   let result =
     result {

@@ -2058,6 +2058,7 @@ module rec Infer =
         | TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs } ->
           let! exprs = List.traverseResultM (inferTypeAnn ctx env) exprs
           return TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }
+        | TypeAnnKind.Intrinsic -> return TypeKind.Intrinsic
       }
 
     let t: Result<Type, TypeError> =

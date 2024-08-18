@@ -314,7 +314,7 @@ module rec Migrate =
         | TsUndefinedKeyword -> Keyword KeywordTypeAnn.Undefined
         | TsNullKeyword -> Keyword KeywordTypeAnn.Null
         | TsNeverKeyword -> Keyword KeywordTypeAnn.Never
-        | TsIntrinsicKeyword -> failwith "TODO: handle intrinsic types"
+        | TsIntrinsicKeyword -> TypeAnnKind.Intrinsic
 
       | TsType.TsThisType _ ->
         { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"

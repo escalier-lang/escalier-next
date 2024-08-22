@@ -1224,7 +1224,11 @@ module rec Unify =
               // TODO: Handle the case where the type is a primitive and use a
               // special function to expand the type
               // TODO: Handle different kinds of index types, e.g. number, symbol
-              return! Error(TypeError.NotImplemented "TODO: expand index")
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    $"TODO: expand index - target type = {target}"
+                )
         | TypeKind.Condition { Check = check
                                Extends = extends
                                TrueType = trueType
@@ -1324,6 +1328,9 @@ module rec Unify =
               result {
                 match elem with
                 | Mapped m ->
+                  printfn $"TypeParam = {m.TypeParam.Name}"
+                  printfn $"NameType = {m.NameType}"
+
                   match m.TypeParam.Constraint.Kind with
                   | TypeKind.KeyOf t ->
                     match t.Kind with
@@ -1342,6 +1349,8 @@ module rec Unify =
                   let! c =
                     expandType ctx env ips mapping m.TypeParam.Constraint
 
+                  printfn $"c = {c}"
+
                   // TODO: Document this because I don't remember why we need to
                   // do this.
                   match c.Kind with
@@ -1350,6 +1359,13 @@ module rec Unify =
                       types
                       |> List.traverseResultM (fun keyType ->
                         result {
+                          // TODO: handle key renamining
+                          let mutable nameMapping: Map<string, Type> =
+                            Map.empty
+
+                          nameMapping <-
+                            Map.add m.TypeParam.Name keyType nameMapping
+
                           let propName =
                             match keyType.Kind with
                             | TypeKind.Literal(Literal.String name) ->
@@ -1383,6 +1399,21 @@ module rec Unify =
                             | None -> false // TODO: copy value from typeAnn if it's an index access type
                             | Some MappedModifier.Add -> true
                             | Some MappedModifier.Remove -> false
+
+                          let! keyType =
+                            match m.NameType with
+                            | Some nameType ->
+                              expandType ctx env ips nameMapping nameType
+                            | None -> Result.Ok keyType
+
+                          let propName =
+                            match keyType.Kind with
+                            | TypeKind.Literal(Literal.String name) ->
+                              PropName.String name
+                            | TypeKind.Literal(Literal.Number name) ->
+                              PropName.Number name
+                            | TypeKind.UniqueSymbol id -> PropName.Symbol id
+                            | _ -> failwith $"Invalid key type {keyType}"
 
                           return
                             Property
@@ -1644,6 +1675,36 @@ module rec Unify =
           return
             { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
               Provenance = None }
+        | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->
+          let! elems = elems |> List.traverseResultM (expand mapping)
+
+          let isLiteral t =
+            match t.Kind with
+            | TypeKind.Literal _ -> true
+            | _ -> false
+
+          // If all `elems` are literals, we can expand the type to a string.
+          // This is used for property renaming in mapped types.
+          if List.forall isLiteral elems then
+            let mutable str = ""
+
+            for elem, quasi in (List.zip elems (List.take elems.Length quasis)) do
+              match elem.Kind with
+              | TypeKind.Literal(Literal.String s) -> str <- str + quasi + s
+              | TypeKind.Literal(Literal.Number n) ->
+                str <- str + quasi + string (n)
+              | TypeKind.Literal(Literal.Boolean b) ->
+                str <- str + quasi + string (b)
+              | _ ->
+                failwith "TODO: handle non-literal types in template literal"
+
+            str <- str + List.last quasis
+
+            return
+              { Kind = TypeKind.Literal(Literal.String str)
+                Provenance = None }
+          else
+            return t
         | _ ->
           // Replaces type parameters with their corresponding type arguments
           // TODO: do this more consistently

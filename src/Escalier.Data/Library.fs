@@ -1096,7 +1096,14 @@ module Type =
       | TypeKind.Unary(op, arg) -> $"{op}{printType ctx arg}"
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
-        failwith "TODO: printType - TypeKind.TemplateLiteral"
+        let mutable output = ""
+
+        for part, t in List.zip (List.take types.Length parts) types do
+          output <- output + part + $"${{{printType ctx t}}}"
+
+        output <- output + List.last parts
+
+        $"`{output}`"
       | TypeKind.Intrinsic -> "intrinsic"
       | TypeKind.IntrinsicInstance { Name = name; TypeArgs = typeArgs } ->
         let typeArgs =

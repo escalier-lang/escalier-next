@@ -863,20 +863,29 @@ let InferTemplateLiteralTypeError () =
   Assert.True(Result.isError result)
 
 [<Fact>]
-let InferTemplateLiteralTypeErrorWithUnion () =
+let InferTemplateLiteralWithUnion () =
   let result =
     result {
       let src =
         """
         type Dir = `${"top" | "bottom"}-${"left" | "right"}`;
-        let x: Dir = "top-bottom";
+        let x: Dir = "top-right";
         """
 
-      let! _, _ = inferModule src
-      ()
+      let! ctx, env = inferModule src
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Dir") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal(
+        "`${(\"top\" | \"bottom\")}-${(\"left\" | \"right\")}`",
+        t.ToString()
+      )
     }
 
-  Assert.True(Result.isError result)
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let InferIntrinsicsBasicUsageLiterals () =
@@ -987,6 +996,93 @@ let InferIntrinsicsInTemplateLiteralTypesWithUnion () =
     }
 
   printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let KebabTemplateLiteralType () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Kebab<T: string, U: string> = `-${T}-${U}-`;
+        type Foo = Kebab<"hello", "world">;
+        type Bar = Kebab<string, number>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("\"-hello-world-\"", t.ToString())
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("`-${T}-${U}-`", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MappedTypeWithTemplateLiteralKey () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Foo<T> = {
+          [`_${K}`]: T[K] for K in keyof T,
+        };
+        type Point = {x: number, y: number};
+        type Bar = Foo<Point>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{_x: number, _y: number}", t.ToString())
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MappedTypeWithTemplateLiteralKeyWithIntrinsic () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Foo<T> = {
+          [`_${Uppercase<K>}`]: T[K] for K in keyof T,
+        };
+        type Point = {x: number, y: number, [Symbol.iterator]: number};
+        type Bar = Foo<Point>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{_X: number, _Y: number}", t.ToString())
+    }
+
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1935,7 +2031,7 @@ let InferMappedObjectType () =
         type Foo<T> = {
           [K]: T[K][] for K in keyof T
         };
-        type Bar = {a: string, b: number};
+        type Bar = {a: string, b: number, [Symbol.iterator]: boolean};
         type Baz = Foo<Bar>;
         """
 
@@ -1948,7 +2044,11 @@ let InferMappedObjectType () =
         expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
         |> Result.mapError CompileError.TypeError
 
-      Assert.Equal("{a: string[], b: number[]}", t.ToString())
+      // TODO: maintain the original name of the symbol
+      Assert.Equal(
+        "{a: string[], b: number[], [Symbol(147)]: boolean[]}",
+        t.ToString()
+      )
     }
 
   printfn "result = %A" result

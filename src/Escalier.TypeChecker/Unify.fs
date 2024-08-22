@@ -1350,73 +1350,64 @@ module rec Unify =
                   // do this.
                   match c.Kind with
                   | TypeKind.Union types ->
-                    let! elems =
-                      types
-                      |> List.traverseResultM (fun keyType ->
-                        result {
-                          // TODO: handle key renamining
-                          let mutable nameMapping: Map<string, Type> =
-                            Map.empty
+                    let mutable elems = []
 
-                          nameMapping <-
-                            Map.add m.TypeParam.Name keyType nameMapping
+                    for keyType in types do
+                      let typeAnn = m.TypeAnn
 
-                          let propName =
-                            match keyType.Kind with
-                            | TypeKind.Literal(Literal.String name) ->
-                              PropName.String name
-                            | TypeKind.Literal(Literal.Number name) ->
-                              PropName.Number name
-                            | TypeKind.UniqueSymbol id -> PropName.Symbol id
-                            | _ -> failwith $"Invalid key type {keyType}"
+                      let folder t =
+                        match t.Kind with
+                        | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
+                          name = m.TypeParam.Name
+                          ->
+                          Some(keyType)
+                        | _ -> None
 
-                          let typeAnn = m.TypeAnn
+                      let typeAnn = foldType folder typeAnn
+                      let! t = expandType ctx env ips mapping typeAnn
 
-                          let folder t =
-                            match t.Kind with
-                            | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
-                              name = m.TypeParam.Name
-                              ->
-                              Some(keyType)
-                            | _ -> None
+                      let optional =
+                        match m.Optional with
+                        | None -> false // TODO: copy value from typeAnn if it's an index access type
+                        | Some MappedModifier.Add -> true
+                        | Some MappedModifier.Remove -> false
 
-                          let typeAnn = foldType folder typeAnn
-                          let! t = expandType ctx env ips mapping typeAnn
+                      let readonly =
+                        match m.Readonly with
+                        | None -> false // TODO: copy value from typeAnn if it's an index access type
+                        | Some MappedModifier.Add -> true
+                        | Some MappedModifier.Remove -> false
 
-                          let optional =
-                            match m.Optional with
-                            | None -> false // TODO: copy value from typeAnn if it's an index access type
-                            | Some MappedModifier.Add -> true
-                            | Some MappedModifier.Remove -> false
+                      let mutable nameMapping: Map<string, Type> = Map.empty
 
-                          let readonly =
-                            match m.Readonly with
-                            | None -> false // TODO: copy value from typeAnn if it's an index access type
-                            | Some MappedModifier.Add -> true
-                            | Some MappedModifier.Remove -> false
+                      nameMapping <-
+                        Map.add m.TypeParam.Name keyType nameMapping
 
-                          let! keyType =
-                            match m.NameType with
-                            | Some nameType ->
-                              expandType ctx env ips nameMapping nameType
-                            | None -> Result.Ok keyType
+                      let! keyType =
+                        match m.NameType with
+                        | Some nameType ->
+                          expandType ctx env ips nameMapping nameType
+                        | None -> Result.Ok keyType
 
-                          let propName =
-                            match keyType.Kind with
-                            | TypeKind.Literal(Literal.String name) ->
-                              PropName.String name
-                            | TypeKind.Literal(Literal.Number name) ->
-                              PropName.Number name
-                            | TypeKind.UniqueSymbol id -> PropName.Symbol id
-                            | _ -> failwith $"Invalid key type {keyType}"
+                      let propName =
+                        match keyType.Kind with
+                        | TypeKind.Literal(Literal.String name) ->
+                          Some(PropName.String name)
+                        | TypeKind.Literal(Literal.Number name) ->
+                          Some(PropName.Number name)
+                        | TypeKind.UniqueSymbol id -> Some(PropName.Symbol id)
+                        | _ -> None
 
-                          return
-                            Property
-                              { Name = propName
-                                Type = t
-                                Optional = optional
-                                Readonly = readonly }
-                        })
+                      match propName with
+                      | Some propName ->
+                        elems <-
+                          elems
+                          @ [ Property
+                                { Name = propName
+                                  Type = t
+                                  Optional = optional
+                                  Readonly = readonly } ]
+                      | _ -> () // Omits entries with other key types
 
                     return elems
                   | TypeKind.Literal(Literal.String key) ->
@@ -1673,51 +1664,73 @@ module rec Unify =
         | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->
           let! elems = elems |> List.traverseResultM (expand mapping)
 
-          let isLiteralOrIntrinsic t =
+          // TODO: check for other types that can't appear within template literal types
+          let isSymbol t =
             match t.Kind with
-            | TypeKind.Literal _ -> true
-            | TypeKind.IntrinsicInstance { TypeArgs = typeArgs } ->
-              match typeArgs with
-              | Some [ { Kind = TypeKind.Literal _ } ] -> true
-              | _ -> false
+            | TypeKind.UniqueSymbol _ -> true
             | _ -> false
 
-          // If all `elems` are literals, we can expand the type to a string.
-          // This is used for property renaming in mapped types.
-          if List.forall isLiteralOrIntrinsic elems then
-            let mutable str = ""
-
-            for elem, quasi in (List.zip elems (List.take elems.Length quasis)) do
-              match elem.Kind with
-              | TypeKind.Literal(Literal.String s) -> str <- str + quasi + s
-              | TypeKind.Literal(Literal.Number n) ->
-                str <- str + quasi + string (n)
-              | TypeKind.Literal(Literal.Boolean b) ->
-                str <- str + quasi + string (b)
-              | TypeKind.IntrinsicInstance { Name = name
-                                             TypeArgs = Some [ { Kind = TypeKind.Literal(Literal.String s) } ] } ->
-                match name with
-                | QualifiedIdent.Ident "Uppercase" ->
-                  str <- str + quasi + s.ToUpper()
-                | QualifiedIdent.Ident "Lowercase" ->
-                  str <- str + quasi + s.ToLower()
-                | QualifiedIdent.Ident "Capitalize" ->
-                  str <-
-                    str + quasi + s.[0].ToString().ToUpper() + s.[1..].ToLower()
-                | QualifiedIdent.Ident "Uncapitalize" ->
-                  str <-
-                    str + quasi + s.[0].ToString().ToLower() + s.[1..].ToUpper()
-                | _ ->
-                  failwith $"Unsupported intrinsic {name} in template literal"
-              | _ -> () // should never happen because we pre-filtered the list
-
-            str <- str + List.last quasis
-
+          if List.exists isSymbol elems then
+            // We don't bother reporting an error because template literal types
+            // are only expanded when renaming properties in mapped types.
+            // Returning `never` is fine because the mapped type expansion will
+            // filter out any keys whose type is `never`.
             return
-              { Kind = TypeKind.Literal(Literal.String str)
+              { Kind = TypeKind.Keyword Keyword.Never
                 Provenance = None }
           else
-            return t
+            let isLiteralOrIntrinsic t =
+              match t.Kind with
+              | TypeKind.Literal _ -> true
+              | TypeKind.IntrinsicInstance { TypeArgs = typeArgs } ->
+                match typeArgs with
+                | Some [ { Kind = TypeKind.Literal _ } ] -> true
+                | _ -> false
+              | _ -> false
+
+            // If all `elems` are literals, we can expand the type to a string.
+            // This is used for property renaming in mapped types.
+            if List.forall isLiteralOrIntrinsic elems then
+              let mutable str = ""
+
+              for elem, quasi in
+                (List.zip elems (List.take elems.Length quasis)) do
+                match elem.Kind with
+                | TypeKind.Literal(Literal.String s) -> str <- str + quasi + s
+                | TypeKind.Literal(Literal.Number n) ->
+                  str <- str + quasi + string (n)
+                | TypeKind.Literal(Literal.Boolean b) ->
+                  str <- str + quasi + string (b)
+                | TypeKind.IntrinsicInstance { Name = name
+                                               TypeArgs = Some [ { Kind = TypeKind.Literal(Literal.String s) } ] } ->
+                  match name with
+                  | QualifiedIdent.Ident "Uppercase" ->
+                    str <- str + quasi + s.ToUpper()
+                  | QualifiedIdent.Ident "Lowercase" ->
+                    str <- str + quasi + s.ToLower()
+                  | QualifiedIdent.Ident "Capitalize" ->
+                    str <-
+                      str
+                      + quasi
+                      + s.[0].ToString().ToUpper()
+                      + s.[1..].ToLower()
+                  | QualifiedIdent.Ident "Uncapitalize" ->
+                    str <-
+                      str
+                      + quasi
+                      + s.[0].ToString().ToLower()
+                      + s.[1..].ToUpper()
+                  | _ ->
+                    failwith $"Unsupported intrinsic {name} in template literal"
+                | _ -> () // should never happen because we pre-filtered the list
+
+              str <- str + List.last quasis
+
+              return
+                { Kind = TypeKind.Literal(Literal.String str)
+                  Provenance = None }
+            else
+              return t
         | _ ->
           // Replaces type parameters with their corresponding type arguments
           // TODO: do this more consistently

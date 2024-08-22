@@ -1055,6 +1055,7 @@ let MappedTypeWithTemplateLiteralKey () =
       Assert.Equal("{_x: number, _y: number}", t.ToString())
     }
 
+  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]
@@ -1067,7 +1068,7 @@ let MappedTypeWithTemplateLiteralKeyWithIntrinsic () =
         type Foo<T> = {
           [`_${Uppercase<K>}`]: T[K] for K in keyof T,
         };
-        type Point = {x: number, y: number};
+        type Point = {x: number, y: number, [Symbol.iterator]: number};
         type Bar = Foo<Point>;
         """
 
@@ -2030,7 +2031,7 @@ let InferMappedObjectType () =
         type Foo<T> = {
           [K]: T[K][] for K in keyof T
         };
-        type Bar = {a: string, b: number};
+        type Bar = {a: string, b: number, [Symbol.iterator]: boolean};
         type Baz = Foo<Bar>;
         """
 
@@ -2043,7 +2044,11 @@ let InferMappedObjectType () =
         expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
         |> Result.mapError CompileError.TypeError
 
-      Assert.Equal("{a: string[], b: number[]}", t.ToString())
+      // TODO: maintain the original name of the symbol
+      Assert.Equal(
+        "{a: string[], b: number[], [Symbol(147)]: boolean[]}",
+        t.ToString()
+      )
     }
 
   printfn "result = %A" result

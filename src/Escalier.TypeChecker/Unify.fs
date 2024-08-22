@@ -1328,9 +1328,6 @@ module rec Unify =
               result {
                 match elem with
                 | Mapped m ->
-                  printfn $"TypeParam = {m.TypeParam.Name}"
-                  printfn $"NameType = {m.NameType}"
-
                   match m.TypeParam.Constraint.Kind with
                   | TypeKind.KeyOf t ->
                     match t.Kind with
@@ -1348,8 +1345,6 @@ module rec Unify =
 
                   let! c =
                     expandType ctx env ips mapping m.TypeParam.Constraint
-
-                  printfn $"c = {c}"
 
                   // TODO: Document this because I don't remember why we need to
                   // do this.
@@ -1678,14 +1673,18 @@ module rec Unify =
         | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->
           let! elems = elems |> List.traverseResultM (expand mapping)
 
-          let isLiteral t =
+          let isLiteralOrIntrinsic t =
             match t.Kind with
             | TypeKind.Literal _ -> true
+            | TypeKind.IntrinsicInstance { TypeArgs = typeArgs } ->
+              match typeArgs with
+              | Some [ { Kind = TypeKind.Literal _ } ] -> true
+              | _ -> false
             | _ -> false
 
           // If all `elems` are literals, we can expand the type to a string.
           // This is used for property renaming in mapped types.
-          if List.forall isLiteral elems then
+          if List.forall isLiteralOrIntrinsic elems then
             let mutable str = ""
 
             for elem, quasi in (List.zip elems (List.take elems.Length quasis)) do
@@ -1695,8 +1694,22 @@ module rec Unify =
                 str <- str + quasi + string (n)
               | TypeKind.Literal(Literal.Boolean b) ->
                 str <- str + quasi + string (b)
-              | _ ->
-                failwith "TODO: handle non-literal types in template literal"
+              | TypeKind.IntrinsicInstance { Name = name
+                                             TypeArgs = Some [ { Kind = TypeKind.Literal(Literal.String s) } ] } ->
+                match name with
+                | QualifiedIdent.Ident "Uppercase" ->
+                  str <- str + quasi + s.ToUpper()
+                | QualifiedIdent.Ident "Lowercase" ->
+                  str <- str + quasi + s.ToLower()
+                | QualifiedIdent.Ident "Capitalize" ->
+                  str <-
+                    str + quasi + s.[0].ToString().ToUpper() + s.[1..].ToLower()
+                | QualifiedIdent.Ident "Uncapitalize" ->
+                  str <-
+                    str + quasi + s.[0].ToString().ToLower() + s.[1..].ToUpper()
+                | _ ->
+                  failwith $"Unsupported intrinsic {name} in template literal"
+              | _ -> () // should never happen because we pre-filtered the list
 
             str <- str + List.last quasis
 

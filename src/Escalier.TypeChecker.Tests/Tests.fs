@@ -1055,7 +1055,33 @@ let MappedTypeWithTemplateLiteralKey () =
       Assert.Equal("{_x: number, _y: number}", t.ToString())
     }
 
-  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let MappedTypeWithTemplateLiteralKeyWithIntrinsic () =
+  let result =
+    result {
+
+      let src =
+        """
+        type Foo<T> = {
+          [`_${Uppercase<K>}`]: T[K] for K in keyof T,
+        };
+        type Point = {x: number, y: number};
+        type Bar = Foo<Point>;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("{_X: number, _Y: number}", t.ToString())
+    }
+
   Assert.False(Result.isError result)
 
 [<Fact>]

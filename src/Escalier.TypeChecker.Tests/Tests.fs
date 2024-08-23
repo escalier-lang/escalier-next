@@ -1086,6 +1086,72 @@ let MappedTypeWithTemplateLiteralKeyWithIntrinsic () =
   Assert.False(Result.isError result)
 
 [<Fact>]
+let ConditionalTypeWithTemplateLiteralAndInfer () =
+  let result =
+    result {
+
+      let src =
+        """
+        type StripUnderscore<T> = if T : `_${infer U}` { U } else { T };
+        type Foo = StripUnderscore<"_foo">;
+        type Bar = StripUnderscore<"bar">;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("\"foo\"", t.ToString())
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("\"bar\"", t.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let RecursiveConditionalTypeWithTemplateLiteralAndInfer () =
+  let result =
+    result {
+
+      let src =
+        """
+        type StripUnderscores<T> = if T : `_${infer U}` {
+          StripUnderscores<U>
+        } else {
+          T
+        };
+        type Foo = StripUnderscores<"__foo">;
+        type Bar = StripUnderscores<"bar">;
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Foo") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("\"foo\"", t.ToString())
+
+      let! t =
+        expandScheme ctx env None (env.FindScheme "Bar") Map.empty None
+        |> Result.mapError CompileError.TypeError
+
+      Assert.Equal("\"bar\"", t.ToString())
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferUnaryOperations () =
   let result =
     result {

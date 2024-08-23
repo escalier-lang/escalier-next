@@ -1915,7 +1915,22 @@ module rec Unify =
               FParsec.Primitives.Error,
               FParsec.Error.messageError ($"Failed to expand type: {t}")
             )
-      | _ -> failwith $"TODO: parserForType - t = {t}"
+      | TypeKind.TypeVar _ ->
+        FParsec.Primitives.many (
+          FParsec.Primitives.notFollowedBy parser >>. anyChar
+        )
+        |>> (fun chars ->
+          let stringType =
+            { Kind =
+                TypeKind.Literal(Literal.String(System.String.Concat(chars)))
+              Provenance = None }
+
+          match unify ctx env None t stringType with
+          | Ok _ -> ()
+          | Error err -> failwith "TODO: report this error correctly")
+      | _ ->
+        printfn "t = %A" t
+        failwith $"TODO: parserForType - t = {t}"
 
     fold t .>> parser
 

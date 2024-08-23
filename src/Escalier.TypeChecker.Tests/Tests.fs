@@ -1149,7 +1149,6 @@ let RecursiveConditionalTypeWithTemplateLiteralAndInfer () =
       Assert.Equal("\"bar\"", t.ToString())
     }
 
-  printfn "result = %A" result
   Assert.False(Result.isError result)
 
 [<Fact>]

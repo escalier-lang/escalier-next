@@ -92,6 +92,21 @@ type instead of being distributed like with template literal types. The reason f
 this is avoid having to deal with large unions in Escalier's type checker. Instead
 we can lean on RE2 to keep things performant.
 
+## Capture Groups
+
+Named capture groups will only be allowed in the condition part of conditional
+types.
+
+```ts
+type StripUnderscores<T> = if T : /_+(?<Ident>[^_]+)_+/ { Ident } : { T }
+```
+
+These will desugar to `infer` types, e.g.
+
+```ts
+type StripUnderscores<T> = if T : /_+(${infer Ident : /[^_]+/})_+/ { Ident } : { T }
+```
+
 ## Usage Guidance
 
 If you have two regex validated string types that you want to combine in a type

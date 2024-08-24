@@ -98,13 +98,13 @@ Named capture groups will only be allowed in the condition part of conditional
 types.
 
 ```ts
-type StripUnderscores<T> = if T : /_+(?<Ident>[^_]+)_+/ { Ident } : { T }
+type StripUnderscores<T> = if T : /^_*(?<Name>[a-zA-Z0-9]+)_*$/ { Ident } : { T }
 ```
 
 These will desugar to `infer` types, e.g.
 
 ```ts
-type StripUnderscores<T> = if T : /_+(${infer Ident : /[^_]+/})_+/ { Ident } : { T }
+type StripUnderscores<T> = if T : /^_*(${infer Ident : /[a-zA-Z0-9]+/})_*$/ { Ident } : { T }
 ```
 
 ## Usage Guidance

@@ -659,7 +659,7 @@ module Parser =
   let identExpr: Parser<Expr, unit> =
     withSpan ident
     |>> fun (sl, span) ->
-      { Kind = ExprKind.Identifier(sl)
+      { Kind = ExprKind.Identifier { Name = sl }
         Span = span
         InferredType = None }
 
@@ -795,12 +795,20 @@ module Parser =
       ((keyword "let") >>. pattern .>>. (strWs "=" >>. expr))
       block
       (opt elseClause)
-    <| fun (pattern, expr) then_ else_ ->
-      ExprKind.IfLet(pattern, expr, then_, else_)
+    <| fun (pattern, expr) thenBlock elseBlock ->
+      ExprKind.IfLet
+        { Pattern = pattern
+          Target = expr
+          Then = thenBlock
+          Else = elseBlock }
 
   let ifCond: Parser<ExprKind, unit> =
     pipe3 expr block (opt elseClause)
-    <| fun cond then_ else_ -> ExprKind.IfElse(cond, then_, else_)
+    <| fun cond thenBlock elseBlock ->
+      ExprKind.IfElse
+        { Condition = cond
+          Then = thenBlock
+          Else = elseBlock }
 
   ifElseRef.Value <-
     pipe3 getPosition ((keyword "if") >>. choice [ ifLet; ifCond ]) getPosition
@@ -839,7 +847,7 @@ module Parser =
       (between (strWs "{") (strWs "}") (many matchCase))
       getPosition
     <| fun start expr cases stop ->
-      { Kind = ExprKind.Match(expr, cases)
+      { Kind = ExprKind.Match { Target = expr; Cases = cases }
         Span = { Start = start; Stop = stop }
         InferredType = None }
 
@@ -1148,9 +1156,9 @@ module Parser =
 
   let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)
 
-  let binary op x y =
-    { Expr.Kind = ExprKind.Binary(op, x, y)
-      Span = mergeSpans x.Span y.Span
+  let binary op left right =
+    { Expr.Kind = ExprKind.Binary { Op = op; Left = left; Right = right }
+      Span = mergeSpans left.Span right.Span
       InferredType = None }
 
   let prefixExprParslet
@@ -1171,7 +1179,7 @@ module Parser =
     (operator: string)
     : Pratt.PrefixParselet<Expr> =
     prefixExprParslet precedence (fun operand ->
-      { Expr.Kind = ExprKind.Unary(operator, operand)
+      { Expr.Kind = ExprKind.Unary { Op = operator; Value = operand }
         Span = operand.Span
         InferredType = None })
 
@@ -1193,7 +1201,11 @@ module Parser =
     (operator: string)
     : Pratt.InfixParselet<Expr> =
     infixExprParselet precedence (fun left right ->
-      { Expr.Kind = ExprKind.Binary(operator, left, right)
+      { Expr.Kind =
+          ExprKind.Binary
+            { Op = operator
+              Left = left
+              Right = right }
         Span = mergeSpans left.Span right.Span
         InferredType = None })
 
@@ -1213,7 +1225,11 @@ module Parser =
           match reply.Status with
           | Ok ->
             Reply(
-              { Expr.Kind = ExprKind.Index(left, reply.Result, false)
+              { Expr.Kind =
+                  ExprKind.Index
+                    { Target = left
+                      Index = reply.Result
+                      OptChain = false }
                 Span =
                   { Start = left.Span.Start
                     Stop = stream.Position }
@@ -1260,7 +1276,11 @@ module Parser =
                 Exprs = List.rev exprs }
 
             let result: Expr =
-              { Expr.Kind = ExprKind.TaggedTemplateLiteral(left, template, None)
+              { Expr.Kind =
+                  ExprKind.TaggedTemplateLiteral
+                    { Tag = left
+                      Template = template
+                      Throws = None }
                 Span =
                   { Start = left.Span.Start
                     Stop = stream.Position }
@@ -1273,8 +1293,12 @@ module Parser =
   let memberOp =
     fun (optChain: bool) (obj: Expr) (prop: Expr) ->
       match prop.Kind with
-      | ExprKind.Identifier ident ->
-        { Expr.Kind = ExprKind.Member(obj, ident, optChain)
+      | ExprKind.Identifier { Name = name } ->
+        { Expr.Kind =
+            ExprKind.Member
+              { Target = obj
+                Name = name
+                OptChain = optChain }
           Span = mergeSpans obj.Span prop.Span
           InferredType = None }
       | _ -> failwith "Expected identifier"
@@ -1310,7 +1334,7 @@ module Parser =
           | Ok ->
             let kind =
               match left.Kind with
-              | ExprKind.ExprWithTypeArgs(callee, typeArgs) ->
+              | ExprKind.ExprWithTypeArgs { Expr = callee; TypeArgs = typeArgs } ->
                 ExprKind.Call
                   { Callee = callee
                     TypeArgs = Some(typeArgs)
@@ -1353,7 +1377,10 @@ module Parser =
 
           match typeArgs.Status with
           | Ok ->
-            let kind = ExprKind.ExprWithTypeArgs(left, typeArgs.Result)
+            let kind =
+              ExprKind.ExprWithTypeArgs
+                { Expr = left
+                  TypeArgs = typeArgs.Result }
 
             Reply(
               { Expr.Kind = kind
@@ -1436,7 +1463,7 @@ module Parser =
   exprParser.RegisterInfix(
     "=",
     infixExprParselet 1 (fun left right ->
-      { Expr.Kind = ExprKind.Assign("=", left, right)
+      { Expr.Kind = ExprKind.Assign { Op = "="; Left = left; Right = right }
         Span = mergeSpans left.Span right.Span
         InferredType = None })
   )

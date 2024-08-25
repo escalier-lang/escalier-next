@@ -6,20 +6,24 @@ output: Ok
            Expr
              { Kind =
                 Index
-                  ({ Kind = Call { Callee = { Kind = Identifier "foo"
-                                              Span = { Start = (Ln: 1, Col: 1)
-                                                       Stop = (Ln: 1, Col: 4) }
-                                              InferredType = None }
-                                   TypeArgs = None
-                                   Args = []
-                                   OptChain = false
-                                   Throws = None }
-                     Span = { Start = (Ln: 1, Col: 1)
-                              Stop = (Ln: 1, Col: 6) }
-                     InferredType = None }, { Kind = Literal (Number (Int 0))
-                                              Span = { Start = (Ln: 1, Col: 7)
-                                                       Stop = (Ln: 1, Col: 8) }
-                                              InferredType = None }, false)
+                  { Target =
+                     { Kind =
+                        Call { Callee = { Kind = Identifier { Name = "foo" }
+                                          Span = { Start = (Ln: 1, Col: 1)
+                                                   Stop = (Ln: 1, Col: 4) }
+                                          InferredType = None }
+                               TypeArgs = None
+                               Args = []
+                               OptChain = false
+                               Throws = None }
+                       Span = { Start = (Ln: 1, Col: 1)
+                                Stop = (Ln: 1, Col: 6) }
+                       InferredType = None }
+                    Index = { Kind = Literal (Number (Int 0))
+                              Span = { Start = (Ln: 1, Col: 7)
+                                       Stop = (Ln: 1, Col: 8) }
+                              InferredType = None }
+                    OptChain = false }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 9) }
                InferredType = None }

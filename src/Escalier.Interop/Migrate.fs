@@ -32,13 +32,16 @@ module rec Migrate =
           | Expr.Ident ident -> ident.Name
           | _ -> failwith "todo"
 
-        Syntax.ExprKind.Member(obj, prop, false)
+        ExprKind.Member
+          { Target = obj
+            Name = prop
+            OptChain = false }
       | Expr.SuperProp superPropExpr -> failwith "todo"
       | Expr.Cond condExpr -> failwith "todo"
       | Expr.Call callExpr -> failwith "todo"
       | Expr.New newExpr -> failwith "todo"
       | Expr.Seq seqExpr -> failwith "todo"
-      | Expr.Ident ident -> Syntax.ExprKind.Identifier ident.Name
+      | Expr.Ident ident -> ExprKind.Identifier { Name = ident.Name }
       | Expr.Lit lit -> failwith "todo"
       | Expr.Tpl tpl -> failwith "todo"
       | Expr.TaggedTpl taggedTpl -> failwith "todo"

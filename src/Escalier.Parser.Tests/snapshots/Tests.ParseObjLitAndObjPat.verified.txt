@@ -202,14 +202,17 @@ output: Ok
                                Expr
                                  { Kind =
                                     Binary
-                                      ("+", { Kind = Identifier "x"
-                                              Span = { Start = (Ln: 5, Col: 37)
-                                                       Stop = (Ln: 5, Col: 39) }
-                                              InferredType = None },
-                                       { Kind = Identifier "y"
-                                         Span = { Start = (Ln: 5, Col: 41)
-                                                  Stop = (Ln: 5, Col: 42) }
-                                         InferredType = None })
+                                      { Op = "+"
+                                        Left =
+                                         { Kind = Identifier { Name = "x" }
+                                           Span = { Start = (Ln: 5, Col: 37)
+                                                    Stop = (Ln: 5, Col: 39) }
+                                           InferredType = None }
+                                        Right =
+                                         { Kind = Identifier { Name = "y" }
+                                           Span = { Start = (Ln: 5, Col: 41)
+                                                    Stop = (Ln: 5, Col: 42) }
+                                           InferredType = None } }
                                    Span = { Start = (Ln: 5, Col: 37)
                                             Stop = (Ln: 5, Col: 42) }
                                    InferredType = None }

@@ -28,7 +28,8 @@ output: Ok
                                       Some
                                         (JSXExprContainer
                                            { Expr =
-                                              { Kind = Identifier "bar"
+                                              { Kind =
+                                                 Identifier { Name = "bar" }
                                                 Span =
                                                  { Start = (Ln: 2, Col: 26)
                                                    Stop = (Ln: 2, Col: 29) }
@@ -48,7 +49,7 @@ output: Ok
                                           Span = { Start = (Ln: 2, Col: 41)
                                                    Stop = (Ln: 2, Col: 48) } };
                                 JSXExprContainer
-                                  { Expr = { Kind = Identifier "name"
+                                  { Expr = { Kind = Identifier { Name = "name" }
                                              Span = { Start = (Ln: 2, Col: 49)
                                                       Stop = (Ln: 2, Col: 53) }
                                              InferredType = None }

@@ -28,7 +28,8 @@ output: Ok
                                       Some
                                         (JSXExprContainer
                                            { Expr =
-                                              { Kind = Identifier "baz"
+                                              { Kind =
+                                                 Identifier { Name = "baz" }
                                                 Span =
                                                  { Start = (Ln: 2, Col: 26)
                                                    Stop = (Ln: 2, Col: 29) }

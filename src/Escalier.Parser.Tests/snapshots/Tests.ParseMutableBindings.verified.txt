@@ -143,7 +143,7 @@ output: Ok
                                 Stop = (Ln: 6, Col: 29) }
                        InferredType = None }
                     TypeAnn = None
-                    Init = Some { Kind = Identifier "line"
+                    Init = Some { Kind = Identifier { Name = "line" }
                                   Span = { Start = (Ln: 6, Col: 31)
                                            Stop = (Ln: 6, Col: 35) }
                                   InferredType = None }
@@ -163,7 +163,7 @@ output: Ok
                                                      Stop = (Ln: 7, Col: 15) }
                                             InferredType = None }
                                 TypeAnn = None
-                                Init = Some { Kind = Identifier "q"
+                                Init = Some { Kind = Identifier { Name = "q" }
                                               Span = { Start = (Ln: 7, Col: 17)
                                                        Stop = (Ln: 7, Col: 18) }
                                               InferredType = None }

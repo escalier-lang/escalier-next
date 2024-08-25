@@ -23,10 +23,13 @@ output: Ok
                     Init =
                      Some
                        { Kind =
-                          Member ({ Kind = Identifier "Symbol"
-                                    Span = { Start = (Ln: 2, Col: 44)
-                                             Stop = (Ln: 2, Col: 50) }
-                                    InferredType = None }, "iterator", false)
+                          Member
+                            { Target = { Kind = Identifier { Name = "Symbol" }
+                                         Span = { Start = (Ln: 2, Col: 44)
+                                                  Stop = (Ln: 2, Col: 50) }
+                                         InferredType = None }
+                              Name = "iterator"
+                              OptChain = false }
                          Span = { Start = (Ln: 2, Col: 44)
                                   Stop = (Ln: 2, Col: 59) }
                          InferredType = None }

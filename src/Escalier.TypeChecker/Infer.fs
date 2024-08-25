@@ -416,20 +416,20 @@ module rec Infer =
               { VisitExpr =
                   fun (expr: Expr, state) ->
                     match expr.Kind with
-                    | ExprKind.Assign(_, left, _) ->
+                    | ExprKind.Assign { Left = left } ->
                       match left.Kind with
-                      | ExprKind.Member(obj, prop, _) ->
+                      | ExprKind.Member { Target = obj; Name = prop } ->
                         match obj.Kind with
-                        | ExprKind.Identifier "self" ->
+                        | ExprKind.Identifier { Name = "self" } ->
                           assignedProps <- prop :: assignedProps
                           (true, state)
                         | _ -> (true, state)
                       | _ -> (true, state)
                     | ExprKind.Call { Callee = callee } ->
                       match callee.Kind with
-                      | ExprKind.Member(obj, prop, _) ->
+                      | ExprKind.Member { Target = obj; Name = prop } ->
                         match obj.Kind with
-                        | ExprKind.Identifier "self" ->
+                        | ExprKind.Identifier { Name = "self" } ->
                           methodsCalled <- prop :: methodsCalled
                           (true, state)
                         | _ -> (true, state)
@@ -569,7 +569,7 @@ module rec Infer =
     let r =
       result {
         match expr.Kind with
-        | ExprKind.Identifier(name) ->
+        | ExprKind.Identifier { Name = name } ->
 
           match env.Namespace.Namespaces.TryFind name with
           | None -> return! env.GetValue name
@@ -653,7 +653,7 @@ module rec Infer =
           | _ ->
             return!
               Error(TypeError.SemanticError "Callee is not a constructor type")
-        | ExprKind.Binary(op, left, right) ->
+        | ExprKind.Binary { Op = op; Left = left; Right = right } ->
           let! funTy = env.GetBinaryOp op
 
           let! result, _throws =
@@ -663,7 +663,7 @@ module rec Infer =
 
           return result
 
-        | ExprKind.Unary(op, arg) ->
+        | ExprKind.Unary { Op = op; Value = arg } ->
           let! funTy = env.GetUnaryOp op
 
           let! result, _throws = unifyCall ctx env None [ arg ] None funTy
@@ -705,7 +705,9 @@ module rec Infer =
           return
             { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
               Provenance = None }
-        | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+        | ExprKind.IfElse { Condition = condition
+                            Then = thenBranch
+                            Else = elseBranch } ->
           let! conditionTy = inferExpr ctx env None condition
 
           let! thenBranchTy =
@@ -722,7 +724,10 @@ module rec Infer =
             | None ->
               { Kind = TypeKind.Literal(Literal.Undefined)
                 Provenance = None }
-        | ExprKind.IfLet(pattern, init, thenBranch, elseBranch) ->
+        | ExprKind.IfLet { Pattern = pattern
+                           Target = init
+                           Then = thenBranch
+                           Else = elseBranch } ->
           // treat pattern/target the as a let binding
           let! invariantPaths =
             checkMutability
@@ -854,7 +859,9 @@ module rec Infer =
         | ExprKind.Class cls ->
           let! t, _ = inferClass ctx env cls false
           return t
-        | ExprKind.Member(obj, prop, optChain) ->
+        | ExprKind.Member { Target = obj
+                            Name = prop
+                            OptChain = optChain } ->
           let! objType = inferExpr ctx env None obj
           let propKey = PropName.String(prop)
 
@@ -987,11 +994,13 @@ module rec Infer =
           match maybeCatchType with
           | Some catchType -> return union [ tryType; catchType ]
           | None -> return tryType
-        | ExprKind.Match(expr, cases) ->
+        | ExprKind.Match { Target = expr; Cases = cases } ->
           let! exprType = inferExpr ctx env None expr
           let! _, bodyTypes = inferMatchCases ctx env exprType cases
           return (union bodyTypes)
-        | ExprKind.Index(target, index, optChain) ->
+        | ExprKind.Index { Target = target
+                           Index = index
+                           OptChain = optChain } ->
           let! target = inferExpr ctx env None target
           let! index = inferExpr ctx env None index
 
@@ -1037,7 +1046,7 @@ module rec Infer =
                     TypeArgs = Some([ min; max ])
                     Scheme = scheme }
               Provenance = None }
-        | ExprKind.Assign(_operation, left, right) ->
+        | ExprKind.Assign { Left = left; Right = right } ->
           // TODO: handle update assign operations
           let! rightType = inferExpr ctx env None right
 
@@ -1050,7 +1059,7 @@ module rec Infer =
               Error(TypeError.SemanticError "Can't assign to immutable binding")
 
           return rightType
-        | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
+        | ExprKind.ExprWithTypeArgs { Expr = target; TypeArgs = typeArgs } ->
           let! t = inferExpr ctx env None target
 
           let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
@@ -1092,11 +1101,11 @@ module rec Infer =
               Provenance = None }
 
           return t
-        | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
-          let! callee = inferExpr ctx env None tag
+        | ExprKind.TaggedTemplateLiteral taggedTemplate ->
+          let! callee = inferExpr ctx env None taggedTemplate.Tag
 
           let stringExprs: list<Expr> =
-            template.Parts
+            taggedTemplate.Template.Parts
             |> List.map (fun (part: string) ->
               { Kind = ExprKind.Literal(Literal.String part)
                 Span = DUMMY_SPAN
@@ -1110,13 +1119,11 @@ module rec Infer =
               Span = DUMMY_SPAN
               InferredType = None }
 
-          let args: list<Expr> = strings :: template.Exprs
+          let args: list<Expr> = strings :: taggedTemplate.Template.Exprs
           // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
           let! result, throws = unifyCall ctx env None args None callee
 
-          // TODO: update `TaggedTemplateLiteral` to wrap a struct so that we can
-          // update the `Throws` field.
-          // taggedTemplate.Throws <- Some(throws)
+          taggedTemplate.Throws <- Some(throws)
 
           return result
       }
@@ -3014,11 +3021,7 @@ module rec Infer =
       return (callee.Return, callee.Throws)
     }
 
-  let rec getQualifiedIdentType
-    (ctx: Ctx)
-    (env: Env)
-    (ident: Common.QualifiedIdent)
-    =
+  let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =
     result {
       match ident with
       | QualifiedIdent.Ident name ->
@@ -3047,8 +3050,8 @@ module rec Infer =
     : Result<Type * bool, TypeError> =
     result {
       match expr.Kind with
-      | ExprKind.Identifier name -> return! env.GetBinding name
-      | ExprKind.Index(target, index, _optChain) ->
+      | ExprKind.Identifier { Name = name } -> return! env.GetBinding name
+      | ExprKind.Index { Target = target; Index = index } ->
         // TODO: disallow optChain in lvalues
         let! target, isMut = getLvalue ctx env target
         let! index = inferExpr ctx env None index
@@ -3064,7 +3067,7 @@ module rec Infer =
 
         let! t = getPropType ctx env target key false ValueCategory.LValue
         return t, isMut
-      | ExprKind.Member(target, name, _optChain) ->
+      | ExprKind.Member { Target = target; Name = name } ->
         // TODO: check if `target` is a namespace
         // If the target is either an Identifier or another Member, we
         // can try to look look for a namespace for it.
@@ -3164,7 +3167,7 @@ module rec Infer =
             | None -> return! Error(TypeError.SemanticError $"{name} not found")
           | ObjElem.Spread(span, value) ->
             match value.Kind with
-            | ExprKind.Identifier name ->
+            | ExprKind.Identifier { Name = name } ->
               match env.TryFindValue name with
               | Some(t, _) -> spreadTypes <- t :: spreadTypes
               | None ->
@@ -3847,9 +3850,9 @@ module rec Infer =
     let res =
       result {
         match expr.Kind with
-        | ExprKind.Member(target, variantName, _) ->
+        | ExprKind.Member { Target = target; Name = variantName } ->
           match target.Kind with
-          | ExprKind.Identifier targetName ->
+          | ExprKind.Identifier { Name = targetName } ->
             let! t = env.GetValue targetName
             let! scheme = env.GetScheme(QualifiedIdent.Ident targetName)
 

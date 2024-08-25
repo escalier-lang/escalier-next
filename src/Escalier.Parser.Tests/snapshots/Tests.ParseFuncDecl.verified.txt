@@ -55,7 +55,7 @@ output: Ok
                             Stmts =
                              [{ Kind =
                                  Return
-                                   (Some { Kind = Identifier "x"
+                                   (Some { Kind = Identifier { Name = "x" }
                                            Span = { Start = (Ln: 1, Col: 37)
                                                     Stop = (Ln: 1, Col: 38) }
                                            InferredType = None })

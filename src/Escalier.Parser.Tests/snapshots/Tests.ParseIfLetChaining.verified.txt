@@ -12,104 +12,123 @@ output: Ok
            Expr
              { Kind =
                 IfLet
-                  ({ Kind = Ident { Name = "x"
-                                    IsMut = false
-                                    Assertion = None }
-                     Span = { Start = (Ln: 2, Col: 12)
-                              Stop = (Ln: 2, Col: 14) }
-                     InferredType = None },
-                   { Kind = Member ({ Kind = Identifier "maybe1"
-                                      Span = { Start = (Ln: 2, Col: 16)
-                                               Stop = (Ln: 2, Col: 22) }
-                                      InferredType = None }, "x", true)
-                     Span = { Start = (Ln: 2, Col: 16)
-                              Stop = (Ln: 2, Col: 26) }
-                     InferredType = None },
-                   { Span = { Start = (Ln: 2, Col: 26)
-                              Stop = (Ln: 4, Col: 7) }
-                     Stmts =
-                      [{ Kind =
-                          Expr
-                            { Kind =
-                               Call
-                                 { Callee = { Kind = Identifier "print"
-                                              Span = { Start = (Ln: 3, Col: 7)
-                                                       Stop = (Ln: 3, Col: 12) }
-                                              InferredType = None }
-                                   TypeArgs = None
-                                   Args = [{ Kind = Identifier "x"
-                                             Span = { Start = (Ln: 3, Col: 13)
-                                                      Stop = (Ln: 3, Col: 14) }
-                                             InferredType = None }]
-                                   OptChain = false
-                                   Throws = None }
-                              Span = { Start = (Ln: 3, Col: 7)
-                                       Stop = (Ln: 3, Col: 15) }
-                              InferredType = None }
-                         Span = { Start = (Ln: 3, Col: 7)
-                                  Stop = (Ln: 3, Col: 15) } }] },
-                   Some
-                     (Expr
-                        { Kind =
-                           IfLet
-                             ({ Kind =
-                                 Enum
-                                   { Ident = Member (Ident "Result", "Ok")
-                                     Arg =
-                                      Some
-                                        { Kind =
-                                           Tuple
-                                             { Elems =
-                                                [{ Kind =
-                                                    Ident { Name = "y"
+                  { Pattern = { Kind = Ident { Name = "x"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 2, Col: 12)
+                                         Stop = (Ln: 2, Col: 14) }
+                                InferredType = None }
+                    Target =
+                     { Kind =
+                        Member
+                          { Target = { Kind = Identifier { Name = "maybe1" }
+                                       Span = { Start = (Ln: 2, Col: 16)
+                                                Stop = (Ln: 2, Col: 22) }
+                                       InferredType = None }
+                            Name = "x"
+                            OptChain = true }
+                       Span = { Start = (Ln: 2, Col: 16)
+                                Stop = (Ln: 2, Col: 26) }
+                       InferredType = None }
+                    Then =
+                     { Span = { Start = (Ln: 2, Col: 26)
+                                Stop = (Ln: 4, Col: 7) }
+                       Stmts =
+                        [{ Kind =
+                            Expr
+                              { Kind =
+                                 Call
+                                   { Callee =
+                                      { Kind = Identifier { Name = "print" }
+                                        Span = { Start = (Ln: 3, Col: 7)
+                                                 Stop = (Ln: 3, Col: 12) }
+                                        InferredType = None }
+                                     TypeArgs = None
+                                     Args =
+                                      [{ Kind = Identifier { Name = "x" }
+                                         Span = { Start = (Ln: 3, Col: 13)
+                                                  Stop = (Ln: 3, Col: 14) }
+                                         InferredType = None }]
+                                     OptChain = false
+                                     Throws = None }
+                                Span = { Start = (Ln: 3, Col: 7)
+                                         Stop = (Ln: 3, Col: 15) }
+                                InferredType = None }
+                           Span = { Start = (Ln: 3, Col: 7)
+                                    Stop = (Ln: 3, Col: 15) } }] }
+                    Else =
+                     Some
+                       (Expr
+                          { Kind =
+                             IfLet
+                               { Pattern =
+                                  { Kind =
+                                     Enum
+                                       { Ident = Member (Ident "Result", "Ok")
+                                         Arg =
+                                          Some
+                                            { Kind =
+                                               Tuple
+                                                 { Elems =
+                                                    [{ Kind =
+                                                        Ident
+                                                          { Name = "y"
                                                             IsMut = false
                                                             Assertion = None }
-                                                   Span =
-                                                    { Start = (Ln: 4, Col: 29)
-                                                      Stop = (Ln: 4, Col: 30) }
-                                                   InferredType = None }]
-                                               Immutable = false }
-                                          Span = { Start = (Ln: 4, Col: 28)
-                                                   Stop = (Ln: 4, Col: 32) }
-                                          InferredType = None } }
-                                Span = { Start = (Ln: 4, Col: 19)
-                                         Stop = (Ln: 4, Col: 32) }
-                                InferredType = None },
-                              { Kind = Identifier "result"
-                                Span = { Start = (Ln: 4, Col: 34)
-                                         Stop = (Ln: 4, Col: 41) }
-                                InferredType = None },
-                              { Span = { Start = (Ln: 4, Col: 41)
-                                         Stop = (Ln: 6, Col: 6) }
-                                Stmts =
-                                 [{ Kind =
-                                     Expr
-                                       { Kind =
-                                          Call
-                                            { Callee =
-                                               { Kind = Identifier "print"
-                                                 Span =
-                                                  { Start = (Ln: 5, Col: 7)
-                                                    Stop = (Ln: 5, Col: 12) }
-                                                 InferredType = None }
-                                              TypeArgs = None
-                                              Args =
-                                               [{ Kind = Identifier "y"
-                                                  Span =
-                                                   { Start = (Ln: 5, Col: 13)
-                                                     Stop = (Ln: 5, Col: 14) }
-                                                  InferredType = None }]
-                                              OptChain = false
-                                              Throws = None }
-                                         Span = { Start = (Ln: 5, Col: 7)
-                                                  Stop = (Ln: 5, Col: 15) }
-                                         InferredType = None }
-                                    Span = { Start = (Ln: 5, Col: 7)
-                                             Stop = (Ln: 5, Col: 15) } }] },
-                              None)
-                          Span = { Start = (Ln: 4, Col: 12)
-                                   Stop = (Ln: 6, Col: 6) }
-                          InferredType = None }))
+                                                       Span =
+                                                        { Start =
+                                                           (Ln: 4, Col: 29)
+                                                          Stop =
+                                                           (Ln: 4, Col: 30) }
+                                                       InferredType = None }]
+                                                   Immutable = false }
+                                              Span = { Start = (Ln: 4, Col: 28)
+                                                       Stop = (Ln: 4, Col: 32) }
+                                              InferredType = None } }
+                                    Span = { Start = (Ln: 4, Col: 19)
+                                             Stop = (Ln: 4, Col: 32) }
+                                    InferredType = None }
+                                 Target =
+                                  { Kind = Identifier { Name = "result" }
+                                    Span = { Start = (Ln: 4, Col: 34)
+                                             Stop = (Ln: 4, Col: 41) }
+                                    InferredType = None }
+                                 Then =
+                                  { Span = { Start = (Ln: 4, Col: 41)
+                                             Stop = (Ln: 6, Col: 6) }
+                                    Stmts =
+                                     [{ Kind =
+                                         Expr
+                                           { Kind =
+                                              Call
+                                                { Callee =
+                                                   { Kind =
+                                                      Identifier
+                                                        { Name = "print" }
+                                                     Span =
+                                                      { Start = (Ln: 5, Col: 7)
+                                                        Stop = (Ln: 5, Col: 12) }
+                                                     InferredType = None }
+                                                  TypeArgs = None
+                                                  Args =
+                                                   [{ Kind =
+                                                       Identifier { Name = "y" }
+                                                      Span =
+                                                       { Start =
+                                                          (Ln: 5, Col: 13)
+                                                         Stop = (Ln: 5, Col: 14) }
+                                                      InferredType = None }]
+                                                  OptChain = false
+                                                  Throws = None }
+                                             Span = { Start = (Ln: 5, Col: 7)
+                                                      Stop = (Ln: 5, Col: 15) }
+                                             InferredType = None }
+                                        Span = { Start = (Ln: 5, Col: 7)
+                                                 Stop = (Ln: 5, Col: 15) } }] }
+                                 Else = None }
+                            Span = { Start = (Ln: 4, Col: 12)
+                                     Stop = (Ln: 6, Col: 6) }
+                            InferredType = None }) }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 6, Col: 6) }
                InferredType = None }

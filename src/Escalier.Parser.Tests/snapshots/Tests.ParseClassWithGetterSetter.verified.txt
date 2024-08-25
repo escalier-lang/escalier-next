@@ -67,16 +67,20 @@ output: Ok
                                                    (Some
                                                       { Kind =
                                                          Member
-                                                           ({ Kind =
-                                                               Identifier "self"
-                                                              Span =
-                                                               { Start =
-                                                                  (Ln: 5, Col: 16)
-                                                                 Stop =
-                                                                  (Ln: 5, Col: 20) }
-                                                              InferredType =
-                                                               None }, "_msg",
-                                                            false)
+                                                           { Target =
+                                                              { Kind =
+                                                                 Identifier
+                                                                   { Name =
+                                                                      "self" }
+                                                                Span =
+                                                                 { Start =
+                                                                    (Ln: 5, Col: 16)
+                                                                   Stop =
+                                                                    (Ln: 5, Col: 20) }
+                                                                InferredType =
+                                                                 None }
+                                                             Name = "_msg"
+                                                             OptChain = false }
                                                         Span =
                                                          { Start =
                                                             (Ln: 5, Col: 16)
@@ -127,34 +131,41 @@ output: Ok
                                                  Expr
                                                    { Kind =
                                                       Assign
-                                                        ("=",
-                                                         { Kind =
-                                                            Member
-                                                              ({ Kind =
-                                                                  Identifier
-                                                                    "self"
-                                                                 Span =
-                                                                  { Start =
-                                                                     (Ln: 8, Col: 9)
-                                                                    Stop =
-                                                                     (Ln: 8, Col: 13) }
-                                                                 InferredType =
-                                                                  None }, "_msg",
-                                                               false)
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 8, Col: 9)
-                                                              Stop =
-                                                               (Ln: 8, Col: 19) }
-                                                           InferredType = None },
-                                                         { Kind =
-                                                            Identifier "msg"
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 8, Col: 21)
-                                                              Stop =
-                                                               (Ln: 8, Col: 24) }
-                                                           InferredType = None })
+                                                        { Op = "="
+                                                          Left =
+                                                           { Kind =
+                                                              Member
+                                                                { Target =
+                                                                   { Kind =
+                                                                      Identifier
+                                                                        { Name =
+                                                                           "self" }
+                                                                     Span =
+                                                                      { Start =
+                                                                         (Ln: 8, Col: 9)
+                                                                        Stop =
+                                                                         (Ln: 8, Col: 13) }
+                                                                     InferredType =
+                                                                      None }
+                                                                  Name = "_msg"
+                                                                  OptChain =
+                                                                   false }
+                                                             Span =
+                                                              { Start =
+                                                                 (Ln: 8, Col: 9)
+                                                                Stop =
+                                                                 (Ln: 8, Col: 19) }
+                                                             InferredType = None }
+                                                          Right =
+                                                           { Kind =
+                                                              Identifier
+                                                                { Name = "msg" }
+                                                             Span =
+                                                              { Start =
+                                                                 (Ln: 8, Col: 21)
+                                                                Stop =
+                                                                 (Ln: 8, Col: 24) }
+                                                             InferredType = None } }
                                                      Span =
                                                       { Start = (Ln: 8, Col: 9)
                                                         Stop = (Ln: 8, Col: 24) }

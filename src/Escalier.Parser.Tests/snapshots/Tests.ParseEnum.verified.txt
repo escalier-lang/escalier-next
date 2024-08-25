@@ -95,10 +95,14 @@ output: Ok
                           Call
                             { Callee =
                                { Kind =
-                                  Member ({ Kind = Identifier "MyEnum"
-                                            Span = { Start = (Ln: 6, Col: 17)
-                                                     Stop = (Ln: 6, Col: 23) }
-                                            InferredType = None }, "Foo", false)
+                                  Member
+                                    { Target =
+                                       { Kind = Identifier { Name = "MyEnum" }
+                                         Span = { Start = (Ln: 6, Col: 17)
+                                                  Stop = (Ln: 6, Col: 23) }
+                                         InferredType = None }
+                                      Name = "Foo"
+                                      OptChain = false }
                                  Span = { Start = (Ln: 6, Col: 17)
                                           Stop = (Ln: 6, Col: 27) }
                                  InferredType = None }

@@ -310,16 +310,14 @@ let fresh (ctx: Ctx) (t: Type) : Type =
 let rec getIsMut (ctx: Ctx) (env: Env) (expr: Expr) : Result<bool, TypeError> =
   result {
     match expr.Kind with
-    | ExprKind.Identifier name ->
+    | ExprKind.Identifier { Name = name } ->
       let! _, isMut = env.GetBinding name
       return isMut
     | ExprKind.Literal _ -> return false
     | ExprKind.Object _ -> return true
     | ExprKind.Tuple _ -> return true
-    | ExprKind.Index(target, _index, _optChain) ->
-      return! getIsMut ctx env target
-    | ExprKind.Member(target, _name, _optChain) ->
-      return! getIsMut ctx env target
+    | ExprKind.Index { Target = target } -> return! getIsMut ctx env target
+    | ExprKind.Member { Target = target } -> return! getIsMut ctx env target
     | _ ->
       return!
         Error(TypeError.NotImplemented $"determine the mutability of {expr}")

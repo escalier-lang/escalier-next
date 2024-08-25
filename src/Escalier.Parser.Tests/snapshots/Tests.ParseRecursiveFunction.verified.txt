@@ -52,192 +52,220 @@ output: Ok
                                           (Some
                                              { Kind =
                                                 IfElse
-                                                  ({ Kind =
-                                                      Binary
-                                                        ("<=",
-                                                         { Kind = Identifier "n"
+                                                  { Condition =
+                                                     { Kind =
+                                                        Binary
+                                                          { Op = "<="
+                                                            Left =
+                                                             { Kind =
+                                                                Identifier
+                                                                  { Name = "n" }
+                                                               Span =
+                                                                { Start =
+                                                                   (Ln: 3, Col: 17)
+                                                                  Stop =
+                                                                   (Ln: 3, Col: 19) }
+                                                               InferredType =
+                                                                None }
+                                                            Right =
+                                                             { Kind =
+                                                                Literal
+                                                                  (Number
+                                                                     (Int 1))
+                                                               Span =
+                                                                { Start =
+                                                                   (Ln: 3, Col: 22)
+                                                                  Stop =
+                                                                   (Ln: 3, Col: 24) }
+                                                               InferredType =
+                                                                None } }
+                                                       Span =
+                                                        { Start =
+                                                           (Ln: 3, Col: 17)
+                                                          Stop =
+                                                           (Ln: 3, Col: 24) }
+                                                       InferredType = None }
+                                                    Then =
+                                                     { Span =
+                                                        { Start =
+                                                           (Ln: 3, Col: 24)
+                                                          Stop =
+                                                           (Ln: 3, Col: 30) }
+                                                       Stmts =
+                                                        [{ Kind =
+                                                            Expr
+                                                              { Kind =
+                                                                 Identifier
+                                                                   { Name = "n" }
+                                                                Span =
+                                                                 { Start =
+                                                                    (Ln: 3, Col: 26)
+                                                                   Stop =
+                                                                    (Ln: 3, Col: 28) }
+                                                                InferredType =
+                                                                 None }
                                                            Span =
                                                             { Start =
-                                                               (Ln: 3, Col: 17)
+                                                               (Ln: 3, Col: 26)
                                                               Stop =
-                                                               (Ln: 3, Col: 19) }
-                                                           InferredType = None },
-                                                         { Kind =
-                                                            Literal
-                                                              (Number (Int 1))
-                                                           Span =
-                                                            { Start =
-                                                               (Ln: 3, Col: 22)
-                                                              Stop =
-                                                               (Ln: 3, Col: 24) }
-                                                           InferredType = None })
-                                                     Span =
-                                                      { Start = (Ln: 3, Col: 17)
-                                                        Stop = (Ln: 3, Col: 24) }
-                                                     InferredType = None },
-                                                   { Span =
-                                                      { Start = (Ln: 3, Col: 24)
-                                                        Stop = (Ln: 3, Col: 30) }
-                                                     Stmts =
-                                                      [{ Kind =
-                                                          Expr
-                                                            { Kind =
-                                                               Identifier "n"
-                                                              Span =
-                                                               { Start =
-                                                                  (Ln: 3, Col: 26)
-                                                                 Stop =
-                                                                  (Ln: 3, Col: 28) }
-                                                              InferredType =
-                                                               None }
-                                                         Span =
-                                                          { Start =
-                                                             (Ln: 3, Col: 26)
-                                                            Stop =
-                                                             (Ln: 3, Col: 28) } }] },
-                                                   Some
-                                                     (Block
-                                                        { Span =
-                                                           { Start =
-                                                              (Ln: 3, Col: 35)
-                                                             Stop =
-                                                              (Ln: 3, Col: 62) }
-                                                          Stmts =
-                                                           [{ Kind =
-                                                               Expr
-                                                                 { Kind =
-                                                                    Binary
-                                                                      ("+",
-                                                                       { Kind =
-                                                                          Call
-                                                                            { Callee =
-                                                                               { Kind =
-                                                                                  Identifier
-                                                                                    "fib"
-                                                                                 Span =
-                                                                                  { Start =
-                                                                                     (Ln: 3, Col: 37)
-                                                                                    Stop =
-                                                                                     (Ln: 3, Col: 40) }
-                                                                                 InferredType =
-                                                                                  None }
-                                                                              TypeArgs =
-                                                                               None
-                                                                              Args =
-                                                                               [{ Kind =
-                                                                                   Binary
-                                                                                     ("-",
-                                                                                      { Kind =
-                                                                                         Identifier
-                                                                                           "n"
-                                                                                        Span =
-                                                                                         { Start =
-                                                                                            (Ln: 3, Col: 41)
-                                                                                           Stop =
-                                                                                            (Ln: 3, Col: 43) }
-                                                                                        InferredType =
-                                                                                         None },
-                                                                                      { Kind =
-                                                                                         Literal
-                                                                                           (Number
-                                                                                              (Int
-                                                                                                 1))
-                                                                                        Span =
-                                                                                         { Start =
-                                                                                            (Ln: 3, Col: 45)
-                                                                                           Stop =
-                                                                                            (Ln: 3, Col: 46) }
-                                                                                        InferredType =
-                                                                                         None })
-                                                                                  Span =
-                                                                                   { Start =
-                                                                                      (Ln: 3, Col: 41)
-                                                                                     Stop =
-                                                                                      (Ln: 3, Col: 46) }
-                                                                                  InferredType =
-                                                                                   None }]
-                                                                              OptChain =
-                                                                               false
-                                                                              Throws =
-                                                                               None }
-                                                                         Span =
-                                                                          { Start =
-                                                                             (Ln: 3, Col: 37)
-                                                                            Stop =
-                                                                             (Ln: 3, Col: 48) }
-                                                                         InferredType =
-                                                                          None },
-                                                                       { Kind =
-                                                                          Call
-                                                                            { Callee =
-                                                                               { Kind =
-                                                                                  Identifier
-                                                                                    "fib"
-                                                                                 Span =
-                                                                                  { Start =
-                                                                                     (Ln: 3, Col: 50)
-                                                                                    Stop =
-                                                                                     (Ln: 3, Col: 53) }
-                                                                                 InferredType =
-                                                                                  None }
-                                                                              TypeArgs =
-                                                                               None
-                                                                              Args =
-                                                                               [{ Kind =
-                                                                                   Binary
-                                                                                     ("-",
-                                                                                      { Kind =
-                                                                                         Identifier
-                                                                                           "n"
-                                                                                        Span =
-                                                                                         { Start =
-                                                                                            (Ln: 3, Col: 54)
-                                                                                           Stop =
-                                                                                            (Ln: 3, Col: 56) }
-                                                                                        InferredType =
-                                                                                         None },
-                                                                                      { Kind =
-                                                                                         Literal
-                                                                                           (Number
-                                                                                              (Int
-                                                                                                 2))
-                                                                                        Span =
-                                                                                         { Start =
-                                                                                            (Ln: 3, Col: 58)
-                                                                                           Stop =
-                                                                                            (Ln: 3, Col: 59) }
-                                                                                        InferredType =
-                                                                                         None })
-                                                                                  Span =
-                                                                                   { Start =
-                                                                                      (Ln: 3, Col: 54)
-                                                                                     Stop =
-                                                                                      (Ln: 3, Col: 59) }
-                                                                                  InferredType =
-                                                                                   None }]
-                                                                              OptChain =
-                                                                               false
-                                                                              Throws =
-                                                                               None }
-                                                                         Span =
-                                                                          { Start =
-                                                                             (Ln: 3, Col: 50)
-                                                                            Stop =
-                                                                             (Ln: 3, Col: 61) }
-                                                                         InferredType =
-                                                                          None })
-                                                                   Span =
-                                                                    { Start =
-                                                                       (Ln: 3, Col: 37)
-                                                                      Stop =
-                                                                       (Ln: 3, Col: 61) }
-                                                                   InferredType =
-                                                                    None }
-                                                              Span =
-                                                               { Start =
-                                                                  (Ln: 3, Col: 37)
-                                                                 Stop =
-                                                                  (Ln: 3, Col: 61) } }] }))
+                                                               (Ln: 3, Col: 28) } }] }
+                                                    Else =
+                                                     Some
+                                                       (Block
+                                                          { Span =
+                                                             { Start =
+                                                                (Ln: 3, Col: 35)
+                                                               Stop =
+                                                                (Ln: 3, Col: 62) }
+                                                            Stmts =
+                                                             [{ Kind =
+                                                                 Expr
+                                                                   { Kind =
+                                                                      Binary
+                                                                        { Op =
+                                                                           "+"
+                                                                          Left =
+                                                                           { Kind =
+                                                                              Call
+                                                                                { Callee =
+                                                                                   { Kind =
+                                                                                      Identifier
+                                                                                        { Name =
+                                                                                           "fib" }
+                                                                                     Span =
+                                                                                      { Start =
+                                                                                         (Ln: 3, Col: 37)
+                                                                                        Stop =
+                                                                                         (Ln: 3, Col: 40) }
+                                                                                     InferredType =
+                                                                                      None }
+                                                                                  TypeArgs =
+                                                                                   None
+                                                                                  Args =
+                                                                                   [{ Kind =
+                                                                                       Binary
+                                                                                         { Op =
+                                                                                            "-"
+                                                                                           Left =
+                                                                                            { Kind =
+                                                                                               Identifier
+                                                                                                 { Name =
+                                                                                                    "n" }
+                                                                                              Span =
+                                                                                               { Start =
+                                                                                                  (Ln: 3, Col: 41)
+                                                                                                 Stop =
+                                                                                                  (Ln: 3, Col: 43) }
+                                                                                              InferredType =
+                                                                                               None }
+                                                                                           Right =
+                                                                                            { Kind =
+                                                                                               Literal
+                                                                                                 (Number
+                                                                                                    (Int
+                                                                                                       1))
+                                                                                              Span =
+                                                                                               { Start =
+                                                                                                  (Ln: 3, Col: 45)
+                                                                                                 Stop =
+                                                                                                  (Ln: 3, Col: 46) }
+                                                                                              InferredType =
+                                                                                               None } }
+                                                                                      Span =
+                                                                                       { Start =
+                                                                                          (Ln: 3, Col: 41)
+                                                                                         Stop =
+                                                                                          (Ln: 3, Col: 46) }
+                                                                                      InferredType =
+                                                                                       None }]
+                                                                                  OptChain =
+                                                                                   false
+                                                                                  Throws =
+                                                                                   None }
+                                                                             Span =
+                                                                              { Start =
+                                                                                 (Ln: 3, Col: 37)
+                                                                                Stop =
+                                                                                 (Ln: 3, Col: 48) }
+                                                                             InferredType =
+                                                                              None }
+                                                                          Right =
+                                                                           { Kind =
+                                                                              Call
+                                                                                { Callee =
+                                                                                   { Kind =
+                                                                                      Identifier
+                                                                                        { Name =
+                                                                                           "fib" }
+                                                                                     Span =
+                                                                                      { Start =
+                                                                                         (Ln: 3, Col: 50)
+                                                                                        Stop =
+                                                                                         (Ln: 3, Col: 53) }
+                                                                                     InferredType =
+                                                                                      None }
+                                                                                  TypeArgs =
+                                                                                   None
+                                                                                  Args =
+                                                                                   [{ Kind =
+                                                                                       Binary
+                                                                                         { Op =
+                                                                                            "-"
+                                                                                           Left =
+                                                                                            { Kind =
+                                                                                               Identifier
+                                                                                                 { Name =
+                                                                                                    "n" }
+                                                                                              Span =
+                                                                                               { Start =
+                                                                                                  (Ln: 3, Col: 54)
+                                                                                                 Stop =
+                                                                                                  (Ln: 3, Col: 56) }
+                                                                                              InferredType =
+                                                                                               None }
+                                                                                           Right =
+                                                                                            { Kind =
+                                                                                               Literal
+                                                                                                 (Number
+                                                                                                    (Int
+                                                                                                       2))
+                                                                                              Span =
+                                                                                               { Start =
+                                                                                                  (Ln: 3, Col: 58)
+                                                                                                 Stop =
+                                                                                                  (Ln: 3, Col: 59) }
+                                                                                              InferredType =
+                                                                                               None } }
+                                                                                      Span =
+                                                                                       { Start =
+                                                                                          (Ln: 3, Col: 54)
+                                                                                         Stop =
+                                                                                          (Ln: 3, Col: 59) }
+                                                                                      InferredType =
+                                                                                       None }]
+                                                                                  OptChain =
+                                                                                   false
+                                                                                  Throws =
+                                                                                   None }
+                                                                             Span =
+                                                                              { Start =
+                                                                                 (Ln: 3, Col: 50)
+                                                                                Stop =
+                                                                                 (Ln: 3, Col: 61) }
+                                                                             InferredType =
+                                                                              None } }
+                                                                     Span =
+                                                                      { Start =
+                                                                         (Ln: 3, Col: 37)
+                                                                        Stop =
+                                                                         (Ln: 3, Col: 61) }
+                                                                     InferredType =
+                                                                      None }
+                                                                Span =
+                                                                 { Start =
+                                                                    (Ln: 3, Col: 37)
+                                                                   Stop =
+                                                                    (Ln: 3, Col: 61) } }] }) }
                                                Span =
                                                 { Start = (Ln: 3, Col: 14)
                                                   Stop = (Ln: 3, Col: 62) }

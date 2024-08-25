@@ -10,18 +10,21 @@ output: Ok
            Expr
              { Kind =
                 IfElse
-                  ({ Kind = Identifier "cond"
-                     Span = { Start = (Ln: 2, Col: 8)
-                              Stop = (Ln: 2, Col: 13) }
-                     InferredType = None },
-                   { Span = { Start = (Ln: 2, Col: 13)
-                              Stop = (Ln: 5, Col: 5) }
-                     Stmts = [{ Kind = Expr { Kind = Identifier "x"
-                                              Span = { Start = (Ln: 3, Col: 7)
-                                                       Stop = (Ln: 4, Col: 5) }
-                                              InferredType = None }
-                                Span = { Start = (Ln: 3, Col: 7)
-                                         Stop = (Ln: 4, Col: 5) } }] }, None)
+                  { Condition = { Kind = Identifier { Name = "cond" }
+                                  Span = { Start = (Ln: 2, Col: 8)
+                                           Stop = (Ln: 2, Col: 13) }
+                                  InferredType = None }
+                    Then =
+                     { Span = { Start = (Ln: 2, Col: 13)
+                                Stop = (Ln: 5, Col: 5) }
+                       Stmts =
+                        [{ Kind = Expr { Kind = Identifier { Name = "x" }
+                                         Span = { Start = (Ln: 3, Col: 7)
+                                                  Stop = (Ln: 4, Col: 5) }
+                                         InferredType = None }
+                           Span = { Start = (Ln: 3, Col: 7)
+                                    Stop = (Ln: 4, Col: 5) } }] }
+                    Else = None }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 5, Col: 5) }
                InferredType = None }

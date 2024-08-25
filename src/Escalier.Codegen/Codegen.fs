@@ -69,7 +69,7 @@ module rec Codegen =
         |> Set.toList
         |> List.map (fun localName ->
           let importName =
-            if localName.[0] = '_' then localName.[1..] else localName
+            if localName[0] = '_' then localName[1..] else localName
 
           TS.ImportSpecifier.Named
             { Local = { Name = localName; Loc = None }
@@ -100,13 +100,17 @@ module rec Codegen =
 
   let flattenLogicalOr (expr: Expr) : list<Expr> =
     match expr.Kind with
-    | ExprKind.Binary("||", left, right) ->
+    | ExprKind.Binary { Op = "||"
+                        Left = left
+                        Right = right } ->
       flattenLogicalOr left @ flattenLogicalOr right
     | _ -> [ expr ]
 
   let flattenLogicalAnd (expr: Expr) : list<Expr> =
     match expr.Kind with
-    | ExprKind.Binary("&&", left, right) ->
+    | ExprKind.Binary { Op = "&&"
+                        Left = left
+                        Right = right } ->
       flattenLogicalAnd left @ flattenLogicalAnd right
     | _ -> [ expr ]
 
@@ -288,7 +292,8 @@ module rec Codegen =
             Loc = None }
 
       (callExpr, calleeStmts @ (argStmts |> List.concat))
-    | ExprKind.Identifier name -> Expr.Ident { Name = name; Loc = None }, []
+    | ExprKind.Identifier { Name = name } ->
+      Expr.Ident { Name = name; Loc = None }, []
     | ExprKind.Literal lit ->
       let lit =
         match lit with
@@ -302,7 +307,7 @@ module rec Codegen =
           { Ident.Name = "undefined"; Loc = None } |> Expr.Ident
 
       lit, []
-    | ExprKind.Binary(op, left, right) ->
+    | ExprKind.Binary { Op = op; Left = left; Right = right } ->
       if op = "&&" then
         buildLogicalRec ctx Logical.And (flattenLogicalAnd expr)
       elif op = "||" then
@@ -388,7 +393,9 @@ module rec Codegen =
         let expr = Expr.Arrow { Params = ps; Body = body }
 
         (expr, [])
-    | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+    | ExprKind.IfElse { Condition = condition
+                        Then = thenBranch
+                        Else = elseBranch } ->
       let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
       let tempDecl = buildTempDecl ctx tempId
@@ -418,7 +425,9 @@ module rec Codegen =
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
-    | ExprKind.Member(target, name, opt_chain) ->
+    | ExprKind.Member { Target = target
+                        Name = name
+                        OptChain = opt_chain } ->
 
       // TODO: support outputting optional chaining
       let object, objStmts = buildExpr ctx target
@@ -444,7 +453,7 @@ module rec Codegen =
         |> List.map (fun elem ->
           match elem with
           | ObjElem.Property(span, name, value) ->
-            let (value, valueStmts) = buildExpr ctx value
+            let value, valueStmts = buildExpr ctx value
             stmts <- stmts @ valueStmts
 
             let key =
@@ -490,7 +499,7 @@ module rec Codegen =
           Expr.Object obj
 
       (expr, [])
-    | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
+    | ExprKind.ExprWithTypeArgs { Expr = target; TypeArgs = typeArgs } ->
       failwith "TODO: buildExpr - ExprWithTypeArgs"
     | ExprKind.Class ``class`` -> failwith "TODO: buildExpr - Class"
     | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
@@ -518,7 +527,9 @@ module rec Codegen =
 
       (tuple, stmts)
     | ExprKind.Range range -> failwith "TODO: buildExpr - Range"
-    | ExprKind.Index(target, index, optChain) ->
+    | ExprKind.Index { Target = target
+                       Index = index
+                       OptChain = optChain } ->
       let targetExpr, targetStmts = buildExpr ctx target
       let indexExpr, indexStmts = buildExpr ctx index
 
@@ -531,7 +542,10 @@ module rec Codegen =
             Loc = None }
 
       (expr, targetStmts @ indexStmts)
-    | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
+    | ExprKind.IfLet { Pattern = pattern
+                       Target = target
+                       Then = thenBranch
+                       Else = elseBranch } ->
       let tempId = ctx.GetTempId()
       let finalizer = Finalizer.Assign tempId
       let tempDecl = buildTempDecl ctx tempId
@@ -588,11 +602,11 @@ module rec Codegen =
       let expr = Expr.Ident { Name = tempId; Loc = None }
 
       (expr, stmts)
-    | ExprKind.Match(target, cases) ->
+    | ExprKind.Match { Target = target; Cases = cases } ->
       match buildMatchRec ctx target None cases with
       | Some expr, stmts -> (expr, stmts)
       | None, stmts -> failwith "Failure compiling 'match' expression"
-    | ExprKind.Assign(op, left, right) ->
+    | ExprKind.Assign { Op = op; Left = left; Right = right } ->
       let leftExpr, leftStmts = buildExpr ctx left
       let rightExpr, rightStmts = buildExpr ctx right
 
@@ -620,7 +634,7 @@ module rec Codegen =
             Loc = None }
 
       (assign, leftStmts @ rightStmts)
-    | ExprKind.Unary(op, value) ->
+    | ExprKind.Unary { Op = op; Value = value } ->
       let valueExpr, valueStmts = buildExpr ctx value
 
       let op =
@@ -652,7 +666,7 @@ module rec Codegen =
       let bodyBlock = buildBlock ctx body finalizer
 
       let target: Expr =
-        { Kind = ExprKind.Identifier "__error__"
+        { Kind = ExprKind.Identifier { Name = "__error__" }
           Span = dummySpan
           InferredType = None }
 
@@ -702,7 +716,7 @@ module rec Codegen =
     | ExprKind.TemplateLiteral template ->
       let tpl, stmts = buildTemplateLiteral ctx template
       (Expr.Tpl tpl, stmts)
-    | ExprKind.TaggedTemplateLiteral(tag, template, _throws) ->
+    | ExprKind.TaggedTemplateLiteral { Tag = tag; Template = template } ->
       let tagExpr, tagStmts = buildExpr ctx tag
       let tpl, tplStmts = buildTemplateLiteral ctx template
 
@@ -1026,7 +1040,7 @@ module rec Codegen =
       // NOTE: We reverse the order of the declarations because the
       // if-else chain is built in reverse order.
       for decl in List.rev decls do
-        let checks = decl.Sig.ParamList |> List.map (checkExprFromParam)
+        let checks = decl.Sig.ParamList |> List.map checkExprFromParam
 
         let check =
           checks
@@ -1137,10 +1151,10 @@ module rec Codegen =
               | [ decl ] -> buildFnDecl ctx decl
               | decls -> buildOverloadedFnDecl ctx decls
             | None -> []
-          | ClassDecl(_) -> failwith "TODO: buildBlock - ClassDecl"
-          | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
-          | NamespaceDecl(_) -> failwith "TODO: buildBlock - NamespaceDecl"
-          | InterfaceDecl(_) -> [] // Ignore types when generating JS code
+          | ClassDecl _ -> failwith "TODO: buildBlock - ClassDecl"
+          | EnumDecl _ -> failwith "TODO: buildBlock - EnumDecl"
+          | NamespaceDecl _ -> failwith "TODO: buildBlock - NamespaceDecl"
+          | InterfaceDecl _ -> [] // Ignore types when generating JS code
         | StmtKind.Return expr ->
           match expr with
           | Some expr ->
@@ -1472,13 +1486,11 @@ module rec Codegen =
                 )
 
               items <- item :: items
-          | FnDecl(_) -> failwith "TODO: buildModuleTypes - FnDecl"
-          | ClassDecl(_) -> failwith "TODO: buildModuleTypes - ClassDecl"
-          | EnumDecl(_) -> failwith "TODO: buildModuleTypes - EnumDecl"
-          | NamespaceDecl(_) ->
-            failwith "TODO: buildModuleTypes - NamespaceDecl"
-          | InterfaceDecl(_) ->
-            failwith "TODO: buildModuleTypes - InterfaceDecl"
+          | FnDecl _ -> failwith "TODO: buildModuleTypes - FnDecl"
+          | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
+          | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
+          | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"
+          | InterfaceDecl _ -> failwith "TODO: buildModuleTypes - InterfaceDecl"
         | _ -> ()
 
     { Body = List.rev items
@@ -1740,8 +1752,8 @@ module rec Codegen =
       | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
-      | PatternKind.Enum(_) -> failwith "TODO: findBinding - Enum"
-      | PatternKind.Rest(_) -> failwith "TODO: findBinding - Rest"
+      | PatternKind.Enum _ -> failwith "TODO: findBinding - Enum"
+      | PatternKind.Rest _ -> failwith "TODO: findBinding - Rest"
 
     walk pat
 

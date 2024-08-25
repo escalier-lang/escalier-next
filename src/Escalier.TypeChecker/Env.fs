@@ -374,7 +374,7 @@ module rec Env =
       match this.TryFindValue name with
       | Some(var) ->
         // TODO: check `isMut` and return an immutable type if necessary
-        let (t, isMut) = var
+        let t, isMut = var
         Ok(t)
       | None ->
         // TODO: why do we need to check if it's an integer literal?
@@ -448,7 +448,7 @@ module rec Env =
       result {
         match expr.Kind with
         | Syntax.ExprKind.Identifier ident ->
-          match this.Namespace.Namespaces.TryFind ident with
+          match this.Namespace.Namespaces.TryFind ident.Name with
           | None -> return None
           | Some ns -> return Some(ns, None)
         | _ -> return None

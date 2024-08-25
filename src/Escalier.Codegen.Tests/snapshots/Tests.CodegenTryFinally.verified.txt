@@ -1,5 +1,5 @@
 ﻿input: 
-        declare let parseJSON: fn (input: string) -> unknown throws "SyntaxError" | "RangeError";
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
         let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {

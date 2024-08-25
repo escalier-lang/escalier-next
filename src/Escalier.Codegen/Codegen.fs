@@ -955,6 +955,126 @@ module rec Codegen =
       | _ -> failwith "Function param pattern must be an identifier"
     | None -> failwith "Function param must have an inferred type"
 
+  let buildFnDecl (ctx: Ctx) (decl: FnDecl) : list<TS.Stmt> =
+    let ps: list<Param> =
+      decl.Sig.ParamList
+      |> List.map (fun (p: Syntax.FuncParam) ->
+        let pat, _ = buildPattern ctx p.Pattern None
+
+        { Pat = pat
+          TypeAnn = None
+          Loc = None })
+
+    if decl.Declare then
+      [] // Nothing to emit for `declare` function declarations
+    else
+      let body =
+        match decl.Body with
+        | Some(BlockOrExpr.Block block) -> buildBlock ctx block Finalizer.Empty
+        | Some(BlockOrExpr.Expr expr) ->
+          let expr, stmts = buildExpr ctx expr
+
+          let body =
+            stmts @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
+
+          { Body = body; Loc = None }
+        | None -> failwith "Function declaration must have a body"
+
+      let func: TS.Function =
+        { Params = ps
+          Body = Some({ Body = body.Body; Loc = None })
+          IsGenerator = false
+          IsAsync = false
+          TypeParams = None
+          ReturnType = None
+          Loc = None }
+
+      let fnDecl =
+        { FnDecl.Id = { Name = decl.Name; Loc = None }
+          Declare = false
+          Fn = func }
+
+      let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
+
+      [ funcDecl ]
+
+  let buildOverloadedFnDecl (ctx: Ctx) (decls: list<FnDecl>) : list<TS.Stmt> =
+    // TODO: handle overloads with different numbers of params
+    // TODO: handle overlaods with different param names
+    let ps =
+      decls[0].Sig.ParamList
+      |> List.map (fun p ->
+        let pat, _ = buildPattern ctx p.Pattern None
+
+        { Pat = pat
+          TypeAnn = None
+          Loc = None })
+
+    let typeError =
+      TS.Expr.New
+        { Callee = TS.Expr.Ident { Name = "TypeError"; Loc = None }
+          Arguments = []
+          Loc = None }
+
+    let throw = TS.Stmt.Throw { Argument = typeError; Loc = None }
+    let block: TS.BlockStmt = { Body = [ throw ]; Loc = None }
+    let mutable ifElse: TS.Stmt = TS.Stmt.Block(block)
+
+    if List.forall (fun (decl: FnDecl) -> decl.Declare) decls then
+      [] // Nothing to emit for `declare` function declarations
+    else
+      // NOTE: We reverse the order of the declarations because the
+      // if-else chain is built in reverse order.
+      for decl in List.rev decls do
+        let checks = decl.Sig.ParamList |> List.map (checkExprFromParam)
+
+        let check =
+          checks
+          |> List.reduce (fun acc check ->
+            TS.Expr.Bin
+              { Operator = BinOp.LogicalAnd
+                Left = acc
+                Right = check
+                Loc = None })
+
+        let body =
+          match decl.Body with
+          | Some(BlockOrExpr.Block block) ->
+            buildBlock ctx block Finalizer.Empty
+          | Some(BlockOrExpr.Expr expr) ->
+            let expr, stmts = buildExpr ctx expr
+
+            let body =
+              stmts @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
+
+            { Body = body; Loc = None }
+          | None -> failwith "Function declaration must have a body"
+
+        ifElse <-
+          TS.Stmt.If
+            { Test = check
+              Consequent = TS.Stmt.Block(body)
+              Alternate = Some(ifElse)
+              Loc = None }
+
+      let func: TS.Function =
+        { Params = ps
+          Body = Some({ Body = [ ifElse ]; Loc = None })
+          IsGenerator = false
+          IsAsync = false
+          TypeParams = None
+          ReturnType = None
+          Loc = None }
+
+      let fnDecl =
+        { FnDecl.Id = { Name = decls[0].Name; Loc = None }
+          Declare = false
+          Fn = func }
+
+      let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
+
+      [ funcDecl ]
+
   let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
     // TODO: check if the last statement is an expression statement
     // and use the appropriate finalizer with it
@@ -1014,123 +1134,8 @@ module rec Codegen =
 
               match decls with
               | [] -> failwith "Function declaration list must not be empty"
-              | [ decl ] ->
-                let ps: list<Param> =
-                  decl.Sig.ParamList
-                  |> List.map (fun (p: Syntax.FuncParam) ->
-                    let pat, _ = buildPattern ctx p.Pattern None
-
-                    { Pat = pat
-                      TypeAnn = None
-                      Loc = None })
-
-                let body =
-                  match decl.Body with
-                  | Some(BlockOrExpr.Block block) ->
-                    buildBlock ctx block Finalizer.Empty
-                  | Some(BlockOrExpr.Expr expr) ->
-                    let expr, stmts = buildExpr ctx expr
-
-                    let body =
-                      stmts
-                      @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
-
-                    { Body = body; Loc = None }
-                  | None -> failwith "Function declaration must have a body"
-
-                let func: TS.Function =
-                  { Params = ps
-                    Body = Some({ Body = body.Body; Loc = None })
-                    IsGenerator = false
-                    IsAsync = false
-                    TypeParams = None
-                    ReturnType = None
-                    Loc = None }
-
-                let fnDecl =
-                  { FnDecl.Id = { Name = fnDecl.Name; Loc = None }
-                    Declare = false
-                    Fn = func }
-
-                let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
-
-                [ funcDecl ]
-              | decls ->
-
-                let ps =
-                  decls[0].Sig.ParamList
-                  |> List.map (fun p ->
-                    let pat, _ = buildPattern ctx p.Pattern None
-
-                    { Pat = pat
-                      TypeAnn = None
-                      Loc = None })
-
-                let typeError =
-                  TS.Expr.New
-                    { Callee = TS.Expr.Ident { Name = "TypeError"; Loc = None }
-                      Arguments = []
-                      Loc = None }
-
-                let throw = TS.Stmt.Throw { Argument = typeError; Loc = None }
-                let block: TS.BlockStmt = { Body = [ throw ]; Loc = None }
-                let mutable ifElse: TS.Stmt = TS.Stmt.Block(block)
-
-                // NOTE: We reverse the order of the declarations because the
-                // if-else chain is built in reverse order.
-                for decl in List.rev decls do
-                  let checks =
-                    decl.Sig.ParamList |> List.map (checkExprFromParam)
-
-                  let check =
-                    checks
-                    |> List.reduce (fun acc check ->
-                      TS.Expr.Bin
-                        { Operator = BinOp.LogicalAnd
-                          Left = acc
-                          Right = check
-                          Loc = None })
-
-                  let body =
-                    match decl.Body with
-                    | Some(BlockOrExpr.Block block) ->
-                      buildBlock ctx block Finalizer.Empty
-                    | Some(BlockOrExpr.Expr expr) ->
-                      let expr, stmts = buildExpr ctx expr
-
-                      let body =
-                        stmts
-                        @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
-
-                      { Body = body; Loc = None }
-                    | None -> failwith "Function declaration must have a body"
-
-                  ifElse <-
-                    TS.Stmt.If
-                      { Test = check
-                        Consequent = TS.Stmt.Block(body)
-                        Alternate = Some(ifElse)
-                        Loc = None }
-
-                let func: TS.Function =
-                  { Params = ps
-                    Body = Some({ Body = [ ifElse ]; Loc = None })
-                    IsGenerator = false
-                    IsAsync = false
-                    TypeParams = None
-                    ReturnType = None
-                    Loc = None }
-
-                let ident: TS.Ident = { Name = fnDecl.Name; Loc = None }
-
-                let fnDecl =
-                  { FnDecl.Id = { Name = fnDecl.Name; Loc = None }
-                    Declare = false
-                    Fn = func }
-
-                let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
-
-                [ funcDecl ]
+              | [ decl ] -> buildFnDecl ctx decl
+              | decls -> buildOverloadedFnDecl ctx decls
             | None -> []
           | ClassDecl(_) -> failwith "TODO: buildBlock - ClassDecl"
           | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"

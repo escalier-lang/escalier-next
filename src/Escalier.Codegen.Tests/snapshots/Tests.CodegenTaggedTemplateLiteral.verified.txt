@@ -1,5 +1,5 @@
 ﻿input: 
-        declare let gql: fn (strings: string[], ...values: unknown[]) -> string;
+        declare fn gql(strings: string[], ...values: unknown[]) -> string;
         let id = "foo123";
         let query = gql`query {
           user(id: ${id}) {

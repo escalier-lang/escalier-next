@@ -1,5 +1,5 @@
 ﻿input: 
-        declare let parseInt: fn (input: string) -> number;
+        declare fn parseInt(input: string) -> number;
         let num = parseInt("123");
         let array = new Array(1, 2, 3);
         

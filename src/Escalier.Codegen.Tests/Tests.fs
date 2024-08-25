@@ -208,7 +208,7 @@ let CodegenTaggedTemplateLiteral () =
     result {
       let src =
         """
-        declare let gql: fn (strings: string[], ...values: unknown[]) -> string;
+        declare fn gql(strings: string[], ...values: unknown[]) -> string;
         let id = "foo123";
         let query = gql`query {
           user(id: ${id}) {
@@ -432,7 +432,7 @@ let CodegenCalls () =
     result {
       let src =
         """
-        declare let parseInt: fn (input: string) -> number;
+        declare fn parseInt(input: string) -> number;
         let num = parseInt("123");
         let array = new Array(1, 2, 3);
         """
@@ -766,7 +766,7 @@ let CodegenTryCatch () =
     result {
       let src =
         """
-        declare let parseJSON: fn (input: string) -> unknown throws "SyntaxError" | "RangeError";
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
         let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {
@@ -791,7 +791,7 @@ let CodegenTryFinally () =
     result {
       let src =
         """
-        declare let parseJSON: fn (input: string) -> unknown throws "SyntaxError" | "RangeError";
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
         let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {
@@ -815,7 +815,7 @@ let CodegenTryCatchFinally () =
     result {
       let src =
         """
-        declare let parseJSON: fn (input: string) -> unknown throws "SyntaxError" | "RangeError";
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
         let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {

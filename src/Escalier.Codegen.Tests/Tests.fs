@@ -401,10 +401,10 @@ let CodegenFunction () =
     printfn "error = %A" error
     failwith "ParseError"
 
-// TODO: Make function params that are primitive types immutable when migrating
+// TODO(#349): Make function params that are primitive types immutable when migrating
 // the types from .d.ts files.
-// TODO: Fix optional function params in functions migrated from .d.ts files.
-// TODO: Update getPropType to check for properties on the Extends type of an
+// TODO(#350): Fix optional function params in functions migrated from .d.ts files.
+// TODO(#351): Update getPropType to check for properties on the Extends type of an
 // object type.
 [<Fact(Skip = "TODO")>]
 let CodegenAsyncFunction () =

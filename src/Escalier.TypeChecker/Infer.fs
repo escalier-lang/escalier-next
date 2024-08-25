@@ -1085,7 +1085,7 @@ module rec Infer =
           return! inferJsxFragment ctx env jsxFrag
         | ExprKind.Do body -> return! inferBlock ctx env body
         | ExprKind.TemplateLiteral templateLiteral ->
-          // TODO: if all of the expressions in the template literal are literals,
+          // TODO(#353): if all of the expressions in the template literal are literals,
           // we can infer the type of the template literal as a string literal.
           let t =
             { Kind = TypeKind.Primitive Primitive.String

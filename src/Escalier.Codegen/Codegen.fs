@@ -999,8 +999,8 @@ module rec Codegen =
       [ funcDecl ]
 
   let buildOverloadedFnDecl (ctx: Ctx) (decls: list<FnDecl>) : list<TS.Stmt> =
-    // TODO: handle overloads with different numbers of params
-    // TODO: handle overlaods with different param names
+    // TODO(#354): handle overloads with different numbers of params
+    // TODO(#355): handle overloads with different param names
     let ps =
       decls[0].Sig.ParamList
       |> List.map (fun p ->

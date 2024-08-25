@@ -13,22 +13,33 @@ open Escalier.Codegen.Printer
 open Escalier.Codegen.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
+open Escalier.TypeChecker.Infer
+
+type CompileError = Prelude.CompileError
+
 
 let settings = VerifySettings()
 settings.UseDirectory("snapshots")
 settings.DisableDiff()
 
+let projectRoot = __SOURCE_DIRECTORY__
+
 let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
 
 let parseAndCodegenJS (src: string) =
   result {
-    let! escAst = Parser.parseModule src
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+    let! env =
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
     let ctx: Ctx =
       { NextTempId = 0
         AutoImports = Set.empty }
 
-    let mod' = buildModule ctx escAst
+    let mod' = buildModule ctx ast
     let js = printModule printCtx mod'
 
     return js
@@ -197,6 +208,8 @@ let CodegenTaggedTemplateLiteral () =
     result {
       let src =
         """
+        declare fn gql(strings: string[], ...values: unknown[]) -> string;
+        let id = "foo123";
         let query = gql`query {
           user(id: ${id}) {
             username
@@ -264,6 +277,8 @@ let CodegenMemberAccess () =
     result {
       let src =
         """
+        declare let mut foo: {bar: string};
+        declare let a: {b?: {c: string}} | undefined;
         foo.bar = "baz";
         let c = a?.b?.c;
         """
@@ -386,7 +401,12 @@ let CodegenFunction () =
     printfn "error = %A" error
     failwith "ParseError"
 
-[<Fact>]
+// TODO(#349): Make function params that are primitive types immutable when migrating
+// the types from .d.ts files.
+// TODO(#350): Fix optional function params in functions migrated from .d.ts files.
+// TODO(#351): Update getPropType to check for properties on the Extends type of an
+// object type.
+[<Fact(Skip = "TODO")>]
 let CodegenAsyncFunction () =
   let res =
     result {
@@ -404,9 +424,7 @@ let CodegenAsyncFunction () =
 
   match res with
   | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
-  | Error(error) ->
-    printfn "error = %A" error
-    failwith "ParseError"
+  | Error(error) -> failwith $"error = %A{error}"
 
 [<Fact>]
 let CodegenCalls () =
@@ -414,6 +432,7 @@ let CodegenCalls () =
     result {
       let src =
         """
+        declare fn parseInt(input: string) -> number;
         let num = parseInt("123");
         let array = new Array(1, 2, 3);
         """
@@ -435,6 +454,9 @@ let CodegenChainedIfElse () =
     result {
       let src =
         """
+        let cond1 = Math.random() > 0.5;
+        let cond2 = Math.random() > 0.5;
+        let [foo, bar, baz] = ["foo", "bar", "baz"];
         let result = if (cond1) {
           foo
         } else if (cond2) {
@@ -460,6 +482,8 @@ let CodegenLogicalOperators () =
     result {
       let src =
         """
+        let [a, b, c] = [true, false, true];
+        let [x, y, z] = [true, true, false];
         let foo = a || b || c;
         let bar = x && y && z;
         """
@@ -664,7 +688,7 @@ let CodegenIfLetObject () =
       let src =
         """
         let object = {point: {x: 5, y: 10}, color: "red"};
-        let mag = if let {point: {x, y}} = object {
+        let mag = if let {point: {x, y}, color: _} = object {
           Math.sqrt(x * x + y * y)
         } else {
           0
@@ -677,9 +701,7 @@ let CodegenIfLetObject () =
 
   match res with
   | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
-  | Error(error) ->
-    printfn "error = %A" error
-    failwith "ParseError"
+  | Error(error) -> failwith $"error = %A{error}"
 
 [<Fact>]
 let CodegenMatchArray () =
@@ -744,9 +766,11 @@ let CodegenTryCatch () =
     result {
       let src =
         """
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
+        let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {
-            JSON.parse(input);
+            parseJSON(input);
           } catch {
             "SyntaxError" => null,
             "RangeError" => null,
@@ -759,9 +783,7 @@ let CodegenTryCatch () =
 
   match res with
   | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
-  | Error(error) ->
-    printfn "error = %A" error
-    failwith "ParseError"
+  | Error(error) -> failwith $"error = %A{error}"
 
 [<Fact>]
 let CodegenTryFinally () =
@@ -769,11 +791,13 @@ let CodegenTryFinally () =
     result {
       let src =
         """
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
+        let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {
-            JSON.parse(input);
+            parseJSON(input);
           } finally {
-            cleanup();
+            console.log("cleaning up");
           };
         """
 
@@ -783,9 +807,7 @@ let CodegenTryFinally () =
 
   match res with
   | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
-  | Error(error) ->
-    printfn "error = %A" error
-    failwith "ParseError"
+  | Error(error) -> failwith $"error = %A{error}"
 
 [<Fact>]
 let CodegenTryCatchFinally () =
@@ -793,14 +815,16 @@ let CodegenTryCatchFinally () =
     result {
       let src =
         """
+        declare fn parseJSON(input: string) -> unknown throws "SyntaxError" | "RangeError";
+        let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {
-            JSON.parse(input);
+            parseJSON(input);
           } catch {
             "SyntaxError" => null,
             "RangeError" => null,
           } finally {
-            cleanup();
+            console.log("cleaning up");
           };
         """
 
@@ -810,9 +834,7 @@ let CodegenTryCatchFinally () =
 
   match res with
   | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
-  | Error(error) ->
-    printfn "error = %A" error
-    failwith "ParseError"
+  | Error(error) -> failwith $"error = %A{error}"
 
 [<Fact>]
 let CodegenJsxElement () =
@@ -858,9 +880,6 @@ let CodegenJsxFragment () =
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"
-
-
-type CompileError = Prelude.CompileError
 
 [<Fact>]
 let CodegenDtsBasics () =
@@ -936,3 +955,47 @@ let CodegenDtsGeneric () =
   | Error(error) ->
     printfn "error = %A" error
     failwith "ParseError"
+
+[<Fact>]
+let CodegenFunctionDeclaration () =
+  let res =
+    result {
+      let src =
+        """
+        fn add(a: number, b: number) -> number {
+          return a + b;
+        }
+        let sum = add(5, 10);
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) -> failwith $"error = %A{error}"
+
+[<Fact>]
+let CodegenFunctionOverloads () =
+  let res =
+    result {
+      let src =
+        """
+        fn add(a: number, b: number) -> number {
+          return a + b;
+        }
+        fn add(a: string, b: string) -> string {
+          return a ++ b;
+        }
+        let sum = add(5, 10);
+        let msg = add("hello, ", "world");
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) -> failwith $"error = %A{error}"

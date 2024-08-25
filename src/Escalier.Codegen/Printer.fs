@@ -318,8 +318,8 @@ module rec Printer =
     | Expr.OptChain _ -> failwith "TODO: printExpr - OptChain"
     | Expr.Invalid _ -> failwith "TODO: printExpr - Invalid"
 
-  let printTemplateLiteral (ctx: PrintCtx) (template: Tpl): string =
-    let {Exprs=exprs; Quasis=quasis} = template
+  let printTemplateLiteral (ctx: PrintCtx) (template: Tpl) : string =
+    let { Exprs = exprs; Quasis = quasis } = template
     let mutable sb = StringBuilder()
     sb <- sb.Append("`")
 
@@ -330,7 +330,7 @@ module rec Printer =
     sb <- sb.Append(quasis.[quasis.Length - 1].Raw).Append("`")
 
     sb.ToString()
-  
+
   let printStmt (ctx: PrintCtx) (stmt: TypeScript.Stmt) : string =
     match stmt with
     | Stmt.Block block -> printBlock ctx block
@@ -392,7 +392,7 @@ module rec Printer =
       let ctx = { ctx with Precedence = 0 }
       let arg = printExpr ctx arg
       $"throw {arg};"
-    | Stmt.Try { Block = block
+    | Stmt.Try { TryBlock = block
                  Handler = handler
                  Finalizer = finalizer } ->
       let ctx = { ctx with Precedence = 0 }
@@ -481,9 +481,7 @@ module rec Printer =
           ps |> List.map (fun p -> printPattern ctx p.Pat) |> String.concat ", "
 
         match body with
-        | Some(body) ->
-          let body = body.Body |> List.map (printStmt ctx) |> String.concat "\n"
-          $"function {id}({ps}) {{\n{body}\n}}"
+        | Some(body) -> $"function {id}({ps}) {printBlock ctx body}"
         | None -> $"function {id}({ps}) {{}}"
       | Decl.Var { Decls = decls
                    Declare = declare
@@ -562,11 +560,11 @@ module rec Printer =
   let printBlock (ctx: PrintCtx) (block: BlockStmt) =
     let oldIdent = String.replicate ctx.Indent " "
     let ctx = { ctx with Indent = ctx.Indent + 2 }
-    let ident = String.replicate ctx.Indent " "
+    let indent = String.replicate ctx.Indent " "
 
     let body =
       block.Body
-      |> List.map (fun stmt -> ident + printStmt ctx stmt)
+      |> List.map (fun stmt -> indent + printStmt ctx stmt)
       |> String.concat "\n"
 
     $"{{\n{body}\n{oldIdent}}}"

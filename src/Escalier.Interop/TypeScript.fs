@@ -158,7 +158,7 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TryStmt =
-    { Block: BlockStmt
+    { TryBlock: BlockStmt
       Handler: option<CatchClause>
       Finalizer: option<BlockStmt> }
 
@@ -283,6 +283,7 @@ module rec TypeScript =
       Init: option<Expr>
       Loc: option<SourceLocation> }
 
+  [<RequireQualifiedAccess>]
   type TsEnumMemberId =
     | Ident of Ident
     | Str of Str
@@ -317,6 +318,7 @@ module rec TypeScript =
       Id: Ident
       Body: TsNamespaceBody }
 
+  [<RequireQualifiedAccess>]
   type ModuleItem =
     | ModuleDecl of ModuleDecl
     | Stmt of Stmt

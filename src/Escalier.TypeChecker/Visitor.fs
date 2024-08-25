@@ -109,6 +109,7 @@ module rec ExprVisitor =
         | ExprKind.Throw value -> walk value
         | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
         | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
+          walk tag
           List.iter walk template.Exprs
         | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
           walk target

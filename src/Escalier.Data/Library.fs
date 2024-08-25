@@ -134,6 +134,7 @@ module Syntax =
 
   type Block = { Span: Span; Stmts: list<Stmt> }
 
+  [<RequireQualifiedAccess>]
   type BlockOrExpr =
     | Block of Block
     | Expr of Expr

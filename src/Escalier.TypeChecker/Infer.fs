@@ -1081,20 +1081,44 @@ module rec Infer =
 
           return! instantiate t
         | ExprKind.JSXElement jsxElem -> return! inferJsxElement ctx env jsxElem
-        | ExprKind.JSXFragment _ ->
-          return!
-            Error(TypeError.NotImplemented "TODO: inferExpr - JSX fragments")
-        | ExprKind.Do body ->
-          return!
-            Error(TypeError.NotImplemented "TODO: inferExpr - Do expression")
+        | ExprKind.JSXFragment jsxFrag ->
+          return! inferJsxFragment ctx env jsxFrag
+        | ExprKind.Do body -> return! inferBlock ctx env body
         | ExprKind.TemplateLiteral templateLiteral ->
-          return!
-            Error(TypeError.NotImplemented "TODO: inferExpr - TemplateLiteral")
+          // TODO(#353): if all of the expressions in the template literal are literals,
+          // we can infer the type of the template literal as a string literal.
+          let t =
+            { Kind = TypeKind.Primitive Primitive.String
+              Provenance = None }
+
+          return t
         | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
-          return!
-            Error(
-              TypeError.NotImplemented "TODO: inferExpr - TaggedTemplateLiteral"
-            )
+          let! callee = inferExpr ctx env None tag
+
+          let stringExprs: list<Expr> =
+            template.Parts
+            |> List.map (fun (part: string) ->
+              { Kind = ExprKind.Literal(Literal.String part)
+                Span = DUMMY_SPAN
+                InferredType = None })
+
+          let strings: Expr =
+            { Kind =
+                ExprKind.Tuple
+                  { Elems = stringExprs
+                    Immutable = true }
+              Span = DUMMY_SPAN
+              InferredType = None }
+
+          let args: list<Expr> = strings :: template.Exprs
+          // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
+          let! result, throws = unifyCall ctx env None args None callee
+
+          // TODO: update `TaggedTemplateLiteral` to wrap a struct so that we can
+          // update the `Throws` field.
+          // taggedTemplate.Throws <- Some(throws)
+
+          return result
       }
 
     ctx.MergeUpReport()
@@ -1105,6 +1129,38 @@ module rec Infer =
         t.Provenance <- Some(Provenance.Expr expr)
         t)
       r
+
+  let inferJsxFragment (ctx: Ctx) (env: Env) (jsxFragment: JSXFragment) =
+    result {
+      let reactNode =
+        { Kind =
+            TypeKind.TypeRef
+              { Name =
+                  QualifiedIdent.Member(
+                    QualifiedIdent.Ident "React",
+                    "ReactNode"
+                  )
+                TypeArgs = None
+                Scheme = None }
+          Provenance = None }
+
+      for child in jsxFragment.Children do
+        match child with
+        | JSXText jsxText -> () // nothing to infer
+        | JSXExprContainer jsxExprContainer ->
+          let! child = inferExpr ctx env None jsxExprContainer.Expr
+          do! unify ctx env None child reactNode
+        | JSXElement jsxElement ->
+          let! child = inferJsxElement ctx env jsxElement
+          do! unify ctx env None child reactNode
+        | JSXFragment jsxFragment ->
+          let! child = inferJsxFragment ctx env jsxFragment
+          do! unify ctx env None child reactNode
+
+      ctx.MergeUpReport()
+
+      return reactNode
+    }
 
   let inferJsxElement
     (ctx: Ctx)
@@ -1234,7 +1290,9 @@ module rec Infer =
           | JSXElement jsxElement ->
             let! child = inferJsxElement ctx env jsxElement
             do! unify ctx env None child reactNode
-          | JSXFragment jsxFragment -> failwith "todo"
+          | JSXFragment jsxFragment ->
+            let! child = inferJsxFragment ctx env jsxFragment
+            do! unify ctx env None child reactNode
 
         return reactNode
       }
@@ -4306,7 +4364,7 @@ module rec Infer =
             let! _ = inferExpr ctx newEnv None expr
             ()
           | None -> ()
-        | StmtKind.Decl _ -> () // Already inferred
+        | StmtKind.Decl decl -> () // Already inferred by `inferTree`
 
       return newEnv
     }

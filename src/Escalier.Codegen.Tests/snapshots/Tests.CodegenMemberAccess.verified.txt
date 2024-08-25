@@ -1,4 +1,6 @@
 ﻿input: 
+        declare let mut foo: {bar: string};
+        declare let a: {b?: {c: string}} | undefined;
         foo.bar = "baz";
         let c = a?.b?.c;
         

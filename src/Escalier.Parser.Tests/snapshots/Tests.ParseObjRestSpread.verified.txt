@@ -84,7 +84,7 @@ output: Ok
                                 Stop = (Ln: 3, Col: 22) }
                        InferredType = None }
                     TypeAnn = None
-                    Init = Some { Kind = Identifier "obj"
+                    Init = Some { Kind = Identifier { Name = "obj" }
                                   Span = { Start = (Ln: 3, Col: 24)
                                            Stop = (Ln: 3, Col: 27) }
                                   InferredType = None }

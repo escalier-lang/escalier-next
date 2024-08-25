@@ -17,11 +17,12 @@ let rec memberToQualifiedIdent
   (name: string)
   : option<QualifiedIdent> =
   match target.Kind with
-  | ExprKind.Member(target, innerName, _) ->
+  | ExprKind.Member { Target = target; Name = innerName } ->
     match memberToQualifiedIdent target innerName with
     | Some qid -> Some({ Parts = qid.Parts @ [ name ] })
     | None -> None
-  | ExprKind.Identifier innerName -> Some({ Parts = [ innerName; name ] })
+  | ExprKind.Identifier { Name = innerName } ->
+    Some({ Parts = [ innerName; name ] })
   | _ -> None
 
 type QDeclTree =
@@ -209,13 +210,13 @@ let findDepsForValueIdent
     { ExprVisitor.VisitExpr =
         fun (expr, state) ->
           match expr.Kind with
-          | ExprKind.Member(target, name, _) ->
+          | ExprKind.Member { Target = target; Name = name } ->
             match memberToQualifiedIdent target name with
             | Some qid ->
               idents <- Set.add (QDeclIdent.Value qid) idents
               (false, state)
             | None -> (true, state)
-          | ExprKind.Identifier name ->
+          | ExprKind.Identifier { Name = name } ->
             idents <-
               Set.add (QDeclIdent.Value(QualifiedIdent.FromString name)) idents
 
@@ -504,7 +505,7 @@ let rec findCaptures
           // NOTE: we don't have to do any special handling for
           // ExprKind.Member because the property is stored as a
           // string instead of an identifier.
-          | ExprKind.Identifier name ->
+          | ExprKind.Identifier { Name = name } ->
             let ident = QualifiedIdent.FromString name
 
             if
@@ -708,9 +709,9 @@ let getPropNameDeps
   match name with
   | Computed expr ->
     match expr.Kind with
-    | ExprKind.Member(target, name, opt_chain) ->
+    | ExprKind.Member { Target = target } ->
       match target.Kind with
-      | ExprKind.Identifier name ->
+      | ExprKind.Identifier { Name = name } ->
         let ident = (QualifiedIdent.FromString name)
 
         if Set.contains (QDeclIdent.Value ident) topLevelDecls then

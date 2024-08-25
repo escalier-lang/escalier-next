@@ -5,7 +5,7 @@ output: Ok
         { Kind =
            Expr
              { Kind =
-                New { Callee = { Kind = Identifier "Array"
+                New { Callee = { Kind = Identifier { Name = "Array" }
                                  Span = { Start = (Ln: 1, Col: 5)
                                           Stop = (Ln: 1, Col: 10) }
                                  InferredType = None }

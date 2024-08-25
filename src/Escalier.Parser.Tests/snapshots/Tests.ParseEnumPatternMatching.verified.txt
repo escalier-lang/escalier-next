@@ -12,147 +12,153 @@ output: Ok
            Expr
              { Kind =
                 Match
-                  ({ Kind = Identifier "value"
-                     Span = { Start = (Ln: 2, Col: 11)
-                              Stop = (Ln: 2, Col: 17) }
-                     InferredType = None },
-                   [{ Span = { Start = (Ln: 3, Col: 7)
-                               Stop = (Ln: 4, Col: 7) }
-                      Pattern =
-                       { Kind =
-                          Enum
-                            { Ident = Member (Ident "MyEnum", "Foo")
-                              Arg =
-                               Some
-                                 { Kind =
-                                    Tuple
-                                      { Elems =
-                                         [{ Kind = Ident { Name = "a"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 3, Col: 18)
-                                                     Stop = (Ln: 3, Col: 19) }
-                                            InferredType = None };
-                                          { Kind = Ident { Name = "b"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 3, Col: 21)
-                                                     Stop = (Ln: 3, Col: 22) }
-                                            InferredType = None };
-                                          { Kind = Ident { Name = "c"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 3, Col: 24)
-                                                     Stop = (Ln: 3, Col: 25) }
-                                            InferredType = None }]
-                                        Immutable = false }
-                                   Span = { Start = (Ln: 3, Col: 17)
-                                            Stop = (Ln: 3, Col: 27) }
-                                   InferredType = None } }
-                         Span = { Start = (Ln: 3, Col: 7)
-                                  Stop = (Ln: 3, Col: 27) }
-                         InferredType = None }
-                      Guard = None
-                      Body =
-                       Expr
+                  { Target = { Kind = Identifier { Name = "value" }
+                               Span = { Start = (Ln: 2, Col: 11)
+                                        Stop = (Ln: 2, Col: 17) }
+                               InferredType = None }
+                    Cases =
+                     [{ Span = { Start = (Ln: 3, Col: 7)
+                                 Stop = (Ln: 4, Col: 7) }
+                        Pattern =
                          { Kind =
-                            Binary
-                              ("+",
-                               { Kind =
-                                  Binary
-                                    ("+", { Kind = Identifier "a"
-                                            Span = { Start = (Ln: 3, Col: 30)
-                                                     Stop = (Ln: 3, Col: 32) }
-                                            InferredType = None },
-                                     { Kind = Identifier "b"
-                                       Span = { Start = (Ln: 3, Col: 34)
-                                                Stop = (Ln: 3, Col: 36) }
-                                       InferredType = None })
-                                 Span = { Start = (Ln: 3, Col: 30)
-                                          Stop = (Ln: 3, Col: 36) }
-                                 InferredType = None },
-                               { Kind = Identifier "c"
-                                 Span = { Start = (Ln: 3, Col: 38)
-                                          Stop = (Ln: 3, Col: 39) }
-                                 InferredType = None })
-                           Span = { Start = (Ln: 3, Col: 30)
-                                    Stop = (Ln: 3, Col: 39) }
-                           InferredType = None } };
-                    { Span = { Start = (Ln: 4, Col: 7)
-                               Stop = (Ln: 5, Col: 7) }
-                      Pattern =
-                       { Kind =
-                          Enum
-                            { Ident = Member (Ident "MyEnum", "Bar")
-                              Arg =
-                               Some
-                                 { Kind =
-                                    Tuple
-                                      { Elems =
-                                         [{ Kind = Ident { Name = "x"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 4, Col: 18)
-                                                     Stop = (Ln: 4, Col: 19) }
-                                            InferredType = None };
-                                          { Kind = Ident { Name = "y"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 4, Col: 21)
-                                                     Stop = (Ln: 4, Col: 22) }
-                                            InferredType = None }]
-                                        Immutable = false }
-                                   Span = { Start = (Ln: 4, Col: 17)
-                                            Stop = (Ln: 4, Col: 24) }
-                                   InferredType = None } }
-                         Span = { Start = (Ln: 4, Col: 7)
-                                  Stop = (Ln: 4, Col: 24) }
-                         InferredType = None }
-                      Guard = None
-                      Body =
-                       Expr
+                            Enum
+                              { Ident = Member (Ident "MyEnum", "Foo")
+                                Arg =
+                                 Some
+                                   { Kind =
+                                      Tuple
+                                        { Elems =
+                                           [{ Kind = Ident { Name = "a"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 3, Col: 18)
+                                                       Stop = (Ln: 3, Col: 19) }
+                                              InferredType = None };
+                                            { Kind = Ident { Name = "b"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 3, Col: 21)
+                                                       Stop = (Ln: 3, Col: 22) }
+                                              InferredType = None };
+                                            { Kind = Ident { Name = "c"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 3, Col: 24)
+                                                       Stop = (Ln: 3, Col: 25) }
+                                              InferredType = None }]
+                                          Immutable = false }
+                                     Span = { Start = (Ln: 3, Col: 17)
+                                              Stop = (Ln: 3, Col: 27) }
+                                     InferredType = None } }
+                           Span = { Start = (Ln: 3, Col: 7)
+                                    Stop = (Ln: 3, Col: 27) }
+                           InferredType = None }
+                        Guard = None
+                        Body =
+                         Expr
+                           { Kind =
+                              Binary
+                                { Op = "+"
+                                  Left =
+                                   { Kind =
+                                      Binary
+                                        { Op = "+"
+                                          Left =
+                                           { Kind = Identifier { Name = "a" }
+                                             Span = { Start = (Ln: 3, Col: 30)
+                                                      Stop = (Ln: 3, Col: 32) }
+                                             InferredType = None }
+                                          Right =
+                                           { Kind = Identifier { Name = "b" }
+                                             Span = { Start = (Ln: 3, Col: 34)
+                                                      Stop = (Ln: 3, Col: 36) }
+                                             InferredType = None } }
+                                     Span = { Start = (Ln: 3, Col: 30)
+                                              Stop = (Ln: 3, Col: 36) }
+                                     InferredType = None }
+                                  Right = { Kind = Identifier { Name = "c" }
+                                            Span = { Start = (Ln: 3, Col: 38)
+                                                     Stop = (Ln: 3, Col: 39) }
+                                            InferredType = None } }
+                             Span = { Start = (Ln: 3, Col: 30)
+                                      Stop = (Ln: 3, Col: 39) }
+                             InferredType = None } };
+                      { Span = { Start = (Ln: 4, Col: 7)
+                                 Stop = (Ln: 5, Col: 7) }
+                        Pattern =
                          { Kind =
-                            Binary
-                              ("*", { Kind = Identifier "x"
-                                      Span = { Start = (Ln: 4, Col: 27)
-                                               Stop = (Ln: 4, Col: 29) }
-                                      InferredType = None },
-                               { Kind = Identifier "y"
-                                 Span = { Start = (Ln: 4, Col: 31)
-                                          Stop = (Ln: 4, Col: 32) }
-                                 InferredType = None })
-                           Span = { Start = (Ln: 4, Col: 27)
-                                    Stop = (Ln: 4, Col: 32) }
-                           InferredType = None } };
-                    { Span = { Start = (Ln: 5, Col: 7)
-                               Stop = (Ln: 6, Col: 5) }
-                      Pattern =
-                       { Kind =
-                          Enum
-                            { Ident = Member (Ident "MyEnum", "Baz")
-                              Arg =
-                               Some
-                                 { Kind =
-                                    Tuple
-                                      { Elems =
-                                         [{ Kind = Ident { Name = "z"
-                                                           IsMut = false
-                                                           Assertion = None }
-                                            Span = { Start = (Ln: 5, Col: 18)
-                                                     Stop = (Ln: 5, Col: 19) }
-                                            InferredType = None }]
-                                        Immutable = false }
-                                   Span = { Start = (Ln: 5, Col: 17)
-                                            Stop = (Ln: 5, Col: 21) }
-                                   InferredType = None } }
-                         Span = { Start = (Ln: 5, Col: 7)
-                                  Stop = (Ln: 5, Col: 21) }
-                         InferredType = None }
-                      Guard = None
-                      Body = Expr { Kind = Identifier "z"
-                                    Span = { Start = (Ln: 5, Col: 24)
-                                             Stop = (Ln: 5, Col: 25) }
-                                    InferredType = None } }])
+                            Enum
+                              { Ident = Member (Ident "MyEnum", "Bar")
+                                Arg =
+                                 Some
+                                   { Kind =
+                                      Tuple
+                                        { Elems =
+                                           [{ Kind = Ident { Name = "x"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 4, Col: 18)
+                                                       Stop = (Ln: 4, Col: 19) }
+                                              InferredType = None };
+                                            { Kind = Ident { Name = "y"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 4, Col: 21)
+                                                       Stop = (Ln: 4, Col: 22) }
+                                              InferredType = None }]
+                                          Immutable = false }
+                                     Span = { Start = (Ln: 4, Col: 17)
+                                              Stop = (Ln: 4, Col: 24) }
+                                     InferredType = None } }
+                           Span = { Start = (Ln: 4, Col: 7)
+                                    Stop = (Ln: 4, Col: 24) }
+                           InferredType = None }
+                        Guard = None
+                        Body =
+                         Expr
+                           { Kind =
+                              Binary
+                                { Op = "*"
+                                  Left = { Kind = Identifier { Name = "x" }
+                                           Span = { Start = (Ln: 4, Col: 27)
+                                                    Stop = (Ln: 4, Col: 29) }
+                                           InferredType = None }
+                                  Right = { Kind = Identifier { Name = "y" }
+                                            Span = { Start = (Ln: 4, Col: 31)
+                                                     Stop = (Ln: 4, Col: 32) }
+                                            InferredType = None } }
+                             Span = { Start = (Ln: 4, Col: 27)
+                                      Stop = (Ln: 4, Col: 32) }
+                             InferredType = None } };
+                      { Span = { Start = (Ln: 5, Col: 7)
+                                 Stop = (Ln: 6, Col: 5) }
+                        Pattern =
+                         { Kind =
+                            Enum
+                              { Ident = Member (Ident "MyEnum", "Baz")
+                                Arg =
+                                 Some
+                                   { Kind =
+                                      Tuple
+                                        { Elems =
+                                           [{ Kind = Ident { Name = "z"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 5, Col: 18)
+                                                       Stop = (Ln: 5, Col: 19) }
+                                              InferredType = None }]
+                                          Immutable = false }
+                                     Span = { Start = (Ln: 5, Col: 17)
+                                              Stop = (Ln: 5, Col: 21) }
+                                     InferredType = None } }
+                           Span = { Start = (Ln: 5, Col: 7)
+                                    Stop = (Ln: 5, Col: 21) }
+                           InferredType = None }
+                        Guard = None
+                        Body = Expr { Kind = Identifier { Name = "z" }
+                                      Span = { Start = (Ln: 5, Col: 24)
+                                               Stop = (Ln: 5, Col: 25) }
+                                      InferredType = None } }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 7, Col: 5) }
                InferredType = None }

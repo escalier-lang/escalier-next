@@ -6,46 +6,60 @@ output: Ok
            Expr
              { Kind =
                 Binary
-                  ("+", { Kind = Literal (Number (Float 0.1))
-                          Span = { Start = (Ln: 1, Col: 1)
-                                   Stop = (Ln: 1, Col: 5) }
-                          InferredType = None },
-                   { Kind =
-                      Binary
-                        ("/",
-                         { Kind =
-                            Binary
-                              ("*", { Kind = Literal (Number (Int 2))
-                                      Span = { Start = (Ln: 1, Col: 7)
-                                               Stop = (Ln: 1, Col: 9) }
-                                      InferredType = None },
-                               { Kind =
-                                  Binary
-                                    ("-", { Kind = Literal (Number (Int 3))
-                                            Span = { Start = (Ln: 1, Col: 12)
-                                                     Stop = (Ln: 1, Col: 14) }
-                                            InferredType = None },
-                                     { Kind = Literal (Number (Int 4))
-                                       Span = { Start = (Ln: 1, Col: 16)
+                  { Op = "+"
+                    Left = { Kind = Literal (Number (Float 0.1))
+                             Span = { Start = (Ln: 1, Col: 1)
+                                      Stop = (Ln: 1, Col: 5) }
+                             InferredType = None }
+                    Right =
+                     { Kind =
+                        Binary
+                          { Op = "/"
+                            Left =
+                             { Kind =
+                                Binary
+                                  { Op = "*"
+                                    Left = { Kind = Literal (Number (Int 2))
+                                             Span = { Start = (Ln: 1, Col: 7)
+                                                      Stop = (Ln: 1, Col: 9) }
+                                             InferredType = None }
+                                    Right =
+                                     { Kind =
+                                        Binary
+                                          { Op = "-"
+                                            Left =
+                                             { Kind = Literal (Number (Int 3))
+                                               Span =
+                                                { Start = (Ln: 1, Col: 12)
+                                                  Stop = (Ln: 1, Col: 14) }
+                                               InferredType = None }
+                                            Right =
+                                             { Kind = Literal (Number (Int 4))
+                                               Span =
+                                                { Start = (Ln: 1, Col: 16)
+                                                  Stop = (Ln: 1, Col: 17) }
+                                               InferredType = None } }
+                                       Span = { Start = (Ln: 1, Col: 12)
                                                 Stop = (Ln: 1, Col: 17) }
-                                       InferredType = None })
-                                 Span = { Start = (Ln: 1, Col: 12)
-                                          Stop = (Ln: 1, Col: 17) }
-                                 InferredType = None })
-                           Span = { Start = (Ln: 1, Col: 7)
-                                    Stop = (Ln: 1, Col: 17) }
-                           InferredType = None },
-                         { Kind =
-                            Unary ("-", { Kind = Literal (Number (Float 5.6))
-                                          Span = { Start = (Ln: 1, Col: 22)
-                                                   Stop = (Ln: 1, Col: 25) }
-                                          InferredType = None })
-                           Span = { Start = (Ln: 1, Col: 22)
-                                    Stop = (Ln: 1, Col: 25) }
-                           InferredType = None })
-                     Span = { Start = (Ln: 1, Col: 7)
-                              Stop = (Ln: 1, Col: 25) }
-                     InferredType = None })
+                                       InferredType = None } }
+                               Span = { Start = (Ln: 1, Col: 7)
+                                        Stop = (Ln: 1, Col: 17) }
+                               InferredType = None }
+                            Right =
+                             { Kind =
+                                Unary
+                                  { Op = "-"
+                                    Value =
+                                     { Kind = Literal (Number (Float 5.6))
+                                       Span = { Start = (Ln: 1, Col: 22)
+                                                Stop = (Ln: 1, Col: 25) }
+                                       InferredType = None } }
+                               Span = { Start = (Ln: 1, Col: 22)
+                                        Stop = (Ln: 1, Col: 25) }
+                               InferredType = None } }
+                       Span = { Start = (Ln: 1, Col: 7)
+                                Stop = (Ln: 1, Col: 25) }
+                       InferredType = None } }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 25) }
                InferredType = None }

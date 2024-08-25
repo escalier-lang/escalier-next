@@ -40,11 +40,15 @@ output: Ok
                                    Computed
                                      { Kind =
                                         Member
-                                          ({ Kind = Identifier "Symbol"
-                                             Span = { Start = (Ln: 5, Col: 8)
-                                                      Stop = (Ln: 5, Col: 14) }
-                                             InferredType = None }, "iterator",
-                                           false)
+                                          { Target =
+                                             { Kind =
+                                                Identifier { Name = "Symbol" }
+                                               Span =
+                                                { Start = (Ln: 5, Col: 8)
+                                                  Stop = (Ln: 5, Col: 14) }
+                                               InferredType = None }
+                                            Name = "iterator"
+                                            OptChain = false }
                                        Span = { Start = (Ln: 5, Col: 8)
                                                 Stop = (Ln: 5, Col: 23) }
                                        InferredType = None }

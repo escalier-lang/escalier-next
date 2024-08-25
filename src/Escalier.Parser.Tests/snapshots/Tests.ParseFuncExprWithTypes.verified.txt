@@ -35,7 +35,7 @@ output: Ok
                        { Span = { Start = (Ln: 1, Col: 46)
                                   Stop = (Ln: 1, Col: 51) }
                          Stmts =
-                          [{ Kind = Expr { Kind = Identifier "x"
+                          [{ Kind = Expr { Kind = Identifier { Name = "x" }
                                            Span = { Start = (Ln: 1, Col: 48)
                                                     Stop = (Ln: 1, Col: 50) }
                                            InferredType = None }

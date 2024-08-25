@@ -160,6 +160,8 @@ module Syntax =
       Throws: option<TypeAnn>
       IsAsync: bool }
 
+  type Identifier = { Name: string }
+
   // TODO: include optional name
   type Function =
     { Sig: FuncSig
@@ -242,6 +244,43 @@ module Syntax =
       Args: option<list<Expr>>
       mutable Throws: option<Type.Type> }
 
+  type ExprWithTypeArgs = { Expr: Expr; TypeArgs: list<TypeAnn> }
+
+  type Class =
+    { Extends: option<TypeRef>
+      Implements: option<list<TypeRef>>
+      Name: option<string>
+      TypeParams: option<list<TypeParam>>
+      Elems: list<ClassElem> }
+
+  type Index =
+    { Target: Expr
+      Index: Expr
+      OptChain: bool }
+
+  type Member =
+    { Target: Expr
+      Name: string
+      OptChain: bool }
+
+  type IfElse =
+    { Condition: Expr
+      Then: Block
+      Else: option<BlockOrExpr> } // Expr is only used when chaining if-else expressions
+
+  type IfLet =
+    { Pattern: Pattern
+      Target: Expr
+      Then: Block
+      Else: option<BlockOrExpr> }
+
+  type Match =
+    { Target: Expr; Cases: list<MatchCase> }
+
+  type Binary = { Op: string; Left: Expr; Right: Expr }
+
+  type Unary = { Op: string; Value: Expr }
+
   type Try =
     { Body: Block
       Catch: option<list<MatchCase>>
@@ -252,12 +291,10 @@ module Syntax =
     { Value: Expr
       mutable Throws: option<Type.Type> }
 
-  type Class =
-    { Extends: option<TypeRef>
-      Implements: option<list<TypeRef>>
-      Name: option<string>
-      TypeParams: option<list<TypeParam>>
-      Elems: list<ClassElem> }
+  type TaggedTemplateLiteral =
+    { Tag: Expr
+      Template: Common.TemplateLiteral<Expr>
+      mutable Throws: option<Type.Type> }
 
   type JSXElement =
     { Opening: JSXElementOpening
@@ -304,40 +341,30 @@ module Syntax =
 
   [<RequireQualifiedAccess>]
   type ExprKind =
-    | Identifier of name: string // TODO: Make an Ident struct
+    | Identifier of Identifier
     | Literal of Common.Literal
     | Function of Function
     | Call of Call
     | New of New
-    | ExprWithTypeArgs of target: Expr * typeArgs: list<TypeAnn>
+    | ExprWithTypeArgs of ExprWithTypeArgs
     | Object of Common.Object<ObjElem>
     | Class of Class
     | Tuple of Common.Tuple<Expr>
     | Range of Common.Range<Expr>
-    | Index of target: Expr * index: Expr * opt_chain: bool
-    | Member of target: Expr * name: string * opt_chain: bool
-    | IfElse of
-      condition: Expr *
-      thenBranch: Block *
-      elseBranch: option<BlockOrExpr> // Expr is only used when chaining if-else expressions
-    | IfLet of
-      pattern: Pattern *
-      target: Expr *
-      thenBranch: Block *
-      elseBranch: option<BlockOrExpr>
-    | Match of target: Expr * cases: list<MatchCase>
-    | Assign of op: string * left: Expr * right: Expr
-    | Binary of op: string * left: Expr * right: Expr // TODO: BinaryOp
-    | Unary of op: string * value: Expr
+    | Index of Index
+    | Member of Member
+    | IfElse of IfElse
+    | IfLet of IfLet
+    | Match of Match
+    | Assign of Binary
+    | Binary of Binary
+    | Unary of Unary
     | Try of Try
-    | Do of body: Block
+    | Do of Block
     | Await of Await
-    | Throw of value: Expr
+    | Throw of Expr
     | TemplateLiteral of Common.TemplateLiteral<Expr>
-    | TaggedTemplateLiteral of
-      tag: Expr *
-      template: Common.TemplateLiteral<Expr> *
-      throws: option<Type.Type>
+    | TaggedTemplateLiteral of TaggedTemplateLiteral
     | JSXElement of JSXElement
     | JSXFragment of JSXFragment
 
@@ -782,7 +809,7 @@ module Type =
       | Wildcard -> "_"
       | Literal lit -> lit.ToString()
       | Rest(target) -> $"...{target}"
-      | Enum(_) -> failwith "TODO: toString - Pattern.Enum"
+      | Enum _ -> failwith "TODO: toString - Pattern.Enum"
 
   type FuncParam =
     { Pattern: Pattern
@@ -1019,7 +1046,7 @@ module Type =
       | "||" -> 6
       | "&&" -> 5
       | _ -> failwith $"Invalid binary operator '{op}'"
-    | TypeKind.Unary(op, arg) ->
+    | TypeKind.Unary(op, _arg) ->
       match op with
       | "+"
       | "-"
@@ -1029,7 +1056,7 @@ module Type =
     | TypeKind.TemplateLiteral _ -> 100
     | TypeKind.Intrinsic -> 100
     | TypeKind.IntrinsicInstance _ -> 100
-    | TypeKind.Typeof(_) -> failwith "TODO: getPrecedence - TypeKind.Typeof"
+    | TypeKind.Typeof _ -> failwith "TODO: getPrecedence - TypeKind.Typeof"
 
   let rec printType (ctx: PrintCtx) (t: Type) : string =
     let outerPrec = ctx.Precedence
@@ -1071,14 +1098,13 @@ module Type =
         match immutable with
         | true -> $"#[{elems}]"
         | false -> $"[{elems}]"
-      | TypeKind.Array { Elem = elem; Length = length } ->
-        $"{printType ctx elem}[]"
+      | TypeKind.Array { Elem = elem } -> $"{printType ctx elem}[]"
       | TypeKind.RestSpread t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
       | TypeKind.Range { Min = min; Max = max } ->
         $"{printType ctx min}..{printType ctx max}"
-      | TypeKind.UniqueSymbol id -> "unique symbol"
-      | TypeKind.UniqueNumber id -> "unique number"
+      | TypeKind.UniqueSymbol _ -> "unique symbol"
+      | TypeKind.UniqueNumber _ -> "unique number"
       | TypeKind.Union types ->
         List.map (printType ctx) types |> String.concat " | "
       | TypeKind.Intersection types ->
@@ -1193,7 +1219,7 @@ module Type =
     | _ ->
       $"fn {typeParams}({paramList}) -> {ret} throws {printType ctx f.Throws}"
 
-  let printMapped (ctx: PrintCtx) (mapped: Mapped) : string =
+  let printMapped (_ctx: PrintCtx) (mapped: Mapped) : string =
     let name =
       match mapped.NameType with
       | Some(t) -> t.ToString()

@@ -59,7 +59,8 @@ output: Ok
                                                                  { Callee =
                                                                     { Kind =
                                                                        Identifier
-                                                                         "foo"
+                                                                         { Name =
+                                                                            "foo" }
                                                                       Span =
                                                                        { Start =
                                                                           (Ln: 3, Col: 21)
@@ -96,18 +97,27 @@ output: Ok
                                           (Some
                                              { Kind =
                                                 Binary
-                                                  ("+",
-                                                   { Kind = Identifier "x"
-                                                     Span =
-                                                      { Start = (Ln: 4, Col: 14)
-                                                        Stop = (Ln: 4, Col: 16) }
-                                                     InferredType = None },
-                                                   { Kind =
-                                                      Literal (Number (Int 10))
-                                                     Span =
-                                                      { Start = (Ln: 4, Col: 18)
-                                                        Stop = (Ln: 4, Col: 20) }
-                                                     InferredType = None })
+                                                  { Op = "+"
+                                                    Left =
+                                                     { Kind =
+                                                        Identifier
+                                                          { Name = "x" }
+                                                       Span =
+                                                        { Start =
+                                                           (Ln: 4, Col: 14)
+                                                          Stop =
+                                                           (Ln: 4, Col: 16) }
+                                                       InferredType = None }
+                                                    Right =
+                                                     { Kind =
+                                                        Literal
+                                                          (Number (Int 10))
+                                                       Span =
+                                                        { Start =
+                                                           (Ln: 4, Col: 18)
+                                                          Stop =
+                                                           (Ln: 4, Col: 20) }
+                                                       InferredType = None } }
                                                Span =
                                                 { Start = (Ln: 4, Col: 14)
                                                   Stop = (Ln: 4, Col: 20) }

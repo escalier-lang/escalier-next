@@ -40,11 +40,13 @@ module rec ExprVisitor =
           // TODO: make args required
           Option.iter (List.iter walk) args
         | ExprKind.Tuple { Elems = elems } -> List.iter walk elems
-        | ExprKind.Index(target, index, _optChain) ->
+        | ExprKind.Index { Target = target; Index = index } ->
           walk target
           walk index
-        | ExprKind.Member(target, _name, _optChain) -> walk target
-        | ExprKind.IfElse(condition, thenBranch, elseBranch) ->
+        | ExprKind.Member { Target = target } -> walk target
+        | ExprKind.IfElse { Condition = condition
+                            Then = thenBranch
+                            Else = elseBranch } ->
           walk condition
 
           List.iter (walkStmt visitor state) thenBranch.Stmts
@@ -56,7 +58,7 @@ module rec ExprVisitor =
                 List.iter (walkStmt visitor state) block.Stmts
               | BlockOrExpr.Expr expr -> walk expr)
             elseBranch
-        | ExprKind.Match(target, cases) ->
+        | ExprKind.Match { Target = target; Cases = cases } ->
           walk target
 
           List.iter
@@ -70,11 +72,11 @@ module rec ExprVisitor =
 
               Option.iter walk case.Guard)
             cases
-        | ExprKind.Assign(_op, left, right)
-        | ExprKind.Binary(_op, left, right) ->
+        | ExprKind.Assign { Left = left; Right = right }
+        | ExprKind.Binary { Left = left; Right = right } ->
           walk left
           walk right
-        | ExprKind.Unary(_op, value) -> walk value
+        | ExprKind.Unary { Value = value } -> walk value
         | ExprKind.Object obj ->
           for elem in obj.Elems do
             match elem with
@@ -108,17 +110,20 @@ module rec ExprVisitor =
         | ExprKind.Await await -> walk await.Value
         | ExprKind.Throw value -> walk value
         | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
-        | ExprKind.TaggedTemplateLiteral(tag, template, throws) ->
+        | ExprKind.TaggedTemplateLiteral { Tag = tag; Template = template } ->
           walk tag
           List.iter walk template.Exprs
-        | ExprKind.ExprWithTypeArgs(target, typeArgs) ->
-          walk target
+        | ExprKind.ExprWithTypeArgs { Expr = expr; TypeArgs = typeArgs } ->
+          walk expr
           List.iter (walkTypeAnn visitor state) typeArgs
-        | ExprKind.Class(_) ->
+        | ExprKind.Class _ ->
           // TODO: implement this so that we can find dependencies inside classes
           ()
-        | ExprKind.Range(_) -> failwith "TODO: walkExpr - Range"
-        | ExprKind.IfLet(pattern, target, thenBranch, elseBranch) ->
+        | ExprKind.Range _ -> failwith "TODO: walkExpr - Range"
+        | ExprKind.IfLet { Pattern = pattern
+                           Target = target
+                           Then = thenBranch
+                           Else = elseBranch } ->
           walkPattern visitor state pattern
           walk target
           List.iter (walkStmt visitor state) thenBranch.Stmts
@@ -243,8 +248,8 @@ module rec ExprVisitor =
         variants
     | DeclKind.NamespaceDecl { Body = body } ->
       List.iter (walkDecl visitor state) body
-    | DeclKind.ClassDecl(_) -> failwith "TODO: walkDecl - ClassDecl"
-    | DeclKind.InterfaceDecl(_) -> failwith "TODO: walkDecl - InterfaceDecl"
+    | DeclKind.ClassDecl _ -> failwith "TODO: walkDecl - ClassDecl"
+    | DeclKind.InterfaceDecl _ -> failwith "TODO: walkDecl - InterfaceDecl"
 
   let walkStmt (visitor: SyntaxVisitor<'S>) (state: 'S) (stmt: Stmt) : unit =
     let rec walk (state: 'S) (stmt: Stmt) : unit =

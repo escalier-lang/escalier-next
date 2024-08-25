@@ -6,17 +6,17 @@ output: Ok
            Expr
              { Kind =
                 Call
-                  { Callee = { Kind = Identifier "add"
+                  { Callee = { Kind = Identifier { Name = "add" }
                                Span = { Start = (Ln: 1, Col: 1)
                                         Stop = (Ln: 1, Col: 4) }
                                InferredType = None }
                     TypeArgs = None
                     Args =
-                     [{ Kind = Identifier "x"
+                     [{ Kind = Identifier { Name = "x" }
                         Span = { Start = (Ln: 1, Col: 5)
                                  Stop = (Ln: 1, Col: 6) }
                         InferredType = None };
-                      { Kind = Identifier "y"
+                      { Kind = Identifier { Name = "y" }
                         Span = { Start = (Ln: 1, Col: 8)
                                  Stop = (Ln: 1, Col: 9) }
                         InferredType = None }]

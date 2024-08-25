@@ -3,7 +3,7 @@ output: Ok
   { Items =
      [Stmt
         { Kind =
-           Expr { Kind = Call { Callee = { Kind = Identifier "add"
+           Expr { Kind = Call { Callee = { Kind = Identifier { Name = "add" }
                                            Span = { Start = (Ln: 1, Col: 1)
                                                     Stop = (Ln: 1, Col: 4) }
                                            InferredType = None }

@@ -24,7 +24,7 @@ output: Ok
                                    TemplateLiteral
                                      { Parts = ["bar "; ""]
                                        Exprs =
-                                        [{ Kind = Identifier "baz"
+                                        [{ Kind = Identifier { Name = "baz" }
                                            Span = { Start = (Ln: 1, Col: 25)
                                                     Stop = (Ln: 1, Col: 28) }
                                            InferredType = None }] }

@@ -18,12 +18,13 @@ output: Ok
                      Some
                        { Kind =
                           TaggedTemplateLiteral
-                            ({ Kind = Identifier "gql"
-                               Span = { Start = (Ln: 1, Col: 11)
-                                        Stop = (Ln: 1, Col: 14) }
-                               InferredType = None },
-                             { Parts = ["query { hello }"]
-                               Exprs = [] }, None)
+                            { Tag = { Kind = Identifier { Name = "gql" }
+                                      Span = { Start = (Ln: 1, Col: 11)
+                                               Stop = (Ln: 1, Col: 14) }
+                                      InferredType = None }
+                              Template = { Parts = ["query { hello }"]
+                                           Exprs = [] }
+                              Throws = None }
                          Span = { Start = (Ln: 1, Col: 11)
                                   Stop = (Ln: 1, Col: 31) }
                          InferredType = None }

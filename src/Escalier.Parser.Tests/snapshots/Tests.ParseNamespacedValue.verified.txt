@@ -21,11 +21,13 @@ output: Ok
                             { Callee =
                                { Kind =
                                   Member
-                                    ({ Kind = Identifier "Intl"
-                                       Span = { Start = (Ln: 1, Col: 15)
-                                                Stop = (Ln: 1, Col: 19) }
-                                       InferredType = None }, "NumberFormat",
-                                     false)
+                                    { Target =
+                                       { Kind = Identifier { Name = "Intl" }
+                                         Span = { Start = (Ln: 1, Col: 15)
+                                                  Stop = (Ln: 1, Col: 19) }
+                                         InferredType = None }
+                                      Name = "NumberFormat"
+                                      OptChain = false }
                                  Span = { Start = (Ln: 1, Col: 15)
                                           Stop = (Ln: 1, Col: 32) }
                                  InferredType = None }

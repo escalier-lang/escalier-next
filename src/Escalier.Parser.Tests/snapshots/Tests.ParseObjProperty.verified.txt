@@ -5,13 +5,20 @@ output: Ok
         { Kind =
            Expr
              { Kind =
-                Member ({ Kind = Member ({ Kind = Identifier "obj"
-                                           Span = { Start = (Ln: 1, Col: 1)
-                                                    Stop = (Ln: 1, Col: 4) }
-                                           InferredType = None }, "a", false)
-                          Span = { Start = (Ln: 1, Col: 1)
-                                   Stop = (Ln: 1, Col: 6) }
-                          InferredType = None }, "b", false)
+                Member
+                  { Target =
+                     { Kind =
+                        Member { Target = { Kind = Identifier { Name = "obj" }
+                                            Span = { Start = (Ln: 1, Col: 1)
+                                                     Stop = (Ln: 1, Col: 4) }
+                                            InferredType = None }
+                                 Name = "a"
+                                 OptChain = false }
+                       Span = { Start = (Ln: 1, Col: 1)
+                                Stop = (Ln: 1, Col: 6) }
+                       InferredType = None }
+                    Name = "b"
+                    OptChain = false }
                Span = { Start = (Ln: 1, Col: 1)
                         Stop = (Ln: 1, Col: 8) }
                InferredType = None }

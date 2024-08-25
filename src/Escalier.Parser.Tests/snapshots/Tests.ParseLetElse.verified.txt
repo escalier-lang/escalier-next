@@ -34,7 +34,7 @@ output: Ok
                                 Stop = (Ln: 2, Col: 16) }
                        InferredType = None }
                     TypeAnn = None
-                    Init = Some { Kind = Identifier "point"
+                    Init = Some { Kind = Identifier { Name = "point" }
                                   Span = { Start = (Ln: 2, Col: 18)
                                            Stop = (Ln: 2, Col: 24) }
                                   InferredType = None }
@@ -48,7 +48,7 @@ output: Ok
                                 { Kind =
                                    Call
                                      { Callee =
-                                        { Kind = Identifier "print"
+                                        { Kind = Identifier { Name = "print" }
                                           Span = { Start = (Ln: 3, Col: 7)
                                                    Stop = (Ln: 3, Col: 12) }
                                           InferredType = None }

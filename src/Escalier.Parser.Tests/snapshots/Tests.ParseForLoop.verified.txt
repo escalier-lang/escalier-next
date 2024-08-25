@@ -39,12 +39,12 @@ output: Ok
                  [{ Kind =
                      Expr
                        { Kind =
-                          Call { Callee = { Kind = Identifier "print"
+                          Call { Callee = { Kind = Identifier { Name = "print" }
                                             Span = { Start = (Ln: 3, Col: 7)
                                                      Stop = (Ln: 3, Col: 12) }
                                             InferredType = None }
                                  TypeArgs = None
-                                 Args = [{ Kind = Identifier "x"
+                                 Args = [{ Kind = Identifier { Name = "x" }
                                            Span = { Start = (Ln: 3, Col: 13)
                                                     Stop = (Ln: 3, Col: 14) }
                                            InferredType = None }]

@@ -75,10 +75,13 @@ output: Ok
                             { Callee =
                                { Kind =
                                   Member
-                                    ({ Kind = Identifier "Option"
-                                       Span = { Start = (Ln: 6, Col: 33)
-                                                Stop = (Ln: 6, Col: 39) }
-                                       InferredType = None }, "Some", false)
+                                    { Target =
+                                       { Kind = Identifier { Name = "Option" }
+                                         Span = { Start = (Ln: 6, Col: 33)
+                                                  Stop = (Ln: 6, Col: 39) }
+                                         InferredType = None }
+                                      Name = "Some"
+                                      OptChain = false }
                                  Span = { Start = (Ln: 6, Col: 33)
                                           Stop = (Ln: 6, Col: 44) }
                                  InferredType = None }

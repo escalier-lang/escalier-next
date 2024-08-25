@@ -43,7 +43,7 @@ module Mutability =
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
         printfn "TODO: getPatBindingPaths - Rest"
-      | PatternKind.Enum(_) -> failwith "TODO: getPatBindingPaths - Enum"
+      | PatternKind.Enum _ -> failwith "TODO: getPatBindingPaths - Enum"
 
     walkPattern pat []
     result
@@ -81,7 +81,7 @@ module Mutability =
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
         printfn "TODO: getPatBindingPaths - Rest"
-      | Pattern.Enum(_) -> failwith "TODO: getPatBindingPaths - Enum"
+      | Pattern.Enum _ -> failwith "TODO: getPatBindingPaths - Enum"
 
     walkPattern pat []
     result
@@ -91,11 +91,11 @@ module Mutability =
 
     let rec walkExpr (expr: Expr) (path: list<string>) =
       match expr.Kind with
-      | ExprKind.Identifier ident ->
+      | ExprKind.Identifier { Name = name } ->
         // TODO: lookup `ident` in the current environment
-        match env.GetBinding ident with
-        | Ok(_, mut) -> result <- Map.add ident (path, mut) result
-        | Error _ -> failwith $"{ident} isn't in scope"
+        match env.GetBinding name with
+        | Ok(_, mut) -> result <- Map.add name (path, mut) result
+        | Error _ -> failwith $"{name} isn't in scope"
       | ExprKind.Tuple { Elems = elems } ->
         for i, elem in elems |> List.indexed do
           walkExpr elem (string i :: path)
@@ -105,9 +105,9 @@ module Mutability =
           | ObjElem.Property(span, name, value) ->
             let name =
               match name with
-              | Syntax.Ident s -> s
+              | Ident s -> s
               | Syntax.String s -> s
-              | Syntax.Number n -> string (n)
+              | Syntax.Number n -> string n
               | Computed expr -> failwith "TODO: handle computed property names"
 
             walkExpr value (name :: path)

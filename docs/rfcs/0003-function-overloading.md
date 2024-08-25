@@ -81,6 +81,9 @@ Notes:
   is the one that will be called.
 - They must be declared using function declarations. Declaring overloads using
   variable declarations will not be allowed.
+- Generic functions will not be allowed as overloads. This restriction may be
+  relaxed in the future, but I'm worried it will complicate code generation and
+  I'd like to avoid those complications for the time being.
 
 ## Subtyping
 

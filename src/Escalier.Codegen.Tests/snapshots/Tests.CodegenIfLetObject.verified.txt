@@ -1,6 +1,6 @@
 ﻿input: 
         let object = {point: {x: 5, y: 10}, color: "red"};
-        let mag = if let {point: {x, y}} = object {
+        let mag = if let {point: {x, y}, color: _} = object {
           Math.sqrt(x * x + y * y)
         } else {
           0
@@ -9,8 +9,8 @@
 output:
 var object = {point: {x: 5, y: 10}, color: "red"};
 var temp0;
-if (typeof object == "object" && "point" in object && typeof object["point"] == "object" && "x" in object["point"] && "y" in object["point"]) {
-  var {point: {x, y}} = object;
+if (typeof object == "object" && "point" in object && typeof object["point"] == "object" && "x" in object["point"] && "y" in object["point"] && "color" in object) {
+  var {point: {x, y}, color: _} = object;
   temp0 = Math.sqrt((x * x + y * y));
 } else {
   temp0 = 0;

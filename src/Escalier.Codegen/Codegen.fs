@@ -320,6 +320,7 @@ module rec Codegen =
           | "<=" -> BinOp.LtEq
           | ">" -> BinOp.Gt
           | ">=" -> BinOp.GtEq
+          | "++" -> BinOp.Add // Escalier uses "++" for string addition
           | _ -> failwith $"Invalid binary operator: {op}"
 
         let leftExpr, leftStmts = buildExpr ctx left
@@ -686,7 +687,7 @@ module rec Codegen =
 
       let tryStmt: TS.Stmt =
         Stmt.Try
-          { Block = bodyBlock
+          { TryBlock = bodyBlock
             Handler = handler
             Finalizer = finallyBlock }
 
@@ -917,12 +918,62 @@ module rec Codegen =
 
     (callExpr, stmts)
 
+  let buildTypeof (name: string) : TS.Expr =
+    TS.Expr.Unary
+      { Operator = UnaryOperator.Typeof
+        Prefix = true
+        Argument = TS.Expr.Ident { Name = name; Loc = None }
+        Loc = None }
+
+  let buildString (value: string) : TS.Expr =
+    TS.Expr.Lit(
+      TS.Lit.Str
+        { Value = value
+          Raw = None
+          Loc = None }
+    )
+
+  let checkExprFromParam (param: Syntax.FuncParam) : TS.Expr =
+    match param.Pattern.InferredType with
+    | Some t ->
+      match param.Pattern.Kind with
+      | PatternKind.Ident { Name = name } ->
+        match (prune t).Kind with
+        | TypeKind.Primitive(Primitive.Number) ->
+          TS.Expr.Bin
+            { Operator = BinOp.EqEq
+              Left = buildTypeof name
+              Right = buildString "number"
+              Loc = None }
+        | TypeKind.Primitive(Primitive.String) ->
+          TS.Expr.Bin
+            { Operator = BinOp.EqEq
+              Left = buildTypeof name
+              Right = buildString "string"
+              Loc = None }
+        | _ -> failwith "TODO - checkExprFromParam"
+      | _ -> failwith "Function param pattern must be an identifier"
+    | None -> failwith "Function param must have an inferred type"
+
   let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
     // TODO: check if the last statement is an expression statement
     // and use the appropriate finalizer with it
 
     let mutable stmts: list<TS.Stmt> = []
     let lastStmt = body.Stmts |> List.last
+
+    let mutable fnDecls: Map<string, list<FnDecl>> = Map.empty
+
+    for stmt in body.Stmts do
+      match stmt.Kind with
+      | StmtKind.Decl { Kind = DeclKind.FnDecl fnDecl } ->
+        let decls =
+          match Map.tryFind fnDecl.Name fnDecls with
+          | Some decls -> decls
+          | None -> []
+
+        fnDecls <- Map.add fnDecl.Name (decls @ [ fnDecl ]) fnDecls
+      | _ -> ()
 
     for stmt in body.Stmts do
       let stmts' =
@@ -954,7 +1005,133 @@ module rec Codegen =
             initStmts @ [ declStmt ]
           | TypeDecl _ -> [] // Ignore types when generating JS code
           | VarDecl _ -> [] // Nothing to generate because `init` is `None`
-          | FnDecl(_) -> failwith "TODO: buildBlock - FnDecl"
+          | FnDecl fnDecl ->
+            match Map.tryFind fnDecl.Name fnDecls with
+            | Some decls ->
+              // Remove the function declaration from the map so that we only
+              // generate a single function declaration for it.
+              fnDecls <- Map.remove fnDecl.Name fnDecls
+
+              match decls with
+              | [] -> failwith "Function declaration list must not be empty"
+              | [ decl ] ->
+                let ps: list<Param> =
+                  decl.Sig.ParamList
+                  |> List.map (fun (p: Syntax.FuncParam) ->
+                    let pat, _ = buildPattern ctx p.Pattern None
+
+                    { Pat = pat
+                      TypeAnn = None
+                      Loc = None })
+
+                let body =
+                  match decl.Body with
+                  | Some(BlockOrExpr.Block block) ->
+                    buildBlock ctx block Finalizer.Empty
+                  | Some(BlockOrExpr.Expr expr) ->
+                    let expr, stmts = buildExpr ctx expr
+
+                    let body =
+                      stmts
+                      @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
+
+                    { Body = body; Loc = None }
+                  | None -> failwith "Function declaration must have a body"
+
+                let func: TS.Function =
+                  { Params = ps
+                    Body = Some({ Body = body.Body; Loc = None })
+                    IsGenerator = false
+                    IsAsync = false
+                    TypeParams = None
+                    ReturnType = None
+                    Loc = None }
+
+                let fnDecl =
+                  { FnDecl.Id = { Name = fnDecl.Name; Loc = None }
+                    Declare = false
+                    Fn = func }
+
+                let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
+
+                [ funcDecl ]
+              | decls ->
+
+                let ps =
+                  decls[0].Sig.ParamList
+                  |> List.map (fun p ->
+                    let pat, _ = buildPattern ctx p.Pattern None
+
+                    { Pat = pat
+                      TypeAnn = None
+                      Loc = None })
+
+                let typeError =
+                  TS.Expr.New
+                    { Callee = TS.Expr.Ident { Name = "TypeError"; Loc = None }
+                      Arguments = []
+                      Loc = None }
+
+                let throw = TS.Stmt.Throw { Argument = typeError; Loc = None }
+                let block: TS.BlockStmt = { Body = [ throw ]; Loc = None }
+                let mutable ifElse: TS.Stmt = TS.Stmt.Block(block)
+
+                // NOTE: We reverse the order of the declarations because the
+                // if-else chain is built in reverse order.
+                for decl in List.rev decls do
+                  let checks =
+                    decl.Sig.ParamList |> List.map (checkExprFromParam)
+
+                  let check =
+                    checks
+                    |> List.reduce (fun acc check ->
+                      TS.Expr.Bin
+                        { Operator = BinOp.LogicalAnd
+                          Left = acc
+                          Right = check
+                          Loc = None })
+
+                  let body =
+                    match decl.Body with
+                    | Some(BlockOrExpr.Block block) ->
+                      buildBlock ctx block Finalizer.Empty
+                    | Some(BlockOrExpr.Expr expr) ->
+                      let expr, stmts = buildExpr ctx expr
+
+                      let body =
+                        stmts
+                        @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
+
+                      { Body = body; Loc = None }
+                    | None -> failwith "Function declaration must have a body"
+
+                  ifElse <-
+                    TS.Stmt.If
+                      { Test = check
+                        Consequent = TS.Stmt.Block(body)
+                        Alternate = Some(ifElse)
+                        Loc = None }
+
+                let func: TS.Function =
+                  { Params = ps
+                    Body = Some({ Body = [ ifElse ]; Loc = None })
+                    IsGenerator = false
+                    IsAsync = false
+                    TypeParams = None
+                    ReturnType = None
+                    Loc = None }
+
+                let ident: TS.Ident = { Name = fnDecl.Name; Loc = None }
+
+                let fnDecl =
+                  { FnDecl.Id = { Name = fnDecl.Name; Loc = None }
+                    Declare = false
+                    Fn = func }
+
+                let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
+
+                [ funcDecl ]
+            | None -> []
           | ClassDecl(_) -> failwith "TODO: buildBlock - ClassDecl"
           | EnumDecl(_) -> failwith "TODO: buildBlock - EnumDecl"
           | NamespaceDecl(_) -> failwith "TODO: buildBlock - NamespaceDecl"
@@ -1505,7 +1682,8 @@ module rec Codegen =
     | TypeKind.Unary(op, arg) -> failwith "TODO: buildType - Unary"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
     | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"
-    | TypeKind.IntrinsicInstance _ -> failwith "TODO: buildType - IntrinsicInstance"
+    | TypeKind.IntrinsicInstance _ ->
+      failwith "TODO: buildType - IntrinsicInstance"
 
   let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
     match elem with

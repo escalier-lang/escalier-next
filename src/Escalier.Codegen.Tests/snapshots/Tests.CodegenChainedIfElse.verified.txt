@@ -1,4 +1,7 @@
 ﻿input: 
+        let cond1 = Math.random() > 0.5;
+        let cond2 = Math.random() > 0.5;
+        let [foo, bar, baz] = ["foo", "bar", "baz"];
         let result = if (cond1) {
           foo
         } else if (cond2) {
@@ -8,6 +11,9 @@
         };
         
 output:
+var cond1 = Math.random() > 0.5;
+var cond2 = Math.random() > 0.5;
+var [foo, bar, baz] = ["foo", "bar", "baz"];
 var temp0;
 if (cond1) {
   temp0 = foo;

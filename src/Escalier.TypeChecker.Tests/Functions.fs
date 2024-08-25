@@ -926,6 +926,32 @@ let InferParamsFromVarDeclTypeAnnotation () =
 
   Assert.False(Result.isError result)
 
+[<Fact>]
+let InferOverloadsDeclarations () =
+  let result =
+    result {
+      let src =
+        """
+        fn add(a: number, b: number) -> number {
+          return a + b;
+        }
+        fn add(a: string, b: string) -> string {
+          return a ++ b;
+        }
+        let sum = add(5, 10);
+        let msg = add("hello, ", "world");
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 0)
+      Assert.Value(env, "sum", "number")
+      Assert.Value(env, "msg", "string")
+    }
+
+  Assert.False(Result.isError result)
+
+
 // TODO:
 // - write tests for functions with optional params
 // - write tests for overloaded functions

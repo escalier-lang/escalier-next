@@ -1,18 +1,21 @@
 ﻿input: 
+        declare let parseJSON: fn (input: string) -> unknown throws "SyntaxError" | "RangeError";
+        let input = "{\"x\": 5, \"y\": 10}";
         let result =
           try {
-            JSON.parse(input);
+            parseJSON(input);
           } catch {
             "SyntaxError" => null,
             "RangeError" => null,
           } finally {
-            cleanup();
+            console.log("cleaning up");
           };
         
 output:
+var input = "{"x": 5, "y": 10}";
 var temp0;
 try {
-  temp0 = JSON.parse(input);
+  temp0 = parseJSON(input);
 } catch (__error__) {
   var temp1;
   if (__error__ == "SyntaxError") {
@@ -27,6 +30,6 @@ try {
     temp1 = temp2;
   }
 } finally {
-  cleanup();
+  console.log("cleaning up");
 }
 var result = temp0;

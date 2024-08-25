@@ -1,8 +1,12 @@
 ﻿input: 
+        let [a, b, c] = [true, false, true];
+        let [x, y, z] = [true, true, false];
         let foo = a || b || c;
         let bar = x && y && z;
         
 output:
+var [a, b, c] = [true, false, true];
+var [x, y, z] = [true, true, false];
 var temp0;
 if (a) {
   temp0 = a;

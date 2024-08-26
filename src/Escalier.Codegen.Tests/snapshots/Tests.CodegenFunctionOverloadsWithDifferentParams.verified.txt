@@ -1,0 +1,22 @@
+﻿input: 
+        fn add(a: number, b: number, c: number) -> number {
+          return a + b + c;
+        }
+        fn add(x: string, y: string) -> string {
+          return x ++ y;
+        }
+        let sum = add(5, 10);
+        let msg = add("hello, ", "world");
+        
+output:
+function add(__arg0__, __arg1__, __arg2__) {
+  if (typeof __arg0__ == "number" && typeof __arg1__ == "number" && typeof __arg2__ == "number") {
+    return __arg0__ + __arg1__ + __arg2__;
+  } else if (typeof __arg0__ == "string" && typeof __arg1__ == "string") {
+    return __arg0__ + __arg1__;
+  } else {
+    throw TypeError();
+  }
+}
+var sum = add(5, 10);
+var msg = add("hello, ", "world");

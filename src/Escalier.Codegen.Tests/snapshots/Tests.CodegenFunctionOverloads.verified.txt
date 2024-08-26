@@ -9,11 +9,11 @@
         let msg = add("hello, ", "world");
         
 output:
-function add(a, b) {
-  if (typeof a == "number" && typeof b == "number") {
-    return a + b;
-  } else if (typeof a == "string" && typeof b == "string") {
-    return a + b;
+function add(__arg0__, __arg1__) {
+  if (typeof __arg0__ == "number" && typeof __arg1__ == "number") {
+    return __arg0__ + __arg1__;
+  } else if (typeof __arg0__ == "string" && typeof __arg1__ == "string") {
+    return __arg0__ + __arg1__;
   } else {
     throw TypeError();
   }

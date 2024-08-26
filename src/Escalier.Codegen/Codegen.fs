@@ -8,6 +8,7 @@ open Escalier.Data.Syntax
 open Escalier.Data.Type
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.ExprVisitor
 
 module rec Codegen =
   module TS = TypeScript
@@ -1013,17 +1014,6 @@ module rec Codegen =
       [ funcDecl ]
 
   let buildOverloadedFnDecl (ctx: Ctx) (decls: list<FnDecl>) : list<TS.Stmt> =
-    // TODO(#354): handle overloads with different numbers of params
-    // TODO(#355): handle overloads with different param names
-    let ps =
-      decls[0].Sig.ParamList
-      |> List.map (fun p ->
-        let pat, _ = buildPattern ctx p.Pattern None
-
-        { Pat = pat
-          TypeAnn = None
-          Loc = None })
-
     let typeError =
       TS.Expr.New
         { Callee = TS.Expr.Ident { Name = "TypeError"; Loc = None }
@@ -1040,7 +1030,54 @@ module rec Codegen =
       // NOTE: We reverse the order of the declarations because the
       // if-else chain is built in reverse order.
       for decl in List.rev decls do
-        let checks = decl.Sig.ParamList |> List.map checkExprFromParam
+        let mutable map = Map.empty
+
+        decl.Sig.ParamList
+        |> List.iteri (fun i param ->
+          let name =
+            match param.Pattern.Kind with
+            | PatternKind.Ident { Name = name } -> name
+            | _ -> failwith "Function param pattern must be an identifier"
+
+          map <- Map.add name $"__arg{i}__" map)
+
+        let visitor =
+          { VisitExpr =
+              fun (expr, state) ->
+                match expr.Kind with
+                | Syntax.ExprKind.Identifier ident ->
+                  if Map.containsKey ident.Name map then
+                    match map.TryFind ident.Name with
+                    | Some newName -> ident.Name <- newName
+                    | None -> ()
+                  else
+                    ()
+
+                  (true, state)
+                | _ -> (true, state)
+            VisitJsxElement = fun (_, state) -> (true, state)
+            VisitJsxFragment = fun (_, state) -> (true, state)
+            VisitJsxText = fun (_, state) -> (false, state)
+            VisitStmt = fun (_, state) -> (true, state)
+            VisitPattern =
+              fun (pat, state) ->
+                match pat.Kind with
+                | Syntax.PatternKind.Ident ident ->
+                  match map.TryFind ident.Name with
+                  | Some newName -> ident.Name <- newName
+                  | None -> ()
+                | _ -> ()
+
+                (true, state)
+            // (false, state)
+            VisitTypeAnn = fun (_, state) -> (false, state)
+            VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
+
+        let checks =
+          decl.Sig.ParamList
+          |> List.map (fun param ->
+            walkPattern visitor () param.Pattern
+            checkExprFromParam param)
 
         let check =
           checks
@@ -1054,8 +1091,10 @@ module rec Codegen =
         let body =
           match decl.Body with
           | Some(BlockOrExpr.Block block) ->
+            List.iter (walkStmt visitor ()) block.Stmts
             buildBlock ctx block Finalizer.Empty
           | Some(BlockOrExpr.Expr expr) ->
+            walkExpr visitor () expr
             let expr, stmts = buildExpr ctx expr
 
             let body =
@@ -1070,6 +1109,20 @@ module rec Codegen =
               Consequent = TS.Stmt.Block(body)
               Alternate = Some(ifElse)
               Loc = None }
+
+      let maxParamCount =
+        decls |> List.map (fun decl -> decl.Sig.ParamList.Length) |> List.max
+
+      let ps =
+        seq { 0 .. maxParamCount - 1 }
+        |> Seq.map (fun i ->
+          { Pat =
+              Pat.Ident
+                { Id = { Name = $"__arg{i}__"; Loc = None }
+                  Loc = None }
+            TypeAnn = None
+            Loc = None })
+        |> List.ofSeq
 
       let func: TS.Function =
         { Params = ps

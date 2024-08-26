@@ -24,6 +24,8 @@ module rec ExprVisitor =
         | ExprKind.Identifier _ -> ()
         | ExprKind.Literal _ -> ()
         | ExprKind.Function f ->
+          printfn $"walking function, state = {state}"
+
           for p in f.Sig.ParamList do
             walkPattern visitor state p.Pattern
             Option.iter (walkTypeAnn visitor state) p.TypeAnn
@@ -31,23 +33,24 @@ module rec ExprVisitor =
           match f.Body with
           | BlockOrExpr.Block block ->
             List.iter (walkStmt visitor state) block.Stmts
-          | BlockOrExpr.Expr expr -> walk expr
+          | BlockOrExpr.Expr expr -> walkExpr visitor state expr
         | ExprKind.Call call ->
-          walk call.Callee
-          List.iter walk call.Args
+          walkExpr visitor state call.Callee
+          List.iter (walkExpr visitor state) call.Args
         | ExprKind.New { Callee = callee; Args = args } ->
-          walk callee
+          walkExpr visitor state callee
           // TODO: make args required
-          Option.iter (List.iter walk) args
-        | ExprKind.Tuple { Elems = elems } -> List.iter walk elems
+          Option.iter (List.iter (walkExpr visitor state)) args
+        | ExprKind.Tuple { Elems = elems } ->
+          List.iter (walkExpr visitor state) elems
         | ExprKind.Index { Target = target; Index = index } ->
-          walk target
-          walk index
-        | ExprKind.Member { Target = target } -> walk target
+          walkExpr visitor state target
+          walkExpr visitor state index
+        | ExprKind.Member { Target = target } -> walkExpr visitor state target
         | ExprKind.IfElse { Condition = condition
                             Then = thenBranch
                             Else = elseBranch } ->
-          walk condition
+          walkExpr visitor state condition
 
           List.iter (walkStmt visitor state) thenBranch.Stmts
 
@@ -56,10 +59,10 @@ module rec ExprVisitor =
               match elseBranch with
               | BlockOrExpr.Block block ->
                 List.iter (walkStmt visitor state) block.Stmts
-              | BlockOrExpr.Expr expr -> walk expr)
+              | BlockOrExpr.Expr expr -> walkExpr visitor state expr)
             elseBranch
         | ExprKind.Match { Target = target; Cases = cases } ->
-          walk target
+          walkExpr visitor state target
 
           List.iter
             (fun (case: MatchCase) ->
@@ -68,21 +71,21 @@ module rec ExprVisitor =
               match case.Body with
               | BlockOrExpr.Block block ->
                 List.iter (walkStmt visitor state) block.Stmts
-              | BlockOrExpr.Expr expr -> walk expr
+              | BlockOrExpr.Expr expr -> walkExpr visitor state expr
 
-              Option.iter walk case.Guard)
+              Option.iter (walkExpr visitor state) case.Guard)
             cases
         | ExprKind.Assign { Left = left; Right = right }
         | ExprKind.Binary { Left = left; Right = right } ->
-          walk left
-          walk right
-        | ExprKind.Unary { Value = value } -> walk value
+          walkExpr visitor state left
+          walkExpr visitor state right
+        | ExprKind.Unary { Value = value } -> walkExpr visitor state value
         | ExprKind.Object obj ->
           for elem in obj.Elems do
             match elem with
-            | ObjElem.Property(span, key, value) -> walk value
+            | ObjElem.Property(span, key, value) -> walkExpr visitor state value
             | ObjElem.Shorthand(span, name) -> ()
-            | ObjElem.Spread(span, value) -> walk value
+            | ObjElem.Spread(span, value) -> walkExpr visitor state value
         | ExprKind.Try { Body = body
                          Catch = catch
                          Finally = fin } ->
@@ -97,9 +100,9 @@ module rec ExprVisitor =
                   match case.Body with
                   | BlockOrExpr.Block block ->
                     List.iter (walkStmt visitor state) block.Stmts
-                  | BlockOrExpr.Expr expr -> walk expr
+                  | BlockOrExpr.Expr expr -> walkExpr visitor state expr
 
-                  Option.iter walk case.Guard)
+                  Option.iter (walkExpr visitor state) case.Guard)
                 cases)
             catch
 
@@ -107,14 +110,15 @@ module rec ExprVisitor =
             (fun body -> List.iter (walkStmt visitor state) body.Stmts)
             fin
         | ExprKind.Do body -> List.iter (walkStmt visitor state) body.Stmts
-        | ExprKind.Await await -> walk await.Value
-        | ExprKind.Throw value -> walk value
-        | ExprKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
+        | ExprKind.Await await -> walkExpr visitor state await.Value
+        | ExprKind.Throw value -> walkExpr visitor state value
+        | ExprKind.TemplateLiteral { Exprs = exprs } ->
+          List.iter (walkExpr visitor state) exprs
         | ExprKind.TaggedTemplateLiteral { Tag = tag; Template = template } ->
-          walk tag
-          List.iter walk template.Exprs
+          walkExpr visitor state tag
+          List.iter (walkExpr visitor state) template.Exprs
         | ExprKind.ExprWithTypeArgs { Expr = expr; TypeArgs = typeArgs } ->
-          walk expr
+          walkExpr visitor state expr
           List.iter (walkTypeAnn visitor state) typeArgs
         | ExprKind.Class _ ->
           // TODO: implement this so that we can find dependencies inside classes
@@ -125,7 +129,7 @@ module rec ExprVisitor =
                            Then = thenBranch
                            Else = elseBranch } ->
           walkPattern visitor state pattern
-          walk target
+          walkExpr visitor state target
           List.iter (walkStmt visitor state) thenBranch.Stmts
 
           Option.iter
@@ -133,7 +137,7 @@ module rec ExprVisitor =
               match elseBranch with
               | BlockOrExpr.Block block ->
                 List.iter (walkStmt visitor state) block.Stmts
-              | BlockOrExpr.Expr expr -> walk expr)
+              | BlockOrExpr.Expr expr -> walkExpr visitor state expr)
             elseBranch
         | ExprKind.JSXElement jsxElement ->
           walkJsxElement visitor state jsxElement

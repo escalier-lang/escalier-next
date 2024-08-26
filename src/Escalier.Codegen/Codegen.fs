@@ -9,6 +9,7 @@ open Escalier.Data.Type
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.ExprVisitor
+open Escalier.TypeChecker
 
 module rec Codegen =
   module TS = TypeScript
@@ -1041,12 +1042,13 @@ module rec Codegen =
 
           map <- Map.add name $"__arg{i}__" map)
 
-        let visitor =
+        // TODO: keep track of shadowed variables and avoid renaming them
+        let visitor: SyntaxVisitor<Set<string>> =
           { VisitExpr =
               fun (expr, state) ->
                 match expr.Kind with
-                | Syntax.ExprKind.Identifier ident ->
-                  if Map.containsKey ident.Name map then
+                | ExprKind.Identifier ident ->
+                  if not (Set.contains ident.Name state) then
                     match map.TryFind ident.Name with
                     | Some newName -> ident.Name <- newName
                     | None -> ()
@@ -1054,6 +1056,14 @@ module rec Codegen =
                     ()
 
                   (true, state)
+                | ExprKind.Function func ->
+                  let paramBindingNames =
+                    func.Sig.ParamList
+                    |> List.map (fun param ->
+                      Helpers.findBindingNames param.Pattern)
+                    |> Set.unionMany
+
+                  (true, Set.union state paramBindingNames)
                 | _ -> (true, state)
             VisitJsxElement = fun (_, state) -> (true, state)
             VisitJsxFragment = fun (_, state) -> (true, state)
@@ -1062,21 +1072,23 @@ module rec Codegen =
             VisitPattern =
               fun (pat, state) ->
                 match pat.Kind with
-                | Syntax.PatternKind.Ident ident ->
-                  match map.TryFind ident.Name with
-                  | Some newName -> ident.Name <- newName
-                  | None -> ()
+                | PatternKind.Ident ident ->
+                  if not (Set.contains ident.Name state) then
+                    match map.TryFind ident.Name with
+                    | Some newName -> ident.Name <- newName
+                    | None -> ()
+                  else
+                    ()
                 | _ -> ()
 
-                (true, state)
-            // (false, state)
+                (false, state)
             VisitTypeAnn = fun (_, state) -> (false, state)
             VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
         let checks =
           decl.Sig.ParamList
           |> List.map (fun param ->
-            walkPattern visitor () param.Pattern
+            walkPattern visitor Set.empty param.Pattern
             checkExprFromParam param)
 
         let check =
@@ -1091,10 +1103,10 @@ module rec Codegen =
         let body =
           match decl.Body with
           | Some(BlockOrExpr.Block block) ->
-            List.iter (walkStmt visitor ()) block.Stmts
+            List.iter (walkStmt visitor Set.empty) block.Stmts
             buildBlock ctx block Finalizer.Empty
           | Some(BlockOrExpr.Expr expr) ->
-            walkExpr visitor () expr
+            walkExpr visitor Set.empty expr
             let expr, stmts = buildExpr ctx expr
 
             let body =

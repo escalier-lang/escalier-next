@@ -160,7 +160,7 @@ module Syntax =
       Throws: option<TypeAnn>
       IsAsync: bool }
 
-  type Identifier = { Name: string }
+  type Identifier = { mutable Name: string }
 
   // TODO: include optional name
   type Function =
@@ -414,7 +414,7 @@ module Syntax =
     | RestPat of RestPat
 
   type IdentPat =
-    { Name: string
+    { mutable Name: string
       IsMut: bool
       Assertion: option<Common.QualifiedIdent> }
 

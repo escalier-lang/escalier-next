@@ -1,6 +1,7 @@
 ﻿input: 
         fn add(a: number, b: number) -> number {
-          return a + b;
+          let add = fn (a: number, b: number) => a + b;
+          return add(a, b);
         }
         fn add(a: string, b: string) -> string {
           return a ++ b;
@@ -11,7 +12,10 @@
 output:
 function add(__arg0__, __arg1__) {
   if (typeof __arg0__ == "number" && typeof __arg1__ == "number") {
-    return __arg0__ + __arg1__;
+    var add = (a, b) => {
+      return a + b;
+    };
+    return add(__arg0__, __arg1__);
   } else if (typeof __arg0__ == "string" && typeof __arg1__ == "string") {
     return __arg0__ + __arg1__;
   } else {

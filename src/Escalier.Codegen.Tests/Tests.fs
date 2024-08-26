@@ -999,3 +999,53 @@ let CodegenFunctionOverloads () =
   match res with
   | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
   | Error(error) -> failwith $"error = %A{error}"
+
+[<Fact>]
+let CodegenFunctionOverloadsWithDifferentParams () =
+  let res =
+    result {
+      let src =
+        """
+        fn add(a: number, b: number, c: number) -> number {
+          return a + b + c;
+        }
+        fn add(x: string, y: string) -> string {
+          return x ++ y;
+        }
+        let sum = add(5, 10);
+        let msg = add("hello, ", "world");
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) -> failwith $"error = %A{error}"
+
+
+[<Fact>]
+let CodegenFunctionOverloadsWithShadowing () =
+  let res =
+    result {
+      let src =
+        """
+        fn add(a: number, b: number) -> number {
+          let add = fn (a: number, b: number) => a + b;
+          return add(a, b);
+        }
+        fn add(a: string, b: string) -> string {
+          return a ++ b;
+        }
+        let sum = add(5, 10);
+        let msg = add("hello, ", "world");
+        """
+
+      let! js = parseAndCodegenJS src
+      return $"input: %s{src}\noutput:\n{js}"
+    }
+
+  match res with
+  | Ok(res) -> Verifier.Verify(res, settings).ToTask() |> Async.AwaitTask
+  | Error(error) -> failwith $"error = %A{error}"

@@ -4,6 +4,7 @@ open FsToolkit.ErrorHandling
 
 open Escalier.Data.Type
 open Escalier.Data.Common
+open Escalier.Data.Visitor
 
 open Error
 open Folder

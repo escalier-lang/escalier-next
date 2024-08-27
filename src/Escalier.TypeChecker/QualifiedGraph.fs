@@ -3,12 +3,12 @@ module Escalier.TypeChecker.QualifiedGraph
 open Escalier.Data.Syntax
 open FsToolkit.ErrorHandling
 
-open Escalier.Data.Type
 open Escalier.Data
+open Escalier.Data.Type
+open Escalier.Data.Visitor
 
 open Env
 open Error
-open ExprVisitor
 
 type QualifiedIdent =
   { Parts: list<string> }
@@ -109,7 +109,7 @@ let findFunctions (expr: Syntax.Expr) : list<Syntax.Function> =
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-  walkExpr visitor () expr
+  ExprVisitor.walkExpr visitor () expr
 
   List.rev fns
 

@@ -7,6 +7,7 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
+open Escalier.Data.Visitor
 
 open Error
 open Prune
@@ -16,7 +17,6 @@ open Poly
 open Unify
 open Helpers
 open BuildGraph
-open ExprVisitor
 
 module rec Infer =
   let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
@@ -412,8 +412,8 @@ module rec Infer =
             let mutable assignedProps: list<string> = []
             let mutable methodsCalled: list<string> = []
 
-            let visitor: SyntaxVisitor<unit> =
-              { VisitExpr =
+            let visitor: ExprVisitor.SyntaxVisitor<unit> =
+              { ExprVisitor.VisitExpr =
                   fun (expr: Expr, state) ->
                     match expr.Kind with
                     | ExprKind.Assign { Left = left } ->
@@ -439,14 +439,15 @@ module rec Infer =
                 ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
                 ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
                 ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
-                VisitStmt = fun (_, state) -> (true, state)
-                VisitPattern = fun (_, state) -> (false, state)
-                VisitTypeAnn = fun (_, state) -> (false, state)
-                VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
+                ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
+                ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+                ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
+                ExprVisitor.VisitTypeAnnObjElem =
+                  fun (_, state) -> (false, state) }
 
             match body with
             | BlockOrExpr.Block block ->
-              List.iter (walkStmt visitor ()) block.Stmts
+              List.iter (ExprVisitor.walkStmt visitor ()) block.Stmts
             | BlockOrExpr.Expr _expr -> failwith "TODO"
 
             if not methodsCalled.IsEmpty then
@@ -3126,7 +3127,7 @@ module rec Infer =
         ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
         ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-    walkPattern visitor () pattern
+    ExprVisitor.walkPattern visitor () pattern
 
     result
 

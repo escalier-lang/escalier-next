@@ -6,10 +6,10 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
+open Escalier.Data.Visitor
+open Escalier.TypeChecker
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
-open Escalier.TypeChecker.ExprVisitor
-open Escalier.TypeChecker
 
 module rec Codegen =
   module TS = TypeScript
@@ -1043,8 +1043,8 @@ module rec Codegen =
           map <- Map.add name $"__arg{i}__" map)
 
         // TODO: keep track of shadowed variables and avoid renaming them
-        let visitor: SyntaxVisitor<Set<string>> =
-          { VisitExpr =
+        let visitor: ExprVisitor.SyntaxVisitor<Set<string>> =
+          { ExprVisitor.VisitExpr =
               fun (expr, state) ->
                 match expr.Kind with
                 | ExprKind.Identifier ident ->
@@ -1088,7 +1088,7 @@ module rec Codegen =
         let checks =
           decl.Sig.ParamList
           |> List.map (fun param ->
-            walkPattern visitor Set.empty param.Pattern
+            ExprVisitor.walkPattern visitor Set.empty param.Pattern
             checkExprFromParam param)
 
         let check =
@@ -1103,10 +1103,10 @@ module rec Codegen =
         let body =
           match decl.Body with
           | Some(BlockOrExpr.Block block) ->
-            List.iter (walkStmt visitor Set.empty) block.Stmts
+            List.iter (ExprVisitor.walkStmt visitor Set.empty) block.Stmts
             buildBlock ctx block Finalizer.Empty
           | Some(BlockOrExpr.Expr expr) ->
-            walkExpr visitor Set.empty expr
+            ExprVisitor.walkExpr visitor Set.empty expr
             let expr, stmts = buildExpr ctx expr
 
             let body =

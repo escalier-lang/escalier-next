@@ -1,12 +1,11 @@
 module rec Escalier.TypeChecker.BuildGraph
 
 open Escalier.Data.Type
-open Escalier.TypeChecker.Env
-
 open Escalier.Data.Syntax
+open Escalier.Data.Visitor
 
+open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.QualifiedGraph
-open ExprVisitor
 
 let start = FParsec.Position("", 0, 1, 1)
 let stop = FParsec.Position("", 0, 1, 1)
@@ -269,14 +268,14 @@ let findDepsForValueIdent
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
 
-  walkExpr visitor () expr
+  ExprVisitor.walkExpr visitor () expr
 
   postProcessDeps env.Namespace locals localsTree ident (Set.toList idents)
 
 let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
 
-  let visitor: SyntaxVisitor<unit> =
+  let visitor: ExprVisitor.SyntaxVisitor<unit> =
     { ExprVisitor.VisitExpr = fun (_, state) -> (false, state)
       ExprVisitor.VisitJsxElement = fun (_, state) -> (false, state)
       ExprVisitor.VisitJsxFragment = fun (_, state) -> (false, state)
@@ -292,7 +291,7 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
 
-  walkTypeAnn visitor () typeAnn
+  ExprVisitor.walkTypeAnn visitor () typeAnn
   List.rev idents
 
 let findDepsForTypeIdent
@@ -306,7 +305,7 @@ let findDepsForTypeIdent
 
   let mutable typeRefIdents: list<QDeclIdent> = []
 
-  let visitor: SyntaxVisitor<list<QualifiedIdent>> =
+  let visitor: ExprVisitor.SyntaxVisitor<list<QualifiedIdent>> =
     { ExprVisitor.VisitExpr = fun (_, state) -> (true, state)
       ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
       ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
@@ -375,7 +374,8 @@ let findDepsForTypeIdent
           (true, typeParams @ newTypeParams) }
 
   match syntaxNode with
-  | SyntaxNode.TypeAnn typeAnn -> walkTypeAnn visitor typeParams typeAnn
+  | SyntaxNode.TypeAnn typeAnn ->
+    ExprVisitor.walkTypeAnn visitor typeParams typeAnn
   | SyntaxNode.TypeRef typeRef ->
     let ident = QualifiedIdent.FromCommonQualifiedIdent typeRef.Ident
 
@@ -384,9 +384,9 @@ let findDepsForTypeIdent
     match typeRef.TypeArgs with
     | Some typeArgs ->
       for typeAnn in typeArgs do
-        walkTypeAnn visitor typeParams typeAnn
+        ExprVisitor.walkTypeAnn visitor typeParams typeAnn
     | None -> ()
-  | SyntaxNode.Expr expr -> walkExpr visitor typeParams expr
+  | SyntaxNode.Expr expr -> ExprVisitor.walkExpr visitor typeParams expr
 
   postProcessDeps
     env.Namespace
@@ -542,8 +542,8 @@ let rec findCaptures
 
   match f.Body with
   | BlockOrExpr.Block block ->
-    List.iter (walkStmt visitor localNames) block.Stmts
-  | BlockOrExpr.Expr expr -> walkExpr visitor localNames expr
+    List.iter (ExprVisitor.walkStmt visitor localNames) block.Stmts
+  | BlockOrExpr.Expr expr -> ExprVisitor.walkExpr visitor localNames expr
 
   captures
 

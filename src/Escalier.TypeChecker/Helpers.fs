@@ -6,10 +6,10 @@ open Escalier.Data
 open Escalier.Data.Syntax
 open Escalier.Data.Common
 open Escalier.Data.Type
+open Escalier.Data.Visitor
 
 open Error
 open Env
-open ExprVisitor
 open Poly
 
 // TODO: update this function to use the type visitor/folder
@@ -106,7 +106,7 @@ let findBindingNames (p: Syntax.Pattern) : Set<string> =
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-  walkPattern visitor () p
+  ExprVisitor.walkPattern visitor () p
 
   Set.ofList names
 
@@ -137,9 +137,10 @@ let findReturns (body: BlockOrExpr) : list<Expr> =
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
   match body with
-  | BlockOrExpr.Block block -> List.iter (walkStmt visitor ()) block.Stmts
+  | BlockOrExpr.Block block ->
+    List.iter (ExprVisitor.walkStmt visitor ()) block.Stmts
   | BlockOrExpr.Expr expr ->
-    walkExpr visitor () expr // There might be early returns in match expression
+    ExprVisitor.walkExpr visitor () expr // There might be early returns in match expression
     returns <- expr :: returns // We treat the expression as a return in this case
 
   returns
@@ -159,7 +160,7 @@ let maybeWrapInPromise (t: Type) (e: Type) : Type =
 let findThrows (body: BlockOrExpr) : list<Type> =
   let mutable throws: list<Type> = []
 
-  let visitor: SyntaxVisitor<unit> =
+  let visitor: ExprVisitor.SyntaxVisitor<unit> =
     { ExprVisitor.VisitExpr =
         fun (expr, state) ->
           match expr.Kind with
@@ -201,8 +202,9 @@ let findThrows (body: BlockOrExpr) : list<Type> =
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
   match body with
-  | BlockOrExpr.Block block -> List.iter (walkStmt visitor ()) block.Stmts
-  | BlockOrExpr.Expr expr -> walkExpr visitor () expr
+  | BlockOrExpr.Block block ->
+    List.iter (ExprVisitor.walkStmt visitor ()) block.Stmts
+  | BlockOrExpr.Expr expr -> ExprVisitor.walkExpr visitor () expr
 
   throws
 
@@ -210,7 +212,7 @@ let findThrows (body: BlockOrExpr) : list<Type> =
 let findThrowsInBlock (block: Block) : list<Type> =
   let mutable throws: list<Type> = []
 
-  let visitor: SyntaxVisitor<unit> =
+  let visitor: ExprVisitor.SyntaxVisitor<unit> =
     { ExprVisitor.VisitExpr =
         fun (expr, state) ->
           match expr.Kind with
@@ -251,7 +253,7 @@ let findThrowsInBlock (block: Block) : list<Type> =
       ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-  List.iter (walkStmt visitor ()) block.Stmts
+  List.iter (ExprVisitor.walkStmt visitor ()) block.Stmts
 
   throws
 

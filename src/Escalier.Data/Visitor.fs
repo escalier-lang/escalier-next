@@ -1,9 +1,7 @@
-namespace Escalier.TypeChecker
+module Escalier.Data.Visitor
 
-open Escalier.Data.Syntax
-
-// TODO: move to Escalier.Data.Visitor
 module rec ExprVisitor =
+  open Escalier.Data.Syntax
 
   type SyntaxVisitor<'S> =
     { VisitExpr: Expr * 'S -> bool * 'S
@@ -386,8 +384,6 @@ module rec ExprVisitor =
 
 module rec TypeVisitor =
   open Escalier.Data.Type
-
-  open Prune
 
   let walkFunction (walk: Type -> unit) (f: Function) : unit =
     List.iter (fun (param: FuncParam) -> walk param.Type) f.ParamList

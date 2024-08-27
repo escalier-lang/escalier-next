@@ -5,6 +5,7 @@ open FParsec.CharParsers
 
 open Escalier.Data.Common
 open Escalier.Data.Type
+open Escalier.Data.Visitor
 
 open Error
 open Folder

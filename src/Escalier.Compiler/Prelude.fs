@@ -8,9 +8,9 @@ open System.IO
 open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Type
+open Escalier.Data.Visitor
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
-open Escalier.TypeChecker.ExprVisitor
 open Escalier.Interop
 
 open Env
@@ -140,7 +140,7 @@ module Prelude =
         ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
         ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (false, state) }
 
-    walkPattern visitor () p
+    ExprVisitor.walkPattern visitor () p
 
     List.rev names
 

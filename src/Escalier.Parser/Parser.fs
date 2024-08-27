@@ -570,7 +570,8 @@ module Parser =
           match reply.Status with
           | Ok ->
             Reply(
-              { TypeAnn.Kind = TypeAnnKind.Index(left, reply.Result)
+              { TypeAnn.Kind =
+                  TypeAnnKind.Index { Target = left; Index = reply.Result }
                 Span =
                   { Start = left.Span.Start
                     Stop = stream.Position }
@@ -767,12 +768,15 @@ module Parser =
       // TODO: handle parsing computed properties
       match value with
       | Some(value) ->
-        ObjElem.Property(span = span, name = PropName.Ident name, value = value)
-      | None -> ObjElem.Shorthand(span = span, name = name)
+        ObjElem.Property
+          { Span = span
+            Name = PropName.Ident name
+            Value = value }
+      | None -> ObjElem.Shorthand { Span = span; Name = name }
 
   let objElemSpread: Parser<ObjElem, unit> =
     withSpan (strWs "..." >>. expr)
-    |>> fun (expr, span) -> ObjElem.Spread(span, expr)
+    |>> fun (expr, span) -> ObjElem.Spread { Span = span; Value = expr }
 
   let objElem = choice [ objElemProperty; objElemSpread ]
 
@@ -1670,7 +1674,11 @@ module Parser =
       (ws >>. block)
       getPosition
     <| fun start pattern expr body stop ->
-      { Stmt.Kind = For(pattern, expr, body)
+      { Stmt.Kind =
+          For
+            { Left = pattern
+              Right = expr
+              Body = body }
         Span = { Start = start; Stop = stop } }
 
   let _stmt =
@@ -1827,7 +1835,7 @@ module Parser =
     pipe4 getPosition ident (opt (keyword "as" >>. ident)) getPosition
     <| fun start name alias stop ->
       let span = { Start = start; Stop = stop }
-      ImportSpecifier.Named(name, alias)
+      ImportSpecifier.Named { Name = name; Alias = alias }
 
   let private namedSpecifiers: Parser<list<ImportSpecifier>, unit> =
     between (strWs "{") (strWs "}") (sepEndBy namedSpecifier (strWs ","))
@@ -1836,7 +1844,7 @@ module Parser =
     pipe3 getPosition (keyword "as" >>. ident) getPosition
     <| fun start alias stop ->
       let span = { Start = start; Stop = stop }
-      [ ImportSpecifier.ModuleAlias alias ]
+      [ ImportSpecifier.ModuleAlias { Alias = alias } ]
 
   let private importSpecifiers = choice [ namedSpecifiers; moduleAlias ]
 

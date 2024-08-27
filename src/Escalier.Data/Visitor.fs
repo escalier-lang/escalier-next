@@ -81,9 +81,9 @@ module rec ExprVisitor =
       | ExprKind.Object obj ->
         for elem in obj.Elems do
           match elem with
-          | ObjElem.Property(span, key, value) -> walk value
-          | ObjElem.Shorthand(span, name) -> ()
-          | ObjElem.Spread(span, value) -> walk value
+          | ObjElem.Property { Value = value } -> walk value
+          | ObjElem.Shorthand _ -> ()
+          | ObjElem.Spread { Value = value } -> walk value
       | ExprKind.Try { Body = body
                        Catch = catch
                        Finally = fin } ->
@@ -252,7 +252,9 @@ module rec ExprVisitor =
     if cont then
       match stmt.Kind with
       | StmtKind.Expr expr -> walkExpr visitor state expr
-      | StmtKind.For(left, right, body) ->
+      | StmtKind.For { Left = left
+                       Right = right
+                       Body = body } ->
         walkPattern visitor state left
         walkExpr visitor state right
         List.iter (walkStmt visitor state) body.Stmts
@@ -321,7 +323,7 @@ module rec ExprVisitor =
       | TypeAnnKind.Keyof target -> walk target
       | TypeAnnKind.Rest target -> walk target
       | TypeAnnKind.Typeof _ -> () // TODO: walk QualifiedIdents
-      | TypeAnnKind.Index(target, index) ->
+      | TypeAnnKind.Index { Target = target; Index = index } ->
         walk target
         walk index
       | TypeAnnKind.Condition conditionType ->
@@ -332,7 +334,7 @@ module rec ExprVisitor =
       | TypeAnnKind.Match matchType -> failwith "todo"
       | TypeAnnKind.Infer _name -> ()
       | TypeAnnKind.Wildcard -> ()
-      | TypeAnnKind.Binary(left, op, right) ->
+      | TypeAnnKind.Binary { Left = left; Right = right } ->
         walk left
         walk right
       | TypeAnnKind.Range { Min = min; Max = max } ->
@@ -419,9 +421,9 @@ module rec TypeVisitor =
               walk m.TypeAnn
             | Constructor fn -> walkFunction walk fn
             | Callable fn -> walkFunction walk fn
-            | Method(_, fn) -> walkFunction walk fn
-            | Getter(_, fn) -> walkFunction walk fn
-            | Setter(_, fn) -> walkFunction walk fn
+            | Method { Fn = fn } -> walkFunction walk fn
+            | Getter { Fn = fn } -> walkFunction walk fn
+            | Setter { Fn = fn } -> walkFunction walk fn
             | RestSpread t -> walk t)
           elems
 
@@ -432,7 +434,7 @@ module rec TypeVisitor =
         walk elem
         walk length
       | TypeKind.KeyOf t -> walk t
-      | TypeKind.Index(target, index) ->
+      | TypeKind.Index { Target = target; Index = index } ->
         walk target
         walk index
       | TypeKind.Condition { Check = check
@@ -444,10 +446,10 @@ module rec TypeVisitor =
         walk trueType
         walk falseType
       | TypeKind.Infer _ -> ()
-      | TypeKind.Binary(left, op, right) ->
+      | TypeKind.Binary { Left = left; Right = right } ->
         walk left
         walk right
-      | TypeKind.Unary(op, arg) -> walk arg
+      | TypeKind.Unary { Arg = arg } -> walk arg
       | TypeKind.Range { Min = min; Max = max } ->
         walk min
         walk max

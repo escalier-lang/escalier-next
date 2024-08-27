@@ -7,8 +7,11 @@ output: Ok
   { Items =
      [Import
         { Path = "./math"
-          Specifiers = [Named ("add", None); Named ("sub", Some "subtract")] };
+          Specifiers =
+           [Named { Name = "add"
+                    Alias = None }; Named { Name = "sub"
+                                            Alias = Some "subtract" }] };
       Import { Path = "~/net"
-               Specifiers = [ModuleAlias "network"] };
+               Specifiers = [ModuleAlias { Alias = "network" }] };
       Import { Path = "path"
                Specifiers = [] }] }

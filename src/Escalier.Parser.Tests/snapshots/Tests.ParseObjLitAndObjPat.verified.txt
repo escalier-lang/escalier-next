@@ -83,19 +83,21 @@ output: Ok
                           Object
                             { Elems =
                                [Property
-                                  ({ Start = (Ln: 3, Col: 26)
-                                     Stop = (Ln: 3, Col: 30) }, Ident "x",
-                                   { Kind = Literal (Number (Int 5))
-                                     Span = { Start = (Ln: 3, Col: 29)
-                                              Stop = (Ln: 3, Col: 30) }
-                                     InferredType = None });
+                                  { Span = { Start = (Ln: 3, Col: 26)
+                                             Stop = (Ln: 3, Col: 30) }
+                                    Name = Ident "x"
+                                    Value = { Kind = Literal (Number (Int 5))
+                                              Span = { Start = (Ln: 3, Col: 29)
+                                                       Stop = (Ln: 3, Col: 30) }
+                                              InferredType = None } };
                                 Property
-                                  ({ Start = (Ln: 3, Col: 32)
-                                     Stop = (Ln: 3, Col: 37) }, Ident "y",
-                                   { Kind = Literal (Number (Int 10))
-                                     Span = { Start = (Ln: 3, Col: 35)
-                                              Stop = (Ln: 3, Col: 37) }
-                                     InferredType = None })]
+                                  { Span = { Start = (Ln: 3, Col: 32)
+                                             Stop = (Ln: 3, Col: 37) }
+                                    Name = Ident "y"
+                                    Value = { Kind = Literal (Number (Int 10))
+                                              Span = { Start = (Ln: 3, Col: 35)
+                                                       Stop = (Ln: 3, Col: 37) }
+                                              InferredType = None } }]
                               Immutable = false }
                          Span = { Start = (Ln: 3, Col: 25)
                                   Stop = (Ln: 3, Col: 38) }
@@ -127,10 +129,12 @@ output: Ok
                        { Kind =
                           Object
                             { Elems =
-                               [Shorthand ({ Start = (Ln: 4, Col: 21)
-                                             Stop = (Ln: 4, Col: 22) }, "x");
-                                Shorthand ({ Start = (Ln: 4, Col: 24)
-                                             Stop = (Ln: 4, Col: 25) }, "y")]
+                               [Shorthand { Span = { Start = (Ln: 4, Col: 21)
+                                                     Stop = (Ln: 4, Col: 22) }
+                                            Name = "x" };
+                                Shorthand { Span = { Start = (Ln: 4, Col: 24)
+                                                     Stop = (Ln: 4, Col: 25) }
+                                            Name = "y" }]
                               Immutable = false }
                          Span = { Start = (Ln: 4, Col: 20)
                                   Stop = (Ln: 4, Col: 26) }

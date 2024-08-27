@@ -9,16 +9,15 @@ output: Ok
                   { Name = "Foo"
                     TypeAnn =
                      { Kind =
-                        Index
-                          ({ Kind = TypeRef { Ident = Ident "Bar"
-                                              TypeArgs = None }
-                             Span = { Start = (Ln: 1, Col: 12)
-                                      Stop = (Ln: 1, Col: 15) }
-                             InferredType = None },
-                           { Kind = Literal (String "baz")
-                             Span = { Start = (Ln: 1, Col: 16)
-                                      Stop = (Ln: 1, Col: 21) }
-                             InferredType = None })
+                        Index { Target = { Kind = TypeRef { Ident = Ident "Bar"
+                                                            TypeArgs = None }
+                                           Span = { Start = (Ln: 1, Col: 12)
+                                                    Stop = (Ln: 1, Col: 15) }
+                                           InferredType = None }
+                                Index = { Kind = Literal (String "baz")
+                                          Span = { Start = (Ln: 1, Col: 16)
+                                                   Stop = (Ln: 1, Col: 21) }
+                                          InferredType = None } }
                        Span = { Start = (Ln: 1, Col: 12)
                                 Stop = (Ln: 1, Col: 22) }
                        InferredType = None }

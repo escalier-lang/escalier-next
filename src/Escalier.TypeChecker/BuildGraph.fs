@@ -230,13 +230,13 @@ let findDepsForValueIdent
           | ExprKind.Object { Elems = elems } ->
             for elem in elems do
               match elem with
-              | ObjElem.Property(span, name, value) -> () // handled by visiting `value`
-              | ObjElem.Shorthand(span, name) ->
+              | ObjElem.Property _ -> () // handled by visiting `value`
+              | ObjElem.Shorthand { Name = name } ->
                 idents <-
                   Set.add
                     (QDeclIdent.Value(QualifiedIdent.FromString name))
                     idents
-              | ObjElem.Spread(span, value) -> () // handled by visiting `value`
+              | ObjElem.Spread _ -> () // handled by visiting `value`
 
             (true, state)
           | _ -> (true, state)

@@ -215,11 +215,15 @@ module rec Infer =
           match fnSig.Self with
           | None ->
             staticMethods <-
-              (ObjTypeElem.Method(name, placeholderFn), fnSig, body)
+              (ObjTypeElem.Method { Name = name; Fn = placeholderFn },
+               fnSig,
+               body)
               :: staticMethods
           | Some _ ->
             instanceMethods <-
-              (ObjTypeElem.Method(name, placeholderFn), fnSig, body)
+              (ObjTypeElem.Method { Name = name; Fn = placeholderFn },
+               fnSig,
+               body)
               :: instanceMethods
         | ClassElem.Getter { Name = name
                              Self = self
@@ -240,11 +244,15 @@ module rec Infer =
           match self, isStatic with
           | None, true ->
             staticMethods <-
-              (ObjTypeElem.Getter(name, placeholderFn), fnSig, body)
+              (ObjTypeElem.Getter { Name = name; Fn = placeholderFn },
+               fnSig,
+               body)
               :: staticMethods
           | Some _, false ->
             instanceMethods <-
-              (ObjTypeElem.Getter(name, placeholderFn), fnSig, body)
+              (ObjTypeElem.Getter { Name = name; Fn = placeholderFn },
+               fnSig,
+               body)
               :: instanceMethods
           | _, _ -> failwith "Invalid getter"
         | ClassElem.Setter { Name = name
@@ -266,25 +274,32 @@ module rec Infer =
           match self, isStatic with
           | None, true ->
             staticMethods <-
-              (ObjTypeElem.Setter(name, placeholderFn), fnSig, body)
+              (ObjTypeElem.Setter { Name = name; Fn = placeholderFn },
+               fnSig,
+               body)
               :: staticMethods
           | Some _, false ->
             instanceMethods <-
-              (ObjTypeElem.Setter(name, placeholderFn), fnSig, body)
+              (ObjTypeElem.Setter { Name = name; Fn = placeholderFn },
+               fnSig,
+               body)
               :: instanceMethods
           | _, _ -> failwith "Invalid setter"
 
       for elem, _, _ in instanceMethods do
         match elem with
-        | Method(name, placeholderFn) ->
+        | Method { Name = name; Fn = placeholderFn } ->
           instanceElems <-
-            ObjTypeElem.Method(name, placeholderFn) :: instanceElems
-        | Getter(name, placeholderFn) ->
+            ObjTypeElem.Method { Name = name; Fn = placeholderFn }
+            :: instanceElems
+        | Getter { Name = name; Fn = placeholderFn } ->
           instanceElems <-
-            ObjTypeElem.Getter(name, placeholderFn) :: instanceElems
-        | Setter(name, placeholderFn) ->
+            ObjTypeElem.Getter { Name = name; Fn = placeholderFn }
+            :: instanceElems
+        | Setter { Name = name; Fn = placeholderFn } ->
           instanceElems <-
-            ObjTypeElem.Setter(name, placeholderFn) :: instanceElems
+            ObjTypeElem.Setter { Name = name; Fn = placeholderFn }
+            :: instanceElems
         | _ -> ()
 
       let mutable hasConstructor = false
@@ -295,12 +310,18 @@ module rec Infer =
           hasConstructor <- true
 
           staticElems <- ObjTypeElem.Constructor(placeholderFn) :: staticElems
-        | Method(name, placeholderFn) ->
-          staticElems <- ObjTypeElem.Method(name, placeholderFn) :: staticElems
-        | Getter(name, placeholderFn) ->
-          staticElems <- ObjTypeElem.Getter(name, placeholderFn) :: staticElems
-        | Setter(name, placeholderFn) ->
-          staticElems <- ObjTypeElem.Setter(name, placeholderFn) :: staticElems
+        | Method { Name = name; Fn = placeholderFn } ->
+          staticElems <-
+            ObjTypeElem.Method { Name = name; Fn = placeholderFn }
+            :: staticElems
+        | Getter { Name = name; Fn = placeholderFn } ->
+          staticElems <-
+            ObjTypeElem.Getter { Name = name; Fn = placeholderFn }
+            :: staticElems
+        | Setter { Name = name; Fn = placeholderFn } ->
+          staticElems <-
+            ObjTypeElem.Setter { Name = name; Fn = placeholderFn }
+            :: staticElems
         | _ -> ()
 
       let objType =
@@ -351,9 +372,9 @@ module rec Infer =
       for elem, fnSig, body in instanceMethods do
         let placeholderFn =
           match elem with
-          | Method(_, placeholderFn) -> placeholderFn
-          | Getter(_, placeholderFn) -> placeholderFn
-          | Setter(_, placeholderFn) -> placeholderFn
+          | Method { Fn = placeholderFn } -> placeholderFn
+          | Getter { Fn = placeholderFn } -> placeholderFn
+          | Setter { Fn = placeholderFn } -> placeholderFn
           | _ -> failwith "instanceMethods should only contain methods"
 
         match body, declare with
@@ -372,19 +393,19 @@ module rec Infer =
       // Infer the bodies of each static method body
       for elem, fnSig, body in staticMethods do
         match elem with
-        | Method(_, placeholderFn) ->
+        | Method { Fn = placeholderFn } ->
           match body, declare with
           | Some body, false ->
             let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
             ()
           | _ -> () // TODO: handle other cases correctly
-        | Getter(_, placeholderFn) ->
+        | Getter { Fn = placeholderFn } ->
           match body, declare with
           | Some body, false ->
             let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
             ()
           | _ -> () // TODO: handle other cases correctly
-        | Setter(_, placeholderFn) ->
+        | Setter { Fn = placeholderFn } ->
           match body, declare with
           | Some body, false ->
             let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
@@ -486,7 +507,8 @@ module rec Infer =
         List.map
           (fun elem ->
             match elem with
-            | Method(name, f) -> ObjTypeElem.Method(name, generalizeFunc f)
+            | Method { Name = name; Fn = fn } ->
+              ObjTypeElem.Method { Name = name; Fn = generalizeFunc fn }
             | _ -> elem)
           instanceElems
 
@@ -536,7 +558,8 @@ module rec Infer =
         List.map
           (fun elem ->
             match elem with
-            | Method(name, f) -> ObjTypeElem.Method(name, generalizeFunc f)
+            | Method { Name = name; Fn = fn } ->
+              ObjTypeElem.Method { Name = name; Fn = generalizeFunc fn }
             | _ -> elem)
           staticElems
 
@@ -795,7 +818,7 @@ module rec Infer =
               (fun (elem: ObjElem) ->
                 result {
                   match elem with
-                  | ObjElem.Property(_span, key, value) ->
+                  | ObjElem.Property { Name = key; Value = value } ->
                     let! name = inferPropName ctx env key
 
                     let typeAnn =
@@ -821,7 +844,7 @@ module rec Infer =
                             Optional = false
                             Readonly = false
                             Type = t } ]
-                  | ObjElem.Shorthand(_span, key) ->
+                  | ObjElem.Shorthand { Name = key } ->
                     let! value = env.GetValue key
 
                     return
@@ -830,7 +853,7 @@ module rec Infer =
                             Optional = false
                             Readonly = false
                             Type = value } ]
-                  | ObjElem.Spread(_span, value) ->
+                  | ObjElem.Spread { Value = value } ->
                     let! t = inferExpr ctx env None value
 
                     match (prune t).Kind with
@@ -1217,7 +1240,7 @@ module rec Infer =
                   Provenance = None }
 
               let tag =
-                { Kind = TypeKind.Index(intrinsics, key)
+                { Kind = TypeKind.Index { Target = intrinsics; Index = key }
                   Provenance = None }
 
               return! expandType ctx env None Map.empty tag
@@ -1774,11 +1797,11 @@ module rec Infer =
         (fun (elem: ObjTypeElem) ->
           match elem with
           | Property { Name = name } -> name = key
-          | Method(name, _) ->
+          | Method { Name = name } ->
             name = key && valueCategory = ValueCategory.RValue
-          | Getter(name, _) ->
+          | Getter { Name = name } ->
             name = key && valueCategory = ValueCategory.RValue
-          | Setter(name, _) ->
+          | Setter { Name = name } ->
             name = key && valueCategory = ValueCategory.LValue
           | Mapped _ ->
             failwith
@@ -1798,7 +1821,7 @@ module rec Infer =
 
           Some(union [ p.Type; undefined ])
         | false -> Some p.Type
-      | Method(_, fn) ->
+      | Method { Fn = fn } ->
         // TODO: replace `Self` with the object type
         // TODO: check if the receiver is mutable or not
         let t =
@@ -1806,8 +1829,8 @@ module rec Infer =
             Provenance = None }
 
         Some t
-      | Getter(_, fn) -> Some fn.Return // TODO: handle throws
-      | Setter(_, fn) -> Some fn.ParamList[0].Type // TODO: handle throws
+      | Getter { Fn = fn } -> Some fn.Return // TODO: handle throws
+      | Setter { Fn = fn } -> Some fn.ParamList[0].Type // TODO: handle throws
       | Mapped _mapped -> failwith "TODO: inferMemberAccess - mapped"
       | RestSpread _ -> failwith "TODO: inferMemberAccess - rest"
       | Callable _ -> failwith "Callable signatures don't have a name"
@@ -1925,9 +1948,9 @@ module rec Infer =
         let! f = inferFuncSig ctx env functionType None
         return Constructor f
       | ObjTypeAnnElem.Method { Name = name; Type = methodType } ->
-        let! f = inferFuncSig ctx env methodType None
+        let! fn = inferFuncSig ctx env methodType None
         let! name = inferPropName ctx env name
-        return Method(name, f)
+        return Method { Name = name; Fn = fn }
       | ObjTypeAnnElem.Getter { Name = name
                                 ReturnType = retType
                                 Throws = throws } ->
@@ -1939,9 +1962,9 @@ module rec Infer =
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFuncSig ctx env f None
+        let! fn = inferFuncSig ctx env f None
         let! name = inferPropName ctx env name
-        return Getter(name, f)
+        return Getter { Name = name; Fn = fn }
       | ObjTypeAnnElem.Setter { Name = name
                                 Param = param
                                 Throws = throws } ->
@@ -1959,9 +1982,9 @@ module rec Infer =
             Throws = throws
             IsAsync = false }
 
-        let! f = inferFuncSig ctx env f None
+        let! fn = inferFuncSig ctx env f None
         let! name = inferPropName ctx env name
-        return Setter(name, f)
+        return Setter { Name = name; Fn = fn }
       | ObjTypeAnnElem.Mapped mapped ->
         let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint
 
@@ -2077,10 +2100,10 @@ module rec Infer =
         | TypeAnnKind.Typeof target ->
           let! t = getQualifiedIdentType ctx env target
           return t.Kind
-        | TypeAnnKind.Index(target, index) ->
+        | TypeAnnKind.Index { Target = target; Index = index } ->
           let! target = inferTypeAnn ctx env target
           let! index = inferTypeAnn ctx env index
-          return TypeKind.Index(target, index)
+          return TypeKind.Index { Target = target; Index = index }
         | TypeAnnKind.Condition conditionType ->
           let! check = inferTypeAnn ctx env conditionType.Check
           let! extends = inferTypeAnn ctx env conditionType.Extends
@@ -2113,10 +2136,10 @@ module rec Infer =
           return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
         | TypeAnnKind.Infer name -> return TypeKind.Infer name
         | TypeAnnKind.Wildcard -> return TypeKind.Wildcard
-        | TypeAnnKind.Binary(left, op, right) ->
+        | TypeAnnKind.Binary { Op = op; Left = left; Right = right } ->
           let! left = inferTypeAnn ctx env left
           let! right = inferTypeAnn ctx env right
-          return TypeKind.Binary(left, op, right)
+          return TypeKind.Binary { Op = op; Left = left; Right = right }
         | TypeAnnKind.Range range ->
           let! min = inferTypeAnn ctx env range.Min
           let! max = inferTypeAnn ctx env range.Max
@@ -2573,7 +2596,7 @@ module rec Infer =
               |> List.choose (fun elem ->
                 match elem with
                 | ObjTypeElem.Constructor fn -> Some fn
-                | ObjTypeElem.Method(_, fn) -> Some fn
+                | ObjTypeElem.Method { Fn = fn } -> Some fn
                 | _ -> None)
 
             for fn in fns do
@@ -2704,7 +2727,7 @@ module rec Infer =
 
       for specifier in import.Specifiers do
         match specifier with
-        | Named(name, alias) ->
+        | Named { Name = name; Alias = alias } ->
           let source = name
 
           let target =
@@ -2745,7 +2768,7 @@ module rec Infer =
                   $"{resolvedPath} doesn't export '{name}'"
               )
           | _, _, _ -> ()
-        | ModuleAlias name ->
+        | ModuleAlias { Alias = name } ->
           let ns: Namespace = { exports with Name = name }
 
           imports <- imports.AddNamespace name ns
@@ -3144,7 +3167,9 @@ module rec Infer =
       | ExprKind.Object { Elems = elems } ->
         for elem in elems do
           match elem with
-          | ObjElem.Property(span, name, value) ->
+          | ObjElem.Property { Span = span
+                               Name = name
+                               Value = value } ->
             let! name = Infer.inferPropName ctx env name
             let! t = inferExprStructuralPlacholder ctx env value
 
@@ -3155,7 +3180,7 @@ module rec Infer =
                   Readonly = false
                   Type = t }
               :: elemTypes
-          | ObjElem.Shorthand(span, name) ->
+          | ObjElem.Shorthand { Span = span; Name = name } ->
             match env.TryFindValue name with
             | Some(t, _) ->
               elemTypes <-
@@ -3166,7 +3191,7 @@ module rec Infer =
                     Type = t }
                 :: elemTypes
             | None -> return! Error(TypeError.SemanticError $"{name} not found")
-          | ObjElem.Spread(span, value) ->
+          | ObjElem.Spread { Span = span; Value = value } ->
             match value.Kind with
             | ExprKind.Identifier { Name = name } ->
               match env.TryFindValue name with
@@ -4267,7 +4292,9 @@ module rec Infer =
         | StmtKind.Expr expr ->
           let! _ = inferExpr ctx newEnv None expr
           ()
-        | StmtKind.For(pattern, right, body) ->
+        | StmtKind.For { Left = pattern
+                         Right = right
+                         Body = body } ->
           let mutable blockEnv = newEnv
 
           let! patBindings, patType = inferPattern ctx blockEnv pattern

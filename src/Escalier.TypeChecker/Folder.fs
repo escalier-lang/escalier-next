@@ -21,9 +21,12 @@ module Folder =
       let foldObjElem (elem: ObjTypeElem) : ObjTypeElem =
         match elem with
         | Property p -> Property { p with Type = fold p.Type }
-        | Method(name, fn) -> Method(name, foldFn fn)
-        | Getter(name, fn) -> Getter(name, foldFn fn)
-        | Setter(name, fn) -> Setter(name, foldFn fn)
+        | Method { Name = name; Fn = fn } ->
+          Method { Name = name; Fn = foldFn fn }
+        | Getter { Name = name; Fn = fn } ->
+          Getter { Name = name; Fn = foldFn fn }
+        | Setter { Name = name; Fn = fn } ->
+          Setter { Name = name; Fn = foldFn fn }
         | Constructor fn -> Constructor(foldFn fn)
         | Callable fn -> Callable(foldFn fn)
         | Mapped mapped ->
@@ -108,8 +111,11 @@ module Folder =
         | TypeKind.KeyOf t ->
           { Kind = TypeKind.KeyOf(fold t)
             Provenance = None }
-        | TypeKind.Index(target, index) ->
-          { Kind = TypeKind.Index(fold target, fold index)
+        | TypeKind.Index { Target = target; Index = index } ->
+          { Kind =
+              TypeKind.Index
+                { Target = fold target
+                  Index = fold index }
             Provenance = None }
         | TypeKind.Condition { Check = check
                                Extends = extends
@@ -123,11 +129,15 @@ module Folder =
                   FalseType = fold falseType }
             Provenance = None }
         | TypeKind.Infer _ -> t
-        | TypeKind.Binary(left, op, right) ->
-          { Kind = TypeKind.Binary(fold left, op, fold right)
+        | TypeKind.Binary { Op = op; Left = left; Right = right } ->
+          { Kind =
+              TypeKind.Binary
+                { Op = op
+                  Left = fold left
+                  Right = fold right }
             Provenance = None }
-        | TypeKind.Unary(op, arg) ->
-          { Kind = TypeKind.Unary(op, fold arg)
+        | TypeKind.Unary { Op = op; Arg = arg } ->
+          { Kind = TypeKind.Unary { Op = op; Arg = fold arg }
             Provenance = None }
         | TypeKind.UniqueNumber _ -> t
         | TypeKind.UniqueSymbol _ -> t

@@ -33,12 +33,18 @@ let rec generalizeType (t: Type) : Type =
         | ObjTypeElem.Callable fn -> ObjTypeElem.Callable(generalizeFunc fn)
         | ObjTypeElem.Constructor fn ->
           ObjTypeElem.Constructor(generalizeFunc fn)
-        | ObjTypeElem.Method(name, fn) ->
-          ObjTypeElem.Method(name, (generalizeFunc fn))
-        | ObjTypeElem.Getter(name, fn) ->
-          ObjTypeElem.Getter(name, (generalizeFunc fn))
-        | ObjTypeElem.Setter(name, fn) ->
-          ObjTypeElem.Setter(name, (generalizeFunc fn))
+        | ObjTypeElem.Method { Name = name; Fn = fn } ->
+          ObjTypeElem.Method
+            { Name = name
+              Fn = (generalizeFunc fn) }
+        | ObjTypeElem.Getter { Name = name; Fn = fn } ->
+          ObjTypeElem.Getter
+            { Name = name
+              Fn = (generalizeFunc fn) }
+        | ObjTypeElem.Setter { Name = name; Fn = fn } ->
+          ObjTypeElem.Setter
+            { Name = name
+              Fn = (generalizeFunc fn) }
         | ObjTypeElem.Property { Name = name
                                  Optional = optional
                                  Readonly = readonly
@@ -348,15 +354,15 @@ let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
               TypeError.SemanticError
                 "Constructor signatures cannot appear in object literals"
             )
-        | Method(name, fn) ->
+        | Method { Name = name; Fn = fn } ->
           let t =
             { Kind = TypeKind.Function fn
               Provenance = None }
 
           map <- Map.add name t map
-        | Getter(name, fn) ->
+        | Getter { Name = name; Fn = fn } ->
           failwith "TODO: getPropertyMap - ObjElemType.Getter"
-        | Setter(name, fn) ->
+        | Setter { Name = name; Fn = fn } ->
           failwith "TODO: getPropertyMap - ObjElemType.Setter"
         // We'll need a different solution for looking up properties in mapped
         // types because their key could have a type like `string` or `number`

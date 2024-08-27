@@ -558,15 +558,15 @@ module rec Unify =
         | Some _ -> return ()
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
 
-      | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.Number when
+      | TypeKind.Binary { Op = op }, TypeKind.Primitive Primitive.Number when
         op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
         ->
         return ()
-      | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.Boolean when
+      | TypeKind.Binary { Op = op }, TypeKind.Primitive Primitive.Boolean when
         op = "<" || op = "<=" || op = ">" || op = ">="
         ->
         return ()
-      | TypeKind.Binary(left, op, right), TypeKind.Primitive Primitive.String when
+      | TypeKind.Binary { Op = op }, TypeKind.Primitive Primitive.String when
         op = "++"
         ->
         return ()
@@ -600,7 +600,7 @@ module rec Unify =
     |> List.choose (fun (elem: ObjTypeElem) ->
       match elem with
       | Property p -> Some(p.Name, p)
-      | Method(name, fn) ->
+      | Method { Name = name; Fn = fn } ->
         match valueCategory with
         | LValue -> None
         | RValue ->
@@ -615,7 +615,7 @@ module rec Unify =
               Type = t }
 
           Some(name, p)
-      | Getter(name, fn) ->
+      | Getter { Name = name; Fn = fn } ->
         match valueCategory with
         | LValue -> None
         | RValue ->
@@ -631,7 +631,7 @@ module rec Unify =
               Type = t }
 
           Some(name, p)
-      | Setter(name, fn) ->
+      | Setter { Name = name; Fn = fn } ->
         match valueCategory with
         | LValue ->
           let t =
@@ -883,7 +883,7 @@ module rec Unify =
                 | TypeKind.Binary _ ->
                   { Kind = TypeKind.Primitive Primitive.Number
                     Provenance = None }
-                | TypeKind.Unary(op, _) ->
+                | TypeKind.Unary { Op = op } ->
                   match op with
                   | "+"
                   | "-" ->
@@ -908,7 +908,7 @@ module rec Unify =
 
             let! _ = bind ctx env ips t1 t
             return ()
-          | TypeKind.Unary(op, _) ->
+          | TypeKind.Unary { Op = op } ->
             let t =
               match op with
               | "+"
@@ -1156,7 +1156,7 @@ module rec Unify =
           | _ ->
             printfn "t = %A" t
             return! Error(TypeError.NotImplemented $"TODO: expand keyof {t}")
-        | TypeKind.Index(target, index) ->
+        | TypeKind.Index { Target = target; Index = index } ->
           let! target = expandType ctx env ips mapping target
           let! index = expandType ctx env ips mapping index
 
@@ -1182,7 +1182,7 @@ module rec Unify =
               for elem in elems do
                 match elem with
                 | Property p when p.Name = key -> t <- Some(p.Type)
-                | Method(name, fn) when name = key ->
+                | Method { Name = name; Fn = fn } when name = key ->
                   // TODO: replace `Self` with the object type
                   // TODO: check if the receiver is mutable or not
                   t <-
@@ -1508,12 +1508,12 @@ module rec Unify =
                   let otherType =
                     match otherElem with
                     | Property { Type = t } -> Some t
-                    | Method(_, fn) ->
+                    | Method { Fn = fn } ->
                       Some
                         { Kind = TypeKind.Function fn
                           Provenance = None }
-                    | Getter(_, fn) -> Some fn.Return
-                    | Setter(_, fn) -> None // can't spread what can't be read
+                    | Getter { Fn = fn } -> Some fn.Return
+                    | Setter { Fn = fn } -> None // can't spread what can't be read
                     | _ -> None
 
                   match otherType with
@@ -1530,10 +1530,10 @@ module rec Unify =
                 else
                   namedElemsMap <- Map.add p.Name elem namedElemsMap
               | None -> namedElemsMap <- Map.add p.Name elem namedElemsMap
-            | Getter(name, fn) ->
+            | Getter { Name = name } ->
               namedElemsMap <- Map.add name elem namedElemsMap
-            | Setter(name, fn) -> () // can't spread what can't be read
-            | Method(name, fn) ->
+            | Setter _ -> () // can't spread what can't be read
+            | Method { Name = name } ->
               namedElemsMap <- Map.add name elem namedElemsMap
             | Mapped m -> mappedElems <- elem :: mappedElems
             | _ -> ()

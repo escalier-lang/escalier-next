@@ -221,15 +221,20 @@ module Syntax =
     | Getter of Getter
     | Setter of Setter
 
+  type ObjProperty =
+    { Span: Span
+      Name: PropName
+      Value: Expr }
+
+  type ObjShorthand = { Span: Span; Name: string }
+  type ObjSpread = { Span: Span; Value: Expr }
+
+  // TODO: Add syntax for specifying callables
+  // TODO: Add support for getters, setters, and methods
   type ObjElem =
-    // TODO: Add syntax for specifying callables
-    // TODO: Add support for getters, setters, and methods
-    | Property of span: Span * name: PropName * value: Expr
-    // NOTE: using PropName here doesn't make sense because numbers aren't
-    // valid identifiers and symbols can only be reference by computed properties
-    // TODO: handle computed properties
-    | Shorthand of span: Span * name: string
-    | Spread of span: Span * value: Expr
+    | Property of ObjProperty
+    | Shorthand of ObjShorthand
+    | Spread of ObjSpread
 
   type Call =
     { Callee: Expr
@@ -497,6 +502,11 @@ module Syntax =
 
   type NamespaceDecl = { Name: string; Body: list<Decl> }
 
+  type For =
+    { Left: Pattern
+      Right: Expr
+      Body: Block }
+
   type DeclKind =
     | VarDecl of VarDecl
     | FnDecl of FnDecl
@@ -510,7 +520,7 @@ module Syntax =
 
   type StmtKind =
     | Expr of Expr
-    | For of left: Pattern * right: Expr * body: Block
+    | For of For
     | Return of option<Expr>
     | Decl of Decl
 
@@ -577,6 +587,8 @@ module Syntax =
       Param: FuncParam
       Throws: option<TypeAnn> }
 
+  type IndexType = { Target: TypeAnn; Index: TypeAnn }
+
   type ConditionType =
     { Check: TypeAnn
       Extends: TypeAnn
@@ -589,26 +601,31 @@ module Syntax =
 
   type MatchTypeCase = { Extends: TypeAnn; TrueType: TypeAnn }
 
+  type BinaryType =
+    { Left: TypeAnn
+      Op: string // TODO: Use an enum for this
+      Right: TypeAnn }
+
   type TypeAnnKind =
     | Literal of Common.Literal
-    | Keyword of keyword: KeywordTypeAnn
+    | Keyword of KeywordTypeAnn
     | Object of ObjTypeAnn
     | Tuple of Common.Tuple<TypeAnn>
-    | Array of elem: TypeAnn
+    | Array of TypeAnn
     | Range of Common.Range<TypeAnn>
-    | Union of types: list<TypeAnn>
-    | Intersection of types: list<TypeAnn>
+    | Union of list<TypeAnn>
+    | Intersection of list<TypeAnn>
     | TypeRef of TypeRef
     | Function of FuncSig
-    | Keyof of target: TypeAnn
-    | Rest of target: TypeAnn
-    | Typeof of target: Common.QualifiedIdent
-    | Index of target: TypeAnn * index: TypeAnn
+    | Keyof of TypeAnn
+    | Rest of TypeAnn
+    | Typeof of Common.QualifiedIdent
+    | Index of IndexType
     | Condition of ConditionType
     | Match of MatchType
-    | Infer of name: string
+    | Infer of string
     | Wildcard
-    | Binary of left: TypeAnn * op: string * right: TypeAnn // TODO: BinaryOp
+    | Binary of BinaryType
     | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
     | Intrinsic
 
@@ -625,9 +642,12 @@ module Syntax =
 
     override this.GetHashCode() = this.Kind.GetHashCode()
 
+  type Named = { Name: string; Alias: option<string> }
+  type ModuleAlias = { Alias: string }
+
   type ImportSpecifier =
-    | Named of name: string * alias: option<string>
-    | ModuleAlias of alias: string
+    | Named of Named
+    | ModuleAlias of ModuleAlias
 
   type Import =
     { Path: string
@@ -849,6 +869,8 @@ module Type =
 
     override this.ToString() = printFunction { Precedence = 0 } this
 
+  type Method = { Name: PropName; Fn: Function }
+
   type IndexParam =
     { Name: string
       Constraint: Type }
@@ -873,21 +895,21 @@ module Type =
   type ObjTypeElem =
     | Callable of Function
     | Constructor of Function
-    | Method of name: PropName * fn: Function
-    | Getter of name: PropName * fn: Function
-    | Setter of name: PropName * fn: Function
+    | Method of Method
+    | Getter of Method
+    | Setter of Method
     | Mapped of Mapped
     | Property of Property
     | RestSpread of Type
 
     override this.ToString() =
       match this with
-      | Callable(func) -> func.ToString()
-      | Constructor(func) -> sprintf "new %s" (func.ToString())
-      | Method(name, fn) -> $"{name} {fn}" // should be `fn name<...>(...)`
-      | Getter(name, fn) -> $"get {name} {fn}" // should be `get name(...)`
-      | Setter(name, fn) -> $"set {name} {fn}" // should be `set name(...)`
-      | Mapped(mapped) -> mapped.ToString()
+      | Callable func -> func.ToString()
+      | Constructor func -> sprintf "new %s" (func.ToString())
+      | Method { Name = name; Fn = fn } -> $"{name} {fn}" // should be `fn name<...>(...)`
+      | Getter { Name = name; Fn = fn } -> $"get {name} {fn}" // should be `get name(...)`
+      | Setter { Name = name; Fn = fn } -> $"set {name} {fn}" // should be `set name(...)`
+      | Mapped mapped -> mapped.ToString()
       | Property { Name = name
                    Optional = optional
                    Readonly = readonly
@@ -912,11 +934,17 @@ module Type =
 
     override this.ToString() = $"{this.Elem}[]"
 
+  type Index = { Target: Type; Index: Type }
+
   type Condition =
     { Check: Type
       Extends: Type
       TrueType: Type
       FalseType: Type }
+
+  type Binary = { Op: string; Left: Type; Right: Type }
+
+  type Unary = { Op: string; Arg: Type }
 
   type IntrinsicInstance =
     { Name: Common.QualifiedIdent
@@ -942,11 +970,11 @@ module Type =
     | Intersection of list<Type> // TODO: use `Set<type>`
     | KeyOf of Type
     | Typeof of Common.QualifiedIdent
-    | Index of target: Type * index: Type
+    | Index of Index
     | Condition of Condition
-    | Infer of name: string
-    | Binary of left: Type * op: string * right: Type // use TypeRef? - const folding is probably a better approach
-    | Unary of op: string * arg: Type
+    | Infer of string
+    | Binary of Binary // use TypeRef? - const folding is probably a better approach
+    | Unary of Unary
     | Wildcard
     | TemplateLiteral of Common.TemplateLiteral<Type>
     | Intrinsic
@@ -1026,7 +1054,7 @@ module Type =
     | TypeKind.Index _ -> 18
     | TypeKind.Condition _ -> 100
     | TypeKind.Infer _ -> 15 // because `keyof` is a keyword operator
-    | TypeKind.Binary(_, op, _) ->
+    | TypeKind.Binary { Op = op } ->
       match op with
       | "**" -> 13
       | "*"
@@ -1046,7 +1074,7 @@ module Type =
       | "||" -> 6
       | "&&" -> 5
       | _ -> failwith $"Invalid binary operator '{op}'"
-    | TypeKind.Unary(op, _arg) ->
+    | TypeKind.Unary { Op = op } ->
       match op with
       | "+"
       | "-"
@@ -1110,7 +1138,7 @@ module Type =
       | TypeKind.Intersection types ->
         List.map (printType ctx) types |> String.concat " & "
       | TypeKind.KeyOf t -> $"keyof {printType ctx t}"
-      | TypeKind.Index(target, index) ->
+      | TypeKind.Index { Target = target; Index = index } ->
         $"{printType ctx target}[{printType { Precedence = 0 } index}]"
       | TypeKind.Condition { Check = check
                              Extends = extends
@@ -1118,9 +1146,9 @@ module Type =
                              FalseType = falseType } ->
         $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
       | TypeKind.Infer name -> $"infer {name}"
-      | TypeKind.Binary(left, op, right) ->
+      | TypeKind.Binary { Op = op; Left = left; Right = right } ->
         $"{printType ctx left} {op} {printType ctx right}"
-      | TypeKind.Unary(op, arg) -> $"{op}{printType ctx arg}"
+      | TypeKind.Unary { Op = op; Arg = arg } -> $"{op}{printType ctx arg}"
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         let mutable output = ""
@@ -1173,9 +1201,9 @@ module Type =
             let readonly = if readonly then "readonly " else ""
             $"{readonly}{name}{optional}: {printType ctx t}"
           | Mapped mapped -> printMapped ctx mapped
-          | Method(name, fn) -> $"{name} {fn}"
-          | Getter(name, fn) -> $"get {name} {fn}"
-          | Setter(name, fn) -> $"set {name} {fn}"
+          | Method { Name = name; Fn = fn } -> $"{name} {fn}"
+          | Getter { Name = name; Fn = fn } -> $"get {name} {fn}"
+          | Setter { Name = name; Fn = fn } -> $"set {name} {fn}"
           | Callable func -> func.ToString()
           | Constructor func -> $"new {func}"
           | RestSpread t -> $"...{t}")

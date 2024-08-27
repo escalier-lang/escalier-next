@@ -35,7 +35,7 @@ module rec Prune =
 
   let simplify (t: Type) : Type =
     match t.Kind with
-    | TypeKind.Binary(left, op, right) ->
+    | TypeKind.Binary { Op = op; Left = left; Right = right } ->
       let left = prune left
       let right = prune right
 

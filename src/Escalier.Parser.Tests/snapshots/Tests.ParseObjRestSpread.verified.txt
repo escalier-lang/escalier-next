@@ -23,26 +23,29 @@ output: Ok
                           Object
                             { Elems =
                                [Property
-                                  ({ Start = (Ln: 2, Col: 16)
-                                     Stop = (Ln: 2, Col: 20) }, Ident "a",
-                                   { Kind = Literal (Number (Int 5))
-                                     Span = { Start = (Ln: 2, Col: 19)
-                                              Stop = (Ln: 2, Col: 20) }
-                                     InferredType = None });
+                                  { Span = { Start = (Ln: 2, Col: 16)
+                                             Stop = (Ln: 2, Col: 20) }
+                                    Name = Ident "a"
+                                    Value = { Kind = Literal (Number (Int 5))
+                                              Span = { Start = (Ln: 2, Col: 19)
+                                                       Stop = (Ln: 2, Col: 20) }
+                                              InferredType = None } };
                                 Property
-                                  ({ Start = (Ln: 2, Col: 22)
-                                     Stop = (Ln: 2, Col: 32) }, Ident "b",
-                                   { Kind = Literal (String "hello")
-                                     Span = { Start = (Ln: 2, Col: 25)
-                                              Stop = (Ln: 2, Col: 32) }
-                                     InferredType = None });
+                                  { Span = { Start = (Ln: 2, Col: 22)
+                                             Stop = (Ln: 2, Col: 32) }
+                                    Name = Ident "b"
+                                    Value = { Kind = Literal (String "hello")
+                                              Span = { Start = (Ln: 2, Col: 25)
+                                                       Stop = (Ln: 2, Col: 32) }
+                                              InferredType = None } };
                                 Property
-                                  ({ Start = (Ln: 2, Col: 34)
-                                     Stop = (Ln: 2, Col: 41) }, Ident "c",
-                                   { Kind = Literal (Boolean true)
-                                     Span = { Start = (Ln: 2, Col: 37)
-                                              Stop = (Ln: 2, Col: 41) }
-                                     InferredType = None })]
+                                  { Span = { Start = (Ln: 2, Col: 34)
+                                             Stop = (Ln: 2, Col: 41) }
+                                    Name = Ident "c"
+                                    Value = { Kind = Literal (Boolean true)
+                                              Span = { Start = (Ln: 2, Col: 37)
+                                                       Stop = (Ln: 2, Col: 41) }
+                                              InferredType = None } }]
                               Immutable = false }
                          Span = { Start = (Ln: 2, Col: 15)
                                   Stop = (Ln: 2, Col: 42) }

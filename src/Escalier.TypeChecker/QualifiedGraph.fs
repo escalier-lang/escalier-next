@@ -173,7 +173,7 @@ let getExports
               | None -> failwith $"Couldn't find namespace: '{name}'"
 
         | StmtKind.Expr expr -> failwith "todo"
-        | StmtKind.For(left, right, body) -> failwith "todo"
+        | StmtKind.For _ -> failwith "todo"
         | StmtKind.Return exprOption -> failwith "todo"
 
     return ns
@@ -197,17 +197,17 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
           | PropName.Symbol i -> Some(PropName.Symbol i, elem)
-        | ObjTypeElem.Method(name, fn) ->
+        | ObjTypeElem.Method { Name = name } ->
           match name with
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
           | PropName.Symbol i -> Some(PropName.Symbol i, elem)
-        | ObjTypeElem.Getter(name, fn) ->
+        | ObjTypeElem.Getter { Name = name } ->
           match name with
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
           | PropName.Symbol i -> Some(PropName.Symbol i, elem)
-        | ObjTypeElem.Setter(name, fn) ->
+        | ObjTypeElem.Setter { Name = name } ->
           match name with
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
@@ -226,17 +226,17 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
           | PropName.Symbol i -> Some(PropName.Symbol i, elem)
-        | ObjTypeElem.Method(name, fn) ->
+        | ObjTypeElem.Method { Name = name } ->
           match name with
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
           | PropName.Symbol i -> Some(PropName.Symbol i, elem)
-        | ObjTypeElem.Getter(name, fn) ->
+        | ObjTypeElem.Getter { Name = name } ->
           match name with
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
           | PropName.Symbol i -> Some(PropName.Symbol i, elem)
-        | ObjTypeElem.Setter(name, fn) ->
+        | ObjTypeElem.Setter { Name = name } ->
           match name with
           | PropName.String s -> Some(PropName.String s, elem)
           | PropName.Number n -> Some(PropName.Number n, elem)
@@ -259,7 +259,7 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
         | Some(imutValue) -> imutValue
         | None ->
           match value with
-          | ObjTypeElem.Method(name, fn) ->
+          | ObjTypeElem.Method { Name = name; Fn = fn } ->
             let self =
               match fn.Self with
               | None -> None
@@ -269,7 +269,9 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
                       Pattern =
                         Pattern.Identifier { Name = "self"; IsMut = true } }
 
-            ObjTypeElem.Method(name, { fn with Self = self })
+            ObjTypeElem.Method
+              { Name = name
+                Fn = { fn with Self = self } }
           | elem -> elem)
 
     let kind =

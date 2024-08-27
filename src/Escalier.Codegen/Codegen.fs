@@ -454,7 +454,7 @@ module rec Codegen =
         elems
         |> List.map (fun elem ->
           match elem with
-          | ObjElem.Property(span, name, value) ->
+          | ObjElem.Property { Name = name; Value = value } ->
             let value, valueStmts = buildExpr ctx value
             stmts <- stmts @ valueStmts
 
@@ -483,9 +483,8 @@ module rec Codegen =
               Value = value
               Kind = PropertyKind.Init
               Loc = None }
-          | ObjElem.Shorthand(span, name) ->
-            failwith "TODO - ObjElem.Shorthand"
-          | ObjElem.Spread(span, value) -> failwith "TODO - ObjElem.Spread")
+          | ObjElem.Shorthand _ -> failwith "TODO - ObjElem.Shorthand"
+          | ObjElem.Spread _ -> failwith "TODO - ObjElem.Spread")
 
       let obj: TS.ObjectLit = { Properties = properties; Loc = None }
 
@@ -1227,7 +1226,9 @@ module rec Codegen =
             let retStmt = Stmt.Return { Argument = Some expr; Loc = None }
             stmts @ [ retStmt ]
           | None -> [ Stmt.Return { Argument = None; Loc = None } ]
-        | StmtKind.For(left, right, body) -> failwith "TODO: buildBlock - For"
+        | StmtKind.For { Left = left
+                         Right = right
+                         Body = body } -> failwith "TODO: buildBlock - For"
 
       stmts <- stmts @ stmts'
 
@@ -1466,7 +1467,7 @@ module rec Codegen =
           |> List.map (fun spec ->
 
             match spec with
-            | ImportSpecifier.Named(name, alias) ->
+            | ImportSpecifier.Named { Name = name; Alias = alias } ->
               match alias with
               | None ->
                 let local: TS.Ident = { Name = name; Loc = None }
@@ -1486,7 +1487,7 @@ module rec Codegen =
                     IsTypeOnly = false
                     Loc = None }
 
-            | ImportSpecifier.ModuleAlias(alias) ->
+            | ImportSpecifier.ModuleAlias { Alias = alias } ->
               let local: TS.Ident = { Name = alias; Loc = None }
               TS.ImportSpecifier.Namespace { Local = local; Loc = None })
 
@@ -1722,7 +1723,7 @@ module rec Codegen =
         { Op = TsTypeOperatorOp.KeyOf
           TypeAnn = buildType ctx t
           Loc = None }
-    | TypeKind.Index(target, index) ->
+    | TypeKind.Index { Target = target; Index = index } ->
       TsType.TsIndexedAccessType
         { Readonly = false // TODO: figure out when this should be true
           ObjType = buildType ctx target
@@ -1761,7 +1762,7 @@ module rec Codegen =
     | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
     | TypeKind.UniqueNumber id -> failwith "TODO: buildType - UniqueNumber"
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
-    | TypeKind.Unary(op, arg) -> failwith "TODO: buildType - Unary"
+    | TypeKind.Unary _ -> failwith "TODO: buildType - Unary"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
     | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"
     | TypeKind.IntrinsicInstance _ ->
@@ -1769,9 +1770,9 @@ module rec Codegen =
 
   let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
     match elem with
-    | Callable(callable) -> failwith "TODO: buildObjTypeElem - Callable"
-    | Constructor(ctor) -> failwith "TODO: buildObjTypeElem - Constructor"
-    | Property(prop) ->
+    | Callable callable -> failwith "TODO: buildObjTypeElem - Callable"
+    | Constructor ctor -> failwith "TODO: buildObjTypeElem - Constructor"
+    | Property prop ->
       match prop.Name with
       | PropName.String s ->
         TsTypeElement.TsPropertySignature
@@ -1782,9 +1783,12 @@ module rec Codegen =
             TypeAnn = buildTypeAnn ctx prop.Type
             Loc = None }
       | _ -> failwith "TODO: buildObjTypeElem - Property"
-    | Method(name, fn) -> failwith "TODO: buildObjTypeElem - Method"
-    | Getter(name, fn) -> failwith "TODO: buildObjTypeElem - Getter"
-    | Setter(name, fn) -> failwith "TODO: buildObjTypeElem - Setter"
+    | Method { Name = name; Fn = fn } ->
+      failwith "TODO: buildObjTypeElem - Method"
+    | Getter { Name = name; Fn = fn } ->
+      failwith "TODO: buildObjTypeElem - Getter"
+    | Setter { Name = name; Fn = fn } ->
+      failwith "TODO: buildObjTypeElem - Setter"
     | Mapped mapped -> failwith "TODO: buildObjTypeElem - Mapped"
     | RestSpread t -> failwith "TODO: buildObjTypeElem - Rest"
 

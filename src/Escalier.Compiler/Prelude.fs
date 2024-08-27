@@ -199,7 +199,11 @@ module Prelude =
       (makeFunctionType
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+        { Kind =
+            TypeKind.Binary
+              { Op = op
+                Left = typeRefA
+                Right = typeRefB }
           Provenance = None }
         never,
        false)
@@ -208,7 +212,7 @@ module Prelude =
       (makeFunctionType
         (Some [ tpA ])
         [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary(op, typeRefA)
+        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
           Provenance = None }
         never,
        false)
@@ -217,7 +221,11 @@ module Prelude =
       (makeFunctionType
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind = TypeKind.Binary(typeRefA, op, typeRefB)
+        { Kind =
+            TypeKind.Binary
+              { Op = op
+                Left = typeRefA
+                Right = typeRefB }
           Provenance = None }
         never,
        false)
@@ -264,7 +272,7 @@ module Prelude =
       (makeFunctionType
         (Some(typeParams))
         [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary(op, typeRefA)
+        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
           Provenance = None }
         never,
        false)
@@ -299,7 +307,11 @@ module Prelude =
       (makeFunctionType
         (Some [ tpA; tpB ])
         [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind = TypeKind.Binary(typeRefA, "++", typeRefB)
+        { Kind =
+            TypeKind.Binary
+              { Op = "++"
+                Left = typeRefA
+                Right = typeRefB }
           Provenance = None }
         never,
        false)

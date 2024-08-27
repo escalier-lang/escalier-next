@@ -443,7 +443,9 @@ module rec Migrate =
       | TsType.TsIndexedAccessType { ObjType = objType
                                      IndexType = indexType
                                      Readonly = _readonly } ->
-        TypeAnnKind.Index(migrateType objType, migrateType indexType)
+        TypeAnnKind.Index
+          { Target = migrateType objType
+            Index = migrateType indexType }
       | TsType.TsMappedType { Readonly = readonly
                               TypeParam = typeParam
                               NameType = nameType
@@ -689,7 +691,9 @@ module rec Migrate =
           (fun (specifier: ImportSpecifier) ->
             match specifier with
             | ImportSpecifier.Default { Local = local } ->
-              Syntax.ImportSpecifier.Named("default", Some local.Name)
+              Syntax.ImportSpecifier.Named
+                { Name = "default"
+                  Alias = Some local.Name }
             | ImportSpecifier.Named { Local = local; Imported = imported } ->
               match imported with
               | Some imported ->
@@ -698,10 +702,13 @@ module rec Migrate =
                   | ModuleExportName.Ident id -> id.Name
                   | ModuleExportName.Str str -> str.Value
 
-                Syntax.ImportSpecifier.Named(local.Name, Some name)
-              | None -> Syntax.ImportSpecifier.Named(local.Name, None)
+                Syntax.ImportSpecifier.Named
+                  { Name = local.Name; Alias = Some name }
+              | None ->
+                Syntax.ImportSpecifier.Named
+                  { Name = local.Name; Alias = None }
             | ImportSpecifier.Namespace { Local = local } ->
-              Syntax.ImportSpecifier.ModuleAlias local.Name)
+              Syntax.ImportSpecifier.ModuleAlias { Alias = local.Name })
           specifiers
 
       [ ModuleItem.Import

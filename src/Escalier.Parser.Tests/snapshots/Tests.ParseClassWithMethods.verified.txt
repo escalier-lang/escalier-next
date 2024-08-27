@@ -57,8 +57,8 @@ output: Ok
                                                 { Start = (Ln: 4, Col: 14)
                                                   Stop = (Ln: 4, Col: 18) }
                                                InferredType = None }
-                                            TypeAnn = None
-                                            Optional = false }
+                                            Optional = false
+                                            TypeAnn = None }
                                        ParamList = []
                                        ReturnType = None
                                        Throws = None
@@ -112,8 +112,8 @@ output: Ok
                                                 { Start = (Ln: 7, Col: 14)
                                                   Stop = (Ln: 7, Col: 22) }
                                                InferredType = None }
-                                            TypeAnn = None
-                                            Optional = false }
+                                            Optional = false
+                                            TypeAnn = None }
                                        ParamList =
                                         [{ Pattern =
                                             { Kind = Ident { Name = "msg"
@@ -122,14 +122,14 @@ output: Ok
                                               Span = { Start = (Ln: 7, Col: 24)
                                                        Stop = (Ln: 7, Col: 27) }
                                               InferredType = None }
+                                           Optional = false
                                            TypeAnn =
                                             Some
                                               { Kind = Keyword String
                                                 Span =
                                                  { Start = (Ln: 7, Col: 29)
                                                    Stop = (Ln: 7, Col: 35) }
-                                                InferredType = None }
-                                           Optional = false }]
+                                                InferredType = None } }]
                                        ReturnType = None
                                        Throws = None
                                        IsAsync = false }

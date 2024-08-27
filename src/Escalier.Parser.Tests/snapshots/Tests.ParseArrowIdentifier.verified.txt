@@ -29,8 +29,8 @@ output: Ok
                                         Span = { Start = (Ln: 1, Col: 15)
                                                  Stop = (Ln: 1, Col: 16) }
                                         InferredType = None }
-                                     TypeAnn = None
-                                     Optional = false };
+                                     Optional = false
+                                     TypeAnn = None };
                                    { Pattern =
                                       { Kind = Ident { Name = "y"
                                                        IsMut = false
@@ -38,8 +38,8 @@ output: Ok
                                         Span = { Start = (Ln: 1, Col: 18)
                                                  Stop = (Ln: 1, Col: 19) }
                                         InferredType = None }
-                                     TypeAnn = None
-                                     Optional = false }]
+                                     Optional = false
+                                     TypeAnn = None }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }

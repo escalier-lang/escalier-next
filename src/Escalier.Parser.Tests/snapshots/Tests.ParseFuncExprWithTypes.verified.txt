@@ -16,11 +16,11 @@ output: Ok
                                        Span = { Start = (Ln: 1, Col: 5)
                                                 Stop = (Ln: 1, Col: 6) }
                                        InferredType = None }
+                           Optional = false
                            TypeAnn = Some { Kind = Keyword Number
                                             Span = { Start = (Ln: 1, Col: 8)
                                                      Stop = (Ln: 1, Col: 14) }
-                                            InferredType = None }
-                           Optional = false }]
+                                            InferredType = None } }]
                        ReturnType = Some { Kind = Keyword Number
                                            Span = { Start = (Ln: 1, Col: 19)
                                                     Stop = (Ln: 1, Col: 26) }

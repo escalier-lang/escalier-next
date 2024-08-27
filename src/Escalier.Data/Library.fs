@@ -147,8 +147,8 @@ module Syntax =
 
   type FuncParam =
     { Pattern: Pattern
-      TypeAnn: option<TypeAnn>
-      Optional: bool }
+      Optional: bool
+      TypeAnn: option<TypeAnn> }
 
     override this.ToString() = this.Pattern.ToString()
 
@@ -420,7 +420,7 @@ module Syntax =
 
   type IdentPat =
     { mutable Name: string
-      IsMut: bool
+      mutable IsMut: bool
       Assertion: option<Common.QualifiedIdent> }
 
   type EnumVariantPattern =

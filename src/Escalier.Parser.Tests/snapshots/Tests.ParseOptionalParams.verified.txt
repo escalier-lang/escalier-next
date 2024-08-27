@@ -31,12 +31,12 @@ output: Ok
                                         Span = { Start = (Ln: 2, Col: 18)
                                                  Stop = (Ln: 2, Col: 19) }
                                         InferredType = None }
+                                     Optional = true
                                      TypeAnn =
                                       Some { Kind = Keyword Number
                                              Span = { Start = (Ln: 2, Col: 22)
                                                       Stop = (Ln: 2, Col: 28) }
-                                             InferredType = None }
-                                     Optional = true };
+                                             InferredType = None } };
                                    { Pattern =
                                       { Kind = Ident { Name = "b"
                                                        IsMut = false
@@ -44,12 +44,12 @@ output: Ok
                                         Span = { Start = (Ln: 2, Col: 30)
                                                  Stop = (Ln: 2, Col: 31) }
                                         InferredType = None }
+                                     Optional = true
                                      TypeAnn =
                                       Some { Kind = Keyword String
                                              Span = { Start = (Ln: 2, Col: 34)
                                                       Stop = (Ln: 2, Col: 40) }
-                                             InferredType = None }
-                                     Optional = true }]
+                                             InferredType = None } }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }

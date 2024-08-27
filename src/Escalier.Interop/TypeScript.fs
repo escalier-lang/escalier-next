@@ -735,6 +735,7 @@ module rec TypeScript =
       // TODO: Decorators
       // decorators: list<Decorator>
       Pat: Pat
+      Optional: bool
       TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
 

@@ -13,6 +13,7 @@ output: Success: { Body =
                   [{ Pat = Ident { Id = { Name = "string"
                                           Loc = None }
                                    Loc = None }
+                     Optional = false
                      TypeAnn =
                       Some { TypeAnn = TsKeywordType { Kind = TsStringKeyword
                                                        Loc = None }
@@ -21,6 +22,7 @@ output: Success: { Body =
                    { Pat = Ident { Id = { Name = "radix"
                                           Loc = None }
                                    Loc = None }
+                     Optional = true
                      TypeAnn =
                       Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
                                                        Loc = None }

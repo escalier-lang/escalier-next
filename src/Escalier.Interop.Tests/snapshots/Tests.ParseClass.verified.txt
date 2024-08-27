@@ -41,6 +41,7 @@ output: Success: { Body =
                            { Pat = Ident { Id = { Name = "bar"
                                                   Loc = None }
                                            Loc = None }
+                             Optional = false
                              TypeAnn =
                               Some
                                 { TypeAnn =

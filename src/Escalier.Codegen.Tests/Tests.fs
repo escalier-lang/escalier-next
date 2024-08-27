@@ -13,7 +13,6 @@ open Escalier.Codegen.Printer
 open Escalier.Codegen.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
-open Escalier.TypeChecker.Infer
 
 type CompileError = Prelude.CompileError
 
@@ -403,18 +402,18 @@ let CodegenFunction () =
 
 // TODO(#349): Make function params that are primitive types immutable when migrating
 // the types from .d.ts files.
-// TODO(#350): Fix optional function params in functions migrated from .d.ts files.
 // TODO(#351): Update getPropType to check for properties on the Extends type of an
 // object type.
-[<Fact(Skip = "TODO")>]
+[<Fact>]
 let CodegenAsyncFunction () =
   let res =
     result {
       let src =
         """
-        let fetchJSON = async fn (url: string) {
+        let fetchJSON = async fn (mut url: string) {
           let res = await fetch(url);
-          return res.json();
+          return res;
+          // return res.json();
         };
         """
 

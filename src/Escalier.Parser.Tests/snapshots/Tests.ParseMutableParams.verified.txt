@@ -35,6 +35,7 @@ output: Ok
                                         Span = { Start = (Ln: 2, Col: 22)
                                                  Stop = (Ln: 2, Col: 31) }
                                         InferredType = None }
+                                     Optional = false
                                      TypeAnn =
                                       Some
                                         { Kind =
@@ -46,8 +47,7 @@ output: Ok
                                                InferredType = None }
                                           Span = { Start = (Ln: 2, Col: 33)
                                                    Stop = (Ln: 2, Col: 41) }
-                                          InferredType = None }
-                                     Optional = false }]
+                                          InferredType = None } }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }

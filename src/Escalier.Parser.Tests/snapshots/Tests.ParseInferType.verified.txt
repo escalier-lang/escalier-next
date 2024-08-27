@@ -35,14 +35,14 @@ output: Ok
                                            Span = { Start = (Ln: 1, Col: 32)
                                                     Stop = (Ln: 1, Col: 39) }
                                            InferredType = None }
+                                        Optional = false
                                         TypeAnn =
                                          Some
                                            { Kind = TypeRef { Ident = Ident "_"
                                                               TypeArgs = None }
                                              Span = { Start = (Ln: 1, Col: 41)
                                                       Stop = (Ln: 1, Col: 42) }
-                                             InferredType = None }
-                                        Optional = false }]
+                                             InferredType = None } }]
                                     ReturnType =
                                      Some { Kind = Infer "R"
                                             Span = { Start = (Ln: 1, Col: 47)

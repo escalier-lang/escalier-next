@@ -223,7 +223,7 @@ let ParseAndInferFuncDecl () =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      Assert.Value(env, "foo", "fn (mut x: number, mut y: string) -> boolean")
+      Assert.Value(env, "foo", "fn (x: number, y: string) -> boolean")
     }
 
   Assert.True(Result.isOk res)
@@ -257,7 +257,7 @@ let ParseAndInferClassDecl () =
       Assert.Type(
         env,
         "Foo",
-        "{bar fn (self: Self, mut x: number, mut y: string) -> boolean, baz: string, ...}"
+        "{bar fn (self: Self, x: number, y: string) -> boolean, baz: string, ...}"
       )
     }
 
@@ -291,7 +291,7 @@ let ParseAndInferClassDeclWithStatics () =
       Assert.Value(
         env,
         "Foo",
-        "{new fn () -> Foo, bar fn (mut x: number, mut y: string) -> boolean, baz: string}"
+        "{new fn () -> Foo, bar fn (x: number, y: string) -> boolean, baz: string}"
       )
 
       Assert.Type(env, "Foo", "{...}")

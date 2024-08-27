@@ -54,8 +54,8 @@ output: Ok
                                             Span = { Start = (Ln: 4, Col: 15)
                                                      Stop = (Ln: 4, Col: 19) }
                                             InferredType = None }
-                                         TypeAnn = None
-                                         Optional = false }
+                                         Optional = false
+                                         TypeAnn = None }
                                     Body =
                                      Some
                                        (Block
@@ -104,8 +104,8 @@ output: Ok
                                             Span = { Start = (Ln: 7, Col: 15)
                                                      Stop = (Ln: 7, Col: 23) }
                                             InferredType = None }
-                                         TypeAnn = None
-                                         Optional = false }
+                                         Optional = false
+                                         TypeAnn = None }
                                     Param =
                                      { Pattern =
                                         { Kind = Ident { Name = "msg"
@@ -114,13 +114,13 @@ output: Ok
                                           Span = { Start = (Ln: 7, Col: 25)
                                                    Stop = (Ln: 7, Col: 28) }
                                           InferredType = None }
+                                       Optional = false
                                        TypeAnn =
                                         Some
                                           { Kind = Keyword String
                                             Span = { Start = (Ln: 7, Col: 30)
                                                      Stop = (Ln: 7, Col: 36) }
-                                            InferredType = None }
-                                       Optional = false }
+                                            InferredType = None } }
                                     Body =
                                      Some
                                        (Block

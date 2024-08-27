@@ -713,6 +713,7 @@ module Parser =
     pipe3 pat (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
     <| fun p optional typeAnn ->
       { Pat = p
+        Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
 

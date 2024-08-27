@@ -33,12 +33,12 @@ output: Ok
                                         Span = { Start = (Ln: 2, Col: 19)
                                                  Stop = (Ln: 2, Col: 20) }
                                         InferredType = None }
+                                     Optional = false
                                      TypeAnn =
                                       Some { Kind = Keyword Number
                                              Span = { Start = (Ln: 2, Col: 22)
                                                       Stop = (Ln: 2, Col: 28) }
-                                             InferredType = None }
-                                     Optional = false }]
+                                             InferredType = None } }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }

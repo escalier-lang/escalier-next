@@ -510,7 +510,7 @@ let InferOverloadedFunctionsFromLibDOM () =
       Assert.Value(
         env,
         "scroll",
-        "fn (mut options: ScrollToOptions) -> undefined & fn (mut x: number, mut y: number) -> undefined"
+        "fn (mut options?: ScrollToOptions) -> undefined & fn (x: number, y: number) -> undefined"
       )
     }
 

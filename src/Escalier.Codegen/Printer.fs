@@ -1005,8 +1005,14 @@ module rec Printer =
         failwith "TODO: printTsFnParam - objectPat"
 
     match param.TypeAnn with
-    | Some(typeAnn) -> $"{pat}: {printTypeAnn ctx typeAnn}"
-    | None -> pat
+    | Some(typeAnn) ->
+      match param.Optional with
+      | true -> $"{pat}?: {printTypeAnn ctx typeAnn}"
+      | false -> $"{pat}: {printTypeAnn ctx typeAnn}"
+    | None ->
+      match param.Optional with
+      | true -> $"{pat}?"
+      | false -> pat
 
   let printTsTypeParam (ctx: PrintCtx) (typeParam: TsTypeParam) : string =
     let c =

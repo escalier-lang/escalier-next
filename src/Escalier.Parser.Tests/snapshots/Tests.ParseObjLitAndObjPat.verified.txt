@@ -191,14 +191,14 @@ output: Ok
                                         Span = { Start = (Ln: 5, Col: 19)
                                                  Stop = (Ln: 5, Col: 25) }
                                         InferredType = None }
+                                     Optional = false
                                      TypeAnn =
                                       Some
                                         { Kind = TypeRef { Ident = Ident "Point"
                                                            TypeArgs = None }
                                           Span = { Start = (Ln: 5, Col: 27)
                                                    Stop = (Ln: 5, Col: 32) }
-                                          InferredType = None }
-                                     Optional = false }]
+                                          InferredType = None } }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }

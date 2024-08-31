@@ -22,24 +22,24 @@ output: Ok
                                        Span = { Start = (Ln: 1, Col: 11)
                                                 Stop = (Ln: 1, Col: 12) }
                                        InferredType = None }
+                           Optional = false
                            TypeAnn = Some { Kind = TypeRef { Ident = Ident "T"
                                                              TypeArgs = None }
                                             Span = { Start = (Ln: 1, Col: 14)
                                                      Stop = (Ln: 1, Col: 15) }
-                                            InferredType = None }
-                           Optional = false };
+                                            InferredType = None } };
                          { Pattern = { Kind = Ident { Name = "y"
                                                       IsMut = false
                                                       Assertion = None }
                                        Span = { Start = (Ln: 1, Col: 17)
                                                 Stop = (Ln: 1, Col: 18) }
                                        InferredType = None }
+                           Optional = false
                            TypeAnn = Some { Kind = TypeRef { Ident = Ident "T"
                                                              TypeArgs = None }
                                             Span = { Start = (Ln: 1, Col: 20)
                                                      Stop = (Ln: 1, Col: 21) }
-                                            InferredType = None }
-                           Optional = false }]
+                                            InferredType = None } }]
                        ReturnType = Some { Kind = TypeRef { Ident = Ident "T"
                                                             TypeArgs = None }
                                            Span = { Start = (Ln: 1, Col: 26)

@@ -34,12 +34,12 @@ output: Ok
                                         Span = { Start = (Ln: 4, Col: 15)
                                                  Stop = (Ln: 4, Col: 20) }
                                         InferredType = None }
+                                     Optional = false
                                      TypeAnn =
                                       Some { Kind = Keyword String
                                              Span = { Start = (Ln: 4, Col: 22)
                                                       Stop = (Ln: 4, Col: 28) }
-                                             InferredType = None }
-                                     Optional = false }
+                                             InferredType = None } }
                                   Throws = None }]
                             Immutable = false
                             Exact = true }

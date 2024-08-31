@@ -37,8 +37,8 @@ output: Ok
                                         Span = { Start = (Ln: 2, Col: 19)
                                                  Stop = (Ln: 2, Col: 20) }
                                         InferredType = None }
-                                     TypeAnn = None
-                                     Optional = false }]
+                                     Optional = false
+                                     TypeAnn = None }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }

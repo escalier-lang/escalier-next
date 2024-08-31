@@ -16,16 +16,16 @@ output: Ok
                                        Span = { Start = (Ln: 1, Col: 5)
                                                 Stop = (Ln: 1, Col: 6) }
                                        InferredType = None }
-                           TypeAnn = None
-                           Optional = false };
+                           Optional = false
+                           TypeAnn = None };
                          { Pattern = { Kind = Ident { Name = "y"
                                                       IsMut = false
                                                       Assertion = None }
                                        Span = { Start = (Ln: 1, Col: 8)
                                                 Stop = (Ln: 1, Col: 9) }
                                        InferredType = None }
-                           TypeAnn = None
-                           Optional = false }]
+                           Optional = false
+                           TypeAnn = None }]
                        ReturnType = None
                        Throws = None
                        IsAsync = false }

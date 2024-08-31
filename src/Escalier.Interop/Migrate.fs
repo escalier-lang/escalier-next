@@ -559,6 +559,9 @@ module rec Migrate =
     let kind =
       match pat with
       | TsFnParamPat.Ident { Id = ident } ->
+        if ident.Name = "input" then
+          printfn $"input is mutable: {isMutable}"
+
         PatternKind.Ident
           { Name = ident.Name
             IsMut = isMutable
@@ -754,9 +757,28 @@ module rec Migrate =
     { Kind = kind; Span = DUMMY_SPAN }
 
   let migrateParam (param: Param) : Syntax.FuncParam =
-    { Pattern = migratePat param.Pat
-      TypeAnn = Option.map migrateTypeAnn param.TypeAnn
-      Optional = false }
+    let pat = migratePat param.Pat
+
+    let typeAnn =
+      match param.TypeAnn with
+      | Some typeAnn ->
+        let typeAnn = migrateTypeAnn typeAnn
+
+        match typeAnn.Kind with
+        | TypeAnnKind.Keyword KeywordTypeAnn.Number
+        | TypeAnnKind.Keyword KeywordTypeAnn.String
+        | TypeAnnKind.Keyword KeywordTypeAnn.Boolean ->
+          match pat.Kind with
+          | PatternKind.Ident ident -> ident.IsMut <- false
+          | _ -> ()
+        | _ -> ()
+
+        Some typeAnn
+      | None -> None
+
+    { Pattern = pat
+      TypeAnn = typeAnn
+      Optional = param.Optional }
 
   let migrateClassDecl (ctx: Ctx) (decl: ClassDecl) : Syntax.ClassDecl =
     let { Declare = declare
@@ -796,9 +818,7 @@ module rec Migrate =
                     | TsParamPropParam.Assign assignPat ->
                       Pat.Assign assignPat
 
-                  { Pat = pat
-                    TypeAnn = tsParamProp.TypeAnn
-                    Loc = tsParamProp.Loc })
+                  failwith "TODO: migrateClassDecl - TsParamProp")
 
             let fnSig: FuncSig =
               { TypeParams = None
@@ -953,13 +973,7 @@ module rec Migrate =
             (fun (tpd: TsTypeParamDecl) -> List.map migrateTypeParam tpd.Params)
             f.TypeParams
 
-        let paramList: list<FuncParam> =
-          List.map
-            (fun (p: Param) ->
-              { Pattern = migratePat p.Pat
-                TypeAnn = Option.map migrateTypeAnn p.TypeAnn
-                Optional = false })
-            f.Params
+        let paramList: list<FuncParam> = List.map migrateParam f.Params
 
         let retType =
           match f.ReturnType with

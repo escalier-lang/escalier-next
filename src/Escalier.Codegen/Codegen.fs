@@ -361,6 +361,7 @@ module rec Codegen =
             let pat, _ = buildPattern ctx p.Pattern None
 
             { Pat = pat
+              Optional = p.Optional
               TypeAnn = None
               Loc = None })
 
@@ -977,6 +978,7 @@ module rec Codegen =
         let pat, _ = buildPattern ctx p.Pattern None
 
         { Pat = pat
+          Optional = p.Optional
           TypeAnn = None
           Loc = None })
 
@@ -1124,13 +1126,14 @@ module rec Codegen =
       let maxParamCount =
         decls |> List.map (fun decl -> decl.Sig.ParamList.Length) |> List.max
 
-      let ps =
+      let ps: List<Param> =
         seq { 0 .. maxParamCount - 1 }
         |> Seq.map (fun i ->
-          { Pat =
+          { Param.Pat =
               Pat.Ident
                 { Id = { Name = $"__arg{i}__"; Loc = None }
                   Loc = None }
+            Optional = false
             TypeAnn = None
             Loc = None })
         |> List.ofSeq

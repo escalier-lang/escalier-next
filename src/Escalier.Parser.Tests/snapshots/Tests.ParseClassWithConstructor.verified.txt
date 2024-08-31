@@ -53,8 +53,8 @@ output: Ok
                                                 { Start = (Ln: 4, Col: 12)
                                                   Stop = (Ln: 4, Col: 16) }
                                                InferredType = None }
-                                            TypeAnn = None
-                                            Optional = false }
+                                            Optional = false
+                                            TypeAnn = None }
                                        ParamList =
                                         [{ Pattern =
                                             { Kind = Ident { Name = "msg"
@@ -63,14 +63,14 @@ output: Ok
                                               Span = { Start = (Ln: 4, Col: 18)
                                                        Stop = (Ln: 4, Col: 21) }
                                               InferredType = None }
+                                           Optional = false
                                            TypeAnn =
                                             Some
                                               { Kind = Keyword String
                                                 Span =
                                                  { Start = (Ln: 4, Col: 23)
                                                    Stop = (Ln: 4, Col: 29) }
-                                                InferredType = None }
-                                           Optional = false }]
+                                                InferredType = None } }]
                                        ReturnType = None
                                        Throws = None
                                        IsAsync = false }

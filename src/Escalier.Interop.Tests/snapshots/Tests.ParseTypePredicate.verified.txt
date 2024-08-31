@@ -13,6 +13,7 @@ output: Success: { Body =
                   [{ Pat = Ident { Id = { Name = "object"
                                           Loc = None }
                                    Loc = None }
+                     Optional = false
                      TypeAnn =
                       Some
                         { TypeAnn =

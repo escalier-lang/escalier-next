@@ -2158,7 +2158,7 @@ let InferAssignTupleLiteralToArrays () =
 
   Assert.False(Result.isError result)
 
-[<Fact (Skip = "TODO: treat Array<number> the same as number[]")>]
+[<Fact(Skip = "TODO: treat Array<number> the same as number[]")>]
 let InferAssignTupleLiteralToArrayGenericType () =
   let result =
     result {
@@ -2173,4 +2173,43 @@ let InferAssignTupleLiteralToArrayGenericType () =
       Assert.Empty(ctx.Report.Diagnostics)
     }
 
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "Member access on union types is not allowed")>]
+let InferMutateUnion () =
+  let result =
+    result {
+      let src =
+        """
+        declare let mut foo: { type: "a", v: number } | {type: "b", v: string };
+        foo.type = "b";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO(#363): Add support for as <ident> to pattern matching")>]
+let InferMutateUnionWithMatch () =
+  let result =
+    result {
+      let src =
+        """
+        declare let mut foo: { type: "a", v: number } | {type: "b", v: string };
+        match foo {
+          {type: "a"} as foo => foo.v = 5,
+          {type: "b"} as foo => foo.v = "hello",
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
   Assert.False(Result.isError result)

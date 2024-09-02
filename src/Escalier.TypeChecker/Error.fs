@@ -17,7 +17,7 @@ module Error =
       | NotImplemented s -> $"NotImplemented: {s}"
       | SemanticError s -> $"SemanticError: {s}"
       | NotInferred -> "NotInferred"
-      | TypeMismatch(``type``, type1) -> $"TypeMismatch: {``type``} != {type1}"
+      | TypeMismatch(t1, t2) -> $"TypeMismatch: {t1} != {t2}"
       | PropertyMissing propName -> $"Object is missing property {propName}"
       | RecursiveUnification(``type``, type1) ->
         $"RecursiveUnification: {``type``} != {type1}"

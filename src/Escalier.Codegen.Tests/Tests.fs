@@ -400,20 +400,15 @@ let CodegenFunction () =
     printfn "error = %A" error
     failwith "ParseError"
 
-// TODO(#349): Make function params that are primitive types immutable when migrating
-// the types from .d.ts files.
-// TODO(#351): Update getPropType to check for properties on the Extends type of an
-// object type.
 [<Fact>]
 let CodegenAsyncFunction () =
   let res =
     result {
       let src =
         """
-        let fetchJSON = async fn (mut url: string) {
+        let fetchJSON = async fn (url: string) {
           let res = await fetch(url);
-          return res;
-          // return res.json();
+          return res.json();
         };
         """
 

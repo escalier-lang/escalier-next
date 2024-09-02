@@ -942,7 +942,9 @@ module rec Infer =
         | ExprKind.Await(await) ->
           let! t = inferExpr ctx env None await.Value
 
-          match t.Kind with
+          match (prune t).Kind with
+          | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise"
+                               TypeArgs = Some([ t ]) } -> return t
           | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Promise"
                                TypeArgs = Some([ t; e ]) } ->
             await.Throws <- Some e

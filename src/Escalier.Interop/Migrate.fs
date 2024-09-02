@@ -129,10 +129,7 @@ module rec Migrate =
 
     self
 
-  let migrateTypeElement
-    (isMutable: bool)
-    (elem: TsTypeElement)
-    : Syntax.ObjTypeAnnElem =
+  let migrateTypeElement (elem: TsTypeElement) : Syntax.ObjTypeAnnElem =
     match elem with
     | TsCallSignatureDecl { Params = fnParams
                             TypeAnn = typeAnn
@@ -149,8 +146,8 @@ module rec Migrate =
 
       let f: FuncSig =
         { TypeParams = typeParams
-          Self = Some(makeSelfFuncParam isMutable)
-          ParamList = List.map (migrateFnParam isMutable) fnParams
+          Self = Some(makeSelfFuncParam false)
+          ParamList = List.map migrateFnParam fnParams
           ReturnType = Some retType
           Throws = None
           IsAsync = false }
@@ -169,10 +166,12 @@ module rec Migrate =
         | Some t -> migrateTypeAnn t
         | None -> failwith "all constructor signatures must have a return type"
 
+      let self = makeSelfFuncParam
+
       let f: FuncSig =
         { TypeParams = typeParams
-          Self = Some(makeSelfFuncParam isMutable)
-          ParamList = List.map (migrateFnParam isMutable) fnParams
+          Self = Some(makeSelfFuncParam false)
+          ParamList = List.map migrateFnParam fnParams
           ReturnType = Some retType
           Throws = None
           IsAsync = false }
@@ -215,8 +214,8 @@ module rec Migrate =
 
       let f: FuncSig =
         { TypeParams = typeParams
-          Self = Some(makeSelfFuncParam isMutable)
-          ParamList = List.map (migrateFnParam isMutable) fnParams
+          Self = Some(makeSelfFuncParam false)
+          ParamList = List.map migrateFnParam fnParams
           ReturnType = Some retType
           Throws = None
           IsAsync = false }
@@ -276,7 +275,7 @@ module rec Migrate =
                           Optional = _optional
                           Computed = _computed } ->
       // TODO: warn if there's a setter on a Readonly interface
-      let fnParam = migrateFnParam isMutable fnParam
+      let fnParam = migrateFnParam fnParam
 
       let undefined: Syntax.TypeAnn =
         { Kind = Syntax.Keyword KeywordTypeAnn.Undefined
@@ -336,8 +335,7 @@ module rec Migrate =
                 List.map migrateTypeParam tpd.Params)
               f.TypeParams
 
-          let paramList: list<FuncParam> =
-            List.map (migrateFnParam isMutable) f.Params
+          let paramList: list<FuncParam> = List.map migrateFnParam f.Params
 
           let fnType: FuncSig =
             { TypeParams = typeParams
@@ -356,7 +354,7 @@ module rec Migrate =
                 List.map migrateTypeParam tpd.Params)
               f.TypeParams
 
-          let paramList = List.map (migrateFnParam isMutable) f.Params
+          let paramList = List.map migrateFnParam f.Params
 
           let fnType: FuncSig =
             { TypeParams = typeParams
@@ -387,11 +385,7 @@ module rec Migrate =
 
         TypeAnnKind.Typeof name
       | TsType.TsTypeLit { Members = members } ->
-        // Assumes that all methods on object types are mutable
-        let isMutable = true
-
-        let elems: list<ObjTypeAnnElem> =
-          List.map (migrateTypeElement isMutable) members
+        let elems: list<ObjTypeAnnElem> = List.map migrateTypeElement members
 
         TypeAnnKind.Object
           { Elems = elems
@@ -524,47 +518,26 @@ module rec Migrate =
       Default = Option.map migrateType typeParam.Default
       Span = DUMMY_SPAN }
 
-  let migrateFnParam
-    (isMutable: bool)
-    (fnParam: TypeScript.TsFnParam)
-    : Syntax.FuncParam =
+  let migrateFnParam (fnParam: TypeScript.TsFnParam) : Syntax.FuncParam =
     let typeAnn =
       match fnParam.TypeAnn with
       | Some typeAnn -> Some(migrateTypeAnn typeAnn)
       | None -> failwith "all function parameters must have a type annotation"
 
-    let isMutable =
-      match typeAnn with
-      | None -> isMutable
-      | Some typeAnn ->
-        match typeAnn.Kind with
-        | TypeAnnKind.Literal _ -> false
-        | TypeAnnKind.Keyword _ -> false
-        | TypeAnnKind.Function _ -> false
-        | TypeAnnKind.Keyof _ -> false
-        | TypeAnnKind.TemplateLiteral _ -> false
-        | _ -> isMutable
-
-    { Pattern = migrateFnParamPattern isMutable fnParam.Pat
+    { Pattern = migrateFnParamPattern fnParam.Pat
       TypeAnn =
         match fnParam.TypeAnn with
         | Some typeAnn -> Some(migrateTypeAnn typeAnn)
         | None -> failwith "all function parameters must have a type annotation"
       Optional = fnParam.Optional }
 
-  let migrateFnParamPattern
-    (isMutable: bool)
-    (pat: TypeScript.TsFnParamPat)
-    : Pattern =
+  let migrateFnParamPattern (pat: TypeScript.TsFnParamPat) : Pattern =
     let kind =
       match pat with
       | TsFnParamPat.Ident { Id = ident } ->
-        if ident.Name = "input" then
-          printfn $"input is mutable: {isMutable}"
-
         PatternKind.Ident
           { Name = ident.Name
-            IsMut = isMutable
+            IsMut = false
             Assertion = None }
       | TsFnParamPat.Object { Props = props } ->
         let elems: list<ObjPatElem> =
@@ -624,12 +597,12 @@ module rec Migrate =
       | Pat.Ident { Id = ident } ->
         PatternKind.Ident
           { Name = ident.Name
-            IsMut = true
+            IsMut = false
             Assertion = None }
       | Pat.Array { Elems = elems } ->
         let elems =
           List.map
-            (fun (elem) ->
+            (fun elem ->
               match elem with
               | Some pat -> migratePat pat
               | None -> failwith "TODO: handle sparse array patterns")
@@ -1010,23 +983,9 @@ module rec Migrate =
             typeParams
 
         let isReadonly =
-          ident.Name.StartsWith "Readonly"
-          || ident.Name.EndsWith "ReadOnly"
-          || (List.contains
-            ident.Name
-            [ "Boolean"
-              "Number"
-              "String"
-              "Symbol"
-              "BigInt"
-              // TODO: Track what namespace we're inside of if any
-              // TODO: Track what node_module we're inside of it any
-              // TODO: Maintain a full qualified list of interfaces that are
-              // known to be "readonly" like `Intl.NumberFormatOptions`
-              "NumberFormat" ])
+          ident.Name.StartsWith "Readonly" || ident.Name.EndsWith "ReadOnly"
 
-        let isMutable = not isReadonly
-        let elems = List.map (migrateTypeElement isMutable) body.Body
+        let elems = List.map migrateTypeElement body.Body
 
         let extends: option<list<TypeRef>> =
           match extends with

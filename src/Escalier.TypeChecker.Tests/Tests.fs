@@ -2119,3 +2119,97 @@ let InferMappedObjectType () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGetPropertyFromExtends () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = async fn() {
+          let mut res = await fetch("https://google.com");
+          return res.json();
+        };
+        let bar = foo();
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "bar", "Promise<_>")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferAssignTupleLiteralToArrays () =
+  let result =
+    result {
+      let src =
+        """
+        let foo: number[] = [1, 2, 3];
+        let mut bar: number[] = [1, 2, 3];
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO: treat Array<number> the same as number[]")>]
+let InferAssignTupleLiteralToArrayGenericType () =
+  let result =
+    result {
+      let src =
+        """
+        let foo: Array<number> = [1, 2, 3];
+        let mut bar: Array<number> = [1, 2, 3];
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "Member access on union types is not allowed")>]
+let InferMutateUnion () =
+  let result =
+    result {
+      let src =
+        """
+        declare let mut foo: { type: "a", v: number } | {type: "b", v: string };
+        foo.type = "b";
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact(Skip = "TODO(#363): Add support for as <ident> to pattern matching")>]
+let InferMutateUnionWithMatch () =
+  let result =
+    result {
+      let src =
+        """
+        declare let mut foo: { type: "a", v: number } | {type: "b", v: string };
+        match foo {
+          {type: "a"} as foo => foo.v = 5,
+          {type: "b"} as foo => foo.v = "hello",
+        };
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)

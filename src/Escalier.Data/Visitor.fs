@@ -23,8 +23,6 @@ module rec ExprVisitor =
       | ExprKind.Identifier _ -> ()
       | ExprKind.Literal _ -> ()
       | ExprKind.Function f ->
-        printfn $"walking function, state = {state}"
-
         for p in f.Sig.ParamList do
           walkPattern visitor state p.Pattern
           Option.iter (walkTypeAnn visitor state) p.TypeAnn

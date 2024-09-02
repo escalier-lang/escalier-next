@@ -1,12 +1,11 @@
 ﻿input: 
-        let fetchJSON = async fn (mut url: string) {
+        let fetchJSON = async fn (url: string) {
           let res = await fetch(url);
-          return res;
-          // return res.json();
+          return res.json();
         };
         
 output:
 var fetchJSON = function (url) {
   var res = await fetch(url);
-  return res;
+  return res.json();
 };

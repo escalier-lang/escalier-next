@@ -2119,3 +2119,58 @@ let InferMappedObjectType () =
 
   printfn "result = %A" result
   Assert.False(Result.isError result)
+
+[<Fact>]
+let InferGetPropertyFromExtends () =
+  let result =
+    result {
+      let src =
+        """
+        let foo = async fn() {
+          let mut res = await fetch("https://google.com");
+          return res.json();
+        };
+        let bar = foo();
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Value(env, "bar", "Promise<_>")
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact>]
+let InferAssignTupleLiteralToArrays () =
+  let result =
+    result {
+      let src =
+        """
+        let foo: number[] = [1, 2, 3];
+        let mut bar: number[] = [1, 2, 3];
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)
+
+[<Fact (Skip = "TODO: treat Array<number> the same as number[]")>]
+let InferAssignTupleLiteralToArrayGenericType () =
+  let result =
+    result {
+      let src =
+        """
+        let foo: Array<number> = [1, 2, 3];
+        let mut bar: Array<number> = [1, 2, 3];
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Empty(ctx.Report.Diagnostics)
+    }
+
+  Assert.False(Result.isError result)

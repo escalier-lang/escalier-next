@@ -18,7 +18,7 @@ settings.DisableDiff()
 [<Fact>]
 let ParseArithmetic () =
   let src = "0.1 + 2 * (3 - 4) / -5.6;"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -26,7 +26,7 @@ let ParseArithmetic () =
 [<Fact>]
 let ParseString () =
   let src = """let msg = "Hello,\n\t\"world!\"";"""
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -39,7 +39,7 @@ let ParseOtherLiterals () =
     let b = null;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -47,7 +47,7 @@ let ParseOtherLiterals () =
 [<Fact>]
 let ParseTemplateLiteral () =
   let src = """let msg = `foo ${`bar ${baz}`}`;"""
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -55,7 +55,7 @@ let ParseTemplateLiteral () =
 [<Fact>]
 let ParseTaggedTemplateLiteral () =
   let src = """let foo = gql`query { hello }`;"""
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -69,7 +69,7 @@ let ParseRecursiveFunction () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -77,7 +77,7 @@ let ParseRecursiveFunction () =
 [<Fact>]
 let ParseFunctionCall () =
   let src = "add(x, y);"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -85,7 +85,7 @@ let ParseFunctionCall () =
 [<Fact>]
 let ParseFunctionCallExtraSpaces () =
   let src = "add( x , y );"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -93,7 +93,7 @@ let ParseFunctionCallExtraSpaces () =
 [<Fact>]
 let ParseEmptyCall () =
   let src = "add();"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -101,7 +101,7 @@ let ParseEmptyCall () =
 [<Fact>]
 let ParseExprWithTypeParam () =
   let src = "add<number | string>;"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -109,7 +109,7 @@ let ParseExprWithTypeParam () =
 [<Fact>]
 let ParseCallWithTypeParam () =
   let src = "add<number>();"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -117,7 +117,7 @@ let ParseCallWithTypeParam () =
 [<Fact>]
 let ParseConstructorCall () =
   let src = "new Array();"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -125,7 +125,7 @@ let ParseConstructorCall () =
 [<Fact>]
 let ParseConstructorCallWithTypeParam () =
   let src = "new Array<number>();"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -133,7 +133,7 @@ let ParseConstructorCallWithTypeParam () =
 [<Fact>]
 let ParseIndexer () =
   let src = "array[0];"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -141,7 +141,7 @@ let ParseIndexer () =
 [<Fact>]
 let ParseMultipleIndexers () =
   let src = "array[0][1];"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -149,7 +149,7 @@ let ParseMultipleIndexers () =
 [<Fact>]
 let ParseIndexerThenCall () =
   let src = "array[0]();"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -157,7 +157,7 @@ let ParseIndexerThenCall () =
 [<Fact>]
 let ParseCallThenIndexer () =
   let src = "foo()[0];"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -165,7 +165,7 @@ let ParseCallThenIndexer () =
 [<Fact>]
 let ParseObjProperty () =
   let src = "obj.a.b;"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -173,7 +173,7 @@ let ParseObjProperty () =
 [<Fact>]
 let ParseObjPropWithOptChain () =
   let src = "obj?.a?.b;"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -181,7 +181,7 @@ let ParseObjPropWithOptChain () =
 [<Fact>]
 let ParseFuncExpr () =
   let src = "fn (x, y) { x };"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -189,7 +189,7 @@ let ParseFuncExpr () =
 [<Fact>]
 let ParseFuncExprWithTypes () =
   let src = "fn (x: number) -> number throws \"RangeError\" { x };"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -197,7 +197,7 @@ let ParseFuncExprWithTypes () =
 [<Fact>]
 let ParseFuncExprWithTypeParams () =
   let src = "fn <T: Foo = Bar>(x: T) -> T { x };"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -205,7 +205,7 @@ let ParseFuncExprWithTypeParams () =
 [<Fact>]
 let ParseFuncDecl () =
   let src = "fn fst<T>(x: T, y: T) -> T { return x; }"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -213,7 +213,7 @@ let ParseFuncDecl () =
 [<Fact>]
 let ParseTuple () =
   let src = "[1, 2, 3];"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -284,7 +284,7 @@ let ParseObjLitAndObjPat () =
     let foo = fn ({x, y}: Point) => x + y;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -297,7 +297,7 @@ let ParseObjRestSpread () =
     let {a, ...rest} = obj;
   """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -309,7 +309,7 @@ let ParseOptionalProps () =
     type Obj = {a?: {b?: {c?: number}}};
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -321,7 +321,7 @@ let ParseOptionalParams () =
     let foo = fn(a?: number, b?: string) => a;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -329,7 +329,7 @@ let ParseOptionalParams () =
 [<Fact>]
 let ParseArrowIdentifier () =
   let src = "let fst = fn (x, y) => x;"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -343,7 +343,7 @@ let ParseImports () =
     import "path";
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -355,7 +355,7 @@ let ParseConditionalTypeAnn () =
     type Exclude<T, U> = if T: U { never } else { T };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -367,7 +367,7 @@ let ParseChainedConditionalTypeAnn () =
     type Foo<T> = if T: number { "number" } else if T: string { "string" } else { "other" };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -375,7 +375,7 @@ let ParseChainedConditionalTypeAnn () =
 [<Fact>]
 let ParseMappedTypes () =
   let src = """type Point = {[P]: number for P in "x" | "y"};"""
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -383,7 +383,7 @@ let ParseMappedTypes () =
 [<Fact>]
 let ParseIndexAccessTypes () =
   let src = "type Foo = Bar[\"baz\"];"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -391,7 +391,7 @@ let ParseIndexAccessTypes () =
 [<Fact>]
 let ParseNamespacedType () =
   let src = "type Foo = Intl.NumberFormat;"
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -399,7 +399,7 @@ let ParseNamespacedType () =
 [<Fact>]
 let ParseNamespacedValue () =
   let src = """let fmt = new Intl.NumberFormat("en-CA");"""
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -414,7 +414,7 @@ let ParseAsyncFunc () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -439,7 +439,7 @@ let ParseThrowAndTryCatch () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -457,7 +457,7 @@ let ParsePatternMatching () =
       };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -481,7 +481,7 @@ let ParseComplexPatternMatching () =
   // | {x: a = 0 is number, y: b = 0 is number} => 6
   // when matching something like {x?: number, y?: number}
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -497,7 +497,7 @@ let ParseEnum () =
     let value = MyEnum.Foo(5, "hello", true);
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -513,7 +513,7 @@ let ParseOptionEnum () =
     let value: Option<string> = Option.Some("hello");
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -529,7 +529,7 @@ let ParseGenericEnum () =
     }
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -545,7 +545,7 @@ let ParseEnumPatternMatching () =
     }
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -560,7 +560,7 @@ let ParseCallableType () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -576,7 +576,7 @@ let ParsePropKeysInObjectType () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -591,7 +591,7 @@ let ParseGetterSetterInObjectType () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -607,7 +607,7 @@ let ParseInexactObjectTypes () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -623,7 +623,7 @@ let ParseInexactRecordTypes () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -637,7 +637,7 @@ let ParseForLoop () =
     }
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -650,7 +650,7 @@ let ParseDeclare () =
     declare let bar: string;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -663,7 +663,7 @@ let ParseRange () =
     let range = 0..10;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -677,7 +677,7 @@ let ParseRangeIteratorType () =
       };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -689,7 +689,7 @@ let ParseSimpleRangeType () =
       type Range = Min..Max;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -701,7 +701,7 @@ let ParseRangeTypeAndQualifiedTypeRefInObject () =
       type Obj = {range: Min..Max, qual: Foo.Bar};
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -710,7 +710,7 @@ let ParseRangeTypeAndQualifiedTypeRefInObject () =
 let ParseTemplateLiteralType () =
   let src = """type TemplateLiteral = `foo${number}`;"""
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -720,7 +720,7 @@ let ParseInferType () =
   let src =
     "type ReturnType<T> = if T: fn (...args: _) -> infer R { R } else { never };"
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -734,7 +734,7 @@ let ParseRecordTuple () =
     let line = #{p0, p1};
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -751,7 +751,7 @@ let ParseMutableBindings () =
     let mut r = q;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -767,7 +767,7 @@ let ParseMutableParams () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -779,7 +779,7 @@ let ParseTypeof () =
     let iterator: typeof Symbol.iterator = Symbol.iterator;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -793,7 +793,7 @@ let ParseIfLet () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -809,7 +809,7 @@ let ParseIfLetElse () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -825,7 +825,7 @@ let ParseIfLetChaining () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -839,7 +839,7 @@ let ParseLetElse () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -853,7 +853,7 @@ let ParseBlockError () =
     }
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -873,7 +873,7 @@ let ParseClassWithMethods () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -890,7 +890,7 @@ let ParseClassWithConstructor () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -910,7 +910,7 @@ let ParseClassWithGetterSetter () =
     };
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -922,7 +922,7 @@ let ParseBasicJsx () =
     let elem = <Foo bar={bar} baz="baz">Hello, {name}</Foo>;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -934,7 +934,7 @@ let ParseNestedJsx () =
     let elem = <Foo bar={<Bar>Hello</Bar>}><Baz>world</Baz></Foo>;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -946,7 +946,7 @@ let ParseSelfClosingTag () =
     let elem = <Foo bar={baz} />;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -958,7 +958,7 @@ let ParseFragment () =
     let frag = <><Foo>Hello, world</Foo></>;
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
@@ -976,7 +976,7 @@ let ParseNamespaceInScript () =
     }
     """
 
-  let ast = Parser.parseScript src
+  let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

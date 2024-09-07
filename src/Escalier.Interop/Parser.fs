@@ -934,6 +934,14 @@ module Parser =
   let exportDecl: Parser<ExportDecl, unit> =
     decl |>> fun decl -> { Decl = decl; Loc = None }
 
+  let exportAll: Parser<ExportAll, unit> =
+    (strWs "*" >>. strWs "from" >>. str)
+    |>> fun src ->
+      { Src = src
+        IsTypeOnly = false
+        With = None
+        Loc = None }
+
   let tsExportAssignment: Parser<TsExportAssignment, unit> =
     (strWs "=" >>. expr) |>> fun expr -> { Expr = expr; Loc = None }
 
@@ -945,7 +953,8 @@ module Parser =
     pipe2
       (keyword "export")
       (choice
-        [ exportDecl |>> ModuleDecl.ExportDecl
+        [ exportAll |>> ModuleDecl.ExportAll
+          exportDecl |>> ModuleDecl.ExportDecl
           namedExport |>> ModuleDecl.ExportNamed
           tsExportAssignment |>> ModuleDecl.TsExportAssignment
           tsNamespaceExport |>> ModuleDecl.TsNamespaceExport ])

@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/escalier-lang/escalier-next#readme",
   "dependencies": {
+    "@apollo/client": "^3.11.6",
     "@bjorn3/browser_wasi_shim": "^0.2.20",
     "@extism/extism": "^1.0.2",
     "@monaco-editor/react": "^4.6.0",

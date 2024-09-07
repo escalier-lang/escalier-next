@@ -835,6 +835,33 @@ let InferHTMLProps () =
 
 
 [<Fact>]
+let InferUseQuery () =
+  let result =
+    result {
+      let src =
+        """
+        import "@apollo/client" {useQuery};
+        
+        console.log("hello");
+        """
+
+      let! ast =
+        Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Equal<Diagnostic list>(ctx.Report.Diagnostics, [])
+
+      Assert.Value(env, "useQuery", "")
+    }
+
+  printfn "result = %A" result
+  Assert.False(Result.isError result)
+
+[<Fact>]
 let InferAssignUnionToObjectProperty () =
   let result =
     result {

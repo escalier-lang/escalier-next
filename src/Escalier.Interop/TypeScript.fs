@@ -326,11 +326,11 @@ module rec TypeScript =
   [<RequireQualifiedAccess>]
   type ModuleDecl =
     | Import of ImportDecl
+    | ExportAll of ExportAll
     | ExportDecl of ExportDecl
     | ExportNamed of NamedExport
     | ExportDefaultDecl of ExportDefaultDecl
     | ExportDefaultExpr of ExportDefaultExpr
-    | ExportAll of ExportAll
     | TsImportEquals of TsImportEqualsDecl
     | TsExportAssignment of TsExportAssignment
     | TsNamespaceExport of TsNamespaceExportDecl

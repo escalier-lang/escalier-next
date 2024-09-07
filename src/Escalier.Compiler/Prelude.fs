@@ -78,11 +78,27 @@ module Prelude =
       // if it does, the first part is the module name and the second part is
       // the path to the .d.ts file within the module
 
+      // It's possible that the module name is a scoped package, in which case
+      // the module name will be the first part of the second part of the split
+      // and the second part will be the path to the .d.ts file within the module.
       let moduleName, subpath =
         match importPath.Split('/') |> List.ofArray with
         | [] -> failwith "This should never happen."
         | [ name ] -> name, None
-        | name :: path -> name, Some(String.concat "/" path)
+        | name :: path ->
+          if name.StartsWith("@") then
+            let ns = name
+
+            match path with
+            | [] -> failwith "This should never happen."
+            | [ name ] ->
+              let moduleName = String.concat "/" [ ns; name ]
+              moduleName, None
+            | name :: path ->
+              let moduleName = String.concat "/" [ ns; name ]
+              moduleName, Some(String.concat "/" path)
+          else
+            name, Some(String.concat "/" path)
 
       let rootDir = findNearestAncestorWithNodeModules projectRoot
       let nodeModulesDir = Path.Combine(rootDir, "node_modules")
@@ -112,6 +128,8 @@ module Prelude =
         | None -> failwith "Invalid package.json: missing `types` field."
         | Some value ->
           let types = value.InnerText()
+          let dir = Path.GetDirectoryName(pkgJsonPath)
+          printfn $"dir = {dir}"
           Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
       | Some value ->
         Path.Combine(Path.GetDirectoryName(pkgJsonPath), $"{value}.d.ts")
@@ -348,6 +366,20 @@ module Prelude =
 
     ns <- ns.AddBinding "globalThis" (t, false)
 
+    // TODO: add a global `gql` function that returns a typed result
+    // gql should return a TypedDocumentNode<TResult, TVariables> from
+    // https://github.com/dotansimha/graphql-typed-document-node/blob/master/packages/core/src/index.ts
+    // we don't actually care what the shape of the DocumentNode is that
+    // TypeDocumentNode<TResult, TVariable> extends.  For our purposes, it's
+    // okay if we treat DocumentNode as an opaque type.
+    //
+    // when dealing with fragments, we need to extract the TRsult from the
+    // TypedDocumentNode of the fragment and merge it with the result of the
+    // query.
+    //
+    // To start with we can manually construct TResult and TVariables and test
+    // that TypedDocumentNode and types for `useQuery` are working as expected.
+
     let mutable env =
       { Filename = "<empty>"
         Namespace = ns
@@ -374,10 +406,12 @@ module Prelude =
         )
 
       // TODO: handle <reference path="global.d.ts" /> in @types/react/index.d.ts
+      // TrustedHTML is not a valid type in TypeScript so we drop it.
       let input =
         input.Replace("__html: string | TrustedHTML;", "__html: string;")
 
       // TODO: handle <reference path="global.d.ts" /> in @types/react/index.d.ts
+      // webview is only available under React Native so we drop it.
       let input = input.Replace("webview: ", "// webview: ")
 
       let! ast =
@@ -419,6 +453,7 @@ module Prelude =
         Ctx(
           (fun ctx filename import ->
             let resolvedPath = resolvePath projectRoot filename import.Path
+            printfn "resolvedPath = %s" resolvedPath
 
             let exportNs =
               if resolvedPath.EndsWith(".d.ts") then

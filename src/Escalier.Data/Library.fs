@@ -653,12 +653,6 @@ module Syntax =
     { Path: string
       Specifiers: list<ImportSpecifier> }
 
-  type ScriptItem =
-    | Import of Import
-    | Stmt of Stmt // contains decls along with other statements
-
-  type Script = { Items: list<ScriptItem> }
-
   type ModuleItem =
     | Import of Import
     | Stmt of Stmt

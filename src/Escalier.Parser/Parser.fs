@@ -1892,13 +1892,6 @@ module Parser =
       { Stmt.Kind = StmtKind.Decl decl
         Span = span }
 
-  let private scriptItems: Parser<ScriptItem, unit> =
-    ws
-    >>. choice
-      [ import |>> ScriptItem.Import
-        declare |>> ScriptItem.Stmt
-        _stmt |>> ScriptItem.Stmt ]
-
   declRef.Value <-
     choice
       [ varDecl
@@ -1937,14 +1930,6 @@ module Parser =
   let parseTypeAnn (input: string) : Result<TypeAnn, ParserError> =
     match run typeAnn input with
     | ParserResult.Success(result, _, _) -> Result.Ok(result)
-    | ParserResult.Failure(_, error, _) -> Result.Error(error)
-
-  let script: Parser<Script, unit> =
-    (many scriptItems) .>> eof |>> fun items -> { Items = items }
-
-  let parseScript (input: string) : Result<Script, ParserError> =
-    match run script input with
-    | ParserResult.Success(m, _, _) -> Result.Ok(m)
     | ParserResult.Failure(_, error, _) -> Result.Error(error)
 
   let parseModule (input: string) : Result<Module, ParserError> =

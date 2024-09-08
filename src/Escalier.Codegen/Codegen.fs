@@ -1469,6 +1469,7 @@ module rec Codegen =
 
     for item in m.Items do
       match item with
+      | ModuleItem.Export _ -> failwith "TODO: buildModuleTypes - Export"
       | ModuleItem.Import { Path = path; Specifiers = specifiers } ->
         let specifiers =
           specifiers

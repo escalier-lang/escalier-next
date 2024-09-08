@@ -666,8 +666,11 @@ module Syntax =
     { Path: string
       Specifiers: list<ImportSpecifier> }
 
+  type Export = NamespaceExport of Identifier
+
   type ModuleItem =
     | Import of Import
+    | Export of Export
     | Stmt of Stmt
 
   type Module = { Items: list<ModuleItem> }

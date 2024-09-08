@@ -695,17 +695,17 @@ module rec Migrate =
       // The only modules that use this so far do `export {}` so the specifiers
       // is empty.
       []
-    | ModuleDecl.ExportDefaultDecl(_) ->
+    | ModuleDecl.ExportDefaultDecl _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultDecl"
-    | ModuleDecl.ExportDefaultExpr(_) ->
+    | ModuleDecl.ExportDefaultExpr _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultExpr"
-    | ModuleDecl.ExportAll(_) -> failwith "TODO: migrateModuleDecl - exportAll"
-    | ModuleDecl.TsImportEquals(_) ->
+    | ModuleDecl.ExportAll _ -> failwith "TODO: migrateModuleDecl - exportAll"
+    | ModuleDecl.TsImportEquals _ ->
       failwith "TODO: migrateModuleDecl - tsImportEquals"
-    | ModuleDecl.TsExportAssignment(_) ->
+    | ModuleDecl.TsExportAssignment _ ->
       failwith "TODO: migrateModuleDecl - tsExportAssignment"
-    | ModuleDecl.TsNamespaceExport(_) ->
-      failwith "TODO: migrateModuleDecl - tsNamespaceExport"
+    | ModuleDecl.TsNamespaceExport { Id = ident } ->
+      [ ModuleItem.Export(Export.NamespaceExport { Name = ident.Name }) ]
 
   let migrateDeclarator (declare: bool) (decl: VarDeclarator) : Syntax.Decl =
     let init =

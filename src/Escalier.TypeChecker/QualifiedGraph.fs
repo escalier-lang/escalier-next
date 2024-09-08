@@ -133,6 +133,21 @@ let getExports
         // We skip exports because we don't want to automatically re-export
         // everything.
         ()
+      | ModuleItem.Export export ->
+        // NOTE: This relies on the namespace being defined before it's exported
+        match export with
+        | NamespaceExport { Name = name } ->
+          match env.Namespace.Namespaces.TryFind name with
+          | Some value ->
+            for KeyValue(key, binding) in value.Values do
+              ns <- ns.AddBinding key binding
+
+            for KeyValue(key, scheme) in value.Schemes do
+              ns <- ns.AddScheme key scheme
+
+            for KeyValue(key, value) in value.Namespaces do
+              ns <- ns.AddNamespace key value
+          | None -> failwith $"Couldn't find namespace: '{name}'"
       | ModuleItem.Stmt stmt ->
         match stmt.Kind with
         | StmtKind.Decl decl ->

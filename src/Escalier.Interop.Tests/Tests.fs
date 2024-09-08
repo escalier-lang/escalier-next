@@ -18,8 +18,8 @@ open Escalier.TypeChecker.Env
 type Assert with
 
   static member inline Value(env: Env, name: string, expected: string) =
-    let t, _ = env.FindValue name
-    Assert.Equal(expected, t.ToString())
+    let binding = env.FindValue name
+    Assert.Equal(expected, binding.Type.ToString())
 
   static member inline Type(env: Env, name: string, expected: string) =
     let scheme = env.FindScheme name
@@ -772,7 +772,7 @@ let ImportReact () =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      let t, _ = env.FindValue "createElement"
+      let binding = env.FindValue "createElement"
 
       Assert.Type(env, "ReactElement", "React.React.ReactElement")
       Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")

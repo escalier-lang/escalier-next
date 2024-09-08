@@ -195,48 +195,62 @@ module Prelude =
           |> TypeKind.TypeRef
         Provenance = None }
 
-    let arithemtic (op: string) =
-      (makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = op
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
-        never,
-       false)
+    let arithemtic (op: string) : Binding =
+      let t =
+        makeFunctionType
+          (Some [ tpA; tpB ])
+          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+          { Kind =
+              TypeKind.Binary
+                { Op = op
+                  Left = typeRefA
+                  Right = typeRefB }
+            Provenance = None }
+          never
 
-    let unaryArithmetic (op: string) =
-      (makeFunctionType
-        (Some [ tpA ])
-        [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
-          Provenance = None }
-        never,
-       false)
+      { Type = t
+        Mutable = false
+        Export = false }
 
-    let comparison (op: string) =
-      (makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = op
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
-        never,
-       false)
+    let unaryArithmetic (op: string) : Binding =
+      let t =
+        makeFunctionType
+          (Some [ tpA ])
+          [ makeParam "arg" typeRefA ]
+          { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
+            Provenance = None }
+          never
+
+      { Type = t
+        Mutable = false
+        Export = false }
+
+    let comparison (op: string) : Binding =
+      let t =
+        makeFunctionType
+          (Some [ tpA; tpB ])
+          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+          { Kind =
+              TypeKind.Binary
+                { Op = op
+                  Left = typeRefA
+                  Right = typeRefB }
+            Provenance = None }
+          never
+
+      { Type = t
+        Mutable = false
+        Export = false }
 
     let logical =
-      (makeFunctionType
-        None
-        [ makeParam "left" boolType; makeParam "right" boolType ]
-        boolType
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            None
+            [ makeParam "left" boolType; makeParam "right" boolType ]
+            boolType
+            never
+        Mutable = false
+        Export = false }
 
     let typeRefA =
       { Kind = makeTypeRefKind (QualifiedIdent.Ident "A")
@@ -256,12 +270,14 @@ module Prelude =
 
     // TODO: figure out how to make quality polymorphic
     let equality =
-      (makeFunctionType
-        (Some(typeParams))
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        boolType
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            (Some(typeParams))
+            [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+            boolType
+            never
+        Mutable = false
+        Export = false }
 
     let typeParams: list<TypeParam> =
       [ { Name = "A"
@@ -269,13 +285,15 @@ module Prelude =
           Default = None } ]
 
     let unaryLogic (op: string) =
-      (makeFunctionType
-        (Some(typeParams))
-        [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
-          Provenance = None }
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            (Some(typeParams))
+            [ makeParam "arg" typeRefA ]
+            { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
+              Provenance = None }
+            never
+        Mutable = false
+        Export = false }
 
     let tpA =
       { Name = "A"
@@ -304,19 +322,21 @@ module Prelude =
         Provenance = None }
 
     let stringConcat =
-      (makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = "++"
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            (Some [ tpA; tpB ])
+            [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+            { Kind =
+                TypeKind.Binary
+                  { Op = "++"
+                    Left = typeRefA
+                    Right = typeRefB }
+              Provenance = None }
+            never
+        Mutable = false
+        Export = false }
 
-    let binaryOps =
+    let binaryOps: Map<string, Binding> =
       Map.ofList
         [ ("+", arithemtic "+")
           ("++", stringConcat)
@@ -346,7 +366,12 @@ module Prelude =
       { Kind = TypeKind.Keyword Keyword.GlobalThis
         Provenance = None }
 
-    ns <- ns.AddBinding "globalThis" (t, false)
+    let binding =
+      { Type = t
+        Mutable = false
+        Export = false }
+
+    ns <- ns.AddBinding "globalThis" binding
 
     let mutable env =
       { Filename = "<empty>"
@@ -484,8 +509,9 @@ module Prelude =
                 for name in bindings do
                   match scriptEnv.TryFindValue name with
                   // NOTE: exports are immutable
-                  | Some(t, isMut) ->
-                    exports <- exports.AddBinding name (t, false)
+                  | Some binding ->
+                    exports <-
+                      exports.AddBinding name { binding with Mutable = false }
                   | None -> failwith $"binding {name} not found"
 
                 for item in m.Items do

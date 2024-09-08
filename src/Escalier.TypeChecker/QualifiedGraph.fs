@@ -139,17 +139,31 @@ let getExports
           match decl.Kind with
           | DeclKind.ClassDecl classDecl ->
             failwith "TODO: getExports - classDecl"
-          | DeclKind.FnDecl { Name = name } ->
+          | DeclKind.FnDecl { Name = name; Export = export } ->
+            // TODO: check if the function was exported or not
+            // if export then
             let! t = env.GetValue name
-            let isMut = false
-            ns <- ns.AddBinding name (t, isMut)
-          | DeclKind.VarDecl { Pattern = pattern } ->
+
+            let binding =
+              { Type = t
+                Mutable = false
+                Export = export }
+
+            ns <- ns.AddBinding name binding
+          | DeclKind.VarDecl { Pattern = pattern; Export = export } ->
+            // TODO: check if the function was exported or not
+            // if export then
             let names = Helpers.findBindingNames pattern
 
             for name in names do
               let! t = env.GetValue name
-              let isMut = false
-              ns <- ns.AddBinding name (t, isMut)
+
+              let binding =
+                { Type = t
+                  Mutable = false // TODO: figure out how to determine mutability
+                  Export = export }
+
+              ns <- ns.AddBinding name binding
           // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
           | DeclKind.InterfaceDecl { Name = name } ->
             let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)

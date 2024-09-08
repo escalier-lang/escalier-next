@@ -1001,7 +1001,10 @@ module Type =
 
     override this.ToString() = printType { Precedence = 0 } this
 
-  type Binding = Type * bool
+  type Binding =
+    { Type: Type
+      Mutable: bool
+      Export: bool }
 
   type Scheme =
     { TypeParams: option<list<TypeParam>>

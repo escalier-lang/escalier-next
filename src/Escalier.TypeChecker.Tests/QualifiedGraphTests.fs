@@ -35,9 +35,21 @@ let AddBinding () =
       Provenance = None }
 
   let ident = { Parts = [ "Foo"; "Bar"; "x" ] }
-  let newEnv = Infer.addBinding env ident (t, false)
+
+  let binding =
+    { Type = t
+      Mutable = false
+      Export = false }
+
+  let newEnv = Infer.addBinding env ident binding
   let ident = { Parts = [ "Foo"; "Bar"; "y" ] }
-  let newEnv = Infer.addBinding newEnv ident (t, false)
+
+  let binding =
+    { Type = t
+      Mutable = false
+      Export = false }
+
+  let newEnv = Infer.addBinding newEnv ident binding
   // printfn $"newEnv = {newEnv}"
   ()
 

@@ -76,9 +76,12 @@ let rec generalizeType (t: Type) : Type =
 let generalizeBindings (bindings: Map<string, Binding>) : Map<string, Binding> =
   let mutable newBindings = Map.empty
 
-  for KeyValue(name, (t, isMut)) in bindings do
-    let t = generalizeType t
-    newBindings <- newBindings.Add(name, (t, isMut))
+  for KeyValue(name, binding) in bindings do
+    let binding =
+      { binding with
+          Type = generalizeType binding.Type }
+
+    newBindings <- newBindings.Add(name, binding)
 
   newBindings
 
@@ -305,8 +308,8 @@ let rec getIsMut (ctx: Ctx) (env: Env) (expr: Expr) : Result<bool, TypeError> =
   result {
     match expr.Kind with
     | ExprKind.Identifier { Name = name } ->
-      let! _, isMut = env.GetBinding name
-      return isMut
+      let! binding = env.GetBinding name
+      return binding.Mutable
     | ExprKind.Literal _ -> return false
     | ExprKind.Object _ -> return true
     | ExprKind.Tuple _ -> return true

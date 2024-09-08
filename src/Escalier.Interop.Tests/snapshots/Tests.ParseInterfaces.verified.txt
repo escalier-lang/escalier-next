@@ -12,9 +12,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsInterface
-            { Id = { Name = "Point"
-                     Loc = None }
+            { Export = false
               Declare = false
+              Id = { Name = "Point"
+                     Loc = None }
               TypeParams = None
               Extends = None
               Body =
@@ -46,9 +47,10 @@ output: Success: { Body =
     Stmt
       (Decl
          (TsInterface
-            { Id = { Name = "Array"
-                     Loc = None }
+            { Export = false
               Declare = false
+              Id = { Name = "Array"
+                     Loc = None }
               TypeParams = Some { Params = [{ Name = { Name = "T"
                                                        Loc = None }
                                               IsIn = false

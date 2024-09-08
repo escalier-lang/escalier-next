@@ -9,9 +9,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsInterface
-            { Id = { Name = "T"
-                     Loc = None }
+            { Export = false
               Declare = false
+              Id = { Name = "T"
+                     Loc = None }
               TypeParams = None
               Extends = None
               Body =

@@ -9,9 +9,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsInterface
-            { Id = { Name = "PropertyDescriptor"
-                     Loc = None }
+            { Export = false
               Declare = false
+              Id = { Name = "PropertyDescriptor"
+                     Loc = None }
               TypeParams = None
               Extends = None
               Body =

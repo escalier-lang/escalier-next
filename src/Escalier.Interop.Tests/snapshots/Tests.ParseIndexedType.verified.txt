@@ -6,7 +6,9 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Var
-            { Decls =
+            { Export = false
+              Declare = true
+              Decls =
                [{ Id = Ident { Id = { Name = "UNDEFINED_VOID_ONLY"
                                       Loc = None }
                                Loc = None }
@@ -20,12 +22,12 @@ output: Success: { Body =
                             Loc = None }
                        Loc = None }
                   Init = None }]
-              Declare = true
               Kind = Const }));
     Stmt
       (Decl
          (TsTypeAlias
-            { Declare = false
+            { Export = false
+              Declare = false
               Id = { Name = "Destructor"
                      Loc = None }
               TypeParams = None

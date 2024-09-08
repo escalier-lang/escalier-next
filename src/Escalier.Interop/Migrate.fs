@@ -690,12 +690,6 @@ module rec Migrate =
       [ ModuleItem.Import
           { Path = src.Value
             Specifiers = specifiers } ]
-    | ModuleDecl.ExportDecl { Decl = decl } ->
-      (migrateStmt ctx (Stmt.Decl decl))
-      |> List.map (fun decl ->
-        { Kind = StmtKind.Decl decl
-          Span = decl.Span })
-      |> List.map Syntax.ModuleItem.Stmt
     | ModuleDecl.ExportNamed namedExport ->
       // TODO: handle named exports with specifiers
       // The only modules that use this so far do `export {}` so the specifiers
@@ -1060,9 +1054,6 @@ module rec Migrate =
                   match item with
                   | ModuleItem.ModuleDecl decl ->
                     match decl with
-                    | ModuleDecl.ExportDecl { Decl = decl } ->
-                      migrateStmt ctx (Stmt.Decl decl)
-
                     | ModuleDecl.Import importDecl ->
                       failwith "TODO: TsModule - Import"
                     | ModuleDecl.ExportNamed namedExport ->

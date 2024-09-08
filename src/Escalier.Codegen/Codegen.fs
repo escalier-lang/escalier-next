@@ -118,14 +118,15 @@ module rec Codegen =
 
   let buildTempDecl (ctx: Ctx) (tempId: string) : TS.Stmt =
     let tempDecl =
-      { Decls =
+      { Export = false
+        Declare = false
+        Decls =
           [ { Id =
                 Pat.Ident
                   { Id = { Name = tempId; Loc = None }
                     Loc = None }
               TypeAnn = None
               Init = None } ]
-        Declare = false
         Kind = VariableDeclarationKind.Var }
 
     tempDecl |> Decl.Var |> Stmt.Decl
@@ -567,11 +568,12 @@ module rec Codegen =
               Loc = None })
 
       let decl =
-        { Decls =
+        { Export = false
+          Declare = false
+          Decls =
             [ { Id = pattern
                 TypeAnn = None
                 Init = Some targetExpr } ]
-          Declare = false
           Kind = VariableDeclarationKind.Var }
         |> Decl.Var
         |> Stmt.Decl
@@ -1007,8 +1009,9 @@ module rec Codegen =
           Loc = None }
 
       let fnDecl =
-        { FnDecl.Id = { Name = decl.Name; Loc = None }
+        { Export = false
           Declare = false
+          Id = { Name = decl.Name; Loc = None }
           Fn = func }
 
       let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
@@ -1148,8 +1151,9 @@ module rec Codegen =
           Loc = None }
 
       let fnDecl =
-        { FnDecl.Id = { Name = decls[0].Name; Loc = None }
+        { Export = false
           Declare = false
+          Id = { Name = decls[0].Name; Loc = None }
           Fn = func }
 
       let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
@@ -1194,11 +1198,12 @@ module rec Codegen =
             let initExpr, initStmts = buildExpr ctx init
 
             let decl =
-              { Decls =
+              { Export = false
+                Declare = false
+                Decls =
                   [ { Id = pattern
                       TypeAnn = None
                       Init = Some initExpr } ]
-                Declare = false
                 Kind = VariableDeclarationKind.Var }
 
             let declStmt = Stmt.Decl(Decl.Var decl)
@@ -1508,25 +1513,28 @@ module rec Codegen =
         match stmt.Kind with
         | StmtKind.Decl decl ->
           match decl.Kind with
-          | TypeDecl { Name = name; TypeAnn = typeAnn } ->
+          | TypeDecl { Name = name
+                       TypeAnn = typeAnn
+                       Export = export
+                       Declare = declare } ->
             match typeAnn.InferredType with
             | Some(typeAnn) ->
               let decl =
                 TS.Decl.TsTypeAlias
-                  { Declare = false
+                  { Export = export
+                    Declare = declare
                     Id = { Name = name; Loc = None }
                     TypeParams = None // TODO: typeParams
                     TypeAnn = buildType ctx typeAnn
                     Loc = None }
 
-              let item =
-                ModuleItem.ModuleDecl(
-                  ModuleDecl.ExportDecl { Decl = decl; Loc = None }
-                )
+              let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
               items <- item :: items
             | None -> ()
-          | VarDecl { Pattern = pattern } ->
+          | VarDecl { Pattern = pattern
+                      Export = export
+                      Declare = declare } ->
             for Operators.KeyValue(name, _) in findBindings pattern do
               let n: string = name
 
@@ -1543,16 +1551,14 @@ module rec Codegen =
                   TypeAnn = Some(buildTypeAnn ctx t)
                   Init = None }
 
-              let varDecl =
+              let decl =
                 TS.Decl.Var
-                  { Decls = [ decl ]
-                    Declare = true
+                  { Export = export
+                    Declare = declare
+                    Decls = [ decl ]
                     Kind = VariableDeclarationKind.Const }
 
-              let item =
-                ModuleItem.ModuleDecl(
-                  ModuleDecl.ExportDecl { Decl = varDecl; Loc = None }
-                )
+              let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
               items <- item :: items
           | FnDecl _ -> failwith "TODO: buildModuleTypes - FnDecl"

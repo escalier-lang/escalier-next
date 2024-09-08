@@ -223,13 +223,15 @@ module rec TypeScript =
     | TsModule of TsModuleDecl
 
   type ClassDecl =
-    { Ident: Ident
+    { Export: bool
       Declare: bool
+      Ident: Ident
       Class: Class }
 
   type FnDecl =
-    { Id: Ident
+    { Export: bool
       Declare: bool
+      Id: Ident
       Fn: Function }
 
   type VariableDeclarationKind =
@@ -238,8 +240,9 @@ module rec TypeScript =
     | Const
 
   type VarDecl =
-    { Decls: list<VarDeclarator>
+    { Export: bool
       Declare: bool
+      Decls: list<VarDeclarator>
       Kind: VariableDeclarationKind }
 
   type VarDeclarator =
@@ -253,8 +256,9 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsInterfaceDecl =
-    { Id: Ident
+    { Export: bool
       Declare: bool
+      Id: Ident
       TypeParams: option<TsTypeParamDecl>
       Extends: option<list<TsTypeRef>>
       Body: TsInterfaceBody
@@ -265,14 +269,16 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsTypeAliasDecl =
-    { Declare: bool
+    { Export: bool
+      Declare: bool
       Id: Ident
       TypeParams: option<TsTypeParamDecl>
       TypeAnn: TsType
       Loc: option<SourceLocation> }
 
   type TsEnumDecl =
-    { Declare: bool
+    { Export: bool
+      Declare: bool
       IsConst: bool
       Id: Ident
       Members: list<TsEnumMember>
@@ -288,8 +294,10 @@ module rec TypeScript =
     | Ident of Ident
     | Str of Str
 
+  // This is also used for namespaces
   type TsModuleDecl =
-    { Declare: bool
+    { Export: bool
+      Declare: bool
       Global: bool
       Id: TsModuleName
       Body: Option<TsNamespaceBody>
@@ -313,7 +321,8 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsNamespaceDecl =
-    { Declare: bool
+    { Export: bool
+      Declare: bool
       Global: bool
       Id: Ident
       Body: TsNamespaceBody }
@@ -326,7 +335,6 @@ module rec TypeScript =
   [<RequireQualifiedAccess>]
   type ModuleDecl =
     | Import of ImportDecl
-    | ExportDecl of ExportDecl
     | ExportNamed of NamedExport
     | ExportDefaultDecl of ExportDefaultDecl
     | ExportDefaultExpr of ExportDefaultExpr

@@ -8,9 +8,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsInterface
-            { Id = { Name = "HashChangeEventInit"
-                     Loc = None }
+            { Export = false
               Declare = false
+              Id = { Name = "HashChangeEventInit"
+                     Loc = None }
               TypeParams = None
               Extends = Some [{ Loc = None
                                 TypeName = Identifier { Name = "EventInit"

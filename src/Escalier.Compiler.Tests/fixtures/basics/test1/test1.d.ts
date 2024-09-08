@@ -1,3 +1,3 @@
-export declare const a;
-export declare const b;
-export declare const c;
+const a;
+const b;
+const c;

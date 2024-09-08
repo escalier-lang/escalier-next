@@ -5,7 +5,8 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsTypeAlias
-            { Declare = false
+            { Export = false
+              Declare = false
               Id = { Name = "OptionalPostfixToken"
                      Loc = None }
               TypeParams =

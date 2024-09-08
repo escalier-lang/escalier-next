@@ -2,4 +2,4 @@
         let fst = fn (a, b) => a;
         
 output:
-export declare const fst;
+const fst;

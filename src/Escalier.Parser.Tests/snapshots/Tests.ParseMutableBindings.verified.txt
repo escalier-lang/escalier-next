@@ -13,7 +13,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "Point"
+                  { Declare = false
+                    Export = false
+                    Name = "Point"
                     TypeAnn =
                      { Kind =
                         Object
@@ -51,7 +53,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "Line"
+                  { Declare = false
+                    Export = false
+                    Name = "Line"
                     TypeAnn =
                      { Kind =
                         Object
@@ -93,6 +97,7 @@ output: Ok
            Decl
              { Kind =
                 VarDecl { Declare = true
+                          Export = false
                           Pattern = { Kind = Ident { Name = "line"
                                                      IsMut = false
                                                      Assertion = None }
@@ -116,6 +121,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern =
                      { Kind =
                         Object
@@ -156,6 +162,7 @@ output: Ok
         { Kind =
            Decl
              { Kind = VarDecl { Declare = false
+                                Export = false
                                 Pattern = { Kind = Ident { Name = "r"
                                                            IsMut = true
                                                            Assertion = None }

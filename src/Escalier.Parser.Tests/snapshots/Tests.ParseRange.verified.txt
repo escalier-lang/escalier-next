@@ -9,7 +9,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "DieRoll"
+                  { Declare = false
+                    Export = false
+                    Name = "DieRoll"
                     TypeAnn =
                      { Kind = Range { Min = { Kind = Literal (Number (Int 1))
                                               Span = { Start = (Ln: 2, Col: 20)
@@ -33,6 +35,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "range"
                                                IsMut = false
                                                Assertion = None }

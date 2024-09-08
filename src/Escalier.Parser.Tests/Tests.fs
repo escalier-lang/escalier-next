@@ -1030,3 +1030,21 @@ let ParseInterfaceWithTypeParam () =
   let result = $"input: %s{src}\noutput: %A{ast}"
 
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseExports () =
+  let src =
+    """
+    export type Point = {x: number, y: number};
+    export let x = 5;
+    export let mut y = 10;
+    export fn add(a, b) {
+      return a + b;
+    }
+    let sum = add(x, y);
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask

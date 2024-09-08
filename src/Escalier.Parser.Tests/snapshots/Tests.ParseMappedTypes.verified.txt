@@ -6,7 +6,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "Point"
+                  { Declare = false
+                    Export = false
+                    Name = "Point"
                     TypeAnn =
                      { Kind =
                         Object

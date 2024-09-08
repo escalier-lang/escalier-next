@@ -713,7 +713,7 @@ module rec Migrate =
     | ModuleDecl.TsNamespaceExport(_) ->
       failwith "TODO: migrateModuleDecl - tsNamespaceExport"
 
-  let migrateDeclarator (decl: VarDeclarator) : Syntax.Decl =
+  let migrateDeclarator (declare: bool) (decl: VarDeclarator) : Syntax.Decl =
     let init =
       match decl.Init with
       | Some _expr -> failwith "TODO: variable declarator initializer"
@@ -721,7 +721,8 @@ module rec Migrate =
 
     let kind =
       DeclKind.VarDecl
-        { Declare = true
+        { Export = false // TODO
+          Declare = true // TODO
           Pattern = migratePat decl.Id
           TypeAnn = Option.map migrateTypeAnn decl.TypeAnn
           Init = init
@@ -924,7 +925,8 @@ module rec Migrate =
         TypeParams = typeParams
         Elems = elems }
 
-    { Declare = declare || ctx.Declare
+    { Export = false
+      Declare = declare || ctx.Declare
       Name = name
       Class = cls }
 
@@ -939,7 +941,9 @@ module rec Migrate =
 
         [ { Kind = DeclKind.ClassDecl decl
             Span = DUMMY_SPAN } ]
-      | Decl.Fn { Declare = _; Id = ident; Fn = f } ->
+      | Decl.Fn { Declare = declare
+                  Id = ident
+                  Fn = f } ->
 
         let typeParams =
           Option.map
@@ -963,16 +967,17 @@ module rec Migrate =
 
         let kind =
           DeclKind.FnDecl
-            { Declare = true // Some .d.ts files do `export function foo();`
+            { Export = false
+              Declare = true // Some .d.ts files do `export function foo();`
               Name = ident.Name
               Sig = fnSig
               Body = None }
 
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.Var { Declare = declare; Decls = decls } ->
-        List.map migrateDeclarator decls
+        List.map (migrateDeclarator declare) decls
       | Decl.Using _ -> failwith "TODO: migrate using"
-      | Decl.TsInterface { Declare = _declare
+      | Decl.TsInterface { Declare = declare
                            Id = ident
                            TypeParams = typeParams
                            Extends = extends
@@ -1004,14 +1009,16 @@ module rec Migrate =
           | None -> None
 
         let decl: InterfaceDecl =
-          { Name = ident.Name
+          { Export = false
+            Declare = true // TODO
+            Name = ident.Name
             TypeParams = typeParams
             Extends = extends
             Elems = elems }
 
         let kind = DeclKind.InterfaceDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
-      | Decl.TsTypeAlias { Declare = _declare
+      | Decl.TsTypeAlias { Declare = declare
                            Id = ident
                            TypeParams = typeParams
                            TypeAnn = typeAnn } ->
@@ -1022,7 +1029,9 @@ module rec Migrate =
             typeParams
 
         let decl: TypeDecl =
-          { Name = ident.Name
+          { Export = false
+            Declare = true // TODO
+            Name = ident.Name
             TypeParams = typeParams
             TypeAnn = migrateType typeAnn }
 
@@ -1076,7 +1085,13 @@ module rec Migrate =
             | TsNamespaceDecl _tsNamespaceDecl ->
               failwith "TODO: inferModuleBlock- TsNamespaceDecl"
 
-        let kind = DeclKind.NamespaceDecl { Name = name; Body = body }
+        let kind =
+          DeclKind.NamespaceDecl
+            { Export = false
+              Declare = true // TODO
+              Name = name
+              Body = body }
+
         [ { Kind = kind; Span = DUMMY_SPAN } ]
 
     | _ -> failwith "only declarations are supported for now"

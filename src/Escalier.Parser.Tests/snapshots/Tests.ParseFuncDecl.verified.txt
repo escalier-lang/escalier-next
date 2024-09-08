@@ -7,6 +7,7 @@ output: Ok
              { Kind =
                 FnDecl
                   { Declare = false
+                    Export = false
                     Name = "fst"
                     Sig =
                      { TypeParams = Some [{ Span = { Start = (Ln: 1, Col: 8)

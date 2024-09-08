@@ -12,7 +12,9 @@ output: Ok
            Decl
              { Kind =
                 EnumDecl
-                  { Name = "MyEnum"
+                  { Declare = false
+                    Export = false
+                    Name = "MyEnum"
                     TypeParams =
                      Some
                        [{ Span = { Start = (Ln: 2, Col: 17)

@@ -3436,8 +3436,7 @@ module rec Infer =
         let namespaces = List.take (List.length parts - 1) parts
         let name = List.last parts
 
-        let mutable newEnv = env
-        newEnv <- openNamespaces newEnv namespaces
+        let mutable newEnv = openNamespaces env namespaces
 
         // Strategy:
         // - separate decls into groups based on their kind
@@ -3770,7 +3769,7 @@ module rec Infer =
         | interfaceDecls ->
 
           for interfaceDecl in interfaceDecls do
-            let { Name = name
+            let { InterfaceDecl.Name = name
                   TypeParams = typeParams
                   Extends = extends
                   Elems = elems } =

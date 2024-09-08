@@ -1514,16 +1514,18 @@ module Parser =
 
   let private varDecl: Parser<Decl, unit> =
     withSpan (
-      tuple4
+      tuple5
+        (opt (keyword "export"))
         (keyword "let" >>. pattern)
         (opt (strWs ":" >>. ws >>. typeAnn))
         (strWs "=" >>. expr)
         ((opt (keyword "else" >>. block)) .>> (strWs ";"))
     )
-    |>> fun ((pat, typeAnn, init, elseClause), span) ->
+    |>> fun ((export, pat, typeAnn, init, elseClause), span) ->
       { Kind =
           DeclKind.VarDecl
-            { Declare = false
+            { Export = export.IsSome
+              Declare = false
               Pattern = pat
               Init = Some init
               TypeAnn = typeAnn
@@ -1554,15 +1556,17 @@ module Parser =
       (name, funcSig)
 
   let private fnDecl: Parser<Decl, unit> =
-    withSpan (fnDeclSig .>>. block)
-    |>> fun (((name, fnSig), body), span) ->
+    pipe5 getPosition (opt (keyword "export")) fnDeclSig block getPosition
+    <| fun start export (name, fnSig) body stop ->
       let kind =
         DeclKind.FnDecl
-          { Declare = false
+          { Export = export.IsSome
+            Declare = false
             Name = name
             Sig = fnSig
             Body = Some(BlockOrExpr.Block body) }
 
+      let span = { Start = start; Stop = stop }
       { Kind = kind; Span = span }
 
   // let private classDecl: Parser<Decl, unit> =
@@ -1572,16 +1576,18 @@ module Parser =
   let private typeDecl: Parser<Decl, unit> =
     pipe5
       getPosition
-      (keyword "type" >>. ident)
-      (opt (between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))))
+      (opt (keyword "export"))
+      (keyword "type" >>. ident .>>. (opt typeParams))
       (strWs "=" >>. typeAnn .>> (strWs ";"))
       getPosition
-    <| fun start id typeParams typeAnn stop ->
+    <| fun start export (id, typeParams) typeAnn stop ->
       let span = { Start = start; Stop = stop }
 
       { Kind =
           TypeDecl
-            { Name = id
+            { Export = export.IsSome
+              Declare = false
+              Name = id
               TypeAnn = typeAnn
               TypeParams = typeParams }
         Span = span }
@@ -1589,16 +1595,18 @@ module Parser =
   let private interfaceDecl: Parser<Decl, unit> =
     pipe5
       getPosition
-      (keyword "interface" >>. ident)
-      (opt typeParams)
+      (opt (keyword "export"))
+      (keyword "interface" >>. ident .>>. (opt typeParams))
       (between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ",")))
       getPosition
-    <| fun start name typeParams objTypeElems stop ->
+    <| fun start export (name, typeParams) objTypeElems stop ->
       let span = { Start = start; Stop = stop }
 
       { Kind =
           InterfaceDecl
-            { Name = name
+            { Export = export.IsSome
+              Declare = false
+              Name = name
               TypeParams = typeParams
               Extends = None // TODO
               Elems = objTypeElems }
@@ -1639,31 +1647,39 @@ module Parser =
   let private enumDecl: Parser<Decl, unit> =
     pipe5
       getPosition
-      (keyword "enum" >>. ident)
-      (opt (between (strWs "<") (strWs ">") (sepEndBy typeParam (strWs ","))))
+      (opt (keyword "export"))
+      (keyword "enum" >>. ident .>>. (opt typeParams))
       (between (strWs "{") (strWs "}") (many enumVariant))
       getPosition
-    <| fun start name typeParams variants stop ->
+    <| fun start export (name, typeParams) variants stop ->
 
       let span = { Start = start; Stop = stop }
 
       { Kind =
           EnumDecl
-            { Name = name
+            { Export = export.IsSome
+              Declare = false
+              Name = name
               TypeParams = typeParams
               Variants = variants }
         Span = span }
 
   let private namespaceDecl: Parser<Decl, unit> =
-    pipe4
+    pipe5
       getPosition
+      (opt (keyword "export"))
       (keyword "namespace" >>. ident)
       (between (strWs "{") (strWs "}") (many decl))
       getPosition
-    <| fun star name decls stop ->
-      let kind = NamespaceDecl { Name = name; Body = decls }
-      let span = { Start = star; Stop = stop }
+    <| fun start export name decls stop ->
+      let kind =
+        NamespaceDecl
+          { Export = export.IsSome
+            Declare = false
+            Name = name
+            Body = decls }
 
+      let span = { Start = start; Stop = stop }
       { Kind = kind; Span = span }
 
   let private forLoop =
@@ -1863,7 +1879,8 @@ module Parser =
     <| fun pattern typeAnn ->
       let kind =
         DeclKind.VarDecl
-          { Declare = true
+          { Export = false
+            Declare = true
             Pattern = pattern
             TypeAnn = Some typeAnn
             Init = None
@@ -1875,32 +1892,21 @@ module Parser =
     fnDeclSig
     |>> fun (name, fnSig) ->
       DeclKind.FnDecl
-        { Declare = true
+        { Export = false
+          Declare = true
           Name = name
           Sig = fnSig
           Body = None }
 
-  let declare: Parser<Stmt, unit> =
-    pipe3
-      getPosition
-      (keyword "declare" >>. (choice [ declareLet; declareFn ]) .>> (strWs ";"))
-      getPosition
-    <| fun start kind stop ->
-      let span = { Start = start; Stop = stop }
-      let decl: Decl = { Kind = kind; Span = span }
-
-      { Stmt.Kind = StmtKind.Decl decl
-        Span = span }
-
   declRef.Value <-
     choice
-      [ varDecl
-        fnDecl
-        // classDecl
-        typeDecl
-        interfaceDecl
-        enumDecl
-        namespaceDecl ]
+      [ attempt varDecl
+        attempt fnDecl
+        // attempt classDecl
+        attempt typeDecl
+        attempt enumDecl
+        attempt namespaceDecl
+        interfaceDecl ]
 
   let ambient: Parser<Decl, unit> =
     withSpan (

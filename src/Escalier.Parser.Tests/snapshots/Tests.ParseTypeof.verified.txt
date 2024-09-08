@@ -9,6 +9,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "iterator"
                                                IsMut = false
                                                Assertion = None }

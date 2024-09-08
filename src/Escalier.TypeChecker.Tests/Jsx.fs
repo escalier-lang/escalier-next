@@ -13,7 +13,7 @@ let InferJsx () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <div
           id="foo"
           title="bar"
@@ -34,7 +34,7 @@ let InferJsxAssignElementToReactNode () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo: React.ReactNode = <div
           id="foo"
           title="bar"
@@ -56,7 +56,7 @@ let InferJsxWithChildren () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <div>
           <p>Hello, world!</p>
         </div>;
@@ -76,7 +76,7 @@ let InferJsxWithInvalidChildren () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let point = {x: 5, y: 10};
         let foo = <div>{point}</div>;
         """
@@ -95,7 +95,7 @@ let InferJsxWithCallback () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <div
           onClick={fn (event) {
             let x = event.clientX;
@@ -121,7 +121,7 @@ let InferJsxDetectsIncorrectProps () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <div
           id={5}
           title={true}
@@ -142,7 +142,7 @@ let InferJsxWithExtraProps () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <div bar={5} baz="hello"></div>;
         """
 
@@ -195,7 +195,7 @@ let InferHandler () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
 
         let handler: React.MouseEventHandler = fn (e) {
           let x = e.clientX;
@@ -217,7 +217,7 @@ let InferFunctionalComponent () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
 
         type Props = {
           message: string,
@@ -246,7 +246,7 @@ let InferFunctionalComponentQualifiedIdent () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
 
         type Props = {
           message: string,

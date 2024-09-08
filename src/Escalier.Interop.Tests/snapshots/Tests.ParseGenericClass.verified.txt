@@ -9,9 +9,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Class
-            { Ident = { Name = "Foo"
-                        Loc = None }
+            { Export = false
               Declare = false
+              Ident = { Name = "Foo"
+                        Loc = None }
               Class =
                { TypeParams = Some { Params = [{ Name = { Name = "T"
                                                           Loc = None }

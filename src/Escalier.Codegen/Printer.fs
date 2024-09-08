@@ -483,8 +483,9 @@ module rec Printer =
         match body with
         | Some(body) -> $"function {id}({ps}) {printBlock ctx body}"
         | None -> $"function {id}({ps}) {{}}"
-      | Decl.Var { Decls = decls
+      | Decl.Var { Export = export
                    Declare = declare
+                   Decls = decls
                    Kind = kind } ->
         let decls =
           List.map
@@ -497,6 +498,7 @@ module rec Printer =
             decls
           |> String.concat ", "
 
+        let export = if export then "export " else ""
         let declare = if declare then "declare " else ""
 
         let kind =
@@ -505,11 +507,30 @@ module rec Printer =
           | VariableDeclarationKind.Let -> "let"
           | VariableDeclarationKind.Const -> "const"
 
-        $"{declare}{kind} {decls};"
+        $"{export}{declare}{kind} {decls};"
       | Decl.Class(_) -> failwith "TODO: printStmt - Class"
       | Decl.Using(_) -> failwith "TODO: printStmt - Using"
       | Decl.TsInterface(_) -> failwith "TODO: printStmt - TsInterface"
-      | Decl.TsTypeAlias(_) -> failwith "TODO: printStmt - TsTypeAlias"
+      | Decl.TsTypeAlias decl ->
+        let export = if decl.Export then "export " else ""
+        let declare = if decl.Declare then "declare " else ""
+
+        let name = decl.Id.Name
+
+        let typeParams =
+          match decl.TypeParams with
+          | Some(typeParams) ->
+            let typeParams =
+              typeParams.Params
+              |> List.map (printTsTypeParam ctx)
+              |> String.concat ", "
+
+            $"<{typeParams}>"
+          | None -> ""
+
+        let typeAnn = printType ctx decl.TypeAnn
+
+        $"{export}{declare}{name}{typeParams} = {typeAnn};"
       | Decl.TsEnum(_) -> failwith "TODO: printStmt - TsEnum"
       | Decl.TsModule(_) -> failwith "TODO: printStmt - TsModule"
     | Stmt.ForOf(_) -> failwith "TODO: printStmt - ForOf"
@@ -617,8 +638,6 @@ module rec Printer =
       match hasNamedSpecifiers with
       | true -> $"import {{{specifiers}}} from \"{source}\""
       | false -> $"import {specifiers} from \"{source}\""
-    | ModuleDecl.ExportDecl { Decl = decl; Loc = loc } ->
-      $"export {printDecl ctx decl}"
     | ModuleDecl.ExportNamed namedExport ->
       failwith "TODO: printModuleDecl - ExportNamed"
     | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->

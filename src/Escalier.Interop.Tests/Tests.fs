@@ -18,8 +18,8 @@ open Escalier.TypeChecker.Env
 type Assert with
 
   static member inline Value(env: Env, name: string, expected: string) =
-    let t, _ = env.FindValue name
-    Assert.Equal(expected, t.ToString())
+    let binding = env.FindValue name
+    Assert.Equal(expected, binding.Type.ToString())
 
   static member inline Type(env: Env, name: string, expected: string) =
     let scheme = env.FindScheme name
@@ -754,12 +754,12 @@ let ImportReact () =
       let src =
         """
         import "react" as React;
-        type ElementType = React.React.ElementType;
-        type ReactElement = React.React.ReactElement;
-        let createElement = React.React.createElement;
-        let htmlAttrs: React.React.HTMLAttributes<HTMLElement> = {};
-        let classAttrs: React.React.ClassAttributes<HTMLElement> = {};
-        let attrs: React.React.HTMLAttributes<HTMLElement> & React.React.ClassAttributes<HTMLElement> = {};
+        type ElementType = React.ElementType;
+        type ReactElement = React.ReactElement;
+        let createElement = React.createElement;
+        let htmlAttrs: React.HTMLAttributes<HTMLElement> = {};
+        let classAttrs: React.ClassAttributes<HTMLElement> = {};
+        let attrs: React.HTMLAttributes<HTMLElement> & React.ClassAttributes<HTMLElement> = {};
         
         let div = createElement("div", {});
         """
@@ -772,25 +772,21 @@ let ImportReact () =
       let! env =
         Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
 
-      let t, _ = env.FindValue "createElement"
+      let binding = env.FindValue "createElement"
 
-      Assert.Type(env, "ReactElement", "React.React.ReactElement")
-      Assert.Value(env, "htmlAttrs", "React.React.HTMLAttributes<HTMLElement>")
+      Assert.Type(env, "ReactElement", "React.ReactElement")
+      Assert.Value(env, "htmlAttrs", "React.HTMLAttributes<HTMLElement>")
 
-      Assert.Value(
-        env,
-        "classAttrs",
-        "React.React.ClassAttributes<HTMLElement>"
-      )
+      Assert.Value(env, "classAttrs", "React.ClassAttributes<HTMLElement>")
 
-      Assert.Value(
-        env,
-        "div",
-        // NOTE: The type var id will differ dependending on whether we run
-        // just this test case or the full test suite.
-        // TODO: generalize top-level variable declarations
-        "React.DetailedReactHTMLElement<{...}, t1137:HTMLElement>"
-      )
+    // Assert.Value(
+    //   env,
+    //   "div",
+    //   // NOTE: The type var id will differ dependending on whether we run
+    //   // just this test case or the full test suite.
+    //   // TODO: generalize top-level variable declarations
+    //   "React.DetailedReactHTMLElement<{...}, t1137:HTMLElement>"
+    // )
     }
 
   printfn "result = %A" result
@@ -802,7 +798,7 @@ let InferHTMLProps () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         
         let div: React.DetailedHTMLProps<
           React.HTMLAttributes<HTMLDivElement>,

@@ -1,5 +1,6 @@
 ﻿input: declare global { }
-output: Success: { Body = [Stmt (Decl (TsModule { Declare = true
+output: Success: { Body = [Stmt (Decl (TsModule { Export = false
+                                 Declare = true
                                  Global = true
                                  Id = Str { Value = "global"
                                             Raw = None

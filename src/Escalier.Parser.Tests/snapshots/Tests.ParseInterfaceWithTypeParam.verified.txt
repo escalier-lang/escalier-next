@@ -10,7 +10,9 @@ output: Ok
            Decl
              { Kind =
                 InterfaceDecl
-                  { Name = "Array"
+                  { Declare = false
+                    Export = false
+                    Name = "Array"
                     TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 21)
                                                   Stop = (Ln: 2, Col: 22) }
                                          Name = "T"

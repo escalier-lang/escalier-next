@@ -11,6 +11,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern =
                      { Kind =
                         Object

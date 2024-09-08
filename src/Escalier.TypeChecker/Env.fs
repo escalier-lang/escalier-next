@@ -248,7 +248,7 @@ module rec Env =
       { this with
           Values = Map.add name binding this.Values }
 
-    member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
+    member this.GetBinding(name: string) : Result<Binding, TypeError> =
       match this.Values |> Map.tryFind name with
       | Some(var) -> Ok var
       | None ->
@@ -335,8 +335,11 @@ module rec Env =
       let mutable newEnv = this
 
       for KeyValue(name, binding) in bindings do
-        let t, isMut = binding
-        newEnv <- newEnv.AddValue name (prune t, isMut)
+        let binding =
+          { binding with
+              Type = prune binding.Type }
+
+        newEnv <- newEnv.AddValue name binding
 
       newEnv
 
@@ -359,13 +362,13 @@ module rec Env =
 
     member this.GetBinaryOp(name: string) : Result<Type, TypeError> =
       match this.BinaryOps |> Map.tryFind name with
-      | Some(var) -> Ok(fst var)
+      | Some(var) -> Ok(var.Type)
       | None ->
         Error(TypeError.SemanticError $"Undefined binary operator {name}")
 
     member this.GetUnaryOp(name: string) : Result<Type, TypeError> =
       match this.UnaryOps |> Map.tryFind name with
-      | Some(var) -> Ok(fst var)
+      | Some(var) -> Ok(var.Type)
       | None ->
         Error(TypeError.SemanticError $"Undefined unary operator {name}")
 
@@ -374,8 +377,7 @@ module rec Env =
       match this.TryFindValue name with
       | Some(var) ->
         // TODO: check `isMut` and return an immutable type if necessary
-        let t, isMut = var
-        Ok(t)
+        Ok(var.Type)
       | None ->
         // TODO: why do we need to check if it's an integer literal?
         if isIntegerLiteral name then
@@ -402,7 +404,7 @@ module rec Env =
           return! ns.GetScheme ident
       }
 
-    member this.GetBinding(name: string) : Result<Type * bool, TypeError> =
+    member this.GetBinding(name: string) : Result<Binding, TypeError> =
       match this.Namespace.Values |> Map.tryFind name with
       | Some(var) -> Ok var
       | None ->

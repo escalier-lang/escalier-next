@@ -1,5 +1,6 @@
 namespace Escalier.Compiler
 
+open Escalier.Data.Syntax
 open FParsec.Error
 open FsToolkit.ErrorHandling
 open FSharp.Data
@@ -144,21 +145,6 @@ module Prelude =
 
     List.rev names
 
-  // TODO: dedupe with Escalier.Interop.Infer
-  let private findScriptBindingNames (m: Syntax.Module) : list<string> =
-    let mutable names: list<string> = []
-
-    for item in m.Items do
-      match item with
-      | Syntax.ModuleItem.Stmt stmt ->
-        match stmt.Kind with
-        | Syntax.StmtKind.Decl({ Kind = Syntax.DeclKind.VarDecl { Pattern = pattern } }) ->
-          names <- List.concat [ names; findBindingNames pattern ]
-        | _ -> ()
-      | _ -> ()
-
-    names
-
   let never =
     { Kind = TypeKind.Keyword Keyword.Never
       Provenance = None }
@@ -195,48 +181,62 @@ module Prelude =
           |> TypeKind.TypeRef
         Provenance = None }
 
-    let arithemtic (op: string) =
-      (makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = op
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
-        never,
-       false)
+    let arithemtic (op: string) : Binding =
+      let t =
+        makeFunctionType
+          (Some [ tpA; tpB ])
+          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+          { Kind =
+              TypeKind.Binary
+                { Op = op
+                  Left = typeRefA
+                  Right = typeRefB }
+            Provenance = None }
+          never
 
-    let unaryArithmetic (op: string) =
-      (makeFunctionType
-        (Some [ tpA ])
-        [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
-          Provenance = None }
-        never,
-       false)
+      { Type = t
+        Mutable = false
+        Export = false }
 
-    let comparison (op: string) =
-      (makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = op
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
-        never,
-       false)
+    let unaryArithmetic (op: string) : Binding =
+      let t =
+        makeFunctionType
+          (Some [ tpA ])
+          [ makeParam "arg" typeRefA ]
+          { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
+            Provenance = None }
+          never
+
+      { Type = t
+        Mutable = false
+        Export = false }
+
+    let comparison (op: string) : Binding =
+      let t =
+        makeFunctionType
+          (Some [ tpA; tpB ])
+          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+          { Kind =
+              TypeKind.Binary
+                { Op = op
+                  Left = typeRefA
+                  Right = typeRefB }
+            Provenance = None }
+          never
+
+      { Type = t
+        Mutable = false
+        Export = false }
 
     let logical =
-      (makeFunctionType
-        None
-        [ makeParam "left" boolType; makeParam "right" boolType ]
-        boolType
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            None
+            [ makeParam "left" boolType; makeParam "right" boolType ]
+            boolType
+            never
+        Mutable = false
+        Export = false }
 
     let typeRefA =
       { Kind = makeTypeRefKind (QualifiedIdent.Ident "A")
@@ -256,12 +256,14 @@ module Prelude =
 
     // TODO: figure out how to make quality polymorphic
     let equality =
-      (makeFunctionType
-        (Some(typeParams))
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        boolType
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            (Some(typeParams))
+            [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+            boolType
+            never
+        Mutable = false
+        Export = false }
 
     let typeParams: list<TypeParam> =
       [ { Name = "A"
@@ -269,13 +271,15 @@ module Prelude =
           Default = None } ]
 
     let unaryLogic (op: string) =
-      (makeFunctionType
-        (Some(typeParams))
-        [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
-          Provenance = None }
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            (Some(typeParams))
+            [ makeParam "arg" typeRefA ]
+            { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
+              Provenance = None }
+            never
+        Mutable = false
+        Export = false }
 
     let tpA =
       { Name = "A"
@@ -304,19 +308,21 @@ module Prelude =
         Provenance = None }
 
     let stringConcat =
-      (makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = "++"
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
-        never,
-       false)
+      { Type =
+          makeFunctionType
+            (Some [ tpA; tpB ])
+            [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
+            { Kind =
+                TypeKind.Binary
+                  { Op = "++"
+                    Left = typeRefA
+                    Right = typeRefB }
+              Provenance = None }
+            never
+        Mutable = false
+        Export = false }
 
-    let binaryOps =
+    let binaryOps: Map<string, Binding> =
       Map.ofList
         [ ("+", arithemtic "+")
           ("++", stringConcat)
@@ -346,7 +352,12 @@ module Prelude =
       { Kind = TypeKind.Keyword Keyword.GlobalThis
         Provenance = None }
 
-    ns <- ns.AddBinding "globalThis" (t, false)
+    let binding =
+      { Type = t
+        Mutable = false
+        Export = false }
+
+    ns <- ns.AddBinding "globalThis" binding
 
     let mutable env =
       { Filename = "<empty>"
@@ -396,6 +407,75 @@ module Prelude =
 
       return outEnv, ast
     }
+
+  let getModuleExports
+    (ctx: Ctx)
+    (env: Env)
+    (resolvedImportPath: string)
+    (m: Module)
+    =
+    let moduleEnv =
+      match Infer.inferModule ctx env m with
+      | Ok value -> value
+      | Error err ->
+        printfn "err = %A" err
+        failwith $"failed to infer {resolvedImportPath}"
+
+    let mutable exports = Namespace.empty
+
+    for item in m.Items do
+      match item with
+      | Stmt { Kind = Decl decl } ->
+        match decl.Kind with
+        | TypeDecl { Name = name; Export = export } ->
+          if export then
+            match moduleEnv.TryFindScheme name with
+            | Some(scheme) -> exports <- exports.AddScheme name scheme
+            | None -> failwith $"scheme {name} not found"
+        | VarDecl { Pattern = pattern; Export = export } ->
+          if export then
+            let names = findBindingNames pattern
+
+            for name in names do
+              match moduleEnv.TryFindValue name with
+              | Some(binding) -> exports <- exports.AddBinding name binding
+              | None -> failwith $"value {name} not found"
+        | FnDecl { Name = name; Export = export } ->
+          if export then
+            match moduleEnv.TryFindValue name with
+            | Some(binding) -> exports <- exports.AddBinding name binding
+            | None -> failwith $"value {name} not found"
+        | ClassDecl { Name = name; Export = export } ->
+          if export then
+            match moduleEnv.TryFindScheme name with
+            | Some(scheme) -> exports <- exports.AddScheme name scheme
+            | None -> failwith $"scheme {name} not found"
+
+            match moduleEnv.TryFindValue name with
+            | Some(binding) -> exports <- exports.AddBinding name binding
+            | None -> failwith $"value {name} not found"
+        | InterfaceDecl { Name = name; Export = export } ->
+          if export then
+            match moduleEnv.TryFindScheme name with
+            | Some(scheme) -> exports <- exports.AddScheme name scheme
+            | None -> failwith $"scheme {name} not found"
+        | EnumDecl { Name = name; Export = export } ->
+          if export then
+            match moduleEnv.TryFindScheme name with
+            | Some(scheme) -> exports <- exports.AddScheme name scheme
+            | None -> failwith $"scheme {name} not found"
+
+            match moduleEnv.TryFindValue name with
+            | Some(binding) -> exports <- exports.AddBinding name binding
+            | None -> failwith $"value {name} not found"
+        | NamespaceDecl { Name = name; Export = export } ->
+          if export then
+            match moduleEnv.Namespace.Namespaces.TryFind name with
+            | Some(ns) -> exports <- exports.AddNamespace name ns
+            | None -> failwith $"namespace {name} not found"
+      | _ -> ()
+
+    exports
 
   let mutable envMemoized: Env option = None
 
@@ -448,7 +528,6 @@ module Prelude =
                   cachedModules <- cachedModules.Add(resolvedPath, ns)
                   ns
               else
-                // TODO: extract into a separate function
                 let resolvedImportPath =
                   Path.ChangeExtension(
                     resolvePath projectRoot filename import.Path,
@@ -462,41 +541,11 @@ module Prelude =
                   | Ok value -> value
                   | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
-                // TODO: we should probably be using `inferModule` here
-                // TODO: update `inferScript to also return just the new symbols
-                // scriptEnv
-                let scriptEnv =
-                  let env =
-                    { getGlobalEnv () with
-                        Filename = filename }
+                let env =
+                  { getGlobalEnv () with
+                      Filename = filename }
 
-                  match Infer.inferModule ctx env m with
-                  | Ok value -> value
-                  | Error err ->
-                    printfn "err = %A" err
-                    failwith $"failed to infer {resolvedImportPath}"
-
-                // exportEnv
-                let mutable exports = Namespace.empty
-
-                let bindings = findScriptBindingNames m
-
-                for name in bindings do
-                  match scriptEnv.TryFindValue name with
-                  // NOTE: exports are immutable
-                  | Some(t, isMut) ->
-                    exports <- exports.AddBinding name (t, false)
-                  | None -> failwith $"binding {name} not found"
-
-                for item in m.Items do
-                  match item with
-                  | Syntax.ModuleItem.Stmt { Kind = Syntax.StmtKind.Decl { Kind = Syntax.DeclKind.TypeDecl { Name = name } } } ->
-                    match scriptEnv.TryFindScheme name with
-                    | Some(scheme) -> exports <- exports.AddScheme name scheme
-                    | None -> failwith $"scheme {name} not found"
-                  | _ -> ()
-
-                exports
+                getModuleExports ctx env resolvedImportPath m
 
             exportNs),
           (fun ctx filename import ->

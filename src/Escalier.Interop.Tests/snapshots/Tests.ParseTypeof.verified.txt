@@ -3,7 +3,9 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Var
-            { Decls =
+            { Export = false
+              Declare = true
+              Decls =
                [{ Id = Ident { Id = { Name = "SVGMatrix"
                                       Loc = None }
                                Loc = None }
@@ -18,7 +20,6 @@ output: Success: { Body =
                             Loc = None }
                        Loc = None }
                   Init = None }]
-              Declare = true
               Kind = Var }))]
   Shebang = None
   Loc = None }

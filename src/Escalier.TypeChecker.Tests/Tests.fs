@@ -305,7 +305,7 @@ let InferObjectRest () =
 
       let! ctx, env = inferModule src
 
-      let rest, _ = env.Namespace.Values["rest"]
+      let binding = env.Namespace.Values["rest"]
 
       Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "5")
@@ -327,7 +327,7 @@ let InferObjectRestWithTypeAnnotations () =
 
       let! ctx, env = inferModule src
 
-      let rest, _ = env.Namespace.Values["rest"]
+      let binding = env.Namespace.Values["rest"]
 
       Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "a", "number")
@@ -582,43 +582,8 @@ let InferRecursiveObjectType () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-
 [<Fact>]
 let InferRecursiveGenericObjectType () =
-  let result =
-    result {
-      let src =
-        """
-        type MyNode<T> = {
-          value: T,
-          left?: MyNode<T>,
-          right?: MyNode<T>
-        };
-
-        let node: MyNode<number> = {
-          value: 5,
-          left: {
-            value: 10
-          },
-          right: {
-            value: 15,
-            left: {
-              value: 20
-            }
-          }
-        };
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "node", "MyNode<number>")
-    }
-
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let InferRecursiveGenericObjectTypeInModule () =
   let result =
     result {
       let src =
@@ -1628,52 +1593,18 @@ let InferLetElseWithTypeAnnotation () =
   Assert.False(Result.isError result)
 
 [<Fact>]
-let InferNamespaceInScript () =
-  let result =
-    result {
-      let src =
-        """
-        namespace Foo {
-          namespace Bar {
-            let x = 5;
-          }
-          let y = Bar.x;
-          type Baz = string;
-        }
-        let x = Foo.Bar.x;
-        let y = Foo.y;
-        type Baz = Foo.Baz;
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "x", "5")
-      Assert.Value(env, "y", "5")
-      Assert.Type(env, "Baz", "Foo.Baz")
-
-      let! t =
-        expandScheme ctx env None (env.FindScheme "Baz") Map.empty None
-        |> Result.mapError CompileError.TypeError
-
-      Assert.Equal(t.ToString(), "string")
-    }
-
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let InferNamespaceInModule () =
+let InferNamespace () =
   let result =
     result {
       let src =
         """
         type Baz = Foo.Baz;
         namespace Foo {
-          namespace Bar {
-            let x = 5;
+          export namespace Bar {
+            export let x = 5;
           }
-          let y = Bar.x;
-          type Baz = string;
+          export let y = Bar.x;
+          export type Baz = string;
         }
         let x = Foo.Bar.x;
         let y = Foo.y;
@@ -1727,32 +1658,7 @@ let InferMutuallyRecursiveNamespaces () =
   Assert.False(Result.isError result)
 
 [<Fact>]
-let InferInterfaceInScript () =
-  let result =
-    result {
-      let src =
-        """
-        interface Point {
-          x: number,
-        }
-        interface Point {
-          y: number,
-        }
-        let p: Point = {x: 5, y: 10};
-        """
-
-      let! ctx, env = inferModule src
-
-      Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Type(env, "Point", "{x: number, y: number, ...}")
-      Assert.Value(env, "p", "Point")
-    }
-
-  printfn "result = %A" result
-  Assert.False(Result.isError result)
-
-[<Fact>]
-let InferInterfaceInModule () =
+let InferInterface () =
   let result =
     result {
       let src =
@@ -1861,10 +1767,10 @@ let ExpandSchemeDoesNotExpandValuesInObjectTypeWithGenerics () =
 
       let! ctx, env = inferModule src
 
-      let t, _ = env.FindValue "line"
+      let binding = env.FindValue "line"
 
       let! t =
-        expandType ctx env None Map.empty t
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(t.ToString(), "{p: Point<number>, q: Point<number>}")

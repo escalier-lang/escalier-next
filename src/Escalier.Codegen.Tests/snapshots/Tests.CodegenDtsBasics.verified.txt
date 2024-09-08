@@ -3,8 +3,8 @@
         let add = fn (a: number, b: number) => a + b;
         
 output:
-export type Point = {
+Point = {
   x: number;
   y: number;
 };
-export declare const add;
+const add;

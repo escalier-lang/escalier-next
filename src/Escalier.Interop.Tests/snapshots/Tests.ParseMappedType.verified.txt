@@ -7,7 +7,8 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsTypeAlias
-            { Declare = false
+            { Export = false
+              Declare = false
               Id = { Name = "Partial"
                      Loc = None }
               TypeParams = Some { Params = [{ Name = { Name = "T"

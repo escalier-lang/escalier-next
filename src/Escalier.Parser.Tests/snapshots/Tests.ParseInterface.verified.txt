@@ -13,7 +13,9 @@ output: Ok
            Decl
              { Kind =
                 InterfaceDecl
-                  { Name = "Point"
+                  { Declare = false
+                    Export = false
+                    Name = "Point"
                     TypeParams = None
                     Extends = None
                     Elems =
@@ -34,7 +36,9 @@ output: Ok
            Decl
              { Kind =
                 InterfaceDecl
-                  { Name = "Point"
+                  { Declare = false
+                    Export = false
+                    Name = "Point"
                     TypeParams = None
                     Extends = None
                     Elems =

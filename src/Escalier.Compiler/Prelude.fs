@@ -501,7 +501,7 @@ module Prelude =
                     printfn "err = %A" err
                     failwith $"failed to infer {resolvedImportPath}"
 
-                // exportEnv
+                // TODO: only export decls where the `Export` field is true
                 let mutable exports = Namespace.empty
 
                 let bindings = findScriptBindingNames m

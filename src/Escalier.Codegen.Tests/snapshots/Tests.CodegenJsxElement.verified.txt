@@ -1,5 +1,5 @@
 ﻿input: 
-        import "react" {React};
+        import "react" as React;
         let foo = <div id="foo" class="bar">
           <p>hello</p>
         </div>;

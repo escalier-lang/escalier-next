@@ -155,48 +155,46 @@ let getExports
           | DeclKind.ClassDecl classDecl ->
             failwith "TODO: getExports - classDecl"
           | DeclKind.FnDecl { Name = name; Export = export } ->
-            // TODO: check if the function was exported or not
-            // if export then
-            let! t = env.GetValue name
-
-            let binding =
-              { Type = t
-                Mutable = false
-                Export = export }
-
-            ns <- ns.AddBinding name binding
-          | DeclKind.VarDecl { Pattern = pattern; Export = export } ->
-            // TODO: check if the function was exported or not
-            // if export then
-            let names = Helpers.findBindingNames pattern
-
-            for name in names do
+            if export then
               let! t = env.GetValue name
 
               let binding =
                 { Type = t
-                  Mutable = false // TODO: figure out how to determine mutability
+                  Mutable = false
                   Export = export }
 
               ns <- ns.AddBinding name binding
+          | DeclKind.VarDecl { Pattern = pattern; Export = export } ->
+            if export then
+              let names = Helpers.findBindingNames pattern
+
+              for name in names do
+                let! t = env.GetValue name
+
+                let binding =
+                  { Type = t
+                    Mutable = false // TODO: figure out how to determine mutability
+                    Export = export }
+
+                ns <- ns.AddBinding name binding
           // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
-          | DeclKind.InterfaceDecl { Name = name } ->
-            let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
-
-            ns <- ns.AddScheme name scheme
-          | DeclKind.TypeDecl { Name = name } ->
-            let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
-
-            ns <- ns.AddScheme name scheme
+          | DeclKind.InterfaceDecl { Name = name; Export = export } ->
+            if export then
+              let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+              ns <- ns.AddScheme name scheme
+          | DeclKind.TypeDecl { Name = name; Export = export } ->
+            if export then
+              let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+              ns <- ns.AddScheme name scheme
           | DeclKind.EnumDecl tsEnumDecl ->
             failwith "TODO: getExports - tsEnumDecl"
-          | DeclKind.NamespaceDecl { Name = name } ->
+          | DeclKind.NamespaceDecl { Name = name; Export = export } ->
             if name = "global" then
               // TODO: figure out what we want to do with globals
               // Maybe we can add these to `env` and have `getExports` return
               // both a namespace and an updated env
               ()
-            else
+            else if export then
               match env.Namespace.Namespaces.TryFind name with
               | Some value -> ns <- ns.AddNamespace name value
               | None -> failwith $"Couldn't find namespace: '{name}'"

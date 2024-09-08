@@ -3288,7 +3288,9 @@ module rec Infer =
 
         for decl in decls do
           match decl.Kind with
-          | VarDecl { Pattern = pattern
+          | VarDecl { Export = export
+                      Declare = declare
+                      Pattern = pattern
                       Init = init
                       TypeAnn = typeAnn } ->
             // QUESTION: Should we check the type annotation as we're generating
@@ -3305,6 +3307,7 @@ module rec Infer =
             | _, _ -> ()
 
             for KeyValue(name, binding) in bindings do
+              let binding = { binding with Export = export }
               qns <- qns.AddValue (getKey ident name) binding
           | FnDecl({ Declare = declare
                      Sig = fnSig

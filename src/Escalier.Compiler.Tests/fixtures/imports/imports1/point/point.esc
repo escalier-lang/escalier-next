@@ -1,5 +1,5 @@
-type Point = {x: number, y: number};
+export type Point = {x: number, y: number};
 
-let makePoint = fn (x: number, y: number) -> Point {
+export let makePoint = fn (x: number, y: number) -> Point {
     return {x: x, y: y};
 };

@@ -454,6 +454,7 @@ module Syntax =
 
   type VarDecl =
     { Declare: bool
+      Export: bool
       Pattern: Pattern
       TypeAnn: option<TypeAnn>
       Init: option<Expr>
@@ -461,6 +462,7 @@ module Syntax =
 
   type FnDecl =
     { Declare: bool
+      Export: bool
       Name: string
       Sig: FuncSig
       Body: option<BlockOrExpr> }
@@ -471,16 +473,21 @@ module Syntax =
 
   type ClassDecl =
     { Declare: bool
+      Export: bool
       Name: string
       Class: Class }
 
   type TypeDecl =
-    { Name: string
+    { Declare: bool
+      Export: bool
+      Name: string
       TypeAnn: TypeAnn
       TypeParams: option<list<TypeParam>> }
 
   type InterfaceDecl =
-    { Name: string
+    { Declare: bool
+      Export: bool
+      Name: string
       TypeParams: option<list<TypeParam>>
       Extends: option<list<TypeRef>>
       Elems: list<ObjTypeAnnElem> }
@@ -496,11 +503,17 @@ module Syntax =
       Span: Span }
 
   type EnumDecl =
-    { Name: string
+    { Declare: bool
+      Export: bool
+      Name: string
       TypeParams: option<list<TypeParam>>
       Variants: list<EnumVariant> }
 
-  type NamespaceDecl = { Name: string; Body: list<Decl> }
+  type NamespaceDecl =
+    { Declare: bool
+      Export: bool
+      Name: string
+      Body: list<Decl> }
 
   type For =
     { Left: Pattern
@@ -653,14 +666,11 @@ module Syntax =
     { Path: string
       Specifiers: list<ImportSpecifier> }
 
-  type ScriptItem =
-    | Import of Import
-    | Stmt of Stmt // contains decls along with other statements
-
-  type Script = { Items: list<ScriptItem> }
+  type Export = NamespaceExport of Identifier
 
   type ModuleItem =
     | Import of Import
+    | Export of Export
     | Stmt of Stmt
 
   type Module = { Items: list<ModuleItem> }
@@ -994,7 +1004,10 @@ module Type =
 
     override this.ToString() = printType { Precedence = 0 } this
 
-  type Binding = Type * bool
+  type Binding =
+    { Type: Type
+      Mutable: bool
+      Export: bool }
 
   type Scheme =
     { TypeParams: option<list<TypeParam>>

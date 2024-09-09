@@ -14,15 +14,20 @@ output: Ok
            Decl
              { Kind =
                 NamespaceDecl
-                  { Name = "Foo"
+                  { Declare = false
+                    Export = false
+                    Name = "Foo"
                     Body =
                      [{ Kind =
                          NamespaceDecl
-                           { Name = "Bar"
+                           { Declare = false
+                             Export = false
+                             Name = "Bar"
                              Body =
                               [{ Kind =
                                   VarDecl
                                     { Declare = false
+                                      Export = false
                                       Pattern =
                                        { Kind = Ident { Name = "x"
                                                         IsMut = false
@@ -44,6 +49,7 @@ output: Ok
                       { Kind =
                          VarDecl
                            { Declare = false
+                             Export = false
                              Pattern = { Kind = Ident { Name = "y"
                                                         IsMut = false
                                                         Assertion = None }
@@ -60,7 +66,9 @@ output: Ok
                                  Stop = (Ln: 7, Col: 7) } };
                       { Kind =
                          TypeDecl
-                           { Name = "Baz"
+                           { Declare = false
+                             Export = false
+                             Name = "Baz"
                              TypeAnn = { Kind = Keyword Number
                                          Span = { Start = (Ln: 7, Col: 18)
                                                   Stop = (Ln: 7, Col: 24) }

@@ -5,9 +5,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Fn
-            { Id = { Name = "parseInt"
-                     Loc = None }
+            { Export = false
               Declare = true
+              Id = { Name = "parseInt"
+                     Loc = None }
               Fn =
                { Params =
                   [{ Pat = Ident { Id = { Name = "string"

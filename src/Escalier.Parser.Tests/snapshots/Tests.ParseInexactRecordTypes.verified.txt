@@ -12,7 +12,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "Rec"
+                  { Declare = false
+                    Export = false
+                    Name = "Rec"
                     TypeAnn =
                      { Kind =
                         Object

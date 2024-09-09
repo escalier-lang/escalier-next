@@ -8,7 +8,9 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Var
-            { Decls =
+            { Export = false
+              Declare = true
+              Decls =
                [{ Id = Ident { Id = { Name = "a"
                                       Loc = None }
                                Loc = None }
@@ -21,12 +23,13 @@ output: Success: { Body =
                                     TypeParams = None }
                        Loc = None }
                   Init = None }]
-              Declare = true
               Kind = Var }));
     Stmt
       (Decl
          (Var
-            { Decls =
+            { Export = false
+              Declare = true
+              Decls =
                [{ Id = Ident { Id = { Name = "b"
                                       Loc = None }
                                Loc = None }
@@ -43,12 +46,13 @@ output: Success: { Body =
                             TypeParams = None }
                        Loc = None }
                   Init = None }]
-              Declare = true
               Kind = Var }));
     Stmt
       (Decl
          (Var
-            { Decls =
+            { Export = false
+              Declare = true
+              Decls =
                [{ Id = Ident { Id = { Name = "c"
                                       Loc = None }
                                Loc = None }
@@ -57,12 +61,13 @@ output: Success: { Body =
                                                     Loc = None }
                           Loc = None }
                   Init = None }]
-              Declare = true
               Kind = Var }));
     Stmt
       (Decl
          (Var
-            { Decls =
+            { Export = false
+              Declare = true
+              Decls =
                [{ Id = Ident { Id = { Name = "d"
                                       Loc = None }
                                Loc = None }
@@ -79,7 +84,6 @@ output: Success: { Body =
                                Loc = None })
                        Loc = None }
                   Init = None }]
-              Declare = true
               Kind = Var }))]
   Shebang = None
   Loc = None }

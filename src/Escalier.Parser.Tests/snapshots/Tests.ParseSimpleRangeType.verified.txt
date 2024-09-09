@@ -8,7 +8,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "Range"
+                  { Declare = false
+                    Export = false
+                    Name = "Range"
                     TypeAnn =
                      { Kind =
                         Range { Min = { Kind = TypeRef { Ident = Ident "Min"

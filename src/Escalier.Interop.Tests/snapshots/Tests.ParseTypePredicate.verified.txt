@@ -5,9 +5,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Fn
-            { Id = { Name = "isValidElement"
-                     Loc = None }
+            { Export = false
               Declare = false
+              Id = { Name = "isValidElement"
+                     Loc = None }
               Fn =
                { Params =
                   [{ Pat = Ident { Id = { Name = "object"

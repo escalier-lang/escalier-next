@@ -366,7 +366,12 @@ module rec Infer =
 
       // TODO: Make Type.Kind mutable so that we can modify the type after its
       // been created.
-      newEnv <- newEnv.AddValue "Self" (staticObjType, false)
+      newEnv <-
+        newEnv.AddValue
+          "Self"
+          { Type = staticObjType
+            Mutable = false
+            Export = false }
 
       // Infer the bodies of each instance method body
       for elem, fnSig, body in instanceMethods do
@@ -1076,10 +1081,10 @@ module rec Infer =
           // TODO: handle update assign operations
           let! rightType = inferExpr ctx env None right
 
-          let! t, isMut = getLvalue ctx env left
+          let! binding = getLvalue ctx env left
 
-          if isMut then
-            do! unify ctx env None rightType t
+          if binding.Mutable then
+            do! unify ctx env None rightType binding.Type
           else
             return!
               Error(TypeError.SemanticError "Can't assign to immutable binding")
@@ -1472,7 +1477,12 @@ module rec Infer =
       | Some { Pattern = pattern; Type = t } ->
         match pattern with
         | Pattern.Identifier identPat ->
-          newEnv <- newEnv.AddValue identPat.Name (t, identPat.IsMut)
+          let binding =
+            { Type = t
+              Mutable = identPat.IsMut
+              Export = false }
+
+          newEnv <- newEnv.AddValue identPat.Name binding
         | _ -> return! Error(TypeError.SemanticError "Invalid self pattern")
       | _ -> ()
 
@@ -1635,7 +1645,7 @@ module rec Infer =
                   Provenance = None }
           // TODO: handle nested namespaces by adding a optional reference
           // to the parent namespace that we can follow
-          | Some(t, _) -> return qualifyTypeRefs t nsName schemes
+          | Some(binding) -> return qualifyTypeRefs binding.Type nsName schemes
         | PropName.Number _ ->
           return!
             Error(
@@ -2191,8 +2201,13 @@ module rec Infer =
             assertType
           | None -> ctx.FreshTypeVar None None
 
+        let binding =
+          { Type = t
+            Mutable = isMut
+            Export = false }
+
         // TODO: check if `name` already exists in `assump`
-        assump <- assump.Add(name, (t, isMut))
+        assump <- assump.Add(name, binding)
         pat.InferredType <- Some t
         t
       | PatternKind.Literal lit ->
@@ -2233,8 +2248,13 @@ module rec Infer =
                     assertType
                   | None -> ctx.FreshTypeVar None None
 
+                let binding =
+                  { Type = t
+                    Mutable = isMut
+                    Export = false }
+
                 // TODO: check if `name` already exists in `assump`
-                assump <- assump.Add(name, (t, isMut))
+                assump <- assump.Add(name, binding)
                 pat.Inferred <- Some t
 
                 Some(
@@ -2586,9 +2606,7 @@ module rec Infer =
         let mutable schemes: Map<string, Scheme> = Map.empty
 
         for KeyValue(name, binding) in patBindings do
-          let t, _ = binding
-
-          match (prune t).Kind with
+          match (prune binding.Type).Kind with
           | TypeKind.Object { Elems = elems } ->
             // TODO: modify the constructors so they return `Foo<T>` instead
             // of `Self`.  Right now unifyFuncCall is responsible for this,
@@ -3073,13 +3091,13 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (expr: Expr)
-    : Result<Type * bool, TypeError> =
+    : Result<Binding, TypeError> =
     result {
       match expr.Kind with
       | ExprKind.Identifier { Name = name } -> return! env.GetBinding name
       | ExprKind.Index { Target = target; Index = index } ->
         // TODO: disallow optChain in lvalues
-        let! target, isMut = getLvalue ctx env target
+        let! binding = getLvalue ctx env target
         let! index = inferExpr ctx env None index
 
         let key =
@@ -3091,26 +3109,26 @@ module rec Infer =
             printfn "index = %A" index
             failwith $"TODO: index can't be a {index}"
 
-        let! t = getPropType ctx env target key false ValueCategory.LValue
-        return t, isMut
+        let! t = getPropType ctx env binding.Type key false ValueCategory.LValue
+        return { binding with Type = t }
       | ExprKind.Member { Target = target; Name = name } ->
         // TODO: check if `target` is a namespace
         // If the target is either an Identifier or another Member, we
         // can try to look look for a namespace for it.
 
         // TODO: disallow optChain in lvalues
-        let! target, isMut = getLvalue ctx env target
+        let! binding = getLvalue ctx env target
 
         let! t =
           getPropType
             ctx
             env
-            target
+            binding.Type
             (PropName.String name)
             false
             ValueCategory.LValue
 
-        return t, isMut
+        return { binding with Type = t }
       | _ ->
         return! Error(TypeError.SemanticError $"{expr} is not a valid lvalue")
     }
@@ -3184,20 +3202,20 @@ module rec Infer =
               :: elemTypes
           | ObjElem.Shorthand { Span = span; Name = name } ->
             match env.TryFindValue name with
-            | Some(t, _) ->
+            | Some binding ->
               elemTypes <-
                 ObjTypeElem.Property
                   { Name = PropName.String name
                     Optional = false
                     Readonly = false
-                    Type = t }
+                    Type = binding.Type }
                 :: elemTypes
             | None -> return! Error(TypeError.SemanticError $"{name} not found")
           | ObjElem.Spread { Span = span; Value = value } ->
             match value.Kind with
             | ExprKind.Identifier { Name = name } ->
               match env.TryFindValue name with
-              | Some(t, _) -> spreadTypes <- t :: spreadTypes
+              | Some binding -> spreadTypes <- binding.Type :: spreadTypes
               | None ->
                 return! Error(TypeError.SemanticError $"{name} not found")
             | _ ->
@@ -3270,7 +3288,9 @@ module rec Infer =
 
         for decl in decls do
           match decl.Kind with
-          | VarDecl { Pattern = pattern
+          | VarDecl { Export = export
+                      Declare = declare
+                      Pattern = pattern
                       Init = init
                       TypeAnn = typeAnn } ->
             // QUESTION: Should we check the type annotation as we're generating
@@ -3287,6 +3307,7 @@ module rec Infer =
             | _, _ -> ()
 
             for KeyValue(name, binding) in bindings do
+              let binding = { binding with Export = export }
               qns <- qns.AddValue (getKey ident name) binding
           | FnDecl({ Declare = declare
                      Sig = fnSig
@@ -3301,8 +3322,12 @@ module rec Infer =
               if fnSig.ReturnType.IsNone then
                 failwith "Ambient function declarations must be fully typed"
 
-            let t = ctx.FreshTypeVar None None
-            qns <- qns.AddValue (getKey ident name) (t, false)
+            let binding =
+              { Type = ctx.FreshTypeVar None None
+                Mutable = false
+                Export = false }
+
+            qns <- qns.AddValue (getKey ident name) binding
           | ClassDecl({ Name = name
                         Class = { TypeParams = typeParams } } as decl) ->
             let key = getKey ident name
@@ -3317,7 +3342,13 @@ module rec Infer =
               let statics: Type = ctx.FreshTypeVar None None
 
               qns <- qns.AddScheme key instance
-              qns <- qns.AddValue key (statics, false)
+
+              let binding =
+                { Type = statics
+                  Mutable = false
+                  Export = false }
+
+              qns <- qns.AddValue key binding
           | EnumDecl { Variants = variants
                        Name = name
                        TypeParams = typeParams } ->
@@ -3330,7 +3361,13 @@ module rec Infer =
                 Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
               qns <- qns.AddScheme key scheme
-              qns <- qns.AddValue key (ctx.FreshTypeVar None None, false)
+
+              let binding =
+                { Type = ctx.FreshTypeVar None None
+                  Mutable = false
+                  Export = false }
+
+              qns <- qns.AddValue key binding
           | TypeDecl { TypeParams = typeParams; Name = name } ->
             // TODO: check to make sure we aren't redefining an existing type
             // TODO: replace placeholders, with a reference the actual definition
@@ -3436,8 +3473,7 @@ module rec Infer =
         let namespaces = List.take (List.length parts - 1) parts
         let name = List.last parts
 
-        let mutable newEnv = env
-        newEnv <- openNamespaces newEnv namespaces
+        let mutable newEnv = openNamespaces env namespaces
 
         // Strategy:
         // - separate decls into groups based on their kind
@@ -3562,9 +3598,9 @@ module rec Infer =
               { Kind = TypeKind.Intersection types
                 Provenance = None }
 
-          let placeholderType, _ =
+          let placeholderType =
             match newEnv.TryFindValue name with
-            | Some t -> t
+            | Some binding -> binding.Type
             | None -> failwith "Missing placeholder type"
 
           // NOTE: We explicitly don't generalize here because we want other
@@ -3572,7 +3608,6 @@ module rec Infer =
           // from this declaration.  We generalize things in `inferModule` and
           // `inferTreeRec`.
           do! unify ctx newEnv None placeholderType inferredType
-
 
         // TODO: handle remaining decl kind lists
         match classDecls with
@@ -3590,10 +3625,10 @@ module rec Infer =
               Infer.inferClass ctx newEnv cls declare
 
             let placeholderScheme = qns.Schemes[key]
-            let placeholderType, _ = qns.Values[key]
+            let placeholderBinding = qns.Values[key]
 
             do! unify ctx newEnv None placeholderScheme.Type inferredScheme.Type
-            do! unify ctx newEnv None placeholderType inferredType
+            do! unify ctx newEnv None placeholderBinding.Type inferredType
 
             inferredClasses <- inferredClasses.Add key
         | _ ->
@@ -3693,10 +3728,10 @@ module rec Infer =
                 Provenance = None }
 
             let placeholderScheme = qns.Schemes[key]
-            let placeholderType, _ = qns.Values[key]
+            let placeholderBinding = qns.Values[key]
 
             placeholderScheme.Type <- unionType
-            do! unify ctx newEnv None placeholderType inferredType
+            do! unify ctx newEnv None placeholderBinding.Type inferredType
 
             // avoid inferring the enum more than once
             inferredEnums <- inferredEnums.Add key
@@ -3770,7 +3805,7 @@ module rec Infer =
         | interfaceDecls ->
 
           for interfaceDecl in interfaceDecls do
-            let { Name = name
+            let { InterfaceDecl.Name = name
                   TypeParams = typeParams
                   Extends = extends
                   Elems = elems } =
@@ -4155,9 +4190,12 @@ module rec Infer =
     : Map<QualifiedGraph.QualifiedIdent, Binding> =
     let mutable newBindings = Map.empty
 
-    for KeyValue(name, (t, isMut)) in bindings do
-      let t = generalizeType t
-      newBindings <- newBindings.Add(name, (t, isMut))
+    for KeyValue(name, binding) in bindings do
+      let binding =
+        { binding with
+            Type = generalizeType binding.Type }
+
+      newBindings <- newBindings.Add(name, binding)
 
     newBindings
 
@@ -4304,7 +4342,7 @@ module rec Infer =
 
           let symbol =
             match env.TryFindValue "Symbol" with
-            | Some scheme -> fst scheme
+            | Some binding -> binding.Type
             | None -> failwith "Symbol not in scope"
 
           let! symbolIterator =

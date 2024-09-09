@@ -17,6 +17,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "Foo"
                                                IsMut = false
                                                Assertion = None }

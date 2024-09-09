@@ -12,7 +12,9 @@ output: Ok
            Decl
              { Kind =
                 EnumDecl
-                  { Name = "MyEnum"
+                  { Declare = false
+                    Export = false
+                    Name = "MyEnum"
                     TypeParams = None
                     Variants =
                      [{ Name = "Foo"
@@ -82,6 +84,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "value"
                                                IsMut = false
                                                Assertion = None }

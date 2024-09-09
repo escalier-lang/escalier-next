@@ -10,7 +10,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "RangeIterator"
+                  { Declare = false
+                    Export = false
+                    Name = "RangeIterator"
                     TypeAnn =
                      { Kind =
                         Object

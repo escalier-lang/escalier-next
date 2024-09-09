@@ -6,7 +6,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "Foo"
+                  { Declare = false
+                    Export = false
+                    Name = "Foo"
                     TypeAnn =
                      { Kind =
                         Index { Target = { Kind = TypeRef { Ident = Ident "Bar"

@@ -94,7 +94,7 @@ module Mutability =
       | ExprKind.Identifier { Name = name } ->
         // TODO: lookup `ident` in the current environment
         match env.GetBinding name with
-        | Ok(_, mut) -> result <- Map.add name (path, mut) result
+        | Ok binding -> result <- Map.add name (path, binding.Mutable) result
         | Error _ -> failwith $"{name} isn't in scope"
       | ExprKind.Tuple { Elems = elems } ->
         for i, elem in elems |> List.indexed do
@@ -113,7 +113,8 @@ module Mutability =
             walkExpr value (name :: path)
           | ObjElem.Shorthand { Name = name } ->
             match env.GetBinding name with
-            | Ok(_, mut) -> result <- Map.add name ((name :: path), mut) result
+            | Ok binding ->
+              result <- Map.add name ((name :: path), binding.Mutable) result
             | Error _ -> failwith $"{name} isn't in scope"
           | ObjElem.Spread { Value = value } ->
             // TODO: What should be the path for the spread expression?

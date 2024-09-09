@@ -6,7 +6,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "TemplateLiteral"
+                  { Declare = false
+                    Export = false
+                    Name = "TemplateLiteral"
                     TypeAnn =
                      { Kind =
                         TemplateLiteral

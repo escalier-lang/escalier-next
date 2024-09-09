@@ -690,30 +690,28 @@ module rec Migrate =
       [ ModuleItem.Import
           { Path = src.Value
             Specifiers = specifiers } ]
-    | ModuleDecl.ExportDecl { Decl = decl } ->
-      (migrateStmt ctx (Stmt.Decl decl))
-      |> List.map (fun decl ->
-        { Kind = StmtKind.Decl decl
-          Span = decl.Span })
-      |> List.map Syntax.ModuleItem.Stmt
     | ModuleDecl.ExportNamed namedExport ->
       // TODO: handle named exports with specifiers
       // The only modules that use this so far do `export {}` so the specifiers
       // is empty.
       []
-    | ModuleDecl.ExportDefaultDecl(_) ->
+    | ModuleDecl.ExportDefaultDecl _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultDecl"
-    | ModuleDecl.ExportDefaultExpr(_) ->
+    | ModuleDecl.ExportDefaultExpr _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultExpr"
-    | ModuleDecl.ExportAll(_) -> failwith "TODO: migrateModuleDecl - exportAll"
-    | ModuleDecl.TsImportEquals(_) ->
+    | ModuleDecl.ExportAll _ -> failwith "TODO: migrateModuleDecl - exportAll"
+    | ModuleDecl.TsImportEquals _ ->
       failwith "TODO: migrateModuleDecl - tsImportEquals"
-    | ModuleDecl.TsExportAssignment(_) ->
+    | ModuleDecl.TsExportAssignment _ ->
       failwith "TODO: migrateModuleDecl - tsExportAssignment"
-    | ModuleDecl.TsNamespaceExport(_) ->
-      failwith "TODO: migrateModuleDecl - tsNamespaceExport"
+    | ModuleDecl.TsNamespaceExport { Id = ident } ->
+      [ ModuleItem.Export(Export.NamespaceExport { Name = ident.Name }) ]
 
-  let migrateDeclarator (decl: VarDeclarator) : Syntax.Decl =
+  let migrateDeclarator
+    (export: bool)
+    (declare: bool)
+    (decl: VarDeclarator)
+    : Syntax.Decl =
     let init =
       match decl.Init with
       | Some _expr -> failwith "TODO: variable declarator initializer"
@@ -721,7 +719,8 @@ module rec Migrate =
 
     let kind =
       DeclKind.VarDecl
-        { Declare = true
+        { Export = export
+          Declare = true // TODO
           Pattern = migratePat decl.Id
           TypeAnn = Option.map migrateTypeAnn decl.TypeAnn
           Init = init
@@ -924,7 +923,8 @@ module rec Migrate =
         TypeParams = typeParams
         Elems = elems }
 
-    { Declare = declare || ctx.Declare
+    { Export = false
+      Declare = declare || ctx.Declare
       Name = name
       Class = cls }
 
@@ -939,7 +939,10 @@ module rec Migrate =
 
         [ { Kind = DeclKind.ClassDecl decl
             Span = DUMMY_SPAN } ]
-      | Decl.Fn { Declare = _; Id = ident; Fn = f } ->
+      | Decl.Fn { Export = export
+                  Declare = declare
+                  Id = ident
+                  Fn = f } ->
 
         let typeParams =
           Option.map
@@ -963,16 +966,20 @@ module rec Migrate =
 
         let kind =
           DeclKind.FnDecl
-            { Declare = true // Some .d.ts files do `export function foo();`
+            { Export = export
+              Declare = true // Some .d.ts files do `export function foo();`
               Name = ident.Name
               Sig = fnSig
               Body = None }
 
         [ { Kind = kind; Span = DUMMY_SPAN } ]
-      | Decl.Var { Declare = declare; Decls = decls } ->
-        List.map migrateDeclarator decls
+      | Decl.Var { Export = export
+                   Declare = declare
+                   Decls = decls } ->
+        List.map (migrateDeclarator export declare) decls
       | Decl.Using _ -> failwith "TODO: migrate using"
-      | Decl.TsInterface { Declare = _declare
+      | Decl.TsInterface { Export = export
+                           Declare = declare
                            Id = ident
                            TypeParams = typeParams
                            Extends = extends
@@ -1004,14 +1011,17 @@ module rec Migrate =
           | None -> None
 
         let decl: InterfaceDecl =
-          { Name = ident.Name
+          { Export = export
+            Declare = true // TODO
+            Name = ident.Name
             TypeParams = typeParams
             Extends = extends
             Elems = elems }
 
         let kind = DeclKind.InterfaceDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
-      | Decl.TsTypeAlias { Declare = _declare
+      | Decl.TsTypeAlias { Export = export
+                           Declare = declare
                            Id = ident
                            TypeParams = typeParams
                            TypeAnn = typeAnn } ->
@@ -1022,14 +1032,17 @@ module rec Migrate =
             typeParams
 
         let decl: TypeDecl =
-          { Name = ident.Name
+          { Export = export
+            Declare = true // TODO
+            Name = ident.Name
             TypeParams = typeParams
             TypeAnn = migrateType typeAnn }
 
         let kind = DeclKind.TypeDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.TsEnum _ -> failwith "TODO: migrate enum"
-      | Decl.TsModule { Declare = declare
+      | Decl.TsModule { Export = export
+                        Declare = declare
                         Global = _global
                         Id = name
                         Body = body } ->
@@ -1051,9 +1064,6 @@ module rec Migrate =
                   match item with
                   | ModuleItem.ModuleDecl decl ->
                     match decl with
-                    | ModuleDecl.ExportDecl { Decl = decl } ->
-                      migrateStmt ctx (Stmt.Decl decl)
-
                     | ModuleDecl.Import importDecl ->
                       failwith "TODO: TsModule - Import"
                     | ModuleDecl.ExportNamed namedExport ->
@@ -1076,7 +1086,13 @@ module rec Migrate =
             | TsNamespaceDecl _tsNamespaceDecl ->
               failwith "TODO: inferModuleBlock- TsNamespaceDecl"
 
-        let kind = DeclKind.NamespaceDecl { Name = name; Body = body }
+        let kind =
+          DeclKind.NamespaceDecl
+            { Export = export
+              Declare = true // TODO
+              Name = name
+              Body = body }
+
         [ { Kind = kind; Span = DUMMY_SPAN } ]
 
     | _ -> failwith "only declarations are supported for now"

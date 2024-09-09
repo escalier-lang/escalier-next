@@ -11,6 +11,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "p0"
                                                IsMut = false
                                                Assertion = None }
@@ -46,6 +47,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "p1"
                                                IsMut = false
                                                Assertion = None }
@@ -89,6 +91,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "line"
                                                IsMut = false
                                                Assertion = None }

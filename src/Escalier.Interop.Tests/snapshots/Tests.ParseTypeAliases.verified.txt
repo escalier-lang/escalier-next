@@ -9,7 +9,8 @@ output: Success: { Body =
    [Stmt
       (Decl
          (TsTypeAlias
-            { Declare = true
+            { Export = false
+              Declare = true
               Id = { Name = "Foo"
                      Loc = None }
               TypeParams = None
@@ -21,7 +22,8 @@ output: Success: { Body =
     Stmt
       (Decl
          (TsTypeAlias
-            { Declare = true
+            { Export = false
+              Declare = true
               Id = { Name = "Node"
                      Loc = None }
               TypeParams = None

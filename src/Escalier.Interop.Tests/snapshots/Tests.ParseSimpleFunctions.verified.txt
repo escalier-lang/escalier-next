@@ -7,9 +7,10 @@ output: Success: { Body =
    [Stmt
       (Decl
          (Fn
-            { Id = { Name = "eval"
-                     Loc = None }
+            { Export = false
               Declare = true
+              Id = { Name = "eval"
+                     Loc = None }
               Fn =
                { Params =
                   [{ Pat = Ident { Id = { Name = "x"
@@ -33,9 +34,10 @@ output: Success: { Body =
     Stmt
       (Decl
          (Fn
-            { Id = { Name = "fst"
-                     Loc = None }
+            { Export = false
               Declare = true
+              Id = { Name = "fst"
+                     Loc = None }
               Fn =
                { Params =
                   [{ Pat = Ident { Id = { Name = "a"
@@ -95,9 +97,10 @@ output: Success: { Body =
     Stmt
       (Decl
          (Fn
-            { Id = { Name = "foo"
-                     Loc = None }
+            { Export = false
               Declare = true
+              Id = { Name = "foo"
+                     Loc = None }
               Fn =
                { Params = []
                  Body = None

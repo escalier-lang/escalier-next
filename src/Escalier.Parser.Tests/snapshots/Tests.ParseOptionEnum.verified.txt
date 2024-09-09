@@ -12,7 +12,9 @@ output: Ok
            Decl
              { Kind =
                 EnumDecl
-                  { Name = "Option"
+                  { Declare = false
+                    Export = false
+                    Name = "Option"
                     TypeParams = Some [{ Span = { Start = (Ln: 2, Col: 17)
                                                   Stop = (Ln: 2, Col: 18) }
                                          Name = "T"
@@ -49,6 +51,7 @@ output: Ok
              { Kind =
                 VarDecl
                   { Declare = false
+                    Export = false
                     Pattern = { Kind = Ident { Name = "value"
                                                IsMut = false
                                                Assertion = None }

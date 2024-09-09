@@ -1,1 +1,1 @@
-export declare const factorial;
+const factorial;

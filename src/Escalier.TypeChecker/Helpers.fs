@@ -76,9 +76,12 @@ let rec generalizeType (t: Type) : Type =
 let generalizeBindings (bindings: Map<string, Binding>) : Map<string, Binding> =
   let mutable newBindings = Map.empty
 
-  for KeyValue(name, (t, isMut)) in bindings do
-    let t = generalizeType t
-    newBindings <- newBindings.Add(name, (t, isMut))
+  for KeyValue(name, binding) in bindings do
+    let binding =
+      { binding with
+          Type = generalizeType binding.Type }
+
+    newBindings <- newBindings.Add(name, binding)
 
   newBindings
 
@@ -263,20 +266,6 @@ let findThrowsInBlock (block: Block) : list<Type> =
 
   throws
 
-let findModuleBindingNames (m: Script) : Set<string> =
-  let mutable names: Set<string> = Set.empty
-
-  for item in m.Items do
-    match item with
-    | ScriptItem.Stmt stmt ->
-      match stmt.Kind with
-      | StmtKind.Decl({ Kind = DeclKind.VarDecl { Pattern = pattern } }) ->
-        names <- Set.union names (findBindingNames pattern)
-      | _ -> ()
-    | _ -> ()
-
-  names
-
 // TODO: dedupe with findInfers in Env.fs
 let findInfers (t: Type) : list<string> =
   // TODO: disallow multiple `infer`s with the same identifier
@@ -319,8 +308,8 @@ let rec getIsMut (ctx: Ctx) (env: Env) (expr: Expr) : Result<bool, TypeError> =
   result {
     match expr.Kind with
     | ExprKind.Identifier { Name = name } ->
-      let! _, isMut = env.GetBinding name
-      return isMut
+      let! binding = env.GetBinding name
+      return binding.Mutable
     | ExprKind.Literal _ -> return false
     | ExprKind.Object _ -> return true
     | ExprKind.Tuple _ -> return true

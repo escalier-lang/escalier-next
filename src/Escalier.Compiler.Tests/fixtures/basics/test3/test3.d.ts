@@ -1,1 +1,1 @@
-export declare const foo;
+const foo;

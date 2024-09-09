@@ -37,10 +37,10 @@ let InferClassWithMethods () =
 
       Assert.Value(env, "foo", "Foo")
 
-      let fooType, _ = env.FindValue "foo"
+      let binding = env.FindValue "foo"
 
       let! fooType =
-        expandType ctx env None Map.empty fooType
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
@@ -81,10 +81,10 @@ let InferClassWithMethodsInModule () =
 
       Assert.Value(env, "foo", "Foo")
 
-      let fooType, _ = env.FindValue "foo"
+      let binding = env.FindValue "foo"
 
       let! fooType =
-        expandType ctx env None Map.empty fooType
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
@@ -221,10 +221,10 @@ let InferClassWithTypeParams () =
       Assert.Value(env, "Foo", "{new fn <T>() -> Foo<T>}")
       Assert.Value(env, "foo", "Foo<string>")
 
-      let fooType, _ = env.FindValue "foo"
+      let binding = env.FindValue "foo"
 
       let! fooType =
-        expandType ctx env None Map.empty fooType
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
@@ -263,10 +263,10 @@ let InferClassWithFluentMethods () =
       //
       // printfn "barType = %A" barType
 
-      let fooType, _ = env.FindValue "foo"
+      let binding = env.FindValue "foo"
 
       let! fooType =
-        expandType ctx env None Map.empty fooType
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
@@ -305,10 +305,10 @@ let InferClassWithFluentMethodsWithoutTypeAnn () =
       //
       // printfn "barType = %A" barType
 
-      let fooType, _ = env.FindValue "foo"
+      let binding = env.FindValue "foo"
 
       let! fooType =
-        expandType ctx env None Map.empty fooType
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(
@@ -347,10 +347,10 @@ let InferClassWithFluentMethodsWithoutTypeAnnWithTypeParam () =
       //
       // printfn "barType = %A" barType
 
-      let fooType, _ = env.FindValue "foo"
+      let binding = env.FindValue "foo"
 
       let! fooType =
-        expandType ctx env None Map.empty fooType
+        expandType ctx env None Map.empty binding.Type
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(

@@ -1,4 +1,4 @@
-let add = fn <A: number, B: number>(a: A, b: B) => a + b;
-let sub = fn <A: number, B: number>(a: A, b: B) => a - b;
-let mul = fn <A: number, B: number>(a: A, b: B) => a * b;
-let div = fn <A: number, B: number>(a: A, b: B) => a / b;
+export let add = fn <A: number, B: number>(a: A, b: B) => a + b;
+export let sub = fn <A: number, B: number>(a: A, b: B) => a - b;
+export let mul = fn <A: number, B: number>(a: A, b: B) => a * b;
+export let div = fn <A: number, B: number>(a: A, b: B) => a / b;

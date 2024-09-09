@@ -836,7 +836,7 @@ let CodegenJsxElement () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <div id="foo" class="bar">
           <p>hello</p>
         </div>;
@@ -858,7 +858,7 @@ let CodegenJsxFragment () =
     result {
       let src =
         """
-        import "react" {React};
+        import "react" as React;
         let foo = <>
           <p>hello</p>
           <p>world</p>

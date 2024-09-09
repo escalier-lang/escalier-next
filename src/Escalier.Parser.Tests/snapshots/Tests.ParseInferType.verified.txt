@@ -6,7 +6,9 @@ output: Ok
            Decl
              { Kind =
                 TypeDecl
-                  { Name = "ReturnType"
+                  { Declare = false
+                    Export = false
+                    Name = "ReturnType"
                     TypeAnn =
                      { Kind =
                         Condition

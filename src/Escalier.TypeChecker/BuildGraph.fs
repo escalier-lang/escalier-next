@@ -718,8 +718,8 @@ let getPropNameDeps
           Set.singleton (QDeclIdent.Value ident)
         else
           match env.TryFindValue name with
-          | Some(t, _) ->
-            match (prune t).Kind with
+          | Some binding ->
+            match (prune binding.Type).Kind with
             | TypeKind.TypeRef { Name = ident } ->
               let ident = QualifiedIdent.FromCommonQualifiedIdent ident
 

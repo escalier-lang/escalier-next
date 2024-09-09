@@ -693,21 +693,21 @@ module Parser =
      .>> (strWs "}"))
     |>> fun members -> { Body = members; Loc = None }
 
-  let interfaceDecl: Parser<bool -> Decl, unit> =
+  let interfaceDecl: Parser<Decl, unit> =
     pipe4
-      ((strWs "interface") >>. ident)
-      (opt typeParams)
+      ((opt (keyword "export")) .>>. (opt (keyword "declare")))
+      ((strWs "interface") >>. ident .>>. (opt typeParams))
       (opt ((strWs "extends") >>. (sepBy1 typeRef (strWs ","))))
       interfaceBody
-    <| fun id typeParams extends body ->
-      fun declare ->
-        { Id = id
-          Declare = declare
-          TypeParams = typeParams
-          Extends = extends
-          Body = body
-          Loc = None }
-        |> Decl.TsInterface
+    <| fun (export, declare) (id, typeParams) extends body ->
+      { Export = export.IsSome
+        Declare = declare.IsSome
+        Id = id
+        TypeParams = typeParams
+        Extends = extends
+        Body = body
+        Loc = None }
+      |> Decl.TsInterface
 
   let param: Parser<Param, unit> =
     pipe3 pat (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
@@ -720,28 +720,28 @@ module Parser =
   let fnParams: Parser<list<Param>, unit> =
     between (strWs "(") (strWs ")") (sepEndBy param (strWs ","))
 
-  let fnDecl: Parser<bool -> Decl, unit> =
+  let fnDecl: Parser<Decl, unit> =
     pipe5
+      ((opt (keyword "export")) .>>. (opt (keyword "declare")))
       (opt (strWs "async"))
-      ((strWs "function") >>. ident)
-      (opt typeParams)
+      ((strWs "function") >>. ident .>>. (opt typeParams))
       fnParams
       (opt ((strWs ":") >>. tsTypeAnn))
-    <| fun async id typeParams ps typeAnn ->
-      fun declare ->
-        let fn: Function =
-          { Params = ps
-            Body = None
-            IsGenerator = false // TODO
-            IsAsync = async.IsSome
-            TypeParams = typeParams
-            ReturnType = typeAnn
-            Loc = None }
+    <| fun (export, declare) async (id, typeParams) ps typeAnn ->
+      let fn: Function =
+        { Params = ps
+          Body = None
+          IsGenerator = false // TODO
+          IsAsync = async.IsSome
+          TypeParams = typeParams
+          ReturnType = typeAnn
+          Loc = None }
 
-        { FnDecl.Id = id
-          Declare = declare
-          Fn = fn }
-        |> Decl.Fn
+      { Export = export.IsSome
+        Declare = declare.IsSome
+        Id = id
+        Fn = fn }
+      |> Decl.Fn
 
   let constructor: Parser<Constructor, unit> =
     keyword "constructor" >>. fnParams
@@ -814,13 +814,14 @@ module Parser =
     .>> (opt (pstring ";"))
     .>> ws
 
-  let classDecl: Parser<bool -> Decl, unit> =
-    pipe4
+  let classDecl: Parser<Decl, unit> =
+    pipe5
+      ((opt (keyword "export")) .>>. (opt (keyword "declare")))
       (keyword "class" >>. ident)
       (opt typeParams)
       (opt (keyword "extends" >>. typeRef))
       (between (strWs "{") (strWs "}") (many classMember))
-    <| fun id typeParams extends members ->
+    <| fun (export, declare) id typeParams extends members ->
       let cls: Class =
         { TypeParams = typeParams
           Super = extends
@@ -829,22 +830,27 @@ module Parser =
           Body = members
           Loc = None }
 
-      fun declare ->
-        { Ident = id
-          Declare = declare
-          Class = cls }
-        |> Decl.Class
+      { Export = export.IsSome
+        Declare = declare.IsSome
+        Ident = id
+        Class = cls }
+      |> Decl.Class
 
-  let typeAliasDecl: Parser<bool -> Decl, unit> =
-    pipe3 ((strWs "type") >>. ident) (opt typeParams) ((strWs "=") >>. tsType)
-    <| fun id typeParams typeAnn ->
-      fun declare ->
-        { Declare = declare
-          Id = id
-          TypeParams = typeParams
-          TypeAnn = typeAnn
-          Loc = None }
-        |> Decl.TsTypeAlias
+  let typeAliasDecl: Parser<Decl, unit> =
+    pipe5
+      (opt (keyword "export"))
+      (opt (keyword "declare"))
+      ((strWs "type") >>. ident)
+      (opt typeParams)
+      ((strWs "=") >>. tsType)
+    <| fun export declare id typeParams typeAnn ->
+      { Export = export.IsSome
+        Declare = declare.IsSome
+        Id = id
+        TypeParams = typeParams
+        TypeAnn = typeAnn
+        Loc = None }
+      |> Decl.TsTypeAlias
 
   let varDeclKind: Parser<VariableDeclarationKind, unit> =
     choice
@@ -859,14 +865,17 @@ module Parser =
         TypeAnn = typeAnn
         Init = init }
 
-  let varDecl: Parser<bool -> Decl, unit> =
-    pipe2 varDeclKind (sepBy1 declarator (strWs ","))
-    <| fun kind declarators ->
-      fun declare ->
-        { Declare = declare
-          Decls = declarators
-          Kind = kind }
-        |> Decl.Var
+  let varDecl: Parser<Decl, unit> =
+    pipe3
+      ((opt (keyword "export")) .>>. (opt (keyword "declare")))
+      varDeclKind
+      (sepBy1 declarator (strWs ","))
+    <| fun (export, declare) kind declarators ->
+      { Export = export.IsSome
+        Declare = declare.IsSome
+        Decls = declarators
+        Kind = kind }
+      |> Decl.Var
 
   let moduleBlock: Parser<TsNamespaceBody, unit> =
     (strWs "{" >>. many moduleItem .>> strWs "}")
@@ -876,20 +885,25 @@ module Parser =
 
   let moduleName = (ident |>> TsModuleName.Ident) <|> (str |>> TsModuleName.Str)
 
-  let moduleDecl: Parser<bool -> Decl, unit> =
-    pipe2 (strWs "namespace" >>. moduleName) moduleBlock
-    <| fun id body declare ->
-      { Declare = declare
+  let moduleDecl: Parser<Decl, unit> =
+    pipe3
+      ((opt (keyword "export")) .>>. (opt (keyword "declare")))
+      (strWs "namespace" >>. moduleName)
+      moduleBlock
+    <| fun (export, declare) id body ->
+      { Export = export.IsSome
+        Declare = declare.IsSome
         Global = false
         Id = id
         Body = Some(body)
         Loc = None }
       |> Decl.TsModule
 
-  let globalDecl: Parser<bool -> Decl, unit> =
-    keyword "global" >>. moduleBlock
-    |>> fun body declare ->
-      { Declare = declare
+  let globalDecl: Parser<Decl, unit> =
+    pipe2 (opt (keyword "declare")) (keyword "global" >>. moduleBlock)
+    <| fun declare body ->
+      { Export = false
+        Declare = declare.IsSome
         Global = true
         Id =
           TsModuleName.Str
@@ -901,17 +915,14 @@ module Parser =
       |> Decl.TsModule
 
   let decl: Parser<Decl, unit> =
-    pipe2
-      (opt (keyword "declare"))
-      (choice
-        [ typeAliasDecl
-          varDecl
-          fnDecl
-          interfaceDecl
-          classDecl
-          moduleDecl
-          globalDecl ])
-    <| fun declare decl -> decl declare.IsSome
+    (choice
+      [ attempt typeAliasDecl
+        attempt varDecl
+        attempt fnDecl
+        attempt interfaceDecl
+        attempt classDecl
+        attempt moduleDecl
+        attempt globalDecl ])
 
   let namedExportSpecifier: Parser<ExportSpecifier, unit> =
     pipe2 ident (opt (strWs "as" >>. ident))
@@ -931,9 +942,6 @@ module Parser =
         With = None
         Loc = None }
 
-  let exportDecl: Parser<ExportDecl, unit> =
-    decl |>> fun decl -> { Decl = decl; Loc = None }
-
   let exportAll: Parser<ExportAll, unit> =
     (strWs "*" >>. strWs "from" >>. str)
     |>> fun src ->
@@ -949,16 +957,15 @@ module Parser =
     (keyword "as" >>. (keyword "namespace") >>. ident)
     |>> fun id -> { Id = id; Loc = None }
 
-  let export: Parser<ModuleDecl, unit> =
+  let export: Parser<ModuleItem, unit> =
     pipe2
       (keyword "export")
       (choice
         [ exportAll |>> ModuleDecl.ExportAll
-          exportDecl |>> ModuleDecl.ExportDecl
           namedExport |>> ModuleDecl.ExportNamed
           tsExportAssignment |>> ModuleDecl.TsExportAssignment
           tsNamespaceExport |>> ModuleDecl.TsNamespaceExport ])
-    <| fun _ modDecl -> modDecl
+    <| fun _ modDecl -> modDecl |> ModuleItem.ModuleDecl
 
   let namedImportSpecifier: Parser<ImportSpecifier, unit> =
     pipe2 ident (opt (strWs "as" >>. ident))
@@ -1001,9 +1008,9 @@ module Parser =
   moduleItemRef.Value <-
     ws
     >>. choice
-      [ import |>> ModuleItem.ModuleDecl
-        export |>> ModuleItem.ModuleDecl
-        decl |>> Stmt.Decl |>> ModuleItem.Stmt ]
+      [ attempt decl |>> Stmt.Decl |>> ModuleItem.Stmt
+        import |>> ModuleItem.ModuleDecl
+        export ]
     .>> (opt (strWs ";"))
 
   let mod': Parser<Module, unit> =

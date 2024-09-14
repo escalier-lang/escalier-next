@@ -947,6 +947,7 @@ module rec TypeScript =
   type JSXOpeningFragment = { Loc: option<SourceLocation> }
   type JSXClosingFragment = { Loc: option<SourceLocation> }
 
+  // this is for things like return text!.concat(text!);
   type TsTypeAssertion =
     { Expr: Expr
       TypeAnn: TsTypeAnn

@@ -2747,7 +2747,7 @@ module rec Infer =
 
       for specifier in import.Specifiers do
         match specifier with
-        | Named { Name = name; Alias = alias } ->
+        | ImportSpecifier.Named { Name = name; Alias = alias } ->
           let source = name
 
           let target =

@@ -113,98 +113,98 @@ let findFunctions (expr: Syntax.Expr) : list<Syntax.Function> =
 
   List.rev fns
 
-let getExports
-  (ctx: Ctx)
-  (env: Env)
-  (name: string)
-  (items: list<Syntax.ModuleItem>)
-  : Result<Namespace, TypeError> =
+// let getExports
+//   (ctx: Ctx)
+//   (env: Env)
+//   (name: string)
+//   (items: list<Syntax.ModuleItem>)
+//   : Result<Namespace, TypeError> =
 
-  result {
-    let mutable ns: Namespace =
-      { Name = name
-        Values = Map.empty
-        Schemes = Map.empty
-        Namespaces = Map.empty }
+//   result {
+//     let mutable ns: Namespace =
+//       { Name = name
+//         Values = Map.empty
+//         Schemes = Map.empty
+//         Namespaces = Map.empty }
 
-    for item in items do
-      match item with
-      | ModuleItem.Import importDecl ->
-        // We skip exports because we don't want to automatically re-export
-        // everything.
-        ()
-      | ModuleItem.Export export ->
-        // NOTE: This relies on the namespace being defined before it's exported
-        match export with
-        | NamespaceExport { Name = name } ->
-          match env.Namespace.Namespaces.TryFind name with
-          | Some value ->
-            for KeyValue(key, binding) in value.Values do
-              ns <- ns.AddBinding key binding
+//     for item in items do
+//       match item with
+//       | ModuleItem.Import importDecl ->
+//         // We skip exports because we don't want to automatically re-export
+//         // everything.
+//         ()
+//       | ModuleItem.Export export ->
+//         // NOTE: This relies on the namespace being defined before it's exported
+//         match export with
+//         | NamespaceExport { Name = name } ->
+//           match env.Namespace.Namespaces.TryFind name with
+//           | Some value ->
+//             for KeyValue(key, binding) in value.Values do
+//               ns <- ns.AddBinding key binding
 
-            for KeyValue(key, scheme) in value.Schemes do
-              ns <- ns.AddScheme key scheme
+//             for KeyValue(key, scheme) in value.Schemes do
+//               ns <- ns.AddScheme key scheme
 
-            for KeyValue(key, value) in value.Namespaces do
-              ns <- ns.AddNamespace key value
-          | None -> failwith $"Couldn't find namespace: '{name}'"
-      | ModuleItem.Stmt stmt ->
-        match stmt.Kind with
-        | StmtKind.Decl decl ->
-          match decl.Kind with
-          | DeclKind.ClassDecl classDecl ->
-            failwith "TODO: getExports - classDecl"
-          | DeclKind.FnDecl { Name = name; Export = export } ->
-            if export then
-              let! t = env.GetValue name
+//             for KeyValue(key, value) in value.Namespaces do
+//               ns <- ns.AddNamespace key value
+//           | None -> failwith $"Couldn't find namespace: '{name}'"
+//       | ModuleItem.Stmt stmt ->
+//         match stmt.Kind with
+//         | StmtKind.Decl decl ->
+//           match decl.Kind with
+//           | DeclKind.ClassDecl classDecl ->
+//             failwith "TODO: getExports - classDecl"
+//           | DeclKind.FnDecl { Name = name; Export = export } ->
+//             if export then
+//               let! t = env.GetValue name
 
-              let binding =
-                { Type = t
-                  Mutable = false
-                  Export = export }
+//               let binding =
+//                 { Type = t
+//                   Mutable = false
+//                   Export = export }
 
-              ns <- ns.AddBinding name binding
-          | DeclKind.VarDecl { Pattern = pattern; Export = export } ->
-            if export then
-              let names = Helpers.findBindingNames pattern
+//               ns <- ns.AddBinding name binding
+//           | DeclKind.VarDecl { Pattern = pattern; Export = export } ->
+//             if export then
+//               let names = Helpers.findBindingNames pattern
 
-              for name in names do
-                let! t = env.GetValue name
+//               for name in names do
+//                 let! t = env.GetValue name
 
-                let binding =
-                  { Type = t
-                    Mutable = false // TODO: figure out how to determine mutability
-                    Export = export }
+//                 let binding =
+//                   { Type = t
+//                     Mutable = false // TODO: figure out how to determine mutability
+//                     Export = export }
 
-                ns <- ns.AddBinding name binding
-          // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
-          | DeclKind.InterfaceDecl { Name = name; Export = export } ->
-            if export then
-              let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
-              ns <- ns.AddScheme name scheme
-          | DeclKind.TypeDecl { Name = name; Export = export } ->
-            if export then
-              let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
-              ns <- ns.AddScheme name scheme
-          | DeclKind.EnumDecl tsEnumDecl ->
-            failwith "TODO: getExports - tsEnumDecl"
-          | DeclKind.NamespaceDecl { Name = name; Export = export } ->
-            if name = "global" then
-              // TODO: figure out what we want to do with globals
-              // Maybe we can add these to `env` and have `getExports` return
-              // both a namespace and an updated env
-              ()
-            else if export then
-              match env.Namespace.Namespaces.TryFind name with
-              | Some value -> ns <- ns.AddNamespace name value
-              | None -> failwith $"Couldn't find namespace: '{name}'"
+//                 ns <- ns.AddBinding name binding
+//           // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
+//           | DeclKind.InterfaceDecl { Name = name; Export = export } ->
+//             if export then
+//               let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+//               ns <- ns.AddScheme name scheme
+//           | DeclKind.TypeDecl { Name = name; Export = export } ->
+//             if export then
+//               let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+//               ns <- ns.AddScheme name scheme
+//           | DeclKind.EnumDecl tsEnumDecl ->
+//             failwith "TODO: getExports - tsEnumDecl"
+//           | DeclKind.NamespaceDecl { Name = name; Export = export } ->
+//             if name = "global" then
+//               // TODO: figure out what we want to do with globals
+//               // Maybe we can add these to `env` and have `getExports` return
+//               // both a namespace and an updated env
+//               ()
+//             else if export then
+//               match env.Namespace.Namespaces.TryFind name with
+//               | Some value -> ns <- ns.AddNamespace name value
+//               | None -> failwith $"Couldn't find namespace: '{name}'"
 
-        | StmtKind.Expr expr -> failwith "todo"
-        | StmtKind.For _ -> failwith "todo"
-        | StmtKind.Return exprOption -> failwith "todo"
+//         | StmtKind.Expr expr -> failwith "todo"
+//         | StmtKind.For _ -> failwith "todo"
+//         | StmtKind.Return exprOption -> failwith "todo"
 
-    return ns
-  }
+//     return ns
+//   }
 
 // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
 let mergeType (imutType: Type) (mutType: Type) : Type =

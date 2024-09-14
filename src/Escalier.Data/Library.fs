@@ -666,7 +666,19 @@ module Syntax =
     { Path: string
       Specifiers: list<ImportSpecifier> }
 
-  type Export = NamespaceExport of Identifier
+  type ExportSpecifier = Named of Named
+
+  type NamedExport =
+    { Src: string
+      Specifiers: list<ExportSpecifier> }
+
+  type ExportAll = { Src: string }
+
+  type Export =
+    | NamespaceExport of Identifier
+    | NamedExport of NamedExport
+    | ExportAll of ExportAll
+    | ExportDefault of Expr
 
   type ModuleItem =
     | Import of Import

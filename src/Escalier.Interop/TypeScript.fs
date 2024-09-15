@@ -335,10 +335,10 @@ module rec TypeScript =
   [<RequireQualifiedAccess>]
   type ModuleDecl =
     | Import of ImportDecl
+    | ExportAll of ExportAll
     | ExportNamed of NamedExport
     | ExportDefaultDecl of ExportDefaultDecl
     | ExportDefaultExpr of ExportDefaultExpr
-    | ExportAll of ExportAll
     | TsImportEquals of TsImportEqualsDecl
     | TsExportAssignment of TsExportAssignment
     | TsNamespaceExport of TsNamespaceExportDecl
@@ -376,10 +376,6 @@ module rec TypeScript =
 
   type ImportStarAsSpecifier =
     { Local: Ident
-      Loc: option<SourceLocation> }
-
-  type ExportDecl =
-    { Decl: Decl
       Loc: option<SourceLocation> }
 
   type NamedExport =
@@ -951,6 +947,7 @@ module rec TypeScript =
   type JSXOpeningFragment = { Loc: option<SourceLocation> }
   type JSXClosingFragment = { Loc: option<SourceLocation> }
 
+  // this is for things like return text!.concat(text!);
   type TsTypeAssertion =
     { Expr: Expr
       TypeAnn: TsTypeAnn

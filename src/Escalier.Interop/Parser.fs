@@ -300,6 +300,21 @@ module Parser =
         TypeParams = typeArgs
         Loc = None }
 
+  let assertsTypePredicate: Parser<TsTypePredicate, unit> =
+    pipe2
+      ((keyword "asserts") >>. ident)
+      (opt (pstring "is" .>> spaces1 >>. ws >>. tsTypeAnn))
+    <| fun id typeAnn ->
+      let paramName =
+        match id.Name with
+        | "this" -> TsThisTypeOrIdent.TsThisType({ Loc = None })
+        | _ -> TsThisTypeOrIdent.Ident id
+
+      { Asserts = true
+        ParamName = paramName
+        Typeann = typeAnn
+        Loc = None }
+
   let typePredicate: Parser<TsTypePredicate, unit> =
     pipe2 ident (pstring "is" .>> spaces1 >>. ws >>. tsTypeAnn)
     <| fun id typeAnn ->
@@ -595,6 +610,7 @@ module Parser =
       [ // `typePredicate` goes first to handle `object` being used
         // as an identifier in a type predicate in React's index.d.ts
         attempt (typePredicate |>> TsType.TsTypePredicate)
+        attempt (assertsTypePredicate |>> TsType.TsTypePredicate)
 
         keywordType |>> TsType.TsKeywordType
         tupleType |>> TsType.TsTupleType
@@ -817,16 +833,16 @@ module Parser =
   let classDecl: Parser<Decl, unit> =
     pipe5
       ((opt (keyword "export")) .>>. (opt (keyword "declare")))
-      (keyword "class" >>. ident)
-      (opt typeParams)
-      (opt (keyword "extends" >>. typeRef))
+      ((keyword "class" >>. ident) .>>. (opt typeParams))
+      (opt (keyword "extends" >>. typeRef)) // TODO: type params
+      (opt (keyword "implements" >>. (sepBy typeRef (strWs ",")))) // TODO: type params
       (between (strWs "{") (strWs "}") (many classMember))
-    <| fun (export, declare) id typeParams extends members ->
+    <| fun (export, declare) (id, typeParams) extends implements members ->
       let cls: Class =
         { TypeParams = typeParams
           Super = extends
           IsAbstract = false
-          Implements = None // TODO
+          Implements = implements
           Body = members
           Loc = None }
 
@@ -934,16 +950,27 @@ module Parser =
           Loc = None }
 
   let namedExport: Parser<NamedExport, unit> =
-    (strWs "{" >>. sepBy namedExportSpecifier (strWs ",") .>> strWs "}")
-    |>> fun specifiers ->
+    pipe3
+      (opt (keyword "type"))
+      (strWs "{" >>. sepEndBy namedExportSpecifier (strWs ",") .>> strWs "}")
+      (opt (keyword "from" >>. str))
+    <| fun isTypeOnly specifiers src ->
       { Specifiers = specifiers
-        Src = None
+        Src = src
+        IsTypeOnly = isTypeOnly.IsSome
+        With = None
+        Loc = None }
+
+  let exportAll: Parser<ExportAll, unit> =
+    (strWs "*" >>. strWs "from" >>. str)
+    |>> fun src ->
+      { Src = src
         IsTypeOnly = false
         With = None
         Loc = None }
 
-  let exportDecl: Parser<ExportDecl, unit> =
-    decl |>> fun decl -> { Decl = decl; Loc = None }
+  let tsExportDefault: Parser<TsExportAssignment, unit> =
+    (keyword "default" >>. expr) |>> fun expr -> { Expr = expr; Loc = None }
 
   let tsExportAssignment: Parser<TsExportAssignment, unit> =
     (strWs "=" >>. expr) |>> fun expr -> { Expr = expr; Loc = None }
@@ -956,15 +983,12 @@ module Parser =
     pipe2
       (keyword "export")
       (choice
-        [ // exportDecl |>> ModuleDecl.ExportDecl
-          namedExport |>> ModuleDecl.ExportNamed |>> ModuleItem.ModuleDecl
-          tsExportAssignment
-          |>> ModuleDecl.TsExportAssignment
-          |>> ModuleItem.ModuleDecl
-          tsNamespaceExport
-          |>> ModuleDecl.TsNamespaceExport
-          |>> ModuleItem.ModuleDecl ])
-    <| fun _ modDecl -> modDecl
+        [ exportAll |>> ModuleDecl.ExportAll
+          namedExport |>> ModuleDecl.ExportNamed
+          tsExportDefault |>> ModuleDecl.TsExportAssignment
+          tsExportAssignment |>> ModuleDecl.TsExportAssignment
+          tsNamespaceExport |>> ModuleDecl.TsNamespaceExport ])
+    <| fun _ modDecl -> modDecl |> ModuleItem.ModuleDecl
 
   let namedImportSpecifier: Parser<ImportSpecifier, unit> =
     pipe2 ident (opt (strWs "as" >>. ident))
@@ -993,12 +1017,15 @@ module Parser =
         namedImports ]
 
   let import: Parser<ModuleDecl, unit> =
-    pipe2 (keyword "import" >>. importSpecifiers) (keyword "from" >>. str)
-    <| fun specifiers src ->
+    pipe3
+      (keyword "import" >>. (opt (keyword "type")))
+      importSpecifiers
+      (keyword "from" >>. str)
+    <| fun isTypeOnly specifiers src ->
       let decl: ImportDecl =
         { Specifiers = specifiers
           Src = src
-          IsTypeOnly = false
+          IsTypeOnly = isTypeOnly.IsSome
           With = None
           Loc = None }
 

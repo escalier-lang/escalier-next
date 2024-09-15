@@ -691,21 +691,56 @@ module rec Migrate =
           { Path = src.Value
             Specifiers = specifiers } ]
     | ModuleDecl.ExportNamed namedExport ->
-      // TODO: handle named exports with specifiers
-      // The only modules that use this so far do `export {}` so the specifiers
-      // is empty.
-      []
+      let specifiers =
+        namedExport.Specifiers
+        |> List.map (fun (specifier: ExportSpecifier) ->
+          match specifier with
+          | ExportSpecifier.Default _ ->
+            failwith "TODO: migrateModuleDecl - default export"
+          | ExportSpecifier.Namespace _ ->
+            failwith "TODO: migrateModuleDecl - namespace export"
+          | ExportSpecifier.Named { Orig = local; Exported = exported } ->
+            let name =
+              match local with
+              | ModuleExportName.Ident id -> id.Name
+              | ModuleExportName.Str str -> str.Value
+
+            match exported with
+            | Some exported ->
+              let alias =
+                match exported with
+                | ModuleExportName.Ident id -> id.Name
+                | ModuleExportName.Str str -> str.Value
+
+              Syntax.ExportSpecifier.Named { Name = name; Alias = Some alias }
+            | None ->
+              Syntax.ExportSpecifier.Named { Name = name; Alias = None })
+
+      match namedExport.Src with
+      | Some src ->
+        [ Export(
+            NamedExport
+              { Specifiers = specifiers
+                Src = src.Value }
+          ) ]
+      | None ->
+        // TODO: handle renaming named exports, e.g.
+        // export { setVerbosity as setLogVerbosity };
+        printfn $"namedExport = %A{namedExport}"
+        []
     | ModuleDecl.ExportDefaultDecl _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultDecl"
     | ModuleDecl.ExportDefaultExpr _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultExpr"
-    | ModuleDecl.ExportAll _ -> failwith "TODO: migrateModuleDecl - exportAll"
+    | ModuleDecl.ExportAll { Src = src } ->
+      [ Export(ExportAll { Src = src.Value }) ]
     | ModuleDecl.TsImportEquals _ ->
       failwith "TODO: migrateModuleDecl - tsImportEquals"
-    | ModuleDecl.TsExportAssignment _ ->
-      failwith "TODO: migrateModuleDecl - tsExportAssignment"
+    | ModuleDecl.TsExportAssignment { Expr = expr } ->
+      let expr = migrateExpr expr
+      [ Export(ExportDefault expr) ]
     | ModuleDecl.TsNamespaceExport { Id = ident } ->
-      [ ModuleItem.Export(Export.NamespaceExport { Name = ident.Name }) ]
+      [ Export(NamespaceExport { Name = ident.Name }) ]
 
   let migrateDeclarator
     (export: bool)
@@ -753,7 +788,8 @@ module rec Migrate =
       Optional = param.Optional }
 
   let migrateClassDecl (ctx: Ctx) (decl: ClassDecl) : Syntax.ClassDecl =
-    let { Declare = declare
+    let { Export = export
+          Declare = declare
           Ident = { Name = name }
           Class = { TypeParams = typeParams
                     Super = extends
@@ -923,7 +959,7 @@ module rec Migrate =
         TypeParams = typeParams
         Elems = elems }
 
-    { Export = false
+    { Export = export
       Declare = declare || ctx.Declare
       Name = name
       Class = cls }

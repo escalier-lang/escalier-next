@@ -399,6 +399,36 @@ let ParseAndInferPropertyKey () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+
+[<Fact>]
+let ParseAndMigrateExportDeclareFunction () =
+  let res =
+    result {
+      let input =
+        """
+        type Point = {x: number, y: number};
+        export declare function add({x, y}: Point): number;
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let ast = migrateModule ast
+
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+      let! env =
+        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+      Assert.Value(env, "add", "fn ({mut x, mut y}: Point) -> number")
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+
 [<Fact>]
 let ParseAndInferLibEs5 () =
   let res =

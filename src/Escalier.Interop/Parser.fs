@@ -1090,11 +1090,16 @@ module Parser =
         export ]
     .>> (opt (strWs ";"))
 
-  let mod': Parser<Module, unit> =
-    many moduleItem .>> eof
+  let m: Parser<Module, unit> =
+    ws >>. (opt (many moduleItem)) .>> eof
     |>> fun items ->
+      let items =
+        match items with
+        | Some items -> items
+        | None -> []
+
       { Body = items
         Shebang = None
         Loc = None }
 
-  let parseModule (input: string) = run mod' input
+  let parseModule (input: string) = run m input

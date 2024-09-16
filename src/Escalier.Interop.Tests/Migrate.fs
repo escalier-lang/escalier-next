@@ -399,7 +399,6 @@ let ParseAndInferPropertyKey () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
-
 [<Fact>]
 let ParseAndMigrateExportDeclareFunction () =
   let res =
@@ -428,6 +427,24 @@ let ParseAndMigrateExportDeclareFunction () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+[<Fact>]
+let ParseAndMigrateCommentOnly () =
+  let res =
+    result {
+      let input = "// This is a comment"
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let _ = migrateModule ast
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
 
 [<Fact>]
 let ParseAndInferLibEs5 () =

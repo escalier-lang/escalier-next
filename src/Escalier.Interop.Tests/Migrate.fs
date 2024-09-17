@@ -447,6 +447,79 @@ let ParseAndMigrateCommentOnly () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
+let ParseAndMigrateEnum () =
+  let res =
+    result {
+      let input =
+        """
+        export declare const enum CacheWriteBehavior {
+          FORBID = 0,
+          OVERWRITE = 1,
+          MERGE = 2
+        }
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let _ = migrateModule ast
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ParseAndMigrateMappedTypeWithRenaming () =
+  let res =
+    result {
+      let input =
+        """
+        type OnlyRequiredProperties<T> = {
+          [K in keyof T as {} extends Pick<T, K> ? never : K]: T[K];
+        };
+        """
+
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let _ = migrateModule ast
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
+let ParseAndMigrateNamedTuples () =
+  let res =
+    result {
+      let input =
+        """
+        type Point = [x: number, y?: number];
+        """
+
+      let! ast =
+        match parseModule input with
+        | Success(ast, _, _) -> Result.Ok ast
+        | Failure(_, error, _) -> Result.Error(CompileError.ParseError error)
+
+      let _ = migrateModule ast
+
+      ()
+    }
+
+  printfn "res = %A" res
+  Assert.True(Result.isOk res)
+
+[<Fact>]
 let ParseAndInferLibEs5 () =
   let res =
     result {

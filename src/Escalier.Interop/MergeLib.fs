@@ -139,7 +139,6 @@ module MergeLib =
           return ()
         else
           let resolvedPath = resolvePath projectRoot currentPath importSrc
-          printfn $"resolvedPath = {resolvedPath}"
 
           if List.contains resolvedPath visitedPaths then
             return ()

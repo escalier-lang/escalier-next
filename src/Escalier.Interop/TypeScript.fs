@@ -1221,8 +1221,9 @@ module rec TypeScript =
       Loc: option<SourceLocation> }
 
   type TsTupleElement =
-    { Label: option<Pat>
+    { Label: option<Ident>
       Type: TsType
+      IsRest: bool
       Loc: option<SourceLocation> }
 
   type TsOptionalType =
@@ -1319,5 +1320,5 @@ module rec TypeScript =
   type TsImportType =
     { Arg: Str
       Qualifier: Option<TsEntityName>
-      Type_args: Option<TsTypeParamInstantiation>
+      TypeArgs: Option<TsTypeParamInstantiation>
       Loc: option<SourceLocation> }

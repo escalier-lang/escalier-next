@@ -30,7 +30,26 @@ module Parser =
   let ident: Parser<Ident, unit> =
     let isIdentifierFirstChar c = isLetter c || c = '_' || c = '$'
 
-    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> ws // skips trailing whitespace
+    let identifier =
+      many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier"
+
+    let identifierWithKeywords =
+      fun stream ->
+        let reply = identifier stream
+
+        match reply.Status with
+        | ReplyStatus.Ok ->
+          if reply.Result = "enum" then
+            Reply(
+              Error,
+              messageError
+                "The keyword 'enum' is reserved and cannot be used as an identifier."
+            )
+          else
+            reply
+        | _ -> reply
+
+    identifierWithKeywords .>> ws // skips trailing whitespace
     |>> fun name -> { Name = name; Loc = None }
 
   let expr, exprRef = createParserForwardedToRef<Expr, unit> ()
@@ -132,7 +151,11 @@ module Parser =
 
   // Expressions
 
-  let atom = choice [ ident |>> Expr.Ident ]
+  let atom =
+    choice
+      [ ident |>> Expr.Ident
+        num |>> Lit.Num |>> Expr.Lit
+        str |>> Lit.Str |>> Expr.Lit ]
 
   let exprParser = Pratt.PrattParser<Expr>(atom .>> ws)
 
@@ -470,17 +493,39 @@ module Parser =
 
   // TODO: figure out how to parse tuple elements with a label
   let tupleElement: Parser<TsTupleElement, unit> =
-    pipe2 tsType (opt (strWs "?"))
-    <| fun t optional ->
+    pipe3 (opt (strWs "...")) tsType (opt (strWs "?"))
+    <| fun rest t optional ->
       match optional with
       | Some _ ->
         { Label = None
           Type = TsType.TsOptionalType { TypeAnn = t; Loc = None }
+          IsRest = rest.IsSome
           Loc = None }
-      | None -> { Label = None; Type = t; Loc = None }
+      | None ->
+        { Label = None
+          Type = t
+          IsRest = rest.IsSome
+          Loc = None }
+
+  let tupleElementWithLabel: Parser<TsTupleElement, unit> =
+    pipe4 (opt (strWs "...")) ident (opt (strWs "?") .>> strWs ":") tsType
+    <| fun rest label optional t ->
+      match optional with
+      | Some _ ->
+        { Label = Some label
+          Type = TsType.TsOptionalType { TypeAnn = t; Loc = None }
+          IsRest = rest.IsSome
+          Loc = None }
+      | None ->
+        { Label = None
+          Type = t
+          IsRest = rest.IsSome
+          Loc = None }
 
   let tupleType: Parser<TsTupleType, unit> =
-    between (strWs "[") (strWs "]") (sepBy tupleElement (strWs ","))
+    let elem = choice [ attempt tupleElementWithLabel; tupleElement ]
+
+    between (strWs "[") (strWs "]") (sepBy elem (strWs ","))
     |>> fun elemTypes -> { ElemTypes = elemTypes; Loc = None }
 
   let restType: Parser<TsRestType, unit> =
@@ -546,13 +591,15 @@ module Parser =
         strWs "?" |>> fun _ -> TruePlusMinus.True ]
 
   let mappedType: Parser<TsMappedType, unit> =
-    pipe5
+    pipe4
       (strWs "{" >>. opt readonlyTruePlusMinus)
-      (strWs "[" >>. mappedTypeParam)
-      (opt (strWs "as" >>. spaces1 >>. tsType) .>> strWs "]")
+      (between
+        (strWs "[")
+        (strWs "]")
+        (mappedTypeParam .>>. (opt (keyword "as" >>. tsType))))
       (opt optionalTruePlusMinus)
       (strWs ":" >>. tsType .>> opt (strWs ";") .>> strWs "}")
-    <| fun readonly param name optional typeAnn ->
+    <| fun readonly (param, name) optional typeAnn ->
       { Readonly = readonly
         TypeParam = param
         NameType = name
@@ -629,6 +676,24 @@ module Parser =
         TypeArgs = typeArgs
         Loc = None }
 
+  let importType: Parser<TsImportType, unit> =
+    pipe3
+      (keyword "import")
+      (strWs "(" >>. str .>> strWs ")")
+      (opt (strWs "." >>. entityName .>>. (opt typeArgs)))
+    <| fun _ src qualifierAndTypeArgs ->
+      match qualifierAndTypeArgs with
+      | Some(qualifier, typeArgs) ->
+        { Arg = src
+          Qualifier = Some qualifier
+          TypeArgs = typeArgs
+          Loc = None }
+      | None ->
+        { Arg = src
+          Qualifier = None
+          TypeArgs = None
+          Loc = None }
+
   let primaryType =
     choice
       [ // `typePredicate` goes first to handle `object` being used
@@ -644,8 +709,7 @@ module Parser =
         litType |>> TsType.TsLitType
 
         // TODO: typeQuery |>> TsType.TsTypeQuery
-        // optionalType |>> TsType.TsOptionalType
-        // TODO: importType |>> TsType.TsImportType
+        importType |>> TsType.TsImportType
 
         // These both start with '{'
         attempt mappedType |>> TsType.TsMappedType
@@ -784,6 +848,28 @@ module Parser =
           Fn = fn }
         |> Decl.Fn
 
+  let enumIdent: Parser<TsEnumMemberId, unit> =
+    choice [ ident |>> TsEnumMemberId.Ident; str |>> TsEnumMemberId.Str ]
+
+  let enumMember: Parser<TsEnumMember, unit> =
+    pipe2 enumIdent (opt (strWs "=" >>. expr))
+    <| fun id value -> { Id = id; Init = value; Loc = None }
+
+  let enumDecl: Parser<bool * bool -> Decl, unit> =
+    pipe3
+      (opt (keyword "const"))
+      (keyword "enum" >>. ident)
+      (between (strWs "{") (strWs "}") (sepEndBy enumMember (strWs ",")))
+    <| fun isConst ident members ->
+      fun (export, declare) ->
+        { Export = export
+          Declare = declare
+          IsConst = isConst.IsSome
+          Id = ident
+          Members = members
+          Loc = None }
+        |> Decl.TsEnum
+
   let constructor: Parser<Constructor, unit> =
     keyword "constructor" >>. fnParams
     |>> fun ps ->
@@ -919,17 +1005,28 @@ module Parser =
 
   let namespaceBody = moduleBlock
 
-  let moduleName = (ident |>> TsModuleName.Ident) <|> (str |>> TsModuleName.Str)
-
-  let moduleDecl: Parser<bool * bool -> Decl, unit> =
-    pipe2 (strWs "namespace" >>. moduleName) moduleBlock
+  let namespaceDecl: Parser<bool * bool -> Decl, unit> =
+    pipe2 (strWs "namespace" >>. ident) moduleBlock
     <| fun id body ->
 
       fun (export, declare) ->
         { Export = export
           Declare = declare
           Global = false
-          Id = id
+          Id = TsModuleName.Ident id
+          Body = Some(body)
+          Loc = None }
+        |> Decl.TsModule
+
+  let moduleDecl: Parser<bool * bool -> Decl, unit> =
+    pipe2 (strWs "module" >>. str) moduleBlock
+    <| fun id body ->
+
+      fun (export, declare) ->
+        { Export = export
+          Declare = declare
+          Global = false
+          Id = TsModuleName.Str id
           Body = Some(body)
           Loc = None }
         |> Decl.TsModule
@@ -957,9 +1054,11 @@ module Parser =
       (choice
         [ attempt typeAliasDecl
           attempt varDecl
+          attempt enumDecl
           attempt fnDecl
           attempt interfaceDecl
           attempt classDecl
+          attempt namespaceDecl
           attempt moduleDecl
           attempt globalDecl ])
     <| fun declare decl -> decl (export, declare.IsSome)

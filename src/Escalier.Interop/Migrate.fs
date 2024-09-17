@@ -726,7 +726,7 @@ module rec Migrate =
       | None ->
         // TODO: handle renaming named exports, e.g.
         // export { setVerbosity as setLogVerbosity };
-        printfn $"namedExport = %A{namedExport}"
+        printfn "TODO: migrate named export without src"
         []
     | ModuleDecl.ExportDefaultDecl _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultDecl"

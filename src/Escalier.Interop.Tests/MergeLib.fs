@@ -2,24 +2,8 @@ module Escalier.Interop.Tests.MergeLib
 
 open FsToolkit.ErrorHandling
 open Xunit
-open System.IO
 
 open Escalier.Interop.MergeLib
-
-[<Fact>]
-let testResolvePath () =
-  let projectRoot = __SOURCE_DIRECTORY__
-
-  let resolvedPath = resolvePath projectRoot projectRoot "@apollo/client"
-
-  let combinedPath = Path.Combine("/foo/bar", "../baz")
-  let di = DirectoryInfo(combinedPath)
-  printfn $"di.FullName = {di.FullName}"
-
-  Assert.Equal(
-    "/Users/kevinbarabash/projects/escalier-next/node_modules/@apollo/client/index.d.ts",
-    resolvedPath
-  )
 
 [<Fact>]
 let testGetDependencies () =
@@ -29,7 +13,7 @@ let testGetDependencies () =
 
       let! deps = getDependencies projectRoot "@apollo/client"
 
-      printfn $"deps = {deps}"
+      printfn $"deps.Length = {deps.Length}"
     }
 
   printfn $"res = %A{res}"

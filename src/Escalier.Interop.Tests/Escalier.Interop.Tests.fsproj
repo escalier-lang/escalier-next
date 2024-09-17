@@ -69,6 +69,7 @@
         <Compile Include="Interfaces.fs"/>
         <Compile Include="Classes.fs"/>
         <Compile Include="Tests.fs"/>
+        <Compile Include="MergeLib.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
 </Project>

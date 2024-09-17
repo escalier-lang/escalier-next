@@ -1721,7 +1721,11 @@ module rec Codegen =
       let elemTypes: list<TsTupleElement> =
         elems
         |> List.map (buildType ctx)
-        |> List.map (fun t -> { Label = None; Type = t; Loc = None })
+        |> List.map (fun t ->
+          { Label = None
+            Type = t
+            IsRest = false
+            Loc = None })
 
       TsType.TsTupleType { ElemTypes = elemTypes; Loc = None }
     | TypeKind.Array { Elem = elem; Length = length } ->

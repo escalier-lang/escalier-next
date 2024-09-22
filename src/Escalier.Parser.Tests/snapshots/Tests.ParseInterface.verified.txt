@@ -19,14 +19,16 @@ output: Ok
                     TypeParams = None
                     Extends = None
                     Elems =
-                     [Property { Name = String "x"
-                                 TypeAnn = { Kind = Keyword Number
-                                             Span = { Start = (Ln: 3, Col: 10)
-                                                      Stop = (Ln: 3, Col: 16) }
-                                             InferredType = None }
-                                 Optional = false
-                                 Readonly = false
-                                 Static = false }] }
+                     [Property
+                        { Name = String "x"
+                          TypeAnn = Some { Kind = Keyword Number
+                                           Span = { Start = (Ln: 3, Col: 10)
+                                                    Stop = (Ln: 3, Col: 16) }
+                                           InferredType = None }
+                          Value = None
+                          Optional = false
+                          Readonly = false
+                          Static = false }] }
                Span = { Start = (Ln: 2, Col: 5)
                         Stop = (Ln: 5, Col: 5) } }
           Span = { Start = (Ln: 2, Col: 5)
@@ -42,14 +44,16 @@ output: Ok
                     TypeParams = None
                     Extends = None
                     Elems =
-                     [Property { Name = String "y"
-                                 TypeAnn = { Kind = Keyword Number
-                                             Span = { Start = (Ln: 6, Col: 10)
-                                                      Stop = (Ln: 6, Col: 16) }
-                                             InferredType = None }
-                                 Optional = false
-                                 Readonly = false
-                                 Static = false }] }
+                     [Property
+                        { Name = String "y"
+                          TypeAnn = Some { Kind = Keyword Number
+                                           Span = { Start = (Ln: 6, Col: 10)
+                                                    Stop = (Ln: 6, Col: 16) }
+                                           InferredType = None }
+                          Value = None
+                          Optional = false
+                          Readonly = false
+                          Static = false }] }
                Span = { Start = (Ln: 5, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }
           Span = { Start = (Ln: 5, Col: 5)

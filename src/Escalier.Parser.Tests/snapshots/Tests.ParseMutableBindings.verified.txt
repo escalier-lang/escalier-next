@@ -22,19 +22,23 @@ output: Ok
                           { Elems =
                              [Property
                                 { Name = String "x"
-                                  TypeAnn = { Kind = Keyword Number
-                                              Span = { Start = (Ln: 2, Col: 22)
-                                                       Stop = (Ln: 2, Col: 28) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword Number
+                                          Span = { Start = (Ln: 2, Col: 22)
+                                                   Stop = (Ln: 2, Col: 28) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
                               Property
                                 { Name = String "y"
-                                  TypeAnn = { Kind = Keyword Number
-                                              Span = { Start = (Ln: 2, Col: 33)
-                                                       Stop = (Ln: 2, Col: 39) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword Number
+                                          Span = { Start = (Ln: 2, Col: 33)
+                                                   Stop = (Ln: 2, Col: 39) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false }]
@@ -63,22 +67,24 @@ output: Ok
                              [Property
                                 { Name = String "p0"
                                   TypeAnn =
-                                   { Kind = TypeRef { Ident = Ident "Point"
-                                                      TypeArgs = None }
-                                     Span = { Start = (Ln: 3, Col: 22)
-                                              Stop = (Ln: 3, Col: 27) }
-                                     InferredType = None }
+                                   Some { Kind = TypeRef { Ident = Ident "Point"
+                                                           TypeArgs = None }
+                                          Span = { Start = (Ln: 3, Col: 22)
+                                                   Stop = (Ln: 3, Col: 27) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
                               Property
                                 { Name = String "p1"
                                   TypeAnn =
-                                   { Kind = TypeRef { Ident = Ident "Point"
-                                                      TypeArgs = None }
-                                     Span = { Start = (Ln: 3, Col: 33)
-                                              Stop = (Ln: 3, Col: 38) }
-                                     InferredType = None }
+                                   Some { Kind = TypeRef { Ident = Ident "Point"
+                                                           TypeArgs = None }
+                                          Span = { Start = (Ln: 3, Col: 33)
+                                                   Stop = (Ln: 3, Col: 38) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false }]

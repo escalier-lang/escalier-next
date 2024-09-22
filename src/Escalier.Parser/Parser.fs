@@ -320,7 +320,8 @@ module Parser =
       let span = { Start = p1; Stop = p2 }
 
       { Name = name
-        TypeAnn = typeAnn
+        TypeAnn = Some typeAnn
+        Value = None
         Optional = optional.IsSome
         Readonly = false
         Static = false }
@@ -965,7 +966,8 @@ module Parser =
 
       ClassElem.Property
         { Name = name
-          TypeAnn = typeAnn
+          TypeAnn = Some typeAnn
+          Value = None
           Optional = optional.IsSome
           Readonly = false
           Static = false (* TODO *) }

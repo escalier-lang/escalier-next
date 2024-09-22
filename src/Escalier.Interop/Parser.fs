@@ -883,12 +883,14 @@ module Parser =
 
   let classMethod: Parser<option<Accessibility> -> ClassMember, unit> =
     pipe5
-      (tuple2 (opt (strWs "static")) (opt (strWs "async")))
+      (tuple2
+        (opt (keyword "static" <|> keyword "abstract"))
+        (opt (keyword "async")))
       ident
       (opt typeParams)
       fnParams
       (opt ((strWs ":") >>. tsTypeAnn))
-    <| fun (isStatic, isAsync) id typeParams ps typeAnn ->
+    <| fun (staticOrAbstract, isAsync) id typeParams ps typeAnn ->
       let fn: Function =
         { Params = ps
           Body = None
@@ -898,14 +900,20 @@ module Parser =
           ReturnType = typeAnn
           Loc = None }
 
+      let isStatic, isAbstract =
+        match staticOrAbstract with
+        | Some "static" -> true, false
+        | Some "abstract" -> false, true
+        | _ -> false, false
+
       fun accessMod ->
         let method: ClassMethod =
           { Key = PropName.Ident id
             Function = fn
             Kind = MethodKind.Method // TODO: handle getters and setters
-            IsStatic = isStatic.IsSome
+            IsStatic = isStatic
             Accessibility = accessMod
-            IsAbstract = false
+            IsAbstract = isAbstract
             IsOptional = false
             IsOverride = false
             Loc = None }

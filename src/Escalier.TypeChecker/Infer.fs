@@ -170,11 +170,20 @@ module rec Infer =
         match elem with
         | ClassElem.Property { Name = name
                                TypeAnn = typeAnn
+                               Value = value
                                Optional = optional
                                Readonly = readonly
                                Static = isStatic } ->
           let! name = inferPropName ctx env name
-          let! t = inferTypeAnn ctx newEnv typeAnn
+
+          let! t =
+            match typeAnn, value with
+            | Some typeAnn, Some value ->
+              // TODO: infer `value`'s type and then unify with `typeAnn`'s type
+              inferTypeAnn ctx newEnv typeAnn
+            | Some typeAnn, None -> inferTypeAnn ctx newEnv typeAnn
+            | None, Some value -> inferExpr ctx newEnv None value
+            | None, None -> Error(TypeError.SemanticError "Invalid property")
 
           let prop =
             ObjTypeElem.Property
@@ -1942,9 +1951,18 @@ module rec Infer =
       match elem with
       | ObjTypeAnnElem.Property { Name = name
                                   TypeAnn = typeAnn
+                                  Value = value
                                   Optional = optional
                                   Readonly = readonly } ->
-        let! t = inferTypeAnn ctx env typeAnn
+        let! t =
+          match typeAnn, value with
+          | Some typeAnn, Some value ->
+            // TODO: infer `value`'s type and then unify with `typeAnn`'s type
+            inferTypeAnn ctx env typeAnn
+          | Some typeAnn, None -> inferTypeAnn ctx env typeAnn
+          | None, Some value -> inferExpr ctx env None value
+          | None, None -> Error(TypeError.SemanticError "Invalid property")
+
         let! name = inferPropName ctx env name
 
         return

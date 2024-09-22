@@ -21,19 +21,23 @@ output: Ok
                           { Elems =
                              [Property
                                 { Name = String "msg"
-                                  TypeAnn = { Kind = Keyword String
-                                              Span = { Start = (Ln: 3, Col: 12)
-                                                       Stop = (Ln: 3, Col: 18) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword String
+                                          Span = { Start = (Ln: 3, Col: 12)
+                                                   Stop = (Ln: 3, Col: 18) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
                               Property
                                 { Name = String "flag"
-                                  TypeAnn = { Kind = Keyword Boolean
-                                              Span = { Start = (Ln: 4, Col: 13)
-                                                       Stop = (Ln: 4, Col: 20) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword Boolean
+                                          Span = { Start = (Ln: 4, Col: 13)
+                                                   Stop = (Ln: 4, Col: 20) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false }]

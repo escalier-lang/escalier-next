@@ -376,7 +376,9 @@ module rec ExprVisitor =
           f.ParamList
       | Getter { ReturnType = retType } -> walk retType
       | Setter { Param = { TypeAnn = paramType } } -> Option.iter walk paramType
-      | Property { TypeAnn = typeAnn } -> walk typeAnn
+      | Property { TypeAnn = typeAnn; Value = value } ->
+        Option.iter walk typeAnn
+        Option.iter (walkExpr visitor state) value
       | Mapped { TypeParam = typeParam
                  TypeAnn = typeAnn } ->
         walk typeParam.Constraint

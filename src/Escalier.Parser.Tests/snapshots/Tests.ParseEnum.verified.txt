@@ -51,20 +51,24 @@ output: Ok
                                    [Property
                                       { Name = String "x"
                                         TypeAnn =
-                                         { Kind = Keyword Number
-                                           Span = { Start = (Ln: 4, Col: 15)
-                                                    Stop = (Ln: 4, Col: 21) }
-                                           InferredType = None }
+                                         Some
+                                           { Kind = Keyword Number
+                                             Span = { Start = (Ln: 4, Col: 15)
+                                                      Stop = (Ln: 4, Col: 21) }
+                                             InferredType = None }
+                                        Value = None
                                         Optional = false
                                         Readonly = false
                                         Static = false };
                                     Property
                                       { Name = String "y"
                                         TypeAnn =
-                                         { Kind = Keyword Number
-                                           Span = { Start = (Ln: 4, Col: 26)
-                                                    Stop = (Ln: 4, Col: 32) }
-                                           InferredType = None }
+                                         Some
+                                           { Kind = Keyword Number
+                                             Span = { Start = (Ln: 4, Col: 26)
+                                                      Stop = (Ln: 4, Col: 32) }
+                                             InferredType = None }
+                                        Value = None
                                         Optional = false
                                         Readonly = false
                                         Static = false }]

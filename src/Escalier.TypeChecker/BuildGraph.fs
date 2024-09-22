@@ -928,18 +928,22 @@ let getEdges
 
                 Set.union propNameDeps fnDeps
               | ClassElem.Property { TypeAnn = typeAnn
+                                     Value = value
                                      Name = name
                                      Static = false } ->
                 let propNameDeps = getPropNameDeps env locals name
 
                 let typeAnnDeps =
-                  findDepsForTypeIdent
-                    env
-                    possibleDeps
-                    localsTree
-                    typeParamNames
-                    ident
-                    (SyntaxNode.TypeAnn typeAnn)
+                  match typeAnn with
+                  | Some typeAnn ->
+                    findDepsForTypeIdent
+                      env
+                      possibleDeps
+                      localsTree
+                      typeParamNames
+                      ident
+                      (SyntaxNode.TypeAnn typeAnn)
+                  | None -> Set.empty
 
                 Set.union propNameDeps typeAnnDeps
               | _ -> Set.empty)
@@ -1008,18 +1012,22 @@ let getEdges
 
                 Set.union propNameDeps fnDeps
               | ClassElem.Property { TypeAnn = typeAnn
+                                     Value = value
                                      Name = name
                                      Static = true } ->
                 let propNameDeps = getPropNameDeps env locals name
 
                 let typeAnnDeps =
-                  findDepsForTypeIdent
-                    env
-                    possibleDeps
-                    localsTree
-                    typeParamNames
-                    ident
-                    (SyntaxNode.TypeAnn typeAnn)
+                  match typeAnn with
+                  | Some typeAnn ->
+                    findDepsForTypeIdent
+                      env
+                      possibleDeps
+                      localsTree
+                      typeParamNames
+                      ident
+                      (SyntaxNode.TypeAnn typeAnn)
+                  | None -> Set.empty
 
                 Set.union propNameDeps typeAnnDeps
               | _ -> Set.empty)
@@ -1181,17 +1189,22 @@ let getEdges
                 | None -> Set.empty
 
               Set.union propNameDeps fnDeps
-            | ObjTypeAnnElem.Property { TypeAnn = typeAnn; Name = name } ->
+            | ObjTypeAnnElem.Property { TypeAnn = typeAnn
+                                        Value = value
+                                        Name = name } ->
               let propNameDeps = getPropNameDeps env locals name
 
               let typeAnnDeps =
-                findDepsForTypeIdent
-                  env
-                  possibleDeps
-                  localsTree
-                  typeParamNames
-                  ident
-                  (SyntaxNode.TypeAnn typeAnn)
+                match typeAnn with
+                | Some typeAnn ->
+                  findDepsForTypeIdent
+                    env
+                    possibleDeps
+                    localsTree
+                    typeParamNames
+                    ident
+                    (SyntaxNode.TypeAnn typeAnn)
+                | None -> Set.empty
 
               Set.union propNameDeps typeAnnDeps
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam

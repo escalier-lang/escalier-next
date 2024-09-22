@@ -18,38 +18,44 @@ output: Ok
                              [Property
                                 { Name = String "range"
                                   TypeAnn =
-                                   { Kind =
-                                      Range
-                                        { Min =
-                                           { Kind =
-                                              TypeRef { Ident = Ident "Min"
-                                                        TypeArgs = None }
-                                             Span = { Start = (Ln: 2, Col: 26)
-                                                      Stop = (Ln: 2, Col: 29) }
-                                             InferredType = None }
-                                          Max =
-                                           { Kind =
-                                              TypeRef { Ident = Ident "Max"
-                                                        TypeArgs = None }
-                                             Span = { Start = (Ln: 2, Col: 31)
-                                                      Stop = (Ln: 2, Col: 34) }
-                                             InferredType = None } }
-                                     Span = { Start = (Ln: 2, Col: 26)
-                                              Stop = (Ln: 2, Col: 34) }
-                                     InferredType = None }
+                                   Some
+                                     { Kind =
+                                        Range
+                                          { Min =
+                                             { Kind =
+                                                TypeRef { Ident = Ident "Min"
+                                                          TypeArgs = None }
+                                               Span =
+                                                { Start = (Ln: 2, Col: 26)
+                                                  Stop = (Ln: 2, Col: 29) }
+                                               InferredType = None }
+                                            Max =
+                                             { Kind =
+                                                TypeRef { Ident = Ident "Max"
+                                                          TypeArgs = None }
+                                               Span =
+                                                { Start = (Ln: 2, Col: 31)
+                                                  Stop = (Ln: 2, Col: 34) }
+                                               InferredType = None } }
+                                       Span = { Start = (Ln: 2, Col: 26)
+                                                Stop = (Ln: 2, Col: 34) }
+                                       InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
                               Property
                                 { Name = String "qual"
                                   TypeAnn =
-                                   { Kind =
-                                      TypeRef
-                                        { Ident = Member (Ident "Foo", "Bar")
-                                          TypeArgs = None }
-                                     Span = { Start = (Ln: 2, Col: 42)
-                                              Stop = (Ln: 2, Col: 49) }
-                                     InferredType = None }
+                                   Some
+                                     { Kind =
+                                        TypeRef
+                                          { Ident = Member (Ident "Foo", "Bar")
+                                            TypeArgs = None }
+                                       Span = { Start = (Ln: 2, Col: 42)
+                                                Stop = (Ln: 2, Col: 49) }
+                                       InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false }]

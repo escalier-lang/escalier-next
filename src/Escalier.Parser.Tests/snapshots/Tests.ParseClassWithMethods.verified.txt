@@ -37,10 +37,11 @@ output: Ok
                                [Property
                                   { Name = String "msg"
                                     TypeAnn =
-                                     { Kind = Keyword String
-                                       Span = { Start = (Ln: 3, Col: 12)
-                                                Stop = (Ln: 3, Col: 18) }
-                                       InferredType = None }
+                                     Some { Kind = Keyword String
+                                            Span = { Start = (Ln: 3, Col: 12)
+                                                     Stop = (Ln: 3, Col: 18) }
+                                            InferredType = None }
+                                    Value = None
                                     Optional = false
                                     Readonly = false
                                     Static = false };

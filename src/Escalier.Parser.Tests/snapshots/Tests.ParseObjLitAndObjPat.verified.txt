@@ -20,19 +20,23 @@ output: Ok
                           { Elems =
                              [Property
                                 { Name = String "x"
-                                  TypeAnn = { Kind = Keyword Number
-                                              Span = { Start = (Ln: 2, Col: 22)
-                                                       Stop = (Ln: 2, Col: 28) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword Number
+                                          Span = { Start = (Ln: 2, Col: 22)
+                                                   Stop = (Ln: 2, Col: 28) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
                               Property
                                 { Name = String "y"
-                                  TypeAnn = { Kind = Keyword Number
-                                              Span = { Start = (Ln: 2, Col: 33)
-                                                       Stop = (Ln: 2, Col: 39) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword Number
+                                          Span = { Start = (Ln: 2, Col: 33)
+                                                   Stop = (Ln: 2, Col: 39) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false }]

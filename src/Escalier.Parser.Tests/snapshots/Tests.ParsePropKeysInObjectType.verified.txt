@@ -21,19 +21,23 @@ output: Ok
                           { Elems =
                              [Property
                                 { Name = Number (Int 5)
-                                  TypeAnn = { Kind = Keyword String
-                                              Span = { Start = (Ln: 3, Col: 10)
-                                                       Stop = (Ln: 3, Col: 16) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword String
+                                          Span = { Start = (Ln: 3, Col: 10)
+                                                   Stop = (Ln: 3, Col: 16) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
                               Property
                                 { Name = String "hello"
-                                  TypeAnn = { Kind = Keyword Number
-                                              Span = { Start = (Ln: 4, Col: 16)
-                                                       Stop = (Ln: 4, Col: 22) }
-                                              InferredType = None }
+                                  TypeAnn =
+                                   Some { Kind = Keyword Number
+                                          Span = { Start = (Ln: 4, Col: 16)
+                                                   Stop = (Ln: 4, Col: 22) }
+                                          InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false };
@@ -55,37 +59,40 @@ output: Ok
                                                 Stop = (Ln: 5, Col: 23) }
                                        InferredType = None }
                                   TypeAnn =
-                                   { Kind =
-                                      Function
-                                        { TypeParams = None
-                                          Self = None
-                                          ParamList = []
-                                          ReturnType =
-                                           Some
-                                             { Kind =
-                                                TypeRef
-                                                  { Ident = Ident "Iterator"
-                                                    TypeArgs =
-                                                     Some
-                                                       [{ Kind =
-                                                           TypeRef
-                                                             { Ident = Ident "T"
-                                                               TypeArgs = None }
-                                                          Span =
-                                                           { Start =
-                                                              (Ln: 5, Col: 44)
-                                                             Stop =
-                                                              (Ln: 5, Col: 45) }
-                                                          InferredType = None }] }
-                                               Span =
-                                                { Start = (Ln: 5, Col: 35)
-                                                  Stop = (Ln: 5, Col: 46) }
-                                               InferredType = None }
-                                          Throws = None
-                                          IsAsync = false }
-                                     Span = { Start = (Ln: 5, Col: 26)
-                                              Stop = (Ln: 5, Col: 46) }
-                                     InferredType = None }
+                                   Some
+                                     { Kind =
+                                        Function
+                                          { TypeParams = None
+                                            Self = None
+                                            ParamList = []
+                                            ReturnType =
+                                             Some
+                                               { Kind =
+                                                  TypeRef
+                                                    { Ident = Ident "Iterator"
+                                                      TypeArgs =
+                                                       Some
+                                                         [{ Kind =
+                                                             TypeRef
+                                                               { Ident =
+                                                                  Ident "T"
+                                                                 TypeArgs = None }
+                                                            Span =
+                                                             { Start =
+                                                                (Ln: 5, Col: 44)
+                                                               Stop =
+                                                                (Ln: 5, Col: 45) }
+                                                            InferredType = None }] }
+                                                 Span =
+                                                  { Start = (Ln: 5, Col: 35)
+                                                    Stop = (Ln: 5, Col: 46) }
+                                                 InferredType = None }
+                                            Throws = None
+                                            IsAsync = false }
+                                       Span = { Start = (Ln: 5, Col: 26)
+                                                Stop = (Ln: 5, Col: 46) }
+                                       InferredType = None }
+                                  Value = None
                                   Optional = false
                                   Readonly = false
                                   Static = false }]

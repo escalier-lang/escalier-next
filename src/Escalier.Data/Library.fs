@@ -542,7 +542,8 @@ module Syntax =
 
   type Property =
     { Name: PropName
-      TypeAnn: TypeAnn
+      TypeAnn: option<TypeAnn>
+      Value: option<Expr>
       Optional: bool
       Readonly: bool
       Static: bool }

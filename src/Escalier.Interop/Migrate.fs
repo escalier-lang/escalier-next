@@ -191,7 +191,8 @@ module rec Migrate =
 
       ObjTypeAnnElem.Property
         { Name = name
-          TypeAnn = migrateTypeAnn typeAnn
+          TypeAnn = Some(migrateTypeAnn typeAnn)
+          Value = None
           Optional = optional
           Readonly = readonly
           Static = false }
@@ -396,7 +397,15 @@ module rec Migrate =
       | TsType.TsTupleType { ElemTypes = elems } ->
         let elemTypes = List.map (fun e -> migrateType e.Type) elems
         TypeAnnKind.Tuple { Elems = elemTypes; Immutable = false }
-      | TsType.TsOptionalType _ -> failwith "TODO: migrate optional type"
+      | TsType.TsOptionalType { TypeAnn = typeAnn } ->
+        let t = migrateType typeAnn
+
+        let undefined =
+          { Kind = TypeAnnKind.Keyword KeywordTypeAnn.Undefined
+            Span = DUMMY_SPAN
+            InferredType = None }
+
+        TypeAnnKind.Union [ t; undefined ]
       | TsType.TsRestType { TypeAnn = typeAnn } ->
         TypeAnnKind.Rest(migrateType typeAnn)
       | TsType.TsUnionOrIntersectionType unionOrIntersection ->
@@ -907,7 +916,7 @@ module rec Migrate =
           | ClassMember.PrivateMethod _ ->
             failwith "TODO: migrateClassDecl - PrivateMethod"
           | ClassMember.ClassProp { Key = key
-                                    Value = _
+                                    Value = value
                                     TypeAnn = typeAnn
                                     IsStatic = isStatic
                                     Accessibility = accessMod
@@ -926,17 +935,11 @@ module rec Migrate =
                 // TODO: update `key` to handle `unique symbol`s as well
                 failwith "TODO: computed property name"
 
-            match typeAnn with
-            | Some t ->
-              let typeAnn = migrateTypeAnn t
+            let typeAnn = Option.map migrateTypeAnn typeAnn
+            let value = Option.map migrateExpr value
 
-              [ ClassElem.Property
-                  { Name = name
-                    TypeAnn = typeAnn
-                    Optional = optional
-                    Readonly = readonly
-                    Static = isStatic } ]
-            | None ->
+            match typeAnn, value with
+            | None, None ->
               match accessMod with
               | Some Accessibility.Private -> []
               | _ ->
@@ -945,6 +948,14 @@ module rec Migrate =
 
                 failwith
                   "all public class properties must have a type annotation"
+            | typeAnn, value ->
+              [ ClassElem.Property
+                  { Name = name
+                    TypeAnn = typeAnn
+                    Value = value
+                    Optional = optional
+                    Readonly = readonly
+                    Static = isStatic } ]
 
           | ClassMember.PrivateProp _ ->
             failwith "TODO: migrateClassDecl - PrivateProp"
@@ -1203,8 +1214,7 @@ module rec Migrate =
           with ex ->
             // TODO: fix all of the error messages
             printfn $"Error migrating module item: {ex.Message}"
-            []
-        )
+            [])
         m.Body
 
     { Items = items }

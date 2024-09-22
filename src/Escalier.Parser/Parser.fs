@@ -1642,6 +1642,7 @@ module Parser =
 
       { Name = name
         TypeAnn = kind
+        Init = None
         Span = { Start = start; Stop = stop } }
 
   let private enumDecl: Parser<Decl, unit> =

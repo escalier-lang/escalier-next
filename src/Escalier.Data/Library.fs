@@ -500,6 +500,7 @@ module Syntax =
   type EnumVariant =
     { Name: string
       TypeAnn: option<TypeAnn> // Must only be an object or tuple type
+      Init: option<Expr> // Can only be a numer literal or string literal
       Span: Span }
 
   type EnumDecl =
@@ -619,6 +620,11 @@ module Syntax =
       Op: string // TODO: Use an enum for this
       Right: TypeAnn }
 
+  type ImportType =
+    { Src: string
+      Qualifier: option<Common.QualifiedIdent>
+      TypeArgs: option<list<TypeAnn>> }
+
   type TypeAnnKind =
     | Literal of Common.Literal
     | Keyword of KeywordTypeAnn
@@ -641,6 +647,7 @@ module Syntax =
     | Binary of BinaryType
     | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
     | Intrinsic
+    | ImportType of ImportType
 
   [<CustomEquality; NoComparison>]
   type TypeAnn =
@@ -669,7 +676,7 @@ module Syntax =
   type ExportSpecifier = Named of Named
 
   type NamedExport =
-    { Src: string
+    { Src: option<string>
       Specifiers: list<ExportSpecifier> }
 
   type ExportAll = { Src: string }

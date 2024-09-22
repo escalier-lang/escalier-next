@@ -143,6 +143,8 @@ module MergeLib =
           if List.contains resolvedPath visitedPaths then
             return ()
           else
+            printfn $"resolvedPath = {resolvedPath}"
+
             visitedPaths <- resolvedPath :: visitedPaths
 
             let contents = File.ReadAllText(resolvedPath)
@@ -159,7 +161,7 @@ module MergeLib =
             for item in ast.Items do
               match item with
               | Import { Path = path } -> do! traverse resolvedPath path
-              | Export(Export.NamedExport { Src = src }) ->
+              | Export(Export.NamedExport { Src = Some src }) ->
                 do! traverse resolvedPath src
               | Export(Export.ExportAll { Src = src }) ->
                 do! traverse resolvedPath src

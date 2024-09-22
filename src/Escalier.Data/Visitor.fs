@@ -340,6 +340,7 @@ module rec ExprVisitor =
         walk max
       | TypeAnnKind.TemplateLiteral { Exprs = expr } -> List.iter walk expr
       | TypeAnnKind.Intrinsic -> ()
+      | TypeAnnKind.ImportType _ -> ()
 
   let walkTypeAnnObjElem
     (visitor: SyntaxVisitor<'S>)

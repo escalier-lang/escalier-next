@@ -84,12 +84,12 @@ module rec Migrate =
         Span = DUMMY_SPAN
         InferredType = None }
 
-    let kind =
+    let kind: TypeAnnKind =
       { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
         TypeRef.TypeArgs = None }
-      |> TypeRef
+      |> TypeAnnKind.TypeRef
 
-    let selfTypeAnn =
+    let selfTypeAnn: TypeAnn =
       { Kind = kind
         Span = DUMMY_SPAN
         InferredType = None }
@@ -112,10 +112,10 @@ module rec Migrate =
         Span = DUMMY_SPAN
         InferredType = None }
 
-    let kind =
+    let kind: TypeAnnKind =
       { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
         TypeRef.TypeArgs = None }
-      |> TypeRef
+      |> TypeAnnKind.TypeRef
 
     let selfTypeAnn =
       { Kind = kind
@@ -321,7 +321,7 @@ module rec Migrate =
       | TsType.TsThisType _ ->
         { TypeRef.Ident = Common.QualifiedIdent.Ident "Self"
           TypeRef.TypeArgs = None }
-        |> TypeRef
+        |> TypeAnnKind.TypeRef
       | TsType.TsFnOrConstructorType tsFnOrConstructorType ->
         // Assumes the entire object is mutable
         let isMutable = true
@@ -375,7 +375,7 @@ module rec Migrate =
 
         { TypeRef.Ident = entityNameToQualifiedIdent typeName
           TypeRef.TypeArgs = typeArgs }
-        |> TypeRef
+        |> TypeAnnKind.TypeRef
       | TsType.TsTypeQuery { ExprName = exprName
                              TypeArgs = _typeArgs } ->
         let name =
@@ -500,7 +500,15 @@ module rec Migrate =
       | TsType.TsTypePredicate _ ->
         // TODO: add proper support for type predicates
         TypeAnnKind.Keyword KeywordTypeAnn.Boolean
-      | TsType.TsImportType _ -> failwith "TODO: migrateType - TsImportType"
+      | TsType.TsImportType { Arg = arg
+                              Qualifier = qualifier
+                              TypeArgs = typeArgs } ->
+        let qualifier = Option.map entityNameToQualifiedIdent qualifier
+
+        TypeAnnKind.ImportType
+          { Src = arg.Value
+            Qualifier = qualifier
+            TypeArgs = None }
 
     { Kind = kind
       Span = DUMMY_SPAN
@@ -646,8 +654,8 @@ module rec Migrate =
             props
 
         PatternKind.Object { Elems = elems; Immutable = false }
-      | Pat.Assign(_) -> failwith "TODO: handle assignment patterns"
-      | Pat.Invalid(_) -> failwith "TODO: handle invalid patterns"
+      | Pat.Assign _ -> failwith "TODO: handle assignment patterns"
+      | Pat.Invalid _ -> failwith "TODO: handle invalid patterns"
 
     { Kind = kind
       Span = DUMMY_SPAN
@@ -716,18 +724,12 @@ module rec Migrate =
             | None ->
               Syntax.ExportSpecifier.Named { Name = name; Alias = None })
 
-      match namedExport.Src with
-      | Some src ->
-        [ Export(
-            NamedExport
-              { Specifiers = specifiers
-                Src = src.Value }
-          ) ]
-      | None ->
-        // TODO: handle renaming named exports, e.g.
-        // export { setVerbosity as setLogVerbosity };
-        printfn "TODO: migrate named export without src"
-        []
+      let src =
+        match namedExport.Src with
+        | Some src -> Some src.Value
+        | None -> None
+
+      [ Export(NamedExport { Specifiers = specifiers; Src = src }) ]
     | ModuleDecl.ExportDefaultDecl _ ->
       failwith "TODO: migrateModuleDecl - exportDefaultDecl"
     | ModuleDecl.ExportDefaultExpr _ ->
@@ -796,8 +798,8 @@ module rec Migrate =
                     Body = body } } =
       decl
 
-    let elems: list<Syntax.ClassElem> =
-      List.map
+    let elems: list<ClassElem> =
+      List.collect
         (fun (elem: ClassMember) ->
           match elem with
           | ClassMember.Constructor { Params = paramList
@@ -836,7 +838,7 @@ module rec Migrate =
                 Throws = None
                 IsAsync = false }
 
-            ClassElem.Constructor { Sig = fnSig; Body = None }
+            [ ClassElem.Constructor { Sig = fnSig; Body = None } ]
           | ClassMember.Method { Key = key
                                  Function = f
                                  Kind = methodKind
@@ -881,20 +883,34 @@ module rec Migrate =
 
             match methodKind with
             | Method ->
-              ClassElem.Method
-                { Name = name
-                  Sig = fnSig
-                  Body = None
-                  Static = isStatic }
-            | Getter -> failwith "TODO: migrateClassDecl - Getter"
-            | Setter -> failwith "TODO: migrateClassDecl - Setter"
-          | ClassMember.PrivateMethod(_) ->
+              [ ClassElem.Method
+                  { Name = name
+                    Sig = fnSig
+                    Body = None
+                    Static = isStatic } ]
+            | Getter ->
+              [ ClassElem.Getter
+                  { Name = name
+                    Self = self
+                    Body = None // TODO
+                    ReturnType = Some retType
+                    Throws = None
+                    Static = isStatic } ]
+            | Setter ->
+              [ ClassElem.Setter
+                  { Name = name
+                    Self = self
+                    Param = migrateParam f.Params[0]
+                    Body = None // TODO
+                    Throws = None
+                    Static = isStatic } ]
+          | ClassMember.PrivateMethod _ ->
             failwith "TODO: migrateClassDecl - PrivateMethod"
           | ClassMember.ClassProp { Key = key
                                     Value = _
                                     TypeAnn = typeAnn
                                     IsStatic = isStatic
-                                    Accessibility = _
+                                    Accessibility = accessMod
                                     IsAbstract = _
                                     IsOptional = optional
                                     IsOverride = _
@@ -910,26 +926,34 @@ module rec Migrate =
                 // TODO: update `key` to handle `unique symbol`s as well
                 failwith "TODO: computed property name"
 
-            let typeAnn =
-              match typeAnn with
-              | Some t -> migrateTypeAnn t
-              | None ->
-                failwith "all class properties must have a type annotation"
+            match typeAnn with
+            | Some t ->
+              let typeAnn = migrateTypeAnn t
 
-            ClassElem.Property
-              { Name = name
-                TypeAnn = typeAnn
-                Optional = optional
-                Readonly = readonly
-                Static = isStatic }
-          | ClassMember.PrivateProp(_) ->
+              [ ClassElem.Property
+                  { Name = name
+                    TypeAnn = typeAnn
+                    Optional = optional
+                    Readonly = readonly
+                    Static = isStatic } ]
+            | None ->
+              match accessMod with
+              | Some Accessibility.Private -> []
+              | _ ->
+                printfn $"failed to migrate property '{name}'"
+                printfn $"elem = %A{elem}"
+
+                failwith
+                  "all public class properties must have a type annotation"
+
+          | ClassMember.PrivateProp _ ->
             failwith "TODO: migrateClassDecl - PrivateProp"
-          | ClassMember.TsIndexSignature(_) ->
+          | ClassMember.TsIndexSignature _ ->
             failwith "TODO: migrateClassDecl - TsIndexSignature"
-          | ClassMember.Empty(_) -> failwith "TODO: migrateClassDecl - Empty"
-          | ClassMember.StaticBlock(_) ->
+          | ClassMember.Empty _ -> failwith "TODO: migrateClassDecl - Empty"
+          | ClassMember.StaticBlock _ ->
             failwith "TODO: migrateClassDecl - StaticBlock"
-          | ClassMember.AutoAccessor(_) ->
+          | ClassMember.AutoAccessor _ ->
             failwith "TODO: migrateClassDecl - AutoAccessor")
         body
 
@@ -1076,7 +1100,35 @@ module rec Migrate =
 
         let kind = DeclKind.TypeDecl decl
         [ { Kind = kind; Span = DUMMY_SPAN } ]
-      | Decl.TsEnum _ -> failwith "TODO: migrate enum"
+      | Decl.TsEnum { Export = export
+                      Declare = declare
+                      IsConst = _
+                      Id = ident
+                      Members = variants } ->
+        let variants: list<EnumVariant> =
+          variants
+          |> List.mapi (fun i var ->
+            let { TsEnumMember.Id = varId; Init = init } = var
+
+            let name =
+              match varId with
+              | TsEnumMemberId.Ident ident -> ident.Name
+              | TsEnumMemberId.Str str -> str.Value
+
+            let init =
+              match init with
+              | Some expr -> migrateExpr expr
+              | None ->
+                { Kind = ExprKind.Literal(Common.Literal.Number(Common.Int i))
+                  Span = DUMMY_SPAN
+                  InferredType = None }
+
+            { Name = ident.Name
+              TypeAnn = None
+              Init = Some init
+              Span = DUMMY_SPAN })
+
+        failwith "TODO: migrate enum"
       | Decl.TsModule { Export = export
                         Declare = declare
                         Global = _global
@@ -1151,7 +1203,8 @@ module rec Migrate =
           with ex ->
             // TODO: fix all of the error messages
             printfn $"Error migrating module item: {ex.Message}"
-            [])
+            []
+        )
         m.Body
 
     { Items = items }

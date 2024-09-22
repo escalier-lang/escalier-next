@@ -489,7 +489,8 @@ module Prelude =
               for KeyValue(key, value) in value.Namespaces do
                 ns <- ns.AddNamespace key value
             | None -> failwith $"Couldn't find namespace: '{name}'"
-          | NamedExport { Src = src; Specifiers = specifiers } ->
+          | NamedExport { Src = Some src
+                          Specifiers = specifiers } ->
             let mutable resolvedPath = resolvePath projectRoot env.Filename src
 
             if resolvedPath.EndsWith(".js") then
@@ -530,13 +531,63 @@ module Prelude =
                 printfn $"resolvedPath = {resolvedPath}"
                 failwith "TODO: getLibExports - NamedExport"
 
-            for specifier in specifiers do
-              match specifier with
-              | Named { Name = name; Alias = alias } ->
-                // TODO: look for specifer in exportNs and add it to ns
-                printfn $"name = {name}, alias = {alias}"
+            for Named { Name = name; Alias = alias } in specifiers do
+              let mutable found = false
 
-            failwith "TODO: getExports - NamedExports"
+              let exportName =
+                match alias with
+                | Some a -> a
+                | None -> name
+
+              match exportNs.Values.TryFind name with
+              | Some binding ->
+                ns <- ns.AddBinding exportName binding
+                found <- true
+              | None -> ()
+
+              match exportNs.Schemes.TryFind name with
+              | Some scheme ->
+                ns <- ns.AddScheme exportName scheme
+                found <- true
+              | None -> ()
+
+              match exportNs.Namespaces.TryFind name with
+              | Some value ->
+                ns <- ns.AddNamespace exportName value
+                found <- true
+              | None -> ()
+
+              if found then
+                failwith $"Couldn't find export '{name}' in {resolvedPath}"
+          | NamedExport { Src = None; Specifiers = specifiers } ->
+            for Named { Name = name; Alias = alias } in specifiers do
+              let mutable found = false
+
+              let exportName =
+                match alias with
+                | Some a -> a
+                | None -> name
+
+              match env.TryFindValue name with
+              | Some binding ->
+                ns <- ns.AddBinding exportName binding
+                found <- true
+              | None -> ()
+
+              match env.TryFindScheme name with
+              | Some scheme ->
+                ns <- ns.AddScheme exportName scheme
+                found <- true
+              | None -> ()
+
+              match env.Namespace.Namespaces.TryFind name with
+              | Some value ->
+                ns <- ns.AddNamespace exportName value
+                found <- true
+              | None -> ()
+
+              if found then
+                failwith $"Couldn't find '{name}' to export"
           | ExportDefault expr ->
             match expr.Kind with
             | ExprKind.Identifier { Name = name } ->

@@ -46,6 +46,7 @@ output: Ok
                              Span = { Start = (Ln: 3, Col: 10)
                                       Stop = (Ln: 3, Col: 13) }
                              InferredType = None }
+                        Init = None
                         Span = { Start = (Ln: 3, Col: 7)
                                  Stop = (Ln: 4, Col: 7) } };
                       { Name = "Bar"
@@ -62,6 +63,7 @@ output: Ok
                              Span = { Start = (Ln: 4, Col: 10)
                                       Stop = (Ln: 4, Col: 13) }
                              InferredType = None }
+                        Init = None
                         Span = { Start = (Ln: 4, Col: 7)
                                  Stop = (Ln: 5, Col: 7) } };
                       { Name = "Baz"
@@ -78,6 +80,7 @@ output: Ok
                              Span = { Start = (Ln: 5, Col: 10)
                                       Stop = (Ln: 5, Col: 13) }
                              InferredType = None }
+                        Init = None
                         Span = { Start = (Ln: 5, Col: 7)
                                  Stop = (Ln: 6, Col: 5) } }] }
                Span = { Start = (Ln: 2, Col: 5)

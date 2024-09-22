@@ -23,6 +23,7 @@ output: Ok
                     Variants =
                      [{ Name = "None"
                         TypeAnn = None
+                        Init = None
                         Span = { Start = (Ln: 3, Col: 7)
                                  Stop = (Ln: 4, Col: 7) } };
                       { Name = "Some"
@@ -39,6 +40,7 @@ output: Ok
                              Span = { Start = (Ln: 4, Col: 11)
                                       Stop = (Ln: 4, Col: 14) }
                              InferredType = None }
+                        Init = None
                         Span = { Start = (Ln: 4, Col: 7)
                                  Stop = (Ln: 5, Col: 5) } }] }
                Span = { Start = (Ln: 2, Col: 5)

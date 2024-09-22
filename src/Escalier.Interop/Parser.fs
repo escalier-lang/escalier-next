@@ -479,10 +479,10 @@ module Parser =
       [ callSigDecl
         attempt constructorSigDecl
         attempt indexSig // can conflict with propSig when parsing computed properties
-        attempt propSig
         attempt getterSig
         attempt setterSig
-        attempt methodSig ]
+        attempt methodSig
+        attempt propSig ]
 
   let typeLit: Parser<TsTypeLit, unit> =
     between
@@ -870,16 +870,18 @@ module Parser =
           Loc = None }
         |> Decl.TsEnum
 
-  let constructor: Parser<Constructor, unit> =
+  let constructor: Parser<option<Accessibility> -> ClassMember, unit> =
     keyword "constructor" >>. fnParams
     |>> fun ps ->
-      { Params = List.map ParamOrTsParamProp.Param ps
-        Body = None
-        Accessibility = None
-        IsOptional = false
-        Loc = None }
+      fun accessMod ->
+        { Params = List.map ParamOrTsParamProp.Param ps
+          Body = None
+          Accessibility = accessMod
+          IsOptional = false
+          Loc = None }
+        |> ClassMember.Constructor
 
-  let classMethod: Parser<ClassMethod, unit> =
+  let classMethod: Parser<option<Accessibility> -> ClassMember, unit> =
     pipe5
       (tuple2 (opt (strWs "static")) (opt (strWs "async")))
       ident
@@ -896,33 +898,42 @@ module Parser =
           ReturnType = typeAnn
           Loc = None }
 
-      { Key = PropName.Ident id
-        Function = fn
-        Kind = MethodKind.Method // TODO: handle getters and setters
-        IsStatic = isStatic.IsSome
-        Accessibility = None
-        IsAbstract = false
-        IsOptional = false
-        IsOverride = false
-        Loc = None }
+      fun accessMod ->
+        let method: ClassMethod =
+          { Key = PropName.Ident id
+            Function = fn
+            Kind = MethodKind.Method // TODO: handle getters and setters
+            IsStatic = isStatic.IsSome
+            Accessibility = accessMod
+            IsAbstract = false
+            IsOptional = false
+            IsOverride = false
+            Loc = None }
 
-  let classProp: Parser<ClassProp, unit> =
-    pipe5
+        ClassMember.Method method
+
+  let accessMod: Parser<Accessibility, unit> =
+    choice
+      [ keyword "private" |>> fun _ -> Accessibility.Private
+        keyword "protected" |>> fun _ -> Accessibility.Protected
+        keyword "public" |>> fun _ -> Accessibility.Public ]
+
+  let classProp: Parser<option<Accessibility> -> ClassMember, unit> =
+    pipe4
       ((opt (keyword "static")) .>>. (opt (keyword "readonly")))
-      ident
-      (opt (pstring "?"))
+      (ident .>>. (opt (pstring "?")))
       (opt (strWs ":" >>. tsTypeAnn))
       (opt (strWs "=" >>. expr))
-    <| fun (isStatic, isReadonly) name optional typeAnn value ->
+    <| fun (isStatic, isReadonly) (name, optional) typeAnn value ->
 
-      let prop: ClassProp =
+      fun accessMod ->
         { Key = PropName.Ident name
           Value = value
           TypeAnn = typeAnn
           IsStatic = isStatic.IsSome
           // TODO=Decorators
           // decorators=list<Decorator>
-          Accessibility = None
+          Accessibility = accessMod
           IsAbstract = false
           IsOptional = optional.IsSome
           IsOverride = false
@@ -930,16 +941,75 @@ module Parser =
           Declare = false // what is this?
           Definite = false // what is this?
           Loc = None }
+        |> ClassMember.ClassProp
 
-      prop
+  let classGetter: Parser<option<Accessibility> -> ClassMember, unit> =
+    pipe3
+      (keyword "get" >>. ident)
+      (opt typeParams)
+      (strWs "(" >>. strWs ")" >>. (opt (strWs ":" >>. tsTypeAnn)))
+    <| fun id typeParams typeAnn ->
+      let fn: Function =
+        { Params = []
+          Body = None
+          IsGenerator = false // TODO
+          IsAsync = false // TODO
+          TypeParams = typeParams
+          ReturnType = typeAnn
+          Loc = None }
+
+      fun accessMod ->
+        { ClassMethod.Key = PropName.Ident id
+          Function = fn
+          Kind = MethodKind.Getter
+          IsStatic = false // TODO
+          Accessibility = accessMod
+          IsAbstract = false // TODO
+          IsOptional = false
+          IsOverride = false
+          Loc = None }
+        |> ClassMember.Method
+
+  let classSetter: Parser<option<Accessibility> -> ClassMember, unit> =
+    pipe4
+      (keyword "set" >>. ident)
+      (opt typeParams)
+      (between (strWs "(") (strWs ")") param)
+      (opt (strWs ":" >>. tsTypeAnn))
+    <| fun id typeParams param typeAnn ->
+      let fn: Function =
+        { Params = [ param ]
+          Body = None
+          IsGenerator = false // TODO
+          IsAsync = false // TODO
+          TypeParams = typeParams
+          ReturnType = typeAnn
+          Loc = None }
+
+      fun accessMod ->
+        { ClassMethod.Key = PropName.Ident id
+          Function = fn
+          Kind = MethodKind.Getter
+          IsStatic = false // TODO
+          Accessibility = accessMod
+          IsAbstract = false // TODO
+          IsOptional = false
+          IsOverride = false
+          Loc = None }
+        |> ClassMember.Method
 
   let classMember: Parser<ClassMember, unit> =
-    choice
-      [ constructor |>> ClassMember.Constructor
-        attempt classMethod |>> ClassMember.Method
-        attempt classProp |>> ClassMember.ClassProp ]
-    .>> (opt (pstring ";"))
-    .>> ws
+    pipe2
+      (opt accessMod)
+      (choice
+        [ constructor
+          attempt classMethod
+          attempt classGetter
+          attempt classSetter
+          attempt classProp ]
+       .>> (opt (pstring ";"))
+       .>> ws)
+    <| fun accessMod mem -> mem accessMod
 
   let classDecl: Parser<bool * bool -> Decl, unit> =
     pipe5

@@ -2160,6 +2160,9 @@ module rec Infer =
           let! exprs = List.traverseResultM (inferTypeAnn ctx env) exprs
           return TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }
         | TypeAnnKind.Intrinsic -> return TypeKind.Intrinsic
+        | TypeAnnKind.ImportType _ ->
+          return!
+            Error(TypeError.NotImplemented "TODO: inferTypeAnn - ImportType")
       }
 
     let t: Result<Type, TypeError> =
@@ -3672,6 +3675,9 @@ module rec Infer =
             let mutable variantTags = []
 
             for variant in variants do
+              if variant.Init.IsSome then
+                failwith "TODO: enum variants where .Init.IsSome is true"
+
               let tag = ctx.FreshSymbol()
 
               variantTags <-

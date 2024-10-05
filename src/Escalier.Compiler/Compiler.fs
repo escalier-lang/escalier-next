@@ -1,5 +1,6 @@
 ﻿namespace Escalier.Compiler
 
+open Escalier.Data.Syntax
 open FsToolkit.ErrorHandling
 open System.IO
 
@@ -69,49 +70,21 @@ module Compiler =
 
       let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
 
-      let mod' =
-        Codegen.buildModuleTypes
-          env
-          { NextTempId = 0
-            AutoImports = Set.empty }
-          ast
+      let buildCtx =
+        { Codegen.NextTempId = 0
+          Codegen.AutoImports = Set.empty }
 
-      let dts = Printer.printModule printCtx mod'
-
-      let mod' =
-        Codegen.buildModule
-          { NextTempId = 0
-            AutoImports = Set.empty }
-          ast
-
+      let mod' = Codegen.buildModule buildCtx ast
       let js = Printer.printModule printCtx mod'
-
       let outJsName = Path.ChangeExtension(filename, ".js")
       File.WriteAllText(outJsName, js)
 
+      let mod' = Codegen.buildModuleTypes env buildCtx ast
+      let dts = Printer.printModule printCtx mod'
       let outDtsName = Path.ChangeExtension(filename, ".d.ts")
       File.WriteAllText(outDtsName, dts)
 
       return ()
-    }
-
-  let compileFiles
-    (baseDir: string) // e.g. src/ or fixtures/basics/test1/
-    (entry: string)
-    =
-    result {
-      let! ctx, env = Prelude.getEnvAndCtx baseDir
-      let contents = File.ReadAllText(entry)
-
-      let! m =
-        Parser.parseModule contents |> Result.mapError CompileError.ParseError
-
-      let env = { env with Filename = entry }
-
-      let! env =
-        Infer.inferModule ctx env m |> Result.mapError CompileError.TypeError
-
-      return (ctx, env)
     }
 
   let compileString
@@ -153,6 +126,45 @@ module Compiler =
 
       return (js, dts)
     }
+
+  let findFiles (baseDir: string) (entryFile: string) =
+    let mutable paths = [ entryFile ]
+
+    let rec findFilesRec (entryFile: string) =
+      let contents = File.ReadAllText(entryFile)
+
+      let m =
+        match Parser.parseModule contents with
+        | Ok value -> value
+        | Error _ -> failwith $"failed to parse {entryFile}"
+
+      for item in m.Items do
+        match item with
+        | Import import ->
+          let path =
+            match import.Path[0] with
+            | '.' ->
+              Path.GetFullPath(
+                Path.Join(Path.GetDirectoryName(entryFile), import.Path)
+              )
+            | '~' ->
+              Path.GetFullPath(Path.Join(baseDir, import.Path.Substring(2)))
+            | _ -> failwith $"TODO - import.Path = {import.Path}"
+
+          let path = Path.ChangeExtension(path, "esc")
+
+          if not (List.contains path paths) then
+            paths <- path :: paths
+            findFilesRec path
+          else
+            ()
+        | Export export -> printfn "TOOD - handle re-exports"
+        | Stmt stmt -> ()
+
+    findFilesRec entryFile
+
+    paths
+
 
 // TODO:
 // typecheckFile

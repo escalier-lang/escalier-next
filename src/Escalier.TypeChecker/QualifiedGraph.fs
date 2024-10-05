@@ -1,30 +1,35 @@
 module Escalier.TypeChecker.QualifiedGraph
 
 open Escalier.Data.Syntax
-open FsToolkit.ErrorHandling
 
 open Escalier.Data
 open Escalier.Data.Type
 open Escalier.Data.Visitor
 
-open Env
-open Error
 
 type QualifiedIdent =
-  { Parts: list<string> }
+  { Filename: string
+    Parts: list<string> }
 
   override this.ToString() = String.concat "." this.Parts
 
-  static member FromString(name: string) = { Parts = [ name ] }
+  static member FromString (filename: string) (name: string) =
+    { Filename = filename
+      Parts = [ name ] }
 
   static member FromCommonQualifiedIdent
+    (filename: string)
     (qid: Common.QualifiedIdent)
     : QualifiedIdent =
     match qid with
-    | Common.QualifiedIdent.Ident name -> { Parts = [ name ] }
+    | Common.QualifiedIdent.Ident name ->
+      { Filename = filename
+        Parts = [ name ] }
     | Common.QualifiedIdent.Member(left, right) ->
-      let left = QualifiedIdent.FromCommonQualifiedIdent left
-      { Parts = left.Parts @ [ right ] }
+      let left = QualifiedIdent.FromCommonQualifiedIdent filename left
+
+      { Filename = filename
+        Parts = left.Parts @ [ right ] }
 
 // TODO:
 // - infer types for all the declarations in each namespace
@@ -42,11 +47,11 @@ type QDeclIdent =
     | Type qid -> $"Type {qid}"
     | Value qid -> $"Value {qid}"
 
-  static member MakeValue(parts: list<string>) =
-    QDeclIdent.Value { Parts = parts }
+  static member MakeValue (filename: string) (parts: list<string>) =
+    QDeclIdent.Value { Filename = filename; Parts = parts }
 
-  static member MakeType(parts: list<string>) =
-    QDeclIdent.Type { Parts = parts }
+  static member MakeType (filename: string) (parts: list<string>) =
+    QDeclIdent.Type { Filename = filename; Parts = parts }
 
   member this.GetParts() =
     match this with

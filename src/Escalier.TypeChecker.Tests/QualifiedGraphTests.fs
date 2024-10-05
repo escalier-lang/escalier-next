@@ -34,7 +34,9 @@ let AddBinding () =
     { Kind = TypeKind.Primitive Primitive.Number
       Provenance = None }
 
-  let ident = { Parts = [ "Foo"; "Bar"; "x" ] }
+  let ident =
+    { Filename = env.Filename
+      Parts = [ "Foo"; "Bar"; "x" ] }
 
   let binding =
     { Type = t
@@ -42,7 +44,10 @@ let AddBinding () =
       Export = false }
 
   let newEnv = Infer.addBinding env ident binding
-  let ident = { Parts = [ "Foo"; "Bar"; "y" ] }
+
+  let ident =
+    { Filename = env.Filename
+      Parts = [ "Foo"; "Bar"; "y" ] }
 
   let binding =
     { Type = t

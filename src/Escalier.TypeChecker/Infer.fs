@@ -3280,10 +3280,12 @@ module rec Infer =
     : QualifiedGraph.QualifiedIdent =
     let key: QualifiedGraph.QualifiedIdent =
       match ident with
-      | QDeclIdent.Type { Parts = parts } ->
-        { Parts = List.take (parts.Length - 1) parts @ [ name ] }
-      | QDeclIdent.Value { Parts = parts } ->
-        { Parts = List.take (parts.Length - 1) parts @ [ name ] }
+      | QDeclIdent.Type { Filename = filename; Parts = parts } ->
+        { Filename = filename
+          Parts = List.take (parts.Length - 1) parts @ [ name ] }
+      | QDeclIdent.Value { Filename = filename; Parts = parts } ->
+        { Filename = filename
+          Parts = List.take (parts.Length - 1) parts @ [ name ] }
 
     key
 

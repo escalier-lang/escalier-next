@@ -952,6 +952,30 @@ let InferOverloadsDeclarations () =
   Assert.False(Result.isError result)
 
 
+[<Fact>]
+let MutuallyRecursiveFunctions () =
+  let result =
+    result {
+      let src =
+        """
+        fn foo() {
+          return bar();
+        }
+        fn bar() {
+          return foo();
+        }
+        """
+
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 0)
+      Assert.Value(env, "foo", "fn <A>() -> A")
+      Assert.Value(env, "bar", "fn <A>() -> A")
+    }
+
+  Assert.False(Result.isError result)
+
+
 // TODO:
 // - write tests for functions with optional params
 // - write tests for overloaded functions

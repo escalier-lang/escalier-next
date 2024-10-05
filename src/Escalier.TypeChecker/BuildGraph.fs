@@ -12,16 +12,24 @@ let stop = FParsec.Position("", 0, 1, 1)
 let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 
 let rec memberToQualifiedIdent
+  (env: Env)
   (target: Expr)
   (name: string)
   : option<QualifiedIdent> =
   match target.Kind with
   | ExprKind.Member { Target = target; Name = innerName } ->
-    match memberToQualifiedIdent target innerName with
-    | Some qid -> Some({ Parts = qid.Parts @ [ name ] })
+    match memberToQualifiedIdent env target innerName with
+    | Some qid ->
+      Some(
+        { Filename = env.Filename
+          Parts = qid.Parts @ [ name ] }
+      )
     | None -> None
   | ExprKind.Identifier { Name = innerName } ->
-    Some({ Parts = [ innerName; name ] })
+    Some(
+      { Filename = env.Filename
+        Parts = [ innerName; name ] }
+    )
   | _ -> None
 
 type QDeclTree =
@@ -29,7 +37,7 @@ type QDeclTree =
     Types: Map<string, QDeclIdent>
     Namespaces: Map<string, QDeclTree> }
 
-let localsToDeclTree (locals: Set<QDeclIdent>) : QDeclTree =
+let localsToDeclTree (env: Env) (locals: Set<QDeclIdent>) : QDeclTree =
 
   let mutable tree: QDeclTree =
     { Values = Map.empty
@@ -62,8 +70,16 @@ let localsToDeclTree (locals: Set<QDeclIdent>) : QDeclTree =
 
       let rest =
         match full with
-        | QDeclIdent.Type _ -> QDeclIdent.Type({ Parts = tail })
-        | QDeclIdent.Value _ -> QDeclIdent.Value({ Parts = tail })
+        | QDeclIdent.Type _ ->
+          QDeclIdent.Type(
+            { Filename = env.Filename
+              Parts = tail }
+          )
+        | QDeclIdent.Value _ ->
+          QDeclIdent.Value(
+            { Filename = env.Filename
+              Parts = tail }
+          )
 
       { tree with
           Namespaces = Map.add head (processLocal ns rest full) tree.Namespaces }
@@ -73,7 +89,11 @@ let localsToDeclTree (locals: Set<QDeclIdent>) : QDeclTree =
 
   tree
 
-let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
+let getLocalForDep
+  (env: Env)
+  (tree: QDeclTree)
+  (local: QDeclIdent)
+  : option<QDeclIdent> =
   let rec getLocalForDepRec
     (tree: QDeclTree)
     (local: QDeclIdent)
@@ -94,7 +114,12 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
         | None ->
           match Map.tryFind name tree.Namespaces with
           | Some tree ->
-            getLocalForDepRec tree (QDeclIdent.Type({ Parts = rest }))
+            getLocalForDepRec
+              tree
+              (QDeclIdent.Type(
+                { Filename = env.Filename
+                  Parts = rest }
+              ))
           | None -> None
       | QDeclIdent.Value _ ->
         match Map.tryFind name tree.Values with
@@ -102,12 +127,18 @@ let getLocalForDep (tree: QDeclTree) (local: QDeclIdent) : option<QDeclIdent> =
         | None ->
           match Map.tryFind name tree.Namespaces with
           | Some tree ->
-            getLocalForDepRec tree (QDeclIdent.Value({ Parts = rest }))
+            getLocalForDepRec
+              tree
+              (QDeclIdent.Value(
+                { Filename = env.Filename
+                  Parts = rest }
+              ))
           | None -> None
 
   getLocalForDepRec tree local
 
 let postProcessDeps
+  (env: Env)
   (ns: Namespace)
   (locals: Set<QDeclIdent>)
   (localsTree: QDeclTree)
@@ -176,22 +207,27 @@ let postProcessDeps
         if result.IsNone then
           let candidateDep =
             match dep with
-            | QDeclIdent.Type qid -> QDeclIdent.Type { Parts = ns @ qid.Parts }
+            | QDeclIdent.Type qid ->
+              QDeclIdent.Type
+                { Filename = env.Filename
+                  Parts = ns @ qid.Parts }
             | QDeclIdent.Value qid ->
-              QDeclIdent.Value { Parts = ns @ qid.Parts }
+              QDeclIdent.Value
+                { Filename = env.Filename
+                  Parts = ns @ qid.Parts }
 
-          result <- getLocalForDep localsTree candidateDep
+          result <- getLocalForDep env localsTree candidateDep
 
       result)
     |> Set.ofList
   else
     List.choose
       (fun dep ->
-        match getLocalForDep localsTree dep with
+        match getLocalForDep env localsTree dep with
         | Some local -> Some local
         | None ->
           match maybeGlobalTree with
-          | Some tree -> getLocalForDep tree dep
+          | Some tree -> getLocalForDep env tree dep
           | None -> None)
       deps
     |> Set.ofList
@@ -210,14 +246,16 @@ let findDepsForValueIdent
         fun (expr, state) ->
           match expr.Kind with
           | ExprKind.Member { Target = target; Name = name } ->
-            match memberToQualifiedIdent target name with
+            match memberToQualifiedIdent env target name with
             | Some qid ->
               idents <- Set.add (QDeclIdent.Value qid) idents
               (false, state)
             | None -> (true, state)
           | ExprKind.Identifier { Name = name } ->
             idents <-
-              Set.add (QDeclIdent.Value(QualifiedIdent.FromString name)) idents
+              Set.add
+                (QDeclIdent.Value(QualifiedIdent.FromString env.Filename name))
+                idents
 
             (false, state)
           | ExprKind.Function f ->
@@ -234,7 +272,9 @@ let findDepsForValueIdent
               | ObjElem.Shorthand { Name = name } ->
                 idents <-
                   Set.add
-                    (QDeclIdent.Value(QualifiedIdent.FromString name))
+                    (QDeclIdent.Value(
+                      QualifiedIdent.FromString env.Filename name
+                    ))
                     idents
               | ObjElem.Spread _ -> () // handled by visiting `value`
 
@@ -246,7 +286,9 @@ let findDepsForValueIdent
 
           idents <-
             Set.add
-              (QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent name))
+              (QDeclIdent.Value(
+                QualifiedIdent.FromCommonQualifiedIdent env.Filename name
+              ))
               idents
 
           (true, state)
@@ -261,7 +303,9 @@ let findDepsForValueIdent
           | TypeAnnKind.Typeof ident ->
             idents <-
               Set.add
-                (QDeclIdent.Value(QualifiedIdent.FromCommonQualifiedIdent ident))
+                (QDeclIdent.Value(
+                  QualifiedIdent.FromCommonQualifiedIdent env.Filename ident
+                ))
                 idents
 
             (false, state)
@@ -270,9 +314,9 @@ let findDepsForValueIdent
 
   ExprVisitor.walkExpr visitor () expr
 
-  postProcessDeps env.Namespace locals localsTree ident (Set.toList idents)
+  postProcessDeps env env.Namespace locals localsTree ident (Set.toList idents)
 
-let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
+let findInferTypeAnns (env: Env) (typeAnn: TypeAnn) : list<QDeclIdent> =
   let mutable idents: list<QDeclIdent> = []
 
   let visitor: ExprVisitor.SyntaxVisitor<unit> =
@@ -286,7 +330,10 @@ let findInferTypeAnns (typeAnn: TypeAnn) : list<QDeclIdent> =
         fun (typeAnn, state) ->
           match typeAnn.Kind with
           | TypeAnnKind.Infer name ->
-            idents <- QDeclIdent.Type(QualifiedIdent.FromString name) :: idents
+            idents <-
+              QDeclIdent.Type(QualifiedIdent.FromString env.Filename name)
+              :: idents
+
             (false, state)
           | _ -> (true, state)
       ExprVisitor.VisitTypeAnnObjElem = fun (_, state) -> (true, state) }
@@ -317,7 +364,8 @@ let findDepsForTypeIdent
           let newTypeParams =
             match typeAnn.Kind with
             | TypeAnnKind.TypeRef { Ident = ident; TypeArgs = typeArgs } ->
-              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
+              let ident =
+                QualifiedIdent.FromCommonQualifiedIdent env.Filename ident
 
               if not (List.contains ident typeParams) then
                 typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
@@ -326,12 +374,14 @@ let findDepsForTypeIdent
 
               []
             | TypeAnnKind.Typeof ident ->
-              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
+              let ident =
+                QualifiedIdent.FromCommonQualifiedIdent env.Filename ident
+
               typeRefIdents <- QDeclIdent.Value ident :: typeRefIdents
 
               []
             | TypeAnnKind.Condition { Extends = extends } ->
-              findInferTypeAnns extends
+              findInferTypeAnns env extends
               |> List.choose (fun ident ->
                 match ident with
                 | QDeclIdent.Type qid -> Some qid
@@ -348,27 +398,30 @@ let findDepsForTypeIdent
               | None -> []
               | Some funcTypeParams ->
                 List.map
-                  (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+                  (fun (tp: TypeParam) ->
+                    QualifiedIdent.FromString env.Filename tp.Name)
                   funcTypeParams
             | ObjTypeAnnElem.Constructor funcSig ->
               match funcSig.TypeParams with
               | None -> []
               | Some funcTypeParams ->
                 List.map
-                  (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+                  (fun (tp: TypeParam) ->
+                    QualifiedIdent.FromString env.Filename tp.Name)
                   funcTypeParams
             | ObjTypeAnnElem.Method { Type = t } ->
               match t.TypeParams with
               | None -> []
               | Some funcTypeParams ->
                 List.map
-                  (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+                  (fun (tp: TypeParam) ->
+                    QualifiedIdent.FromString env.Filename tp.Name)
                   funcTypeParams
             | ObjTypeAnnElem.Getter _ -> []
             | ObjTypeAnnElem.Setter _ -> []
             | ObjTypeAnnElem.Property _ -> []
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
-              [ QualifiedIdent.FromString typeParam.Name ]
+              [ QualifiedIdent.FromString env.Filename typeParam.Name ]
             | ObjTypeAnnElem.Spread _ -> []
 
           (true, typeParams @ newTypeParams) }
@@ -377,7 +430,8 @@ let findDepsForTypeIdent
   | SyntaxNode.TypeAnn typeAnn ->
     ExprVisitor.walkTypeAnn visitor typeParams typeAnn
   | SyntaxNode.TypeRef typeRef ->
-    let ident = QualifiedIdent.FromCommonQualifiedIdent typeRef.Ident
+    let ident =
+      QualifiedIdent.FromCommonQualifiedIdent env.Filename typeRef.Ident
 
     typeRefIdents <- QDeclIdent.Type ident :: typeRefIdents
 
@@ -389,6 +443,7 @@ let findDepsForTypeIdent
   | SyntaxNode.Expr expr -> ExprVisitor.walkExpr visitor typeParams expr
 
   postProcessDeps
+    env
     env.Namespace
     possibleDeps
     localsTree
@@ -396,7 +451,7 @@ let findDepsForTypeIdent
     (List.rev typeRefIdents)
 
 
-let findLocals (decls: list<Decl>) : Set<QDeclIdent> =
+let findLocals (env: Env) (decls: list<Decl>) : Set<QDeclIdent> =
   let mutable locals: list<QDeclIdent> = []
 
   let rec findLocalsRec
@@ -411,33 +466,63 @@ let findLocals (decls: list<Decl>) : Set<QDeclIdent> =
         let bindingNames =
           Helpers.findBindingNames pattern
           |> Set.map (fun name ->
-            QDeclIdent.Value({ Parts = namespaces @ [ name ] }))
+            QDeclIdent.Value(
+              { Filename = env.Filename
+                Parts = namespaces @ [ name ] }
+            ))
 
         locals <- Set.union locals bindingNames
       | FnDecl { Name = name } ->
         locals <-
-          Set.add (QDeclIdent.Value({ Parts = namespaces @ [ name ] })) locals
+          Set.add
+            (QDeclIdent.Value(
+              { Filename = env.Filename
+                Parts = namespaces @ [ name ] }
+            ))
+            locals
 
       | ClassDecl { Name = name } ->
         locals <-
           Set.union
             locals
             (Set.ofList
-              [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
-                QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ])
+              [ QDeclIdent.Value(
+                  { Filename = env.Filename
+                    Parts = namespaces @ [ name ] }
+                )
+                QDeclIdent.Type(
+                  { Filename = env.Filename
+                    Parts = namespaces @ [ name ] }
+                ) ])
       | TypeDecl { Name = name } ->
         locals <-
-          Set.add (QDeclIdent.Type({ Parts = namespaces @ [ name ] })) locals
+          Set.add
+            (QDeclIdent.Type(
+              { Filename = env.Filename
+                Parts = namespaces @ [ name ] }
+            ))
+            locals
       | InterfaceDecl { Name = name } ->
         locals <-
-          Set.add (QDeclIdent.Type({ Parts = namespaces @ [ name ] })) locals
+          Set.add
+            (QDeclIdent.Type(
+              { Filename = env.Filename
+                Parts = namespaces @ [ name ] }
+            ))
+            locals
       | EnumDecl { Name = name } ->
         locals <-
           Set.union
             locals
             (Set.ofList
-              [ QDeclIdent.Value({ Parts = namespaces @ [ name ] })
-                QDeclIdent.Type({ Parts = namespaces @ [ name ] }) ])
+              [ QDeclIdent.Value(
+                  { Filename = env.Filename
+                    Parts = namespaces @ [ name ] }
+                )
+                QDeclIdent.Type(
+                  { Filename = env.Filename
+                    Parts = namespaces @ [ name ] }
+                ) ])
       | NamespaceDecl { Name = name; Body = decls } ->
         locals <- Set.union locals (findLocalsRec decls (namespaces @ [ name ]))
 
@@ -448,6 +533,7 @@ let findLocals (decls: list<Decl>) : Set<QDeclIdent> =
 // TODO: update this function to accept a QualifiedNamespace as an argument
 // Only items in this namespace can be considered as a potential captures
 let rec findCaptures
+  (env: Env)
   (qns: Set<QDeclIdent>) // TODO: update this to use QualifiedNamespace
   (parentLocals: Set<QDeclIdent>)
   (f: Function)
@@ -479,7 +565,7 @@ let rec findCaptures
         | _ -> None)
     | BlockOrExpr.Expr expr -> []
 
-  let locals = findLocals decls
+  let locals = findLocals env decls
 
   let mutable localNames =
     locals
@@ -492,7 +578,8 @@ let rec findCaptures
 
   for p in f.Sig.ParamList do
     let patternIdents =
-      Helpers.findBindingNames p.Pattern |> Set.map QualifiedIdent.FromString
+      Helpers.findBindingNames p.Pattern
+      |> Set.map (QualifiedIdent.FromString env.Filename)
 
     localNames <- Set.union localNames patternIdents
 
@@ -506,7 +593,7 @@ let rec findCaptures
           // ExprKind.Member because the property is stored as a
           // string instead of an identifier.
           | ExprKind.Identifier { Name = name } ->
-            let ident = QualifiedIdent.FromString name
+            let ident = QualifiedIdent.FromString env.Filename name
 
             if
               (List.contains ident qnsNames)
@@ -517,7 +604,7 @@ let rec findCaptures
 
             (false, localNames)
           | ExprKind.Function f ->
-            captures <- findCaptures qns (Set.union parentLocals locals) f
+            captures <- findCaptures env qns (Set.union parentLocals locals) f
             // Don't recurse since `findCaptures` already does that
             (false, localNames)
           | _ -> (true, localNames)
@@ -563,7 +650,7 @@ let getDepsForFn
     | None -> []
     | Some typeParams ->
       List.map
-        (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+        (fun (tp: TypeParam) -> QualifiedIdent.FromString env.Filename tp.Name)
         typeParams
 
   match fnSig.TypeParams with
@@ -621,7 +708,8 @@ let getDepsForFn
       | None -> []
       | Some typeParams ->
         List.map
-          (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+          (fun (tp: TypeParam) ->
+            QualifiedIdent.FromString env.Filename tp.Name)
           typeParams
 
     typeDeps <-
@@ -645,7 +733,7 @@ let getDepsForFn
           Captures = None
           InferredType = None }
 
-      Set.union (findCaptures possibleDeps Set.empty f) typeDeps
+      Set.union (findCaptures env possibleDeps Set.empty f) typeDeps
 
   deps
 
@@ -666,7 +754,7 @@ let getDepsForInterfaceFn
     | None -> []
     | Some typeParams ->
       List.map
-        (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+        (fun (tp: TypeParam) -> QualifiedIdent.FromString env.Filename tp.Name)
         typeParams
 
   for param in fnSig.ParamList do
@@ -712,7 +800,7 @@ let getPropNameDeps
     | ExprKind.Member { Target = target } ->
       match target.Kind with
       | ExprKind.Identifier { Name = name } ->
-        let ident = (QualifiedIdent.FromString name)
+        let ident = (QualifiedIdent.FromString env.Filename name)
 
         if Set.contains (QDeclIdent.Value ident) topLevelDecls then
           Set.singleton (QDeclIdent.Value ident)
@@ -721,7 +809,8 @@ let getPropNameDeps
           | Some binding ->
             match (prune binding.Type).Kind with
             | TypeKind.TypeRef { Name = ident } ->
-              let ident = QualifiedIdent.FromCommonQualifiedIdent ident
+              let ident =
+                QualifiedIdent.FromCommonQualifiedIdent env.Filename ident
 
               if Set.contains (QDeclIdent.Type ident) topLevelDecls then
                 Set.singleton (QDeclIdent.Type ident)
@@ -741,7 +830,7 @@ let getDeclsFromModule (ast: Module) : list<Decl> =
       | _ -> None)
     ast.Items
 
-let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
+let getNodes (env: Env) (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
   let mutable nodes: Map<QDeclIdent, list<Decl>> = Map.empty
 
   let rec getNodesRec (decls: list<Decl>) (namespaces: list<string>) : unit =
@@ -753,12 +842,17 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
         let idents =
           Helpers.findBindingNames pattern
           |> Set.map (fun name ->
-            QDeclIdent.Value({ Parts = namespaces @ [ name ] }))
+            QDeclIdent.Value(
+              { Filename = env.Filename
+                Parts = namespaces @ [ name ] }
+            ))
 
         for ident in idents do
           nodes <- nodes.Add(ident, [ decl ])
       | FnDecl { Name = name } ->
-        let key = { Parts = namespaces @ [ name ] }
+        let key =
+          { Filename = env.Filename
+            Parts = namespaces @ [ name ] }
 
         match nodes.TryFind(QDeclIdent.Value(key)) with
         | Some decls ->
@@ -766,14 +860,22 @@ let getNodes (decls: list<Decl>) : Map<QDeclIdent, list<Decl>> =
         | None -> nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
       | ClassDecl { Name = name }
       | EnumDecl { Name = name } ->
-        let key = { Parts = namespaces @ [ name ] }
+        let key =
+          { Filename = env.Filename
+            Parts = namespaces @ [ name ] }
+
         nodes <- nodes.Add(QDeclIdent.Value(key), [ decl ])
         nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
       | TypeDecl { Name = name } ->
-        let key = { Parts = namespaces @ [ name ] }
+        let key =
+          { Filename = env.Filename
+            Parts = namespaces @ [ name ] }
+
         nodes <- nodes.Add(QDeclIdent.Type(key), [ decl ])
       | InterfaceDecl { Name = name } ->
-        let key = { Parts = namespaces @ [ name ] }
+        let key =
+          { Filename = env.Filename
+            Parts = namespaces @ [ name ] }
 
         let decls =
           match nodes.TryFind(QDeclIdent.Type(key)) with
@@ -867,7 +969,8 @@ let getEdges
           | None -> []
           | Some typeParams ->
             List.map
-              (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+              (fun (tp: TypeParam) ->
+                QualifiedIdent.FromString env.Filename tp.Name)
               typeParams
 
         let deps: Set<QDeclIdent> =
@@ -1067,7 +1170,8 @@ let getEdges
           | None -> []
           | Some typeParams ->
             List.map
-              (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+              (fun (tp: TypeParam) ->
+                QualifiedIdent.FromString env.Filename tp.Name)
               typeParams
 
         match typeParams with
@@ -1123,7 +1227,8 @@ let getEdges
           | None -> []
           | Some typeParams ->
             List.map
-              (fun (tp: TypeParam) -> QualifiedIdent.FromString tp.Name)
+              (fun (tp: TypeParam) ->
+                QualifiedIdent.FromString env.Filename tp.Name)
               typeParams
 
         let mutable deps =
@@ -1321,7 +1426,7 @@ let buildGraph (env: Env) (decls: list<Decl>) : QGraph<Decl> =
 
   let mutable graph: QGraph<Decl> = { Nodes = Map.empty; Edges = Map.empty }
 
-  let locals = findLocals decls
+  let locals = findLocals env decls
 
   // printfn "--- LOCALS ---"
   //
@@ -1336,9 +1441,9 @@ let buildGraph (env: Env) (decls: list<Decl>) : QGraph<Decl> =
       | QDeclIdent.Type name -> Some name
       | _ -> None)
 
-  let nodes = getNodes decls
+  let nodes = getNodes env decls
   // We compute localsTree once here because it's expensive to compute
-  let localsTree = localsToDeclTree locals
+  let localsTree = localsToDeclTree env locals
   let edges = getEdges env locals localsTree nodes
 
   // printfn "--- EDGES ---"

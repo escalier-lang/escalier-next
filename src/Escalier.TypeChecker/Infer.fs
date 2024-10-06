@@ -1877,7 +1877,8 @@ module rec Infer =
     (block: Block)
     : Result<Type, TypeError> =
     result {
-      let! newEnv = inferStmts ctx env false block.Stmts
+      let items = block.Stmts |> List.map ModuleItem.Stmt
+      let! newEnv = inferModuleItems ctx env false items
 
       let undefined =
         { Kind = TypeKind.Literal(Literal.Undefined)
@@ -4333,13 +4334,20 @@ module rec Infer =
       return newEnv
     }
 
-  let inferStmts
+  let inferModuleItems
     (ctx: Ctx)
     (env: Env)
     (shouldGeneralize: bool)
-    (stmts: List<Stmt>)
+    (items: List<ModuleItem>)
     =
     result {
+      let stmts =
+        items
+        |> List.choose (fun (item: ModuleItem) ->
+          match item with
+          | ModuleItem.Stmt stmt -> Some stmt
+          | _ -> None)
+
       let decls =
         stmts
         |> List.choose (fun (stmt: Stmt) ->
@@ -4453,7 +4461,8 @@ module rec Infer =
           for KeyValue(name, binding) in patBindings do
             blockEnv <- newEnv.AddValue name binding
 
-          let! _ = inferStmts ctx blockEnv false body.Stmts
+          let items = body.Stmts |> List.map ModuleItem.Stmt
+          let! _ = inferModuleItems ctx blockEnv false items
           ()
         | StmtKind.Return expr ->
           match expr with
@@ -4488,12 +4497,5 @@ module rec Infer =
         let! importEnv = Infer.inferImport ctx newEnv import
         newEnv <- importEnv
 
-      let stmts =
-        ast.Items
-        |> List.choose (fun (item: ModuleItem) ->
-          match item with
-          | ModuleItem.Stmt stmt -> Some stmt
-          | _ -> None)
-
-      return! inferStmts ctx newEnv true stmts
+      return! inferModuleItems ctx newEnv true ast.Items
     }

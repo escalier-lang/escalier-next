@@ -1433,14 +1433,6 @@ let buildGraph (env: Env) (decls: list<Decl>) : QGraph<Decl> =
   // for local in locals do
   //   printfn $"{local}"
 
-  let localTypeNames =
-    locals
-    |> Set.toList
-    |> List.choose (fun qid ->
-      match qid with
-      | QDeclIdent.Type name -> Some name
-      | _ -> None)
-
   let nodes = getNodes env decls
   // We compute localsTree once here because it's expensive to compute
   let localsTree = localsToDeclTree env locals

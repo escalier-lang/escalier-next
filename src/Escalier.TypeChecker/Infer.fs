@@ -3434,7 +3434,8 @@ module rec Infer =
                   TypeError.NotImplemented
                     "TODO: inferDeclPlaceholders - NamespaceDecl"
                 )
-          | DeclOrImport.Import import -> failwith "TODO: inferDeclPlaceholders - Import"
+          | DeclOrImport.Import import ->
+            failwith "TODO: inferDeclPlaceholders - Import"
 
       return qns
     }
@@ -4339,6 +4340,119 @@ module rec Infer =
       return newEnv
     }
 
+  let inferStmt (ctx: Ctx) (newEnv: Env) (stmt: Stmt) =
+    result {
+      match stmt.Kind with
+      | StmtKind.Expr expr ->
+        let! _ = inferExpr ctx newEnv None expr
+        ()
+      | StmtKind.For { Left = pattern
+                       Right = right
+                       Body = body } ->
+        let mutable blockEnv = newEnv
+
+        let! patBindings, patType = inferPattern ctx blockEnv pattern
+        let! rightType = inferExpr ctx blockEnv None right
+
+        let symbol =
+          match newEnv.TryFindValue "Symbol" with
+          | Some binding -> binding.Type
+          | None -> failwith "Symbol not in scope"
+
+        let! symbolIterator =
+          getPropType
+            ctx
+            blockEnv
+            symbol
+            (PropName.String "iterator")
+            false
+            ValueCategory.RValue
+
+        // TODO: only lookup Symbol.iterator on Array for arrays and tuples
+        let arrayScheme =
+          match newEnv.TryFindScheme "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+
+        let propName =
+          match symbolIterator.Kind with
+          | TypeKind.UniqueSymbol id -> PropName.Symbol id
+          | _ -> failwith "Symbol.iterator is not a unique symbol"
+
+        let! _ =
+          getPropType
+            ctx
+            blockEnv
+            arrayScheme.Type
+            propName
+            false
+            ValueCategory.RValue
+
+        // TODO: add a variant of `ExpandType` that allows us to specify a
+        // predicate that can stop the expansion early.
+        let! expandedRightType =
+          expandType ctx blockEnv None Map.empty rightType
+
+        let! elemType =
+          result {
+            match expandedRightType.Kind with
+            | TypeKind.Array { Elem = elem; Length = _ } -> return elem
+            | TypeKind.Tuple { Elems = elems } -> return union elems
+            | TypeKind.Range _ -> return expandedRightType
+            | TypeKind.Object _ ->
+              // TODO: try using unify and/or an utility type to extract the
+              // value type from an iterator
+
+              // TODO: add a `tryGetPropType` function that returns an option
+              let! next =
+                getPropType
+                  ctx
+                  blockEnv
+                  rightType
+                  (PropName.String "next")
+                  false
+                  ValueCategory.RValue
+
+              match next.Kind with
+              | TypeKind.Function f ->
+                return!
+                  getPropType
+                    ctx
+                    blockEnv
+                    f.Return
+                    (PropName.String "value")
+                    false
+                    ValueCategory.RValue
+              | _ ->
+                return!
+                  Error(
+                    TypeError.SemanticError $"{rightType} is not an iterator"
+                  )
+            | _ ->
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    "TODO: for loop over non-iterable type"
+                )
+          }
+
+        do! unify ctx blockEnv None elemType patType
+
+        for KeyValue(name, binding) in patBindings do
+          blockEnv <- newEnv.AddValue name binding
+
+        let items = body.Stmts |> List.map ModuleItem.Stmt
+        let! _ = inferModuleItems ctx blockEnv false items
+        ()
+      | StmtKind.Return expr ->
+        match expr with
+        | Some(expr) ->
+          let! _ = inferExpr ctx newEnv None expr
+          ()
+        | None -> ()
+      | StmtKind.Decl decl -> () // Already inferred by `inferTree`
+    }
+
   let inferModuleItems
     (ctx: Ctx)
     (env: Env)
@@ -4367,115 +4481,7 @@ module rec Infer =
       let! newEnv = inferTree ctx env shouldGeneralize graph tree
 
       for stmt in stmts do
-        match stmt.Kind with
-        | StmtKind.Expr expr ->
-          let! _ = inferExpr ctx newEnv None expr
-          ()
-        | StmtKind.For { Left = pattern
-                         Right = right
-                         Body = body } ->
-          let mutable blockEnv = newEnv
-
-          let! patBindings, patType = inferPattern ctx blockEnv pattern
-          let! rightType = inferExpr ctx blockEnv None right
-
-          let symbol =
-            match env.TryFindValue "Symbol" with
-            | Some binding -> binding.Type
-            | None -> failwith "Symbol not in scope"
-
-          let! symbolIterator =
-            getPropType
-              ctx
-              blockEnv
-              symbol
-              (PropName.String "iterator")
-              false
-              ValueCategory.RValue
-
-          // TODO: only lookup Symbol.iterator on Array for arrays and tuples
-          let arrayScheme =
-            match env.TryFindScheme "Array" with
-            | Some scheme -> scheme
-            | None -> failwith "Array not in scope"
-
-          let propName =
-            match symbolIterator.Kind with
-            | TypeKind.UniqueSymbol id -> PropName.Symbol id
-            | _ -> failwith "Symbol.iterator is not a unique symbol"
-
-          let! _ =
-            getPropType
-              ctx
-              blockEnv
-              arrayScheme.Type
-              propName
-              false
-              ValueCategory.RValue
-
-          // TODO: add a variant of `ExpandType` that allows us to specify a
-          // predicate that can stop the expansion early.
-          let! expandedRightType =
-            expandType ctx blockEnv None Map.empty rightType
-
-          let! elemType =
-            result {
-              match expandedRightType.Kind with
-              | TypeKind.Array { Elem = elem; Length = _ } -> return elem
-              | TypeKind.Tuple { Elems = elems } -> return union elems
-              | TypeKind.Range _ -> return expandedRightType
-              | TypeKind.Object _ ->
-                // TODO: try using unify and/or an utility type to extract the
-                // value type from an iterator
-
-                // TODO: add a `tryGetPropType` function that returns an option
-                let! next =
-                  getPropType
-                    ctx
-                    blockEnv
-                    rightType
-                    (PropName.String "next")
-                    false
-                    ValueCategory.RValue
-
-                match next.Kind with
-                | TypeKind.Function f ->
-                  return!
-                    getPropType
-                      ctx
-                      blockEnv
-                      f.Return
-                      (PropName.String "value")
-                      false
-                      ValueCategory.RValue
-                | _ ->
-                  return!
-                    Error(
-                      TypeError.SemanticError $"{rightType} is not an iterator"
-                    )
-              | _ ->
-                return!
-                  Error(
-                    TypeError.NotImplemented
-                      "TODO: for loop over non-iterable type"
-                  )
-            }
-
-          do! unify ctx blockEnv None elemType patType
-
-          for KeyValue(name, binding) in patBindings do
-            blockEnv <- newEnv.AddValue name binding
-
-          let items = body.Stmts |> List.map ModuleItem.Stmt
-          let! _ = inferModuleItems ctx blockEnv false items
-          ()
-        | StmtKind.Return expr ->
-          match expr with
-          | Some(expr) ->
-            let! _ = inferExpr ctx newEnv None expr
-            ()
-          | None -> ()
-        | StmtKind.Decl decl -> () // Already inferred by `inferTree`
+        do! inferStmt ctx newEnv stmt
 
       return newEnv
     }

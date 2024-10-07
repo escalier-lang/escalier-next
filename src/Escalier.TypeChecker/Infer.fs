@@ -3295,7 +3295,7 @@ module rec Infer =
     (env: Env)
     (qns: QualifiedNamespace)
     (idents: list<QDeclIdent>)
-    (graph: QGraph<Decl>)
+    (graph: QGraph)
     : Result<QualifiedNamespace, TypeError> =
 
     result {
@@ -3308,130 +3308,133 @@ module rec Infer =
           // printfn "ident = %A" ident
           return! Error(TypeError.SemanticError "Missing node in graph")
 
-        let decls = graph.Nodes[ident]
+        let declsOrImports = graph.Nodes[ident]
 
-        for decl in decls do
-          match decl.Kind with
-          | VarDecl { Export = export
-                      Declare = declare
-                      Pattern = pattern
-                      Init = init
-                      TypeAnn = typeAnn } ->
-            // QUESTION: Should we check the type annotation as we're generating
-            // the placeholder type?
-            let! bindings, patternType = Infer.inferPattern ctx env pattern
+        for declOrImport in declsOrImports do
+          match declOrImport with
+          | DeclOrImport.Decl decl ->
+            match decl.Kind with
+            | VarDecl { Export = export
+                        Declare = declare
+                        Pattern = pattern
+                        Init = init
+                        TypeAnn = typeAnn } ->
+              // QUESTION: Should we check the type annotation as we're generating
+              // the placeholder type?
+              let! bindings, patternType = Infer.inferPattern ctx env pattern
 
-            match typeAnn, init with
-            | None, Some init ->
-              // TODO: Think about whether inferExprStructuralPlacholder should
-              // be used here. In particular, do we want to support objects without
-              // type annotations, reference the object methods on the object.
-              let placeholderType = ctx.FreshTypeVar None None
-              do! unify ctx env None patternType placeholderType
-            | _, _ -> ()
+              match typeAnn, init with
+              | None, Some init ->
+                // TODO: Think about whether inferExprStructuralPlacholder should
+                // be used here. In particular, do we want to support objects without
+                // type annotations, reference the object methods on the object.
+                let placeholderType = ctx.FreshTypeVar None None
+                do! unify ctx env None patternType placeholderType
+              | _, _ -> ()
 
-            for KeyValue(name, binding) in bindings do
-              let binding = { binding with Export = export }
-              qns <- qns.AddValue (getKey ident name) binding
-          | FnDecl({ Declare = declare
-                     Sig = fnSig
-                     Name = name }) ->
-            if declare then
-              // TODO: capture these errors as diagnostics and infer the missing
-              // types as `never`
-              for p in fnSig.ParamList do
-                if p.TypeAnn.IsNone then
+              for KeyValue(name, binding) in bindings do
+                let binding = { binding with Export = export }
+                qns <- qns.AddValue (getKey ident name) binding
+            | FnDecl({ Declare = declare
+                       Sig = fnSig
+                       Name = name }) ->
+              if declare then
+                // TODO: capture these errors as diagnostics and infer the missing
+                // types as `never`
+                for p in fnSig.ParamList do
+                  if p.TypeAnn.IsNone then
+                    failwith "Ambient function declarations must be fully typed"
+
+                if fnSig.ReturnType.IsNone then
                   failwith "Ambient function declarations must be fully typed"
-
-              if fnSig.ReturnType.IsNone then
-                failwith "Ambient function declarations must be fully typed"
-
-            let binding =
-              { Type = ctx.FreshTypeVar None None
-                Mutable = false
-                Export = false }
-
-            qns <- qns.AddValue (getKey ident name) binding
-          | ClassDecl({ Name = name
-                        Class = { TypeParams = typeParams } } as decl) ->
-            let key = getKey ident name
-
-            if not (qns.Schemes.ContainsKey key) then
-              // TODO: treat ClassDecl similar to object types where we create a
-              // structural placeholder type instead of an opaque type variable.
-              // We should do this for both instance members and statics.
-              let! instance =
-                Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
-
-              let statics: Type = ctx.FreshTypeVar None None
-
-              qns <- qns.AddScheme key instance
-
-              let binding =
-                { Type = statics
-                  Mutable = false
-                  Export = false }
-
-              qns <- qns.AddValue key binding
-          | EnumDecl { Variants = variants
-                       Name = name
-                       TypeParams = typeParams } ->
-
-            let key = getKey ident name
-
-            if not (qns.Schemes.ContainsKey key) then
-
-              let! scheme =
-                Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
-
-              qns <- qns.AddScheme key scheme
 
               let binding =
                 { Type = ctx.FreshTypeVar None None
                   Mutable = false
                   Export = false }
 
-              qns <- qns.AddValue key binding
-          | TypeDecl { TypeParams = typeParams; Name = name } ->
-            // TODO: check to make sure we aren't redefining an existing type
-            // TODO: replace placeholders, with a reference the actual definition
-            // once we've inferred the definition
-            let! placeholder =
-              Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+              qns <- qns.AddValue (getKey ident name) binding
+            | ClassDecl({ Name = name
+                          Class = { TypeParams = typeParams } } as decl) ->
+              let key = getKey ident name
 
-            qns <- qns.AddScheme (getKey ident name) placeholder
-          | InterfaceDecl({ Name = name
-                            TypeParams = typeParams
-                            Extends = extends } as decl) ->
-            let key = getKey ident name
-
-            let parts =
-              match ident with
-              | QDeclIdent.Type { Parts = parts } -> parts
-              | QDeclIdent.Value { Parts = parts } -> parts
-
-            // Instead of looking things up in the environment, we need some way to
-            // find the existing type on other declarations.
-            let! placeholder =
-              // NOTE: looking up the scheme using `name` works here because we
-              // called `openNamespaces` at the top of this function.
-              match parts, env.TryFindScheme name with
-              // TODO: handle the case where the qualifier is `global` to handle
-              // declare global { ... } statements.
-              | [ _ ], Some scheme -> Result.Ok scheme
-              | _, _ ->
-                match qns.Schemes.TryFind(key) with
-                | Some scheme -> Result.Ok scheme
-                | None ->
+              if not (qns.Schemes.ContainsKey key) then
+                // TODO: treat ClassDecl similar to object types where we create a
+                // structural placeholder type instead of an opaque type variable.
+                // We should do this for both instance members and statics.
+                let! instance =
                   Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
 
-            qns <- qns.AddScheme key placeholder
-          | NamespaceDecl nsDecl ->
-            return!
-              Error(
-                TypeError.NotImplemented
-                  "TODO: inferDeclPlaceholders - NamespaceDecl"
-              )
+                let statics: Type = ctx.FreshTypeVar None None
+
+                qns <- qns.AddScheme key instance
+
+                let binding =
+                  { Type = statics
+                    Mutable = false
+                    Export = false }
+
+                qns <- qns.AddValue key binding
+            | EnumDecl { Variants = variants
+                         Name = name
+                         TypeParams = typeParams } ->
+
+              let key = getKey ident name
+
+              if not (qns.Schemes.ContainsKey key) then
+
+                let! scheme =
+                  Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+                qns <- qns.AddScheme key scheme
+
+                let binding =
+                  { Type = ctx.FreshTypeVar None None
+                    Mutable = false
+                    Export = false }
+
+                qns <- qns.AddValue key binding
+            | TypeDecl { TypeParams = typeParams; Name = name } ->
+              // TODO: check to make sure we aren't redefining an existing type
+              // TODO: replace placeholders, with a reference the actual definition
+              // once we've inferred the definition
+              let! placeholder =
+                Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+              qns <- qns.AddScheme (getKey ident name) placeholder
+            | InterfaceDecl({ Name = name
+                              TypeParams = typeParams
+                              Extends = extends } as decl) ->
+              let key = getKey ident name
+
+              let parts =
+                match ident with
+                | QDeclIdent.Type { Parts = parts } -> parts
+                | QDeclIdent.Value { Parts = parts } -> parts
+
+              // Instead of looking things up in the environment, we need some way to
+              // find the existing type on other declarations.
+              let! placeholder =
+                // NOTE: looking up the scheme using `name` works here because we
+                // called `openNamespaces` at the top of this function.
+                match parts, env.TryFindScheme name with
+                // TODO: handle the case where the qualifier is `global` to handle
+                // declare global { ... } statements.
+                | [ _ ], Some scheme -> Result.Ok scheme
+                | _, _ ->
+                  match qns.Schemes.TryFind(key) with
+                  | Some scheme -> Result.Ok scheme
+                  | None ->
+                    Infer.inferTypeDeclPlaceholderScheme ctx env typeParams
+
+              qns <- qns.AddScheme key placeholder
+            | NamespaceDecl nsDecl ->
+              return!
+                Error(
+                  TypeError.NotImplemented
+                    "TODO: inferDeclPlaceholders - NamespaceDecl"
+                )
+          | DeclOrImport.Import import -> failwith "TODO: inferDeclPlaceholders - Import"
 
       return qns
     }
@@ -3474,7 +3477,7 @@ module rec Infer =
     (env: Env)
     (qns: QualifiedNamespace)
     (idents: list<QDeclIdent>)
-    (graph: QGraph<Decl>)
+    (graph: QGraph)
     : Result<QualifiedNamespace, TypeError> =
 
     result {
@@ -3486,7 +3489,7 @@ module rec Infer =
       let mutable inferredEnums = Set.empty
 
       for ident in idents do
-        let decls = graph.Nodes[ident]
+        let declsOrImports = graph.Nodes[ident]
 
         // TODO: check if we're inside a namespace and update the env accordingly
         let parts =
@@ -3513,17 +3516,21 @@ module rec Infer =
         let mutable enumDecls = []
         let mutable namespaceDecls = []
 
-        for decl in decls do
-          match decl.Kind with
-          | VarDecl varDecl -> varDecls <- varDecl :: varDecls
-          | FnDecl fnDecl -> fnDecls <- fnDecl :: fnDecls
-          | ClassDecl classDecl -> classDecls <- classDecl :: classDecls
-          | TypeDecl typeDecl -> typeDecls <- typeDecl :: typeDecls
-          | InterfaceDecl interfaceDecl ->
-            interfaceDecls <- interfaceDecl :: interfaceDecls
-          | EnumDecl enumDecl -> enumDecls <- enumDecl :: enumDecls
-          | NamespaceDecl namespaceDecl ->
-            namespaceDecls <- namespaceDecl :: namespaceDecls
+        for declOrImport in declsOrImports do
+          match declOrImport with
+          | DeclOrImport.Decl decl ->
+            match decl.Kind with
+            | VarDecl varDecl -> varDecls <- varDecl :: varDecls
+            | FnDecl fnDecl -> fnDecls <- fnDecl :: fnDecls
+            | ClassDecl classDecl -> classDecls <- classDecl :: classDecls
+            | TypeDecl typeDecl -> typeDecls <- typeDecl :: typeDecls
+            | InterfaceDecl interfaceDecl ->
+              interfaceDecls <- interfaceDecl :: interfaceDecls
+            | EnumDecl enumDecl -> enumDecls <- enumDecl :: enumDecls
+            | NamespaceDecl namespaceDecl ->
+              namespaceDecls <- namespaceDecl :: namespaceDecls
+          | DeclOrImport.Import import ->
+            failwith "TODO: inferDeclDefinitions - Import"
 
         fnDecls <- List.rev fnDecls
         interfaceDecls <- List.rev interfaceDecls
@@ -4023,9 +4030,7 @@ module rec Infer =
       CycleMap: Map<QDeclIdent, Set<QDeclIdent>> }
 
   // Based on the algorithm from https://en.wikipedia.org/wiki/Path-based_strong_component_algorithm
-  let findStronglyConnectedComponents<'T>
-    (graph: QGraph<'T>)
-    : list<list<QDeclIdent>> =
+  let findStronglyConnectedComponents (graph: QGraph) : list<list<QDeclIdent>> =
 
     let mutable S: list<QDeclIdent> = [] // not yet assigned to a SCC
     let mutable P: list<QDeclIdent> = [] // not yet in different SCCs
@@ -4092,8 +4097,8 @@ module rec Infer =
 
   type QCompTree = Map<Set<QDeclIdent>, Set<Set<QDeclIdent>>>
 
-  let buildComponentTree<'T>
-    (graph: QGraph<'T>)
+  let buildComponentTree
+    (graph: QGraph)
     (components: list<list<QDeclIdent>>)
     : QCompTree =
 
@@ -4230,7 +4235,7 @@ module rec Infer =
     (ctx: Ctx)
     (env: Env)
     (shouldGeneralize: bool)
-    (graph: QGraph<Decl>)
+    (graph: QGraph)
     (tree: QCompTree)
     : Result<Env, TypeError> =
 
@@ -4245,7 +4250,7 @@ module rec Infer =
         (ctx: Ctx)
         (env: Env)
         (root: Set<QDeclIdent>)
-        (graph: QGraph<Decl>)
+        (graph: QGraph)
         (tree: QCompTree)
         (fullQns: QualifiedNamespace)
         : Result<QualifiedNamespace * QualifiedNamespace, TypeError> =
@@ -4322,7 +4327,7 @@ module rec Infer =
   let inferGraph
     (ctx: Ctx)
     (env: Env)
-    (graph: QGraph<Decl>)
+    (graph: QGraph)
     : Result<Env, TypeError> =
     result {
       // TODO: handle imports
@@ -4499,3 +4504,7 @@ module rec Infer =
 
       return! inferModuleItems ctx newEnv true ast.Items
     }
+
+  let inferPackage (ctx: Ctx) (env: Env) (entry: Module) =
+
+    failwith "TODO"

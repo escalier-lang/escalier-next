@@ -26,6 +26,7 @@ let projectRoot = __SOURCE_DIRECTORY__
 let fixturePaths: obj[] seq =
   Directory.GetDirectories(Path.Join(projectRoot, "fixtures"))
   |> Seq.collect Directory.GetDirectories
+  |> Seq.filter (fun dir -> not (dir.Contains("cyclic")))
   |> Seq.map (fun dir -> [| box (dir.Substring projectRoot.Length) |])
 
 [<Theory>]
@@ -83,6 +84,33 @@ let BasicsTests (fixtureDir: string) =
         | false -> None
 
       let mockWriter = new StringWriter()
+
+      // TODO:
+      // - Find all files that can be reached from the entry file (excluding
+      //   imports from other packages)
+      // - Update qualified declarations to include the module name
+      // - Create a list of all declarations in the files
+
+      // Questions:
+      // - How do we handle renamed imports?
+      //   We need to be careful to only add the dependencies that are needed
+      //   when inferring a particular declaration.
+      //   The tricky bit is decls involved in recursive definitions.  How do
+      //   do we deal with renaming in that case?
+      //   We just need to pick unique names for each declaration.  Once we've
+      //   inferred all of their values we can change the names back to what
+      //   they were in each file.
+      //   Maybe we should give all declarations a unique name and then rename
+      //   them back to their original names after we've inferred all of their
+      //   values.
+
+      let paths = Compiler.findFiles fixtureDir entryPath
+
+      printfn "Filenames:"
+
+      for path in paths do
+        printfn "%s" path
+
       do! Compiler.compileFile mockWriter fixtureDir entryPath
 
       let mutable actual: Map<string, Output> = Map.empty

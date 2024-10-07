@@ -1,30 +1,35 @@
 module Escalier.TypeChecker.QualifiedGraph
 
 open Escalier.Data.Syntax
-open FsToolkit.ErrorHandling
 
 open Escalier.Data
 open Escalier.Data.Type
 open Escalier.Data.Visitor
 
-open Env
-open Error
 
 type QualifiedIdent =
-  { Parts: list<string> }
+  { Filename: string
+    Parts: list<string> }
 
   override this.ToString() = String.concat "." this.Parts
 
-  static member FromString(name: string) = { Parts = [ name ] }
+  static member FromString (filename: string) (name: string) =
+    { Filename = filename
+      Parts = [ name ] }
 
   static member FromCommonQualifiedIdent
+    (filename: string)
     (qid: Common.QualifiedIdent)
     : QualifiedIdent =
     match qid with
-    | Common.QualifiedIdent.Ident name -> { Parts = [ name ] }
+    | Common.QualifiedIdent.Ident name ->
+      { Filename = filename
+        Parts = [ name ] }
     | Common.QualifiedIdent.Member(left, right) ->
-      let left = QualifiedIdent.FromCommonQualifiedIdent left
-      { Parts = left.Parts @ [ right ] }
+      let left = QualifiedIdent.FromCommonQualifiedIdent filename left
+
+      { Filename = filename
+        Parts = left.Parts @ [ right ] }
 
 // TODO:
 // - infer types for all the declarations in each namespace
@@ -42,32 +47,25 @@ type QDeclIdent =
     | Type qid -> $"Type {qid}"
     | Value qid -> $"Value {qid}"
 
-  static member MakeValue(parts: list<string>) =
-    QDeclIdent.Value { Parts = parts }
+  static member MakeValue (filename: string) (parts: list<string>) =
+    QDeclIdent.Value { Filename = filename; Parts = parts }
 
-  static member MakeType(parts: list<string>) =
-    QDeclIdent.Type { Parts = parts }
+  static member MakeType (filename: string) (parts: list<string>) =
+    QDeclIdent.Type { Filename = filename; Parts = parts }
 
   member this.GetParts() =
     match this with
     | Type { Parts = parts } -> parts
     | Value { Parts = parts } -> parts
 
-type QGraph<'T> =
-  // A type can depend on multiple interface declarations
-  { Nodes: Map<QDeclIdent, list<'T>>
-    Edges: Map<QDeclIdent, Set<QDeclIdent>> }
+type DeclOrImport =
+  | Decl of Decl
+  | Import of Import
 
-// member this.Add(name: QDeclIdent, decl: 'T, deps: list<QDeclIdent>) =
-//   printfn $"adding {name}"
-//
-//   let decls =
-//     match this.Nodes.TryFind name with
-//     | Some nodes -> nodes @ [ decl ]
-//     | None -> [ decl ]
-//
-//   { Edges = this.Edges.Add(name, deps)
-//     Nodes = this.Nodes.Add(name, decls) }
+type QGraph =
+  // A type can depend on multiple interface declarations
+  { Nodes: Map<QDeclIdent, list<DeclOrImport>>
+    Edges: Map<QDeclIdent, Set<QDeclIdent>> }
 
 type QualifiedNamespace =
   { Values: Map<QualifiedIdent, Binding>
@@ -112,99 +110,6 @@ let findFunctions (expr: Syntax.Expr) : list<Syntax.Function> =
   ExprVisitor.walkExpr visitor () expr
 
   List.rev fns
-
-// let getExports
-//   (ctx: Ctx)
-//   (env: Env)
-//   (name: string)
-//   (items: list<Syntax.ModuleItem>)
-//   : Result<Namespace, TypeError> =
-
-//   result {
-//     let mutable ns: Namespace =
-//       { Name = name
-//         Values = Map.empty
-//         Schemes = Map.empty
-//         Namespaces = Map.empty }
-
-//     for item in items do
-//       match item with
-//       | ModuleItem.Import importDecl ->
-//         // We skip exports because we don't want to automatically re-export
-//         // everything.
-//         ()
-//       | ModuleItem.Export export ->
-//         // NOTE: This relies on the namespace being defined before it's exported
-//         match export with
-//         | NamespaceExport { Name = name } ->
-//           match env.Namespace.Namespaces.TryFind name with
-//           | Some value ->
-//             for KeyValue(key, binding) in value.Values do
-//               ns <- ns.AddBinding key binding
-
-//             for KeyValue(key, scheme) in value.Schemes do
-//               ns <- ns.AddScheme key scheme
-
-//             for KeyValue(key, value) in value.Namespaces do
-//               ns <- ns.AddNamespace key value
-//           | None -> failwith $"Couldn't find namespace: '{name}'"
-//       | ModuleItem.Stmt stmt ->
-//         match stmt.Kind with
-//         | StmtKind.Decl decl ->
-//           match decl.Kind with
-//           | DeclKind.ClassDecl classDecl ->
-//             failwith "TODO: getExports - classDecl"
-//           | DeclKind.FnDecl { Name = name; Export = export } ->
-//             if export then
-//               let! t = env.GetValue name
-
-//               let binding =
-//                 { Type = t
-//                   Mutable = false
-//                   Export = export }
-
-//               ns <- ns.AddBinding name binding
-//           | DeclKind.VarDecl { Pattern = pattern; Export = export } ->
-//             if export then
-//               let names = Helpers.findBindingNames pattern
-
-//               for name in names do
-//                 let! t = env.GetValue name
-
-//                 let binding =
-//                   { Type = t
-//                     Mutable = false // TODO: figure out how to determine mutability
-//                     Export = export }
-
-//                 ns <- ns.AddBinding name binding
-//           // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
-//           | DeclKind.InterfaceDecl { Name = name; Export = export } ->
-//             if export then
-//               let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
-//               ns <- ns.AddScheme name scheme
-//           | DeclKind.TypeDecl { Name = name; Export = export } ->
-//             if export then
-//               let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
-//               ns <- ns.AddScheme name scheme
-//           | DeclKind.EnumDecl tsEnumDecl ->
-//             failwith "TODO: getExports - tsEnumDecl"
-//           | DeclKind.NamespaceDecl { Name = name; Export = export } ->
-//             if name = "global" then
-//               // TODO: figure out what we want to do with globals
-//               // Maybe we can add these to `env` and have `getExports` return
-//               // both a namespace and an updated env
-//               ()
-//             else if export then
-//               match env.Namespace.Namespaces.TryFind name with
-//               | Some value -> ns <- ns.AddNamespace name value
-//               | None -> failwith $"Couldn't find namespace: '{name}'"
-
-//         | StmtKind.Expr expr -> failwith "todo"
-//         | StmtKind.For _ -> failwith "todo"
-//         | StmtKind.Return exprOption -> failwith "todo"
-
-//     return ns
-//   }
 
 // TODO: Merge ReadonlyFoo and Foo as part Escalier.Interop.Migrate
 let mergeType (imutType: Type) (mutType: Type) : Type =

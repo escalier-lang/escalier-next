@@ -44,6 +44,25 @@ let parseAndCodegenJS (src: string) =
     return js
   }
 
+let parseAndCodegenDTS (src: string) =
+  result {
+    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
+
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+
+    let! env =
+      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+
+    let ctx: Ctx =
+      { NextTempId = 0
+        AutoImports = Set.empty }
+
+    let modTypes = buildModuleTypes env ctx ast
+    let dts = printModule printCtx modTypes
+
+    return dts
+  }
+
 [<Fact>]
 let CodegenIdent () =
   let ident: Ident = { Name = "foo"; Loc = None }
@@ -919,7 +938,7 @@ let CodegenDtsGeneric () =
     result {
       let src =
         """
-        let fst = fn (a, b) => a;
+        let fst = fn<A, B>(a: A, b: B) -> A => a;
         """
 
       let! ast =
@@ -987,7 +1006,10 @@ let CodegenFunctionOverloads () =
         """
 
       let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! dts = parseAndCodegenDTS src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with

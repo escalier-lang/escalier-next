@@ -1566,7 +1566,8 @@ module Parser =
             Declare = false
             Name = name
             Sig = fnSig
-            Body = Some(BlockOrExpr.Block body) }
+            Body = Some(BlockOrExpr.Block body)
+            InferredFunction = None }
 
       let span = { Start = start; Stop = stop }
       { Kind = kind; Span = span }
@@ -1899,7 +1900,8 @@ module Parser =
           Declare = true
           Name = name
           Sig = fnSig
-          Body = None }
+          Body = None
+          InferredFunction = None }
 
   declRef.Value <-
     choice

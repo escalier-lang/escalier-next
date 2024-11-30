@@ -1,5 +1,5 @@
 ﻿input: 
-        let fst = fn (a, b) => a;
+        let fst = fn<A, B>(a: A, b: B) -> A => a;
         
 output:
-const fst;
+const fst: <A, B>(a: A, b: B) => A;

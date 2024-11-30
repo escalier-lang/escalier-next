@@ -1041,7 +1041,8 @@ module rec Migrate =
               Declare = true // Some .d.ts files do `export function foo();`
               Name = ident.Name
               Sig = fnSig
-              Body = None }
+              Body = None
+              InferredFunction = None }
 
         [ { Kind = kind; Span = DUMMY_SPAN } ]
       | Decl.Var { Export = export

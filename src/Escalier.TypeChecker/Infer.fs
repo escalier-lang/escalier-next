@@ -3612,6 +3612,8 @@ module rec Infer =
                         TypeError.SemanticError "Invalid function declaration"
                       )
 
+                  fnDecl.InferredFunction <- Some(f)
+
                   return f
                 })
               fnDecls

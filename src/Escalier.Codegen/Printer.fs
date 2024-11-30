@@ -474,27 +474,62 @@ module rec Printer =
 
       match decl with
       | Decl.Fn { Id = id
-                  Fn = { Params = ps; Body = body } } ->
+                  Fn = { Params = ps
+                         Body = body
+                         ReturnType = retType } } ->
         let id = id.Name
 
+        let mutable sb = StringBuilder()
+        sb <- sb.Append("function ").Append(id).Append("(")
+
         let ps =
-          ps |> List.map (fun p -> printPattern ctx p.Pat) |> String.concat ", "
+          ps
+          |> List.map (fun p ->
+            match p.TypeAnn with
+            | Some(typeAnn) ->
+              let pat = printPattern ctx p.Pat
+              let typeAnn = printTypeAnn ctx typeAnn
+              $"{pat}: {typeAnn}"
+            | None -> printPattern ctx p.Pat)
+          |> String.concat ", "
+
+        sb <- sb.Append(ps).Append(")")
+
+        match retType with
+        | Some(retType) ->
+          sb <- sb.Append(": ").Append(printType ctx retType.TypeAnn)
+        | None -> ()
 
         match body with
-        | Some(body) -> $"function {id}({ps}) {printBlock ctx body}"
-        | None -> $"function {id}({ps}) {{}}"
+        | Some(body) -> sb <- sb.Append(" ").Append(printBlock ctx body)
+        | None -> sb <- sb.Append(";")
+
+        sb.ToString()
       | Decl.Var { Export = export
                    Declare = declare
                    Decls = decls
                    Kind = kind } ->
         let decls =
           List.map
-            (fun { VarDeclarator.Id = id; Init = init } ->
+            (fun
+                 { VarDeclarator.Id = id
+                   Init = init
+                   TypeAnn = typeAnn } ->
               let id = printPattern ctx id
 
+              let mutable sb = new StringBuilder()
+              sb <- sb.Append(id)
+
+              match typeAnn with
+              | Some typeAnn ->
+                sb <- sb.Append(": ").Append(printTypeAnn ctx typeAnn)
+              | None -> ()
+
               match init with
-              | Some(init) -> $"{id} = {printExpr ctx init}"
-              | None -> id)
+              | Some(init) -> sb <- sb.Append(" = ").Append(printExpr ctx init)
+              | None -> ()
+
+              sb.ToString())
             decls
           |> String.concat ", "
 

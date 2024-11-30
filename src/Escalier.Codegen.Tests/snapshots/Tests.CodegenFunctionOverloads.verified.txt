@@ -8,7 +8,7 @@
         let sum = add(5, 10);
         let msg = add("hello, ", "world");
         
-output:
+--- output (js) ---
 function add(__arg0__, __arg1__) {
   if (typeof __arg0__ == "number" && typeof __arg1__ == "number") {
     return __arg0__ + __arg1__;
@@ -20,3 +20,8 @@ function add(__arg0__, __arg1__) {
 }
 var sum = add(5, 10);
 var msg = add("hello, ", "world");
+--- output (dts) ---
+function add(a: number, b: number): number;
+function add(a: string, b: string): string;
+const sum: number;
+const msg: string;

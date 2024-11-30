@@ -1018,6 +1018,70 @@ module rec Codegen =
 
       [ funcDecl ]
 
+  let buildFnDeclType (ctx: Ctx) (fnDecl: FnDecl) : TS.Stmt =
+    let f = fnDecl.InferredFunction.Value
+
+    // TODO: unify Param and TsFnParam
+    let ps: list<Param> =
+      f.ParamList
+      |> List.map (fun p ->
+        let t = buildTypeAnn ctx p.Type
+
+        match p.Pattern with
+        | Pattern.Identifier { Name = name } ->
+          // TODO: unify Pat with TsFnPat
+          let pat =
+            Pat.Ident
+              { Id = { Name = name; Loc = None }
+                Loc = None }
+
+          { Pat = pat
+            TypeAnn = Some(t)
+            Optional = p.Optional
+            Loc = None }
+        | Pattern.Object _ -> failwith "TODO"
+        | Pattern.Tuple _ -> failwith "TODO"
+        | Pattern.Rest _ -> failwith "TODO"
+        | _ -> failwith "Invalid pattern for function parameter")
+
+    let typeParams: option<TsTypeParamDecl> =
+      f.TypeParams
+      |> Option.map (fun typeParams ->
+        { Params =
+            typeParams
+            |> List.map
+              (fun
+                   { Name = name
+                     Constraint = c
+                     Default = d } ->
+                { Name = { Name = name; Loc = None }
+                  IsIn = false
+                  IsOut = false
+                  IsConst = false
+                  Constraint = Option.map (buildType ctx) c
+                  Default = Option.map (buildType ctx) d
+                  Loc = None })
+          Loc = None })
+
+    let func =
+      { Params = ps
+        // TODO: Decorators
+        // Decorators: list<Decorator>
+        Body = None
+        IsGenerator = false // TODO
+        IsAsync = fnDecl.Sig.IsAsync
+        TypeParams = typeParams
+        ReturnType = Some(buildTypeAnn ctx f.Return)
+        Loc = None }
+
+    let fnDecl =
+      { Export = fnDecl.Export
+        Declare = false
+        Id = { Name = fnDecl.Name; Loc = None }
+        Fn = func }
+
+    Stmt.Decl(Decl.Fn fnDecl)
+
   let buildOverloadedFnDecl (ctx: Ctx) (decls: list<FnDecl>) : list<TS.Stmt> =
     let typeError =
       TS.Expr.New
@@ -1467,6 +1531,22 @@ module rec Codegen =
   let buildModuleTypes (env: Env) (ctx: Ctx) (m: Module) : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
+    let mutable fnDecls: Map<string, list<FnDecl>> = Map.empty
+
+    for item in m.Items do
+      match item with
+      | ModuleItem.Stmt stmt ->
+        match stmt.Kind with
+        | StmtKind.Decl { Kind = DeclKind.FnDecl fnDecl } ->
+          let decls =
+            match Map.tryFind fnDecl.Name fnDecls with
+            | Some decls -> decls
+            | None -> []
+
+          fnDecls <- Map.add fnDecl.Name (decls @ [ fnDecl ]) fnDecls
+        | _ -> ()
+      | _ -> ()
+
     for item in m.Items do
       match item with
       | ModuleItem.Export _ -> failwith "TODO: buildModuleTypes - Export"
@@ -1536,7 +1616,9 @@ module rec Codegen =
           | VarDecl { Pattern = pattern
                       Export = export
                       Declare = declare } ->
-            for Operators.KeyValue(name, _) in findBindings pattern do
+            // TODO: instead of splitting up the pattern, we could generate a
+            // type annotation for the entire pattern.
+            for KeyValue(name, _) in findBindings pattern do
               let n: string = name
 
               let t =
@@ -1562,7 +1644,29 @@ module rec Codegen =
               let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
               items <- item :: items
-          | FnDecl _ -> failwith "TODO: buildModuleTypes - FnDecl"
+          | FnDecl fnDecl ->
+            let t =
+              match env.GetValue fnDecl.Name with
+              | Ok(t) -> t
+              | Error(e) -> failwith $"Couldn't find symbol: {fnDecl.Name}"
+
+            match Map.tryFind fnDecl.Name fnDecls with
+            | Some decls ->
+
+              // Remove the function declaration from the map so that we only
+              // generate a single function declaration for it.
+              fnDecls <- Map.remove fnDecl.Name fnDecls
+
+              match decls with
+              | [] -> failwith "Function declaration list must not be empty"
+              | [ decl ] ->
+                let stmt = buildFnDeclType ctx decl
+                items <- (TS.ModuleItem.Stmt stmt) :: items
+              | decls ->
+                for decl in decls do
+                  let stmt = buildFnDeclType ctx decl
+                  items <- (TS.ModuleItem.Stmt stmt) :: items
+            | None -> ()
           | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
           | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"

@@ -1,6 +1,6 @@
 import {add} from "~/math/math"
 import {makePoint, Point} from "./point/point"
-const p;
-const q;
-const x;
-const y;
+const p: Point;
+const q: Point;
+const x: number;
+const y: number;

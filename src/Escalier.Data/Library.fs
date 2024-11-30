@@ -465,7 +465,8 @@ module Syntax =
       Export: bool
       Name: string
       Sig: FuncSig
-      Body: option<BlockOrExpr> }
+      Body: option<BlockOrExpr>
+      mutable InferredFunction: Option<Type.Function> }
 
   type ClassDeclInferredTypes =
     { Instance: Type.Scheme

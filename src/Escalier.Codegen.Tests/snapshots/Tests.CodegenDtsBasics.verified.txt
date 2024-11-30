@@ -7,4 +7,4 @@ Point = {
   x: number;
   y: number;
 };
-const add;
+const add: (a: number, b: number) => number;

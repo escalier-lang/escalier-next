@@ -154,7 +154,8 @@ output: Ok
                                                  Stop = (Ln: 6, Col: 19) }
                                         InferredType = None })
                                 Span = { Start = (Ln: 6, Col: 7)
-                                         Stop = (Ln: 7, Col: 5) } }] }) }
+                                         Stop = (Ln: 7, Col: 5) } }] })
+                    InferredFunction = None }
                Span = { Start = (Ln: 5, Col: 5)
                         Stop = (Ln: 8, Col: 5) } }
           Span = { Start = (Ln: 5, Col: 5)

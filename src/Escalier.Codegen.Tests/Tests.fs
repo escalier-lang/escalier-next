@@ -938,7 +938,7 @@ let CodegenDtsGeneric () =
     result {
       let src =
         """
-        let fst = fn (a, b) => a;
+        let fst = fn<A, B>(a: A, b: B) -> A => a;
         """
 
       let! ast =

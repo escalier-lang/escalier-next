@@ -973,7 +973,6 @@ module rec Codegen =
       | _ -> failwith "Function param pattern must be an identifier"
     | None -> failwith "Function param must have an inferred type"
 
-  // TODO: add an option to generate `declare function ...` decls for .d.ts files
   let buildFnDecl (ctx: Ctx) (decl: FnDecl) : list<TS.Stmt> =
     let ps: list<Param> =
       decl.Sig.ParamList
@@ -1667,12 +1666,7 @@ module rec Codegen =
                 for decl in decls do
                   let stmt = buildFnDeclType ctx decl
                   items <- (TS.ModuleItem.Stmt stmt) :: items
-            // buildOverloadedFnDecl ctx decls
             | None -> ()
-
-          // for item in stmts |> List.map (fun stmt -> TS.ModuleItem.Stmt stmt) do
-          //   items <- item :: items
-          // | FnDecl _ -> failwith "TODO: buildModuleTypes - FnDecl"
           | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
           | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"

@@ -466,6 +466,12 @@ module Syntax =
       Name: string
       Sig: FuncSig
       Body: option<BlockOrExpr>
+
+      // This is to support overloaded the functions.  The alternative would be
+      // to try to split up the inferred intersection type into multiple function
+      // types, but that would likely be more work.  In the future we'll want to
+      // support having docstrings on functions and this will make it easier to
+      // do that.
       mutable InferredFunction: Option<Type.Function> }
 
   type ClassDeclInferredTypes =

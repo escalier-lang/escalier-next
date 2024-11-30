@@ -1007,7 +1007,9 @@ let CodegenFunctionOverloads () =
 
       let! js = parseAndCodegenJS src
       let! dts = parseAndCodegenDTS src
-      return $"input: %s{src}\noutput (js):\n{js}\noutput (dts):\n{dts}"
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with

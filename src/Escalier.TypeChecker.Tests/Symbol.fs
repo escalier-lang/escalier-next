@@ -23,7 +23,7 @@ type CompileError = Prelude.CompileError
 let inferModule src =
   result {
     let projectRoot = __SOURCE_DIRECTORY__
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let prelude =
       """
@@ -37,12 +37,14 @@ let inferModule src =
 
     let! env =
       InferModule.inferModule ctx env ast
+      |> Async.RunSynchronously
       |> Result.mapError CompileError.TypeError
 
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let! env =
       InferModule.inferModule ctx env ast
+      |> Async.RunSynchronously
       |> Result.mapError CompileError.TypeError
 
     return ctx, env

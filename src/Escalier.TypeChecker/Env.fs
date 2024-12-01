@@ -39,10 +39,12 @@ module rec Env =
         Nodes = Map.empty
         Namespaces = Map.empty }
 
+  // TODO: Move CompileError into its own package so that we can use it here
   type Ctx
     (
-      getExports: Ctx -> string -> Syntax.Import -> Namespace,
-      resolvePath: Ctx -> string -> Syntax.Import -> string,
+      getExports:
+        Ctx -> string -> Syntax.Import -> Async<Result<Namespace, TypeError>>,
+      resolvePath: Ctx -> string -> Syntax.Import -> Async<string>,
       inferExpr:
         Ctx -> Env -> option<Type> -> Syntax.Expr -> Result<Type, TypeError>,
       inferModuleItems:

@@ -26,14 +26,14 @@ let projectRoot = __SOURCE_DIRECTORY__
 let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
 
 let parseAndCodegen (src: string) =
-  result {
+  asyncResult {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
       InferModule.inferModule ctx env ast
-      |> Result.mapError CompileError.TypeError
+      |> AsyncResult.mapError CompileError.TypeError
 
     let ctx: Ctx =
       { NextTempId = 0
@@ -194,7 +194,7 @@ let CodegenTemplateLiteral () =
         let escapes = `"hello"\n\r\t'world'`;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -222,7 +222,7 @@ let CodegenTaggedTemplateLiteral () =
         }`;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -244,7 +244,7 @@ let CodegenAssignment () =
         x = 10;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -266,7 +266,7 @@ let CodegenIndexing () =
         arr[2] = arr[0] + arr[1];
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -290,7 +290,7 @@ let CodegenMemberAccess () =
         let c = a?.b?.c;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -315,7 +315,7 @@ let CodegenDoExpression () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -347,7 +347,7 @@ let CodegenDoExpressionWithReturn () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -380,7 +380,7 @@ let CodegenNestedDoExpressions () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -402,7 +402,7 @@ let CodegenFunction () =
           if (n == 0) { 1 } else { n * factorial(n - 1) }; 
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -426,7 +426,7 @@ let CodegenAsyncFunction () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -447,7 +447,7 @@ let CodegenCalls () =
         let array = new Array(1, 2, 3);
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -477,7 +477,7 @@ let CodegenChainedIfElse () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -501,7 +501,7 @@ let CodegenLogicalOperators () =
         let bar = x && y && z;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -528,7 +528,7 @@ let CodegenLogicalOperatorsWithDoExpressions () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -549,7 +549,7 @@ let CodegenTupleLiteral () =
         let tuple = ["hello", 5, true];
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -570,7 +570,7 @@ let CodegenImmutableTupleLiteral () =
         let tuple = #["hello", 5, true];
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -591,7 +591,7 @@ let CodegenObjectLiteral () =
         let object = {a: "hello", b: 5, c: true};
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -612,7 +612,7 @@ let CodegenImmutableObjectLiteral () =
         let object = #{a: "hello", b: 5, c: true};
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -634,7 +634,7 @@ let CodegenDestructureObjects () =
         let {point: {x, y}, color} = object;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -656,7 +656,7 @@ let CodegenDestructureObjectWithRest () =
         let {foo, ...rest} = object;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -678,7 +678,7 @@ let CodegenDestructureTuples () =
         let [msg, [num, flag]] = tuple;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -700,7 +700,7 @@ let CodegenDestructureTupleWithRest () =
         let [foo, ...rest] = tuple;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -726,7 +726,7 @@ let CodegenIfLetObject () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -752,7 +752,7 @@ let CodegenMatchArray () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -785,7 +785,7 @@ let CodegenMatchUnion () =
         };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -814,7 +814,7 @@ let CodegenTryCatch () =
           };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -840,7 +840,7 @@ let CodegenTryFinally () =
           };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -869,7 +869,7 @@ let CodegenTryCatchFinally () =
           };
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -891,7 +891,7 @@ let CodegenJsxElement () =
         </div>;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -916,7 +916,7 @@ let CodegenJsxFragment () =
         </>;
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -942,12 +942,13 @@ let CodegenDtsBasics () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let projectRoot = __SOURCE_DIRECTORY__
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let env = { env with Filename = "input.esc" }
 
       let! env =
         InferModule.inferModule ctx env escAst
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx =
@@ -979,13 +980,14 @@ let CodegenDtsGeneric () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let projectRoot = __SOURCE_DIRECTORY__
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let env = { env with Filename = "input.esc" }
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx =
@@ -1016,7 +1018,7 @@ let CodegenFunctionDeclaration () =
         let sum = add(5, 10);
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -1042,7 +1044,7 @@ let CodegenFunctionOverloads () =
         let msg = add("hello, ", "world");
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -1068,7 +1070,7 @@ let CodegenFunctionOverloadsWithDifferentParams () =
         let msg = add("hello, ", "world");
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -1096,7 +1098,7 @@ let CodegenFunctionOverloadsWithShadowing () =
         let msg = add("hello, ", "world");
         """
 
-      let! js, dts = parseAndCodegen src
+      let! js, dts = parseAndCodegen src |> Async.RunSynchronously
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"

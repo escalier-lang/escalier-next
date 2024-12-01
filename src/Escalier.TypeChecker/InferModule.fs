@@ -1326,10 +1326,10 @@ module rec InferModule =
     (ctx: Ctx)
     (env: Env)
     (import: Import)
-    : Result<Env, TypeError> =
+    : Async<Result<Env, TypeError>> =
 
-    result {
-      let exports = ctx.GetExports env.Filename import
+    asyncResult {
+      let! exports = ctx.GetExports env.Filename import
 
       let mutable imports = Namespace.empty
 
@@ -1386,8 +1386,12 @@ module rec InferModule =
             Namespace = env.Namespace.Merge imports }
     }
 
-  let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
-    result {
+  let inferModule
+    (ctx: Ctx)
+    (env: Env)
+    (ast: Module)
+    : Async<Result<Env, TypeError>> =
+    asyncResult {
       // TODO: update this function to accept a filename
       let mutable newEnv = env // { env with Filename = "input.esc" }
 

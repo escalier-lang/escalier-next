@@ -62,10 +62,11 @@ let ParseAndInferBasicDecls () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
@@ -94,10 +95,11 @@ let ParseAndInferTypeAliases () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string")
@@ -128,10 +130,11 @@ let ParseAndInferInterface () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -162,10 +165,11 @@ let ParseAndInferMappedType () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T, ...})")
@@ -191,10 +195,11 @@ let ParseAndInferUnorderedTypeParams () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -223,10 +228,11 @@ let ParseAndInferFuncDecl () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "fn (x: number, y: string) -> boolean")
@@ -253,10 +259,11 @@ let ParseAndInferClassDecl () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "Foo", "{new fn () -> Foo}")
@@ -290,10 +297,11 @@ let ParseAndInferClassDeclWithStatics () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(
@@ -328,10 +336,11 @@ let ImportThirdPartyModules () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -393,10 +402,11 @@ let ParseAndInferPropertyKey () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -426,10 +436,11 @@ let ParseAndMigrateExportDeclareFunction () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "add", "fn ({mut x, mut y}: Point) -> number")
@@ -549,10 +560,11 @@ let ParseAndInferLibEs5 () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal(true, true)

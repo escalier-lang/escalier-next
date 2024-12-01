@@ -44,10 +44,11 @@ let InferClassExtendsClassExtendsClass () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -63,6 +64,7 @@ let InferClassExtendsClassExtendsClass () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
@@ -93,10 +95,11 @@ let InferClassExtendsClassExtendsClassWithDestructuring () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -110,6 +113,7 @@ let InferClassExtendsClassExtendsClassWithDestructuring () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
@@ -140,10 +144,11 @@ let InferClassExtendsClassExtendsClassWithGenerics () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -159,6 +164,7 @@ let InferClassExtendsClassExtendsClassWithGenerics () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz<number>")

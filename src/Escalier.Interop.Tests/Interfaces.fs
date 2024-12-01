@@ -44,10 +44,11 @@ let InferInterfaceExtendsInferfaceExtendsInterface () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -63,6 +64,7 @@ let InferInterfaceExtendsInferfaceExtendsInterface () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
@@ -93,10 +95,11 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithTypeParams () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -112,6 +115,7 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithTypeParams () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz<number>")
@@ -142,10 +146,11 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithDestructuring () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -159,6 +164,7 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithDestructuring () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
@@ -189,10 +195,11 @@ let InferInterfaceExtendsMultipleInterfaces () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -208,6 +215,7 @@ let InferInterfaceExtendsMultipleInterfaces () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
@@ -238,10 +246,11 @@ let InferInterfaceExtendsMultipleInterfacesWithDestructuring () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let input =
@@ -255,6 +264,7 @@ let InferInterfaceExtendsMultipleInterfacesWithDestructuring () =
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")

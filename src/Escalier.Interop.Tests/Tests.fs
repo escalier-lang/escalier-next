@@ -33,10 +33,11 @@ let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let! env =
       InferModule.inferModule ctx env ast
+      |> Async.RunSynchronously
       |> Result.mapError CompileError.TypeError
 
     return ctx, env
@@ -429,10 +430,11 @@ let InferBasicVarDecls () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
@@ -466,10 +468,11 @@ let InferTypeDecls () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K, ...})")
@@ -486,7 +489,7 @@ let InferTypeDecls () =
 let InferLibES5 () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
       // let! newEnv = prelude.loadTypeDefinitions ctx env
 
       // printfn "---- Schemes ----"
@@ -508,7 +511,7 @@ let InferLibES5 () =
 let InferOverloadedFunctionsFromLibDOM () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       Assert.Value(
         env,
@@ -523,7 +526,7 @@ let InferOverloadedFunctionsFromLibDOM () =
 let InferArrayPrototype () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let scheme = env.FindScheme "Array"
       // printfn $"Array = {scheme}"
@@ -540,7 +543,7 @@ let InferArrayPrototype () =
 let InferInt8ArrayPrototype () =
   let result =
     result {
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let scheme = env.FindScheme "Int8Array"
 
@@ -713,10 +716,11 @@ let ImportThirdPartyModules () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Type(
@@ -771,10 +775,11 @@ let ImportReact () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       let binding = env.FindValue "createElement"
@@ -817,10 +822,11 @@ let InferHTMLProps () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal<Diagnostic list>(ctx.Report.Diagnostics, [])
@@ -850,10 +856,11 @@ let InferUseQuery () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal<Diagnostic list>(ctx.Report.Diagnostics, [])
@@ -878,10 +885,11 @@ let InferAssignUnionToObjectProperty () =
       let! ast =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot
+      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
+        |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
       ()

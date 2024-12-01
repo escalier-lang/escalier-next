@@ -23,7 +23,7 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let projectRoot = __SOURCE_DIRECTORY__
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env None ast)
 

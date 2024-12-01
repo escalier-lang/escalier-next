@@ -47,102 +47,117 @@ module Prelude =
           failwith "node_modules directory not found in any ancestor directory."
         | _ -> findNearestAncestorWithNodeModules parentDir.FullName
 
-  let private packageJsonHasTypes (packageJsonPath: string) : bool =
-    if File.Exists packageJsonPath then
-      let packageJson = File.ReadAllText(packageJsonPath)
-      let packageJsonObj = JsonValue.Parse(packageJson)
+  let private packageJsonHasTypes (packageJsonPath: string) : Async<bool> =
+    async {
+      if File.Exists packageJsonPath then
+        let! packageJson =
+          File.ReadAllTextAsync(packageJsonPath) |> Async.AwaitTask
 
-      match packageJsonObj.TryGetProperty("types") with
-      | None -> false
-      | Some _ -> true
-    else
-      false
+        let packageJsonObj = JsonValue.Parse(packageJson)
+
+        match packageJsonObj.TryGetProperty("types") with
+        | None -> return false
+        | Some _ -> return true
+      else
+        return false
+    }
 
   let private resolvePath
     (projectRoot: string)
     (currentPath: string)
     (importPath: string)
-    : string =
-    if importPath.StartsWith "~" then
-      Path.GetFullPath(Path.Join(projectRoot, importPath.Substring(1)))
-    else if importPath.StartsWith "." then
-      let resolvedPath =
-        Path.GetFullPath(
-          Path.Join(Path.GetDirectoryName(currentPath), importPath)
-        )
+    : Async<string> =
+    async {
+      if importPath.StartsWith "~" then
+        return Path.GetFullPath(Path.Join(projectRoot, importPath.Substring(1)))
+      else if importPath.StartsWith "." then
+        let resolvedPath =
+          Path.GetFullPath(
+            Path.Join(Path.GetDirectoryName(currentPath), importPath)
+          )
 
-      if currentPath.EndsWith(".d.ts") then
-        Path.ChangeExtension(resolvedPath, ".d.ts")
-      else
-        resolvedPath
-    else
-      // TODO: once this is implemented, move it over to Escalier.Interop
-      // TODO: check if there's `/` in the import path, if so, the first
-      // part before the `/` is the name of the module and the rost is a
-      // path to a .d.ts file within the module.
-
-      // determine if importPath contains a '/' and split on it
-      // if it does, the first part is the module name and the second part is
-      // the path to the .d.ts file within the module
-
-      // It's possible that the module name is a scoped package, in which case
-      // the module name will be the first part of the second part of the split
-      // and the second part will be the path to the .d.ts file within the module.
-      let moduleName, subpath =
-        match importPath.Split('/') |> List.ofArray with
-        | [] -> failwith "This should never happen."
-        | [ name ] -> name, None
-        | name :: path ->
-          if name.StartsWith("@") then
-            let ns = name
-
-            match path with
-            | [] -> failwith "This should never happen."
-            | [ name ] ->
-              let moduleName = String.concat "/" [ ns; name ]
-              moduleName, None
-            | name :: path ->
-              let moduleName = String.concat "/" [ ns; name ]
-              moduleName, Some(String.concat "/" path)
-          else
-            name, Some(String.concat "/" path)
-
-      let rootDir = findNearestAncestorWithNodeModules projectRoot
-      let nodeModulesDir = Path.Combine(rootDir, "node_modules")
-
-      let pkgJsonPath1 =
-        Path.Combine(nodeModulesDir, moduleName, "package.json")
-
-      let pkgJsonPath2 =
-        Path.Combine(nodeModulesDir, "@types", moduleName, "package.json")
-
-      let pkgJsonPath =
-        if packageJsonHasTypes pkgJsonPath1 then
-          pkgJsonPath1
-        elif packageJsonHasTypes pkgJsonPath2 then
-          pkgJsonPath2
+        if currentPath.EndsWith(".d.ts") then
+          return Path.ChangeExtension(resolvedPath, ".d.ts")
         else
-          failwith
-            $"package.json not found for module {moduleName}, rootDir = {rootDir}, nodeModulesDir = {nodeModulesDir}."
+          return resolvedPath
+      else
+        // TODO: once this is implemented, move it over to Escalier.Interop
+        // TODO: check if there's `/` in the import path, if so, the first
+        // part before the `/` is the name of the module and the rost is a
+        // path to a .d.ts file within the module.
 
-      // read package.json and parse it
-      let pkgJson = File.ReadAllText(pkgJsonPath)
-      let pkgJsonObj = JsonValue.Parse(pkgJson)
+        // determine if importPath contains a '/' and split on it
+        // if it does, the first part is the module name and the second part is
+        // the path to the .d.ts file within the module
 
-      match subpath with
-      | None ->
-        match pkgJsonObj.TryGetProperty("types") with
-        | None -> failwith "Invalid package.json: missing `types` field."
-        | Some value ->
-          let types = value.InnerText()
+        // It's possible that the module name is a scoped package, in which case
+        // the module name will be the first part of the second part of the split
+        // and the second part will be the path to the .d.ts file within the module.
+        let moduleName, subpath =
+          match importPath.Split('/') |> List.ofArray with
+          | [] -> failwith "This should never happen."
+          | [ name ] -> name, None
+          | name :: path ->
+            if name.StartsWith("@") then
+              let ns = name
 
-          if types.EndsWith(".d.ts") then
-            Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+              match path with
+              | [] -> failwith "This should never happen."
+              | [ name ] ->
+                let moduleName = String.concat "/" [ ns; name ]
+                moduleName, None
+              | name :: path ->
+                let moduleName = String.concat "/" [ ns; name ]
+                moduleName, Some(String.concat "/" path)
+            else
+              name, Some(String.concat "/" path)
+
+        let rootDir = findNearestAncestorWithNodeModules projectRoot
+        let nodeModulesDir = Path.Combine(rootDir, "node_modules")
+
+        let pkgJsonPath1 =
+          Path.Combine(nodeModulesDir, moduleName, "package.json")
+
+        let pkgJsonPath2 =
+          Path.Combine(nodeModulesDir, "@types", moduleName, "package.json")
+
+        let! hasTypes1 = packageJsonHasTypes pkgJsonPath1
+        let! hasTypes2 = packageJsonHasTypes pkgJsonPath2
+
+        let pkgJsonPath =
+          if hasTypes1 then
+            pkgJsonPath1
+          elif hasTypes2 then
+            pkgJsonPath2
           else
-            Path.Combine(Path.GetDirectoryName(pkgJsonPath), $"{types}.d.ts")
-      // Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
-      | Some value ->
-        Path.Combine(Path.GetDirectoryName(pkgJsonPath), $"{value}.d.ts")
+            failwith
+              $"package.json not found for module {moduleName}, rootDir = {rootDir}, nodeModulesDir = {nodeModulesDir}."
+
+        // read package.json and parse it
+        let pkgJson = File.ReadAllText(pkgJsonPath)
+        let pkgJsonObj = JsonValue.Parse(pkgJson)
+
+        match subpath with
+        | None ->
+          match pkgJsonObj.TryGetProperty("types") with
+          | None ->
+            return failwith "Invalid package.json: missing `types` field."
+          | Some value ->
+            let types = value.InnerText()
+
+            if types.EndsWith(".d.ts") then
+              return Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+            else
+              return
+                Path.Combine(
+                  Path.GetDirectoryName(pkgJsonPath),
+                  $"{types}.d.ts"
+                )
+        // Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+        | Some value ->
+          return
+            Path.Combine(Path.GetDirectoryName(pkgJsonPath), $"{value}.d.ts")
+    }
 
   // TODO: dedupe with Escalier.Interop.Infer
   let findBindingNames (p: Syntax.Pattern) : list<string> =
@@ -414,10 +429,10 @@ module Prelude =
     (ctx: Ctx)
     (env: Env)
     (fullPath: string)
-    : Result<Env * Syntax.Module, CompileError> =
+    : Async<Result<Env * Syntax.Module, CompileError>> =
 
-    result {
-      let input = File.ReadAllText(fullPath)
+    asyncResult {
+      let! input = File.ReadAllTextAsync(fullPath) |> Async.AwaitTask
 
       let input =
         input.Replace(
@@ -446,7 +461,7 @@ module Prelude =
 
       let! outEnv =
         InferModule.inferModule ctx newEnv ast
-        |> Result.mapError CompileError.TypeError
+        |> AsyncResult.mapError CompileError.TypeError
 
       return outEnv, ast
     }
@@ -459,9 +474,9 @@ module Prelude =
     (projectRoot: string)
     (name: string)
     (items: list<Syntax.ModuleItem>)
-    : Result<Namespace, TypeError> =
+    : Async<Result<Namespace, CompileError>> =
 
-    result {
+    asyncResult {
       let mutable ns: Namespace =
         { Name = name
           Values = Map.empty
@@ -491,7 +506,8 @@ module Prelude =
             | None -> failwith $"Couldn't find namespace: '{name}'"
           | NamedExport { Src = Some src
                           Specifiers = specifiers } ->
-            let mutable resolvedPath = resolvePath projectRoot env.Filename src
+            let! resolvedPath = resolvePath projectRoot env.Filename src
+            let mutable resolvedPath = resolvedPath
 
             if resolvedPath.EndsWith(".js") then
               resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
@@ -499,37 +515,37 @@ module Prelude =
             if not (Path.HasExtension resolvedPath) then
               resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
 
-            let exportNs =
-              if resolvedPath.EndsWith(".d.ts") then
-                if cachedModules.ContainsKey resolvedPath then
-                  cachedModules.[resolvedPath]
-                else
-                  let modEnv, modAst =
-                    match inferLib ctx (getGlobalEnv ()) resolvedPath with
-                    | Ok value -> value
-                    | Error err ->
-                      printfn "err = %A" err
-                      failwith $"failed to infer {resolvedPath}"
+            let! exportNs =
+              asyncResult {
+                if resolvedPath.EndsWith(".d.ts") then
+                  if cachedModules.ContainsKey resolvedPath then
+                    return cachedModules.[resolvedPath]
+                  else
+                    let! modEnv, modAst =
+                      inferLib ctx (getGlobalEnv ()) resolvedPath
 
-                  let ns =
-                    match
+                    let! ns =
                       getLibExports
                         ctx
                         modEnv
                         projectRoot
                         "<exports>"
                         modAst.Items
-                    with
-                    | Ok value -> value
-                    | Error err ->
-                      printfn "err = %A" err
-                      failwith $"failed to get exports from {resolvedPath}"
 
-                  cachedModules <- cachedModules.Add(resolvedPath, ns)
-                  ns
-              else
-                printfn $"resolvedPath = {resolvedPath}"
-                failwith "TODO: getLibExports - NamedExport"
+                    cachedModules <- cachedModules.Add(resolvedPath, ns)
+                    return ns
+                else
+                  printfn $"resolvedPath = {resolvedPath}"
+
+                  return!
+                    AsyncResult.ofResult (
+                      Error(
+                        TypeError(
+                          NotImplemented "TODO: getLibExports - NamedExport"
+                        )
+                      )
+                    )
+              }
 
             for Named { Name = name; Alias = alias } in specifiers do
               let mutable found = false
@@ -598,7 +614,8 @@ module Prelude =
             // TODO: figure out what to do with default exports
             ()
           | ExportAll { Src = src } ->
-            let mutable resolvedPath = resolvePath projectRoot env.Filename src
+            let! resolvedPath = resolvePath projectRoot env.Filename src
+            let mutable resolvedPath = resolvedPath
 
             if resolvedPath.EndsWith(".js") then
               resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
@@ -608,37 +625,37 @@ module Prelude =
 
             printfn $"resolvedPath = {resolvedPath}"
 
-            let exportNs =
-              if resolvedPath.EndsWith(".d.ts") then
-                if cachedModules.ContainsKey resolvedPath then
-                  cachedModules.[resolvedPath]
-                else
-                  let modEnv, modAst =
-                    match inferLib ctx (getGlobalEnv ()) resolvedPath with
-                    | Ok value -> value
-                    | Error err ->
-                      printfn "err = %A" err
-                      failwith $"failed to infer {resolvedPath}"
+            let! exportNs =
+              asyncResult {
+                if resolvedPath.EndsWith(".d.ts") then
+                  if cachedModules.ContainsKey resolvedPath then
+                    return cachedModules.[resolvedPath]
+                  else
+                    let! modEnv, modAst =
+                      inferLib ctx (getGlobalEnv ()) resolvedPath
 
-                  let ns =
-                    match
+                    let! ns =
                       getLibExports
                         ctx
                         modEnv
                         projectRoot
                         "<exports>"
                         modAst.Items
-                    with
-                    | Ok value -> value
-                    | Error err ->
-                      printfn "err = %A" err
-                      failwith $"failed to get exports from {resolvedPath}"
 
-                  cachedModules <- cachedModules.Add(resolvedPath, ns)
-                  ns
-              else
-                printfn $"resolvedPath = {resolvedPath}"
-                failwith "TODO: getLibExports - ExportAll"
+                    cachedModules <- cachedModules.Add(resolvedPath, ns)
+                    return ns
+                else
+                  printfn $"resolvedPath = {resolvedPath}"
+
+                  return!
+                    AsyncResult.ofResult (
+                      Error(
+                        TypeError(
+                          NotImplemented "TODO: getLibExports - ExportAll"
+                        )
+                      )
+                    )
+              }
 
             for KeyValue(key, binding) in exportNs.Values do
               ns <- ns.AddBinding key binding
@@ -654,7 +671,10 @@ module Prelude =
             match decl.Kind with
             | DeclKind.ClassDecl { Name = name; Export = export } ->
               if export then
-                let! t = env.GetValue name
+                let! t =
+                  AsyncResult.ofResult (
+                    env.GetValue name |> Result.mapError CompileError.TypeError
+                  )
 
                 let binding =
                   { Type = t
@@ -663,11 +683,19 @@ module Prelude =
 
                 ns <- ns.AddBinding name binding
 
-                let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+                let! scheme =
+                  AsyncResult.ofResult (
+                    env.GetScheme(Common.QualifiedIdent.Ident name)
+                    |> Result.mapError CompileError.TypeError
+                  )
+
                 ns <- ns.AddScheme name scheme
             | DeclKind.FnDecl { Name = name; Export = export } ->
               if export then
-                let! t = env.GetValue name
+                let! t =
+                  AsyncResult.ofResult (
+                    env.GetValue name |> Result.mapError CompileError.TypeError
+                  )
 
                 let binding =
                   { Type = t
@@ -680,7 +708,11 @@ module Prelude =
                 let names = Helpers.findBindingNames pattern
 
                 for name in names do
-                  let! t = env.GetValue name
+                  let! t =
+                    AsyncResult.ofResult (
+                      env.GetValue name
+                      |> Result.mapError CompileError.TypeError
+                    )
 
                   let binding =
                     { Type = t
@@ -691,11 +723,21 @@ module Prelude =
             // | DeclKind.Using usingDecl -> failwith "TODO: getExports - usingDecl"
             | DeclKind.InterfaceDecl { Name = name; Export = export } ->
               if export then
-                let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+                let! scheme =
+                  AsyncResult.ofResult (
+                    env.GetScheme(Common.QualifiedIdent.Ident name)
+                    |> Result.mapError CompileError.TypeError
+                  )
+
                 ns <- ns.AddScheme name scheme
             | DeclKind.TypeDecl { Name = name; Export = export } ->
               if export then
-                let! scheme = env.GetScheme(Common.QualifiedIdent.Ident name)
+                let! scheme =
+                  AsyncResult.ofResult (
+                    env.GetScheme(Common.QualifiedIdent.Ident name)
+                    |> Result.mapError CompileError.TypeError
+                  )
+
                 ns <- ns.AddScheme name scheme
             | DeclKind.EnumDecl tsEnumDecl ->
               failwith "TODO: getExports - tsEnumDecl"
@@ -722,69 +764,66 @@ module Prelude =
     (env: Env)
     (resolvedImportPath: string)
     (m: Module)
-    =
-    let moduleEnv =
-      match InferModule.inferModule ctx env m with
-      | Ok value -> value
-      | Error err ->
-        printfn "err = %A" err
-        failwith $"failed to infer {resolvedImportPath}"
+    : Async<Result<Namespace, TypeError>> =
+    asyncResult {
+      let! moduleEnv = InferModule.inferModule ctx env m
 
-    let mutable exports = Namespace.empty
+      let mutable exports = Namespace.empty
 
-    for item in m.Items do
-      match item with
-      | Stmt { Kind = Decl decl } ->
-        match decl.Kind with
-        | TypeDecl { Name = name; Export = export } ->
-          if export then
-            match moduleEnv.TryFindScheme name with
-            | Some(scheme) -> exports <- exports.AddScheme name scheme
-            | None -> failwith $"scheme {name} not found"
-        | VarDecl { Pattern = pattern; Export = export } ->
-          if export then
-            let names = findBindingNames pattern
+      for item in m.Items do
+        match item with
+        | Stmt { Kind = Decl decl } ->
+          match decl.Kind with
+          | TypeDecl { Name = name; Export = export } ->
+            if export then
+              match moduleEnv.TryFindScheme name with
+              | Some(scheme) -> exports <- exports.AddScheme name scheme
+              | None -> failwith $"scheme {name} not found"
+          | VarDecl { Pattern = pattern; Export = export } ->
+            if export then
+              let names = findBindingNames pattern
 
-            for name in names do
+              for name in names do
+                match moduleEnv.TryFindValue name with
+                | Some(binding) -> exports <- exports.AddBinding name binding
+                | None -> failwith $"value {name} not found"
+          | FnDecl { Name = name; Export = export } ->
+            if export then
               match moduleEnv.TryFindValue name with
               | Some(binding) -> exports <- exports.AddBinding name binding
               | None -> failwith $"value {name} not found"
-        | FnDecl { Name = name; Export = export } ->
-          if export then
-            match moduleEnv.TryFindValue name with
-            | Some(binding) -> exports <- exports.AddBinding name binding
-            | None -> failwith $"value {name} not found"
-        | ClassDecl { Name = name; Export = export } ->
-          if export then
-            match moduleEnv.TryFindScheme name with
-            | Some(scheme) -> exports <- exports.AddScheme name scheme
-            | None -> failwith $"scheme {name} not found"
+          | ClassDecl { Name = name; Export = export } ->
+            if export then
+              match moduleEnv.TryFindScheme name with
+              | Some(scheme) -> exports <- exports.AddScheme name scheme
+              | None -> failwith $"scheme {name} not found"
 
-            match moduleEnv.TryFindValue name with
-            | Some(binding) -> exports <- exports.AddBinding name binding
-            | None -> failwith $"value {name} not found"
-        | InterfaceDecl { Name = name; Export = export } ->
-          if export then
-            match moduleEnv.TryFindScheme name with
-            | Some(scheme) -> exports <- exports.AddScheme name scheme
-            | None -> failwith $"scheme {name} not found"
-        | EnumDecl { Name = name; Export = export } ->
-          if export then
-            match moduleEnv.TryFindScheme name with
-            | Some(scheme) -> exports <- exports.AddScheme name scheme
-            | None -> failwith $"scheme {name} not found"
+              match moduleEnv.TryFindValue name with
+              | Some(binding) -> exports <- exports.AddBinding name binding
+              | None -> failwith $"value {name} not found"
+          | InterfaceDecl { Name = name; Export = export } ->
+            if export then
+              match moduleEnv.TryFindScheme name with
+              | Some(scheme) -> exports <- exports.AddScheme name scheme
+              | None -> failwith $"scheme {name} not found"
+          | EnumDecl { Name = name; Export = export } ->
+            if export then
+              match moduleEnv.TryFindScheme name with
+              | Some(scheme) -> exports <- exports.AddScheme name scheme
+              | None -> failwith $"scheme {name} not found"
 
-            match moduleEnv.TryFindValue name with
-            | Some(binding) -> exports <- exports.AddBinding name binding
-            | None -> failwith $"value {name} not found"
-        | NamespaceDecl { Name = name; Export = export } ->
-          if export then
-            match moduleEnv.Namespace.Namespaces.TryFind name with
-            | Some(ns) -> exports <- exports.AddNamespace name ns
-            | None -> failwith $"namespace {name} not found"
-      | _ -> ()
+              match moduleEnv.TryFindValue name with
+              | Some(binding) -> exports <- exports.AddBinding name binding
+              | None -> failwith $"value {name} not found"
+          | NamespaceDecl { Name = name; Export = export } ->
+            if export then
+              match moduleEnv.Namespace.Namespaces.TryFind name with
+              | Some(ns) -> exports <- exports.AddNamespace name ns
+              | None -> failwith $"namespace {name} not found"
+        | _ -> ()
 
-    exports
+      return exports
+    }
 
   let mutable envMemoized: Env option = None
 
@@ -805,57 +844,60 @@ module Prelude =
       let ctx =
         Ctx(
           (fun ctx filename import ->
-            let resolvedPath = resolvePath projectRoot filename import.Path
+            asyncResult {
+              let! resolvedPath = resolvePath projectRoot filename import.Path
 
-            let exportNs =
-              if resolvedPath.EndsWith(".d.ts") then
-                if cachedModules.ContainsKey resolvedPath then
-                  cachedModules.[resolvedPath]
-                else
-                  let modEnv, modAst =
-                    match inferLib ctx (getGlobalEnv ()) resolvedPath with
-                    | Ok value -> value
-                    | Error err ->
-                      printfn "err = %A" err
-                      failwith $"failed to infer {resolvedPath}"
+              let! exportNs =
+                asyncResult {
+                  if resolvedPath.EndsWith(".d.ts") then
+                    if cachedModules.ContainsKey resolvedPath then
+                      return cachedModules.[resolvedPath]
+                    else
+                      let! modEnv, modAst =
+                        inferLib ctx (getGlobalEnv ()) resolvedPath
 
-                  let ns =
-                    match
-                      getLibExports
-                        ctx
-                        modEnv
-                        projectRoot
-                        "<exports>"
-                        modAst.Items
-                    with
-                    | Ok value -> value
-                    | Error err ->
-                      printfn "err = %A" err
-                      failwith $"failed to get exports from {resolvedPath}"
+                      let! ns =
+                        getLibExports
+                          ctx
+                          modEnv
+                          projectRoot
+                          "<exports>"
+                          modAst.Items
 
-                  cachedModules <- cachedModules.Add(resolvedPath, ns)
-                  ns
-              else
-                let resolvedImportPath =
-                  Path.ChangeExtension(
-                    resolvePath projectRoot filename import.Path,
-                    ".esc"
-                  )
+                      cachedModules <- cachedModules.Add(resolvedPath, ns)
+                      return ns
+                  else
+                    let! resolvedPath =
+                      resolvePath projectRoot filename import.Path
 
-                let contents = File.ReadAllText(resolvedImportPath)
+                    let resolvedImportPath =
+                      Path.ChangeExtension(resolvedPath, ".esc")
 
-                let m =
-                  match Escalier.Parser.Parser.parseModule contents with
-                  | Ok value -> value
-                  | Error _ -> failwith $"failed to parse {resolvedImportPath}"
+                    let! contents =
+                      File.ReadAllTextAsync(resolvedImportPath)
+                      |> Async.AwaitTask
 
-                let env =
-                  { getGlobalEnv () with
-                      Filename = filename }
+                    let m =
+                      match Escalier.Parser.Parser.parseModule contents with
+                      | Ok value -> value
+                      | Error _ ->
+                        failwith $"failed to parse {resolvedImportPath}"
 
-                getModuleExports ctx env resolvedImportPath m
+                    let env =
+                      { getGlobalEnv () with
+                          Filename = filename }
 
-            exportNs),
+                    return!
+                      getModuleExports ctx env resolvedImportPath m
+                      |> AsyncResult.mapError CompileError.TypeError
+                }
+                |> AsyncResult.mapError (fun err ->
+                  match err with
+                  | TypeError err -> err
+                  | ParseError err -> failwith "This should never happen.")
+
+              return exportNs
+            }),
           (fun ctx filename import ->
             resolvePath projectRoot filename import.Path),
           InferExpr.inferExpr,
@@ -871,8 +913,8 @@ module Prelude =
   let mutable memoizedEnvAndCtx: Map<string, Result<Ctx * Env, CompileError>> =
     Map.empty
 
-  let getEnvAndCtx (baseDir: string) : Result<Ctx * Env, CompileError> =
-    result {
+  let getEnvAndCtx (baseDir: string) : Async<Result<Ctx * Env, CompileError>> =
+    asyncResult {
       match memoizedEnvAndCtx.TryFind baseDir with
       | Some(result) ->
         let! ctx, env = result

@@ -27,26 +27,25 @@ let Greet () : int32 =
   0
 
 [<UnmanagedCallersOnly(EntryPoint = "compile")>]
-let Compile () : Async<int32> =
-  async {
-    printfn "Compile called"
+let Compile () : int32 =
+  printfn "Compile called"
 
-    let srcCode = Pdk.GetInputString() // filename
-    let textWriter = new StringWriter()
+  let srcCode = Pdk.GetInputString() // filename
+  let textWriter = new StringWriter()
 
-    let! result = Compiler.compileString textWriter "/" srcCode
+  let result =
+    Compiler.compileString textWriter "/" srcCode |> Async.RunSynchronously
 
-    match result with
-    | Ok(js, dts) ->
-      let js = System.Web.HttpUtility.JavaScriptStringEncode js
-      let dts = System.Web.HttpUtility.JavaScriptStringEncode dts
-      Pdk.SetOutput($"{{\"js\": \"{js}\", \"dts\": \"{dts}\"}}")
-    | Error errorValue ->
-      // TODO: update CompileOutput to include an error field
-      printfn $"errorValue = {errorValue}"
+  match result with
+  | Ok(js, dts) ->
+    let js = System.Web.HttpUtility.JavaScriptStringEncode js
+    let dts = System.Web.HttpUtility.JavaScriptStringEncode dts
+    Pdk.SetOutput($"{{\"js\": \"{js}\", \"dts\": \"{dts}\"}}")
+  | Error errorValue ->
+    // TODO: update CompileOutput to include an error field
+    printfn $"errorValue = {errorValue}"
 
-    return 0
-  }
+  0
 
 [<EntryPoint>]
 let Main args =

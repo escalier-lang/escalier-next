@@ -21,7 +21,8 @@ let inferModule src =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -43,7 +44,7 @@ let AddBinding () =
       Mutable = false
       Export = false }
 
-  let newEnv = Infer.addBinding env ident binding
+  let newEnv = InferModule.addBinding env ident binding
 
   let ident =
     { Filename = env.Filename
@@ -54,7 +55,7 @@ let AddBinding () =
       Mutable = false
       Export = false }
 
-  let newEnv = Infer.addBinding newEnv ident binding
+  let newEnv = InferModule.addBinding newEnv ident binding
   // printfn $"newEnv = {newEnv}"
   ()
 
@@ -537,7 +538,8 @@ let MergeInterfaceBetweenFiles () =
       let graph = buildGraph env decls
 
       let! env =
-        Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+        InferModule.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "\"foo\"")
       Assert.Value(env, "bar", "\"bar\"")
@@ -583,7 +585,8 @@ let MergeInterfaceBetweenFilesWithComputedKeys () =
       let graph = buildGraph env decls
 
       let! env =
-        Infer.inferGraph ctx env graph |> Result.mapError CompileError.TypeError
+        InferModule.inferGraph ctx env graph
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Keys", "{foo: \"foo\", bar: \"bar\", ...}")
 

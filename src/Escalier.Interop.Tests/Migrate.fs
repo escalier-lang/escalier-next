@@ -65,7 +65,8 @@ let ParseAndInferBasicDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string")
@@ -96,7 +97,8 @@ let ParseAndInferTypeAliases () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Foo", "string")
       Assert.Type(env, "Bar", "<T>({value: T, next?: Bar<T>, ...})")
@@ -129,7 +131,8 @@ let ParseAndInferInterface () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -162,7 +165,8 @@ let ParseAndInferMappedType () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Partial", "<T>({[P]+?: T[P] for P in keyof T, ...})")
     }
@@ -190,7 +194,8 @@ let ParseAndInferUnorderedTypeParams () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -221,7 +226,8 @@ let ParseAndInferFuncDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "foo", "fn (x: number, y: string) -> boolean")
     }
@@ -250,7 +256,8 @@ let ParseAndInferClassDecl () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "Foo", "{new fn () -> Foo}")
 
@@ -286,7 +293,8 @@ let ParseAndInferClassDeclWithStatics () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(
         env,
@@ -323,7 +331,8 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -387,7 +396,8 @@ let ParseAndInferPropertyKey () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -419,7 +429,8 @@ let ParseAndMigrateExportDeclareFunction () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "add", "fn ({mut x, mut y}: Point) -> number")
     }
@@ -541,7 +552,8 @@ let ParseAndInferLibEs5 () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal(true, true)
     }

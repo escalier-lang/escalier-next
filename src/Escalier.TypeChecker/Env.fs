@@ -42,7 +42,16 @@ module rec Env =
   type Ctx
     (
       getExports: Ctx -> string -> Syntax.Import -> Namespace,
-      resolvePath: Ctx -> string -> Syntax.Import -> string
+      resolvePath: Ctx -> string -> Syntax.Import -> string,
+      inferExpr:
+        Ctx -> Env -> option<Type> -> Syntax.Expr -> Result<Type, TypeError>,
+      inferModuleItems:
+        Ctx -> Env -> bool -> list<Syntax.ModuleItem> -> Result<Env, TypeError>,
+      inferPattern:
+        Ctx
+          -> Env
+          -> Syntax.Pattern
+          -> Result<(BindingAssump * Type), TypeError>
     ) =
 
     let mutable nextTypeVarId = 0
@@ -52,6 +61,9 @@ module rec Env =
 
     member val NextTypeVarId = nextTypeVarId with get, set
     member val NextUniqueId = nextUniqueId with get, set
+
+    member val InferModuleItems = inferModuleItems
+    member val InferPattern = inferPattern
 
     member this.FreshTypeVar (bound: option<Type>) (def: option<Type>) =
       let newVar =
@@ -102,7 +114,9 @@ module rec Env =
     member this.ResolvePath = resolvePath this
 
     member this.Clone =
-      let clone = Ctx(getExports, resolvePath)
+      let clone =
+        Ctx(getExports, resolvePath, inferExpr, inferModuleItems, inferPattern)
+
       clone.NextTypeVarId <- this.NextTypeVarId
       clone.NextUniqueId <- this.NextUniqueId
       clone

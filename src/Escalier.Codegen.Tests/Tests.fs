@@ -32,7 +32,8 @@ let parseAndCodegenJS (src: string) =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     let ctx: Ctx =
       { NextTempId = 0
@@ -51,7 +52,8 @@ let parseAndCodegenDTS (src: string) =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     let ctx: Ctx =
       { NextTempId = 0
@@ -913,7 +915,7 @@ let CodegenDtsBasics () =
       let env = { env with Filename = "input.esc" }
 
       let! env =
-        Infer.inferModule ctx env escAst
+        InferModule.inferModule ctx env escAst
         |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx =
@@ -951,7 +953,8 @@ let CodegenDtsGeneric () =
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let ctx: Ctx =
         { NextTempId = 0

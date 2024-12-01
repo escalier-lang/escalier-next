@@ -28,14 +28,16 @@ let inferModule src =
     let env = { env with Filename = "/prelude.esc" }
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let env = { env with Filename = "input.esc" }
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }

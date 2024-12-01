@@ -36,7 +36,8 @@ let inferModule src =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }
@@ -431,7 +432,8 @@ let InferBasicVarDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string | undefined")
@@ -467,7 +469,8 @@ let InferTypeDecls () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(env, "Pick", "<T, K: keyof T>({[P]: T[P] for P in K, ...})")
       Assert.Type(env, "Exclude", "<T, U>(T extends U ? never : T)")
@@ -713,7 +716,8 @@ let ImportThirdPartyModules () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Type(
         env,
@@ -770,7 +774,8 @@ let ImportReact () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let binding = env.FindValue "createElement"
 
@@ -815,7 +820,8 @@ let InferHTMLProps () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal<Diagnostic list>(ctx.Report.Diagnostics, [])
 
@@ -847,7 +853,8 @@ let InferUseQuery () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Equal<Diagnostic list>(ctx.Report.Diagnostics, [])
 
@@ -874,7 +881,8 @@ let InferAssignUnionToObjectProperty () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       ()
     }

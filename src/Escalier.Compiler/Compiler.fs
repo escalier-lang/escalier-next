@@ -64,7 +64,8 @@ module Compiler =
       let env = { env with Filename = srcFile }
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Report.Diagnostics
 
@@ -101,7 +102,8 @@ module Compiler =
       let env = { env with Filename = "./entry.esc" }
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Report.Diagnostics
 

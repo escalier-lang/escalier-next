@@ -47,7 +47,8 @@ let InferInterfaceExtendsInferfaceExtendsInterface () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -61,7 +62,8 @@ let InferInterfaceExtendsInferfaceExtendsInterface () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
       Assert.Value(env, "foo", "number")
@@ -94,7 +96,8 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithTypeParams () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -108,7 +111,8 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithTypeParams () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz<number>")
       Assert.Value(env, "foo", "number")
@@ -141,7 +145,8 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithDestructuring () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -153,7 +158,8 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithDestructuring () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
       Assert.Value(env, "foo", "number")
@@ -186,7 +192,8 @@ let InferInterfaceExtendsMultipleInterfaces () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -200,7 +207,8 @@ let InferInterfaceExtendsMultipleInterfaces () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
       Assert.Value(env, "foo", "number")
@@ -233,7 +241,8 @@ let InferInterfaceExtendsMultipleInterfacesWithDestructuring () =
       let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       let input =
         """
@@ -245,7 +254,8 @@ let InferInterfaceExtendsMultipleInterfacesWithDestructuring () =
         Parser.parseModule input |> Result.mapError CompileError.ParseError
 
       let! env =
-        Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+        InferModule.inferModule ctx env ast
+        |> Result.mapError CompileError.TypeError
 
       Assert.Value(env, "x", "Baz")
       Assert.Value(env, "foo", "number")

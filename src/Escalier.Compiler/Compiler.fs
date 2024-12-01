@@ -53,7 +53,7 @@ module Compiler =
   /// <param name="srcFile">The name of the source code file.</param>
   /// <returns>The compiled code.</returns>
   let compileFile (textwriter: TextWriter) (baseDir: string) (srcFile: string) =
-    result {
+    asyncResult {
       let filename = srcFile
       let contents = File.ReadAllText filename
       let! ctx, env = Prelude.getEnvAndCtx baseDir
@@ -65,7 +65,7 @@ module Compiler =
 
       let! env =
         InferModule.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        |> AsyncResult.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Report.Diagnostics
 
@@ -92,8 +92,8 @@ module Compiler =
     (textwriter: TextWriter)
     (baseDir: string)
     (srcCode: string)
-    : Result<string * string, CompileError> =
-    result {
+    : Async<Result<string * string, CompileError>> =
+    asyncResult {
       let! ctx, env = Prelude.getEnvAndCtx baseDir
 
       let! ast =
@@ -103,7 +103,7 @@ module Compiler =
 
       let! env =
         InferModule.inferModule ctx env ast
-        |> Result.mapError CompileError.TypeError
+        |> AsyncResult.mapError CompileError.TypeError
 
       printDiagnostics textwriter ctx.Report.Diagnostics
 

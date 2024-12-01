@@ -18,10 +18,11 @@ let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let! env =
       InferModule.inferModule ctx env ast
+      |> Async.RunSynchronously
       |> Result.mapError CompileError.TypeError
 
     return ctx, env

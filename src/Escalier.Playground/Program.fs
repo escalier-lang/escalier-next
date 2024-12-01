@@ -33,7 +33,10 @@ let Compile () : int32 =
   let srcCode = Pdk.GetInputString() // filename
   let textWriter = new StringWriter()
 
-  match Compiler.compileString textWriter "/" srcCode with
+  let result =
+    Compiler.compileString textWriter "/" srcCode |> Async.RunSynchronously
+
+  match result with
   | Ok(js, dts) ->
     let js = System.Web.HttpUtility.JavaScriptStringEncode js
     let dts = System.Web.HttpUtility.JavaScriptStringEncode dts

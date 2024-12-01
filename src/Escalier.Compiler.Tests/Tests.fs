@@ -111,7 +111,9 @@ let BasicsTests (fixtureDir: string) =
       for path in paths do
         printfn "%s" path
 
-      do! Compiler.compileFile mockWriter fixtureDir entryPath
+      do!
+        Compiler.compileFile mockWriter fixtureDir entryPath
+        |> Async.RunSynchronously
 
       let mutable actual: Map<string, Output> = Map.empty
 

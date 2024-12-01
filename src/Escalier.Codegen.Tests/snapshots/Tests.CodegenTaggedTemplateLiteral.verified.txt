@@ -8,7 +8,7 @@
           }
         }`;
         
-output:
+--- output (js) ---
 var id = "foo123";
 var query = gql`query {
           user(id: ${id}) {
@@ -16,3 +16,8 @@ var query = gql`query {
             password
           }
         }`;
+
+--- output (dts) ---
+function gql(strings: string[], ...values: unknown[]): string;
+const id: "foo123";
+const query: string;

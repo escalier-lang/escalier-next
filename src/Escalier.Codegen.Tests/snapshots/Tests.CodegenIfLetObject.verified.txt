@@ -6,7 +6,7 @@
           0
         };
         
-output:
+--- output (js) ---
 var object = {point: {x: 5, y: 10}, color: "red"};
 var temp0;
 if (typeof object == "object" && "point" in object && typeof object["point"] == "object" && "x" in object["point"] && "y" in object["point"] && "color" in object) {
@@ -16,3 +16,13 @@ if (typeof object == "object" && "point" in object && typeof object["point"] == 
   temp0 = 0;
 }
 var mag = temp0;
+
+--- output (dts) ---
+const object: {
+  point: {
+    x: 5;
+    y: 10;
+  };
+  color: "red";
+};
+const mag: number;

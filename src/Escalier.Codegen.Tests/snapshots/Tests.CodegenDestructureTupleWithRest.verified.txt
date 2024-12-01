@@ -2,6 +2,11 @@
         let tuple = [5, "hello", true];
         let [foo, ...rest] = tuple;
         
-output:
+--- output (js) ---
 var tuple = [5, "hello", true];
 var [foo, ...rest] = tuple;
+
+--- output (dts) ---
+const tuple: [5, "hello", true];
+const foo: 5;
+const rest: ["hello", true];

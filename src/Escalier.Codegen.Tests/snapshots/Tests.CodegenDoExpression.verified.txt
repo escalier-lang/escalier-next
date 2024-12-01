@@ -5,7 +5,7 @@
           x + y
         };
         
-output:
+--- output (js) ---
 var temp0;
 {
   var x = 5;
@@ -13,3 +13,6 @@ var temp0;
   temp0 = x + y;
 }
 var sum = temp0;
+
+--- output (dts) ---
+const sum: 15;

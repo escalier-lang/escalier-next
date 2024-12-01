@@ -5,6 +5,10 @@
           <p>world</p>
         </>;
         
-output:
+--- output (js) ---
 import {Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs} from "react/jsx-runtime"
 var foo = _jsxs(_Fragment, {children: [_jsx("p", {children: ["hello"]}), _jsx("p", {children: ["world"]})]});
+
+--- output (dts) ---
+import * as React from "react"
+const foo: React.ReactNode;

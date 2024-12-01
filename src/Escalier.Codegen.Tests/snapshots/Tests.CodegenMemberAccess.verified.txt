@@ -4,6 +4,17 @@
         foo.bar = "baz";
         let c = a?.b?.c;
         
-output:
+--- output (js) ---
 foo.bar = "baz";
 var c = a?.b?.c;
+
+--- output (dts) ---
+declare const foo: {
+  bar: string;
+};
+declare const a: {
+  b: {
+    c: string;
+  };
+} | null;
+const c: string | null;

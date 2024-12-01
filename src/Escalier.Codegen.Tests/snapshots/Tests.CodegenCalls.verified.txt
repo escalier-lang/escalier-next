@@ -3,6 +3,11 @@
         let num = parseInt("123");
         let array = new Array(1, 2, 3);
         
-output:
+--- output (js) ---
 var num = parseInt("123");
 var array = Array(1, 2, 3);
+
+--- output (dts) ---
+function parseInt(input: string): number;
+const num: number;
+const array: any[];

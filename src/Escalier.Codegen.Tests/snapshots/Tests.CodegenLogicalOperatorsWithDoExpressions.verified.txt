@@ -7,7 +7,7 @@
           if y > 0.5 { true } else { false }
         };
         
-output:
+--- output (js) ---
 var temp0;
 var temp1;
 {
@@ -37,3 +37,6 @@ if (temp1) {
   temp0 = temp3;
 }
 var foo = temp0;
+
+--- output (dts) ---
+const foo: boolean;

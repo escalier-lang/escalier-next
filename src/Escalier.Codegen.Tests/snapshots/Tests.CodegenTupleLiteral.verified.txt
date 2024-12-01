@@ -1,5 +1,8 @@
 ﻿input: 
         let tuple = ["hello", 5, true];
         
-output:
+--- output (js) ---
 var tuple = ["hello", 5, true];
+
+--- output (dts) ---
+const tuple: ["hello", 5, true];

@@ -4,8 +4,12 @@
         }
         let sum = add(5, 10);
         
-output:
+--- output (js) ---
 function add(a, b) {
   return a + b;
 }
 var sum = add(5, 10);
+
+--- output (dts) ---
+function add(a: number, b: number): number;
+const sum: number;

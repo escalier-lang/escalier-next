@@ -632,7 +632,7 @@ module rec Printer =
       |> List.map (fun stmt -> printModuleItem ctx stmt)
       |> String.concat "\n"
 
-    body
+    body + "\n"
 
   let printModuleItem (ctx: PrintCtx) (mi: ModuleItem) : string =
     match mi with

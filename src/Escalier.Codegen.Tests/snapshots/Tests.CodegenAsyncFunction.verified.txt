@@ -4,8 +4,11 @@
           return res.json();
         };
         
-output:
+--- output (js) ---
 var fetchJSON = function (url) {
   var res = await fetch(url);
   return res.json();
 };
+
+--- output (dts) ---
+const fetchJSON: (url: string) => Promise<any>;

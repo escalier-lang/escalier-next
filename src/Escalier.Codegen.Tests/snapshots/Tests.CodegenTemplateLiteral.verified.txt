@@ -4,8 +4,14 @@
         let p = `(${x}, ${y})`;
         let escapes = `"hello"\n\r\t'world'`;
         
-output:
+--- output (js) ---
 var x = 5;
 var y = 10;
 var p = `(${x}, ${y})`;
 var escapes = `"hello"\n\r\t'world'`;
+
+--- output (dts) ---
+const x: 5;
+const y: 10;
+const p: string;
+const escapes: string;

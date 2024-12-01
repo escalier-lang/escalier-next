@@ -10,7 +10,7 @@
           baz
         };
         
-output:
+--- output (js) ---
 var cond1 = Math.random() > 0.5;
 var cond2 = Math.random() > 0.5;
 var [foo, bar, baz] = ["foo", "bar", "baz"];
@@ -27,3 +27,11 @@ if (cond1) {
   temp0 = temp1;
 }
 var result = temp0;
+
+--- output (dts) ---
+const cond1: boolean;
+const cond2: boolean;
+const bar: "bar";
+const baz: "baz";
+const foo: "foo";
+const result: "foo" | "bar" | "baz";

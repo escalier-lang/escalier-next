@@ -20,6 +20,7 @@ function add(__arg0__, __arg1__) {
 }
 var sum = add(5, 10);
 var msg = add("hello, ", "world");
+
 --- output (dts) ---
 function add(a: number, b: number): number;
 function add(a: string, b: string): string;

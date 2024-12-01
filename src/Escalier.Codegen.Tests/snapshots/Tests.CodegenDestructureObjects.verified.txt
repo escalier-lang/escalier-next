@@ -2,6 +2,15 @@
         let object = {point: {x: 5, y: 10}, color: "red"};
         let {point: {x, y}, color} = object;
         
-output:
+--- output (js) ---
 var object = {point: {x: 5, y: 10}, color: "red"};
 var {point: {x, y}, color} = object;
+
+--- output (dts) ---
+const object: {
+  point: {
+    x: 5;
+    y: 10;
+  };
+  color: "red";
+};

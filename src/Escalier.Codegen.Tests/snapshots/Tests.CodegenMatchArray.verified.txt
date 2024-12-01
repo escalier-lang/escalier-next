@@ -8,7 +8,7 @@
           };
         };
         
-output:
+--- output (js) ---
 var getCount = function (array) {
   var temp0;
   if (array.length == 0) {
@@ -34,3 +34,6 @@ var getCount = function (array) {
   }
   return temp0;
 };
+
+--- output (dts) ---
+const getCount: <T>(array: T[]) => "none" | "one" | "a couple" | "many";

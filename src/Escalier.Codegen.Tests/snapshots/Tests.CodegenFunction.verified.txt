@@ -2,7 +2,7 @@
         let factorial = fn (n) =>
           if (n == 0) { 1 } else { n * factorial(n - 1) }; 
         
-output:
+--- output (js) ---
 var factorial = (n) => {
   var temp0;
   if (n == 0) {
@@ -12,3 +12,6 @@ var factorial = (n) => {
   }
   return temp0;
 };
+
+--- output (dts) ---
+const factorial: (arg0: number) => number;

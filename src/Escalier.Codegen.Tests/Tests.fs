@@ -25,7 +25,7 @@ let projectRoot = __SOURCE_DIRECTORY__
 
 let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
 
-let parseAndCodegenJS (src: string) =
+let parseAndCodegen (src: string) =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
@@ -39,30 +39,13 @@ let parseAndCodegenJS (src: string) =
       { NextTempId = 0
         AutoImports = Set.empty }
 
-    let mod' = buildModule ctx ast
-    let js = printModule printCtx mod'
+    let jsMod = buildModule ctx ast
+    let js = printModule printCtx jsMod
 
-    return js
-  }
+    let dtsMod = buildModuleTypes env ctx ast
+    let dts = printModule printCtx dtsMod
 
-let parseAndCodegenDTS (src: string) =
-  result {
-    let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
-
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
-
-    let! env =
-      InferModule.inferModule ctx env ast
-      |> Result.mapError CompileError.TypeError
-
-    let ctx: Ctx =
-      { NextTempId = 0
-        AutoImports = Set.empty }
-
-    let modTypes = buildModuleTypes env ctx ast
-    let dts = printModule printCtx modTypes
-
-    return dts
+    return js, dts
   }
 
 [<Fact>]
@@ -211,9 +194,10 @@ let CodegenTemplateLiteral () =
         let escapes = `"hello"\n\r\t'world'`;
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -238,9 +222,10 @@ let CodegenTaggedTemplateLiteral () =
         }`;
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -259,9 +244,10 @@ let CodegenAssignment () =
         x = 10;
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -280,9 +266,10 @@ let CodegenIndexing () =
         arr[2] = arr[0] + arr[1];
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -303,9 +290,10 @@ let CodegenMemberAccess () =
         let c = a?.b?.c;
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -327,9 +315,10 @@ let CodegenDoExpression () =
         };
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -358,9 +347,10 @@ let CodegenDoExpressionWithReturn () =
         };
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -390,9 +380,10 @@ let CodegenNestedDoExpressions () =
         };
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -411,8 +402,10 @@ let CodegenFunction () =
           if (n == 0) { 1 } else { n * factorial(n - 1) }; 
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -433,8 +426,10 @@ let CodegenAsyncFunction () =
         };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -452,9 +447,10 @@ let CodegenCalls () =
         let array = new Array(1, 2, 3);
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -481,8 +477,10 @@ let CodegenChainedIfElse () =
         };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -503,9 +501,10 @@ let CodegenLogicalOperators () =
         let bar = x && y && z;
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -529,9 +528,10 @@ let CodegenLogicalOperatorsWithDoExpressions () =
         };
         """
 
-      let! js = parseAndCodegenJS src
+      let! js, dts = parseAndCodegen src
 
-      return $"input: %s{src}\noutput:\n{js}"
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -549,8 +549,10 @@ let CodegenTupleLiteral () =
         let tuple = ["hello", 5, true];
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -568,8 +570,10 @@ let CodegenImmutableTupleLiteral () =
         let tuple = #["hello", 5, true];
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -587,8 +591,10 @@ let CodegenObjectLiteral () =
         let object = {a: "hello", b: 5, c: true};
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -606,8 +612,10 @@ let CodegenImmutableObjectLiteral () =
         let object = #{a: "hello", b: 5, c: true};
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -626,8 +634,10 @@ let CodegenDestructureObjects () =
         let {point: {x, y}, color} = object;
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -646,8 +656,10 @@ let CodegenDestructureObjectWithRest () =
         let {foo, ...rest} = object;
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -666,8 +678,10 @@ let CodegenDestructureTuples () =
         let [msg, [num, flag]] = tuple;
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -686,8 +700,10 @@ let CodegenDestructureTupleWithRest () =
         let [foo, ...rest] = tuple;
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -710,8 +726,10 @@ let CodegenIfLetObject () =
         };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -734,8 +752,10 @@ let CodegenMatchArray () =
         };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -765,8 +785,10 @@ let CodegenMatchUnion () =
         };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -792,8 +814,10 @@ let CodegenTryCatch () =
           };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -816,8 +840,10 @@ let CodegenTryFinally () =
           };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -843,8 +869,10 @@ let CodegenTryCatchFinally () =
           };
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -863,8 +891,10 @@ let CodegenJsxElement () =
         </div>;
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -886,8 +916,10 @@ let CodegenJsxFragment () =
         </>;
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -984,8 +1016,10 @@ let CodegenFunctionDeclaration () =
         let sum = add(5, 10);
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -1008,8 +1042,7 @@ let CodegenFunctionOverloads () =
         let msg = add("hello, ", "world");
         """
 
-      let! js = parseAndCodegenJS src
-      let! dts = parseAndCodegenDTS src
+      let! js, dts = parseAndCodegen src
 
       return
         $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
@@ -1035,8 +1068,10 @@ let CodegenFunctionOverloadsWithDifferentParams () =
         let msg = add("hello, ", "world");
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with
@@ -1061,8 +1096,10 @@ let CodegenFunctionOverloadsWithShadowing () =
         let msg = add("hello, ", "world");
         """
 
-      let! js = parseAndCodegenJS src
-      return $"input: %s{src}\noutput:\n{js}"
+      let! js, dts = parseAndCodegen src
+
+      return
+        $"input: %s{src}\n--- output (js) ---\n{js}\n--- output (dts) ---\n{dts}"
     }
 
   match res with

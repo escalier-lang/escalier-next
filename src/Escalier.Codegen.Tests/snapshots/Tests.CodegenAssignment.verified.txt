@@ -2,6 +2,9 @@
         let mut x: number = 5;
         x = 10;
         
-output:
+--- output (js) ---
 var x = 5;
 x = 10;
+
+--- output (dts) ---
+const x: number;

@@ -1,6 +1,9 @@
 ﻿input: 
         let tuple = #["hello", 5, true];
         
-output:
+--- output (js) ---
 import {Tuple} from "@bloomberg/record-tuple-polyfill"
 var tuple = Tuple(["hello", 5, true]);
+
+--- output (dts) ---
+const tuple: ["hello", 5, true];

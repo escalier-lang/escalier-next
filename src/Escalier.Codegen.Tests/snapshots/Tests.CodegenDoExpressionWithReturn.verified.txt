@@ -12,7 +12,7 @@
           return res;
         };
         
-output:
+--- output (js) ---
 var foo = function (bar) {
   var temp0;
   {
@@ -33,3 +33,6 @@ var foo = function (bar) {
   var res = temp0;
   return res;
 };
+
+--- output (dts) ---
+const foo: (bar: number) => "none" | "many" | null;

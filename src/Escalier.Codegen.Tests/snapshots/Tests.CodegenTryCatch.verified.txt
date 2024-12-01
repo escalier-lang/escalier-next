@@ -9,7 +9,7 @@
             "RangeError" => null,
           };
         
-output:
+--- output (js) ---
 var input = "{"x": 5, "y": 10}";
 var temp0;
 try {
@@ -29,3 +29,8 @@ try {
   }
 }
 var result = temp0;
+
+--- output (dts) ---
+function parseJSON(input: string): unknown;
+const input: "{"x": 5, "y": 10}";
+const result: unknown | null;

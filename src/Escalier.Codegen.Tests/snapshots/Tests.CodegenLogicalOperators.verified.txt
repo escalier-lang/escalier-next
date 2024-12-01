@@ -4,7 +4,7 @@
         let foo = a || b || c;
         let bar = x && y && z;
         
-output:
+--- output (js) ---
 var [a, b, c] = [true, false, true];
 var [x, y, z] = [true, true, false];
 var temp0;
@@ -33,3 +33,13 @@ if (!x) {
   temp2 = temp3;
 }
 var bar = temp2;
+
+--- output (dts) ---
+const a: true;
+const b: false;
+const c: true;
+const x: true;
+const y: true;
+const z: false;
+const foo: boolean;
+const bar: boolean;

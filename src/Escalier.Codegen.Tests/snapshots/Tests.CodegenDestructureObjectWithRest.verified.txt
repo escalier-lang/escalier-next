@@ -2,6 +2,17 @@
         let object = {foo: 5, bar: "hello", baz: true};
         let {foo, ...rest} = object;
         
-output:
+--- output (js) ---
 var object = {foo: 5, bar: "hello", baz: true};
 var {foo, ...rest} = object;
+
+--- output (dts) ---
+const object: {
+  foo: 5;
+  bar: "hello";
+  baz: true;
+};
+const rest: {
+  bar: "hello";
+  baz: true;
+};

@@ -4,6 +4,10 @@
           <p>hello</p>
         </div>;
         
-output:
+--- output (js) ---
 import {jsx as _jsx} from "react/jsx-runtime"
 var foo = _jsx("div", {id: "foo", class: "bar", children: [_jsx("p", {children: ["hello"]})]});
+
+--- output (dts) ---
+import * as React from "react"
+const foo: React.ReactNode;

@@ -1,5 +1,12 @@
 ﻿input: 
         let object = {a: "hello", b: 5, c: true};
         
-output:
+--- output (js) ---
 var object = {a: "hello", b: 5, c: true};
+
+--- output (dts) ---
+const object: {
+  a: "hello";
+  b: 5;
+  c: true;
+};

@@ -2,6 +2,12 @@
         let tuple = ["hello", [5, true]];
         let [msg, [num, flag]] = tuple;
         
-output:
+--- output (js) ---
 var tuple = ["hello", [5, true]];
 var [msg, [num, flag]] = tuple;
+
+--- output (dts) ---
+const tuple: ["hello", [5, true]];
+const flag: true;
+const msg: "hello";
+const num: 5;

@@ -1018,6 +1018,24 @@ module rec Codegen =
 
       [ funcDecl ]
 
+  // TODO: unify Pat with TsFnPat
+  let patternToPat (pattern: Pattern) : TS.Pat =
+    match pattern with
+    | Pattern.Identifier { Name = name } ->
+      Pat.Ident
+        { Id = { Name = name; Loc = None }
+          Loc = None }
+    | Pattern.Object _ -> failwith "TODO - buildFnDeclType - Object"
+    | Pattern.Tuple { Elems = elems; Immutable = _ } ->
+      Pat.Array
+        { Elems = elems |> List.map (Option.map patternToPat)
+          Loc = None }
+    | Pattern.Rest pattern ->
+      Pat.Rest
+        { Arg = patternToPat pattern
+          Loc = None }
+    | _ -> failwith "Invalid pattern for function parameter"
+
   let buildFnDeclType (ctx: Ctx) (fnDecl: FnDecl) : TS.Stmt =
     let f = fnDecl.InferredFunction.Value
 
@@ -1025,24 +1043,10 @@ module rec Codegen =
     let ps: list<Param> =
       f.ParamList
       |> List.map (fun p ->
-        let t = buildTypeAnn ctx p.Type
-
-        match p.Pattern with
-        | Pattern.Identifier { Name = name } ->
-          // TODO: unify Pat with TsFnPat
-          let pat =
-            Pat.Ident
-              { Id = { Name = name; Loc = None }
-                Loc = None }
-
-          { Pat = pat
-            TypeAnn = Some(t)
-            Optional = p.Optional
-            Loc = None }
-        | Pattern.Object _ -> failwith "TODO"
-        | Pattern.Tuple _ -> failwith "TODO"
-        | Pattern.Rest _ -> failwith "TODO"
-        | _ -> failwith "Invalid pattern for function parameter")
+        { Pat = patternToPat p.Pattern
+          TypeAnn = Some(buildTypeAnn ctx p.Type)
+          Optional = p.Optional
+          Loc = None })
 
     let typeParams: option<TsTypeParamDecl> =
       f.TypeParams
@@ -1742,9 +1746,9 @@ module rec Codegen =
               TypeAnn = Some(t)
               Optional = p.Optional
               Loc = None }
-          | Pattern.Object _ -> failwith "TODO"
-          | Pattern.Tuple _ -> failwith "TODO"
-          | Pattern.Rest _ -> failwith "TODO"
+          | Pattern.Object _ -> failwith "TODO - buildType - Object"
+          | Pattern.Tuple _ -> failwith "TODO - buildType - Tuple"
+          | Pattern.Rest _ -> failwith "TODO - buildType - Rest"
           | _ -> failwith "Invalid pattern for function parameter")
 
       let typeParams: option<TsTypeParamDecl> =
@@ -1873,8 +1877,9 @@ module rec Codegen =
       // actual type to export
       failwith "TODO: buildType - Binary"
     | TypeKind.Wildcard ->
-      // TODO: Use `any`?
-      failwith "TODO: buildType - Wildcard"
+      TsType.TsKeywordType
+        { Kind = TsKeywordTypeKind.TsAnyKeyword
+          Loc = None }
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
     | TypeKind.Range _ -> failwith "TODO: buildType - Range"
     | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
@@ -1940,7 +1945,11 @@ module rec Codegen =
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
       | PatternKind.Enum _ -> failwith "TODO: findBinding - Enum"
-      | PatternKind.Rest _ -> failwith "TODO: findBinding - Rest"
+      | PatternKind.Rest pat ->
+        let patAssump = findBindings pat
+
+        for KeyValue(name, binding) in patAssump do
+          assump <- Map.add name binding assump
 
     walk pat
 

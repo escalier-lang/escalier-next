@@ -6,7 +6,6 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
-open Escalier.Data.Visitor
 
 open Error
 open Prune
@@ -16,48 +15,7 @@ open Poly
 open Unify
 open Helpers
 
-module rec Infer =
-  let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
-    match pat.Kind with
-    | PatternKind.Ident { Name = name; IsMut = mut } ->
-      Pattern.Identifier { Name = name; IsMut = mut }
-    // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
-    //   Pattern.Is(bindingIdent, isName)
-    | PatternKind.Object { Elems = elems; Immutable = immutable } ->
-      Pattern.Object
-        { Elems =
-            List.map
-              (fun (elem: Syntax.ObjPatElem) ->
-                match elem with
-                | Syntax.ObjPatElem.KeyValuePat { Key = key
-                                                  Value = value
-                                                  Default = init } ->
-                  ObjPatElem.KeyValuePat
-                    { Key = key
-                      Value = patternToPattern value
-                      Init = init }
-                | Syntax.ObjPatElem.ShorthandPat { Name = name
-                                                   Default = init
-                                                   IsMut = mut
-                                                   Assertion = _ } ->
-                  ObjPatElem.ShorthandPat
-                    { Name = name
-                      Init = init
-                      IsMut = mut }
-                | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
-                  // TODO: isMut
-                  ObjPatElem.RestPat(patternToPattern target))
-              elems
-          Immutable = immutable }
-    | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
-      Pattern.Tuple
-        { Elems = List.map (patternToPattern >> Some) elems
-          Immutable = immutable }
-    | PatternKind.Wildcard { Assertion = _ } -> Pattern.Wildcard
-    | PatternKind.Literal lit -> Pattern.Literal lit
-    | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
-    | PatternKind.Enum _ -> failwith "TODO: patternToPattern - PatternKind.Enum"
-
+module rec InferExpr =
   let inferPropName
     (ctx: Ctx)
     (env: Env)
@@ -76,515 +34,6 @@ module rec Infer =
         | TypeKind.Literal(Literal.Number value) -> return PropName.Number value
         | TypeKind.UniqueSymbol id -> return PropName.Symbol id
         | _ -> return! Error(TypeError.SemanticError "Invalid key type")
-    }
-
-  // TODO: support inferring class declarations without method bodies as long
-  // as the methods are fully typed.
-  let inferClass
-    (ctx: Ctx)
-    (env: Env)
-    (cls: Class)
-    (declare: bool)
-    : Result<Type * Scheme, TypeError> =
-    result {
-      let className =
-        match cls.Name with
-        | Some name -> name
-        | None -> "AnonymousClass" // TODO: make this unique
-
-      let mutable newEnv = env
-
-      let! placeholderTypeParams =
-        match cls.TypeParams with
-        | None -> ResultOption.ofOption None
-        | Some typeParams ->
-          List.traverseResultM (inferTypeParam ctx newEnv) typeParams
-          |> ResultOption.ofResult
-
-      // TODO: add support for constraints on type params to aliases
-      let placeholder =
-        { TypeParams = placeholderTypeParams
-          Type = ctx.FreshTypeVar None None }
-
-      newEnv <- newEnv.AddScheme className placeholder
-
-      let typeArgs =
-        cls.TypeParams
-        |> Option.map (fun typeParams ->
-          typeParams
-          |> List.map (fun typeParam ->
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = QualifiedIdent.Ident typeParam.Name
-                    TypeArgs = None
-                    Scheme = None }
-              Provenance = None }))
-
-      let selfType =
-        { Kind =
-            TypeKind.TypeRef
-              { Name = QualifiedIdent.Ident className
-                TypeArgs = typeArgs
-                Scheme = Some placeholder }
-          Provenance = None }
-
-      let selfScheme = { TypeParams = None; Type = selfType }
-
-      // Handles self-recursive types
-      newEnv <- newEnv.AddScheme "Self" selfScheme
-
-      let! typeParams =
-        match cls.TypeParams with
-        | None -> ResultOption.ofOption None
-        | Some typeParams ->
-          List.traverseResultM
-            (fun (typeParam: Syntax.TypeParam) ->
-              result {
-                // TODO: support constraints on type params
-                let unknown =
-                  { Kind = TypeKind.Keyword Keyword.Unknown
-                    Provenance = None }
-
-                let scheme = { TypeParams = None; Type = unknown }
-
-                newEnv <- newEnv.AddScheme typeParam.Name scheme
-                return! inferTypeParam ctx env typeParam
-              })
-            typeParams
-          |> ResultOption.ofResult
-
-      let mutable instanceMethods
-        : list<ObjTypeElem * FuncSig * option<BlockOrExpr>> =
-        []
-
-      let mutable staticMethods
-        : list<ObjTypeElem * FuncSig * option<BlockOrExpr>> =
-        []
-
-      let mutable instanceElems: list<ObjTypeElem> = []
-      let mutable staticElems: list<ObjTypeElem> = []
-
-      for elem in cls.Elems do
-        match elem with
-        | ClassElem.Property { Name = name
-                               TypeAnn = typeAnn
-                               Value = value
-                               Optional = optional
-                               Readonly = readonly
-                               Static = isStatic } ->
-          let! name = inferPropName ctx env name
-
-          let! t =
-            match typeAnn, value with
-            | Some typeAnn, Some value ->
-              // TODO: infer `value`'s type and then unify with `typeAnn`'s type
-              inferTypeAnn ctx newEnv typeAnn
-            | Some typeAnn, None -> inferTypeAnn ctx newEnv typeAnn
-            | None, Some value -> inferExpr ctx newEnv None value
-            | None, None -> Error(TypeError.SemanticError "Invalid property")
-
-          let prop =
-            ObjTypeElem.Property
-              { Name = name
-                Optional = optional
-                Readonly = readonly
-                Type = t }
-
-          if isStatic then
-            staticElems <- prop :: staticElems
-          else
-            instanceElems <- prop :: instanceElems
-        | ClassElem.Constructor { Sig = fnSig; Body = body } ->
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
-
-          let placeholderFn =
-            { placeholderFn with
-                Return = selfType
-                TypeParams = typeParams }
-
-          staticMethods <-
-            (ObjTypeElem.Constructor placeholderFn, fnSig, body)
-            :: staticMethods
-        | ClassElem.Method { Name = name
-                             Sig = fnSig
-                             Body = body } ->
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
-          let! name = inferPropName ctx env name
-
-          // .d.ts files don't track whether a method throws or not so we default
-          // to `never` for now.  In the future we may override the types for some
-          // APIs that we know throw.
-          if declare then
-            placeholderFn.Throws <-
-              { Kind = TypeKind.Keyword Keyword.Never
-                Provenance = None }
-
-          match fnSig.Self with
-          | None ->
-            staticMethods <-
-              (ObjTypeElem.Method { Name = name; Fn = placeholderFn },
-               fnSig,
-               body)
-              :: staticMethods
-          | Some _ ->
-            instanceMethods <-
-              (ObjTypeElem.Method { Name = name; Fn = placeholderFn },
-               fnSig,
-               body)
-              :: instanceMethods
-        | ClassElem.Getter { Name = name
-                             Self = self
-                             ReturnType = retType
-                             Body = body
-                             Static = isStatic } ->
-          let fnSig: FuncSig =
-            { TypeParams = None
-              Self = self
-              ParamList = []
-              ReturnType = retType
-              Throws = None
-              IsAsync = false }
-
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
-          let! name = inferPropName ctx env name
-
-          match self, isStatic with
-          | None, true ->
-            staticMethods <-
-              (ObjTypeElem.Getter { Name = name; Fn = placeholderFn },
-               fnSig,
-               body)
-              :: staticMethods
-          | Some _, false ->
-            instanceMethods <-
-              (ObjTypeElem.Getter { Name = name; Fn = placeholderFn },
-               fnSig,
-               body)
-              :: instanceMethods
-          | _, _ -> failwith "Invalid getter"
-        | ClassElem.Setter { Name = name
-                             Self = self
-                             Param = param
-                             Body = body
-                             Static = isStatic } ->
-          let fnSig: FuncSig =
-            { TypeParams = None
-              Self = self
-              ParamList = [ param ]
-              ReturnType = None
-              Throws = None
-              IsAsync = false }
-
-          let! placeholderFn = inferFuncSig ctx newEnv fnSig None
-          let! name = inferPropName ctx env name
-
-          match self, isStatic with
-          | None, true ->
-            staticMethods <-
-              (ObjTypeElem.Setter { Name = name; Fn = placeholderFn },
-               fnSig,
-               body)
-              :: staticMethods
-          | Some _, false ->
-            instanceMethods <-
-              (ObjTypeElem.Setter { Name = name; Fn = placeholderFn },
-               fnSig,
-               body)
-              :: instanceMethods
-          | _, _ -> failwith "Invalid setter"
-
-      for elem, _, _ in instanceMethods do
-        match elem with
-        | Method { Name = name; Fn = placeholderFn } ->
-          instanceElems <-
-            ObjTypeElem.Method { Name = name; Fn = placeholderFn }
-            :: instanceElems
-        | Getter { Name = name; Fn = placeholderFn } ->
-          instanceElems <-
-            ObjTypeElem.Getter { Name = name; Fn = placeholderFn }
-            :: instanceElems
-        | Setter { Name = name; Fn = placeholderFn } ->
-          instanceElems <-
-            ObjTypeElem.Setter { Name = name; Fn = placeholderFn }
-            :: instanceElems
-        | _ -> ()
-
-      let mutable hasConstructor = false
-
-      for elem, _, _ in staticMethods do
-        match elem with
-        | Constructor(placeholderFn) ->
-          hasConstructor <- true
-
-          staticElems <- ObjTypeElem.Constructor(placeholderFn) :: staticElems
-        | Method { Name = name; Fn = placeholderFn } ->
-          staticElems <-
-            ObjTypeElem.Method { Name = name; Fn = placeholderFn }
-            :: staticElems
-        | Getter { Name = name; Fn = placeholderFn } ->
-          staticElems <-
-            ObjTypeElem.Getter { Name = name; Fn = placeholderFn }
-            :: staticElems
-        | Setter { Name = name; Fn = placeholderFn } ->
-          staticElems <-
-            ObjTypeElem.Setter { Name = name; Fn = placeholderFn }
-            :: staticElems
-        | _ -> ()
-
-      let objType =
-        { Kind =
-            TypeKind.Object
-              { Extends = None // QUESTION: Do we need this for the placeholder?
-                Implements = None // TODO
-                Elems = instanceElems
-                Exact = false
-                Immutable = false
-                Interface = false }
-          Provenance = None }
-
-      placeholder.Type <- objType
-
-      if not hasConstructor then
-        let never =
-          { Kind = TypeKind.Keyword Keyword.Never
-            Provenance = None }
-
-        let constructor =
-          { TypeParams = typeParams
-            Self = None
-            ParamList = []
-            Return = selfType
-            Throws = never }
-
-        staticElems <- ObjTypeElem.Constructor(constructor) :: staticElems
-
-      // TODO: This static object should be added to the environment
-      // sooner so that methods can construct new objects of this type.
-      let staticObjType =
-        { Kind =
-            TypeKind.Object
-              { Extends = None
-                Implements = None
-                Elems = staticElems
-                Exact = true
-                Immutable = false
-                Interface = false }
-          Provenance = None }
-
-      // TODO: Make Type.Kind mutable so that we can modify the type after its
-      // been created.
-      newEnv <-
-        newEnv.AddValue
-          "Self"
-          { Type = staticObjType
-            Mutable = false
-            Export = false }
-
-      // Infer the bodies of each instance method body
-      for elem, fnSig, body in instanceMethods do
-        let placeholderFn =
-          match elem with
-          | Method { Fn = placeholderFn } -> placeholderFn
-          | Getter { Fn = placeholderFn } -> placeholderFn
-          | Setter { Fn = placeholderFn } -> placeholderFn
-          | _ -> failwith "instanceMethods should only contain methods"
-
-        match body, declare with
-        | Some body, false ->
-          // TODO: Generalize methods but only after inferring them all
-          let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
-          ()
-        | Some _, true ->
-          failwith
-            "methods should not have a body when using declare with a class"
-        | None, true -> ()
-        | None, false ->
-          failwith
-            "methods should have a body when not using declare with a class"
-
-      // Infer the bodies of each static method body
-      for elem, fnSig, body in staticMethods do
-        match elem with
-        | Method { Fn = placeholderFn } ->
-          match body, declare with
-          | Some body, false ->
-            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
-            ()
-          | _ -> () // TODO: handle other cases correctly
-        | Getter { Fn = placeholderFn } ->
-          match body, declare with
-          | Some body, false ->
-            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
-            ()
-          | _ -> () // TODO: handle other cases correctly
-        | Setter { Fn = placeholderFn } ->
-          match body, declare with
-          | Some body, false ->
-            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
-            ()
-          | _ -> () // TODO: handle other cases correctly
-        | Constructor placeholderFn ->
-          match body, declare with
-          | Some body, false ->
-            // Constructors are special. When calling a constructor, an
-            // instance of the class is created and returned. This is
-            // done automatically by the language, so we don't need an
-            // explicit `return` statement in the constructor body. We
-            // set the return type of `placeholderFn` to be `undefined`
-            // before inferring the body so to avoid needing the `return`
-            // statement.
-            let placeholderFn =
-              { placeholderFn with
-                  Return =
-                    { Kind = TypeKind.Literal(Literal.Undefined)
-                      Provenance = None } }
-
-            // TODO: find all assignment expressions in the body and
-            // ensure that they're all assignments to `self` properties
-
-            let mutable assignedProps: list<string> = []
-            let mutable methodsCalled: list<string> = []
-
-            let visitor: ExprVisitor.SyntaxVisitor<unit> =
-              { ExprVisitor.VisitExpr =
-                  fun (expr: Expr, state) ->
-                    match expr.Kind with
-                    | ExprKind.Assign { Left = left } ->
-                      match left.Kind with
-                      | ExprKind.Member { Target = obj; Name = prop } ->
-                        match obj.Kind with
-                        | ExprKind.Identifier { Name = "self" } ->
-                          assignedProps <- prop :: assignedProps
-                          (true, state)
-                        | _ -> (true, state)
-                      | _ -> (true, state)
-                    | ExprKind.Call { Callee = callee } ->
-                      match callee.Kind with
-                      | ExprKind.Member { Target = obj; Name = prop } ->
-                        match obj.Kind with
-                        | ExprKind.Identifier { Name = "self" } ->
-                          methodsCalled <- prop :: methodsCalled
-                          (true, state)
-                        | _ -> (true, state)
-                      | _ -> (true, state)
-                    | _ -> (true, state)
-
-                ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
-                ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
-                ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
-                ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
-                ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
-                ExprVisitor.VisitTypeAnn = fun (_, state) -> (false, state)
-                ExprVisitor.VisitTypeAnnObjElem =
-                  fun (_, state) -> (false, state) }
-
-            match body with
-            | BlockOrExpr.Block block ->
-              List.iter (ExprVisitor.walkStmt visitor ()) block.Stmts
-            | BlockOrExpr.Expr _expr -> failwith "TODO"
-
-            if not methodsCalled.IsEmpty then
-              ctx.Report.AddDiagnostic
-                { Description =
-                    $"Methods called in constructor: {methodsCalled}"
-                  Reasons = [] }
-
-            let instanceProps =
-              instanceElems
-              |> List.choose (function
-                | Property { Name = PropName.String name } -> Some name
-                | _ -> None)
-
-            let unassignedProps =
-              instanceProps
-              |> List.filter (fun p -> not (List.contains p assignedProps))
-
-            if not unassignedProps.IsEmpty then
-              ctx.Report.AddDiagnostic(
-                { Description =
-                    $"Unassigned properties in constructor: {unassignedProps}"
-                  Reasons = [] }
-              )
-
-            // TODO: Check that we aren't using any properties before
-            // they've been assigned.
-
-            let! _ = inferFuncBody ctx newEnv fnSig placeholderFn body
-
-            ()
-          | _ -> () // TODO: handle other cases correctly
-        | _ -> printfn "elem = %A" elem
-
-      let instanceElems =
-        List.map
-          (fun elem ->
-            match elem with
-            | Method { Name = name; Fn = fn } ->
-              ObjTypeElem.Method { Name = name; Fn = generalizeFunc fn }
-            | _ -> elem)
-          instanceElems
-
-      // TODO: do the same thing we do in inferTypeDeclDefn in order to add
-      // schemes for each type param before inferring the extends clause that
-      // consumes those schemes.
-
-      let getType (env: Env) : Result<Type, TypeError> =
-        result {
-
-          let! extends =
-            match cls.Extends with
-            | Some typeRef ->
-              result {
-
-                let! extends = Infer.inferTypeRef ctx env typeRef
-
-                let extends =
-                  match extends with
-                  | TypeKind.TypeRef typeRef -> typeRef
-                  | _ -> failwith "Invalid type for extends"
-
-                return Some [ extends ]
-              }
-            | None -> Result.Ok None
-
-          let objType =
-            { Kind =
-                TypeKind.Object
-                  { Extends = extends
-                    Implements = None // TODO
-                    Elems = instanceElems
-                    Exact = false
-                    Immutable = false
-                    Interface = false }
-              Provenance = None }
-
-          return objType
-        }
-
-      let! newScheme =
-        Infer.inferTypeDeclDefn ctx newEnv placeholder cls.TypeParams getType
-
-      placeholder.Type <- newScheme.Type
-
-      let staticElems =
-        List.map
-          (fun elem ->
-            match elem with
-            | Method { Name = name; Fn = fn } ->
-              ObjTypeElem.Method { Name = name; Fn = generalizeFunc fn }
-            | _ -> elem)
-          staticElems
-
-      staticObjType.Kind <-
-        TypeKind.Object
-          { Extends = None
-            Implements = None
-            Elems = staticElems
-            Exact = true
-            Immutable = false
-            Interface = false }
-
-      return staticObjType, placeholder
     }
 
   ///Computes the type of the expression given by node.
@@ -671,7 +120,7 @@ module rec Infer =
                 List.traverseResultM
                   (fun typeArg ->
                     result {
-                      let! typeArg = inferTypeAnn ctx env typeArg
+                      let! typeArg = ctx.InferTypeAnn ctx env typeArg
                       return typeArg
                     })
                   typeArgs
@@ -894,7 +343,7 @@ module rec Infer =
 
           return objType
         | ExprKind.Class cls ->
-          let! t, _ = inferClass ctx env cls false
+          let! t, _ = ctx.InferClass ctx env cls false
           return t
         | ExprKind.Member { Target = obj
                             Name = prop
@@ -1101,7 +550,8 @@ module rec Infer =
         | ExprKind.ExprWithTypeArgs { Expr = target; TypeArgs = typeArgs } ->
           let! t = inferExpr ctx env None target
 
-          let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
+          let! typeArgs =
+            List.traverseResultM (ctx.InferTypeAnn ctx env) typeArgs
 
           let rec instantiate (t: Type) : Result<Type, TypeError> =
             result {
@@ -1396,7 +846,7 @@ module rec Infer =
             result {
               let! paramType =
                 match param.TypeAnn with
-                | Some(typeAnn) -> inferTypeAnn ctx newEnv typeAnn
+                | Some(typeAnn) -> ctx.InferTypeAnn ctx newEnv typeAnn
                 | None ->
                   match typeAnnType with
                   | Some _ -> Result.Ok(ctx.FreshTypeVar None None)
@@ -1429,12 +879,12 @@ module rec Infer =
 
       let! sigThrows =
         match fnSig.Throws with
-        | Some typeAnn -> inferTypeAnn ctx newEnv typeAnn
+        | Some typeAnn -> ctx.InferTypeAnn ctx newEnv typeAnn
         | None -> Result.Ok(ctx.FreshTypeVar None None)
 
       let! sigRetType =
         match fnSig.ReturnType with
-        | Some(sigRetType) -> inferTypeAnn ctx newEnv sigRetType
+        | Some(sigRetType) -> ctx.InferTypeAnn ctx newEnv sigRetType
         | None -> Result.Ok(ctx.FreshTypeVar None None)
 
       let func = makeFunction typeParams self paramList sigRetType sigThrows
@@ -1907,295 +1357,6 @@ module rec Infer =
   let stop = FParsec.Position("", 0, 1, 1)
   let DUMMY_SPAN: Span = { Start = start; Stop = stop }
 
-  let inferTypeRef
-    (ctx: Ctx)
-    (env: Env)
-    ({ Ident = name; TypeArgs = typeArgs }: Syntax.TypeRef)
-    : Result<TypeKind, TypeError> =
-    result {
-      match env.GetScheme name with
-      | Ok scheme ->
-        match typeArgs with
-        | Some(typeArgs) ->
-          let! typeArgs = List.traverseResultM (inferTypeAnn ctx env) typeArgs
-
-          return
-            { Name = name
-              TypeArgs = Some(typeArgs)
-              Scheme = Some scheme }
-            |> TypeKind.TypeRef
-        | None ->
-          // TODO: check if scheme required type args
-          return
-            { Name = name
-              TypeArgs = None
-              Scheme = Some scheme }
-            |> TypeKind.TypeRef
-      | Error _ ->
-        printfn "Can't find 'Self' in env"
-
-        match name with
-        | QualifiedIdent.Ident "_" ->
-          printfn "inferring '_' as TypeKind.Wildcard"
-          return TypeKind.Wildcard
-        | _ -> return! Error(TypeError.SemanticError $"{name} is not in scope")
-    }
-
-  let inferObjElem
-    (ctx: Ctx)
-    (env: Env)
-    (elem: ObjTypeAnnElem)
-    : Result<ObjTypeElem, TypeError> =
-
-    result {
-      match elem with
-      | ObjTypeAnnElem.Property { Name = name
-                                  TypeAnn = typeAnn
-                                  Value = value
-                                  Optional = optional
-                                  Readonly = readonly } ->
-        let! t =
-          match typeAnn, value with
-          | Some typeAnn, Some value ->
-            // TODO: infer `value`'s type and then unify with `typeAnn`'s type
-            inferTypeAnn ctx env typeAnn
-          | Some typeAnn, None -> inferTypeAnn ctx env typeAnn
-          | None, Some value -> inferExpr ctx env None value
-          | None, None -> Error(TypeError.SemanticError "Invalid property")
-
-        let! name = inferPropName ctx env name
-
-        return
-          Property
-            { Name = name
-              Type = t
-              Optional = optional
-              Readonly = readonly }
-      | ObjTypeAnnElem.Callable functionType ->
-        let! f = inferFuncSig ctx env functionType None
-        return Callable f
-      | ObjTypeAnnElem.Constructor functionType ->
-        let! f = inferFuncSig ctx env functionType None
-        return Constructor f
-      | ObjTypeAnnElem.Method { Name = name; Type = methodType } ->
-        let! fn = inferFuncSig ctx env methodType None
-        let! name = inferPropName ctx env name
-        return Method { Name = name; Fn = fn }
-      | ObjTypeAnnElem.Getter { Name = name
-                                ReturnType = retType
-                                Throws = throws } ->
-        let f: FuncSig =
-          { TypeParams = None
-            Self = None
-            ParamList = []
-            ReturnType = Some retType
-            Throws = throws
-            IsAsync = false }
-
-        let! fn = inferFuncSig ctx env f None
-        let! name = inferPropName ctx env name
-        return Getter { Name = name; Fn = fn }
-      | ObjTypeAnnElem.Setter { Name = name
-                                Param = param
-                                Throws = throws } ->
-
-        let undefined =
-          { Kind = Keyword KeywordTypeAnn.Undefined
-            Span = DUMMY_SPAN
-            InferredType = None }
-
-        let f: FuncSig =
-          { TypeParams = None
-            Self = None
-            ParamList = [ param ]
-            ReturnType = Some undefined
-            Throws = throws
-            IsAsync = false }
-
-        let! fn = inferFuncSig ctx env f None
-        let! name = inferPropName ctx env name
-        return Setter { Name = name; Fn = fn }
-      | ObjTypeAnnElem.Mapped mapped ->
-        let! c = inferTypeAnn ctx env mapped.TypeParam.Constraint
-
-        let param =
-          { Name = mapped.TypeParam.Name
-            Constraint = c }
-
-        let newEnv = env.AddScheme param.Name { TypeParams = None; Type = c }
-
-        let! typeAnn = inferTypeAnn ctx newEnv mapped.TypeAnn
-
-        let! nameType =
-          match mapped.Name with
-          | Some(name) -> inferTypeAnn ctx newEnv name |> Result.map Some
-          | None -> Ok None
-
-        return
-          Mapped
-            { TypeParam = param
-              NameType = nameType
-              TypeAnn = typeAnn
-              Optional = mapped.Optional
-              Readonly = mapped.Readonly }
-
-      | ObjTypeAnnElem.Spread spread ->
-        let! typeAnn = inferTypeAnn ctx env spread.Arg
-
-        return RestSpread typeAnn
-    }
-
-  let inferTypeAnn
-    (ctx: Ctx)
-    (env: Env)
-    (typeAnn: TypeAnn)
-    : Result<Type, TypeError> =
-    let kind: Result<TypeKind, TypeError> =
-      result {
-        match typeAnn.Kind with
-        | TypeAnnKind.Array elem ->
-          let! elem = inferTypeAnn ctx env elem
-
-          let length =
-            { Kind = TypeKind.UniqueNumber(ctx.FreshUniqueId())
-              Provenance = None }
-
-          return TypeKind.Array { Elem = elem; Length = length }
-        | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
-        | TypeAnnKind.Keyword keyword ->
-          match keyword with
-          | KeywordTypeAnn.Boolean ->
-            return TypeKind.Primitive Primitive.Boolean
-          | KeywordTypeAnn.Number -> return TypeKind.Primitive Primitive.Number
-          | KeywordTypeAnn.BigInt -> return TypeKind.Primitive Primitive.BigInt
-          | KeywordTypeAnn.String -> return TypeKind.Primitive Primitive.String
-          | KeywordTypeAnn.Symbol -> return TypeKind.Primitive Primitive.Symbol
-          | KeywordTypeAnn.UniqueSymbol -> return ctx.FreshSymbol().Kind
-          | KeywordTypeAnn.Null -> return TypeKind.Literal(Literal.Null)
-          | KeywordTypeAnn.Undefined ->
-            return TypeKind.Literal(Literal.Undefined)
-          | KeywordTypeAnn.Unknown -> return TypeKind.Keyword Keyword.Unknown
-          | KeywordTypeAnn.Never -> return TypeKind.Keyword Keyword.Never
-          | KeywordTypeAnn.Object -> return TypeKind.Keyword Keyword.Object
-          | KeywordTypeAnn.Any ->
-            let t = ctx.FreshTypeVar None None
-            return t.Kind
-          | _ ->
-            return!
-              Error(
-                TypeError.NotImplemented
-                  $"TODO: unhandled keyword type - {keyword}"
-              )
-        | TypeAnnKind.Object { Elems = elems
-                               Immutable = immutable
-                               Exact = exact } ->
-          let mutable newEnv = env
-
-          match newEnv.Namespace.Schemes.TryFind "Self" with
-          | Some _ -> ()
-          | None ->
-            let scheme =
-              { TypeParams = None
-                Type = ctx.FreshTypeVar None None }
-
-            newEnv <- newEnv.AddScheme "Self" scheme
-
-          let! elems = List.traverseResultM (inferObjElem ctx newEnv) elems
-
-          return
-            TypeKind.Object
-              { Extends = None
-                Implements = None
-                Elems = elems
-                Exact = exact
-                Immutable = immutable
-                Interface = false }
-        | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
-          let! elems = List.traverseResultM (inferTypeAnn ctx env) elems
-          return TypeKind.Tuple { Elems = elems; Immutable = immutable }
-        | TypeAnnKind.Union types ->
-          let! types = List.traverseResultM (inferTypeAnn ctx env) types
-          return (union types).Kind
-        | TypeAnnKind.Intersection types ->
-          let! types = List.traverseResultM (inferTypeAnn ctx env) types
-          return TypeKind.Intersection types
-        | TypeAnnKind.TypeRef typeRef -> return! inferTypeRef ctx env typeRef
-        | TypeAnnKind.Function functionType ->
-          let! f = inferFuncSig ctx env functionType None
-          return TypeKind.Function(f)
-        | TypeAnnKind.Keyof target ->
-          return! inferTypeAnn ctx env target |> Result.map TypeKind.KeyOf
-        | TypeAnnKind.Rest target ->
-          return! inferTypeAnn ctx env target |> Result.map TypeKind.RestSpread
-        | TypeAnnKind.Typeof target ->
-          let! t = getQualifiedIdentType ctx env target
-          return t.Kind
-        | TypeAnnKind.Index { Target = target; Index = index } ->
-          let! target = inferTypeAnn ctx env target
-          let! index = inferTypeAnn ctx env index
-          return TypeKind.Index { Target = target; Index = index }
-        | TypeAnnKind.Condition conditionType ->
-          let! check = inferTypeAnn ctx env conditionType.Check
-          let! extends = inferTypeAnn ctx env conditionType.Extends
-          let infers = findInfers extends
-
-          // Adds placeholder types ot the environment so that we'll be able to
-          // reference them in `trueType` and `falseType`.  They will be replaced
-          // by `expandType` later.
-          let mutable newEnv = env
-
-          for infer in infers do
-            let unknown =
-              { Kind = TypeKind.Keyword Keyword.Unknown
-                Provenance = None }
-
-            let scheme = { TypeParams = None; Type = unknown }
-
-            newEnv <- newEnv.AddScheme infer scheme
-
-          let! trueType = inferTypeAnn ctx newEnv conditionType.TrueType
-          let! falseType = inferTypeAnn ctx newEnv conditionType.FalseType
-
-          return
-            TypeKind.Condition
-              { Check = check
-                Extends = extends
-                TrueType = trueType
-                FalseType = falseType }
-        | TypeAnnKind.Match _ ->
-          return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
-        | TypeAnnKind.Infer name -> return TypeKind.Infer name
-        | TypeAnnKind.Wildcard -> return TypeKind.Wildcard
-        | TypeAnnKind.Binary { Op = op; Left = left; Right = right } ->
-          let! left = inferTypeAnn ctx env left
-          let! right = inferTypeAnn ctx env right
-          return TypeKind.Binary { Op = op; Left = left; Right = right }
-        | TypeAnnKind.Range range ->
-          let! min = inferTypeAnn ctx env range.Min
-          let! max = inferTypeAnn ctx env range.Max
-          return TypeKind.Range { Min = min; Max = max }
-        | TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs } ->
-          let! exprs = List.traverseResultM (inferTypeAnn ctx env) exprs
-          return TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }
-        | TypeAnnKind.Intrinsic -> return TypeKind.Intrinsic
-        | TypeAnnKind.ImportType _ ->
-          return!
-            Error(TypeError.NotImplemented "TODO: inferTypeAnn - ImportType")
-      }
-
-    let t: Result<Type, TypeError> =
-      Result.map
-        (fun kind ->
-          let t =
-            { Kind = kind
-              Provenance = Some(Provenance.TypeAnn typeAnn) }
-
-          typeAnn.InferredType <- Some(t)
-          t)
-        kind
-
-    t
-
   let inferMatchCases
     (ctx: Ctx)
     (env: Env)
@@ -2290,12 +1451,12 @@ module rec Infer =
     result {
       let! c =
         match tp.Constraint with
-        | Some(c) -> inferTypeAnn ctx env c |> Result.map Some
+        | Some(c) -> ctx.InferTypeAnn ctx env c |> Result.map Some
         | None -> Ok None
 
       let! d =
         match tp.Default with
-        | Some(d) -> inferTypeAnn ctx env d |> Result.map Some
+        | Some(d) -> ctx.InferTypeAnn ctx env d |> Result.map Some
         | None -> Ok None
 
       return
@@ -2378,7 +1539,7 @@ module rec Infer =
         | None ->
           match typeAnn with
           | Some typeAnn ->
-            let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+            let! typeAnnType = ctx.InferTypeAnn ctx newEnv typeAnn
             let! initType = inferExpr ctx newEnv (Some typeAnnType) init
             do! unify ctx newEnv invariantPaths initType typeAnnType
             do! unify ctx newEnv None typeAnnType patType
@@ -2403,7 +1564,7 @@ module rec Infer =
 
           match typeAnn with
           | Some typeAnn ->
-            let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+            let! typeAnnType = ctx.InferTypeAnn ctx newEnv typeAnn
             // NOTE: the order is reversed here because the variable being
             // initialized only need to match one of the types in the union,
             // assuming initType is a union type.
@@ -2467,7 +1628,7 @@ module rec Infer =
         let! patBindings, patType = ctx.InferPattern ctx env pattern
         let mutable newEnv = env
 
-        let! typeAnnType = inferTypeAnn ctx newEnv typeAnn
+        let! typeAnnType = ctx.InferTypeAnn ctx newEnv typeAnn
         do! unify ctx newEnv None typeAnnType patType
 
         return (patBindings, Map.empty)
@@ -2511,70 +1672,6 @@ module rec Infer =
       return
         { TypeParams = typeParams
           Type = generalizeType t }
-    }
-
-  let inferImport
-    (ctx: Ctx)
-    (env: Env)
-    (import: Import)
-    : Result<Env, TypeError> =
-
-    result {
-      let exports = ctx.GetExports env.Filename import
-
-      let mutable imports = Namespace.empty
-
-      for specifier in import.Specifiers do
-        match specifier with
-        | ImportSpecifier.Named { Name = name; Alias = alias } ->
-          let source = name
-
-          let target =
-            match alias with
-            | Some(alias) -> alias
-            | None -> source
-
-          let valueLookup =
-            match exports.Values.TryFind source with
-            | Some(binding) ->
-              imports <- imports.AddBinding target binding
-              Ok(())
-            | None -> Error("not found")
-
-          let schemeLookup =
-            match exports.Schemes.TryFind source with
-            | Some(scheme) ->
-              imports <- imports.AddScheme target scheme
-              Ok(())
-            | None -> Error("not found")
-
-          let namespaceLookup =
-            match exports.Namespaces.TryFind source with
-            | Some(ns) ->
-              imports <- imports.AddNamespace target ns
-              Ok(())
-            | None -> Error("not found")
-
-          match valueLookup, schemeLookup, namespaceLookup with
-          // If we can't find the symbol in either the values or schemes
-          // we report an error
-          | Error _, Error _, Error _ ->
-            let resolvedPath = ctx.ResolvePath env.Filename import
-
-            return!
-              Error(
-                TypeError.SemanticError
-                  $"{resolvedPath} doesn't export '{name}'"
-              )
-          | _, _, _ -> ()
-        | ModuleAlias { Alias = name } ->
-          let ns: Namespace = { exports with Name = name }
-
-          imports <- imports.AddNamespace name ns
-
-      return
-        { env with
-            Namespace = env.Namespace.Merge imports }
     }
 
   let unifyCall

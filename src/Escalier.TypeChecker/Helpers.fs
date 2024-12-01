@@ -367,3 +367,44 @@ let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
 
     return map
   }
+
+let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
+  match pat.Kind with
+  | PatternKind.Ident { Name = name; IsMut = mut } ->
+    Pattern.Identifier { Name = name; IsMut = mut }
+  // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
+  //   Pattern.Is(bindingIdent, isName)
+  | PatternKind.Object { Elems = elems; Immutable = immutable } ->
+    Pattern.Object
+      { Elems =
+          List.map
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                                Value = value
+                                                Default = init } ->
+                ObjPatElem.KeyValuePat
+                  { Key = key
+                    Value = patternToPattern value
+                    Init = init }
+              | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                                 Default = init
+                                                 IsMut = mut
+                                                 Assertion = _ } ->
+                ObjPatElem.ShorthandPat
+                  { Name = name
+                    Init = init
+                    IsMut = mut }
+              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
+                // TODO: isMut
+                ObjPatElem.RestPat(patternToPattern target))
+            elems
+        Immutable = immutable }
+  | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
+    Pattern.Tuple
+      { Elems = List.map (patternToPattern >> Some) elems
+        Immutable = immutable }
+  | PatternKind.Wildcard { Assertion = _ } -> Pattern.Wildcard
+  | PatternKind.Literal lit -> Pattern.Literal lit
+  | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
+  | PatternKind.Enum _ -> failwith "TODO: patternToPattern - PatternKind.Enum"

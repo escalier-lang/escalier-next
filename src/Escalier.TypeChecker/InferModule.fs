@@ -14,7 +14,10 @@ open Env
 open Unify
 open Helpers
 open BuildGraph
-open Infer
+open InferExpr
+open InferTypeAnn
+open InferClass
+open InferPattern
 
 module rec InferModule =
   let getAllBindingPatterns (pattern: Syntax.Pattern) : Map<string, Type> =
@@ -74,7 +77,7 @@ module rec InferModule =
           | ObjElem.Property { Span = span
                                Name = name
                                Value = value } ->
-            let! name = Infer.inferPropName ctx env name
+            let! name = InferExpr.inferPropName ctx env name
             let! t = inferExprStructuralPlacholder ctx env value
 
             elemTypes <-
@@ -223,7 +226,7 @@ module rec InferModule =
                         TypeAnn = typeAnn } ->
               // QUESTION: Should we check the type annotation as we're generating
               // the placeholder type?
-              let! bindings, patternType = ctx.InferPattern ctx env pattern
+              let! bindings, patternType = inferPattern ctx env pattern
 
               match typeAnn, init with
               | None, Some init ->
@@ -285,8 +288,7 @@ module rec InferModule =
 
               if not (qns.Schemes.ContainsKey key) then
 
-                let! scheme =
-                  inferTypeDeclPlaceholderScheme ctx env typeParams
+                let! scheme = inferTypeDeclPlaceholderScheme ctx env typeParams
 
                 qns <- qns.AddScheme key scheme
 
@@ -326,8 +328,7 @@ module rec InferModule =
                 | _, _ ->
                   match qns.Schemes.TryFind(key) with
                   | Some scheme -> Result.Ok scheme
-                  | None ->
-                    inferTypeDeclPlaceholderScheme ctx env typeParams
+                  | None -> inferTypeDeclPlaceholderScheme ctx env typeParams
 
               qns <- qns.AddScheme key placeholder
             | NamespaceDecl nsDecl ->
@@ -506,9 +507,9 @@ module rec InferModule =
                     match fnDecl.Declare, fnDecl.Body with
                     | false, Some body ->
                       // NOTE: `inferFunction` also calls unify
-                      Infer.inferFunction ctx newEnv fnDecl.Sig body
+                      InferExpr.inferFunction ctx newEnv fnDecl.Sig body
                     | true, None ->
-                      Infer.inferFuncSig ctx newEnv fnDecl.Sig None
+                      InferExpr.inferFuncSig ctx newEnv fnDecl.Sig None
                     | _, _ ->
                       Result.Error(
                         TypeError.SemanticError "Invalid function declaration"
@@ -558,7 +559,7 @@ module rec InferModule =
 
           if not (inferredClasses.Contains key) then
             let! inferredType, inferredScheme =
-              Infer.inferClass ctx newEnv cls declare
+              inferClass ctx newEnv cls declare
 
             let placeholderScheme = qns.Schemes[key]
             let placeholderBinding = qns.Values[key]
@@ -643,7 +644,7 @@ module rec InferModule =
                 result {
                   match variant.TypeAnn with
                   | Some typeAnn ->
-                    let! inferredType = Infer.inferTypeAnn ctx newEnv typeAnn
+                    let! inferredType = inferTypeAnn ctx newEnv typeAnn
 
                     return
                       { Kind = TypeKind.Intersection [ tagType; inferredType ]
@@ -691,10 +692,15 @@ module rec InferModule =
           // the deps set so that we don't have to special case this here.
           // Handles self-recursive types
           newEnv <- newEnv.AddScheme name placeholder
-          let getType = fun env -> Infer.inferTypeAnn ctx env typeAnn
+          let getType = fun env -> InferTypeAnn.inferTypeAnn ctx env typeAnn
 
           let! scheme =
-            Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+            InferExpr.inferTypeDeclDefn
+              ctx
+              newEnv
+              placeholder
+              typeParams
+              getType
 
           match placeholder.TypeParams, scheme.TypeParams with
           | Some typeParams1, Some typeParams2 ->
@@ -761,7 +767,9 @@ module rec InferModule =
             let getType (env: Env) : Result<Type, TypeError> =
               result {
                 let! elems =
-                  List.traverseResultM (Infer.inferObjElem ctx env) elems
+                  List.traverseResultM
+                    (InferTypeAnn.inferObjTypeAnnElem ctx env)
+                    elems
 
                 let! extends =
                   match extends with
@@ -770,7 +778,7 @@ module rec InferModule =
 
                       let! extends =
                         List.traverseResultM
-                          (Infer.inferTypeRef ctx env)
+                          (InferTypeAnn.inferTypeRef ctx env)
                           typeRefs
 
                       let extends =
@@ -798,7 +806,12 @@ module rec InferModule =
               }
 
             let! newScheme =
-              Infer.inferTypeDeclDefn ctx newEnv placeholder typeParams getType
+              InferExpr.inferTypeDeclDefn
+                ctx
+                newEnv
+                placeholder
+                typeParams
+                getType
 
             match placeholder.Type.Kind, newScheme.Type.Kind with
             | TypeKind.Object { Elems = existingElems },
@@ -1173,7 +1186,7 @@ module rec InferModule =
                        Body = body } ->
         let mutable blockEnv = newEnv
 
-        let! patBindings, patType = ctx.InferPattern ctx blockEnv pattern
+        let! patBindings, patType = inferPattern ctx blockEnv pattern
         let! rightType = inferExpr ctx blockEnv None right
 
         let symbol =
@@ -1308,6 +1321,71 @@ module rec InferModule =
       return newEnv
     }
 
+
+  let inferImport
+    (ctx: Ctx)
+    (env: Env)
+    (import: Import)
+    : Result<Env, TypeError> =
+
+    result {
+      let exports = ctx.GetExports env.Filename import
+
+      let mutable imports = Namespace.empty
+
+      for specifier in import.Specifiers do
+        match specifier with
+        | ImportSpecifier.Named { Name = name; Alias = alias } ->
+          let source = name
+
+          let target =
+            match alias with
+            | Some(alias) -> alias
+            | None -> source
+
+          let valueLookup =
+            match exports.Values.TryFind source with
+            | Some(binding) ->
+              imports <- imports.AddBinding target binding
+              Ok(())
+            | None -> Error("not found")
+
+          let schemeLookup =
+            match exports.Schemes.TryFind source with
+            | Some(scheme) ->
+              imports <- imports.AddScheme target scheme
+              Ok(())
+            | None -> Error("not found")
+
+          let namespaceLookup =
+            match exports.Namespaces.TryFind source with
+            | Some(ns) ->
+              imports <- imports.AddNamespace target ns
+              Ok(())
+            | None -> Error("not found")
+
+          match valueLookup, schemeLookup, namespaceLookup with
+          // If we can't find the symbol in either the values or schemes
+          // we report an error
+          | Error _, Error _, Error _ ->
+            let resolvedPath = ctx.ResolvePath env.Filename import
+
+            return!
+              Error(
+                TypeError.SemanticError
+                  $"{resolvedPath} doesn't export '{name}'"
+              )
+          | _, _, _ -> ()
+        | ModuleAlias { Alias = name } ->
+          let ns: Namespace = { exports with Name = name }
+
+          imports <- imports.AddNamespace name ns
+
+      return
+        { env with
+            Namespace = env.Namespace.Merge imports }
+    }
+
   let inferModule (ctx: Ctx) (env: Env) (ast: Module) : Result<Env, TypeError> =
     result {
       // TODO: update this function to accept a filename
@@ -1327,7 +1405,7 @@ module rec InferModule =
           ast.Items
 
       for import in imports do
-        let! importEnv = Infer.inferImport ctx newEnv import
+        let! importEnv = inferImport ctx newEnv import
         newEnv <- importEnv
 
       return! ctx.InferModuleItems ctx newEnv true ast.Items

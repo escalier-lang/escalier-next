@@ -14,7 +14,9 @@
     <Compile Include="Helpers.fs" />
     <Compile Include="QualifiedGraph.fs" />
     <Compile Include="BuildGraph.fs" />
-    <Compile Include="Infer.fs" />
+    <Compile Include="InferExpr.fs" />
+    <Compile Include="InferTypeAnn.fs" />
+    <Compile Include="InferClass.fs" />
     <Compile Include="InferPattern.fs" />
     <Compile Include="InferModule.fs" />
   </ItemGroup>

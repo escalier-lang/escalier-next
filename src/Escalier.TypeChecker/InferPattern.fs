@@ -11,6 +11,7 @@ open Error
 open Env
 open Poly
 open Unify
+open InferExpr
 
 module InferPattern =
   let inferPattern
@@ -126,7 +127,7 @@ module InferPattern =
           Provenance = None }
       | PatternKind.Enum variant ->
         printfn $"Looking up tag for {variant.Ident}"
-        let tagType = Infer.getQualifiedIdentType ctx env variant.Ident
+        let tagType = getQualifiedIdentType ctx env variant.Ident
 
         let tagType =
           match tagType with

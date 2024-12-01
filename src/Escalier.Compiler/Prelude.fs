@@ -858,9 +858,11 @@ module Prelude =
             exportNs),
           (fun ctx filename import ->
             resolvePath projectRoot filename import.Path),
-          Infer.inferExpr,
+          InferExpr.inferExpr,
           InferModule.inferModuleItems,
-          InferPattern.inferPattern
+          InferPattern.inferPattern,
+          InferTypeAnn.inferTypeAnn,
+          InferClass.inferClass
         )
 
       return ctx

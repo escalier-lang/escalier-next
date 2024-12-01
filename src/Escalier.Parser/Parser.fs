@@ -728,8 +728,7 @@ module Parser =
     <| fun sig' body ->
       { Sig = sig'
         Body = body
-        Captures = None
-        InferredType = None }
+        Captures = None }
 
   let funcExpr: Parser<Expr, unit> =
     withSpan func

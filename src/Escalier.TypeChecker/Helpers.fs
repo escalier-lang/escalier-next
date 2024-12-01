@@ -11,6 +11,7 @@ open Escalier.Data.Visitor
 open Error
 open Env
 open Poly
+open Unify
 
 // TODO: update this function to use the type visitor/folder
 let rec generalizeType (t: Type) : Type =
@@ -366,4 +367,311 @@ let rec getPropertyMap (t: Type) : Result<Map<PropName, Type>, TypeError> =
     | _ -> ()
 
     return map
+  }
+
+let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
+  match pat.Kind with
+  | PatternKind.Ident { Name = name; IsMut = mut } ->
+    Pattern.Identifier { Name = name; IsMut = mut }
+  // | PatternKind.Is(span, bindingIdent, isName, isMut) ->
+  //   Pattern.Is(bindingIdent, isName)
+  | PatternKind.Object { Elems = elems; Immutable = immutable } ->
+    Pattern.Object
+      { Elems =
+          List.map
+            (fun (elem: Syntax.ObjPatElem) ->
+              match elem with
+              | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                                Value = value
+                                                Default = init } ->
+                ObjPatElem.KeyValuePat
+                  { Key = key
+                    Value = patternToPattern value
+                    Init = init }
+              | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                                 Default = init
+                                                 IsMut = mut
+                                                 Assertion = _ } ->
+                ObjPatElem.ShorthandPat
+                  { Name = name
+                    Init = init
+                    IsMut = mut }
+              | Syntax.ObjPatElem.RestPat { Target = target; IsMut = _ } ->
+                // TODO: isMut
+                ObjPatElem.RestPat(patternToPattern target))
+            elems
+        Immutable = immutable }
+  | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
+    Pattern.Tuple
+      { Elems = List.map (patternToPattern >> Some) elems
+        Immutable = immutable }
+  | PatternKind.Wildcard { Assertion = _ } -> Pattern.Wildcard
+  | PatternKind.Literal lit -> Pattern.Literal lit
+  | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
+  | PatternKind.Enum _ -> failwith "TODO: patternToPattern - PatternKind.Enum"
+
+let qualifyTypeRefs
+  (t: Type)
+  (nsName: string)
+  (nsScheme: Map<string, Scheme>)
+  : Type =
+
+  let f =
+    fun (t: Type) ->
+      match t.Kind with
+      | TypeKind.TypeRef { Name = QualifiedIdent.Ident name
+                           Scheme = scheme
+                           TypeArgs = typeArgs } ->
+        match nsScheme.TryFind name with
+        | Some _ ->
+          let name = QualifiedIdent.Member(QualifiedIdent.Ident nsName, name)
+
+          let kind =
+            TypeKind.TypeRef
+              { Name = name
+                TypeArgs = typeArgs
+                Scheme = scheme }
+
+          Some { t with Kind = kind }
+        | None -> Some t
+      | _ -> Some t
+
+  Folder.foldType f t
+
+let inferMemberAccess
+  // TODO: do the search first and then return the appropriate ObjTypeElem
+  (ctx: Ctx)
+  (key: PropName)
+  (valueCategory: ValueCategory)
+  (elems: list<ObjTypeElem>)
+  : option<Type> =
+
+  // TODO: instead of using tryFind, use a for-loop with an early return
+  // we can use this to provide better error messages when trying to assign
+  // something that has a getter by no setter and similar situations.
+  let elem =
+    List.tryFind
+      (fun (elem: ObjTypeElem) ->
+        match elem with
+        | Property { Name = name } -> name = key
+        | Method { Name = name } ->
+          name = key && valueCategory = ValueCategory.RValue
+        | Getter { Name = name } ->
+          name = key && valueCategory = ValueCategory.RValue
+        | Setter { Name = name } ->
+          name = key && valueCategory = ValueCategory.LValue
+        | Mapped _ ->
+          failwith
+            "TODO: inferMemberAccess - mapped (check if key is subtype of Mapped.TypeParam)"
+        | _ -> false)
+      elems
+
+  match elem with
+  | Some elem ->
+    match elem with
+    | Property p ->
+      match p.Optional with
+      | true ->
+        let undefined =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Provenance = None }
+
+        Some(union [ p.Type; undefined ])
+      | false -> Some p.Type
+    | Method { Fn = fn } ->
+      // TODO: replace `Self` with the object type
+      // TODO: check if the receiver is mutable or not
+      let t =
+        { Kind = TypeKind.Function fn
+          Provenance = None }
+
+      Some t
+    | Getter { Fn = fn } -> Some fn.Return // TODO: handle throws
+    | Setter { Fn = fn } -> Some fn.ParamList[0].Type // TODO: handle throws
+    | Mapped _mapped -> failwith "TODO: inferMemberAccess - mapped"
+    | RestSpread _ -> failwith "TODO: inferMemberAccess - rest"
+    | Callable _ -> failwith "Callable signatures don't have a name"
+    | Constructor _ -> failwith "Constructor signatures don't have a name"
+  | None -> None
+
+let getPropType
+  (ctx: Ctx)
+  (env: Env)
+  (t: Type)
+  (key: PropName)
+  (optChain: bool)
+  (valueCategory: ValueCategory)
+  : Result<Type, TypeError> =
+  result {
+    let t = prune t
+
+    match t.Kind with
+    | TypeKind.Object { Elems = elems } ->
+      match inferMemberAccess ctx key valueCategory elems with
+      | Some t -> return t
+      | None ->
+        return! Error(TypeError.SemanticError $"Property {key} not found")
+    | TypeKind.Namespace { Name = nsName
+                           Values = values
+                           Schemes = schemes
+                           Namespaces = namespaces } ->
+      match key with
+      | PropName.String s ->
+        match values.TryFind s with
+        | None ->
+          match namespaces.TryFind s with
+          | None ->
+            return! Error(TypeError.SemanticError $"Property {key} not found")
+          | Some ns ->
+            return
+              { Kind = TypeKind.Namespace ns
+                Provenance = None }
+        // TODO: handle nested namespaces by adding a optional reference
+        // to the parent namespace that we can follow
+        | Some(binding) -> return qualifyTypeRefs binding.Type nsName schemes
+      | PropName.Number _ ->
+        return!
+          Error(
+            TypeError.SemanticError
+              "Can't use a number as a key with a namespace"
+          )
+      | PropName.Symbol _ ->
+        return!
+          Error(
+            TypeError.SemanticError
+              "Can't use a symbol as a key with a namespace"
+          )
+    | TypeKind.TypeRef { Name = typeRefName
+                         Scheme = scheme
+                         TypeArgs = typeArgs } ->
+      match scheme with
+      | Some scheme ->
+        let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+        return! getPropType ctx env objType key optChain valueCategory
+      | None ->
+        let! scheme = env.GetScheme typeRefName
+        let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+        return! getPropType ctx env objType key optChain valueCategory
+    | TypeKind.Union types ->
+      let undefinedTypes, definedTypes =
+        List.partition
+          (fun t -> t.Kind = TypeKind.Literal(Literal.Undefined))
+          types
+
+      if undefinedTypes.IsEmpty then
+        return!
+          Error(TypeError.NotImplemented "TODO: lookup member on union type")
+      else if not optChain then
+        return!
+          Error(TypeError.SemanticError "Can't lookup property on undefined")
+      else
+        match definedTypes with
+        | [ t ] ->
+          let! t = getPropType ctx env t key optChain valueCategory
+
+          let undefined =
+            { Kind = TypeKind.Literal(Literal.Undefined)
+              Provenance = None }
+
+          return union [ t; undefined ]
+        | _ ->
+          return!
+            Error(
+              TypeError.NotImplemented "TODO: lookup member on union type"
+            )
+    | TypeKind.Tuple { Elems = elems } ->
+      match key with
+      | PropName.String "length" ->
+        return
+          { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
+            Provenance = None }
+      | PropName.Number number ->
+        match number with
+        | Float _ ->
+          return!
+            Error(TypeError.SemanticError "numeric indexes can't be floats")
+        | Int i ->
+          if i >= 0 && i < elems.Length then
+            return elems[int i]
+          else
+            // TODO: report a diagnost about the index being out of range
+            return
+              { Kind = TypeKind.Literal(Literal.Undefined)
+                Provenance = None }
+      | _ ->
+        let _arrayScheme =
+          match env.TryFindScheme "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+        // TODO: lookup keys in array prototype
+        return!
+          Error(TypeError.NotImplemented "TODO: lookup member on tuple type")
+    | TypeKind.Array { Elem = elem; Length = length } ->
+      // TODO: update `TypeKind.Array` to also contain a `Length` type param
+      // TODO: use getPropertyType to look up the type of the `.length` property
+      // here (and when handling tuples) instead of fabricating it here.
+      // TODO: make type param mutable so that we can update it if it's a mutable
+      // array and the array size changes.
+      match key with
+      | PropName.String "length" -> return length
+      | PropName.Number _ ->
+        let unknown =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Provenance = None }
+
+        return union [ elem; unknown ]
+      | _ ->
+        // TODO: update Interop.Infer to combine Array and ReadonlyArray into
+        // a single Array type where methods are marked appropriately with
+        // `self` and `mut self`.
+        let arrayScheme =
+          match env.TryFindScheme "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+
+        // Instead of expanding the whole scheme which could be quite expensive
+        // we get the property from the type and then only instantiate it.
+        let t = arrayScheme.Type
+        let! prop = getPropType ctx env t key optChain valueCategory
+
+        let! prop =
+          instantiateType ctx prop arrayScheme.TypeParams (Some [ elem ])
+
+        return prop
+    | TypeKind.Literal(Literal.String _)
+    | TypeKind.Primitive Primitive.String ->
+      let scheme =
+        match env.TryFindScheme "String" with
+        | Some scheme -> scheme
+        | None -> failwith "String not in scope"
+
+      return! getPropType ctx env scheme.Type key optChain valueCategory
+    | TypeKind.Literal(Literal.Number _)
+    | TypeKind.Primitive Primitive.Number ->
+      let scheme =
+        match env.TryFindScheme "Number" with
+        | Some scheme -> scheme
+        | None -> failwith "Number not in scope"
+
+      return! getPropType ctx env scheme.Type key optChain valueCategory
+    | TypeKind.Literal(Literal.Boolean _)
+    | TypeKind.Primitive Primitive.Boolean ->
+      let scheme =
+        match env.TryFindScheme "Boolean" with
+        | Some scheme -> scheme
+        | None -> failwith "Boolean not in scope"
+
+      return! getPropType ctx env scheme.Type key optChain valueCategory
+    | TypeKind.Primitive Primitive.Symbol
+    | TypeKind.UniqueSymbol _ ->
+      let scheme =
+        match env.TryFindScheme "Symbol" with
+        | Some scheme -> scheme
+        | None -> failwith "Symbol not in scope"
+
+      return! getPropType ctx env scheme.Type key optChain valueCategory
+    | _ ->
+      // TODO: intersection types
+      return!
+        Error(TypeError.NotImplemented $"TODO: lookup member on type - {t}")
   }

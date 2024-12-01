@@ -7,7 +7,7 @@ open Xunit
 open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Prune
-open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.InferExpr
 
 open TestUtils
 

@@ -445,7 +445,7 @@ module Prelude =
       let newEnv = { env with Filename = fullPath }
 
       let! outEnv =
-        Infer.inferModule ctx newEnv ast
+        InferModule.inferModule ctx newEnv ast
         |> Result.mapError CompileError.TypeError
 
       return outEnv, ast
@@ -724,7 +724,7 @@ module Prelude =
     (m: Module)
     =
     let moduleEnv =
-      match Infer.inferModule ctx env m with
+      match InferModule.inferModule ctx env m with
       | Ok value -> value
       | Error err ->
         printfn "err = %A" err
@@ -857,7 +857,12 @@ module Prelude =
 
             exportNs),
           (fun ctx filename import ->
-            resolvePath projectRoot filename import.Path)
+            resolvePath projectRoot filename import.Path),
+          InferExpr.inferExpr,
+          InferModule.inferModuleItems,
+          InferPattern.inferPattern,
+          InferTypeAnn.inferTypeAnn,
+          InferClass.inferClass
         )
 
       return ctx

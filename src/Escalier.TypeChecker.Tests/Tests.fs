@@ -9,7 +9,7 @@ open Escalier.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Prune
-open Escalier.TypeChecker.Infer
+open Escalier.TypeChecker.InferExpr
 open Escalier.TypeChecker.Unify
 
 open TestUtils

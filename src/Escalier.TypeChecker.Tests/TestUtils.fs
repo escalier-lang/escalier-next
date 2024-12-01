@@ -20,7 +20,8 @@ let inferModule src =
     let! ctx, env = Prelude.getEnvAndCtx projectRoot
 
     let! env =
-      Infer.inferModule ctx env ast |> Result.mapError CompileError.TypeError
+      InferModule.inferModule ctx env ast
+      |> Result.mapError CompileError.TypeError
 
     return ctx, env
   }

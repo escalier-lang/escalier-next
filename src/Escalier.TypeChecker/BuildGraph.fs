@@ -726,12 +726,7 @@ let getFunctionDeps
     match body with
     | None -> typeDeps
     | Some body ->
-      let f: Function =
-        { Sig = fnSig
-          Body = body
-          Captures = None
-          InferredType = None }
-
+      let f: Function = { Sig = fnSig; Body = body; Captures = None }
       Set.union (findCaptures env possibleDeps Set.empty f) typeDeps
 
   deps

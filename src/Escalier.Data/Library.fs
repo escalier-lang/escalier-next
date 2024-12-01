@@ -166,8 +166,7 @@ module Syntax =
   type Function =
     { Sig: FuncSig
       Body: BlockOrExpr
-      mutable Captures: option<list<string>>
-      mutable InferredType: option<Type.Type> }
+      mutable Captures: option<list<string>> }
 
   type Constructor =
     { Sig: FuncSig

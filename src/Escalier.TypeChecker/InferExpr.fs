@@ -13,6 +13,7 @@ open Env
 open Mutability
 open Poly
 open Unify
+open UnifyCall
 open Helpers
 
 module rec InferExpr =
@@ -36,12 +37,12 @@ module rec InferExpr =
         | _ -> return! Error(TypeError.SemanticError "Invalid key type")
     }
 
-  ///Computes the type of the expression given by node.
-  ///The type of the node is computed in the context of the
-  ///supplied type environment env. Data types can be introduced into the
-  ///language simply by having a predefined set of identifiers in the initial
-  ///environment. environment; this way there is no need to change the syntax or, more
-  ///importantly, the type-checking program when extending the language.
+  /// Computes the type of the expression given by node.
+  /// The type of the node is computed in the context of the
+  /// supplied type environment env. Data types can be introduced into the
+  /// language simply by having a predefined set of identifiers in the initial
+  /// environment. environment; this way there is no need to change the syntax or, more
+  /// importantly, the type-checking program when extending the language.
   /// TODO(#286): Update `inferExpr` to check `typeAnn` for all expression types
   let inferExpr
     (ctx: Ctx)
@@ -158,31 +159,31 @@ module rec InferExpr =
           return result
         | ExprKind.Function { Sig = fnSig
                               Body = body
-                              Captures = captures
-                              InferredType = it } ->
-          match it with
-          | Some t -> return t
+                              Captures = captures } ->
+          match typeAnn with
+          // Necessary for InferHandler, InferJsxWithCallback, and
+          // InferPropsTypeObject tests to pass.
+          | Some typeAnnType ->
+            let! fn = inferFuncSig ctx env fnSig (Some typeAnnType)
+
+            let exprType =
+              { Kind = TypeKind.Function fn
+                Provenance = None }
+
+            // TODO: update `inferFuncSig` to do this instead
+            do! unify ctx env None exprType typeAnnType
+
+            // Typecheck the body, but don't use its type.  We want to use the
+            // type from the type annotation.
+            let! _ = inferFuncBody ctx env fnSig fn body
+
+            return exprType
           | None ->
-            match typeAnn with
-            | Some typeAnnType ->
-              let! fn = inferFuncSig ctx env fnSig (Some typeAnnType)
+            let! f = inferFunction ctx env fnSig body
 
-              let exprType =
-                { Kind = TypeKind.Function fn
-                  Provenance = None }
-
-              let invariantPaths = None // TODO
-              do! unify ctx env invariantPaths exprType typeAnnType
-
-              let! _ = inferFuncBody ctx env fnSig fn body
-
-              return exprType
-            | None ->
-              let! f = inferFunction ctx env fnSig body
-
-              return
-                { Kind = TypeKind.Function f
-                  Provenance = None }
+            return
+              { Kind = TypeKind.Function f
+                Provenance = None }
 
         | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferExpr ctx env None) elems
@@ -298,6 +299,7 @@ module rec InferExpr =
                           //     Reasons = [] }
                           None
 
+                    // Necessary for the InferPropsTypeObject test to pass.
                     let! t = inferExpr ctx env typeAnn value
 
                     return
@@ -1041,272 +1043,6 @@ module rec InferExpr =
       return! inferFuncBody ctx env fnSig placeholderFn body
     }
 
-  let qualifyTypeRefs
-    (t: Type)
-    (nsName: string)
-    (nsScheme: Map<string, Scheme>)
-    : Type =
-
-    let f =
-      fun (t: Type) ->
-        match t.Kind with
-        | TypeKind.TypeRef { Name = QualifiedIdent.Ident name
-                             Scheme = scheme
-                             TypeArgs = typeArgs } ->
-          match nsScheme.TryFind name with
-          | Some _ ->
-            let name = QualifiedIdent.Member(QualifiedIdent.Ident nsName, name)
-
-            let kind =
-              TypeKind.TypeRef
-                { Name = name
-                  TypeArgs = typeArgs
-                  Scheme = scheme }
-
-            Some { t with Kind = kind }
-          | None -> Some t
-        | _ -> Some t
-
-    Folder.foldType f t
-
-  let getPropType
-    (ctx: Ctx)
-    (env: Env)
-    (t: Type)
-    (key: PropName)
-    (optChain: bool)
-    (valueCategory: ValueCategory)
-    : Result<Type, TypeError> =
-    result {
-      let t = prune t
-
-      match t.Kind with
-      | TypeKind.Object { Elems = elems } ->
-        match inferMemberAccess ctx key valueCategory elems with
-        | Some t -> return t
-        | None ->
-          return! Error(TypeError.SemanticError $"Property {key} not found")
-      | TypeKind.Namespace { Name = nsName
-                             Values = values
-                             Schemes = schemes
-                             Namespaces = namespaces } ->
-        match key with
-        | PropName.String s ->
-          match values.TryFind s with
-          | None ->
-            match namespaces.TryFind s with
-            | None ->
-              return! Error(TypeError.SemanticError $"Property {key} not found")
-            | Some ns ->
-              return
-                { Kind = TypeKind.Namespace ns
-                  Provenance = None }
-          // TODO: handle nested namespaces by adding a optional reference
-          // to the parent namespace that we can follow
-          | Some(binding) -> return qualifyTypeRefs binding.Type nsName schemes
-        | PropName.Number _ ->
-          return!
-            Error(
-              TypeError.SemanticError
-                "Can't use a number as a key with a namespace"
-            )
-        | PropName.Symbol _ ->
-          return!
-            Error(
-              TypeError.SemanticError
-                "Can't use a symbol as a key with a namespace"
-            )
-      | TypeKind.TypeRef { Name = typeRefName
-                           Scheme = scheme
-                           TypeArgs = typeArgs } ->
-        match scheme with
-        | Some scheme ->
-          let! objType = expandScheme ctx env None scheme Map.empty typeArgs
-          return! getPropType ctx env objType key optChain valueCategory
-        | None ->
-          let! scheme = env.GetScheme typeRefName
-          let! objType = expandScheme ctx env None scheme Map.empty typeArgs
-          return! getPropType ctx env objType key optChain valueCategory
-      | TypeKind.Union types ->
-        let undefinedTypes, definedTypes =
-          List.partition
-            (fun t -> t.Kind = TypeKind.Literal(Literal.Undefined))
-            types
-
-        if undefinedTypes.IsEmpty then
-          return!
-            Error(TypeError.NotImplemented "TODO: lookup member on union type")
-        else if not optChain then
-          return!
-            Error(TypeError.SemanticError "Can't lookup property on undefined")
-        else
-          match definedTypes with
-          | [ t ] ->
-            let! t = getPropType ctx env t key optChain valueCategory
-
-            let undefined =
-              { Kind = TypeKind.Literal(Literal.Undefined)
-                Provenance = None }
-
-            return union [ t; undefined ]
-          | _ ->
-            return!
-              Error(
-                TypeError.NotImplemented "TODO: lookup member on union type"
-              )
-      | TypeKind.Tuple { Elems = elems } ->
-        match key with
-        | PropName.String "length" ->
-          return
-            { Kind = TypeKind.Literal(Literal.Number(Number.Int elems.Length))
-              Provenance = None }
-        | PropName.Number number ->
-          match number with
-          | Float _ ->
-            return!
-              Error(TypeError.SemanticError "numeric indexes can't be floats")
-          | Int i ->
-            if i >= 0 && i < elems.Length then
-              return elems[int i]
-            else
-              // TODO: report a diagnost about the index being out of range
-              return
-                { Kind = TypeKind.Literal(Literal.Undefined)
-                  Provenance = None }
-        | _ ->
-          let _arrayScheme =
-            match env.TryFindScheme "Array" with
-            | Some scheme -> scheme
-            | None -> failwith "Array not in scope"
-          // TODO: lookup keys in array prototype
-          return!
-            Error(TypeError.NotImplemented "TODO: lookup member on tuple type")
-      | TypeKind.Array { Elem = elem; Length = length } ->
-        // TODO: update `TypeKind.Array` to also contain a `Length` type param
-        // TODO: use getPropertyType to look up the type of the `.length` property
-        // here (and when handling tuples) instead of fabricating it here.
-        // TODO: make type param mutable so that we can update it if it's a mutable
-        // array and the array size changes.
-        match key with
-        | PropName.String "length" -> return length
-        | PropName.Number _ ->
-          let unknown =
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Provenance = None }
-
-          return union [ elem; unknown ]
-        | _ ->
-          // TODO: update Interop.Infer to combine Array and ReadonlyArray into
-          // a single Array type where methods are marked appropriately with
-          // `self` and `mut self`.
-          let arrayScheme =
-            match env.TryFindScheme "Array" with
-            | Some scheme -> scheme
-            | None -> failwith "Array not in scope"
-
-          // Instead of expanding the whole scheme which could be quite expensive
-          // we get the property from the type and then only instantiate it.
-          let t = arrayScheme.Type
-          let! prop = getPropType ctx env t key optChain valueCategory
-
-          let! prop =
-            instantiateType ctx prop arrayScheme.TypeParams (Some [ elem ])
-
-          return prop
-      | TypeKind.Literal(Literal.String _)
-      | TypeKind.Primitive Primitive.String ->
-        let scheme =
-          match env.TryFindScheme "String" with
-          | Some scheme -> scheme
-          | None -> failwith "String not in scope"
-
-        return! getPropType ctx env scheme.Type key optChain valueCategory
-      | TypeKind.Literal(Literal.Number _)
-      | TypeKind.Primitive Primitive.Number ->
-        let scheme =
-          match env.TryFindScheme "Number" with
-          | Some scheme -> scheme
-          | None -> failwith "Number not in scope"
-
-        return! getPropType ctx env scheme.Type key optChain valueCategory
-      | TypeKind.Literal(Literal.Boolean _)
-      | TypeKind.Primitive Primitive.Boolean ->
-        let scheme =
-          match env.TryFindScheme "Boolean" with
-          | Some scheme -> scheme
-          | None -> failwith "Boolean not in scope"
-
-        return! getPropType ctx env scheme.Type key optChain valueCategory
-      | TypeKind.Primitive Primitive.Symbol
-      | TypeKind.UniqueSymbol _ ->
-        let scheme =
-          match env.TryFindScheme "Symbol" with
-          | Some scheme -> scheme
-          | None -> failwith "Symbol not in scope"
-
-        return! getPropType ctx env scheme.Type key optChain valueCategory
-      | _ ->
-        // TODO: intersection types
-        return!
-          Error(TypeError.NotImplemented $"TODO: lookup member on type - {t}")
-    }
-
-  let inferMemberAccess
-    // TODO: do the search first and then return the appropriate ObjTypeElem
-    (ctx: Ctx)
-    (key: PropName)
-    (valueCategory: ValueCategory)
-    (elems: list<ObjTypeElem>)
-    : option<Type> =
-
-    // TODO: instead of using tryFind, use a for-loop with an early return
-    // we can use this to provide better error messages when trying to assign
-    // something that has a getter by no setter and similar situations.
-    let elem =
-      List.tryFind
-        (fun (elem: ObjTypeElem) ->
-          match elem with
-          | Property { Name = name } -> name = key
-          | Method { Name = name } ->
-            name = key && valueCategory = ValueCategory.RValue
-          | Getter { Name = name } ->
-            name = key && valueCategory = ValueCategory.RValue
-          | Setter { Name = name } ->
-            name = key && valueCategory = ValueCategory.LValue
-          | Mapped _ ->
-            failwith
-              "TODO: inferMemberAccess - mapped (check if key is subtype of Mapped.TypeParam)"
-          | _ -> false)
-        elems
-
-    match elem with
-    | Some elem ->
-      match elem with
-      | Property p ->
-        match p.Optional with
-        | true ->
-          let undefined =
-            { Kind = TypeKind.Literal(Literal.Undefined)
-              Provenance = None }
-
-          Some(union [ p.Type; undefined ])
-        | false -> Some p.Type
-      | Method { Fn = fn } ->
-        // TODO: replace `Self` with the object type
-        // TODO: check if the receiver is mutable or not
-        let t =
-          { Kind = TypeKind.Function fn
-            Provenance = None }
-
-        Some t
-      | Getter { Fn = fn } -> Some fn.Return // TODO: handle throws
-      | Setter { Fn = fn } -> Some fn.ParamList[0].Type // TODO: handle throws
-      | Mapped _mapped -> failwith "TODO: inferMemberAccess - mapped"
-      | RestSpread _ -> failwith "TODO: inferMemberAccess - rest"
-      | Callable _ -> failwith "Callable signatures don't have a name"
-      | Constructor _ -> failwith "Constructor signatures don't have a name"
-    | None -> None
-
   let inferBlockOrExpr
     (ctx: Ctx)
     (env: Env)
@@ -1672,273 +1408,6 @@ module rec InferExpr =
       return
         { TypeParams = typeParams
           Type = generalizeType t }
-    }
-
-  let unifyCall
-    (ctx: Ctx)
-    (env: Env)
-    (ips: option<list<list<string>>>)
-    (args: list<Syntax.Expr>)
-    (typeArgs: option<list<Type>>)
-    (callee: Type)
-    : Result<Type * Type, TypeError> =
-
-    result {
-      let callee = prune callee
-
-      match callee.Kind with
-      | TypeKind.Function func ->
-        return! unifyFuncCall ctx env ips args typeArgs func
-      | TypeKind.TypeRef { Name = name; Scheme = scheme } ->
-        let callee =
-          match scheme with
-          | Some scheme ->
-            // TODO: handle typeArgs
-            scheme.Type
-          | None ->
-            match env.GetScheme(name) with
-            | Result.Ok scheme ->
-              // TODO: handle typeArgs
-              scheme.Type
-            | Result.Error _ -> failwith "'{name}' is not in scope"
-
-        return! unifyCall ctx env ips args typeArgs callee
-      | TypeKind.Object { Elems = elems } ->
-        let mutable callable = None
-
-        for elem in elems do
-          match elem with
-          | Callable c ->
-            callable <-
-              Some
-                { Kind = TypeKind.Function c
-                  Provenance = None }
-          | _ -> ()
-
-        match callable with
-        | Some c -> return! unifyCall ctx env ips args typeArgs c
-        | None ->
-          return!
-            Error(TypeError.SemanticError $"No callable signature in {callee}")
-      | TypeKind.Intersection types ->
-        let mutable result = None
-
-        // TODO: handle an intersection of intersections
-
-        let mutable reports = []
-        let mutable retTypes = []
-        let mutable throwTypes = []
-
-        for t in types do
-          if result.IsNone then
-            ctx.PushReport()
-
-            match unifyCall ctx env ips args typeArgs t with
-            | Result.Ok(retType, throwType) ->
-              retTypes <- retType :: retTypes
-              throwTypes <- throwType :: throwTypes
-
-              if ctx.Report.Diagnostics.IsEmpty then
-                result <- Some(retType, throwType)
-            | Result.Error _ -> ()
-
-            reports <- ctx.Report :: reports
-            ctx.PopReport()
-
-        match result with
-        | Some(value) -> return value
-        | None ->
-          let retType =
-            { Kind = TypeKind.Intersection(List.rev retTypes)
-              Provenance = None }
-
-          let throwType =
-            { Kind = TypeKind.Intersection(List.rev throwTypes)
-              Provenance = None }
-
-          // TODO: come up with a better way of merging diagnostics
-          for report in reports do
-            ctx.Report.Diagnostics <-
-              ctx.Report.Diagnostics @ report.Diagnostics
-
-          return retType, throwType
-      | TypeKind.TypeVar _ ->
-
-        // TODO: use a `result {}` CE here
-        let! argTypes = List.traverseResultM (inferExpr ctx env None) args
-
-        let paramList =
-          List.mapi
-            (fun i t ->
-              let name = $"arg{i}"
-
-              let p: Pattern =
-                Pattern.Identifier { Name = name; IsMut = false }
-
-              { Pattern = p
-                Type = t
-                Optional = false })
-            argTypes
-
-        let retType = ctx.FreshTypeVar None None
-        let throwsType = ctx.FreshTypeVar None None
-
-        let fn =
-          { ParamList = paramList
-            Self = None // TODO: pass in the receiver if this is a method call
-            Return = retType
-            Throws = throwsType
-            TypeParams = None } // TODO
-
-        let callType =
-          { Type.Kind = TypeKind.Function fn
-            Provenance = None }
-
-        match bind ctx env ips callee callType with
-        | Ok _ -> return (prune retType, prune throwsType)
-        | Error e -> return! Error e
-      | kind ->
-        printfn $"callee = {callee}"
-        return! Error(TypeError.NotImplemented $"kind = {kind}")
-    }
-
-  // Returns a Result with 2-tuple containing the return and throws types.
-  let unifyFuncCall
-    (ctx: Ctx)
-    (env: Env)
-    (ips: option<list<list<string>>>)
-    (args: list<Syntax.Expr>)
-    (typeArgs: option<list<Type>>)
-    (callee: Function)
-    : Result<Type * Type, TypeError> =
-
-    result {
-      let! callee =
-        result {
-          if callee.TypeParams.IsSome then
-            return! instantiateFunc ctx callee typeArgs
-          else
-            return callee
-        }
-
-      // TODO: require the optional params come after the required params
-      // TODO: require that if there is a rest param, it comes last
-      let optionalParams, requiredParams =
-        callee.ParamList
-        |> List.partition (fun p ->
-          match p.Pattern with
-          | Pattern.Rest _ -> true
-          | _ -> p.Optional)
-
-      if args.Length < requiredParams.Length then
-        // TODO: make this into a diagnostic instead of an error
-        return!
-          Error(
-            TypeError.SemanticError "function called with too few arguments"
-          )
-
-      let requiredArgs, optionalArgs = List.splitAt requiredParams.Length args
-
-      for arg, param in List.zip requiredArgs requiredParams do
-        let! invariantPaths =
-          checkMutability
-            (getTypePatBindingPaths param.Pattern)
-            (getExprBindingPaths env arg)
-
-        let! argType = inferExpr ctx env (Some param.Type) arg
-
-        if
-          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
-        then
-          ()
-        else
-          match unify ctx env invariantPaths argType param.Type with
-          | Ok _ -> ()
-          | Error reason ->
-            // QUESTION: Does unifying the param with `never` actually do
-            // anything or could we skip it?  Does this have to do with
-            // params whose type annotations are or include type params?
-            let never =
-              { Kind = TypeKind.Keyword Keyword.Never
-                Provenance = None }
-
-            do! unify ctx env ips never param.Type
-
-            ctx.Report.AddDiagnostic(
-              { Description =
-                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
-                Reasons = [ reason ] }
-            )
-
-      let optionalParams, restParams =
-        optionalParams
-        |> List.partition (fun p ->
-          match p.Pattern with
-          | Pattern.Rest _ -> false
-          | _ -> true)
-
-      let! restParam =
-        match restParams with
-        | [] -> Result.Ok None
-        | [ restParam ] -> Result.Ok(Some(restParam))
-        | _ -> Error(TypeError.SemanticError "Too many rest params!")
-
-      let restArgs =
-        match restParam with
-        | None -> None
-        | Some _ ->
-          if optionalArgs.Length > optionalParams.Length then
-            Some(List.skip optionalParams.Length optionalArgs)
-          else
-            Some []
-
-      // Functions can be passed more args than parameters as well as
-      // fewer args that the number optional params.  We handle both
-      // cases here.
-      let minLength = min optionalArgs.Length optionalParams.Length
-      let optionalParams = List.take minLength optionalParams
-      let optionalArgs = List.take minLength optionalArgs
-
-      let mutable reasons: list<TypeError> = []
-
-      for arg, param in List.zip optionalArgs optionalParams do
-        let! argType = inferExpr ctx env None arg
-
-        if
-          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
-        then
-          ()
-        else
-          let! invariantPaths =
-            checkMutability
-              (getTypePatBindingPaths param.Pattern)
-              (getExprBindingPaths env arg)
-
-          match unify ctx env invariantPaths argType param.Type with
-          | Ok _ -> ()
-          | Error(reason) -> reasons <- reason :: reasons
-
-      match restArgs, restParam with
-      | Some args, Some param ->
-        let! args = List.traverseResultM (inferExpr ctx env None) args
-
-        let tuple =
-          { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
-            Provenance = None }
-
-        // TODO: check the result type and add a `reason` to `reasons` if there's
-        // a type error
-        do! unify ctx env ips tuple param.Type
-      | _ -> ()
-
-      if not reasons.IsEmpty then
-        let diagnostic =
-          { Description = "Calling function with incorrect args"
-            Reasons = List.rev reasons }
-
-        ctx.Report.AddDiagnostic diagnostic
-
-      return (callee.Return, callee.Throws)
     }
 
   let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =

@@ -15,8 +15,6 @@ jobs:
           dotnet-version: "8.x"
       - name: Install tools
         run: dotnet tool restore
-      - name: Install Bolero
-        run: dotnet new -i Bolero.Templates
       - name: Install wasi-experimental
         run: dotnet workload install wasi-experimental
       - name: Use Node.js 18.x
@@ -27,9 +25,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: |
-          dotnet clean
-          dotnet build
+        run: dotnet build
       - name: Test
         run: dotnet test --collect:"XPlat Code Coverage;Format=json,lcov,cobertura"
       - name: Upload coverage reports to Codecov

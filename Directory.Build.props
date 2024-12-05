@@ -2,6 +2,7 @@
     <PropertyGroup>
         <OtherFlags>$(OtherFlags) --warnon:3559 --warnon:3560 --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>FS3551</NoWarn>
     </PropertyGroup>
     <!--    <Target Name="FSharpLint" AfterTargets="BeforeBuild">-->
     <!--        <Exec-->

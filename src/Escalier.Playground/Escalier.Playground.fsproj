@@ -1,29 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
-        <RuntimeIdentifier>wasi-wasm</RuntimeIdentifier>
-        <OutputType>Exe</OutputType>
-        <PublishTrimmed>true</PublishTrimmed>
-
-        <NoWarn>202</NoWarn>
-
-        <!-- Make sure we create a standalone wasm file for our plugin -->
-        <WasmSingleFileBundle>true</WasmSingleFileBundle>
-        <WasmBuildNative>true</WasmBuildNative>
+        <RootNamespace>Escalier.Playground</RootNamespace>
     </PropertyGroup>
-
     <ItemGroup>
-        <Compile Include="Program.fs"/>
+        <Compile Include="Main.fs"/>
+        <Compile Include="Startup.fs"/>
     </ItemGroup>
-
     <ItemGroup>
-        <PackageReference Include="Extism.Pdk" Version="1.0.2"/>
-        <PackageReference Include="FSharp.Data" Version="6.4.0"/>
+        <PackageReference Include="Bolero" Version="0.24.37"/>
+        <PackageReference Include="Bolero.Build" Version="0.24.37"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.*"/>
+        <PackageReference Include="System.Net.Http.Json" Version="8.0.*"/>
     </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Escalier.Compiler\Escalier.Compiler.fsproj"/>
-    </ItemGroup>
-
 </Project>

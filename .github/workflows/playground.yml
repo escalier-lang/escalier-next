@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: build.sh
+        run: dotnet publish src/Escalier.Playground -c Release --self-contained -o out
       - name: List files
         run: ls -R out/wwwroot
       - name: Upload Page Artifact

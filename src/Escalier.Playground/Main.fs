@@ -61,7 +61,7 @@ let update (http: HttpClient) message model =
 
   | GetBooks ->
     let getBooks () =
-      http.GetFromJsonAsync<Book[]>("/books.json")
+      http.GetFromJsonAsync<Book[]>("/escalier-next/books.json")
 
     let cmd = Cmd.OfTask.either getBooks () GotBooks Error
     { model with books = None }, cmd

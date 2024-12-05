@@ -25,7 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: dotnet build
+        run: |
+          dotnet clean
+          dotnet build
       - name: Test
         run: dotnet test --collect:"XPlat Code Coverage;Format=json,lcov,cobertura"
       - name: Upload coverage reports to Codecov

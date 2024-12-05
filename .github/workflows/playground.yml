@@ -9,19 +9,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET 8.x
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.x"
+          dotnet-version: "8.0.100"
       - name: Install tools
         run: dotnet tool restore
       - name: Install wasi-experimental
         run: dotnet workload install wasi-experimental
-      - name: Install wasi-sdk
-        run: |
-          export WASI_VERSION=21
-          export WASI_VERSION_FULL=${WASI_VERSION}.0
-          wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz
-          tar xvf wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz
       - name: Use Node.js 18.x
         uses: actions/setup-node@v4
         with:
@@ -29,37 +23,14 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm ci
-      - name: Build .wasm bundle
-        run: |
-          export WASI_VERSION=21
-          export WASI_VERSION_FULL=${WASI_VERSION}.0
-          export WASI_SDK_PATH=`pwd`/wasi-sdk-${WASI_VERSION_FULL}
-          dotnet build -c Release
       - name: Build
-        run: npm run build:prod
-      - name: Copy .d.ts files
-        run: |
-          mkdir -p dist/node_modules/typescript/lib
-          mkdir -p dist/node_modules/csstype
-          mkdir -p dist/node_modules/@types/prop-types
-          mkdir -p dist/node_modules/@types/react
-          mkdir -p dist/node_modules/@types/scheduler
-          cp node_modules/typescript/lib/*.d.ts dist/node_modules/typescript/lib
-          cp node_modules/csstype/package.json dist/node_modules/csstype/package.json
-          cp node_modules/csstype/index.d.ts dist/node_modules/csstype/index.d.ts
-          cp node_modules/@types/prop-types/package.json dist/node_modules/@types/prop-types/package.json
-          cp node_modules/@types/prop-types/index.d.ts dist/node_modules/@types/prop-types/index.d.ts
-          cp node_modules/@types/react/package.json dist/node_modules/@types/react/package.json
-          cp node_modules/@types/react/index.d.ts dist/node_modules/@types/react/index.d.ts
-          cp node_modules/@types/scheduler/package.json dist/node_modules/@types/scheduler/package.json
-          cp node_modules/@types/scheduler/index.d.ts dist/node_modules/@types/scheduler/index.d.ts
-          cp node_modules/@types/scheduler/tracing.d.ts dist/node_modules/@types/scheduler/tracing.d.ts
+        run: build.sh
       - name: List files
-        run: ls -R dist
+        run: ls -R out/wwwroot
       - name: Upload Page Artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: ./dist/
+          path: ./out/wwwroot
     
   deploy:
     needs: build

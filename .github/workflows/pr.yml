@@ -13,6 +13,8 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: "8.0.100"
+      - name: Print .NET version
+        run: dotnet --version
       - name: Install tools
         run: dotnet tool restore
       - name: Install wasi-experimental

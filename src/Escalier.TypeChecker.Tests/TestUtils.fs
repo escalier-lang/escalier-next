@@ -3,13 +3,11 @@ module TestUtils
 open FsToolkit.ErrorHandling
 open Xunit
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker.Error
-
-type CompileError = Prelude.CompileError
 
 let projectRoot = __SOURCE_DIRECTORY__
 
@@ -17,7 +15,8 @@ let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+    let! ctx, env =
+      TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let! env =
       InferModule.inferModule ctx env ast

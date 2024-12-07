@@ -6,8 +6,7 @@ open FsToolkit.ErrorHandling
 open System.IO
 open Xunit
 
-open Escalier.Compiler
-// open Escalier.Parser
+open Escalier.Compiler.Compiler
 open Escalier.Interop.Parser
 open Escalier.Interop.Migrate
 open Escalier.TypeChecker
@@ -22,8 +21,6 @@ type Assert with
   static member inline Type(env: Env, name: string, expected: string) =
     let scheme = env.FindScheme name
     Assert.Equal(expected, scheme.ToString())
-
-type CompileError = Prelude.CompileError
 
 let projectRoot = __SOURCE_DIRECTORY__
 
@@ -62,7 +59,8 @@ let ParseAndInferBasicDecls () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -95,7 +93,8 @@ let ParseAndInferTypeAliases () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -130,7 +129,8 @@ let ParseAndInferInterface () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -165,7 +165,8 @@ let ParseAndInferMappedType () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -195,7 +196,8 @@ let ParseAndInferUnorderedTypeParams () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -228,7 +230,8 @@ let ParseAndInferFuncDecl () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -259,7 +262,8 @@ let ParseAndInferClassDecl () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -297,7 +301,8 @@ let ParseAndInferClassDeclWithStatics () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -336,7 +341,8 @@ let ImportThirdPartyModules () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -402,7 +408,8 @@ let ParseAndInferPropertyKey () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -436,7 +443,8 @@ let ParseAndMigrateExportDeclareFunction () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -560,7 +568,8 @@ let ParseAndInferLibEs5 () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast

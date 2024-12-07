@@ -6,16 +6,13 @@ open VerifyXunit
 open VerifyTests
 open FsToolkit.ErrorHandling
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.Data
 open Escalier.Interop.TypeScript
 open Escalier.Codegen.Printer
 open Escalier.Codegen.Codegen
 open Escalier.Parser
 open Escalier.TypeChecker
-
-type CompileError = Prelude.CompileError
-
 
 let settings = VerifySettings()
 settings.UseDirectory("snapshots")
@@ -29,7 +26,7 @@ let parseAndCodegen (src: string) =
   asyncResult {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot
+    let! ctx, env = TestCompiler.getEnvAndCtx projectRoot
 
     let! env =
       InferModule.inferModule ctx env ast
@@ -942,7 +939,9 @@ let CodegenDtsBasics () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let projectRoot = __SOURCE_DIRECTORY__
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let env = { env with Filename = "input.esc" }
 
@@ -980,7 +979,9 @@ let CodegenDtsGeneric () =
         Parser.parseModule src |> Result.mapError CompileError.ParseError
 
       let projectRoot = __SOURCE_DIRECTORY__
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let env = { env with Filename = "input.esc" }
       // TODO: as part of generalization, we need to update the function's

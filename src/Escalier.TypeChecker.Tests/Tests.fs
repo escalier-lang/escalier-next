@@ -5,7 +5,7 @@ open FParsec
 open FsToolkit.ErrorHandling
 open Xunit
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Prune
@@ -23,7 +23,9 @@ let infer src =
         Result.mapError CompileError.ParseError (Result.Error(parserError))
 
     let projectRoot = __SOURCE_DIRECTORY__
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+
+    let! ctx, env =
+      TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env None ast)
 
@@ -409,9 +411,7 @@ let DontIncludeSettersInRvalues () =
   Assert.Equal(
     result,
     Result.Error(
-      Compiler.CompileError.TypeError(
-        TypeError.SemanticError "Property bar not found"
-      )
+      CompileError.TypeError(TypeError.SemanticError "Property bar not found")
     )
   )
 
@@ -437,7 +437,7 @@ let DontIncludeSettersInRvaluesDestructuring () =
   Assert.Equal(
     result,
     Result.Error(
-      Compiler.CompileError.TypeError(
+      CompileError.TypeError(
         TypeError.PropertyMissing(Escalier.Data.Type.PropName.String "bar")
       )
     )
@@ -468,9 +468,7 @@ let DontIncludeGettersInLvalues () =
   Assert.Equal(
     result,
     Result.Error(
-      Compiler.CompileError.TypeError(
-        TypeError.SemanticError "Property bar not found"
-      )
+      CompileError.TypeError(TypeError.SemanticError "Property bar not found")
     )
   )
 

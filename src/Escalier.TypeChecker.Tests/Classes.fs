@@ -3,6 +3,7 @@ module Classes
 open FsToolkit.ErrorHandling
 open Xunit
 
+open Escalier.Compiler.Compiler
 open Escalier.TypeChecker.Unify
 
 open TestUtils

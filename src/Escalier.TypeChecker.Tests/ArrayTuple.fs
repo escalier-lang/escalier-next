@@ -3,7 +3,7 @@ module ArrayTuple
 open FsToolkit.ErrorHandling
 open Xunit
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Env
 open Escalier.TypeChecker
@@ -13,7 +13,9 @@ open TestUtils
 let inferModule src =
   result {
     let projectRoot = __SOURCE_DIRECTORY__
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+
+    let! ctx, env =
+      TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let prelude =
       """

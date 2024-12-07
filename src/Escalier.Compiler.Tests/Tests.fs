@@ -4,7 +4,7 @@ open FsToolkit.ErrorHandling
 open Xunit
 open System.IO
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.TypeChecker.Env
 
 type Assert with
@@ -104,7 +104,7 @@ let BasicsTests (fixtureDir: string) =
       //   them back to their original names after we've inferred all of their
       //   values.
 
-      let paths = Compiler.findFiles fixtureDir entryPath
+      let paths = TestCompiler.findFiles fixtureDir entryPath
 
       printfn "Filenames:"
 
@@ -112,7 +112,7 @@ let BasicsTests (fixtureDir: string) =
         printfn "%s" path
 
       do!
-        Compiler.compileFile mockWriter fixtureDir entryPath
+        TestCompiler.compileFile mockWriter fixtureDir entryPath
         |> Async.RunSynchronously
 
       let mutable actual: Map<string, Output> = Map.empty

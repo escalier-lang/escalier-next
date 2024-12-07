@@ -4,7 +4,7 @@ open FParsec
 open FsToolkit.ErrorHandling
 open Xunit
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.Interop.Parser
 open Escalier.Interop.Migrate
 open Escalier.TypeChecker
@@ -20,8 +20,6 @@ type Assert with
   static member inline Type(env: Env, name: string, expected: string) =
     let scheme = env.FindScheme name
     Assert.Equal(expected, scheme.ToString())
-
-type CompileError = Prelude.CompileError
 
 let projectRoot = __SOURCE_DIRECTORY__
 
@@ -44,7 +42,8 @@ let InferInterfaceExtendsInferfaceExtendsInterface () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -95,7 +94,8 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithTypeParams () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -146,7 +146,8 @@ let InferInterfaceExtendsInferfaceExtendsInterfaceWithDestructuring () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -195,7 +196,8 @@ let InferInterfaceExtendsMultipleInterfaces () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast
@@ -246,7 +248,8 @@ let InferInterfaceExtendsMultipleInterfacesWithDestructuring () =
 
       let ast = migrateModule ast
 
-      let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+      let! ctx, env =
+        TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let! env =
         InferModule.inferModule ctx env ast

@@ -3,6 +3,7 @@ module Escalier.TypeChecker.Tests.Exact
 open FsToolkit.ErrorHandling
 open Xunit
 
+open Escalier.Compiler.Compiler
 open Escalier.TypeChecker.Error
 open Escalier.TypeChecker.Unify
 

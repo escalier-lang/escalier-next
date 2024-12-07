@@ -1,25 +1,70 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bolero Application</title>
-    <base href="/escalier-next/">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.4/css/bulma.min.css">
-    <link rel="stylesheet" href="css/index.css">
-    <link rel="stylesheet" href="Escalier.Playground.Client.styles.css">
-  </head>
-  <body>
-    <nav class="navbar is-dark" role="navigation" aria-label="main navigation">
-      <div class="navbar-brand">
-        <a class="navbar-item has-text-weight-bold is-size-5" href="https://fsbolero.io">
-          <img style="height:40px" src="https://github.com/fsbolero/website/raw/master/src/Website/img/wasm-fsharp.png" />
-          &nbsp;
-          Bolero
-        </a>
-      </div>
-    </nav>
-    <div id="main">Loading...</div>
-    <script src="_framework/blazor.webassembly.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Bolero Application</title>
+  <base href="/escalier-next/">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.4/css/bulma.min.css" rel="stylesheet">
+  <link href="css/index.css" rel="stylesheet">
+  <link href="Escalier.Playground.Client.styles.css" rel="stylesheet">
+</head>
+<body>
+  <nav aria-label="main navigation" class="navbar is-dark" role="navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item has-text-weight-bold is-size-5" href="https://fsbolero.io">
+        <img src="https://github.com/fsbolero/website/raw/master/src/Website/img/wasm-fsharp.png"
+             style="height:40px"/>
+        &nbsp;
+        Bolero
+      </a>
+    </div>
+  </nav>
+  <div id="main">Loading...</div>
+  <script type="module">
+    import {fs} from 'https://cdn.jsdelivr.net/npm/memfs@4.14.1/+esm'
+
+    const paths = [
+      "/node_modules/typescript/lib/lib.es5.d.ts",
+      "/node_modules/typescript/lib/lib.es6.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.collection.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.core.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.generator.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.iterable.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.promise.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.proxy.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.reflect.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.symbol.d.ts",
+      "/node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts",
+
+      "/node_modules/typescript/lib/lib.dom.d.ts",
+    ]
+
+    fs.mkdirSync('/node_modules/typescript/lib', {recursive: true});
+
+    Promise.all(
+      paths.map(async (path) => {
+        const res = await fetch(`/escalier-next${path}`);
+        const text = await res.text();
+        console.log("fetched: ", path);
+        fs.writeFileSync(path, text, {encoding: 'utf-8'});
+        return text;
+      })
+    ).then(() => {
+      console.log("finished");
+      const contents = fs.readFileSync('/node_modules/typescript/lib/lib.es6.d.ts', {encoding: 'utf-8'});
+      console.log(contents);
+
+      // TODO: add a package.json file at the root
+
+      // TODO: add functions on window for:
+      // - Directory.Exists
+      // - Directory.GetParent
+      // - File.Exists
+      // - File.ReadAllText
+    });
+  </script>
+  <script src="_framework/blazor.webassembly.js"></script>
+</body>
 </html>

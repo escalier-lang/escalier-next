@@ -5,7 +5,7 @@ open Escalier.Data.Type
 open FsToolkit.ErrorHandling
 open Xunit
 
-open Escalier.Compiler
+open Escalier.Compiler.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Env
@@ -18,7 +18,8 @@ let inferModule src =
   result {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let! ctx, env = Prelude.getEnvAndCtx projectRoot |> Async.RunSynchronously
+    let! ctx, env =
+      TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
     let! env =
       InferModule.inferModule ctx env ast

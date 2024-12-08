@@ -24,20 +24,16 @@ type Model =
   { page: Page
     counter: int
     books: Book[] option
-    error: string option }
+    error: string option
+    input: string
+    output: string
+    compiler: Compiler }
 
 and Book =
   { title: string
     author: string
     publishDate: DateTime
     isbn: string }
-
-let initModel =
-  { page = Home
-    counter = 0
-    books = None
-    error = None }
-
 
 /// The Elmish application's update messages.
 type Message =
@@ -49,6 +45,7 @@ type Message =
   | GotBooks of Book[]
   | Error of exn
   | ClearError
+  | SetOutput of string
 
 let update (http: HttpClient) message model =
   match message with
@@ -74,77 +71,45 @@ let update (http: HttpClient) message model =
 
   | Error exn -> { model with error = Some exn.Message }, Cmd.none
   | ClearError -> { model with error = None }, Cmd.none
+  | SetOutput output -> { model with output = output }, Cmd.none
 
 /// Connects the routing system to the Elmish application.
 let router = Router.infer SetPage (fun model -> model.page)
 
 type Main = Template<"wwwroot/main.html">
 
-let homePage model dispatch = Main.Home().Elt()
+type MyComponent() =
+  inherit Component()
 
-let counterPage model dispatch =
-  Main
-    .Counter()
-    .Decrement(fun _ -> dispatch Decrement)
-    .Increment(fun _ -> dispatch Increment)
-    .Value(model.counter, (fun v -> dispatch (SetCounter v)))
-    .Elt()
+  override this.Render() = div { "Hello, world!" }
 
-let dataPage model dispatch =
-  Main
-    .Data()
-    .Reload(fun _ -> dispatch GetBooks)
-    .Rows(
-      cond model.books
-      <| function
-        | None -> Main.EmptyData().Elt()
-        | Some books ->
-          forEach books
-          <| fun book ->
-            tr {
-              td { book.title }
-              td { book.author }
-              td { book.publishDate.ToString("yyyy-MM-dd") }
-              td { book.isbn }
-            }
-    )
-    .Elt()
+let myElement: Node = comp<MyComponent> { attr.empty () }
 
-
-let menuItem (model: Model) (page: Page) (text: string) =
-  Main
-    .MenuItem()
-    .Active(if model.page = page then "is-active" else "")
-    .Url(router.Link page)
-    .Text(text)
-    .Elt()
-
-let view model dispatch =
+let view (model: Model) dispatch =
   Main()
-    .Menu(
-      concat {
-        menuItem model Home "Home"
-        menuItem model Counter "Counter"
-        menuItem model Data "Download data"
+    .Input(model.input)
+    .Output(model.output)
+    // .Test(myElement)
+    .Change(fun e ->
+      let input = e.Value.ToString()
+      printfn $"Input changed to: {input}"
+
+      let writer = new StringWriter()
+      let baseDir = "/"
+
+      async {
+        let! result = model.compiler.compileString writer baseDir input
+
+        match result with
+        | Ok(js, dts) ->
+          printfn $"JS: {js}"
+          printfn $"DTS: {dts}"
+          dispatch (SetOutput js)
+        | Result.Error e -> printfn $"Error: {e}"
+
       }
-    )
-    .Body(
-      cond model.page
-      <| function
-        | Home -> homePage model dispatch
-        | Counter -> counterPage model dispatch
-        | Data -> dataPage model dispatch
-    )
-    .Error(
-      cond model.error
-      <| function
-        | None -> empty ()
-        | Some err ->
-          Main
-            .ErrorNotification()
-            .Text(err)
-            .Hide(fun _ -> dispatch ClearError)
-            .Elt()
+      |> Async.Start
+
     )
     .Elt()
 
@@ -194,7 +159,7 @@ type MyApp() =
 
       let writer = new StringWriter()
       let baseDir = "/"
-      let src = "let x = 1 + 2;"
+      let src = "let x = 10;"
       let! result = compiler.compileString writer baseDir src
 
       match result with
@@ -205,6 +170,16 @@ type MyApp() =
 
     }
     |> Async.Start
+
+    // TODO: include the `compiler` instance on the model
+    let initModel =
+      { page = Home
+        counter = 0
+        books = None
+        error = None
+        input = "let x = 10;"
+        output = "let x = 10;"
+        compiler = compiler }
 
     Program.mkProgram (fun _ -> initModel, Cmd.ofMsg GetBooks) update view
     |> Program.withRouter router

@@ -1,12 +1,17 @@
 module Escalier.Playground.Main
 
 open System
+open System.IO
 open System.Net.Http
 open System.Net.Http.Json
 open Microsoft.AspNetCore.Components
+open Microsoft.JSInterop
 open Elmish
 open Bolero
 open Bolero.Html
+
+open Escalier.Compiler.FileSystem
+open Escalier.Compiler.Compiler
 
 /// Routing endpoints definition.
 type Page =
@@ -143,6 +148,29 @@ let view model dispatch =
     )
     .Elt()
 
+let makeFileSystem (runtime: IJSRuntime) : IFileSystem =
+  { new IFileSystem with
+      member self.ReadAllTextAsync(path: string) : Async<string> =
+        runtime.InvokeAsync("window.ReadAllTextAsync", path).AsTask()
+        |> Async.AwaitTask
+
+      member self.WriteAllTextAsync(path, text) =
+        runtime.InvokeVoidAsync("window.WriteAllTextAsync", path, text).AsTask()
+        |> Async.AwaitTask
+
+      member self.FileExistsAsync path =
+        runtime.InvokeAsync("window.FileExistsAsync", path).AsTask()
+        |> Async.AwaitTask
+
+      member self.DirExistsAsync path =
+        runtime.InvokeAsync("window.DirExistsAsync", path).AsTask()
+        |> Async.AwaitTask
+
+      member self.GetParentAsync path =
+        runtime.InvokeAsync<string>("window.GetParentAsync", path).AsTask()
+        |> Async.AwaitTask }
+
+
 type MyApp() =
   inherit ProgramComponent<Model, Message>()
 
@@ -153,6 +181,30 @@ type MyApp() =
 
   override this.Program =
     let update = update this.HttpClient
+
+    let fs = makeFileSystem this.JSRuntime
+    let compiler = Compiler(fs)
+
+    async {
+      do!
+        this.JSRuntime.InvokeVoidAsync("window.load").AsTask()
+        |> Async.AwaitTask
+
+      printfn "Finished loading"
+
+      let writer = new StringWriter()
+      let baseDir = "/"
+      let src = "let x = 1 + 2;"
+      let! result = compiler.compileString writer baseDir src
+
+      match result with
+      | Ok(js, dts) ->
+        printfn $"JS: {js}"
+        printfn $"DTS: {dts}"
+      | Result.Error e -> printfn $"Error: {e}"
+
+    }
+    |> Async.Start
 
     Program.mkProgram (fun _ -> initModel, Cmd.ofMsg GetBooks) update view
     |> Program.withRouter router

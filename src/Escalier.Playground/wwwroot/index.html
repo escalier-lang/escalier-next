@@ -43,27 +43,41 @@
 
     fs.mkdirSync('/node_modules/typescript/lib', {recursive: true});
 
-    Promise.all(
-      paths.map(async (path) => {
-        const res = await fetch(`/escalier-next${path}`);
-        const text = await res.text();
-        console.log("fetched: ", path);
-        fs.writeFileSync(path, text, {encoding: 'utf-8'});
-        return text;
-      })
-    ).then(() => {
-      console.log("finished");
-      const contents = fs.readFileSync('/node_modules/typescript/lib/lib.es6.d.ts', {encoding: 'utf-8'});
-      console.log(contents);
+    window.ReadAllTextAsync = (path) => {
+      console.log("reading: ", path);
+      return fs.readFileSync(path, {encoding: 'utf-8'});
+    }
 
-      // TODO: add a package.json file at the root
+    window.WriteAllTextAsync = async (path, text) => {
+      console.log("writing: ", path);
+      return fs.writeFileSync(path, text, {encoding: 'utf-8'});
+    }
 
-      // TODO: add functions on window for:
-      // - Directory.Exists
-      // - Directory.GetParent
-      // - File.Exists
-      // - File.ReadAllText
-    });
+    window.FileExistsAsync = async (path) => {
+      console.log("checking: ", path);
+      return fs.existsSync(path);
+    }
+
+    window.DirExistsAsync = async (path) => {
+      console.log("checking: ", path);
+      return fs.existsSync(path);
+    }
+
+    window.GetParentAsync = async (path) => {
+      console.log("getting parent: ", path);
+      return fs.dirname(path);
+    }
+
+    window.load = () =>
+      Promise.all(
+        paths.map(async (path) => {
+          const res = await fetch(`/escalier-next${path}`);
+          const text = await res.text();
+          console.log("fetched: ", path);
+          fs.writeFileSync(path, text, {encoding: 'utf-8'});
+          return text;
+        })
+      );
   </script>
   <script src="_framework/blazor.webassembly.js"></script>
 </body>

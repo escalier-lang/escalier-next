@@ -16,6 +16,7 @@ open Escalier.Interop
 
 open Env
 open Prelude
+open FileSystem
 
 module Compiler =
   type CompileError =
@@ -27,41 +28,41 @@ module Compiler =
       | ParseError err -> $"ParseError: {err}"
       | TypeError err -> $"TypeError: {err}"
 
-  type Compiler() =
+  type Compiler(fs: IFileSystem) =
     let mutable memoizedNodeModulesDir = Map.empty
     let mutable cachedModules: Map<string, Namespace> = Map.empty
 
     let mutable memoizedEnvAndCtx: Map<string, Result<Ctx * Env, CompileError>> =
       Map.empty
 
-    member private this.findNearestAncestorWithNodeModules(currentDir: string) =
-      match memoizedNodeModulesDir.TryFind currentDir with
-      | Some(nodeModulesDir) -> nodeModulesDir
-      | None ->
-        let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+    member private this.findNearestAncestorWithNodeModules
+      (currentDir: string)
+      : Async<string> =
+      async {
+        match memoizedNodeModulesDir.TryFind currentDir with
+        | Some(nodeModulesDir) -> return nodeModulesDir
+        | None ->
+          let nodeModulesDir = Path.Combine(currentDir, "node_modules")
+          let! exists = fs.DirExistsAsync nodeModulesDir
 
-        if Directory.Exists(nodeModulesDir) then
-          currentDir
-        else
-          let parentDir = Directory.GetParent(currentDir)
-
-          match parentDir with
-          | null ->
-            failwith
-              "node_modules directory not found in any ancestor directory."
-          | _ -> this.findNearestAncestorWithNodeModules parentDir.FullName
+          if exists then
+            return currentDir
+          else
+            let! parentDir = fs.GetParentAsync currentDir
+            return! this.findNearestAncestorWithNodeModules parentDir
+      }
 
     member private this.packageJsonHasTypes
       (packageJsonPath: string)
       : Async<bool> =
       async {
-        if File.Exists packageJsonPath then
-          let! packageJson =
-            File.ReadAllTextAsync(packageJsonPath) |> Async.AwaitTask
+        let! exists = fs.FileExistsAsync packageJsonPath
 
-          let packageJsonObj = JsonValue.Parse(packageJson)
+        if exists then
+          let! packageJson = fs.ReadAllTextAsync packageJsonPath
+          let packageJsonObj = JsonValue.Parse packageJson
 
-          match packageJsonObj.TryGetProperty("types") with
+          match packageJsonObj.TryGetProperty "types" with
           | None -> return false
           | Some _ -> return true
         else
@@ -76,11 +77,11 @@ module Compiler =
       async {
         if importPath.StartsWith "~" then
           return
-            Path.GetFullPath(Path.Join(packageRoot, importPath.Substring(1)))
+            Path.GetFullPath(Path.Join(packageRoot, importPath.Substring 1))
         else if importPath.StartsWith "." then
           let resolvedPath =
             Path.GetFullPath(
-              Path.Join(Path.GetDirectoryName(currentPath), importPath)
+              Path.Join(Path.GetDirectoryName currentPath, importPath)
             )
 
           if currentPath.EndsWith(".d.ts") then
@@ -119,7 +120,7 @@ module Compiler =
               else
                 name, Some(String.concat "/" path)
 
-          let rootDir = this.findNearestAncestorWithNodeModules packageRoot
+          let! rootDir = this.findNearestAncestorWithNodeModules packageRoot
           let nodeModulesDir = Path.Combine(rootDir, "node_modules")
 
           let pkgJsonPath1 =
@@ -141,8 +142,8 @@ module Compiler =
                 $"package.json not found for module {moduleName}, rootDir = {rootDir}, nodeModulesDir = {nodeModulesDir}."
 
           // read package.json and parse it
-          let pkgJson = File.ReadAllText(pkgJsonPath)
-          let pkgJsonObj = JsonValue.Parse(pkgJson)
+          let! pkgJson = fs.ReadAllTextAsync pkgJsonPath
+          let pkgJsonObj = JsonValue.Parse pkgJson
 
           match subpath with
           | None ->
@@ -153,17 +154,17 @@ module Compiler =
               let types = value.InnerText()
 
               if types.EndsWith(".d.ts") then
-                return Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+                return Path.Combine(Path.GetDirectoryName pkgJsonPath, types)
               else
                 return
                   Path.Combine(
-                    Path.GetDirectoryName(pkgJsonPath),
+                    Path.GetDirectoryName pkgJsonPath,
                     $"{types}.d.ts"
                   )
-          // Path.Combine(Path.GetDirectoryName(pkgJsonPath), types)
+          // Path.Combine(Path.GetDirectoryName pkgJsonPath, types)
           | Some value ->
             return
-              Path.Combine(Path.GetDirectoryName(pkgJsonPath), $"{value}.d.ts")
+              Path.Combine(Path.GetDirectoryName pkgJsonPath, $"{value}.d.ts")
       }
 
     // TODO: dedupe with Escalier.Interop.Infer
@@ -174,7 +175,7 @@ module Compiler =
         { ExprVisitor.VisitExpr =
             fun (expr, state) ->
               match expr.Kind with
-              | Syntax.ExprKind.Function _ -> (false, state)
+              | ExprKind.Function _ -> (false, state)
               | _ -> (true, state)
           ExprVisitor.VisitJsxElement = fun (_, state) -> (true, state)
           ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
@@ -183,7 +184,7 @@ module Compiler =
           ExprVisitor.VisitPattern =
             fun (pat, state) ->
               match pat.Kind with
-              | Syntax.PatternKind.Ident { Name = name } ->
+              | PatternKind.Ident { Name = name } ->
                 names <- name :: names
                 (false, state)
               | _ -> (true, state)
@@ -198,10 +199,10 @@ module Compiler =
       (ctx: Ctx)
       (env: Env)
       (fullPath: string)
-      : Async<Result<Env * Syntax.Module, CompileError>> =
+      : Async<Result<Env * Module, CompileError>> =
 
       asyncResult {
-        let! input = File.ReadAllTextAsync(fullPath) |> Async.AwaitTask
+        let! input = fs.ReadAllTextAsync fullPath
 
         let input =
           input.Replace(
@@ -240,7 +241,7 @@ module Compiler =
       (env: Env)
       (packageRoot: string)
       (name: string)
-      (items: list<Syntax.ModuleItem>)
+      (items: list<ModuleItem>)
       : Async<Result<Namespace, CompileError>> =
 
       asyncResult {
@@ -286,7 +287,7 @@ module Compiler =
                 asyncResult {
                   if resolvedPath.EndsWith(".d.ts") then
                     if cachedModules.ContainsKey resolvedPath then
-                      return cachedModules.[resolvedPath]
+                      return cachedModules[resolvedPath]
                     else
                       let! modEnv, modAst =
                         this.inferLib ctx (getGlobalEnv ()) resolvedPath
@@ -396,7 +397,7 @@ module Compiler =
                 asyncResult {
                   if resolvedPath.EndsWith(".d.ts") then
                     if cachedModules.ContainsKey resolvedPath then
-                      return cachedModules.[resolvedPath]
+                      return cachedModules[resolvedPath]
                     else
                       let! modEnv, modAst =
                         this.inferLib ctx (getGlobalEnv ()) resolvedPath
@@ -607,7 +608,7 @@ module Compiler =
             asyncResult {
               if resolvedPath.EndsWith(".d.ts") then
                 if cachedModules.ContainsKey resolvedPath then
-                  return cachedModules.[resolvedPath]
+                  return cachedModules[resolvedPath]
                 else
                   let! modEnv, modAst =
                     this.inferLib ctx (getGlobalEnv ()) resolvedPath
@@ -629,8 +630,7 @@ module Compiler =
                 let resolvedImportPath =
                   Path.ChangeExtension(resolvedPath, ".esc")
 
-                let! contents =
-                  File.ReadAllTextAsync(resolvedImportPath) |> Async.AwaitTask
+                let! contents = fs.ReadAllTextAsync resolvedImportPath
 
                 let m =
                   match Escalier.Parser.Parser.parseModule contents with
@@ -700,7 +700,7 @@ module Compiler =
               // "lib.es2015.reflect.d.ts"
               "lib.dom.d.ts" ]
 
-          let packageRoot = this.findNearestAncestorWithNodeModules baseDir
+          let! packageRoot = this.findNearestAncestorWithNodeModules baseDir
           let nodeModulesDir = Path.Combine(packageRoot, "node_modules")
           let tsLibDir = Path.Combine(nodeModulesDir, "typescript/lib")
 
@@ -784,7 +784,7 @@ module Compiler =
       =
       asyncResult {
         let filename = srcFile
-        let contents = File.ReadAllText filename
+        let! contents = fs.ReadAllTextAsync filename
         let! ctx, env = this.getEnvAndCtx baseDir
 
         let! ast =
@@ -808,16 +808,17 @@ module Compiler =
         let mod' = Codegen.buildModule buildCtx ast
         let js = Printer.printModule printCtx mod'
         let outJsName = Path.ChangeExtension(filename, ".js")
-        File.WriteAllText(outJsName, js)
+        do! fs.WriteAllTextAsync(outJsName, js)
 
         let mod' = Codegen.buildModuleTypes env buildCtx ast
         let dts = Printer.printModule printCtx mod'
         let outDtsName = Path.ChangeExtension(filename, ".d.ts")
-        File.WriteAllText(outDtsName, dts)
+        do! fs.WriteAllTextAsync(outDtsName, dts)
 
         return ()
       }
 
+    // TODO: dedupe with `compileFile`.
     member this.compileString
       (textwriter: TextWriter)
       (baseDir: string)
@@ -861,41 +862,48 @@ module Compiler =
       }
 
     member this.findFiles (baseDir: string) (entryFile: string) =
-      let mutable paths = [ entryFile ]
+      async {
+        let mutable paths = [ entryFile ]
 
-      let rec findFilesRec (entryFile: string) =
-        let contents = File.ReadAllText(entryFile)
+        let rec findFilesRec (entryFile: string) =
+          async {
+            let! contents = fs.ReadAllTextAsync entryFile
 
-        let m =
-          match Escalier.Parser.Parser.parseModule contents with
-          | Ok value -> value
-          | Error _ -> failwith $"failed to parse {entryFile}"
+            let m =
+              match Escalier.Parser.Parser.parseModule contents with
+              | Ok value -> value
+              | Error _ -> failwith $"failed to parse {entryFile}"
 
-        for item in m.Items do
-          match item with
-          | Import import ->
-            let path =
-              match import.Path[0] with
-              | '.' ->
-                Path.GetFullPath(
-                  Path.Join(Path.GetDirectoryName(entryFile), import.Path)
-                )
-              | '~' ->
-                Path.GetFullPath(Path.Join(baseDir, import.Path.Substring(2)))
-              | _ -> failwith $"TODO - import.Path = {import.Path}"
+            for item in m.Items do
+              match item with
+              | Import import ->
+                let path =
+                  match import.Path[0] with
+                  | '.' ->
+                    Path.GetFullPath(
+                      Path.Join(Path.GetDirectoryName entryFile, import.Path)
+                    )
+                  | '~' ->
+                    Path.GetFullPath(
+                      Path.Join(baseDir, import.Path.Substring 2)
+                    )
+                  | _ -> failwith $"TODO - import.Path = {import.Path}"
 
-            let path = Path.ChangeExtension(path, "esc")
+                let path = Path.ChangeExtension(path, "esc")
 
-            if not (List.contains path paths) then
-              paths <- path :: paths
-              findFilesRec path
-            else
-              ()
-          | Export export -> printfn "TOOD - handle re-exports"
-          | Stmt stmt -> ()
+                if not (List.contains path paths) then
+                  paths <- path :: paths
+                  do! findFilesRec path
+                else
+                  ()
+              | Export export -> printfn "TOOD - handle re-exports"
+              | Stmt stmt -> ()
+          }
 
-      findFilesRec entryFile
+        do! findFilesRec entryFile
 
-      paths
+        return paths
+      }
 
-  let TestCompiler = Compiler()
+  let TestFileSystem = makeFileSystem ()
+  let TestCompiler = Compiler TestFileSystem

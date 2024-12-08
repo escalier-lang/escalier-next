@@ -104,7 +104,8 @@ let BasicsTests (fixtureDir: string) =
       //   them back to their original names after we've inferred all of their
       //   values.
 
-      let paths = TestCompiler.findFiles fixtureDir entryPath
+      let paths =
+        TestCompiler.findFiles fixtureDir entryPath |> Async.RunSynchronously
 
       printfn "Filenames:"
 

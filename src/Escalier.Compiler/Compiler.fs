@@ -700,7 +700,7 @@ module Compiler =
               // "lib.es2015.reflect.d.ts"
 
               // TODO: make inclusion of this file optional
-              // "lib.dom.d.ts"
+              "lib.dom.d.ts"
               ]
 
           let! packageRoot = this.findNearestAncestorWithNodeModules baseDir

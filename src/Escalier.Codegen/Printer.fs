@@ -89,7 +89,9 @@ module rec Printer =
 
       $"{{{props}}}"
     | Expr.Fn { Id = id
-                Fn = { Params = ps; Body = body } } ->
+                Fn = { Params = ps
+                       Body = body
+                       IsAsync = isAsync } } ->
       let id =
         match id with
         | Some(id) -> id.Name
@@ -100,9 +102,22 @@ module rec Printer =
       let ps =
         ps |> List.map (fun p -> printPattern ctx p.Pat) |> String.concat ", "
 
+      let mutable sb = StringBuilder()
+
+      if isAsync then
+        sb <- sb.Append("async ")
+
+      sb <-
+        sb.Append("function ").Append(id).Append("(").Append(ps).Append(") ")
+
       match body with
-      | Some(body) -> $"function {id}({ps}) {printBlock ctx body}"
-      | None -> $"function {id}({ps}) {{}}"
+      | Some(body) ->
+        let body: string = printBlock ctx body
+        sb <- sb.Append(body)
+      | None -> ()
+
+      sb.ToString()
+
     | Expr.Arrow { Params = ps; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
       let ps = ps |> List.map (printPattern ctx) |> String.concat ", "

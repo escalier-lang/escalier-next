@@ -372,7 +372,7 @@ module rec Codegen =
           { Params = ps
             Body = Some({ Body = body.Body; Loc = None })
             IsGenerator = false
-            IsAsync = false
+            IsAsync = s.IsAsync
             TypeParams = None
             ReturnType = None
             Loc = None }
@@ -1233,7 +1233,20 @@ module rec Codegen =
     // and use the appropriate finalizer with it
 
     let mutable stmts: list<TS.Stmt> = []
-    let lastStmt = body.Stmts |> List.last
+
+    let lastStmt =
+      match body.Stmts.IsEmpty with
+      | true ->
+        // If the body is empty, we synthesize an `undefined` expression statement
+        // to be the last statement in the block.
+        let undefined: Syntax.Expr =
+          { Kind = ExprKind.Literal(Common.Literal.Undefined)
+            Span = dummySpan
+            InferredType = None }
+
+        { Kind = StmtKind.Expr undefined
+          Span = dummySpan }
+      | false -> body.Stmts |> List.last
 
     let mutable fnDecls: Map<string, list<FnDecl>> = Map.empty
 

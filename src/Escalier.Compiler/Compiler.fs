@@ -698,7 +698,10 @@ module Compiler =
               // "lib.es2015.promise.d.ts"
               "lib.es2015.proxy.d.ts"
               // "lib.es2015.reflect.d.ts"
-              "lib.dom.d.ts" ]
+
+              // TODO: make inclusion of this file optional
+              "lib.dom.d.ts"
+              ]
 
           let! packageRoot = this.findNearestAncestorWithNodeModules baseDir
           let nodeModulesDir = Path.Combine(packageRoot, "node_modules")

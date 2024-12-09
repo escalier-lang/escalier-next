@@ -5,7 +5,7 @@
         };
         
 --- output (js) ---
-var fetchJSON = function (url) {
+var fetchJSON = async function (url) {
   var res = await fetch(url);
   return res.json();
 };

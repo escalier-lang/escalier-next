@@ -76,42 +76,63 @@ let update (http: HttpClient) message model =
 /// Connects the routing system to the Elmish application.
 let router = Router.infer SetPage (fun model -> model.page)
 
-type Main = Template<"wwwroot/main.html">
-
-type MyComponent() =
+type Editor() =
   inherit Component()
 
-  override this.Render() = div { "Hello, world!" }
+  [<Parameter>]
+  member val Value = "" with get, set
 
-let myElement: Node = comp<MyComponent> { attr.empty () }
+  [<Parameter>]
+  member val Readonly = false with get, set
+
+  [<Parameter>]
+  member val OnChange = fun (value: string) -> () with get, set
+
+  override this.Render() =
+    div {
+      attr.``class`` "column"
+
+      textarea {
+        attr.id "output"
+        attr.readonly this.Readonly
+        attr.style "flex-grow: 1"
+        attr.value this.Value
+        on.input (fun e -> this.OnChange(e.Value.ToString()))
+      }
+    }
 
 let view (model: Model) dispatch =
-  Main()
-    .Input(model.input)
-    .Output(model.output)
-    // .Test(myElement)
-    .Change(fun e ->
-      let input = e.Value.ToString()
-      printfn $"Input changed to: {input}"
+  div {
+    attr.``class`` "columns"
 
-      let writer = new StringWriter()
-      let baseDir = "/"
+    comp<Editor> {
+      "Readonly" => false
+      "Value" => model.input
 
-      async {
-        let! result = model.compiler.compileString writer baseDir input
+      "OnChange"
+      => (fun value ->
+        let writer = new StringWriter()
+        let baseDir = "/"
 
-        match result with
-        | Ok(js, dts) ->
-          printfn $"JS: {js}"
-          printfn $"DTS: {dts}"
-          dispatch (SetOutput js)
-        | Result.Error e -> printfn $"Error: {e}"
+        async {
+          let! result = model.compiler.compileString writer baseDir value
 
-      }
-      |> Async.Start
+          match result with
+          | Ok(js, dts) ->
+            printfn $"JS: {js}"
+            printfn $"DTS: {dts}"
+            dispatch (SetOutput js)
+          | Result.Error e -> printfn $"Error: {e}"
 
-    )
-    .Elt()
+        }
+        |> Async.Start)
+    }
+
+    comp<Editor> {
+      "Readonly" => true
+      "Value" => model.output
+    }
+  }
 
 let makeFileSystem (runtime: IJSRuntime) : IFileSystem =
   { new IFileSystem with
@@ -159,7 +180,7 @@ type MyApp() =
 
       let writer = new StringWriter()
       let baseDir = "/"
-      let src = "let x = 10;"
+      let src = "let x = 5;"
       let! result = compiler.compileString writer baseDir src
 
       match result with
@@ -177,8 +198,8 @@ type MyApp() =
         counter = 0
         books = None
         error = None
-        input = "let x = 10;"
-        output = "let x = 10;"
+        input = "let x = 5;"
+        output = "var x = 5;"
         compiler = compiler }
 
     Program.mkProgram (fun _ -> initModel, Cmd.ofMsg GetBooks) update view

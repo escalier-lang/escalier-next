@@ -24,13 +24,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: dotnet publish src/Escalier.Playground -c Release --self-contained -o out
+        run: build.sh
       - name: List files
-        run: ls -R out/wwwroot
+        run: ls -R out/escalier-next
       - name: Upload Page Artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: ./out/wwwroot
+          path: ./out/escalier-next
     
   deploy:
     needs: build

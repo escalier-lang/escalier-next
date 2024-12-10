@@ -31,9 +31,12 @@
       "/node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts",
 
       "/node_modules/typescript/lib/lib.dom.d.ts",
+
+      "/types/lib.dom.lite.d.ts",
     ]
 
     fs.mkdirSync('/node_modules/typescript/lib', {recursive: true});
+    fs.mkdirSync('/types', {recursive: true});
 
     window.ReadAllTextAsync = (path) => {
       console.log("reading: ", path);

@@ -3,9 +3,11 @@ rm -rf out
 dotnet publish src/Escalier.Playground -c Release --self-contained -o out
 pushd out || exit 1
   mv wwwroot escalier-next
-popd || exit 1
-if [ ! -e "out/escalier-next/node_modules" ]; then
-  pushd out/escalier-next || exit 1
-    ln -s ../../node_modules node_modules
+  pushd escalier-next || exit 1
+    mkdir -p node_modules/typescript/lib
+    cp ../../node_modules/typescript/package.json node_modules/typescript
+    cp ../../node_modules/typescript/lib/*.d.ts node_modules/typescript/lib
+    mkdir types
+    cp ../../types/*.d.ts types
   popd || exit 1
-fi
+popd || exit 1

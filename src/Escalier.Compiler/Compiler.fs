@@ -28,7 +28,9 @@ module Compiler =
       | ParseError err -> $"ParseError: {err}"
       | TypeError err -> $"TypeError: {err}"
 
-  type Compiler(fs: IFileSystem) =
+  type Compiler(fs: IFileSystem, ?loadLibDOM: bool) =
+    let loadLibDOM = defaultArg loadLibDOM false
+
     let mutable memoizedNodeModulesDir = Map.empty
     let mutable cachedModules: Map<string, Namespace> = Map.empty
 
@@ -686,7 +688,7 @@ module Compiler =
           // ctx is update to date.
           let! ctx = this.getCtx baseDir (fun _ -> newEnv)
 
-          let libs =
+          let mutable libs =
             [ "lib.es5.d.ts"
               "lib.es2015.core.d.ts"
               "lib.es2015.collection.d.ts"
@@ -698,10 +700,10 @@ module Compiler =
               // "lib.es2015.promise.d.ts"
               "lib.es2015.proxy.d.ts"
               // "lib.es2015.reflect.d.ts"
-
-              // TODO: make inclusion of this file optional
-              "lib.dom.d.ts"
               ]
+
+          if loadLibDOM then
+            libs <- libs @ [ "lib.dom.d.ts" ]
 
           let! packageRoot = this.findNearestAncestorWithNodeModules baseDir
           let nodeModulesDir = Path.Combine(packageRoot, "node_modules")
@@ -709,6 +711,12 @@ module Compiler =
 
           for lib in libs do
             let fullPath = Path.Combine(tsLibDir, lib)
+            let! env, _ = this.inferLib ctx newEnv fullPath
+            newEnv <- env
+
+          if not loadLibDOM then
+            let typesDir = Path.Combine(packageRoot, "types")
+            let fullPath = Path.Combine(typesDir, "lib.dom.lite.d.ts")
             let! env, _ = this.inferLib ctx newEnv fullPath
             newEnv <- env
 
@@ -786,6 +794,8 @@ module Compiler =
       (srcFile: string)
       =
       asyncResult {
+        printfn $"***** loadLibDOM = {loadLibDOM} *****"
+
         let filename = srcFile
         let! contents = fs.ReadAllTextAsync filename
         let! ctx, env = this.getEnvAndCtx baseDir
@@ -828,6 +838,8 @@ module Compiler =
       (srcCode: string)
       : Async<Result<string * string, CompileError>> =
       asyncResult {
+        printfn $"***** loadLibDOM = {loadLibDOM} *****"
+
         let! ctx, env = this.getEnvAndCtx baseDir
 
         let! ast =
@@ -909,4 +921,4 @@ module Compiler =
       }
 
   let TestFileSystem = makeFileSystem ()
-  let TestCompiler = Compiler TestFileSystem
+  let TestCompiler = Compiler(TestFileSystem, true)

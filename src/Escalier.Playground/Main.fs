@@ -169,7 +169,7 @@ type MyApp() =
     let update = update this.HttpClient
 
     let fs = makeFileSystem this.JSRuntime
-    let compiler = Compiler(fs)
+    let compiler = Compiler(fs, false)
 
     async {
       do!

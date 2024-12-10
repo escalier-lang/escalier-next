@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        run: build.sh
+        run: ./build.sh
       - name: List files
         run: ls -R out/escalier-next
       - name: Upload Page Artifact

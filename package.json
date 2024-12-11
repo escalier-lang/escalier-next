@@ -5,12 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "APP_ENV=dev vite",
-    "build:dev": "tsc && APP_ENV=dev vite build",
-    "build:prod": "tsc && APP_ENV=prod vite build",
-    "start": "http-server dist",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "typecheck": "tsc"
+    "start": "http-server out",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
@@ -24,9 +20,6 @@
   "homepage": "https://github.com/escalier-lang/escalier-next#readme",
   "dependencies": {
     "@apollo/client": "^3.11.6",
-    "@bjorn3/browser_wasi_shim": "^0.2.20",
-    "@extism/extism": "^1.0.2",
-    "@monaco-editor/react": "^4.6.0",
     "@types/graphql": "^14.2.3",
     "@types/node": "^20.11.28",
     "@types/prop-types": "^15.7.11",
@@ -43,9 +36,6 @@
     "@types/react": "^18.2.69",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
-    "http-server": "^14.1.1",
-    "rollup": "^4.13.0",
-    "tslib": "^2.6.2",
-    "vite": "^5.2.6"
+    "http-server": "^14.1.1"
   }
 }

@@ -297,16 +297,19 @@ let PatternMatchingDisallowsExtraProperties () =
         };
         """
 
-      let! _ = inferModule src
+      let! ctx, env = inferModule src
 
-      ()
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Pattern doesn't match expression in match case"
+      )
+
+      Assert.Value(env, "result", "never")
     }
 
-  match res with
-  | Ok resultValue -> printfn $"res = Ok({resultValue})"
-  | Error errorValue -> printfn $"res = Error({errorValue})"
-
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let PatternMatchingDisallowsPartialMappingOfTuples () =
@@ -320,16 +323,19 @@ let PatternMatchingDisallowsPartialMappingOfTuples () =
         };
         """
 
-      let! _ = inferModule src
+      let! ctx, env = inferModule src
 
-      ()
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Pattern doesn't match expression in match case"
+      )
+
+      Assert.Value(env, "result", "never")
     }
 
-  match res with
-  | Ok resultValue -> printfn $"res = Ok({resultValue})"
-  | Error errorValue -> printfn $"res = Error({errorValue})"
-
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let PatternMatchingNestedTypes () =

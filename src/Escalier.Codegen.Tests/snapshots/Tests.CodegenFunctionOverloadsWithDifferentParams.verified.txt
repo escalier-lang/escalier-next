@@ -24,5 +24,5 @@ var msg = add("hello, ", "world");
 --- output (dts) ---
 function add(a: number, b: number, c: number): number;
 function add(x: string, y: string): string;
-const sum: string;
+const sum: number & string;
 const msg: string;

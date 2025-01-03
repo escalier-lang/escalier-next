@@ -198,12 +198,19 @@ let InferOutOfBoundsRangeLiteralAssignment () =
         let out_of_bounds: 0..3 = 3;
         """
 
-      let! _ = inferModule src
+      let! ctx, env = inferModule src
 
-      ()
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
+
+      Assert.Value(env, "out_of_bounds", "0..3")
     }
 
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let InferOutOfBoundsRangeRangeAssignment () =
@@ -215,12 +222,19 @@ let InferOutOfBoundsRangeRangeAssignment () =
         let bounds_mismatch: 0..3 = range;
         """
 
-      let! _ = inferModule src
+      let! ctx, env = inferModule src
 
-      ()
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
+
+      Assert.Value(env, "bounds_mismatch", "0..3")
     }
 
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact(Skip = "lower (neg (num x))")>]
 let InferRangeWithNegativeStart () =

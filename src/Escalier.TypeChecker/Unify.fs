@@ -853,6 +853,7 @@ module rec Unify =
           if t1' <> t1 || t2' <> t2 then
             return! unifyInvariant ctx env ips t1' t2'
           else
+            // TODO: include that this is an invariant mis-match
             return! Error(TypeError.TypeMismatch(t1, t2))
     }
 

@@ -38,6 +38,7 @@ let InferCallFuncWithWrongArgs () =
       let! ctx, env = inferModule src
 
       Assert.Equal(2, ctx.Report.Diagnostics.Length) // can't add strings with `+`
+      printfn $"diagnostics: %A{ctx.Report.Diagnostics}"
       Assert.Value(env, "sum", "number")
     }
 
@@ -128,12 +129,19 @@ let PassingTooFewArgsIsAnError () =
         let sum = add(5);
         """
 
-      let! _, _ = inferModule src
+      let! ctx, env = inferModule src
 
-      ()
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "function called with too few arguments"
+      )
+
+      Assert.Value(env, "sum", "number")
     }
 
-  Assert.True(Result.isError result)
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let InferBasicFunction () =
@@ -224,11 +232,19 @@ let PassingIncorrectArgsAsRestParm () =
         let c = foo(10, "hello", true);
         """
 
-      let! _ = inferModule src
-      ()
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Calling function with incorrect args"
+      )
+
+      Assert.Value(env, "c", "number")
     }
 
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let InferFuncGeneralization () =

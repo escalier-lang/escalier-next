@@ -212,11 +212,17 @@ let MutableAssignmentCantBeCovariant () =
         let mut bar: (number | string)[] = foo;
         """
 
-      let! _ = inferModule src
-      ()
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
     }
 
-  Assert.True(Result.isError result)
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let MutableTupleAssignmentCantBeCovariant () =
@@ -229,11 +235,17 @@ let MutableTupleAssignmentCantBeCovariant () =
         let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar];
         """
 
-      let! _ = inferModule src
-      ()
+      let! ctx, env = inferModule src
+
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
     }
 
-  Assert.True(Result.isError result)
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let CantPassImmutableArgsToMutableParams () =
@@ -255,6 +267,7 @@ let CantPassImmutableArgsToMutableParams () =
       ()
     }
 
+  printfn $"result = %A{result}"
   Assert.True(Result.isError result)
 
 [<Fact>]

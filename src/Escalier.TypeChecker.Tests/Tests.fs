@@ -61,10 +61,15 @@ let InferSimpleTypeError () =
 
       let! ctx, env = inferModule src
 
-      printDiagnostics ctx.Report.Diagnostics
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
     }
 
-  Assert.True(Result.isError result)
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let InferBinaryOperators () =
@@ -819,11 +824,19 @@ let InferTemplateLiteralTypeError () =
         let x: Foo = "foo123abc";
         """
 
-      let! _, _ = inferModule src
-      ()
+      let! ctx, env = inferModule src
+
+      Assert.Equal(1, ctx.Report.Diagnostics.Length)
+
+      Assert.Equal(
+        "Initializer doesn't match declared type",
+        ctx.Report.Diagnostics.[0].Description
+      )
+
+      Assert.Value(env, "x", "Foo")
     }
 
-  Assert.True(Result.isError result)
+  Assert.False(Result.isError result)
 
 [<Fact>]
 let InferTemplateLiteralWithUnion () =

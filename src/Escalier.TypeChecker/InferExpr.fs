@@ -1101,19 +1101,10 @@ module rec InferExpr =
     : Result<list<Type> * list<Type>, TypeError> =
     result {
       let mutable patternTypes = []
-
-      // Infer all pattern types
-      let! assumps =
-        List.traverseResultM
-          (fun (case: MatchCase) ->
-            result {
-              let! assump, patType = ctx.InferPattern ctx env case.Pattern
-              patternTypes <- patType :: patternTypes
-              return assump
-            })
-          cases
-
       let mutable newExprTypes: list<Type> = []
+      let mutable bodyTypes: list<Type> = []
+
+      let exprTypeHasTypeVars = hasTypeVars exprType
 
       // TODO(#335): Check mutability when unifying by computing invariant paths
       // using checkMutability.
@@ -1122,61 +1113,80 @@ module rec InferExpr =
       // types. Untagged inexact object types can have extra properties that we
       // can't account for that could result in a different pattern being matched
       // than the intended one.
+      for case in cases do
+        let! assump, patType = ctx.InferPattern ctx env case.Pattern
+        patternTypes <- patType :: patternTypes
 
-      // NOTE: the direction of assignability for patternType and exprType is
-      // reversed.  This is because the type of the expression being assigned is
-      // a union of types and the pattern we're assigning it to is only one of
-      // those types.
-      if hasTypeVars exprType then
-        for patternType in patternTypes do
-          let newExprType = fresh ctx exprType
-
-          do!
-            unify
-              ctx
-              { env with IsPatternMatching = true }
-              None
-              patternType
+        let diagnostic =
+          let exprType =
+            if exprTypeHasTypeVars then
+              let newExprType = fresh ctx exprType
+              newExprTypes <- newExprType :: newExprTypes
               newExprType
-
-          newExprTypes <- newExprType :: newExprTypes
-      else
-        for patternType in patternTypes do
-          do!
-            unify
-              ctx
-              { env with IsPatternMatching = true }
-              None
-              patternType
+            else
               exprType
 
-      // Infer body types
-      let! bodyTypes =
-        List.traverseResultM
-          (fun (case: MatchCase, assump: BindingAssump) ->
-            result {
-              let mutable newEnv = env
+          // NOTE: the direction of assignability for patternType and exprType is
+          // reversed.  This is because the type of the expression being assigned is
+          // a union of types and the pattern we're assigning it to is only one of
+          // those types.
+          match
+            (unify
+              ctx
+              { env with IsPatternMatching = true }
+              None
+              patType
+              exprType)
+          with
+          | Ok _ -> None
+          | Error reason ->
+            Some(
+              { Description = "Pattern doesn't match expression in match case"
+                Reasons = [ reason ] }
+            )
 
-              for binding in assump do
-                newEnv <- newEnv.AddValue binding.Key binding.Value
+        let mutable newEnv = env
 
-              match case.Guard with
-              | Some guard ->
-                let! _ = inferExpr ctx newEnv None guard
-                ()
-              | None -> ()
+        match diagnostic with
+        | None ->
+          for KeyValue(name, binding) in assump do
+            newEnv <- newEnv.AddValue name binding
+        | Some diagnostic ->
+          // If there was a diagnostic, add it to the report.
+          ctx.Report.AddDiagnostic diagnostic
 
-              return! inferBlockOrExpr ctx newEnv case.Body
-            })
-          (List.zip cases assumps)
+          // Set the type of the pattern to `never` so that we can continue.
+          let neverType =
+            { Kind = TypeKind.Keyword Keyword.Never
+              Provenance = None }
 
+          for KeyValue(name, binding) in assump do
+            let neverBinding =
+              { Type = neverType
+                Mutable = binding.Mutable
+                Export = false }
+
+            newEnv <- newEnv.AddValue name neverBinding
+
+        match case.Guard with
+        | Some guard ->
+          match inferExpr ctx newEnv None guard with
+          | Ok _ -> ()
+          | Error reason ->
+            ctx.Report.AddDiagnostic
+              { Description = "Guard failed to typecheck"
+                Reasons = [ reason ] }
+        | None -> ()
+
+        let! bodyType = inferBlockOrExpr ctx newEnv case.Body
+        bodyTypes <- bodyType :: bodyTypes
 
       if newExprTypes.IsEmpty then
-        return patternTypes, bodyTypes
+        return patternTypes, List.rev bodyTypes
       else
         let t = union newExprTypes
         do! unify ctx env None t exprType
-        return newExprTypes, bodyTypes
+        return newExprTypes, List.rev bodyTypes
     }
 
   let inferTypeParam
@@ -1277,7 +1287,14 @@ module rec InferExpr =
           | Some typeAnn ->
             let! typeAnnType = ctx.InferTypeAnn ctx newEnv typeAnn
             let! initType = inferExpr ctx newEnv (Some typeAnnType) init
-            do! unify ctx newEnv invariantPaths initType typeAnnType
+
+            match unify ctx newEnv invariantPaths initType typeAnnType with
+            | Ok _ -> ()
+            | Error(reason) ->
+              ctx.Report.AddDiagnostic
+                { Description = "Initializer doesn't match declared type"
+                  Reasons = [ reason ] }
+
             do! unify ctx newEnv None typeAnnType patType
           | None ->
             let! initType = inferExpr ctx newEnv None init

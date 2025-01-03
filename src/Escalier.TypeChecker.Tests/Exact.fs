@@ -38,10 +38,18 @@ let InexactIsNotAssignableToExact () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
+
+      Assert.Value(env, "p1", "{x: number, y: number, ...}")
+      Assert.Value(env, "p2", "{x: number, y: number}")
     }
 
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let ExactIsAssignableExact () =
@@ -89,10 +97,17 @@ let ExactWithExtraPropertiesIsNotAssignableExact () =
 
       let! ctx, env = inferModule src
 
-      Assert.Empty(ctx.Report.Diagnostics)
+      Assert.Equal(ctx.Report.Diagnostics.Length, 1)
+
+      Assert.Equal(
+        ctx.Report.Diagnostics[0].Description,
+        "Initializer doesn't match declared type"
+      )
+
+      Assert.Value(env, "p2", "{x: number, y: number}")
     }
 
-  Assert.True(Result.isError res)
+  Assert.False(Result.isError res)
 
 [<Fact>]
 let ExactWithExtraPropertiesIsAssignableToInexact () =

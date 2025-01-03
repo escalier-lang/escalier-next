@@ -171,112 +171,114 @@ module rec UnifyCall =
           | _ -> p.Optional)
 
       if args.Length < requiredParams.Length then
-        // TODO: make this into a diagnostic instead of an error
-        return!
-          Error(
-            TypeError.SemanticError "function called with too few arguments"
-          )
+        ctx.Report.AddDiagnostic(
+          { Description = "function called with too few arguments"
+            Reasons = [] }
+        )
 
-      let requiredArgs, optionalArgs = List.splitAt requiredParams.Length args
+        return (callee.Return, callee.Throws)
+      else
 
-      for arg, param in List.zip requiredArgs requiredParams do
-        let! invariantPaths =
-          checkMutability
-            (getTypePatBindingPaths param.Pattern)
-            (getExprBindingPaths env arg)
+        let requiredArgs, optionalArgs = List.splitAt requiredParams.Length args
 
-        let! argType = ctx.InferExpr ctx env (Some param.Type) arg
-
-        if
-          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
-        then
-          ()
-        else
-          match unify ctx env invariantPaths argType param.Type with
-          | Ok _ -> ()
-          | Error reason ->
-            // QUESTION: Does unifying the param with `never` actually do
-            // anything or could we skip it?  Does this have to do with
-            // params whose type annotations are or include type params?
-            let never =
-              { Kind = TypeKind.Keyword Keyword.Never
-                Provenance = None }
-
-            do! unify ctx env ips never param.Type
-
-            ctx.Report.AddDiagnostic(
-              { Description =
-                  $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
-                Reasons = [ reason ] }
-            )
-
-      let optionalParams, restParams =
-        optionalParams
-        |> List.partition (fun p ->
-          match p.Pattern with
-          | Pattern.Rest _ -> false
-          | _ -> true)
-
-      let! restParam =
-        match restParams with
-        | [] -> Result.Ok None
-        | [ restParam ] -> Result.Ok(Some(restParam))
-        | _ -> Error(TypeError.SemanticError "Too many rest params!")
-
-      let restArgs =
-        match restParam with
-        | None -> None
-        | Some _ ->
-          if optionalArgs.Length > optionalParams.Length then
-            Some(List.skip optionalParams.Length optionalArgs)
-          else
-            Some []
-
-      // Functions can be passed more args than parameters as well as
-      // fewer args that the number optional params.  We handle both
-      // cases here.
-      let minLength = min optionalArgs.Length optionalParams.Length
-      let optionalParams = List.take minLength optionalParams
-      let optionalArgs = List.take minLength optionalArgs
-
-      let mutable reasons: list<TypeError> = []
-
-      for arg, param in List.zip optionalArgs optionalParams do
-        let! argType = ctx.InferExpr ctx env None arg
-
-        if
-          param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
-        then
-          ()
-        else
+        for arg, param in List.zip requiredArgs requiredParams do
           let! invariantPaths =
             checkMutability
               (getTypePatBindingPaths param.Pattern)
               (getExprBindingPaths env arg)
 
-          match unify ctx env invariantPaths argType param.Type with
+          let! argType = ctx.InferExpr ctx env (Some param.Type) arg
+
+          if
+            param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+          then
+            ()
+          else
+            match unify ctx env invariantPaths argType param.Type with
+            | Ok _ -> ()
+            | Error reason ->
+              // QUESTION: Does unifying the param with `never` actually do
+              // anything or could we skip it?  Does this have to do with
+              // params whose type annotations are or include type params?
+              let never =
+                { Kind = TypeKind.Keyword Keyword.Never
+                  Provenance = None }
+
+              do! unify ctx env ips never param.Type
+
+              ctx.Report.AddDiagnostic(
+                { Description =
+                    $"arg type '{argType}' doesn't satisfy param '{param.Pattern}' type '{param.Type}' in function call"
+                  Reasons = [ reason ] }
+              )
+
+        let optionalParams, restParams =
+          optionalParams
+          |> List.partition (fun p ->
+            match p.Pattern with
+            | Pattern.Rest _ -> false
+            | _ -> true)
+
+        let! restParam =
+          match restParams with
+          | [] -> Result.Ok None
+          | [ restParam ] -> Result.Ok(Some(restParam))
+          | _ -> Error(TypeError.SemanticError "Too many rest params!")
+
+        let restArgs =
+          match restParam with
+          | None -> None
+          | Some _ ->
+            if optionalArgs.Length > optionalParams.Length then
+              Some(List.skip optionalParams.Length optionalArgs)
+            else
+              Some []
+
+        // Functions can be passed more args than parameters as well as
+        // fewer args that the number optional params.  We handle both
+        // cases here.
+        let minLength = min optionalArgs.Length optionalParams.Length
+        let optionalParams = List.take minLength optionalParams
+        let optionalArgs = List.take minLength optionalArgs
+
+        let mutable reasons: list<TypeError> = []
+
+        for arg, param in List.zip optionalArgs optionalParams do
+          let! argType = ctx.InferExpr ctx env None arg
+
+          if
+            param.Optional && argType.Kind = TypeKind.Literal(Literal.Undefined)
+          then
+            ()
+          else
+            let! invariantPaths =
+              checkMutability
+                (getTypePatBindingPaths param.Pattern)
+                (getExprBindingPaths env arg)
+
+            match unify ctx env invariantPaths argType param.Type with
+            | Ok _ -> ()
+            | Error(reason) -> reasons <- reason :: reasons
+
+        match restArgs, restParam with
+        | Some args, Some param ->
+          let! args = List.traverseResultM (ctx.InferExpr ctx env None) args
+
+          let tuple =
+            { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
+              Provenance = None }
+
+          match unify ctx env ips tuple param.Type with
           | Ok _ -> ()
-          | Error(reason) -> reasons <- reason :: reasons
+          | Error reason -> reasons <- reason :: reasons
+        | _ -> ()
 
-      match restArgs, restParam with
-      | Some args, Some param ->
-        let! args = List.traverseResultM (ctx.InferExpr ctx env None) args
+        if not reasons.IsEmpty then
+          let diagnostic =
+            { Description = "Calling function with incorrect args"
+              Reasons = List.rev reasons }
 
-        let tuple =
-          { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
-            Provenance = None }
+          ctx.Report.AddDiagnostic diagnostic
 
-        // TODO: check the result type and add a `reason` to `reasons` if there's
-        // a type error
-        do! unify ctx env ips tuple param.Type
-      | _ -> ()
-
-      if not reasons.IsEmpty then
-        let diagnostic =
-          { Description = "Calling function with incorrect args"
-            Reasons = List.rev reasons }
-
-        ctx.Report.AddDiagnostic diagnostic
-
-      return (callee.Return, callee.Throws)
+        return (callee.Return, callee.Throws)
     }

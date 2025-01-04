@@ -1,0 +1,2 @@
+ERROR: arg type '{x: 5, y: 10}' doesn't satisfy param 'point' type '#{x: number, x: number}' in function call
+- Type mismatch: {x: 5, y: 10} and #{x: number, x: number}

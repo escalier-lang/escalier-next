@@ -1,0 +1,2 @@
+ERROR: Initializer doesn't match declared type
+- Type mismatch: 3 and 0..3

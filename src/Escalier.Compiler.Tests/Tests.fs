@@ -185,6 +185,13 @@ let FixtureTests (fixtureDir: string) =
           let path = Path.Join(fixtureDir, dtsPath)
           File.WriteAllText(path, dtsExpected.Value)
 
+      if errorActual.IsSome then
+        let path = Path.Join(fixtureDir, errorsPath)
+
+        match errorExpected with
+        | Some error -> File.WriteAllText(path, error)
+        | None -> ()
+
       // Assert that the actual output matches the expected output
       for KeyValue(file, { js = jsExpected; dts = dtsExpected }) in expected do
         let { js = jsActual; dts = dtsActual } = actual.[file]
@@ -195,12 +202,16 @@ let FixtureTests (fixtureDir: string) =
 
   | Error err ->
     printfn $"**** Error: {err} **** - {fixtureDir}"
+    let path = Path.Join(fixtureDir, errorsPath)
 
     if shouldUpdate then
-      let path = Path.Join(fixtureDir, errorsPath)
       File.WriteAllText(path, err.ToString())
     else
       Assert.Equal(errorExpected, Some(err.ToString()))
+
+      match errorExpected with
+      | Some error -> File.WriteAllText(path, error)
+      | None -> ()
 
   // TODO: if the result is an error, print that to fixture_name.errors.txt
   // match testResult with

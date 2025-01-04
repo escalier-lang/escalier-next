@@ -1,0 +1,2 @@
+ERROR: arg type '[5, 10]' doesn't satisfy param 'point' type '#[number, number]' in function call
+- Type mismatch: [5, 10] and #[number, number]

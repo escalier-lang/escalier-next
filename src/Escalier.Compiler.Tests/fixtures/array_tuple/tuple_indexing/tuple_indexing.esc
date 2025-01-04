@@ -1,0 +1,5 @@
+let tuple = [5, "hello", true];
+let first = tuple[0];
+let second = tuple[1];
+let third = tuple[2];
+let fourth = tuple[3];

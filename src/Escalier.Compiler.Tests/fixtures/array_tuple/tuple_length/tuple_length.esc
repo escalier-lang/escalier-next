@@ -1,0 +1,2 @@
+let tuple = [5, "hello", true];
+let length = tuple.length;

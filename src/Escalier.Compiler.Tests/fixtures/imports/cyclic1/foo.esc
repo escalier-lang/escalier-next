@@ -1,5 +1,0 @@
-import "./bar" {bar};
-
-export fn foo() {
-  return bar();
-}

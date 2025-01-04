@@ -28,7 +28,10 @@ let fixturePaths: obj[] seq =
   |> Seq.filter (fun fixtureDir ->
     let testName = (Path.GetFileName fixtureDir)
 
-    if File.Exists(Path.Join(fixtureDir, $"{testName}.esc")) then
+    if testName.StartsWith("skip_") then
+      printfn $"Skipping {testName}"
+      false
+    else if File.Exists(Path.Join(fixtureDir, $"{testName}.esc")) then
       true
     else if File.Exists(Path.Join(fixtureDir, "entry.esc")) then
       true

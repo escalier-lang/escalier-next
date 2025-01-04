@@ -1,0 +1,2 @@
+// TODO: update parser to handle negative numbers in range literals
+declare let range: -1..1;

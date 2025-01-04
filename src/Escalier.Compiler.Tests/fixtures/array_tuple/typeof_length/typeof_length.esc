@@ -1,0 +1,4 @@
+declare let array: number[];
+let length = array.length;
+type A = typeof length;
+type B = typeof array.length;

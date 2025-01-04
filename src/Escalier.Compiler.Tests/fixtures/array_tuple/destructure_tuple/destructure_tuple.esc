@@ -1,0 +1,3 @@
+declare let tuple: [number, string, boolean];
+
+let [a, ...rest] = tuple;

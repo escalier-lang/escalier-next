@@ -1,0 +1,5 @@
+declare let range: 0..3;
+let inc_range = range + 1;
+let dec_range = range - 1;
+let mul_range = 2 * range;
+let range_plus_range = range + range;

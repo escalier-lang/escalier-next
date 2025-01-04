@@ -1,0 +1,2 @@
+let tuple = #[5, "hello", true];
+let record = #{ a: 5, b: "hello", c: true };

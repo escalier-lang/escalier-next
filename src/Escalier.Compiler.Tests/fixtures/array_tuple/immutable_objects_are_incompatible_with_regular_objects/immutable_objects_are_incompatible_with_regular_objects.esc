@@ -1,0 +1,2 @@
+declare let foo: fn (point: #{x:number, x:number}) -> undefined;
+foo({x:5, y:10});

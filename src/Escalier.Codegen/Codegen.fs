@@ -735,7 +735,24 @@ module rec Codegen =
       let valueExpr, valueStmts = buildExpr ctx value
       let expr = Expr.Await { Arg = valueExpr; Loc = None }
       (expr, valueStmts)
-    | ExprKind.Throw value -> failwith "TODO: buildExpr - Throw"
+    | ExprKind.Throw arg ->
+      let argExpr, argStmts = buildExpr ctx arg
+
+      let callee =
+        Expr.Member
+          { Object = Expr.Ident { Name = "Escalier"; Loc = None }
+            Property = Expr.Ident { Name = "throw"; Loc = None }
+            Computed = false
+            OptChain = false
+            Loc = None }
+
+      let call =
+        Expr.Call
+          { Callee = callee
+            Arguments = [ argExpr ]
+            Loc = None }
+
+      (call, argStmts)
     | ExprKind.TemplateLiteral template ->
       let tpl, stmts = buildTemplateLiteral ctx template
       (Expr.Tpl tpl, stmts)

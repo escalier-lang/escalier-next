@@ -1,0 +1,7 @@
+let foo = async fn () {
+  return 5;
+};
+let bar = async fn () {
+  let x = await foo();
+  return x + await 10;
+};

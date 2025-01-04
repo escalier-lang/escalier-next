@@ -28,18 +28,20 @@ let fixturePaths: obj[] seq =
   |> Seq.collect Directory.GetDirectories
   |> Seq.filter (fun fixtureDir ->
     let testName = (Path.GetFileName fixtureDir)
+
     if File.Exists(Path.Join(fixtureDir, $"{testName}.esc")) then
       true
     else if File.Exists(Path.Join(fixtureDir, "entry.esc")) then
       true
     else
-      false
-    )
+      false)
   |> Seq.map (fun dir -> [| box (dir.Substring projectRoot.Length) |])
 
 [<Theory>]
 [<MemberData(nameof fixturePaths)>]
 let BasicsTests (fixtureDir: string) =
+  let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+
   let testResult =
     result {
       let fixtureDir = Path.Join(projectRoot, fixtureDir)
@@ -112,13 +114,11 @@ let BasicsTests (fixtureDir: string) =
       //   them back to their original names after we've inferred all of their
       //   values.
 
-      let paths =
-        TestCompiler.findFiles fixtureDir entryPath |> Async.RunSynchronously
-
-      printfn "Filenames:"
-
-      for path in paths do
-        printfn "%s" path
+      // let paths =
+      //   TestCompiler.findFiles fixtureDir entryPath |> Async.RunSynchronously
+      // printfn "Filenames:"
+      // for path in paths do
+      //   printfn "%s" path
 
       do!
         TestCompiler.compileFile mockWriter fixtureDir entryPath
@@ -199,3 +199,5 @@ let BasicsTests (fixtureDir: string) =
     }
 
   Assert.True(Result.isOk testResult)
+  stopWatch.Stop()
+  printfn $"%f{stopWatch.Elapsed.TotalMilliseconds}ms - {fixtureDir}"

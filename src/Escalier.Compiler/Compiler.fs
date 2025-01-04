@@ -31,6 +31,8 @@ module Compiler =
   type Compiler(fs: IFileSystem, ?loadLibDOM: bool) =
     let loadLibDOM = defaultArg loadLibDOM false
 
+    let mutable globalEnv = getGlobalEnvMemoized ()
+    let mutable initialized = false
     let mutable memoizedNodeModulesDir = Map.empty
     let mutable cachedModules: Map<string, Namespace> = Map.empty
 
@@ -249,7 +251,6 @@ module Compiler =
           if cachedModules.ContainsKey resolvedPath then
             return cachedModules[resolvedPath]
           else
-            let globalEnv = getGlobalEnv ()
             let! modEnv, modAst = this.inferLib ctx globalEnv resolvedPath
             let! ns = this.getLibExports ctx modEnv packageRoot modAst.Items
 
@@ -526,10 +527,7 @@ module Compiler =
         return exports
       }
 
-    member this.getCtx
-      (packageRoot: string)
-      (getGlobalEnv: unit -> Env)
-      : Result<Ctx, CompileError> =
+    member this.getCtx(packageRoot: string) : Result<Ctx, CompileError> =
 
       let getExports ctx filename import =
         asyncResult {
@@ -544,7 +542,6 @@ module Compiler =
                   printfn $"using cached module: {resolvedPath}"
                   return cachedModules[resolvedPath]
                 else
-                  let globalEnv = getGlobalEnv ()
                   let! modEnv, modAst = this.inferLib ctx globalEnv resolvedPath
 
                   let! ns =
@@ -563,9 +560,7 @@ module Compiler =
                   | Ok value -> value
                   | Error _ -> failwith $"failed to parse {resolvedImportPath}"
 
-                let env =
-                  { getGlobalEnv () with
-                      Filename = filename }
+                let env = { globalEnv with Filename = filename }
 
                 return!
                   this.getModuleExports ctx env resolvedImportPath m
@@ -595,26 +590,12 @@ module Compiler =
         return ctx
       }
 
-    member this.getEnvAndCtx
+    member this.initGlobalEnv
       (baseDir: string)
-      : Async<Result<Ctx * Env, CompileError>> =
+      : Async<Result<unit, CompileError>> =
       asyncResult {
-        printfn $"baseDir = {baseDir}"
-
-        match memoizedEnvAndCtx.TryFind baseDir with
-        | Some(result) ->
-          printfn "using memoized env and ctx"
-          let! ctx, env = result
-          let ctx = ctx.Clone
-          return ctx, env
-        | None ->
-          printfn "creating new env and ctx"
-          let env = getGlobalEnvMemoized ()
-          let mutable newEnv = env
-
-          // QUESTION: How do we make sure that the environment being used by
-          // ctx is update to date.
-          let! ctx = this.getCtx baseDir (fun _ -> newEnv)
+        if not initialized then
+          let! ctx = this.getCtx baseDir
 
           let mutable libs =
             [ "lib.es5.d.ts"
@@ -639,18 +620,18 @@ module Compiler =
 
           for lib in libs do
             let fullPath = Path.Combine(tsLibDir, lib)
-            let! env, _ = this.inferLib ctx newEnv fullPath
-            newEnv <- env
+            let! env, _ = this.inferLib ctx globalEnv fullPath
+            globalEnv <- env
 
           if not loadLibDOM then
             let typesDir = Path.Combine(repoRoot, "types")
             let fullPath = Path.Combine(typesDir, "lib.dom.lite.d.ts")
-            let! env, _ = this.inferLib ctx newEnv fullPath
-            newEnv <- env
+            let! env, _ = this.inferLib ctx globalEnv fullPath
+            globalEnv <- env
 
           // TODO: handle schemes within namespaces
           let readonlySchemes =
-            newEnv.Namespace.Schemes
+            globalEnv.Namespace.Schemes
             |> Map.filter (fun k _ ->
               (k.StartsWith "Readonly" || k.EndsWith "ReadOnly")
               && k <> "Readonly")
@@ -659,18 +640,38 @@ module Compiler =
             let name =
               readonlyName.Replace("Readonly", "").Replace("ReadOnly", "")
 
-            match newEnv.TryFindScheme name with
+            match globalEnv.TryFindScheme name with
             | Some(scheme) ->
               let merged =
                 QualifiedGraph.mergeType readonlyScheme.Type scheme.Type
 
               // TODO: track which TypeScript interface decls each of the properties
               // come from in the merged type.
-              newEnv <- newEnv.AddScheme name { scheme with Type = merged }
+              globalEnv <-
+                globalEnv.AddScheme name { scheme with Type = merged }
+
               ()
             | _ -> ()
 
-          let result = Result.Ok(ctx, newEnv)
+          initialized <- true
+      }
+
+    // TODO: memoize the creation of the environment but not the context
+    // the context has to be created for each fixture test but we can reuse
+    // the environment for all the tests.
+    member this.getEnvAndCtx
+      (baseDir: string)
+      : Async<Result<Ctx * Env, CompileError>> =
+      asyncResult {
+        match memoizedEnvAndCtx.TryFind baseDir with
+        | Some(result) ->
+          let! ctx, env = result
+          let ctx = ctx.Clone
+          return ctx, env
+        | None ->
+          do! this.initGlobalEnv baseDir
+          let! ctx = this.getCtx baseDir
+          let result = Result.Ok(ctx, globalEnv)
           memoizedEnvAndCtx <- memoizedEnvAndCtx.Add(baseDir, result)
 
           return! result
@@ -722,7 +723,7 @@ module Compiler =
       (srcFile: string)
       =
       asyncResult {
-        printfn $"***** loadLibDOM = {loadLibDOM} *****"
+        // printfn $"***** loadLibDOM = {loadLibDOM} *****"
 
         let filename = srcFile
         let! contents = fs.ReadAllTextAsync filename
@@ -766,7 +767,7 @@ module Compiler =
       (srcCode: string)
       : Async<Result<string * string, CompileError>> =
       asyncResult {
-        printfn $"***** loadLibDOM = {loadLibDOM} *****"
+        // printfn $"***** loadLibDOM = {loadLibDOM} *****"
 
         let! ctx, env = this.getEnvAndCtx baseDir
 

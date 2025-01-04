@@ -26,7 +26,15 @@ let projectRoot = __SOURCE_DIRECTORY__
 let fixturePaths: obj[] seq =
   Directory.GetDirectories(Path.Join(projectRoot, "fixtures"))
   |> Seq.collect Directory.GetDirectories
-  |> Seq.filter (fun dir -> not (dir.Contains("cyclic")))
+  |> Seq.filter (fun fixtureDir ->
+    let testName = (Path.GetFileName fixtureDir)
+    if File.Exists(Path.Join(fixtureDir, $"{testName}.esc")) then
+      true
+    else if File.Exists(Path.Join(fixtureDir, "entry.esc")) then
+      true
+    else
+      false
+    )
   |> Seq.map (fun dir -> [| box (dir.Substring projectRoot.Length) |])
 
 [<Theory>]

@@ -163,7 +163,6 @@ module Compiler =
                     Path.GetDirectoryName pkgJsonPath,
                     $"{types}.d.ts"
                   )
-          // Path.Combine(Path.GetDirectoryName pkgJsonPath, types)
           | Some value ->
             return
               Path.Combine(Path.GetDirectoryName pkgJsonPath, $"{value}.d.ts")
@@ -238,17 +237,43 @@ module Compiler =
         return outEnv, ast
       }
 
+    member this.getExportedNamespace
+      (ctx: Ctx)
+      (env: Env)
+      (packageRoot: string)
+      (resolvedPath: string)
+      : Async<Result<Namespace, CompileError>> =
+
+      asyncResult {
+        if resolvedPath.EndsWith(".d.ts") then
+          if cachedModules.ContainsKey resolvedPath then
+            return cachedModules[resolvedPath]
+          else
+            let globalEnv = getGlobalEnv ()
+            let! modEnv, modAst = this.inferLib ctx globalEnv resolvedPath
+            let! ns = this.getLibExports ctx modEnv packageRoot modAst.Items
+
+            cachedModules <- cachedModules.Add(resolvedPath, ns)
+            return ns
+        else
+          printfn $"resolvedPath = {resolvedPath}"
+
+          return!
+            AsyncResult.ofResult (
+              Error(TypeError(NotImplemented "TODO: getExportedNamespace"))
+            )
+      }
+
     member this.getLibExports
       (ctx: Ctx)
       (env: Env)
       (packageRoot: string)
-      (name: string)
       (items: list<ModuleItem>)
       : Async<Result<Namespace, CompileError>> =
 
       asyncResult {
         let mutable ns: Namespace =
-          { Name = name
+          { Name = "<exports>"
             Values = Map.empty
             Schemes = Map.empty
             Namespaces = Map.empty }
@@ -274,48 +299,18 @@ module Compiler =
                 for KeyValue(key, value) in value.Namespaces do
                   ns <- ns.AddNamespace key value
               | None -> failwith $"Couldn't find namespace: '{name}'"
-            | NamedExport { Src = Some src
-                            Specifiers = specifiers } ->
-              let! resolvedPath = this.resolvePath packageRoot env.Filename src
-              let mutable resolvedPath = resolvedPath
-
-              if resolvedPath.EndsWith(".js") then
-                resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
-
-              if not (Path.HasExtension resolvedPath) then
-                resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
-
-              let! exportNs =
-                asyncResult {
-                  if resolvedPath.EndsWith(".d.ts") then
-                    if cachedModules.ContainsKey resolvedPath then
-                      return cachedModules[resolvedPath]
-                    else
-                      let! modEnv, modAst =
-                        this.inferLib ctx (getGlobalEnv ()) resolvedPath
-
-                      let! ns =
-                        this.getLibExports
-                          ctx
-                          modEnv
-                          packageRoot
-                          "<exports>"
-                          modAst.Items
-
-                      cachedModules <- cachedModules.Add(resolvedPath, ns)
-                      return ns
-                  else
-                    printfn $"resolvedPath = {resolvedPath}"
+            | NamedExport { Src = src; Specifiers = specifiers } ->
+              let! srcNamespace =
+                match src with
+                | Some src ->
+                  asyncResult {
+                    let! resolvedPath =
+                      this.resolvePath packageRoot env.Filename src
 
                     return!
-                      AsyncResult.ofResult (
-                        Error(
-                          TypeError(
-                            NotImplemented "TODO: getLibExports - NamedExport"
-                          )
-                        )
-                      )
-                }
+                      this.getExportedNamespace ctx env packageRoot resolvedPath
+                  }
+                | None -> AsyncResult.ok env.Namespace
 
               for Named { Name = name; Alias = alias } in specifiers do
                 let mutable found = false
@@ -325,53 +320,25 @@ module Compiler =
                   | Some a -> a
                   | None -> name
 
-                match exportNs.Values.TryFind name with
+                match srcNamespace.Values.TryFind name with
                 | Some binding ->
                   ns <- ns.AddBinding exportName binding
                   found <- true
                 | None -> ()
 
-                match exportNs.Schemes.TryFind name with
+                match srcNamespace.Schemes.TryFind name with
                 | Some scheme ->
                   ns <- ns.AddScheme exportName scheme
                   found <- true
                 | None -> ()
 
-                match exportNs.Namespaces.TryFind name with
+                match srcNamespace.Namespaces.TryFind name with
                 | Some value ->
                   ns <- ns.AddNamespace exportName value
                   found <- true
                 | None -> ()
 
-                if found then
-                  failwith $"Couldn't find export '{name}' in {resolvedPath}"
-            | NamedExport { Src = None; Specifiers = specifiers } ->
-              for Named { Name = name; Alias = alias } in specifiers do
-                let mutable found = false
-
-                let exportName =
-                  match alias with
-                  | Some a -> a
-                  | None -> name
-
-                match env.TryFindValue name with
-                | Some binding ->
-                  ns <- ns.AddBinding exportName binding
-                  found <- true
-                | None -> ()
-
-                match env.TryFindScheme name with
-                | Some scheme ->
-                  ns <- ns.AddScheme exportName scheme
-                  found <- true
-                | None -> ()
-
-                match env.Namespace.Namespaces.TryFind name with
-                | Some value ->
-                  ns <- ns.AddNamespace exportName value
-                  found <- true
-                | None -> ()
-
+                // TODO: include the resolvedPath in the error message when available
                 if found then
                   failwith $"Couldn't find '{name}' to export"
             | ExportDefault expr ->
@@ -385,47 +352,9 @@ module Compiler =
               ()
             | ExportAll { Src = src } ->
               let! resolvedPath = this.resolvePath packageRoot env.Filename src
-              let mutable resolvedPath = resolvedPath
-
-              if resolvedPath.EndsWith(".js") then
-                resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
-
-              if not (Path.HasExtension resolvedPath) then
-                resolvedPath <- Path.ChangeExtension(resolvedPath, ".d.ts")
-
-              printfn $"resolvedPath = {resolvedPath}"
 
               let! exportNs =
-                asyncResult {
-                  if resolvedPath.EndsWith(".d.ts") then
-                    if cachedModules.ContainsKey resolvedPath then
-                      return cachedModules[resolvedPath]
-                    else
-                      let! modEnv, modAst =
-                        this.inferLib ctx (getGlobalEnv ()) resolvedPath
-
-                      let! ns =
-                        this.getLibExports
-                          ctx
-                          modEnv
-                          packageRoot
-                          "<exports>"
-                          modAst.Items
-
-                      cachedModules <- cachedModules.Add(resolvedPath, ns)
-                      return ns
-                  else
-                    printfn $"resolvedPath = {resolvedPath}"
-
-                    return!
-                      AsyncResult.ofResult (
-                        Error(
-                          TypeError(
-                            NotImplemented "TODO: getLibExports - ExportAll"
-                          )
-                        )
-                      )
-                }
+                this.getExportedNamespace ctx env packageRoot resolvedPath
 
               for KeyValue(key, binding) in exportNs.Values do
                 ns <- ns.AddBinding key binding
@@ -609,26 +538,21 @@ module Compiler =
           let! exportNs =
             asyncResult {
               if resolvedPath.EndsWith(".d.ts") then
+                printfn $"getExports - resolvedPath = {resolvedPath}"
+
                 if cachedModules.ContainsKey resolvedPath then
+                  printfn $"using cached module: {resolvedPath}"
                   return cachedModules[resolvedPath]
                 else
-                  let! modEnv, modAst =
-                    this.inferLib ctx (getGlobalEnv ()) resolvedPath
+                  let globalEnv = getGlobalEnv ()
+                  let! modEnv, modAst = this.inferLib ctx globalEnv resolvedPath
 
                   let! ns =
-                    this.getLibExports
-                      ctx
-                      modEnv
-                      packageRoot
-                      "<exports>"
-                      modAst.Items
+                    this.getLibExports ctx modEnv packageRoot modAst.Items
 
                   cachedModules <- cachedModules.Add(resolvedPath, ns)
                   return ns
               else
-                let! resolvedPath =
-                  this.resolvePath packageRoot filename import.Path
-
                 let resolvedImportPath =
                   Path.ChangeExtension(resolvedPath, ".esc")
 
@@ -675,12 +599,16 @@ module Compiler =
       (baseDir: string)
       : Async<Result<Ctx * Env, CompileError>> =
       asyncResult {
+        printfn $"baseDir = {baseDir}"
+
         match memoizedEnvAndCtx.TryFind baseDir with
         | Some(result) ->
+          printfn "using memoized env and ctx"
           let! ctx, env = result
           let ctx = ctx.Clone
           return ctx, env
         | None ->
+          printfn "creating new env and ctx"
           let env = getGlobalEnvMemoized ()
           let mutable newEnv = env
 
@@ -705,8 +633,8 @@ module Compiler =
           if loadLibDOM then
             libs <- libs @ [ "lib.dom.d.ts" ]
 
-          let! packageRoot = this.findNearestAncestorWithNodeModules baseDir
-          let nodeModulesDir = Path.Combine(packageRoot, "node_modules")
+          let! repoRoot = this.findNearestAncestorWithNodeModules baseDir
+          let nodeModulesDir = Path.Combine(repoRoot, "node_modules")
           let tsLibDir = Path.Combine(nodeModulesDir, "typescript/lib")
 
           for lib in libs do
@@ -715,7 +643,7 @@ module Compiler =
             newEnv <- env
 
           if not loadLibDOM then
-            let typesDir = Path.Combine(packageRoot, "types")
+            let typesDir = Path.Combine(repoRoot, "types")
             let fullPath = Path.Combine(typesDir, "lib.dom.lite.d.ts")
             let! env, _ = this.inferLib ctx newEnv fullPath
             newEnv <- env

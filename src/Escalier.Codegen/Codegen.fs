@@ -1896,7 +1896,10 @@ module rec Codegen =
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
     | TypeKind.Range _ -> failwith "TODO: buildType - Range"
     | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
-    | TypeKind.UniqueNumber id -> failwith "TODO: buildType - UniqueNumber"
+    | TypeKind.UniqueNumber _ ->
+      TsType.TsKeywordType
+        { Kind = TsKeywordTypeKind.TsNumberKeyword
+          Loc = None }
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
     | TypeKind.Unary _ -> failwith "TODO: buildType - Unary"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"

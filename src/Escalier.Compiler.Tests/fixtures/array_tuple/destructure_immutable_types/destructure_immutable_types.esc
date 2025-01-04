@@ -1,0 +1,4 @@
+let [a, b] = #[5, "hello"];
+let #[c, d] = #[5, "hello"];
+let {e, f} = #{e: 5, f: "hello"};
+let #{g, h} = #{g: 5, h: "hello"};

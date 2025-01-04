@@ -236,6 +236,7 @@ let InferOutOfBoundsRangeRangeAssignment () =
 
   Assert.False(Result.isError res)
 
+// TODO: update parser to handle negative numbers in range literals
 [<Fact(Skip = "lower (neg (num x))")>]
 let InferRangeWithNegativeStart () =
   let res =
@@ -441,7 +442,6 @@ let InferBasicImmutableTypes () =
     }
 
   Assert.False(Result.isError res)
-
 
 [<Fact>]
 let DestructuringImmutableTypes () =

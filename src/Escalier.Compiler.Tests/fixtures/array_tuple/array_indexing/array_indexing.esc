@@ -1,0 +1,5 @@
+let array: number[] = [1, 2, 3];
+let first = array[0];
+let second = array[1];
+let third = array[2];
+let fourth = array[3];

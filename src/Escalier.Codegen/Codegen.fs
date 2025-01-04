@@ -529,7 +529,26 @@ module rec Codegen =
           tuple
 
       (tuple, stmts)
-    | ExprKind.Range range -> failwith "TODO: buildExpr - Range"
+    | ExprKind.Range range ->
+      let minExpr, minStmts = buildExpr ctx range.Min
+      let maxExpr, maxStmts = buildExpr ctx range.Max
+
+      // TODO: add an import for the Escalier runtime
+      let callee =
+        Expr.Member
+          { Object = Expr.Ident { Name = "Escalier"; Loc = None }
+            Property = Expr.Ident { Name = "range"; Loc = None }
+            Computed = false
+            OptChain = false
+            Loc = None }
+
+      let range =
+        Expr.Call
+          { Callee = callee
+            Arguments = [ minExpr; maxExpr ]
+            Loc = None }
+
+      (range, minStmts @ maxStmts)
     | ExprKind.Index { Target = target
                        Index = index
                        OptChain = optChain } ->
@@ -1317,7 +1336,35 @@ module rec Codegen =
           | None -> [ Stmt.Return { Argument = None; Loc = None } ]
         | StmtKind.For { Left = left
                          Right = right
-                         Body = body } -> failwith "TODO: buildBlock - For"
+                         Body = body } ->
+
+          let leftPat, _ = buildPattern ctx left None
+          // TODO: if the right is a range, we should codegen a regular for loop
+          // This will require store the min and max values as properties on the
+          // range object.
+          let rightExpr, rightStmts = buildExpr ctx right
+
+          let decl =
+            { Id = leftPat
+              TypeAnn = None
+              Init = None }
+
+          let left =
+            ForHead.VarDecl
+              { Export = false
+                Declare = false
+                Decls = [ decl ]
+                Kind = VariableDeclarationKind.Const }
+
+          let forStmt =
+            TS.Stmt.ForOf
+              { IsAwait = false
+                Left = left
+                Right = rightExpr
+                Body = buildBlock ctx body Finalizer.Empty |> TS.Stmt.Block
+                Loc = None }
+
+          rightStmts @ [ forStmt ]
 
       stmts <- stmts @ stmts'
 
@@ -1894,9 +1941,15 @@ module rec Codegen =
         { Kind = TsKeywordTypeKind.TsAnyKeyword
           Loc = None }
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
-    | TypeKind.Range _ -> failwith "TODO: buildType - Range"
+    | TypeKind.Range _ ->
+      TsType.TsKeywordType
+        { Kind = TsKeywordTypeKind.TsNumberKeyword
+          Loc = None }
     | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
-    | TypeKind.UniqueNumber id -> failwith "TODO: buildType - UniqueNumber"
+    | TypeKind.UniqueNumber _ ->
+      TsType.TsKeywordType
+        { Kind = TsKeywordTypeKind.TsNumberKeyword
+          Loc = None }
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
     | TypeKind.Unary _ -> failwith "TODO: buildType - Unary"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"

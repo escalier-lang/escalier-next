@@ -346,6 +346,49 @@ module rec Printer =
 
     sb.ToString()
 
+  let printVarDecl (ctx: PrintCtx) (varDecl: VarDecl) : string =
+    let { Export = export
+          Declare = declare
+          Decls = decls
+          Kind = kind } =
+      varDecl
+
+    let decls =
+      List.map
+        (fun
+             { VarDeclarator.Id = id
+               Init = init
+               TypeAnn = typeAnn } ->
+          let id = printPattern ctx id
+
+          let mutable sb = new StringBuilder()
+          sb <- sb.Append(id)
+
+          match typeAnn with
+          | Some typeAnn ->
+            sb <- sb.Append(": ").Append(printTypeAnn ctx typeAnn)
+          | None -> ()
+
+          match init with
+          | Some(init) -> sb <- sb.Append(" = ").Append(printExpr ctx init)
+          | None -> ()
+
+          sb.ToString())
+        decls
+      |> String.concat ", "
+
+    let export = if export then "export " else ""
+    let declare = if declare then "declare " else ""
+
+    let kind =
+      match kind with
+      | VariableDeclarationKind.Var -> "var"
+      | VariableDeclarationKind.Let -> "let"
+      | VariableDeclarationKind.Const -> "const"
+
+    $"{export}{declare}{kind} {decls}"
+
+
   let printStmt (ctx: PrintCtx) (stmt: TypeScript.Stmt) : string =
     match stmt with
     | Stmt.Block block -> printBlock ctx block
@@ -484,6 +527,20 @@ module rec Printer =
       let body = printStmt ctx body
 
       $"for ({left} in {right}) {body}"
+    | Stmt.ForOf { IsAwait = _
+                   Left = left
+                   Right = right
+                   Body = body } ->
+      let left =
+        match left with
+        | ForHead.VarDecl decl -> printVarDecl ctx decl
+        | ForHead.Pat p -> printPattern ctx p
+        | ForHead.UsingDecl decl -> failwith "TODO"
+
+      let right = printExpr ctx right
+      let body = printStmt ctx body
+
+      $"for ({left} of {right}) {body}"
     | Stmt.Decl decl ->
       let ctx = { ctx with Precedence = 0 }
 
@@ -520,44 +577,9 @@ module rec Printer =
         | None -> sb <- sb.Append(";")
 
         sb.ToString()
-      | Decl.Var { Export = export
-                   Declare = declare
-                   Decls = decls
-                   Kind = kind } ->
-        let decls =
-          List.map
-            (fun
-                 { VarDeclarator.Id = id
-                   Init = init
-                   TypeAnn = typeAnn } ->
-              let id = printPattern ctx id
-
-              let mutable sb = new StringBuilder()
-              sb <- sb.Append(id)
-
-              match typeAnn with
-              | Some typeAnn ->
-                sb <- sb.Append(": ").Append(printTypeAnn ctx typeAnn)
-              | None -> ()
-
-              match init with
-              | Some(init) -> sb <- sb.Append(" = ").Append(printExpr ctx init)
-              | None -> ()
-
-              sb.ToString())
-            decls
-          |> String.concat ", "
-
-        let export = if export then "export " else ""
-        let declare = if declare then "declare " else ""
-
-        let kind =
-          match kind with
-          | VariableDeclarationKind.Var -> "var"
-          | VariableDeclarationKind.Let -> "let"
-          | VariableDeclarationKind.Const -> "const"
-
-        $"{export}{declare}{kind} {decls};"
+      | Decl.Var varDecl ->
+        let decl = printVarDecl ctx varDecl
+        $"{decl};"
       | Decl.Class(_) -> failwith "TODO: printStmt - Class"
       | Decl.Using(_) -> failwith "TODO: printStmt - Using"
       | Decl.TsInterface(_) -> failwith "TODO: printStmt - TsInterface"
@@ -583,7 +605,6 @@ module rec Printer =
         $"{export}{declare}{name}{typeParams} = {typeAnn};"
       | Decl.TsEnum(_) -> failwith "TODO: printStmt - TsEnum"
       | Decl.TsModule(_) -> failwith "TODO: printStmt - TsModule"
-    | Stmt.ForOf(_) -> failwith "TODO: printStmt - ForOf"
 
   let printPattern (ctx: PrintCtx) (p: Pat) : string =
     match p with

@@ -1,0 +1,2 @@
+declare let array: number[];
+let [a, b] = array;

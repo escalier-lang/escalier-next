@@ -1,0 +1,15 @@
+type RangeIterator<Min: number, Max: number> = {
+  next: fn () -> { done: boolean, value: Min..Max }
+};
+
+declare let array: number[];
+
+let length = array.length;
+for x in 0..length {
+  let item: number = array[x];
+}
+
+declare let range: 0..(typeof length);
+let elem = array[range];
+
+let first = array[0];

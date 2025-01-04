@@ -1,0 +1,2 @@
+declare let foo: fn (point: #[number, number]) -> undefined;
+foo([5, 10]);

@@ -232,38 +232,6 @@ module rec Unify =
       | _, TypeKind.TypeRef _ ->
         let! t = expandType ctx env ips Map.empty t2
         do! unify ctx env ips t1 t
-      | TypeKind.Range range1, TypeKind.Range range2 ->
-        match
-          range1.Min.Kind, range1.Max.Kind, range2.Min.Kind, range2.Max.Kind
-        with
-        | TypeKind.Literal(Literal.Number min1),
-          TypeKind.Literal(Literal.Number max1),
-          TypeKind.Literal(Literal.Number min2),
-          TypeKind.Literal(Literal.Number max2) ->
-
-          if min1 >= min2 && max1 <= max2 then
-            ()
-          else
-            return! Error(TypeError.TypeMismatch(t1, t2))
-        | _ ->
-          printfn $"unify({t1}, {t2})"
-          printfn "TODO: expand `min` and `max` before unifying with `n`"
-          return! Error(TypeError.TypeMismatch(t1, t2))
-
-      | TypeKind.Range _, TypeKind.Primitive Primitive.Number -> ()
-      | TypeKind.Literal(Literal.Number n),
-        TypeKind.Range { Min = min; Max = max } ->
-
-        match min.Kind, max.Kind with
-        | TypeKind.Literal(Literal.Number min),
-          TypeKind.Literal(Literal.Number max) ->
-          if n >= min && n < max then
-            ()
-          else
-            return! Error(TypeError.TypeMismatch(t1, t2))
-        | _, _ ->
-          printfn "TODO: expand `min` and `max` before unifying with `n`"
-          return! Error(TypeError.TypeMismatch(t1, t2))
       | TypeKind.Literal lit, TypeKind.Primitive prim ->
         // TODO: check that `typeArgs` is `None`
         match lit, prim with
@@ -342,9 +310,6 @@ module rec Unify =
 
       | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
         ()
-      | TypeKind.UniqueNumber id1, TypeKind.UniqueNumber id2 when id1 = id2 ->
-        ()
-      | TypeKind.UniqueNumber _, TypeKind.Primitive Primitive.Number -> ()
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))
@@ -836,11 +801,7 @@ module rec Unify =
       let t2 = prune t2
 
       match t1.Kind, t2.Kind with
-      // We special case array because lengths are usually `unique number` which
-      // don't unify.
-      // TODO: generalize `.Length` in params that are arrays
-      | TypeKind.Array { Elem = elem1; Length = len1 },
-        TypeKind.Array { Elem = elem2; Length = len2 } ->
+      | TypeKind.Array { Elem = elem1 }, TypeKind.Array { Elem = elem2 } ->
         do! unifyInvariant ctx env ips elem1 elem2
       // TODO: allow array and tuples to unify when the tuple has a rest element
       | _ ->
@@ -1651,11 +1612,11 @@ module rec Unify =
                       Immutable = false
                       Interface = false }
                 Provenance = None }
-        | TypeKind.Array { Elem = elem; Length = length } ->
+        | TypeKind.Array { Elem = elem } ->
           let! elem = expandType ctx env ips mapping elem
 
           return
-            { Kind = TypeKind.Array { Elem = elem; Length = length }
+            { Kind = TypeKind.Array { Elem = elem }
               Provenance = None }
         | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = elems |> List.traverseResultM (expand mapping)

@@ -287,11 +287,7 @@ let ImmutableParamsAreCovariant () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Value(
-        env,
-        "foo",
-        "fn (array: (number | string)[]) -> unique number"
-      )
+      Assert.Value(env, "foo", "fn (array: (number | string)[]) -> number")
     }
 
   Assert.False(Result.isError result)

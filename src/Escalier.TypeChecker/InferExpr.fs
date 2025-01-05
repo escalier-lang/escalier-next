@@ -497,45 +497,17 @@ module rec InferExpr =
           let target = prune target
           let index = prune index
 
-          match index.Kind with
-          | TypeKind.Range { Min = _; Max = max } ->
-            match target.Kind with
-            | TypeKind.Array { Elem = elem; Length = length } ->
-              printfn $"max = {max}, length = {length}"
-              do! unify ctx env None max length
-              return elem
+          // TODO: Add support for using `number` as a key for arrays
+          let key =
+            match index.Kind with
+            | TypeKind.Literal(Literal.Number i) -> PropName.Number i
+            | TypeKind.Literal(Literal.String s) -> PropName.String s
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id
             | _ ->
-              return!
-                Error(
-                  TypeError.NotImplemented "TODO: array indexing using a range"
-                )
-          | _ ->
-            let key =
-              match index.Kind with
-              | TypeKind.Literal(Literal.Number i) -> PropName.Number i
-              | TypeKind.Literal(Literal.String s) -> PropName.String s
-              | TypeKind.UniqueSymbol id -> PropName.Symbol id
-              | _ ->
-                printfn "index = %A" index
-                failwith $"TODO: index can't be a {index}"
+              printfn "index = %A" index
+              failwith $"TODO: index can't be a {index}"
 
-            return! getPropType ctx env target key optChain ValueCategory.RValue
-        | ExprKind.Range { Min = min; Max = max } ->
-          // TODO: add a constraint that `min` and `max` must be numbers
-          // We can do this by creating type variables for them with the
-          // proper constraint and then unifying them with the inferred types
-          let! min = inferExpr ctx env None min
-          let! max = inferExpr ctx env None max
-
-          let scheme = env.TryFindScheme "RangeIterator"
-
-          return
-            { Kind =
-                TypeKind.TypeRef
-                  { Name = QualifiedIdent.Ident "RangeIterator"
-                    TypeArgs = Some([ min; max ])
-                    Scheme = scheme }
-              Provenance = None }
+          return! getPropType ctx env target key optChain ValueCategory.RValue
         | ExprKind.Assign { Left = left; Right = right } ->
           // TODO: handle update assign operations
           let! rightType = inferExpr ctx env None right

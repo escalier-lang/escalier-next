@@ -2029,7 +2029,7 @@ let InferMappedObjectType () =
 
       // TODO: maintain the original name of the symbol
       Assert.Equal(
-        "{a: string[], b: number[], [Symbol(147)]: boolean[]}",
+        "{a: string[], b: number[], [Symbol(10)]: boolean[]}",
         t.ToString()
       )
     }

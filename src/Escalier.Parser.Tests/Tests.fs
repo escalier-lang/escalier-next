@@ -656,57 +656,6 @@ let ParseDeclare () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
-let ParseRange () =
-  let src =
-    """
-    type DieRoll = 1..6;
-    let range = 0..10;
-    """
-
-  let ast = Parser.parseModule src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseRangeIteratorType () =
-  let src =
-    """
-      type RangeIterator<Min: number, Max: number> = {
-        next: fn () -> { done: boolean, value: Min..Max }
-      };
-    """
-
-  let ast = Parser.parseModule src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseSimpleRangeType () =
-  let src =
-    """
-      type Range = Min..Max;
-    """
-
-  let ast = Parser.parseModule src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
-let ParseRangeTypeAndQualifiedTypeRefInObject () =
-  let src =
-    """
-      type Obj = {range: Min..Max, qual: Foo.Bar};
-    """
-
-  let ast = Parser.parseModule src
-  let result = $"input: %s{src}\noutput: %A{ast}"
-
-  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
-
-[<Fact>]
 let ParseTemplateLiteralType () =
   let src = """type TemplateLiteral = `foo${number}`;"""
 
@@ -761,7 +710,7 @@ let ParseMutableParams () =
   let src =
     """
     let update = fn (mut array: number[]) {
-      for i in 0..array.length {
+      for i in array.keys() {
         array[i] = array[i] + 1;
       }
     };

@@ -124,10 +124,6 @@ module rec InferTypeAnn =
           return! Error(TypeError.NotImplemented "TODO: inferTypeAnn - Match") // TODO
         | TypeAnnKind.Infer name -> return TypeKind.Infer name
         | TypeAnnKind.Wildcard -> return TypeKind.Wildcard
-        | TypeAnnKind.Binary { Op = op; Left = left; Right = right } ->
-          let! left = inferTypeAnn ctx env left
-          let! right = inferTypeAnn ctx env right
-          return TypeKind.Binary { Op = op; Left = left; Right = right }
         | TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs } ->
           let! exprs = List.traverseResultM (inferTypeAnn ctx env) exprs
           return TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }

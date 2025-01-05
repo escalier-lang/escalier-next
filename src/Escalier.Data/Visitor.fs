@@ -331,9 +331,6 @@ module rec ExprVisitor =
       | TypeAnnKind.Match matchType -> failwith "todo"
       | TypeAnnKind.Infer _name -> ()
       | TypeAnnKind.Wildcard -> ()
-      | TypeAnnKind.Binary { Left = left; Right = right } ->
-        walk left
-        walk right
       | TypeAnnKind.TemplateLiteral { Exprs = expr } -> List.iter walk expr
       | TypeAnnKind.Intrinsic -> ()
       | TypeAnnKind.ImportType _ -> ()
@@ -441,10 +438,6 @@ module rec TypeVisitor =
         walk trueType
         walk falseType
       | TypeKind.Infer _ -> ()
-      | TypeKind.Binary { Left = left; Right = right } ->
-        walk left
-        walk right
-      | TypeKind.Unary { Arg = arg } -> walk arg
       | TypeKind.UniqueSymbol _ -> ()
       | TypeKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
       | TypeKind.Typeof _ -> ()

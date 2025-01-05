@@ -522,19 +522,6 @@ module rec Unify =
         match unifier with
         | Some _ -> return ()
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
-
-      | TypeKind.Binary { Op = op }, TypeKind.Primitive Primitive.Number when
-        op = "+" || op = "-" || op = "*" || op = "/" || op = "%" || op = "**"
-        ->
-        return ()
-      | TypeKind.Binary { Op = op }, TypeKind.Primitive Primitive.Boolean when
-        op = "<" || op = "<=" || op = ">" || op = ">="
-        ->
-        return ()
-      | TypeKind.Binary { Op = op }, TypeKind.Primitive Primitive.String when
-        op = "++"
-        ->
-        return ()
       | _, _ -> return! unifyFallThrough ctx env ips t1 t2
     }
 
@@ -835,27 +822,7 @@ module rec Unify =
         if occursInType t1 t2 then
           match t2.Kind with
           | TypeKind.Union types ->
-            let types =
-              types
-              |> flatten
-              |> List.filter (fun t -> t <> t1)
-              |> List.map (fun t ->
-                // TODO: make this recursive
-                match t.Kind with
-                | TypeKind.Binary _ ->
-                  { Kind = TypeKind.Primitive Primitive.Number
-                    Provenance = None }
-                | TypeKind.Unary { Op = op } ->
-                  match op with
-                  | "+"
-                  | "-" ->
-                    { Kind = TypeKind.Primitive Primitive.Number
-                      Provenance = None }
-                  | "!" ->
-                    { Kind = TypeKind.Primitive Primitive.Boolean
-                      Provenance = None }
-                  | _ -> failwith $"Invalid unary operator {op}"
-                | _ -> t)
+            let types = types |> flatten |> List.filter (fun t -> t <> t1)
 
             match types with
             | [] -> return ()
@@ -863,27 +830,6 @@ module rec Unify =
             | types ->
               let t = union types
               return! bind ctx env ips t1 t
-          | TypeKind.Binary _ ->
-            let t =
-              { Kind = TypeKind.Primitive Primitive.Number
-                Provenance = None }
-
-            let! _ = bind ctx env ips t1 t
-            return ()
-          | TypeKind.Unary { Op = op } ->
-            let t =
-              match op with
-              | "+"
-              | "-" ->
-                { Kind = TypeKind.Primitive Primitive.Number
-                  Provenance = None }
-              | "!" ->
-                { Kind = TypeKind.Primitive Primitive.Boolean
-                  Provenance = None }
-              | _ -> failwith $"Invalid unary operator {op}"
-
-            let! _ = bind ctx env ips t1 t
-            return ()
           | _ ->
             printfn "recursive unification error"
             return! Error(TypeError.RecursiveUnification(t1, t2))
@@ -1233,7 +1179,6 @@ module rec Unify =
             | Ok _ -> return! expand newMapping trueType
             | Error _ -> return! expand newMapping falseType
 
-        | TypeKind.Binary _ -> return simplify t
         // TODO: instead of expanding object types, we should try to
         // look up properties on the object type without expanding it
         // since expansion can be quite expensive

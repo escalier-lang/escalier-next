@@ -12,7 +12,7 @@ let InferCallFuncWithSingleWrongArg () =
     result {
       let src =
         """
-        let add = fn <A: number, B: number>(x: A, y: B) => {value: x + y};
+        let add = fn (x: number, y: number) => {value: x + y};
         let sum = add("hello", "world");
         """
 
@@ -20,7 +20,7 @@ let InferCallFuncWithSingleWrongArg () =
 
       Assert.Equal(ctx.Report.Diagnostics.Length, 2) // can't pass strings to function expecting numbers
       // TODO: simplify all binary types inside a complex type
-      Assert.Value(env, "sum", "{value: number + number}")
+      Assert.Value(env, "sum", "{value: number}")
     }
 
   Assert.False(Result.isError result)
@@ -31,7 +31,7 @@ let InferCallFuncWithWrongArgs () =
     result {
       let src =
         """
-        let add = fn <A: number, B: number>(x: A, y: B) => x + y;
+        let add = fn (x: number, y: number) => x + y;
         let sum = "hello" + "world";
         """
 
@@ -107,14 +107,14 @@ let PassingTooManyArgsIsOkay () =
     result {
       let src =
         """
-        let add = fn <A: number, B: number>(x: A, y: B) => x + y;
+        let add = fn (x: number, y: number) => x + y;
         let sum = add(5, 10, "hello");
         """
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "sum", "15")
+      Assert.Value(env, "sum", "number")
     }
 
   Assert.False(Result.isError result)
@@ -149,13 +149,13 @@ let InferBasicFunction () =
     result {
       let src =
         """
-        let add = fn <A: number, B: number>(a: A, b: B) => a + b;
+        let add = fn (a: number, b: number) => a + b;
         """
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "add", "fn <A: number, B: number>(a: A, b: B) -> A + B")
+      Assert.Value(env, "add", "fn (a: number, b: number) -> number")
     }
 
   Assert.False(Result.isError res)
@@ -353,12 +353,12 @@ let InferTypeAliasOfTypeParam () =
 let InferLambda () =
   let result =
     result {
-      let src = "let add = fn <A: number, B: number>(x: A, y: B) => x + y;"
+      let src = "let add = fn (x: number, y: number) => x + y;"
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
+      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
 
   Assert.False(Result.isError result)
@@ -369,10 +369,10 @@ let InferFuncParams () =
     result {
       let src =
         """
-          let addNums = fn <A: number, B: number>(x: A, y: B) {
+          let addNums = fn (x: number, y: number) {
             return x + y;
           };
-          let addStrs = fn <A: string, B: string>(x: A, y: B) {
+          let addStrs = fn (x: string, y: string) {
             return x ++ y;
           };
           let msg = addStrs("Hello, ", "world!");
@@ -384,19 +384,11 @@ let InferFuncParams () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Value(
-        env,
-        "addNums",
-        "fn <A: number, B: number>(x: A, y: B) -> A + B"
-      )
+      Assert.Value(env, "addNums", "fn (x: number, y: number) -> number")
 
-      Assert.Value(
-        env,
-        "addStrs",
-        "fn <A: string, B: string>(x: A, y: B) -> A ++ B"
-      )
+      Assert.Value(env, "addStrs", "fn (x: string, y: string) -> string")
 
-      Assert.Value(env, "msg", "\"Hello, world!\"")
+      Assert.Value(env, "msg", "string")
       Assert.Value(env, "frMsg", "string")
     }
 
@@ -408,13 +400,13 @@ let InferBinaryOpStressTest () =
     result {
       let src =
         """
-          let foo = fn <A: number, B: number, C: number>(a: A, b: B, c: C) {
+          let foo = fn (a: number, b: number, c: number) {
             return a * b + c;
           };
-          let double = fn <A: number>(x: A) {
+          let double = fn (x: number) {
             return 2 * x;
           };
-          let inc = fn <A: number>(x: A) {
+          let inc = fn (x: number) {
             return x + 1;
           };
           let bar = foo(double(1), inc(2), 3);
@@ -426,15 +418,11 @@ let InferBinaryOpStressTest () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Value(
-        env,
-        "foo",
-        "fn <A: number, B: number, C: number>(a: A, b: B, c: C) -> A * B + C"
-      )
+      Assert.Value(env, "foo", "fn (a: number, b: number, c: number) -> number")
 
-      Assert.Value(env, "double", "fn <A: number>(x: A) -> 2 * A")
-      Assert.Value(env, "inc", "fn <A: number>(x: A) -> A + 1")
-      Assert.Value(env, "bar", "9")
+      Assert.Value(env, "double", "fn (x: number) -> number")
+      Assert.Value(env, "inc", "fn (x: number) -> number")
+      Assert.Value(env, "bar", "number")
       Assert.Value(env, "qux", "number")
     }
 

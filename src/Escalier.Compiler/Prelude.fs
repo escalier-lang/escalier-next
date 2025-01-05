@@ -43,14 +43,9 @@ let getGlobalEnv () : Env =
   let arithemtic (op: string) : Binding =
     let t =
       makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = op
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
+        None
+        [ makeParam "left" numType; makeParam "right" numType ]
+        numType
         never
 
     { Type = t
@@ -58,13 +53,7 @@ let getGlobalEnv () : Env =
       Export = false }
 
   let unaryArithmetic (op: string) : Binding =
-    let t =
-      makeFunctionType
-        (Some [ tpA ])
-        [ makeParam "arg" typeRefA ]
-        { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
-          Provenance = None }
-        never
+    let t = makeFunctionType None [ makeParam "arg" numType ] numType never
 
     { Type = t
       Mutable = false
@@ -73,14 +62,9 @@ let getGlobalEnv () : Env =
   let comparison (op: string) : Binding =
     let t =
       makeFunctionType
-        (Some [ tpA; tpB ])
-        [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-        { Kind =
-            TypeKind.Binary
-              { Op = op
-                Left = typeRefA
-                Right = typeRefB }
-          Provenance = None }
+        None
+        [ makeParam "left" numType; makeParam "right" numType ]
+        boolType
         never
 
     { Type = t
@@ -134,8 +118,7 @@ let getGlobalEnv () : Env =
         makeFunctionType
           (Some(typeParams))
           [ makeParam "arg" typeRefA ]
-          { Kind = TypeKind.Unary { Op = op; Arg = typeRefA }
-            Provenance = None }
+          boolType
           never
       Mutable = false
       Export = false }
@@ -169,14 +152,9 @@ let getGlobalEnv () : Env =
   let stringConcat =
     { Type =
         makeFunctionType
-          (Some [ tpA; tpB ])
-          [ makeParam "left" typeRefA; makeParam "right" typeRefB ]
-          { Kind =
-              TypeKind.Binary
-                { Op = "++"
-                  Left = typeRefA
-                  Right = typeRefB }
-            Provenance = None }
+          None
+          [ makeParam "left" strType; makeParam "right" strType ]
+          strType
           never
       Mutable = false
       Export = false }

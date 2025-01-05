@@ -135,7 +135,7 @@ let NamespaceReferenceOtherNamespaces () =
       let! ctx, env = inferModule src
 
       Assert.Value(env, "x", "5")
-      Assert.Value(env, "y", "15")
+      Assert.Value(env, "y", "number")
     }
 
   printfn "res = %A" res
@@ -316,7 +316,7 @@ let FunctionDeclsWithLocalVariables () =
     result {
       let src =
         """
-        fn add5<A: number>(x: A) {
+        fn add5(x: number) {
           let y = 5;
           return x + y;
         }
@@ -324,7 +324,7 @@ let FunctionDeclsWithLocalVariables () =
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
+      Assert.Value(env, "add5", "fn (x: number) -> number")
     }
 
   printfn "res = %A" res
@@ -339,7 +339,7 @@ let ReturnFunctionDeclWithCaptures () =
         """
         let getAdd5 = fn () {
           let y = 5;
-          return fn<A: number>(x: A) {
+          return fn(x: number) {
             return x + y;
           };
         };
@@ -348,7 +348,7 @@ let ReturnFunctionDeclWithCaptures () =
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "add5", "fn <A: number>(x: A) -> A + 5")
+      Assert.Value(env, "add5", "fn (x: number) -> number")
     }
 
   printfn "res = %A" res
@@ -392,7 +392,7 @@ let BasicFunctionCaptures () =
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
-      Assert.Value(env, "sum", "15")
+      Assert.Value(env, "sum", "number")
     }
 
   printfn "res = %A" res
@@ -416,7 +416,7 @@ let OutOfOrderFunctionCaptures () =
 
       Assert.Value(env, "x", "5")
       Assert.Value(env, "y", "10")
-      Assert.Value(env, "sum", "15")
+      Assert.Value(env, "sum", "number")
     }
 
   printfn "res = %A" res
@@ -704,19 +704,19 @@ let ReturnSelfRecursiveFunction () =
   Assert.True(Result.isOk res)
 
 [<Fact>]
-let InferFunctionDeclTypeFromBody () =
+let InferFunctionReturnTypeFromBody () =
   let res =
     result {
       let src =
         """
-        fn add<A: number, B: number>(x: A, y: B) {
+        fn add(x: number, y: number) {
           return x + y;
         }
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "add", "fn <A: number, B: number>(x: A, y: B) -> A + B")
+      Assert.Value(env, "add", "fn (x: number, y: number) -> number")
     }
 
   printfn "res = %A" res

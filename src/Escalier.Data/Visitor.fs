@@ -118,7 +118,6 @@ module rec ExprVisitor =
       | ExprKind.Class _ ->
         // TODO: implement this so that we can find dependencies inside classes
         ()
-      | ExprKind.Range _ -> failwith "TODO: walkExpr - Range"
       | ExprKind.IfLet { Pattern = pattern
                          Target = target
                          Then = thenBranch
@@ -332,12 +331,6 @@ module rec ExprVisitor =
       | TypeAnnKind.Match matchType -> failwith "todo"
       | TypeAnnKind.Infer _name -> ()
       | TypeAnnKind.Wildcard -> ()
-      | TypeAnnKind.Binary { Left = left; Right = right } ->
-        walk left
-        walk right
-      | TypeAnnKind.Range { Min = min; Max = max } ->
-        walk min
-        walk max
       | TypeAnnKind.TemplateLiteral { Exprs = expr } -> List.iter walk expr
       | TypeAnnKind.Intrinsic -> ()
       | TypeAnnKind.ImportType _ -> ()
@@ -431,9 +424,7 @@ module rec TypeVisitor =
       | TypeKind.RestSpread t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types
-      | TypeKind.Array { Elem = elem; Length = length } ->
-        walk elem
-        walk length
+      | TypeKind.Array { Elem = elem } -> walk elem
       | TypeKind.KeyOf t -> walk t
       | TypeKind.Index { Target = target; Index = index } ->
         walk target
@@ -447,14 +438,6 @@ module rec TypeVisitor =
         walk trueType
         walk falseType
       | TypeKind.Infer _ -> ()
-      | TypeKind.Binary { Left = left; Right = right } ->
-        walk left
-        walk right
-      | TypeKind.Unary { Arg = arg } -> walk arg
-      | TypeKind.Range { Min = min; Max = max } ->
-        walk min
-        walk max
-      | TypeKind.UniqueNumber _ -> ()
       | TypeKind.UniqueSymbol _ -> ()
       | TypeKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
       | TypeKind.Typeof _ -> ()

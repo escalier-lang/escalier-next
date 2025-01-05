@@ -137,11 +137,7 @@ let rec getTypeForField
     let listType = fieldDefType :?> GraphQLListType
     let t = getTypeForField schema doc listType.Type field
 
-    let number =
-      { Kind = TypeKind.Primitive Primitive.Number
-        Provenance = None }
-
-    { Kind = TypeKind.Array { Elem = t; Length = number }
+    { Kind = TypeKind.Array { Elem = t }
       Provenance = None }
   | _ -> failwith "unexpected field type"
 

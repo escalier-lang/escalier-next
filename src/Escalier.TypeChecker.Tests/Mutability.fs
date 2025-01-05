@@ -6,7 +6,6 @@ open Xunit
 
 open Escalier.Compiler.Compiler
 open Escalier.Parser
-open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.InferExpr
 
 open TestUtils
@@ -26,7 +25,7 @@ let infer src =
 
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env None ast)
 
-    return simplify t
+    return t
   }
 
 [<Fact>]
@@ -287,11 +286,7 @@ let ImmutableParamsAreCovariant () =
 
       Assert.Empty(ctx.Report.Diagnostics)
 
-      Assert.Value(
-        env,
-        "foo",
-        "fn (array: (number | string)[]) -> unique number"
-      )
+      Assert.Value(env, "foo", "fn (array: (number | string)[]) -> number")
     }
 
   Assert.False(Result.isError result)

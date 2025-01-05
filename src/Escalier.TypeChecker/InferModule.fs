@@ -1231,9 +1231,8 @@ module rec InferModule =
         let! elemType =
           result {
             match expandedRightType.Kind with
-            | TypeKind.Array { Elem = elem; Length = _ } -> return elem
+            | TypeKind.Array { Elem = elem } -> return elem
             | TypeKind.Tuple { Elems = elems } -> return union elems
-            | TypeKind.Range _ -> return expandedRightType
             | TypeKind.Object _ ->
               // TODO: try using unify and/or an utility type to extract the
               // value type from an iterator

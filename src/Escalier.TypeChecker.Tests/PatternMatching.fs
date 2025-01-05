@@ -137,11 +137,7 @@ let PatternMatchingObjects () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      // TODO: Simplify all binary type in a type
-      // {x: number / 2, y: number / 2} -> {x: number, y: number}
-      // TODO: figure out how to have a type alias subsume a type that's the
-      // same as its definition
-      Assert.Value(env, "centroid", "Point | {x: number / 2, y: number / 2}")
+      Assert.Value(env, "centroid", "Point | {x: number, y: number}")
     }
 
   match result with

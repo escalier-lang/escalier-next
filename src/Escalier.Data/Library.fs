@@ -105,12 +105,6 @@ module Common =
 
   type Tuple<'T> = { Elems: list<'T>; Immutable: bool }
 
-  type Range<'T> =
-    { Min: 'T
-      Max: 'T } // non-inclusive
-
-    override this.ToString() = $"{this.Min}..{this.Max}"
-
   type MappedModifier =
     | Add
     | Remove
@@ -354,7 +348,6 @@ module Syntax =
     | Object of Common.Object<ObjElem>
     | Class of Class
     | Tuple of Common.Tuple<Expr>
-    | Range of Common.Range<Expr>
     | Index of Index
     | Member of Member
     | IfElse of IfElse
@@ -587,7 +580,6 @@ module Syntax =
     | String
     | Symbol
     | UniqueSymbol
-    | UniqueNumber
     | Null
     | Undefined
     | Unknown
@@ -622,11 +614,6 @@ module Syntax =
 
   type MatchTypeCase = { Extends: TypeAnn; TrueType: TypeAnn }
 
-  type BinaryType =
-    { Left: TypeAnn
-      Op: string // TODO: Use an enum for this
-      Right: TypeAnn }
-
   type ImportType =
     { Src: string
       Qualifier: option<Common.QualifiedIdent>
@@ -638,7 +625,6 @@ module Syntax =
     | Object of ObjTypeAnn
     | Tuple of Common.Tuple<TypeAnn>
     | Array of TypeAnn
-    | Range of Common.Range<TypeAnn>
     | Union of list<TypeAnn>
     | Intersection of list<TypeAnn>
     | TypeRef of TypeRef
@@ -651,7 +637,6 @@ module Syntax =
     | Match of MatchType
     | Infer of string
     | Wildcard
-    | Binary of BinaryType
     | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
     | Intrinsic
     | ImportType of ImportType
@@ -965,8 +950,7 @@ module Type =
       Interface: bool }
 
   type Array =
-    { Elem: Type
-      mutable Length: Type } // either `number` or `unique number`
+    { Elem: Type }
 
     override this.ToString() = $"{this.Elem}[]"
 
@@ -999,9 +983,7 @@ module Type =
     | Array of Array
     | RestSpread of Type // whether it's rest or spread depends on how the type is being used
     | Literal of Common.Literal
-    | Range of Common.Range<Type>
     | UniqueSymbol of id: int
-    | UniqueNumber of id: int
     | Union of list<Type> // TODO: use `Set<type>`
     | Intersection of list<Type> // TODO: use `Set<type>`
     | KeyOf of Type
@@ -1009,8 +991,6 @@ module Type =
     | Index of Index
     | Condition of Condition
     | Infer of string
-    | Binary of Binary // use TypeRef? - const folding is probably a better approach
-    | Unary of Unary
     | Wildcard
     | TemplateLiteral of Common.TemplateLiteral<Type>
     | Intrinsic
@@ -1084,41 +1064,13 @@ module Type =
     | TypeKind.Array _ -> 17
     | TypeKind.RestSpread _ -> 100
     | TypeKind.Literal _ -> 100
-    | TypeKind.Range _ -> 2
     | TypeKind.UniqueSymbol _ -> 15 // because `unique` is a keyword operator
-    | TypeKind.UniqueNumber _ -> 15 // because `unique` is a keyword operator
     | TypeKind.Union _ -> 3
     | TypeKind.Intersection _ -> 4
     | TypeKind.KeyOf _ -> 15 // because `keyof` is a keyword operator
     | TypeKind.Index _ -> 18
     | TypeKind.Condition _ -> 100
     | TypeKind.Infer _ -> 15 // because `keyof` is a keyword operator
-    | TypeKind.Binary { Op = op } ->
-      match op with
-      | "**" -> 13
-      | "*"
-      | "/"
-      | "%" -> 12
-      | "+"
-      | "-"
-      | "++" -> 11
-      | "<"
-      | "<="
-      | ">"
-      | ">=" -> 10
-      | "=="
-      | "!="
-      | "==="
-      | "!==" -> 9
-      | "||" -> 6
-      | "&&" -> 5
-      | _ -> failwith $"Invalid binary operator '{op}'"
-    | TypeKind.Unary { Op = op } ->
-      match op with
-      | "+"
-      | "-"
-      | "!" -> 14
-      | _ -> failwith $"Invalid unary operator '{op}'"
     | TypeKind.Wildcard -> 100
     | TypeKind.TemplateLiteral _ -> 100
     | TypeKind.Intrinsic -> 100
@@ -1168,10 +1120,7 @@ module Type =
       | TypeKind.Array { Elem = elem } -> $"{printType ctx elem}[]"
       | TypeKind.RestSpread t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
-      | TypeKind.Range { Min = min; Max = max } ->
-        $"{printType ctx min}..{printType ctx max}"
       | TypeKind.UniqueSymbol _ -> "unique symbol"
-      | TypeKind.UniqueNumber _ -> "unique number"
       | TypeKind.Union types ->
         List.map (printType ctx) types |> String.concat " | "
       | TypeKind.Intersection types ->
@@ -1185,9 +1134,6 @@ module Type =
                              FalseType = falseType } ->
         $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
       | TypeKind.Infer name -> $"infer {name}"
-      | TypeKind.Binary { Op = op; Left = left; Right = right } ->
-        $"{printType ctx left} {op} {printType ctx right}"
-      | TypeKind.Unary { Op = op; Arg = arg } -> $"{op}{printType ctx arg}"
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         let mutable output = ""

@@ -1,2 +1,0 @@
-ERROR: Initializer doesn't match declared type
-- Type mismatch: 0..10 and 0..3

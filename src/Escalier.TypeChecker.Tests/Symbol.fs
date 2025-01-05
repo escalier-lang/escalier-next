@@ -25,21 +25,6 @@ let inferModule src =
     let! ctx, env =
       TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
-    let prelude =
-      """
-        type RangeIterator<Min: number, Max: number> = {
-          next: fn () -> { done: boolean, value: Min..Max }
-        };
-      """
-
-    let! ast =
-      Parser.parseModule prelude |> Result.mapError CompileError.ParseError
-
-    let! env =
-      InferModule.inferModule ctx env ast
-      |> Async.RunSynchronously
-      |> Result.mapError CompileError.TypeError
-
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
     let! env =
@@ -65,6 +50,7 @@ let InfersTypeofWellknownSymbol () =
       Assert.Value(env, "iterator", "unique symbol")
     }
 
+  printfn $"res = %A{res}"
   Assert.False(Result.isError res)
 
 [<Fact>]

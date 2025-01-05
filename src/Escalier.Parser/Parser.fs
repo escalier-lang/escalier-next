@@ -222,13 +222,6 @@ module Parser =
         Span = span
         InferredType = None }
 
-  let private uniqueNumberTypeAnn =
-    withSpan (keyword "unique" >>. keyword "number")
-    |>> fun (_, span) ->
-      { TypeAnn.Kind = TypeAnnKind.Keyword KeywordTypeAnn.UniqueNumber
-        Span = span
-        InferredType = None }
-
   let private tupleTypeAnn =
     between (strWs "[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
     |>> fun (typeAnns, span) ->
@@ -519,7 +512,6 @@ module Parser =
       [ litTypeAnn
         keywordTypeAnn // aka PredefinedType
         uniqueSymbolTypeAnn
-        uniqueNumberTypeAnn
         tupleTypeAnn
         imTupleTypeAnn
         funcTypeAnn
@@ -645,14 +637,6 @@ module Parser =
 
       { TypeAnn.Kind = TypeAnnKind.Union(typeAnns)
         Span = mergeSpans first.Span last.Span
-        InferredType = None })
-  )
-
-  typeAnnParser.RegisterInfix(
-    "..",
-    infixTypeAnnParselet 2 (fun min max ->
-      { TypeAnn.Kind = TypeAnnKind.Range { Min = min; Max = max }
-        Span = mergeSpans min.Span max.Span
         InferredType = None })
   )
 
@@ -1455,14 +1439,6 @@ module Parser =
 
   exprParser.RegisterInfix("&&", binaryExprParselet 4 "&&")
   exprParser.RegisterInfix("||", binaryExprParselet 3 "||")
-
-  exprParser.RegisterInfix(
-    "..",
-    infixExprParselet 2 (fun min max ->
-      { Expr.Kind = ExprKind.Range { Min = min; Max = max }
-        Span = mergeSpans min.Span max.Span
-        InferredType = None })
-  )
 
   // TODO: handle update expressions
   exprParser.RegisterInfix(

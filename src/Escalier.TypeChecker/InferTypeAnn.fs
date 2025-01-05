@@ -6,14 +6,9 @@ open Escalier.Data
 open Escalier.Data.Common
 open Escalier.Data.Syntax
 open Escalier.Data.Type
-open Escalier.Data.Visitor
 
 open Error
-open Prune
 open Env
-open Mutability
-open Poly
-open Unify
 open Helpers
 open InferExpr
 
@@ -28,12 +23,7 @@ module rec InferTypeAnn =
         match typeAnn.Kind with
         | TypeAnnKind.Array elem ->
           let! elem = inferTypeAnn ctx env elem
-
-          let length =
-            { Kind = TypeKind.UniqueNumber(ctx.FreshUniqueId())
-              Provenance = None }
-
-          return TypeKind.Array { Elem = elem; Length = length }
+          return TypeKind.Array { Elem = elem }
         | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
         | TypeAnnKind.Keyword keyword ->
           match keyword with
@@ -53,12 +43,6 @@ module rec InferTypeAnn =
           | KeywordTypeAnn.Any ->
             let t = ctx.FreshTypeVar None None
             return t.Kind
-          | _ ->
-            return!
-              Error(
-                TypeError.NotImplemented
-                  $"TODO: unhandled keyword type - {keyword}"
-              )
         | TypeAnnKind.Object { Elems = elems
                                Immutable = immutable
                                Exact = exact } ->
@@ -144,10 +128,6 @@ module rec InferTypeAnn =
           let! left = inferTypeAnn ctx env left
           let! right = inferTypeAnn ctx env right
           return TypeKind.Binary { Op = op; Left = left; Right = right }
-        | TypeAnnKind.Range range ->
-          let! min = inferTypeAnn ctx env range.Min
-          let! max = inferTypeAnn ctx env range.Max
-          return TypeKind.Range { Min = min; Max = max }
         | TypeAnnKind.TemplateLiteral { Parts = parts; Exprs = exprs } ->
           let! exprs = List.traverseResultM (inferTypeAnn ctx env) exprs
           return TypeKind.TemplateLiteral { Parts = parts; Exprs = exprs }

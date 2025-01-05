@@ -593,8 +593,8 @@ let CanIndexOnArrays () =
       let! ctx, env = inferModule src
 
       Assert.Value(env, "b", "number | undefined")
-      Assert.Value(env, "len1", "unique number")
-      Assert.Value(env, "len2", "unique number")
+      Assert.Value(env, "len1", "number")
+      Assert.Value(env, "len2", "number")
     }
 
   Assert.False(Result.isError result)

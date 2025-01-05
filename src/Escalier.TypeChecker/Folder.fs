@@ -102,11 +102,8 @@ module Folder =
         | TypeKind.Intersection types ->
           { Kind = TypeKind.Intersection(List.map fold types)
             Provenance = None }
-        | TypeKind.Array { Elem = elem; Length = length } ->
-          { Kind =
-              TypeKind.Array
-                { Elem = fold elem
-                  Length = fold length }
+        | TypeKind.Array { Elem = elem } ->
+          { Kind = TypeKind.Array { Elem = fold elem }
             Provenance = None }
         | TypeKind.KeyOf t ->
           { Kind = TypeKind.KeyOf(fold t)
@@ -139,11 +136,7 @@ module Folder =
         | TypeKind.Unary { Op = op; Arg = arg } ->
           { Kind = TypeKind.Unary { Op = op; Arg = fold arg }
             Provenance = None }
-        | TypeKind.UniqueNumber _ -> t
         | TypeKind.UniqueSymbol _ -> t
-        | TypeKind.Range { Min = min; Max = max } ->
-          { Kind = TypeKind.Range { Min = fold min; Max = fold max }
-            Provenance = None }
         | TypeKind.TemplateLiteral { Exprs = exprs; Parts = parts } ->
           { Kind =
               TypeKind.TemplateLiteral

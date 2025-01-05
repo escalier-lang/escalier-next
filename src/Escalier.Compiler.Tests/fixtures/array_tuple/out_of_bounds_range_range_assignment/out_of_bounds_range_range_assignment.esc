@@ -1,2 +1,0 @@
-let range: 0..10 = 0;
-let bounds_mismatch: 0..3 = range;

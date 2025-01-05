@@ -1,9 +1,0 @@
-type RangeIterator<Min: number, Max: number> = {
-  next: fn () -> { done: boolean, value: Min..Max }
-};
-
-for x in 0..3 {
-  let a: number = x;
-  let b: 0..10 = x;
-  let c: 0..3 = x;
-}

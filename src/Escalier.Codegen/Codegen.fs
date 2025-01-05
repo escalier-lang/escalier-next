@@ -529,26 +529,6 @@ module rec Codegen =
           tuple
 
       (tuple, stmts)
-    | ExprKind.Range range ->
-      let minExpr, minStmts = buildExpr ctx range.Min
-      let maxExpr, maxStmts = buildExpr ctx range.Max
-
-      // TODO: add an import for the Escalier runtime
-      let callee =
-        Expr.Member
-          { Object = Expr.Ident { Name = "Escalier"; Loc = None }
-            Property = Expr.Ident { Name = "range"; Loc = None }
-            Computed = false
-            OptChain = false
-            Loc = None }
-
-      let range =
-        Expr.Call
-          { Callee = callee
-            Arguments = [ minExpr; maxExpr ]
-            Loc = None }
-
-      (range, minStmts @ maxStmts)
     | ExprKind.Index { Target = target
                        Index = index
                        OptChain = optChain } ->
@@ -1896,7 +1876,7 @@ module rec Codegen =
             Loc = None })
 
       TsType.TsTupleType { ElemTypes = elemTypes; Loc = None }
-    | TypeKind.Array { Elem = elem; Length = length } ->
+    | TypeKind.Array { Elem = elem } ->
       TsType.TsArrayType
         { ElemType = buildType ctx elem
           Loc = None }
@@ -1941,15 +1921,7 @@ module rec Codegen =
         { Kind = TsKeywordTypeKind.TsAnyKeyword
           Loc = None }
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
-    | TypeKind.Range _ ->
-      TsType.TsKeywordType
-        { Kind = TsKeywordTypeKind.TsNumberKeyword
-          Loc = None }
     | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
-    | TypeKind.UniqueNumber _ ->
-      TsType.TsKeywordType
-        { Kind = TsKeywordTypeKind.TsNumberKeyword
-          Loc = None }
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
     | TypeKind.Unary _ -> failwith "TODO: buildType - Unary"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"

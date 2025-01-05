@@ -576,9 +576,7 @@ let getPropType
           return union [ t; undefined ]
         | _ ->
           return!
-            Error(
-              TypeError.NotImplemented "TODO: lookup member on union type"
-            )
+            Error(TypeError.NotImplemented "TODO: lookup member on union type")
     | TypeKind.Tuple { Elems = elems } ->
       match key with
       | PropName.String "length" ->
@@ -606,14 +604,13 @@ let getPropType
         // TODO: lookup keys in array prototype
         return!
           Error(TypeError.NotImplemented "TODO: lookup member on tuple type")
-    | TypeKind.Array { Elem = elem; Length = length } ->
+    | TypeKind.Array { Elem = elem } ->
       // TODO: update `TypeKind.Array` to also contain a `Length` type param
       // TODO: use getPropertyType to look up the type of the `.length` property
       // here (and when handling tuples) instead of fabricating it here.
       // TODO: make type param mutable so that we can update it if it's a mutable
       // array and the array size changes.
       match key with
-      | PropName.String "length" -> return length
       | PropName.Number _ ->
         let unknown =
           { Kind = TypeKind.Literal(Literal.Undefined)

@@ -1,6 +1,6 @@
 ﻿input: 
     let update = fn (mut array: number[]) {
-      for i in 0..array.length {
+      for i in array.keys() {
         array[i] = array[i] + 1;
       }
     };
@@ -69,17 +69,8 @@ output: Ok
                                                InferredType = None }
                                             Right =
                                              { Kind =
-                                                Range
-                                                  { Min =
-                                                     { Kind =
-                                                        Literal (Number (Int 0))
-                                                       Span =
-                                                        { Start =
-                                                           (Ln: 3, Col: 16)
-                                                          Stop =
-                                                           (Ln: 3, Col: 17) }
-                                                       InferredType = None }
-                                                    Max =
+                                                Call
+                                                  { Callee =
                                                      { Kind =
                                                         Member
                                                           { Target =
@@ -89,25 +80,29 @@ output: Ok
                                                                      "array" }
                                                                Span =
                                                                 { Start =
-                                                                   (Ln: 3, Col: 19)
+                                                                   (Ln: 3, Col: 16)
                                                                   Stop =
-                                                                   (Ln: 3, Col: 24) }
+                                                                   (Ln: 3, Col: 21) }
                                                                InferredType =
                                                                 None }
-                                                            Name = "length"
+                                                            Name = "keys"
                                                             OptChain = false }
                                                        Span =
                                                         { Start =
-                                                           (Ln: 3, Col: 19)
+                                                           (Ln: 3, Col: 16)
                                                           Stop =
-                                                           (Ln: 3, Col: 32) }
-                                                       InferredType = None } }
+                                                           (Ln: 3, Col: 26) }
+                                                       InferredType = None }
+                                                    TypeArgs = None
+                                                    Args = []
+                                                    OptChain = false
+                                                    Throws = None }
                                                Span =
                                                 { Start = (Ln: 3, Col: 16)
-                                                  Stop = (Ln: 3, Col: 32) }
+                                                  Stop = (Ln: 3, Col: 29) }
                                                InferredType = None }
                                             Body =
-                                             { Span = { Start = (Ln: 3, Col: 32)
+                                             { Span = { Start = (Ln: 3, Col: 29)
                                                         Stop = (Ln: 6, Col: 5) }
                                                Stmts =
                                                 [{ Kind =

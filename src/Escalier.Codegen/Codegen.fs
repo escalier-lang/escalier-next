@@ -1912,10 +1912,6 @@ module rec Codegen =
           Loc = None }
 
       TsType.TsInferType { TypeParam = typeParam; Loc = None }
-    | TypeKind.Binary _ ->
-      // TODO: This should be const time evaluated to determine the
-      // actual type to export
-      failwith "TODO: buildType - Binary"
     | TypeKind.Wildcard ->
       TsType.TsKeywordType
         { Kind = TsKeywordTypeKind.TsAnyKeyword
@@ -1923,7 +1919,6 @@ module rec Codegen =
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
     | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
-    | TypeKind.Unary _ -> failwith "TODO: buildType - Unary"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
     | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"
     | TypeKind.IntrinsicInstance _ ->

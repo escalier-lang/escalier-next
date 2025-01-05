@@ -126,16 +126,6 @@ module Folder =
                   FalseType = fold falseType }
             Provenance = None }
         | TypeKind.Infer _ -> t
-        | TypeKind.Binary { Op = op; Left = left; Right = right } ->
-          { Kind =
-              TypeKind.Binary
-                { Op = op
-                  Left = fold left
-                  Right = fold right }
-            Provenance = None }
-        | TypeKind.Unary { Op = op; Arg = arg } ->
-          { Kind = TypeKind.Unary { Op = op; Arg = fold arg }
-            Provenance = None }
         | TypeKind.UniqueSymbol _ -> t
         | TypeKind.TemplateLiteral { Exprs = exprs; Parts = parts } ->
           { Kind =

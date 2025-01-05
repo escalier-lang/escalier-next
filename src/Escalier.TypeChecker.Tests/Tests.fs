@@ -8,7 +8,6 @@ open Xunit
 open Escalier.Compiler.Compiler
 open Escalier.Parser
 open Escalier.TypeChecker.Error
-open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.InferExpr
 open Escalier.TypeChecker.Unify
 
@@ -29,7 +28,7 @@ let infer src =
 
     let! t = Result.mapError CompileError.TypeError (inferExpr ctx env None ast)
 
-    return simplify t
+    return t
   }
 
 
@@ -76,13 +75,13 @@ let InferBinaryOperators () =
   let result =
     result {
       let! sum = infer "5 + 10"
-      Assert.Equal("15", sum.ToString())
+      Assert.Equal("number", sum.ToString())
 
       let! str = infer "\"Hello, \" ++ \"world!\""
-      Assert.Equal("\"Hello, world!\"", str.ToString())
+      Assert.Equal("string", str.ToString())
 
       let! lt = infer "5 < 10"
-      Assert.Equal("true", lt.ToString())
+      Assert.Equal("boolean", lt.ToString())
 
       let! eq = infer "5 == 10"
       Assert.Equal("boolean", eq.ToString())
@@ -153,7 +152,7 @@ let InferBinOpsOnPrimitives () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "sum", "15")
+      Assert.Value(env, "sum", "number")
     }
 
   Assert.False(Result.isError result)
@@ -1144,9 +1143,9 @@ let InferUnaryOperations () =
 
       Assert.Empty(ctx.Report.Diagnostics)
       Assert.Value(env, "x", "5")
-      Assert.Value(env, "y", "-5")
-      Assert.Value(env, "z", "!5")
-      Assert.Value(env, "w", "+5")
+      Assert.Value(env, "y", "number")
+      Assert.Value(env, "z", "boolean")
+      Assert.Value(env, "w", "number")
     }
 
   Assert.False(Result.isError result)
@@ -1441,7 +1440,7 @@ let InferIfLetWithShadowing () =
 
       Assert.Empty(ctx.Report.Diagnostics)
       // TODO: fix this shadowing issue
-      Assert.Value(env, "y", "t6:number + 1 | 0")
+      Assert.Value(env, "y", "number")
     }
 
   Assert.False(Result.isError result)

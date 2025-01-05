@@ -15,4 +15,4 @@ var temp0;
 var sum = temp0;
 
 --- output (dts) ---
-const sum: 15;
+const sum: number;

@@ -11,15 +11,15 @@ let InferBasicModule () =
     result {
       let src =
         """
-        let add = fn<A: number, B: number>(a: A, b: B) => a + b;
-        let sub = fn<A: number, B: number>(a: A, b: B) => a - b;
+        let add = fn (a: number, b: number) => a + b;
+        let sub = fn (a: number, b: number) => a - b;
         """
 
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "add", "fn <A: number, B: number>(a: A, b: B) -> A + B")
-      Assert.Value(env, "sub", "fn <A: number, B: number>(a: A, b: B) -> A - B")
+      Assert.Value(env, "add", "fn (a: number, b: number) -> number")
+      Assert.Value(env, "sub", "fn (a: number, b: number) -> number")
     }
 
   Assert.False(Result.isError res)
@@ -65,10 +65,11 @@ let InferMutualRecursion () =
       let! ctx, env = inferModule src
 
       Assert.Empty(ctx.Report.Diagnostics)
-      Assert.Value(env, "even", "fn (x: number) -> true | !boolean")
+      Assert.Value(env, "even", "fn (x: number) -> boolean")
       Assert.Value(env, "odd", "fn (arg0: number) -> boolean")
     }
 
+  printfn $"res = %A{res}"
   Assert.False(Result.isError res)
 
 [<Fact>]

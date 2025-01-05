@@ -614,11 +614,6 @@ module Syntax =
 
   type MatchTypeCase = { Extends: TypeAnn; TrueType: TypeAnn }
 
-  type BinaryType =
-    { Left: TypeAnn
-      Op: string // TODO: Use an enum for this
-      Right: TypeAnn }
-
   type ImportType =
     { Src: string
       Qualifier: option<Common.QualifiedIdent>
@@ -642,7 +637,6 @@ module Syntax =
     | Match of MatchType
     | Infer of string
     | Wildcard
-    | Binary of BinaryType
     | TemplateLiteral of Common.TemplateLiteral<TypeAnn>
     | Intrinsic
     | ImportType of ImportType
@@ -997,8 +991,6 @@ module Type =
     | Index of Index
     | Condition of Condition
     | Infer of string
-    | Binary of Binary // use TypeRef? - const folding is probably a better approach
-    | Unary of Unary
     | Wildcard
     | TemplateLiteral of Common.TemplateLiteral<Type>
     | Intrinsic
@@ -1079,32 +1071,6 @@ module Type =
     | TypeKind.Index _ -> 18
     | TypeKind.Condition _ -> 100
     | TypeKind.Infer _ -> 15 // because `keyof` is a keyword operator
-    | TypeKind.Binary { Op = op } ->
-      match op with
-      | "**" -> 13
-      | "*"
-      | "/"
-      | "%" -> 12
-      | "+"
-      | "-"
-      | "++" -> 11
-      | "<"
-      | "<="
-      | ">"
-      | ">=" -> 10
-      | "=="
-      | "!="
-      | "==="
-      | "!==" -> 9
-      | "||" -> 6
-      | "&&" -> 5
-      | _ -> failwith $"Invalid binary operator '{op}'"
-    | TypeKind.Unary { Op = op } ->
-      match op with
-      | "+"
-      | "-"
-      | "!" -> 14
-      | _ -> failwith $"Invalid unary operator '{op}'"
     | TypeKind.Wildcard -> 100
     | TypeKind.TemplateLiteral _ -> 100
     | TypeKind.Intrinsic -> 100
@@ -1168,9 +1134,6 @@ module Type =
                              FalseType = falseType } ->
         $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
       | TypeKind.Infer name -> $"infer {name}"
-      | TypeKind.Binary { Op = op; Left = left; Right = right } ->
-        $"{printType ctx left} {op} {printType ctx right}"
-      | TypeKind.Unary { Op = op; Arg = arg } -> $"{op}{printType ctx arg}"
       | TypeKind.Wildcard -> "_"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         let mutable output = ""

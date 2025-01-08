@@ -48,10 +48,13 @@ output: Success: { Body =
                                         [TsPropertySignature
                                            { Readonly = false
                                              Key =
-                                              Ident
-                                                { Name = "UNDEFINED_VOID_ONLY"
+                                              Computed
+                                                { Expr =
+                                                   Ident
+                                                     { Name =
+                                                        "UNDEFINED_VOID_ONLY"
+                                                       Loc = None }
                                                   Loc = None }
-                                             Computed = true
                                              Optional = false
                                              TypeAnn =
                                               { TypeAnn =

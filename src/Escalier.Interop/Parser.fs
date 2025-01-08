@@ -391,12 +391,13 @@ module Parser =
         Loc = None }
       |> TsTypeElement.TsConstructSignatureDecl
 
-  let propKey: Parser<Expr * bool, unit> =
+  let propKey: Parser<PropName, unit> =
     choice
-      [ strWs "[" >>. expr .>> strWs "]" |>> fun expr -> expr, true
-        ident |>> fun id -> Expr.Ident id, false
-        num |>> fun value -> Expr.Lit(Lit.Num value), false
-        str |>> fun value -> Expr.Lit(Lit.Str value), false ]
+      [ strWs "[" >>. expr .>> strWs "]"
+        |>> fun expr -> PropName.Computed { Expr = expr; Loc = None }
+        ident |>> fun id -> PropName.Ident id
+        num |>> fun value -> PropName.Num value
+        str |>> fun value -> PropName.Str value ]
 
   let propSig: Parser<TsTypeElement, unit> =
     pipe4
@@ -404,10 +405,9 @@ module Parser =
       propKey
       (opt (strWs "?"))
       (strWs ":" >>. tsTypeAnn)
-    <| fun readonly (key, computed) optional typeAnn ->
+    <| fun readonly key optional typeAnn ->
       { Readonly = readonly.IsSome
         Key = key
-        Computed = computed
         Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
@@ -420,8 +420,7 @@ module Parser =
       (strWs "(" >>. strWs ")")
       (opt (strWs ":" >>. tsTypeAnn))
     <| fun id _ typeAnn ->
-      { Key = Expr.Ident id
-        Computed = false
+      { Key = PropName.Ident id
         Optional = false
         TypeAnn = typeAnn
         Loc = None }
@@ -433,8 +432,7 @@ module Parser =
       (pstring "set" .>> spaces1 >>. ws >>. ident)
       (strWs "(" >>. funcParam .>> strWs ")")
     <| fun id param ->
-      { Key = Expr.Ident id
-        Computed = false // TODO
+      { Key = PropName.Ident id
         Optional = false // TODO
         Param = param
         Loc = None }
@@ -447,9 +445,8 @@ module Parser =
       (opt typeParams)
       tsFnParams
       (opt (strWs ":" >>. tsTypeAnn))
-    <| fun (key, computed) question typeParams ps typeAnn ->
+    <| fun key question typeParams ps typeAnn ->
       { Key = key
-        Computed = computed
         Optional = question.IsSome
         Params = ps
         TypeAnn = typeAnn

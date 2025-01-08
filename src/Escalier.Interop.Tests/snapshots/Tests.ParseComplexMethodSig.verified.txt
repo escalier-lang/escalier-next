@@ -20,7 +20,6 @@ output: Success: { Body =
                   [TsMethodSignature
                      { Key = Ident { Name = "stringify"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        Params =
                         [{ Pat = Ident { Id = { Name = "value"
@@ -91,7 +90,6 @@ output: Success: { Body =
                    TsMethodSignature
                      { Key = Ident { Name = "every"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        Params =
                         [{ Pat = Ident { Id = { Name = "predicate"

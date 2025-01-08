@@ -1,0 +1,7 @@
+let Foo = class<T> {
+  bar: T;
+  fn map<U>(self, callback: fn (bar: T) -> U) {
+    return callback(self.bar);
+  }
+};
+let foo = new Foo<string>();

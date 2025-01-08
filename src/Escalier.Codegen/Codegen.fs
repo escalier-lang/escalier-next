@@ -460,28 +460,7 @@ module rec Codegen =
             let value, valueStmts = buildExpr ctx value
             stmts <- stmts @ valueStmts
 
-            let key =
-              match name with
-              | Syntax.PropName.Ident name ->
-                PropertyKey.Ident { Name = name; Loc = None }
-              | Syntax.PropName.String value ->
-                PropertyKey.Lit(
-                  Lit.Str
-                    { Value = value
-                      Raw = None
-                      Loc = None }
-                )
-              | Syntax.PropName.Number value ->
-                PropertyKey.Lit(
-                  Lit.Num
-                    { Value = value
-                      Raw = None
-                      Loc = None }
-                )
-              | Syntax.PropName.Computed expr ->
-                failwith "TODO: Computed property names"
-
-            { Key = key
+            { Key = propNameToPropertyKey name
               Value = value
               Kind = PropertyKind.Init
               Loc = None }
@@ -504,7 +483,109 @@ module rec Codegen =
       (expr, [])
     | ExprKind.ExprWithTypeArgs { Expr = target; TypeArgs = typeArgs } ->
       failwith "TODO: buildExpr - ExprWithTypeArgs"
-    | ExprKind.Class ``class`` -> failwith "TODO: buildExpr - Class"
+    | ExprKind.Class { Name = name
+                       Extends = extends
+                       Implements = _
+                       TypeParams = typeParams
+                       Elems = elems } ->
+
+      let mutable stmts: list<TS.Stmt> = []
+
+      let id: Option<TS.Ident> =
+        match name with
+        | Some name -> { TS.Name = name; Loc = None } |> Some
+        | None -> None
+
+      let body: list<ClassMember> =
+        elems
+        |> List.map (fun elem ->
+          match elem with
+          | ClassElem.Property p ->
+            ClassMember.ClassProp
+              { Key = propNameToPropName p.Name
+                Value =
+                  p.Value
+                  |> Option.map (fun value ->
+                    let valueExpr, valueStmts = buildExpr ctx value
+                    stmts <- stmts @ valueStmts
+                    valueExpr)
+                TypeAnn =
+                  p.TypeAnn
+                  |> Option.map (fun typeAnn ->
+                    let t = buildTypeFromTypeAnn ctx typeAnn
+                    { TypeAnn = t; Loc = None })
+                IsStatic = p.Static
+                // TODO: Decorators
+                // decorators: list<Decorator>
+                Accessibility = None
+                IsAbstract = false
+                IsOptional = p.Optional
+                IsOverride = false
+                Readonly = p.Readonly
+                Declare = false
+                Definite = false
+                Loc = None }
+
+          | ClassElem.Constructor ctor ->
+            let fn = buildFn ctx ctor.Sig ctor.Body
+
+            ClassMember.Constructor
+              { Params =
+                  fn.Params
+                  |> List.map (fun p ->
+                    ParamOrTsParamProp.Param
+                      { Pat = p.Pat
+                        Optional = p.Optional
+                        TypeAnn = p.TypeAnn
+                        Loc = None })
+                Body = fn.Body
+                Accessibility = None
+                IsOptional = false
+                Loc = None }
+
+          | ClassElem.Method method ->
+            ClassMember.Method
+              { Key = propNameToPropName method.Name
+                Function = buildFn ctx method.Sig method.Body
+                Kind = MethodKind.Method
+                IsStatic = method.Static
+                Accessibility = None
+                IsAbstract = false
+                IsOptional = false
+                IsOverride = false
+                Loc = None }
+
+          | ClassElem.Getter _ -> failwith "TODO: ClassElem.Get"
+          | ClassElem.Setter _ -> failwith "TODO: ClassElem.Set")
+
+      let extends: option<TsTypeRef> =
+        extends
+        |> Option.map (fun (typeRef: Syntax.TypeRef) ->
+          let typeParams =
+            typeRef.TypeArgs
+            |> Option.map (fun args ->
+              { Params = args |> List.map (buildTypeFromTypeAnn ctx)
+                Loc = None })
+
+          let typeRef: TsTypeRef =
+            { Loc = None
+              TypeName = qualifiedIdentToTsEntityName typeRef.Ident
+              TypeParams = typeParams }
+
+          typeRef)
+
+      let cls: TS.Class =
+        { TypeParams = None // TODO
+          IsAbstract = false // TODO
+          Super = extends
+          Implements = None // intentionally None since we're outputting JS
+          Body = body
+          Loc = None }
+
+      let classExpr = TS.Expr.Class { Id = id; Class = cls; Loc = None }
+
+      (classExpr, [])
+
     | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
       let mutable stmts: list<TS.Stmt> = []
 
@@ -751,6 +832,64 @@ module rec Codegen =
     | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
     | ExprKind.JSXFragment jsxFragment -> buildJsxFragment ctx jsxFragment
 
+  let propNameToPropertyKey (name: Syntax.PropName) : TS.PropertyKey =
+    let key =
+      match name with
+      | Syntax.PropName.Ident name ->
+        PropertyKey.Ident { Name = name; Loc = None }
+      | Syntax.PropName.String value ->
+        PropertyKey.Lit(
+          Lit.Str
+            { Value = value
+              Raw = None
+              Loc = None }
+        )
+      | Syntax.PropName.Number value ->
+        PropertyKey.Lit(
+          Lit.Num
+            { Value = value
+              Raw = None
+              Loc = None }
+        )
+      | Syntax.PropName.Computed expr ->
+        failwith "TODO: Computed property names"
+
+    key
+
+  let propNameToPropName (name: Syntax.PropName) : TS.PropName =
+    let key =
+      match name with
+      | Syntax.PropName.Ident name ->
+        TS.PropName.Ident { Name = name; Loc = None }
+      | Syntax.PropName.String value ->
+        TS.PropName.Str
+          { Value = value
+            Raw = None
+            Loc = None }
+      | Syntax.PropName.Number value ->
+        TS.PropName.Num
+          { Value = value
+            Raw = None
+            Loc = None }
+      | Syntax.PropName.Computed expr ->
+        failwith "TODO: Computed property names"
+
+    key
+
+  // TODO: Replace with Syntax.PropName after moving it to Common
+  let typePropNameToPropName (name: PropName) : TS.PropName =
+    let key =
+      match name with
+      | PropName.String name -> TS.PropName.Ident { Name = name; Loc = None }
+      | PropName.Number value ->
+        TS.PropName.Num
+          { Value = value
+            Raw = None
+            Loc = None }
+      | PropName.Symbol symbol -> failwith "TODO: Computed property names"
+
+    key
+
   let buildTemplateLiteral
     (ctx: Ctx)
     (template: Common.TemplateLiteral<Expr>)
@@ -989,9 +1128,13 @@ module rec Codegen =
       | _ -> failwith "Function param pattern must be an identifier"
     | None -> failwith "Function param must have an inferred type"
 
-  let buildFnDecl (ctx: Ctx) (decl: FnDecl) : list<TS.Stmt> =
+  let buildFn
+    (ctx: Ctx)
+    (fnSig: FuncSig)
+    (body: option<BlockOrExpr>)
+    : TS.Function =
     let ps: list<Param> =
-      decl.Sig.ParamList
+      fnSig.ParamList
       |> List.map (fun (p: Syntax.FuncParam) ->
         let pat, _ = buildPattern ctx p.Pattern None
 
@@ -1000,29 +1143,33 @@ module rec Codegen =
           TypeAnn = None
           Loc = None })
 
+    let body =
+      match body with
+      | Some(BlockOrExpr.Block block) -> buildBlock ctx block Finalizer.Empty
+      | Some(BlockOrExpr.Expr expr) ->
+        let expr, stmts = buildExpr ctx expr
+
+        let body = stmts @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
+
+        { Body = body; Loc = None }
+      | None -> failwith "Function declaration must have a body"
+
+    let func: TS.Function =
+      { Params = ps
+        Body = Some({ Body = body.Body; Loc = None })
+        IsGenerator = false
+        IsAsync = false
+        TypeParams = None
+        ReturnType = None
+        Loc = None }
+
+    func
+
+  let buildFnDecl (ctx: Ctx) (decl: FnDecl) : list<TS.Stmt> =
     if decl.Declare then
       [] // Nothing to emit for `declare` function declarations
     else
-      let body =
-        match decl.Body with
-        | Some(BlockOrExpr.Block block) -> buildBlock ctx block Finalizer.Empty
-        | Some(BlockOrExpr.Expr expr) ->
-          let expr, stmts = buildExpr ctx expr
-
-          let body =
-            stmts @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
-
-          { Body = body; Loc = None }
-        | None -> failwith "Function declaration must have a body"
-
-      let func: TS.Function =
-        { Params = ps
-          Body = Some({ Body = body.Body; Loc = None })
-          IsGenerator = false
-          IsAsync = false
-          TypeParams = None
-          ReturnType = None
-          Loc = None }
+      let func = buildFn ctx decl.Sig decl.Body
 
       let fnDecl =
         { Export = false
@@ -1751,22 +1898,233 @@ module rec Codegen =
         { Left = qualifiedIdentToTsEntityName qualifier
           Right = { Name = name; Loc = None } }
 
+  let buildTypeRef (ctx: Ctx) (typeRef: TypeRef) : TsType =
+    let typeParams =
+      typeRef.TypeArgs
+      |> Option.map (fun args ->
+        { Params = args |> List.map (buildType ctx)
+          Loc = None })
+
+    TsType.TsTypeRef
+      { TypeName = qualifiedIdentToTsEntityName typeRef.Name
+        TypeParams = typeParams
+        Loc = None }
+
+  let buildTypeFromTypeAnn (ctx: Ctx) (typeAnn: TypeAnn) : TsType =
+    match typeAnn.Kind with
+    | TypeAnnKind.Array elemTypeAnn ->
+      TsType.TsArrayType
+        { ElemType = buildTypeFromTypeAnn ctx elemTypeAnn
+          Loc = None }
+    | TypeAnnKind.Literal literal ->
+      match literal with
+      | Literal.Boolean value ->
+        TsType.TsLitType
+          { Lit = TsLit.Bool { Value = value; Loc = None }
+            Loc = None }
+      | Literal.Number value ->
+        TsType.TsLitType
+          { Lit =
+              TsLit.Number
+                { Value = value
+                  Raw = None
+                  Loc = None }
+            Loc = None }
+      | Literal.String s ->
+        TsType.TsLitType
+          { Lit = TsLit.Str { Value = s; Raw = None; Loc = None }
+            Loc = None }
+      | Literal.Null ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsNullKeyword
+            Loc = None }
+      | Literal.Undefined ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsUndefinedKeyword
+            Loc = None }
+    | TypeAnnKind.Keyword keywordTypeAnn ->
+      match keywordTypeAnn with
+      | KeywordTypeAnn.Never ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsNeverKeyword
+            Loc = None }
+      | KeywordTypeAnn.Boolean ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsBooleanKeyword
+            Loc = None }
+
+      | KeywordTypeAnn.Number ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsNumberKeyword
+            Loc = None }
+      | KeywordTypeAnn.String ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsStringKeyword
+            Loc = None }
+      | KeywordTypeAnn.Symbol ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsSymbolKeyword
+            Loc = None }
+      | KeywordTypeAnn.UniqueSymbol ->
+        TsType.TsTypeOperator
+          { TypeAnn = buildTypeFromTypeAnn ctx typeAnn
+            Op = TsTypeOperatorOp.KeyOf
+            Loc = None }
+      | KeywordTypeAnn.Null ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsNullKeyword
+            Loc = None }
+      | KeywordTypeAnn.Undefined ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsUndefinedKeyword
+            Loc = None }
+      | KeywordTypeAnn.Unknown ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsUnknownKeyword
+            Loc = None }
+      | KeywordTypeAnn.Object ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsObjectKeyword
+            Loc = None }
+      | KeywordTypeAnn.BigInt ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsBigIntKeyword
+            Loc = None }
+      | KeywordTypeAnn.Any ->
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsAnyKeyword
+            Loc = None }
+
+    | TypeAnnKind.Object { Elems = elems
+                           Immutable = _
+                           Exact = _ } -> // not supported by TypeScript
+
+      failwith "TODO: buildTypeFromTypeAnn - Object"
+    | TypeAnnKind.Tuple { Elems = elems; Immutable = _ } ->
+      let elems =
+        elems
+        |> List.map (fun elem ->
+          { Label = None // TODO
+            Type = buildTypeFromTypeAnn ctx elem
+            IsRest = false // TODO: support rest elements in tuple types
+            Loc = None })
+
+      TsType.TsTupleType { ElemTypes = elems; Loc = None }
+    | TypeAnnKind.Union typeAnns ->
+      TsType.TsUnionOrIntersectionType(
+        TsUnionType
+          { Types = typeAnns |> List.map (buildTypeFromTypeAnn ctx)
+            Loc = None }
+      )
+    | TypeAnnKind.Intersection typeAnns ->
+      TsType.TsUnionOrIntersectionType(
+        TsIntersectionType
+          { Types = typeAnns |> List.map (buildTypeFromTypeAnn ctx)
+            Loc = None }
+      )
+    | TypeAnnKind.TypeRef typeRef ->
+      let typeParams =
+        typeRef.TypeArgs
+        |> Option.map (fun args ->
+          { Params = args |> List.map (buildTypeFromTypeAnn ctx)
+            Loc = None })
+
+      let typeRef: TsTypeRef =
+        { Loc = None
+          TypeName = qualifiedIdentToTsEntityName typeRef.Ident
+          TypeParams = typeParams }
+
+      TsType.TsTypeRef typeRef
+    | TypeAnnKind.Function f ->
+      let funcParams: list<TsFnParam> =
+        f.ParamList
+        |> List.map (fun p ->
+          let typeAnn =
+            match p.TypeAnn with
+            | Some typeAnn -> typeAnn
+            | None -> failwith "Function parameter must have a type annotation"
+
+          let t = buildTypeFromTypeAnn ctx typeAnn
+
+          match p.Pattern.Kind with
+          | PatternKind.Ident { Name = name } ->
+            let pat =
+              TsFnParamPat.Ident
+                { Id = { Name = name; Loc = None }
+                  Loc = None }
+
+            { Pat = pat
+              TypeAnn = Some { TypeAnn = t; Loc = None }
+              Optional = p.Optional
+              Loc = None }
+          | PatternKind.Object _ -> failwith "TODO - buildType - Object"
+          | PatternKind.Tuple _ -> failwith "TODO - buildType - Tuple"
+          | PatternKind.Rest _ -> failwith "TODO - buildType - Rest"
+          | _ -> failwith "Invalid pattern for function parameter")
+
+      let typeParams: option<TsTypeParamDecl> =
+        f.TypeParams
+        |> Option.map (fun typeParams ->
+          { Params =
+              typeParams
+              |> List.map
+                (fun
+                     { Name = name
+                       Constraint = c
+                       Default = d } ->
+                  { Name = { Name = name; Loc = None }
+                    IsIn = false
+                    IsOut = false
+                    IsConst = false
+                    Constraint = c |> Option.map (buildTypeFromTypeAnn ctx)
+                    Default = d |> Option.map (buildTypeFromTypeAnn ctx)
+                    Loc = None })
+            Loc = None })
+
+      let typeAnn: TsTypeAnn =
+        match f.ReturnType with
+        | Some retTypeAnn ->
+          let t = buildTypeFromTypeAnn ctx retTypeAnn
+          { TypeAnn = t; Loc = None }
+        | None -> failwith "Function type must have a return type"
+
+      let fnType: TsFnType =
+        { Params = funcParams
+          TypeParams = typeParams
+          TypeAnn = typeAnn
+          Loc = None }
+
+      TsType.TsFnOrConstructorType(TsFnOrConstructorType.TsFnType fnType)
+    | TypeAnnKind.Keyof typeAnn ->
+      TsType.TsTypeOperator
+        { TypeAnn = buildTypeFromTypeAnn ctx typeAnn
+          Op = TsTypeOperatorOp.KeyOf
+          Loc = None }
+    | TypeAnnKind.Rest typeAnn -> failwith "TODO: buildTypeFromTypeAnn - Rest"
+    | TypeAnnKind.Typeof qualifiedIdent ->
+      failwith "TODO: buildTypeFromTypeAnn - Typeof"
+    | TypeAnnKind.Index indexType ->
+      failwith "TODO: buildTypeFromTypeAnn - Index"
+    | TypeAnnKind.Condition conditionType ->
+      failwith "TODO: buildTypeFromTypeAnn - Condition"
+    | TypeAnnKind.Match matchType ->
+      // NOTE: This will need to be converted to nested conditional types
+      failwith "TODO: buildTypeFromTypeAnn - Match"
+    | TypeAnnKind.Infer s -> failwith "TODO: buildTypeFromTypeAnn - Infer"
+    | TypeAnnKind.Wildcard -> failwith "TODO: buildTypeFromTypeAnn - Wildcard"
+    | TypeAnnKind.TemplateLiteral templateLiteral ->
+      failwith "TODO: buildTypeFromTypeAnn - TemplateLiteral"
+    | TypeAnnKind.Intrinsic -> failwith "TODO: buildTypeFromTypeAnn - Intrinsic"
+    | TypeAnnKind.ImportType importType ->
+      failwith "TODO: buildTypeFromTypeAnn - ImportType"
+
+
   let buildType (ctx: Ctx) (t: Type) : TsType =
     let t = prune t
 
     match t.Kind with
     | TypeKind.TypeVar _ -> failwith "TODO: buildType - TypeVar"
-    | TypeKind.TypeRef { Name = name; TypeArgs = typeArgs } ->
-      let typeArgs =
-        typeArgs
-        |> Option.map (fun args ->
-          { Params = args |> List.map (buildType ctx)
-            Loc = None })
-
-      TsType.TsTypeRef
-        { TypeName = qualifiedIdentToTsEntityName name
-          TypeParams = typeArgs
-          Loc = None }
+    | TypeKind.TypeRef typeRef -> buildTypeRef ctx typeRef
     | TypeKind.Primitive p ->
       let kind =
         match p with
@@ -1946,18 +2304,65 @@ module rec Codegen =
     | Callable callable -> failwith "TODO: buildObjTypeElem - Callable"
     | Constructor ctor -> failwith "TODO: buildObjTypeElem - Constructor"
     | Property prop ->
-      match prop.Name with
-      | PropName.String s ->
-        TsTypeElement.TsPropertySignature
-          { Readonly = false
-            Key = Expr.Ident { Name = s; Loc = None }
-            Computed = false
-            Optional = false
-            TypeAnn = buildTypeAnn ctx prop.Type
-            Loc = None }
-      | _ -> failwith "TODO: buildObjTypeElem - Property"
-    | Method { Name = name; Fn = fn } ->
-      failwith "TODO: buildObjTypeElem - Method"
+      let key = typePropNameToPropName prop.Name
+
+      TsTypeElement.TsPropertySignature
+        { Readonly = false
+          Key = key
+          Optional = false
+          TypeAnn = buildTypeAnn ctx prop.Type
+          Loc = None }
+    | Method { Name = name; Fn = f } ->
+      let key = typePropNameToPropName name
+
+      let ps: list<TsFnParam> =
+        f.ParamList
+        |> List.map (fun p ->
+          let t = buildTypeAnn ctx p.Type
+
+          match p.Pattern with
+          | Pattern.Identifier { Name = name } ->
+            let pat =
+              TsFnParamPat.Ident
+                { Id = { Name = name; Loc = None }
+                  Loc = None }
+
+            { Pat = pat
+              TypeAnn = Some(t)
+              Optional = p.Optional
+              Loc = None }
+          | Pattern.Object _ -> failwith "TODO - buildType - Object"
+          | Pattern.Tuple _ -> failwith "TODO - buildType - Tuple"
+          | Pattern.Rest _ -> failwith "TODO - buildType - Rest"
+          | _ -> failwith "Invalid pattern for function parameter")
+
+      let typeParams: option<TsTypeParamDecl> =
+        f.TypeParams
+        |> Option.map (fun typeParams ->
+          { Params =
+              typeParams
+              |> List.map
+                (fun
+                     { Name = name
+                       Constraint = c
+                       Default = d } ->
+                  { Name = { Name = name; Loc = None }
+                    IsIn = false
+                    IsOut = false
+                    IsConst = false
+                    Constraint = Option.map (buildType ctx) c
+                    Default = Option.map (buildType ctx) d
+                    Loc = None })
+            Loc = None })
+
+
+      TsTypeElement.TsMethodSignature
+        { Key = key
+          Optional = false
+          Params = ps
+          TypeAnn = Some(buildTypeAnn ctx f.Return)
+          TypeParams = typeParams
+          Loc = None }
     | Getter { Name = name; Fn = fn } ->
       failwith "TODO: buildObjTypeElem - Getter"
     | Setter { Name = name; Fn = fn } ->

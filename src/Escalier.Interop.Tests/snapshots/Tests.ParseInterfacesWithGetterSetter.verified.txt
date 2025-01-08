@@ -19,7 +19,6 @@ output: Success: { Body =
                   [TsGetterSignature
                      { Key = Ident { Name = "bar"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        TypeAnn =
                         Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
@@ -29,7 +28,6 @@ output: Success: { Body =
                    TsSetterSignature
                      { Key = Ident { Name = "bar"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        Param =
                         { Pat = Ident { Id = { Name = "value"

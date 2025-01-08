@@ -1,0 +1,10 @@
+let Foo = class {
+  msg: string;
+  new (mut self, msg: string) {
+    self.msg = self.bar();
+  }
+  fn bar(self) {
+    return self.msg;
+  }
+};
+let foo = new Foo("hello");

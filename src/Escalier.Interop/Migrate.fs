@@ -180,14 +180,14 @@ module rec Migrate =
     | TsPropertySignature { Key = key
                             TypeAnn = typeAnn
                             Optional = optional
-                            Readonly = readonly
-                            Computed = _computed } ->
+                            Readonly = readonly } ->
       let name =
         match key with
-        | Expr.Ident id -> PropName.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> Syntax.PropName.Computed(migrateExpr expr)
+        | PropName.Ident id -> Syntax.PropName.String id.Name
+        | PropName.Str { Value = value } -> Syntax.PropName.String value
+        | PropName.Num { Value = value } -> Syntax.PropName.Number value
+        | PropName.Computed { Expr = expr } ->
+          Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Property
         { Name = name
@@ -200,8 +200,7 @@ module rec Migrate =
                           TypeParams = typeParams
                           Params = fnParams
                           TypeAnn = retType
-                          Optional = _optional
-                          Computed = _computed } ->
+                          Optional = _optional } ->
 
       let typeParams =
         Option.map
@@ -223,10 +222,11 @@ module rec Migrate =
 
       let name =
         match key with
-        | Expr.Ident id -> PropName.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> Syntax.PropName.Computed(migrateExpr expr)
+        | PropName.Ident id -> Syntax.PropName.String id.Name
+        | PropName.Str { Value = value } -> Syntax.PropName.String value
+        | PropName.Num { Value = value } -> Syntax.PropName.Number value
+        | PropName.Computed { Expr = expr } ->
+          Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Method { Name = name; Type = f }
     | TsIndexSignature { Readonly = readonly
@@ -253,8 +253,7 @@ module rec Migrate =
       ObjTypeAnnElem.Mapped mapped
     | TsGetterSignature { Key = key
                           TypeAnn = retType
-                          Optional = _optional
-                          Computed = _computed } ->
+                          Optional = _optional } ->
       let retType =
         match retType with
         | Some t -> migrateTypeAnn t
@@ -262,10 +261,11 @@ module rec Migrate =
 
       let name =
         match key with
-        | Expr.Ident id -> PropName.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> Syntax.PropName.Computed(migrateExpr expr)
+        | PropName.Ident id -> Syntax.PropName.String id.Name
+        | PropName.Str { Value = value } -> Syntax.PropName.String value
+        | PropName.Num { Value = value } -> Syntax.PropName.Number value
+        | PropName.Computed { Expr = expr } ->
+          Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Getter
         { Name = name
@@ -273,22 +273,17 @@ module rec Migrate =
           Throws = None }
     | TsSetterSignature { Key = key
                           Param = fnParam
-                          Optional = _optional
-                          Computed = _computed } ->
+                          Optional = _optional } ->
       // TODO: warn if there's a setter on a Readonly interface
       let fnParam = migrateFnParam fnParam
 
-      let undefined: Syntax.TypeAnn =
-        { Kind = Syntax.Keyword KeywordTypeAnn.Undefined
-          Span = DUMMY_SPAN
-          InferredType = None }
-
       let name =
         match key with
-        | Expr.Ident id -> PropName.String id.Name
-        | Expr.Lit(Lit.Str str) -> PropName.String str.Value
-        | Expr.Lit(Lit.Num num) -> PropName.Number(num.Value)
-        | expr -> Syntax.PropName.Computed(migrateExpr expr)
+        | PropName.Ident id -> Syntax.PropName.String id.Name
+        | PropName.Str { Value = value } -> Syntax.PropName.String value
+        | PropName.Num { Value = value } -> Syntax.PropName.Number value
+        | PropName.Computed { Expr = expr } ->
+          Syntax.PropName.Computed(migrateExpr expr)
 
       ObjTypeAnnElem.Setter
         { Name = name

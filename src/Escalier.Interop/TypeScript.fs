@@ -501,6 +501,7 @@ module rec TypeScript =
     { Properties: list<Property>
       Loc: option<SourceLocation> }
 
+  // TODO: replace this with PropName
   type PropertyKey =
     | Lit of Lit
     | Ident of Ident
@@ -1164,8 +1165,7 @@ module rec TypeScript =
 
   type TsPropertySignature =
     { Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       // Init: Option<Expr>
       // Params: list<TsFnParam>
@@ -1176,8 +1176,7 @@ module rec TypeScript =
   type TsGetterSignature =
     {
       // Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
@@ -1185,8 +1184,7 @@ module rec TypeScript =
   type TsSetterSignature =
     {
       // Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       Param: TsFnParam
       Loc: option<SourceLocation> }
@@ -1195,8 +1193,7 @@ module rec TypeScript =
     {
       // Methods are always readonly
       // Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       Params: list<TsFnParam>
       TypeAnn: option<TsTypeAnn>

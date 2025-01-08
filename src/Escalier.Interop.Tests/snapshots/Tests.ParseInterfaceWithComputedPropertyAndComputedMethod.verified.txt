@@ -18,14 +18,16 @@ output: Success: { Body =
                { Body =
                   [TsPropertySignature
                      { Readonly = false
-                       Key = Member { Object = Ident { Name = "Bar"
-                                                       Loc = None }
-                                      Property = Ident { Name = "Baz"
-                                                         Loc = None }
-                                      Computed = false
-                                      OptChain = false
-                                      Loc = None }
-                       Computed = true
+                       Key =
+                        Computed
+                          { Expr = Member { Object = Ident { Name = "Bar"
+                                                             Loc = None }
+                                            Property = Ident { Name = "Baz"
+                                                               Loc = None }
+                                            Computed = false
+                                            OptChain = false
+                                            Loc = None }
+                            Loc = None }
                        Optional = false
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
@@ -33,14 +35,17 @@ output: Success: { Body =
                           Loc = None }
                        Loc = None };
                    TsMethodSignature
-                     { Key = Member { Object = Ident { Name = "Symbol"
+                     { Key =
+                        Computed
+                          { Expr =
+                             Member { Object = Ident { Name = "Symbol"
                                                        Loc = None }
                                       Property = Ident { Name = "toPrimitive"
                                                          Loc = None }
                                       Computed = false
                                       OptChain = false
                                       Loc = None }
-                       Computed = true
+                            Loc = None }
                        Optional = false
                        Params =
                         [{ Pat = Ident { Id = { Name = "hint"

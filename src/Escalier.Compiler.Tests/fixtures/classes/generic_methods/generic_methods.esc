@@ -1,0 +1,8 @@
+let Foo = class {
+  fn fst<A, B>(self, a: A, b: B) {
+    return a;
+  }
+  fn snd<A, B>(a: A, b: B) {
+    return b;
+  }
+};

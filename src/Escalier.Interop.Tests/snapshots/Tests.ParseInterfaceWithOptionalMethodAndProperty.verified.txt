@@ -21,7 +21,6 @@ output: Success: { Body =
                      { Readonly = false
                        Key = Ident { Name = "foo"
                                      Loc = None }
-                       Computed = false
                        Optional = true
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsBooleanKeyword

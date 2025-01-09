@@ -391,23 +391,30 @@ module Parser =
         Loc = None }
       |> TsTypeElement.TsConstructSignatureDecl
 
-  let propKey: Parser<Expr * bool, unit> =
+  let propKey: Parser<Expr, unit> =
     choice
-      [ strWs "[" >>. expr .>> strWs "]" |>> fun expr -> expr, true
-        ident |>> fun id -> Expr.Ident id, false
-        num |>> fun value -> Expr.Lit(Lit.Num value), false
-        str |>> fun value -> Expr.Lit(Lit.Str value), false ]
+      [ strWs "[" >>. expr .>> strWs "]" |>> fun expr -> expr
+        ident |>> fun id -> Expr.Ident id
+        num |>> fun value -> Expr.Lit(Lit.Num value)
+        str |>> fun value -> Expr.Lit(Lit.Str value) ]
+
+  let newPropKey: Parser<PropName, unit> =
+    choice
+      [ strWs "[" >>. expr .>> strWs "]"
+        |>> fun expr -> PropName.Computed { Expr = expr; Loc = None }
+        ident |>> fun id -> PropName.Ident id
+        num |>> fun value -> PropName.Num value
+        str |>> fun value -> PropName.Str value ]
 
   let propSig: Parser<TsTypeElement, unit> =
     pipe4
       (opt (strWs "readonly"))
-      propKey
+      newPropKey
       (opt (strWs "?"))
       (strWs ":" >>. tsTypeAnn)
-    <| fun readonly (key, computed) optional typeAnn ->
+    <| fun readonly key optional typeAnn ->
       { Readonly = readonly.IsSome
         Key = key
-        Computed = computed
         Optional = optional.IsSome
         TypeAnn = typeAnn
         Loc = None }
@@ -447,9 +454,9 @@ module Parser =
       (opt typeParams)
       tsFnParams
       (opt (strWs ":" >>. tsTypeAnn))
-    <| fun (key, computed) question typeParams ps typeAnn ->
+    <| fun key question typeParams ps typeAnn ->
       { Key = key
-        Computed = computed
+        Computed = false
         Optional = question.IsSome
         Params = ps
         TypeAnn = typeAnn

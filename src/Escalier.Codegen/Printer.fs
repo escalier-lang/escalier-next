@@ -1209,6 +1209,6 @@ module rec Printer =
   let printPropName (ctx: PrintCtx) (name: PropName) : string =
     match name with
     | PropName.Ident id -> id.Name
-    | PropName.Str str -> $"\"{str.Value}\""
-    | PropName.Num num -> $"{num.Value}"
+    | PropName.Str { Value = value } -> $"\"{value}\""
+    | PropName.Num { Value = value } -> $"{value}"
     | PropName.Computed { Expr = expr } -> $"[{printExpr ctx expr}]"

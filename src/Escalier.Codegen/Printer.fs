@@ -1004,9 +1004,11 @@ module rec Printer =
       $"new {typeParams}({ps}){typeAnn}"
     | TsPropertySignature propSig ->
       let key =
-        match propSig.Computed with
-        | true -> $"[{printExpr ctx propSig.Key}]"
-        | false -> printExpr ctx propSig.Key
+        match propSig.Key with
+        | PropName.Ident id -> id.Name
+        | PropName.Str { Value = value } -> $"\"{value}\""
+        | PropName.Num { Value = value } -> $"{value}"
+        | PropName.Computed { Expr = expr } -> $"[{printExpr ctx expr}]"
 
       let typeAnn = printTypeAnn ctx propSig.TypeAnn
 
@@ -1124,3 +1126,10 @@ module rec Printer =
       let right = right.Name
       $"{left}.{right}"
     | Identifier { Name = name } -> name
+
+  let printPropName (ctx: PrintCtx) (name: PropName) : string =
+    match name with
+    | PropName.Ident id -> id.Name
+    | PropName.Str { Value = value } -> $"\"{value}\""
+    | PropName.Num { Value = value } -> $"{value}"
+    | PropName.Computed { Expr = expr } -> $"[{printExpr ctx expr}]"

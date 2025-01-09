@@ -350,6 +350,7 @@ let findDepsForTypeIdent
   (syntaxNode: SyntaxNode)
   : Set<QDeclIdent> =
 
+  // TODO: use a set instead
   let mutable typeRefIdents: list<QDeclIdent> = []
 
   let visitor: ExprVisitor.SyntaxVisitor<list<QualifiedIdent>> =
@@ -409,7 +410,11 @@ let findDepsForTypeIdent
                   (fun (tp: TypeParam) ->
                     QualifiedIdent.FromString env.Filename tp.Name)
                   funcTypeParams
-            | ObjTypeAnnElem.Method { Type = t } ->
+            | ObjTypeAnnElem.Method { Name = name; Type = t } ->
+              typeRefIdents <-
+                typeRefIdents
+                @ (getPropNameDeps env possibleDeps name |> Set.toList)
+
               match t.TypeParams with
               | None -> []
               | Some funcTypeParams ->
@@ -417,9 +422,24 @@ let findDepsForTypeIdent
                   (fun (tp: TypeParam) ->
                     QualifiedIdent.FromString env.Filename tp.Name)
                   funcTypeParams
-            | ObjTypeAnnElem.Getter _ -> []
-            | ObjTypeAnnElem.Setter _ -> []
-            | ObjTypeAnnElem.Property _ -> []
+            | ObjTypeAnnElem.Getter { Name = name } ->
+              typeRefIdents <-
+                typeRefIdents
+                @ (getPropNameDeps env possibleDeps name |> Set.toList)
+
+              []
+            | ObjTypeAnnElem.Setter { Name = name } ->
+              typeRefIdents <-
+                typeRefIdents
+                @ (getPropNameDeps env possibleDeps name |> Set.toList)
+
+              []
+            | ObjTypeAnnElem.Property { Name = name } ->
+              typeRefIdents <-
+                typeRefIdents
+                @ (getPropNameDeps env possibleDeps name |> Set.toList)
+
+              []
             | ObjTypeAnnElem.Mapped { TypeParam = typeParam } ->
               [ QualifiedIdent.FromString env.Filename typeParam.Name ]
             | ObjTypeAnnElem.Spread _ -> []
@@ -726,7 +746,11 @@ let getFunctionDeps
     match body with
     | None -> typeDeps
     | Some body ->
-      let f: Function = { Sig = fnSig; Body = body; Captures = None }
+      let f: Function =
+        { Sig = fnSig
+          Body = body
+          Captures = None }
+
       Set.union (findCaptures env possibleDeps Set.empty f) typeDeps
 
   deps
@@ -813,6 +837,14 @@ let getPropNameDeps
             | _ -> Set.empty // This should probably be an error
           | None -> Set.empty // This should probably be an error
       | _ -> Set.empty
+    // Not all computed properties are qualified identifiers
+    | ExprKind.Identifier { Name = name } ->
+      let ident = (QualifiedIdent.FromString env.Filename name)
+
+      if Set.contains (QDeclIdent.Value ident) topLevelDecls then
+        Set.singleton (QDeclIdent.Value ident)
+      else
+        Set.empty // This should probably be an error
     | _ -> Set.empty
   | _ -> Set.empty
 

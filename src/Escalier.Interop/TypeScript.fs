@@ -1164,8 +1164,7 @@ module rec TypeScript =
 
   type TsPropertySignature =
     { Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       // Init: Option<Expr>
       // Params: list<TsFnParam>

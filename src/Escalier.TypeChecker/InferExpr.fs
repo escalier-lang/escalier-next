@@ -30,11 +30,14 @@ module rec InferExpr =
       | Syntax.PropName.Computed value ->
         let! t = inferExpr ctx env None value
 
-        match t.Kind with
+        match (prune t).Kind with
         | TypeKind.Literal(Literal.String value) -> return PropName.String value
         | TypeKind.Literal(Literal.Number value) -> return PropName.Number value
         | TypeKind.UniqueSymbol id -> return PropName.Symbol id
-        | _ -> return! Error(TypeError.SemanticError "Invalid key type")
+        | _ ->
+          printfn $"Invalid key type: {t}"
+          printfn "%A" t
+          return! Error(TypeError.SemanticError "Invalid key type")
     }
 
   /// Computes the type of the expression given by node.

@@ -24,7 +24,6 @@ output: Success: { Body =
                      { Readonly = false
                        Key = Ident { Name = "x"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
@@ -35,7 +34,6 @@ output: Success: { Body =
                      { Readonly = false
                        Key = Ident { Name = "y"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
@@ -67,7 +65,6 @@ output: Success: { Body =
                      { Readonly = false
                        Key = Ident { Name = "length"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsNumberKeyword

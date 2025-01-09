@@ -23,7 +23,6 @@ output: Success: { Body =
                      { Readonly = false
                        Key = Ident { Name = "newURL"
                                      Loc = None }
-                       Computed = false
                        Optional = true
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsStringKeyword
@@ -34,7 +33,6 @@ output: Success: { Body =
                      { Readonly = false
                        Key = Ident { Name = "oldURL"
                                      Loc = None }
-                       Computed = false
                        Optional = true
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsStringKeyword

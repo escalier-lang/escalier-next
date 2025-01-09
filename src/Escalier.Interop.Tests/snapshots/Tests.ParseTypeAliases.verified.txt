@@ -34,7 +34,6 @@ output: Success: { Body =
                        { Readonly = false
                          Key = Ident { Name = "value"
                                        Loc = None }
-                         Computed = false
                          Optional = false
                          TypeAnn =
                           { TypeAnn =
@@ -48,7 +47,6 @@ output: Success: { Body =
                        { Readonly = false
                          Key = Ident { Name = "next"
                                        Loc = None }
-                         Computed = false
                          Optional = false
                          TypeAnn =
                           { TypeAnn =

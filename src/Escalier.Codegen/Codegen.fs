@@ -1929,12 +1929,12 @@ module rec Codegen =
     | Callable callable -> failwith "TODO: buildObjTypeElem - Callable"
     | Constructor ctor -> failwith "TODO: buildObjTypeElem - Constructor"
     | Property prop ->
+      // TODO: match all cases
       match prop.Name with
       | PropName.String s ->
         TsTypeElement.TsPropertySignature
           { Readonly = false
-            Key = Expr.Ident { Name = s; Loc = None }
-            Computed = false
+            Key = TS.PropName.Ident { Name = s; Loc = None }
             Optional = false
             TypeAnn = buildTypeAnn ctx prop.Type
             Loc = None }

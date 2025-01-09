@@ -18,14 +18,16 @@ output: Success: { Body =
                { Body =
                   [TsPropertySignature
                      { Readonly = false
-                       Key = Member { Object = Ident { Name = "Bar"
-                                                       Loc = None }
-                                      Property = Ident { Name = "Baz"
-                                                         Loc = None }
-                                      Computed = false
-                                      OptChain = false
-                                      Loc = None }
-                       Computed = true
+                       Key =
+                        Computed
+                          { Expr = Member { Object = Ident { Name = "Bar"
+                                                             Loc = None }
+                                            Property = Ident { Name = "Baz"
+                                                               Loc = None }
+                                            Computed = false
+                                            OptChain = false
+                                            Loc = None }
+                            Loc = None }
                        Optional = false
                        TypeAnn =
                         { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
@@ -40,7 +42,7 @@ output: Success: { Body =
                                       Computed = false
                                       OptChain = false
                                       Loc = None }
-                       Computed = true
+                       Computed = false
                        Optional = false
                        Params =
                         [{ Pat = Ident { Id = { Name = "hint"

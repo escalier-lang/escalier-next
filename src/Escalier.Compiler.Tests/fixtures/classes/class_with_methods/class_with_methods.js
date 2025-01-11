@@ -1,8 +1,10 @@
 var Foo = class  {
 msg
 bar() {
-  return self;
+  return self.msg;
+}
+baz(msg) {
+  self.msg = msg;
 }
 };
 var foo = Foo();
-var bar = foo.bar();

@@ -2302,7 +2302,52 @@ module rec Codegen =
   let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
     match elem with
     | Callable callable -> failwith "TODO: buildObjTypeElem - Callable"
-    | Constructor ctor -> failwith "TODO: buildObjTypeElem - Constructor"
+    | Constructor ctor ->
+      let ps: list<TsFnParam> =
+        ctor.ParamList
+        |> List.map (fun p ->
+          let t = buildTypeAnn ctx p.Type
+
+          match p.Pattern with
+          | Pattern.Identifier { Name = name } ->
+            let pat =
+              TsFnParamPat.Ident
+                { Id = { Name = name; Loc = None }
+                  Loc = None }
+
+            { Pat = pat
+              TypeAnn = Some(t)
+              Optional = p.Optional
+              Loc = None }
+          | Pattern.Object _ -> failwith "TODO - buildType - Object"
+          | Pattern.Tuple _ -> failwith "TODO - buildType - Tuple"
+          | Pattern.Rest _ -> failwith "TODO - buildType - Rest"
+          | _ -> failwith "Invalid pattern for function parameter")
+
+      let typeParams: option<TsTypeParamDecl> =
+        ctor.TypeParams
+        |> Option.map (fun typeParams ->
+          { Params =
+              typeParams
+              |> List.map
+                (fun
+                     { Name = name
+                       Constraint = c
+                       Default = d } ->
+                  { Name = { Name = name; Loc = None }
+                    IsIn = false
+                    IsOut = false
+                    IsConst = false
+                    Constraint = Option.map (buildType ctx) c
+                    Default = Option.map (buildType ctx) d
+                    Loc = None })
+            Loc = None })
+
+      TsTypeElement.TsConstructSignatureDecl
+        { Params = ps
+          TypeAnn = Some(buildTypeAnn ctx ctor.Return)
+          TypeParams = typeParams
+          Loc = None }
     | Property prop ->
       let key = typePropNameToPropName prop.Name
 
@@ -2354,7 +2399,6 @@ module rec Codegen =
                     Default = Option.map (buildType ctx) d
                     Loc = None })
             Loc = None })
-
 
       TsTypeElement.TsMethodSignature
         { Key = key

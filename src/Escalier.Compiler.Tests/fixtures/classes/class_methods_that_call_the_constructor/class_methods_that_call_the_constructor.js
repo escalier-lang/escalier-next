@@ -1,7 +1,7 @@
 var Point = class  {
-"x"
-"y"
-"makePoint"() {
+x
+y
+makePoint() {
   var p = Self();
   return p;
 }

@@ -1,6 +1,6 @@
 var Foo = class  {
-"msg"
-"bar"() {
+msg
+bar() {
   return self;
 }
 };

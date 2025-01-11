@@ -1,8 +1,8 @@
 var Foo = class  {
-"fst"(a, b) {
+fst(a, b) {
   return a;
 }
-"snd"(a, b) {
+snd(a, b) {
   return b;
 }
 };

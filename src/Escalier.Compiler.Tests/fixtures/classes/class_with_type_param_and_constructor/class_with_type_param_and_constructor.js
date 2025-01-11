@@ -1,5 +1,5 @@
 var Foo = class  {
-"msg"
+msg
 constructor(msg) {
   self.msg = msg;
 }

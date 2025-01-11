@@ -1,6 +1,6 @@
 var Point = class  {
-"x"
-"y"
+x
+y
 constructor(x, y) {
   self.x = x;
 }

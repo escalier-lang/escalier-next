@@ -1,6 +1,6 @@
 var Foo = class  {
-"bar"
-"map"(callback) {
+bar
+map(callback) {
   return callback(self.bar);
 }
 };

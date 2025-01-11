@@ -20,7 +20,7 @@ output: Ok
                     Extends = None
                     Elems =
                      [Property
-                        { Name = String "x"
+                        { Name = Ident "x"
                           TypeAnn = Some { Kind = Keyword Number
                                            Span = { Start = (Ln: 3, Col: 10)
                                                     Stop = (Ln: 3, Col: 16) }
@@ -45,7 +45,7 @@ output: Ok
                     Extends = None
                     Elems =
                      [Property
-                        { Name = String "y"
+                        { Name = Ident "y"
                           TypeAnn = Some { Kind = Keyword Number
                                            Span = { Start = (Ln: 6, Col: 10)
                                                     Stop = (Ln: 6, Col: 16) }

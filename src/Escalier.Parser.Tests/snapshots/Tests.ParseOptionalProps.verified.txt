@@ -16,14 +16,14 @@ output: Ok
                         Object
                           { Elems =
                              [Property
-                                { Name = String "a"
+                                { Name = Ident "a"
                                   TypeAnn =
                                    Some
                                      { Kind =
                                         Object
                                           { Elems =
                                              [Property
-                                                { Name = String "b"
+                                                { Name = Ident "b"
                                                   TypeAnn =
                                                    Some
                                                      { Kind =
@@ -31,7 +31,7 @@ output: Ok
                                                           { Elems =
                                                              [Property
                                                                 { Name =
-                                                                   String "c"
+                                                                   Ident "c"
                                                                   TypeAnn =
                                                                    Some
                                                                      { Kind =

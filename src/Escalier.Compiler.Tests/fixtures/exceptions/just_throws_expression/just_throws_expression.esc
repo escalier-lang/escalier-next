@@ -1,0 +1,1 @@
+let foo = fn <T: string>(exc: T) => throw exc;

@@ -1,0 +1,12 @@
+let foo = fn<A: number>(x: A) =>
+  if x < 0 { throw "RangeError" } else { x };
+let cleanup = fn () => {};
+
+let bar = fn<A: number>(x: A) =>
+  try {
+    foo(x);
+  } catch {
+    "RangeError" => 0,
+  } finally {
+    cleanup();
+  };

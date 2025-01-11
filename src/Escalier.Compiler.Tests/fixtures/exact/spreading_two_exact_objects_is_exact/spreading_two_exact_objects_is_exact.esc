@@ -1,0 +1,3 @@
+declare let foo: {msg: string};
+declare let bar: {flag: boolean};
+let foobar = {...foo, ...bar};

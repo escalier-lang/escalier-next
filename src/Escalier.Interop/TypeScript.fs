@@ -511,8 +511,13 @@ module rec TypeScript =
     | Get
     | Set
 
-  // TODO: add support for shorthand properties and spread properties
   type Property =
+    | KeyValueProperty of KeyValueProperty
+    | Ident of Ident
+    | SpreadElement of SpreadElement
+
+  // TODO: add support for shorthand properties and spread properties
+  type KeyValueProperty =
     { Key: PropertyKey
       Value: Expr
       Kind: PropertyKind

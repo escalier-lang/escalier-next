@@ -460,12 +460,18 @@ module rec Codegen =
             let value, valueStmts = buildExpr ctx value
             stmts <- stmts @ valueStmts
 
-            { Key = propNameToPropertyKey name
-              Value = value
-              Kind = PropertyKind.Init
-              Loc = None }
-          | ObjElem.Shorthand _ -> failwith "TODO - ObjElem.Shorthand"
-          | ObjElem.Spread _ -> failwith "TODO - ObjElem.Spread")
+            Property.KeyValueProperty
+              { Key = propNameToPropertyKey name
+                Value = value
+                Kind = PropertyKind.Init
+                Loc = None }
+          | ObjElem.Shorthand { Name = name } ->
+            Property.Ident { Name = name; Loc = None }
+          | ObjElem.Spread { Value = value } ->
+            let value, valueStmts = buildExpr ctx value
+            stmts <- stmts @ valueStmts
+
+            Property.SpreadElement { Expr = value; Loc = None })
 
       let obj: TS.ObjectLit = { Properties = properties; Loc = None }
 
@@ -954,10 +960,11 @@ module rec Codegen =
               stmts <- stmts @ jsxFragStmts
               jsxFragExpr
 
-        { Key = PropertyKey.Ident { Name = attr.Name; Loc = None }
-          Value = value
-          Kind = PropertyKind.Init
-          Loc = None })
+        Property.KeyValueProperty
+          { Key = PropertyKey.Ident { Name = attr.Name; Loc = None }
+            Value = value
+            Kind = PropertyKind.Init
+            Loc = None })
 
     let children: list<option<ExprOrSpread>> =
       children
@@ -985,10 +992,11 @@ module rec Codegen =
       let childrenValue = Expr.Array { Elements = children; Loc = None }
 
       let childrenProp =
-        { Key = PropertyKey.Ident { Name = "children"; Loc = None }
-          Value = childrenValue
-          Kind = PropertyKind.Init
-          Loc = None }
+        Property.KeyValueProperty
+          { Key = PropertyKey.Ident { Name = "children"; Loc = None }
+            Value = childrenValue
+            Kind = PropertyKind.Init
+            Loc = None }
 
       properties <- properties @ [ childrenProp ]
 
@@ -1063,10 +1071,11 @@ module rec Codegen =
       let childrenValue = Expr.Array { Elements = children; Loc = None }
 
       let childrenProp =
-        { Key = PropertyKey.Ident { Name = "children"; Loc = None }
-          Value = childrenValue
-          Kind = PropertyKind.Init
-          Loc = None }
+        Property.KeyValueProperty
+          { Key = PropertyKey.Ident { Name = "children"; Loc = None }
+            Value = childrenValue
+            Kind = PropertyKind.Init
+            Loc = None }
 
       properties <- properties @ [ childrenProp ]
 
@@ -2192,8 +2201,79 @@ module rec Codegen =
           Loc = None }
       |> TsType.TsFnOrConstructorType
     | TypeKind.Object { Elems = elems } ->
-      let members = elems |> List.map (buildObjTypeElem ctx)
-      TsType.TsTypeLit { Members = members; Loc = None }
+      let _, nonMappedElems =
+        elems
+        |> List.partition (fun elem ->
+          match elem with
+          | ObjTypeElem.Mapped _ -> true
+          | _ -> false)
+
+      let mappedElems =
+        elems
+        |> List.choose (fun elem ->
+          match elem with
+          | ObjTypeElem.Mapped mapped -> Some mapped
+          | _ -> None)
+
+      let mappedTypes =
+        mappedElems
+        |> List.map
+          (fun
+               { NameType = nameType
+                 TypeAnn = typeAnn
+                 TypeParam = typeParam
+                 Readonly = readonly
+                 Optional = optional } ->
+            let nameType = nameType |> Option.map (buildType ctx)
+            let typeAnn = buildType ctx typeAnn
+
+            // TODO: extract this into a function
+            let typeParam =
+              { Name = { Name = typeParam.Name; Loc = None }
+                IsIn = false
+                IsOut = false
+                IsConst = false
+                Constraint = buildType ctx typeParam.Constraint |> Some
+                Default = None
+                Loc = None }
+
+            let readonly =
+              readonly
+              |> Option.map (fun value ->
+                match value with
+                | MappedModifier.Add -> TruePlusMinus.Plus
+                | MappedModifier.Remove -> TruePlusMinus.Minus)
+
+            let optional =
+              optional
+              |> Option.map (fun value ->
+                match value with
+                | MappedModifier.Add -> TruePlusMinus.Plus
+                | MappedModifier.Remove -> TruePlusMinus.Minus)
+
+            TsType.TsMappedType
+              { Readonly = readonly
+                Optional = optional
+                TypeParam = typeParam
+                NameType = nameType
+                TypeAnn = typeAnn
+                Loc = None })
+
+      let members = nonMappedElems |> List.map (buildObjTypeElem ctx)
+      let objType = TsType.TsTypeLit { Members = members; Loc = None }
+
+      if mappedTypes.IsEmpty then
+        objType
+      else
+        let types =
+          if nonMappedElems.IsEmpty then
+            mappedTypes
+          else
+            objType :: mappedTypes
+
+        TsType.TsUnionOrIntersectionType(
+          TsIntersectionType { Types = types; Loc = None }
+        )
     | TypeKind.RestSpread rest ->
       TsType.TsRestType
         { TypeAnn = buildType ctx rest

@@ -70,12 +70,11 @@ module rec Printer =
 
       let props =
         props
-        |> List.map
-          (fun
-               { Key = key
-                 Value = value
-                 Kind = _kind } ->
-
+        |> List.map (fun prop ->
+          match prop with
+          | Property.KeyValueProperty { Key = key
+                                        Value = value
+                                        Kind = _kind } ->
             let key =
               match key with
               | PropertyKey.Lit lit -> printLit lit // wrap this?
@@ -84,7 +83,11 @@ module rec Printer =
             let value = printExpr { ctx with Precedence = 0 } value
 
             // TODO: handle getter/setter kinds
-            $"{key}: {value}")
+            $"{key}: {value}"
+          | Property.Ident { Name = name } -> name
+          | Property.SpreadElement { Expr = expr } ->
+            let expr = printExpr { ctx with Precedence = 0 } expr
+            $"...{expr}")
         |> String.concat ", "
 
       $"{{{props}}}"
@@ -704,7 +707,7 @@ module rec Printer =
 
         let typeAnn = printType ctx decl.TypeAnn
 
-        $"{export}{declare}{name}{typeParams} = {typeAnn};"
+        $"{export}{declare}type {name}{typeParams} = {typeAnn};"
       | Decl.TsEnum(_) -> failwith "TODO: printStmt - TsEnum"
       | Decl.TsModule(_) -> failwith "TODO: printStmt - TsModule"
 
@@ -1015,13 +1018,12 @@ module rec Printer =
       let indexType = printType ctx indexType
       $"{objType}[{indexType}]"
     | TsType.TsMappedType mappedType ->
+      let tpName = mappedType.TypeParam.Name.Name
 
-      let tp = printTsTypeParam ctx mappedType.TypeParam
-
-      let nameType =
-        match mappedType.NameType with
-        | Some(nameType) -> $"as {printType ctx nameType}"
-        | None -> ""
+      let tpConstraint =
+        match mappedType.TypeParam.Constraint with
+        | Some c -> printType ctx c
+        | None -> failwith "missing constraint for type param in mapped type"
 
       let readonly =
         match mappedType.Readonly with
@@ -1039,8 +1041,8 @@ module rec Printer =
 
       let typeAnn = printType ctx mappedType.TypeAnn
 
-      $"{readonly}[{tp} in {nameType}]{optional}: {typeAnn}"
-
+      // TODO: Handle mappedType.NameType to handle renaming of keys
+      $"{{{readonly}[{tpName} in {tpConstraint}]{optional}: {typeAnn}}}"
     | TsType.TsLitType { Lit = lit } ->
       match lit with
       | Bool { Value = value } -> if value then "true" else "false"

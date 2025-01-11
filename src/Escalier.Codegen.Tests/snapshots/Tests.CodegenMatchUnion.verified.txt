@@ -31,7 +31,7 @@ var getCount = function (shape) {
 };
 
 --- output (dts) ---
-Shape = {
+type Shape = {
   kind: "circle";
   radius: number;
 } | {

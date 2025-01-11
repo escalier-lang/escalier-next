@@ -1,0 +1,8 @@
+let foo = async fn<A: number>(x: A) => if x < 0 { throw "RangeError" } else { x };
+let bar = async fn<A: number>(x: A) =>
+  try {
+    let y = await foo(x);
+    y + await 10;
+  } catch {
+    "RangeError" => 0,
+  };

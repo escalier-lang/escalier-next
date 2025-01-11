@@ -3,7 +3,7 @@
         let add = fn (a: number, b: number) => a + b;
         
 output:
-Point = {
+type Point = {
   x: number;
   y: number;
 };

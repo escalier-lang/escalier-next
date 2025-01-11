@@ -1,0 +1,2 @@
+ERROR: Initializer doesn't match declared type
+- Semantic error: Exact object has extra properties

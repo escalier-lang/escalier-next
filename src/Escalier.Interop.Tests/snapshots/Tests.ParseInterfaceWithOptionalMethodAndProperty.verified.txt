@@ -30,7 +30,6 @@ output: Success: { Body =
                    TsMethodSignature
                      { Key = Ident { Name = "bar"
                                      Loc = None }
-                       Computed = false
                        Optional = true
                        Params = []
                        TypeAnn =
@@ -42,7 +41,6 @@ output: Success: { Body =
                    TsMethodSignature
                      { Key = Ident { Name = "setTime"
                                      Loc = None }
-                       Computed = false
                        Optional = false
                        Params =
                         [{ Pat = Ident { Id = { Name = "a"

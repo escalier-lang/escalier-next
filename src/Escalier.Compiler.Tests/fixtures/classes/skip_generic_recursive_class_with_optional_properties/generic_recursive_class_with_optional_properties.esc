@@ -1,0 +1,13 @@
+// TODO: fix method calls on optionals
+let Node = class<T> {
+  value: T;
+  left?: Self;
+  right?: Self;
+  fn map<U>(self, mapper: fn (x: T) -> U) {
+    let node = {
+      value: mapper(self.value),
+      left: self.left?.map(mapper),
+      right: self.right?.map(mapper),
+    };
+  }
+};

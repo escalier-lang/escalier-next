@@ -296,7 +296,7 @@ module Parser =
 
   let private propName =
     choice
-      [ ident |>> PropName.String
+      [ ident |>> PropName.Ident
         number .>> ws |>> PropName.Number
         _string .>> ws |>> PropName.String
         between (strWs "[") (strWs "]") expr |>> PropName.Computed ]
@@ -863,7 +863,7 @@ module Parser =
   let private method: Parser<Method, unit> =
     pipe5
       (opt (keyword "async"))
-      (keyword "fn" >>. ident)
+      (keyword "fn" >>. propName)
       ((opt typeParams) .>>. paramList)
       ((opt (strWs "->" >>. typeAnn))
        .>>. (opt (ws .>> keyword "throws" >>. typeAnn)))
@@ -893,8 +893,7 @@ module Parser =
             Throws = throws
             IsAsync = async.IsSome }
 
-      // TODO: handle computed names for methods
-      { Name = PropName.String name
+      { Name = name
         Sig = funcSig
         Body = Some(BlockOrExpr.Block body)
         Static = false (* TODO *) }

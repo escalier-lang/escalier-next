@@ -1,0 +1,1 @@
+ERROR: Unassigned properties in constructor: [y]

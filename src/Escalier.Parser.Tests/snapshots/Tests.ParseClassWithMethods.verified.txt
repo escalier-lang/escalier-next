@@ -35,7 +35,7 @@ output: Ok
                               TypeParams = None
                               Elems =
                                [Property
-                                  { Name = String "msg"
+                                  { Name = Ident "msg"
                                     TypeAnn =
                                      Some { Kind = Keyword String
                                             Span = { Start = (Ln: 3, Col: 12)
@@ -46,7 +46,7 @@ output: Ok
                                     Readonly = false
                                     Static = false };
                                 Method
-                                  { Name = String "bar"
+                                  { Name = Ident "bar"
                                     Sig =
                                      { TypeParams = None
                                        Self =
@@ -101,7 +101,7 @@ output: Ok
                                                    Stop = (Ln: 6, Col: 7) } }] })
                                     Static = false };
                                 Method
-                                  { Name = String "baz"
+                                  { Name = Ident "baz"
                                     Sig =
                                      { TypeParams = None
                                        Self =

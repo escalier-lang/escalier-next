@@ -1,0 +1,2 @@
+let p1: {x: number, y: number, z: number} = {x: 5, y: 10, z: 15};
+let p2: {x: number, y: number, ...} = p1;

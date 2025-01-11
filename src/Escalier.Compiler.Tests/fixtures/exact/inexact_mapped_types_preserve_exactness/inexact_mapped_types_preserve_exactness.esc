@@ -1,0 +1,6 @@
+type MyPartial<T> = {[K]?: T[K] for K in keyof T, ...};
+type Exact = {msg: string, flag: boolean};
+type Inexact = {msg: string, flag: boolean, ...};
+
+type PartialExact = MyPartial<Exact>;
+type PartialInexact = MyPartial<Inexact>;

@@ -1,0 +1,9 @@
+let Point = class {
+  x: number;
+  y: number;
+  fn makePoint() {
+    let p = new Self();
+    return p;
+  }
+};
+let p = Point.makePoint();

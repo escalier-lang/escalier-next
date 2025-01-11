@@ -19,7 +19,7 @@ output: Ok
                         Object
                           { Elems =
                              [Property
-                                { Name = String "x"
+                                { Name = Ident "x"
                                   TypeAnn =
                                    Some { Kind = Keyword Number
                                           Span = { Start = (Ln: 2, Col: 22)
@@ -30,7 +30,7 @@ output: Ok
                                   Readonly = false
                                   Static = false };
                               Property
-                                { Name = String "y"
+                                { Name = Ident "y"
                                   TypeAnn =
                                    Some { Kind = Keyword Number
                                           Span = { Start = (Ln: 2, Col: 33)

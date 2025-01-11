@@ -1,0 +1,4 @@
+let foo = fn<A: number>(x: A) =>
+  if x < 0 { throw "RangeError" } else { x };
+  
+let bar = fn<A: number>(x: A) => foo(x);

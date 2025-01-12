@@ -461,7 +461,7 @@ module rec Codegen =
             stmts <- stmts @ valueStmts
 
             Property.KeyValueProperty
-              { Key = propNameToPropertyKey name
+              { Key = propNameToPropName name
                 Value = value
                 Kind = PropertyKind.Init
                 Loc = None }
@@ -838,30 +838,6 @@ module rec Codegen =
     | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
     | ExprKind.JSXFragment jsxFragment -> buildJsxFragment ctx jsxFragment
 
-  let propNameToPropertyKey (name: Syntax.PropName) : TS.PropertyKey =
-    let key =
-      match name with
-      | Syntax.PropName.Ident name ->
-        PropertyKey.Ident { Name = name; Loc = None }
-      | Syntax.PropName.String value ->
-        PropertyKey.Lit(
-          Lit.Str
-            { Value = value
-              Raw = None
-              Loc = None }
-        )
-      | Syntax.PropName.Number value ->
-        PropertyKey.Lit(
-          Lit.Num
-            { Value = value
-              Raw = None
-              Loc = None }
-        )
-      | Syntax.PropName.Computed expr ->
-        failwith "TODO: Computed property names"
-
-    key
-
   let propNameToPropName (name: Syntax.PropName) : TS.PropName =
     let key =
       match name with
@@ -961,7 +937,7 @@ module rec Codegen =
               jsxFragExpr
 
         Property.KeyValueProperty
-          { Key = PropertyKey.Ident { Name = attr.Name; Loc = None }
+          { Key = TS.PropName.Ident { Name = attr.Name; Loc = None }
             Value = value
             Kind = PropertyKind.Init
             Loc = None })
@@ -993,7 +969,7 @@ module rec Codegen =
 
       let childrenProp =
         Property.KeyValueProperty
-          { Key = PropertyKey.Ident { Name = "children"; Loc = None }
+          { Key = TS.PropName.Ident { Name = "children"; Loc = None }
             Value = childrenValue
             Kind = PropertyKind.Init
             Loc = None }
@@ -1072,7 +1048,7 @@ module rec Codegen =
 
       let childrenProp =
         Property.KeyValueProperty
-          { Key = PropertyKey.Ident { Name = "children"; Loc = None }
+          { Key = TS.PropName.Ident { Name = "children"; Loc = None }
             Value = childrenValue
             Kind = PropertyKind.Init
             Loc = None }

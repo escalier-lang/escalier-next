@@ -75,11 +75,7 @@ module rec Printer =
           | Property.KeyValueProperty { Key = key
                                         Value = value
                                         Kind = _kind } ->
-            let key =
-              match key with
-              | PropertyKey.Lit lit -> printLit lit // wrap this?
-              | PropertyKey.Ident id -> id.Name
-
+            let key = printPropName ctx key
             let value = printExpr { ctx with Precedence = 0 } value
 
             // TODO: handle getter/setter kinds

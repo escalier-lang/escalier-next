@@ -501,11 +501,6 @@ module rec TypeScript =
     { Properties: list<Property>
       Loc: option<SourceLocation> }
 
-  // TODO: replace this with PropName
-  type PropertyKey =
-    | Lit of Lit
-    | Ident of Ident
-
   type PropertyKind =
     | Init
     | Get
@@ -518,7 +513,7 @@ module rec TypeScript =
 
   // TODO: add support for shorthand properties and spread properties
   type KeyValueProperty =
-    { Key: PropertyKey
+    { Key: PropName
       Value: Expr
       Kind: PropertyKind
       Loc: option<SourceLocation> }

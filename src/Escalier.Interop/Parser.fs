@@ -256,10 +256,10 @@ module Parser =
   let funcParam: Parser<TsFnParam, unit> =
     let paramPat =
       choice
-        [ bindingIdent |>> TsFnParamPat.Ident
-          arrayPat |>> TsFnParamPat.Array
-          restPat |>> TsFnParamPat.Rest
-          objectPat |>> TsFnParamPat.Object ]
+        [ bindingIdent |>> Pat.Ident
+          arrayPat |>> Pat.Array
+          restPat |>> Pat.Rest
+          objectPat |>> Pat.Object ]
 
     pipe3 paramPat (opt (strWs "?")) (opt (strWs ":" >>. tsTypeAnn))
     <| fun pat optional typeAnn ->

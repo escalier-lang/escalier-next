@@ -501,11 +501,6 @@ module rec TypeScript =
     { Properties: list<Property>
       Loc: option<SourceLocation> }
 
-  // TODO: replace this with PropName
-  type PropertyKey =
-    | Lit of Lit
-    | Ident of Ident
-
   type PropertyKind =
     | Init
     | Get
@@ -518,7 +513,7 @@ module rec TypeScript =
 
   // TODO: add support for shorthand properties and spread properties
   type KeyValueProperty =
-    { Key: PropertyKey
+    { Key: PropName
       Value: Expr
       Kind: PropertyKind
       Loc: option<SourceLocation> }
@@ -657,7 +652,6 @@ module rec TypeScript =
     | Rest of RestPat
     | Object of ObjectPat
     | Assign of AssignPat
-    | Invalid of Invalid
 
   type BindingIdent =
     { Id: Ident
@@ -1078,15 +1072,8 @@ module rec TypeScript =
       Default: option<TsType>
       Loc: option<SourceLocation> }
 
-  [<RequireQualifiedAccess>]
-  type TsFnParamPat =
-    | Ident of BindingIdent
-    | Array of ArrayPat
-    | Rest of RestPat
-    | Object of ObjectPat
-
   type TsFnParam =
-    { Pat: TsFnParamPat
+    { Pat: Pat
       TypeAnn: option<TsTypeAnn>
       Optional: bool
       Loc: option<SourceLocation> }

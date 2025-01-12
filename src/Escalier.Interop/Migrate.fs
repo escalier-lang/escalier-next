@@ -543,15 +543,15 @@ module rec Migrate =
         | None -> failwith "all function parameters must have a type annotation"
       Optional = fnParam.Optional }
 
-  let migrateFnParamPattern (pat: TypeScript.TsFnParamPat) : Pattern =
+  let migrateFnParamPattern (pat: TypeScript.Pat) : Pattern =
     let kind =
       match pat with
-      | TsFnParamPat.Ident { Id = ident } ->
+      | Pat.Ident { Id = ident } ->
         PatternKind.Ident
           { Name = ident.Name
             IsMut = false
             Assertion = None }
-      | TsFnParamPat.Object { Props = props } ->
+      | Pat.Object { Props = props } ->
         let elems: list<ObjPatElem> =
           List.map
             (fun (prop: TypeScript.ObjectPatProp) ->
@@ -587,7 +587,7 @@ module rec Migrate =
             props
 
         PatternKind.Object { Elems = elems; Immutable = false }
-      | TsFnParamPat.Array { Elems = elems } ->
+      | Pat.Array { Elems = elems } ->
         let elems =
           List.map
             (fun (elem) ->
@@ -597,7 +597,8 @@ module rec Migrate =
             elems
 
         PatternKind.Tuple { Elems = elems; Immutable = false }
-      | TsFnParamPat.Rest restPat -> PatternKind.Rest(migratePat restPat.Arg)
+      | Pat.Rest restPat -> PatternKind.Rest(migratePat restPat.Arg)
+      | Pat.Assign _ -> failwith "TODO: migrateFnParamPattern - assign pattern"
 
     { Kind = kind
       Span = DUMMY_SPAN
@@ -659,7 +660,6 @@ module rec Migrate =
 
         PatternKind.Object { Elems = elems; Immutable = false }
       | Pat.Assign _ -> failwith "TODO: handle assignment patterns"
-      | Pat.Invalid _ -> failwith "TODO: handle invalid patterns"
 
     { Kind = kind
       Span = DUMMY_SPAN

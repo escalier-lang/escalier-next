@@ -198,7 +198,7 @@ module rec Codegen =
       let tempDecl = buildTempDecl ctx tempId
 
       let targetExpr, targetStmts = buildExpr ctx target
-      let pattern, checks = buildPattern ctx head.Pattern (Some targetExpr)
+      let _, checks = buildPattern ctx head.Pattern (Some targetExpr)
       let checkExprs = checks |> List.map (buildPatternCheck ctx)
 
       let conditionExpr =
@@ -361,6 +361,12 @@ module rec Codegen =
           |> List.map (fun (p: Syntax.FuncParam) ->
             let pat, _ = buildPattern ctx p.Pattern None
 
+            let pat =
+              match pat with
+              | Some pat -> pat
+              | None ->
+                failwith "Function parameter pattern must be irrefutable"
+
             { Pat = pat
               Optional = p.Optional
               TypeAnn = None
@@ -386,7 +392,10 @@ module rec Codegen =
           s.ParamList
           |> List.map (fun p ->
             let pat, _ = buildPattern ctx p.Pattern None
-            pat)
+
+            match pat with
+            | Some pat -> pat
+            | None -> failwith "Function parameter pattern must be irrefutable")
 
         let bodyExpr, bodyStmts = buildExpr ctx expr
 
@@ -653,22 +662,25 @@ module rec Codegen =
               Right = check
               Loc = None })
 
-      let decl =
-        { Export = false
-          Declare = false
-          Decls =
-            [ { Id = pattern
-                TypeAnn = None
-                Init = Some targetExpr } ]
-          Kind = VariableDeclarationKind.Var }
-        |> Decl.Var
-        |> Stmt.Decl
-
       let thenBlock = buildBlock ctx thenBranch finalizer
 
       let thenBlock =
-        { thenBlock with
-            Body = decl :: thenBlock.Body }
+        match pattern with
+        | Some pattern ->
+          let decl =
+            { Export = false
+              Declare = false
+              Decls =
+                [ { Id = pattern
+                    TypeAnn = None
+                    Init = Some targetExpr } ]
+              Kind = VariableDeclarationKind.Var }
+            |> Decl.Var
+            |> Stmt.Decl
+
+          { thenBlock with
+              Body = decl :: thenBlock.Body }
+        | None -> thenBlock // no declaration is need if the pattern is None
 
       let alt =
         Option.map
@@ -1123,6 +1135,11 @@ module rec Codegen =
       |> List.map (fun (p: Syntax.FuncParam) ->
         let pat, _ = buildPattern ctx p.Pattern None
 
+        let pat =
+          match pat with
+          | Some pat -> pat
+          | None -> failwith "Function parameter pattern must be irrefutable"
+
         { Pat = pat
           Optional = p.Optional
           TypeAnn = None
@@ -1434,6 +1451,12 @@ module rec Codegen =
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = Some init } ->
             let pattern, _ = buildPattern ctx pattern None
+
+            let pattern =
+              match pattern with
+              | Some pat -> pat
+              | None -> failwith "Var declaration patterns must be irrefutable"
+
             let initExpr, initStmts = buildExpr ctx init
 
             let decl =
@@ -1478,6 +1501,12 @@ module rec Codegen =
                          Body = body } ->
 
           let leftPat, _ = buildPattern ctx left None
+
+          let leftPat =
+            match leftPat with
+            | Some pat -> pat
+            | None -> failwith "For loop patterns must be irrefutable"
+
           // TODO: if the right is a range, we should codegen a regular for loop
           // This will require store the min and max values as properties on the
           // range object.
@@ -1599,11 +1628,14 @@ module rec Codegen =
     | InstanceOfCheck(expr, expr1) -> failwith "todo"
     | TypeOfCheck(expr, s) -> failwith "todo"
 
+  // If buildPattern returns None then the pattern was refutable and thus only
+  // the return checks are useful.  The buildPattern returns Some(pat) then the
+  // pattern is irrefutable and should be used for destructuring.
   let buildPattern
     (ctx: Ctx)
     (pattern: Syntax.Pattern)
     (parent: option<TS.Expr>)
-    : TS.Pat * list<PatternCheck> =
+    : option<TS.Pat> * list<PatternCheck> =
     match pattern.Kind with
     | PatternKind.Ident { Name = name } ->
       let pat =
@@ -1611,7 +1643,7 @@ module rec Codegen =
           { Id = { Name = name; Loc = None }
             Loc = None }
 
-      pat, []
+      Some pat, []
     | PatternKind.Object { Elems = elems } ->
       let mutable checks: list<PatternCheck> = []
 
@@ -1643,16 +1675,13 @@ module rec Codegen =
             let keyValuePat, keyValueChecks = buildPattern ctx value parent
             checks <- checks @ keyValueChecks
 
-            match keyValuePat with
-            | Pat.Invalid _ -> None
-            | _ ->
-              // TODO: add support for default values in ObjectPatProp.KeyValue
-              Some(
-                ObjectPatProp.KeyValue
-                  { Key = TS.PropName.Ident { Name = key; Loc = None }
-                    Value = keyValuePat
-                    Loc = None }
-              )
+            // TODO: add support for default values in ObjectPatProp.KeyValue
+            keyValuePat
+            |> Option.map (fun keyValuePat ->
+              ObjectPatProp.KeyValue
+                { Key = TS.PropName.Ident { Name = key; Loc = None }
+                  Value = keyValuePat
+                  Loc = None })
           | Syntax.ObjPatElem.ShorthandPat { Name = name
                                              Default = init
                                              Assertion = _ } ->
@@ -1671,11 +1700,11 @@ module rec Codegen =
             let argPat, argExprs = buildPattern ctx target parent
             checks <- checks @ argExprs
 
-            match argPat with
-            | Pat.Invalid _ -> None
-            | _ -> Some(ObjectPatProp.Rest { Arg = argPat; Loc = None }))
+            argPat
+            |> Option.map (fun argPat ->
+              ObjectPatProp.Rest { Arg = argPat; Loc = None }))
 
-      Pat.Object { Props = props; Loc = None }, checks
+      Some(Pat.Object { Props = props; Loc = None }), checks
     | PatternKind.Tuple { Elems = elems } ->
       let mutable checks: list<PatternCheck> = []
 
@@ -1707,11 +1736,9 @@ module rec Codegen =
           let elemPat, elemChecks = buildPattern ctx elem parent
           checks <- checks @ elemChecks
 
-          match elemPat with
-          | Pat.Invalid _ -> None
-          | _ -> Some elemPat)
+          elemPat)
 
-      Pat.Array { Elems = elems; Loc = None }, checks
+      Some(Pat.Array { Elems = elems; Loc = None }), checks
     | PatternKind.Enum enumVariantPattern ->
       failwith "TODO: buildPattern - Enum"
     | PatternKind.Wildcard wildcardPattern ->
@@ -1722,11 +1749,12 @@ module rec Codegen =
         | Some parent -> [ ValueCheck(parent, buildLiteral literal) ]
         | None -> []
 
-      Pat.Invalid { Loc = None }, checks
+      None, checks
     | PatternKind.Rest pattern ->
       let argPat, argExprs = buildPattern ctx pattern parent
 
-      Pat.Rest { Arg = argPat; Loc = None }, argExprs
+      argPat |> Option.map (fun argPat -> Pat.Rest { Arg = argPat; Loc = None }),
+      argExprs
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
@@ -2044,7 +2072,7 @@ module rec Codegen =
           match p.Pattern.Kind with
           | PatternKind.Ident { Name = name } ->
             let pat =
-              TsFnParamPat.Ident
+              Pat.Ident
                 { Id = { Name = name; Loc = None }
                   Loc = None }
 
@@ -2150,7 +2178,7 @@ module rec Codegen =
           match p.Pattern with
           | Pattern.Identifier { Name = name } ->
             let pat =
-              TsFnParamPat.Ident
+              Pat.Ident
                 { Id = { Name = name; Loc = None }
                   Loc = None }
 
@@ -2161,7 +2189,7 @@ module rec Codegen =
           | Pattern.Object _ -> failwith "TODO - buildType - Object"
           | Pattern.Tuple _ -> failwith "TODO - buildType - Tuple"
           | Pattern.Rest p ->
-            let pat = TsFnParamPat.Rest { Arg = patternToPat p; Loc = None }
+            let pat = Pat.Rest { Arg = patternToPat p; Loc = None }
 
             { Pat = pat
               TypeAnn = Some t
@@ -2385,7 +2413,7 @@ module rec Codegen =
           match p.Pattern with
           | Pattern.Identifier { Name = name } ->
             let pat =
-              TsFnParamPat.Ident
+              Pat.Ident
                 { Id = { Name = name; Loc = None }
                   Loc = None }
 
@@ -2442,7 +2470,7 @@ module rec Codegen =
           match p.Pattern with
           | Pattern.Identifier { Name = name } ->
             let pat =
-              TsFnParamPat.Ident
+              Pat.Ident
                 { Id = { Name = name; Loc = None }
                   Loc = None }
 

@@ -652,7 +652,6 @@ module rec TypeScript =
     | Rest of RestPat
     | Object of ObjectPat
     | Assign of AssignPat
-    | Invalid of Invalid
 
   type BindingIdent =
     { Id: Ident
@@ -1073,15 +1072,8 @@ module rec TypeScript =
       Default: option<TsType>
       Loc: option<SourceLocation> }
 
-  [<RequireQualifiedAccess>]
-  type TsFnParamPat =
-    | Ident of BindingIdent
-    | Array of ArrayPat
-    | Rest of RestPat
-    | Object of ObjectPat
-
   type TsFnParam =
-    { Pat: TsFnParamPat
+    { Pat: Pat
       TypeAnn: option<TsTypeAnn>
       Optional: bool
       Loc: option<SourceLocation> }

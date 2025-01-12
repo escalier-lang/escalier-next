@@ -746,7 +746,6 @@ module rec Printer =
 
       $"{{{props}}}"
     | Pat.Assign assignPat -> failwith "TODO: printPattern - Assign"
-    | Pat.Invalid invalid -> failwith "TODO: printPattern - Invalid"
 
   let printBlock (ctx: PrintCtx) (block: BlockStmt) =
     let oldIdent = String.replicate ctx.Indent " "
@@ -1169,28 +1168,8 @@ module rec Printer =
       | false, true -> $"readonly [{param}]: {typeAnn}"
       | false, false -> $"[{param}]: {typeAnn}"
 
-  // TODO: dedupe with printPattern
-  let printTsFnParamPat (ctx: PrintCtx) (pat: TsFnParamPat) : string =
-    match pat with
-    | TsFnParamPat.Ident id -> id.Id.Name
-    | TsFnParamPat.Array arrayPat ->
-      let patterns =
-        arrayPat.Elems
-        |> List.map (fun p ->
-          match p with
-          | Some p -> printPattern ctx p
-          | None -> " ")
-
-      $"[{patterns}]"
-    | TsFnParamPat.Rest restPat ->
-      let mutable sb = StringBuilder()
-      sb <- sb.Append("...").Append(printPattern ctx restPat.Arg)
-      sb.ToString()
-    | TsFnParamPat.Object objectPat ->
-      failwith "TODO: printTsFnParam - objectPat"
-
   let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : string =
-    let pat = printTsFnParamPat ctx param.Pat
+    let pat = printPattern ctx param.Pat
 
     match param.TypeAnn with
     | Some(typeAnn) ->

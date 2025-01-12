@@ -1,0 +1,10 @@
+type Point = {x:number, y:number};
+type Line = {p0: Point, p1: Point};
+
+let mut p0: Point = {x: 0, y: 0};
+let mut p1: Point = {x: 5, y: 10};
+
+let line: Line = {p0, p1};
+let {p0: mut start, p1: mut end}: Line = {p0, p1};
+let {p0: start, p1: mut end}: Line = {p0, p1};
+let {p0: mut start, p1: end}: Line = {p0, p1};

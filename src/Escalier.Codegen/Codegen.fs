@@ -994,7 +994,7 @@ module rec Codegen =
       match name with
       | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
         Expr.Lit(Lit.Str { Value = s; Raw = None; Loc = None })
-      | _ -> failwith "TODO: buildJsxElement - JSXElement"
+      | ident -> qualifiedIdentToMemberExpr ident
 
     let callExpr =
       let name =
@@ -1921,6 +1921,17 @@ module rec Codegen =
         { Left = qualifiedIdentToTsEntityName qualifier
           Right = { Name = name; Loc = None } }
 
+  let qualifiedIdentToMemberExpr (id: QualifiedIdent) : TS.Expr =
+    match id with
+    | QualifiedIdent.Ident name -> TS.Expr.Ident { Name = name; Loc = None }
+    | QualifiedIdent.Member(qualifier, name) ->
+      TS.Expr.Member
+        { Object = qualifiedIdentToMemberExpr qualifier
+          Property = TS.Expr.Ident { Name = name; Loc = None }
+          Computed = false
+          OptChain = false
+          Loc = None }
+
   let buildTypeRef (ctx: Ctx) (typeRef: TypeRef) : TsType =
     let typeParams =
       typeRef.TypeArgs
@@ -1991,7 +2002,7 @@ module rec Codegen =
       | KeywordTypeAnn.UniqueSymbol ->
         TsType.TsTypeOperator
           { TypeAnn = buildTypeFromTypeAnn ctx typeAnn
-            Op = TsTypeOperatorOp.KeyOf
+            Op = TsTypeOperatorOp.Unique
             Loc = None }
       | KeywordTypeAnn.Null ->
         TsType.TsKeywordType
@@ -2394,7 +2405,16 @@ module rec Codegen =
         { Kind = TsKeywordTypeKind.TsAnyKeyword
           Loc = None }
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
-    | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
+    | TypeKind.UniqueSymbol _ ->
+      let typeAnn =
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsSymbolKeyword
+            Loc = None }
+
+      TsType.TsTypeOperator
+        { TypeAnn = typeAnn
+          Op = TsTypeOperatorOp.Unique
+          Loc = None }
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
     | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"

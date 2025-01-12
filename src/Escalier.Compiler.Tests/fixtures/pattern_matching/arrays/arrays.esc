@@ -1,0 +1,8 @@
+let sum = fn (array: number[]) =>
+  match array {
+    [] => 0,
+    [x] => x,
+    [x, y] => x + y,
+    [x, y, z] => x + y + z,
+    [x, y, z, ...rest] => x + y + z + sum(rest),
+  };

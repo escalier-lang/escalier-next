@@ -1,0 +1,3 @@
+let msg = "hello";
+let len = msg.length;
+let upper = msg.toUpperCase();

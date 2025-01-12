@@ -1,0 +1,2 @@
+ERROR: Initializer doesn't match declared type
+- Type mismatch: number and number | string

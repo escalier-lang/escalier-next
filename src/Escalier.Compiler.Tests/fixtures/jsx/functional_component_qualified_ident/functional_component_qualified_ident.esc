@@ -1,0 +1,15 @@
+import "react" as React;
+
+type Props = {
+  message: string,
+};
+
+let Comps = {
+  Comp: fn (props: Props) {
+    return <div>
+      <p>{props.message}</p>
+    </div>;
+  },
+};
+
+let comp = <Comps.Comp message="Hello, world!" />;

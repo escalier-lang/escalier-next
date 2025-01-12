@@ -1,0 +1,4 @@
+ERROR: Wrong type provided for the 'id' prop
+- Type mismatch: 5 and string | undefined
+ERROR: Wrong type provided for the 'title' prop
+- Type mismatch: true and string | undefined

@@ -1,0 +1,8 @@
+declare let value: number | string | boolean;
+
+let result =
+  match value {
+    n is number => n + 1,
+    s is string => s ++ "!",
+    _ is boolean => true,
+  };

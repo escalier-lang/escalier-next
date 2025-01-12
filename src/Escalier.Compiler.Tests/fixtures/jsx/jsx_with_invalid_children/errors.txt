@@ -1,0 +1,1 @@
+TypeError: TypeMismatch: {x: 5, y: 10} != ReactElement | string | number | Iterable<ReactNode> | ReactPortal | boolean | null | undefined | DO_NOT_USE_OR_YOU_WILL_BE_FIRED_EXPERIMENTAL_REACT_NODES[keyof DO_NOT_USE_OR_YOU_WILL_BE_FIRED_EXPERIMENTAL_REACT_NODES]

@@ -1,0 +1,4 @@
+declare let value: [number, string];
+let result = match value {
+  [a] => a,
+};

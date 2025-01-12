@@ -1,0 +1,2 @@
+ERROR: No prop named 'bar' exists in div's props
+ERROR: No prop named 'baz' exists in div's props

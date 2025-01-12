@@ -1,0 +1,2 @@
+let foo = fn() => bar() + 1;
+let bar = fn() => foo() - 1;

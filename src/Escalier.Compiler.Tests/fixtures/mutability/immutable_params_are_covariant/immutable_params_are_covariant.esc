@@ -1,0 +1,5 @@
+let foo = fn (array: (number | string)[]) {
+  return array.length;
+};
+let numbers: number[] = [1, 2, 3];
+foo(numbers);

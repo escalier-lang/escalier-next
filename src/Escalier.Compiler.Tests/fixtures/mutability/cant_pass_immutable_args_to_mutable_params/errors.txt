@@ -1,0 +1,1 @@
+TypeError: SemanticError: immutable binding 'array' cannot alias 'numbers'

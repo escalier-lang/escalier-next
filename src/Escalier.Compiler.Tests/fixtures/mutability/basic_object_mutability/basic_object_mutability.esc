@@ -1,0 +1,4 @@
+type Point = {x: number, y: number};
+let mut p: Point = {x: 0, y: 0};
+p.x = 5;
+p.y = 10;

@@ -1,0 +1,7 @@
+let foo = fn (x: number) =>
+  match x {
+    0 => "none",
+    1 => "one",
+    n if n < 0 => "negative",
+    _ => "other",
+  };

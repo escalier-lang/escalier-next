@@ -1,0 +1,15 @@
+let foo = fn (x: number, y: number) =>
+  match {x, y} {
+    {x: 0, y: 0} => "origin",
+    {x is number, y: 0} => "x-axis",
+    {x: 0, y is number} => "y-axis",
+    _ => "other",
+  };
+  
+let bar = fn (x: number, y: number) =>
+  match {x, y} {
+    {x: 0, y: 0} => "origin",
+    {x is number, y: 0} => "x-axis",
+    {x: 0, y is number} => "y-axis",
+    {x is number, y is number} => "other",
+  };

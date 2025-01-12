@@ -1,0 +1,1 @@
+var len = "hello".length;

@@ -1,0 +1,12 @@
+type Props = {
+  id: string,
+  onClick: fn (event: MouseEvent) -> undefined,
+};
+let props: Props = {
+  id: "foo",
+  onClick: fn (event) {
+    let x = event.clientX;
+    let y = event.clientY;
+    let slope = y / x;
+  },
+};

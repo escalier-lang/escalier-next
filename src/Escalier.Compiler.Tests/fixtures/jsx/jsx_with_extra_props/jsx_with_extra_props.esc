@@ -1,0 +1,2 @@
+import "react" as React;
+let foo = <div bar={5} baz="hello"></div>;

@@ -1,0 +1,5 @@
+import "react" as React;
+let foo = <div
+  id={5}
+  title={true}
+></div>;

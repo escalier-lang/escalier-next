@@ -1,0 +1,2 @@
+let foo: number[] = [1, 2, 3];
+let bar: (number | string)[] = foo;

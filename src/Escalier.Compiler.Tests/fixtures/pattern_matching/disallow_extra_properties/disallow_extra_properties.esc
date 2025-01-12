@@ -1,0 +1,4 @@
+declare let value: {a: number, b: string};
+let result = match value {
+  {a, b: _, c: _} => a,
+};

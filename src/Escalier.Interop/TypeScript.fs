@@ -481,7 +481,7 @@ module rec TypeScript =
     | TsConstAssertion of TsConstAssertion
     | TsNonNull of TsNonNullExpr
     | TsAs of TsAsExpr
-    | TsInstantiation of TsInstantiation
+    | TsInstantiation of TsInstantiation // expression with type args
     | TsSatisfies of TsSatisfiesExpr
     | PrivateName of PrivateName
     | OptChain of OptChainExpr
@@ -501,6 +501,7 @@ module rec TypeScript =
     { Properties: list<Property>
       Loc: option<SourceLocation> }
 
+  // TODO: replace this with PropName
   type PropertyKey =
     | Lit of Lit
     | Ident of Ident
@@ -510,8 +511,13 @@ module rec TypeScript =
     | Get
     | Set
 
-  // TODO: add support for shorthand properties and spread properties
   type Property =
+    | KeyValueProperty of KeyValueProperty
+    | Ident of Ident
+    | SpreadElement of SpreadElement
+
+  // TODO: add support for shorthand properties and spread properties
+  type KeyValueProperty =
     { Key: PropertyKey
       Value: Expr
       Kind: PropertyKind
@@ -1175,8 +1181,7 @@ module rec TypeScript =
   type TsGetterSignature =
     {
       // Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       TypeAnn: option<TsTypeAnn>
       Loc: option<SourceLocation> }
@@ -1184,8 +1189,7 @@ module rec TypeScript =
   type TsSetterSignature =
     {
       // Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       Param: TsFnParam
       Loc: option<SourceLocation> }
@@ -1194,8 +1198,7 @@ module rec TypeScript =
     {
       // Methods are always readonly
       // Readonly: bool
-      Key: Expr
-      Computed: bool
+      Key: PropName
       Optional: bool
       Params: list<TsFnParam>
       TypeAnn: option<TsTypeAnn>

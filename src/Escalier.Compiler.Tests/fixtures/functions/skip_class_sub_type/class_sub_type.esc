@@ -1,0 +1,3 @@
+// TODO: check superclass when determining if class instances are assignable
+declare let div: HTMLDivElement;
+let elem: HTMLElement = div;

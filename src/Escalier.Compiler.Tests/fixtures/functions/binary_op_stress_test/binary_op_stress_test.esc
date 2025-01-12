@@ -1,0 +1,12 @@
+let foo = fn (a: number, b: number, c: number) {
+return a * b + c;
+};
+let double = fn (x: number) {
+return 2 * x;
+};
+let inc = fn (x: number) {
+return x + 1;
+};
+let bar = foo(double(1), inc(2), 3);
+let baz: number = 5;
+let qux = double(baz);

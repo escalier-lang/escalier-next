@@ -1,0 +1,8 @@
+let Foo = class<T> {
+  msg: T;
+  fn bar(self) {
+    return self;
+  }
+};
+let foo = new Foo<string>();
+let bar = foo.bar();

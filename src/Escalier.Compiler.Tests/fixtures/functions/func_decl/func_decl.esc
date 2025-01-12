@@ -1,0 +1,4 @@
+fn fst <A, B>(x: A, y: B) {
+  return x;
+}
+declare fn snd<A, B>(x: A, y: B) -> B;

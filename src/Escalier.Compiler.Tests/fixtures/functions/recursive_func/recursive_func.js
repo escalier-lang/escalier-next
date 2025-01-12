@@ -1,0 +1,3 @@
+var rec = () => {
+  return rec();
+};

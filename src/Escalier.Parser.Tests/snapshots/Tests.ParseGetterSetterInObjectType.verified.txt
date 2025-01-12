@@ -19,7 +19,7 @@ output: Ok
                         Object
                           { Elems =
                              [Getter
-                                { Name = String "foo"
+                                { Name = Ident "foo"
                                   ReturnType =
                                    { Kind = Keyword String
                                      Span = { Start = (Ln: 3, Col: 20)
@@ -27,7 +27,7 @@ output: Ok
                                      InferredType = None }
                                   Throws = None };
                               Setter
-                                { Name = String "foo"
+                                { Name = Ident "foo"
                                   Param =
                                    { Pattern =
                                       { Kind = Ident { Name = "value"

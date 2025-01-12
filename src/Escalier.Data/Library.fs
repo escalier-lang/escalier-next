@@ -628,6 +628,8 @@ module Syntax =
     | Union of list<TypeAnn>
     | Intersection of list<TypeAnn>
     | TypeRef of TypeRef
+    // TODO: parameterize the FuncSig from the Type module and use it here
+    // we'll have to move FuncSig to Common to do this
     | Function of FuncSig
     | Keyof of TypeAnn
     | Rest of TypeAnn

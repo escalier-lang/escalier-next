@@ -1,0 +1,8 @@
+fn fst <A, B>(x: A, y: B) {
+  return x;
+}
+declare fn snd<A, B>(x: A, y: B) -> B;
+type Point = {x: number, y: number};
+fn makePoint (x: number, y: number) -> Point {
+  return {x, y};
+}

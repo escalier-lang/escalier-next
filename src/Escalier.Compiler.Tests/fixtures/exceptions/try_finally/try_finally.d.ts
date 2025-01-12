@@ -1,0 +1,5 @@
+const foo: <A extends number>(x: A) => A;
+const cleanup: () => {
+
+};
+const bar: <A extends number>(x: A) => A;

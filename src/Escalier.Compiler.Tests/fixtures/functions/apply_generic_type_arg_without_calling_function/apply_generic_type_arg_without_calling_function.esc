@@ -1,0 +1,4 @@
+let foo = fn <A>(x: A) {
+  return x;
+};
+let bar = foo<number>;

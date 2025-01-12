@@ -32,7 +32,7 @@ output: Ok
                               TypeParams = None
                               Elems =
                                [Property
-                                  { Name = String "msg"
+                                  { Name = Ident "msg"
                                     TypeAnn =
                                      Some { Kind = Keyword String
                                             Span = { Start = (Ln: 3, Col: 12)

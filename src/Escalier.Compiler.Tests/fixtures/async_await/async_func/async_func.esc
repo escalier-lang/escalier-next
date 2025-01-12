@@ -1,0 +1,1 @@
+let foo = async fn<A: number>(x: A) => if x < 0 { throw "RangeError" } else { x };

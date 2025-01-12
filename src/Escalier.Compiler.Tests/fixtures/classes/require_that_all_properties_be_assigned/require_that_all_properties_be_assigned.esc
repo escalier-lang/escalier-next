@@ -1,0 +1,8 @@
+let Point = class {
+  x: number;
+  y: number;
+  new (mut self, x: number, y: number) {
+    self.x = x;
+  }
+};
+let p = new Point(5, 10);

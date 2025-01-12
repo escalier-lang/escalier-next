@@ -1,0 +1,6 @@
+let addNums = fn (x: number, y: number) -> number {
+return x + y;
+};
+let addStrs = fn (x: string, y: string) -> string {
+return x ++ y;
+};

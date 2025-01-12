@@ -1,0 +1,6 @@
+fn foo() {
+  return bar();
+}
+fn bar() {
+  return foo();
+}

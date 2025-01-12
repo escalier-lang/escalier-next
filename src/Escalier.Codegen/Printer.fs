@@ -70,12 +70,11 @@ module rec Printer =
 
       let props =
         props
-        |> List.map
-          (fun
-               { Key = key
-                 Value = value
-                 Kind = _kind } ->
-
+        |> List.map (fun prop ->
+          match prop with
+          | Property.KeyValueProperty { Key = key
+                                        Value = value
+                                        Kind = _kind } ->
             let key =
               match key with
               | PropertyKey.Lit lit -> printLit lit // wrap this?
@@ -84,7 +83,11 @@ module rec Printer =
             let value = printExpr { ctx with Precedence = 0 } value
 
             // TODO: handle getter/setter kinds
-            $"{key}: {value}")
+            $"{key}: {value}"
+          | Property.Ident { Name = name } -> name
+          | Property.SpreadElement { Expr = expr } ->
+            let expr = printExpr { ctx with Precedence = 0 } expr
+            $"...{expr}")
         |> String.concat ", "
 
       $"{{{props}}}"
@@ -308,7 +311,7 @@ module rec Printer =
                        TypeParams = _
                        Tpl = template } ->
       $"{printExpr ctx tag}{printTemplateLiteral ctx template}"
-    | Expr.Class _ -> failwith "TODO: printExpr - Class"
+    | Expr.Class classExpr -> printClassExpr ctx classExpr
     | Expr.Yield _ -> failwith "TODO: printExpr - Yield"
     | Expr.MetaProp _ -> failwith "TODO: printExpr - MetaProp"
     | Expr.Await { Arg = arg } ->
@@ -327,11 +330,119 @@ module rec Printer =
     | Expr.TsConstAssertion _ -> failwith "TODO: printExpr - TsConstAssertion"
     | Expr.TsNonNull _ -> failwith "TODO: printExpr - TsNonNull"
     | Expr.TsAs _ -> failwith "TODO: printExpr - TsAs"
-    | Expr.TsInstantiation _ -> failwith "TODO: printExpr - TsInstantiation"
+    | Expr.TsInstantiation { Expr = expr; TypeArgs = typeArgs } ->
+      let expr = printExpr ctx expr
+
+      let typeArgs =
+        typeArgs.Params |> List.map (printType ctx) |> String.concat ", "
+
+      $"{expr}<{typeArgs}>"
     | Expr.TsSatisfies _ -> failwith "TODO: printExpr - TsSatisfies"
     | Expr.PrivateName _ -> failwith "TODO: printExpr - PrivateName"
     | Expr.OptChain _ -> failwith "TODO: printExpr - OptChain"
     | Expr.Invalid _ -> failwith "TODO: printExpr - Invalid"
+
+  let printClassExpr (ctx: PrintCtx) (classExpr: ClassExpr) : string =
+    let { Id = id; Class = cls } = classExpr
+    let { Super = super; Body = body } = cls
+
+    let id =
+      match id with
+      | Some id -> $" {id.Name}"
+      | None -> ""
+
+    let super =
+      match super with
+      | Some { TypeName = name } ->
+        let name = printEntityName name
+        $" extends {name}"
+      | None -> ""
+
+    let body =
+      body |> List.map (fun m -> printClassMember ctx m) |> String.concat "\n"
+
+    $"class {id}{super} {{\n{body}\n}}"
+
+  let printClassMember (ctx: PrintCtx) (classMember: ClassMember) : string =
+
+    match classMember with
+    | ClassMember.Constructor { Params = ps; Body = body } ->
+
+      let mutable sb = StringBuilder()
+
+      let ctx = { ctx with Precedence = 0 }
+
+      let ps =
+        ps
+        |> List.map (fun p ->
+          match p with
+          | ParamOrTsParamProp.Param p -> printPattern ctx p.Pat
+          | ParamOrTsParamProp.TsParamProp _ ->
+            failwith "TODO: printClassMember - TsParamProp")
+        |> String.concat ", "
+
+      sb <- sb.Append("constructor").Append("(").Append(ps).Append(") ")
+
+      match body with
+      | Some(body) ->
+        let body: string = printBlock ctx body
+        sb <- sb.Append(body)
+      | None -> ()
+
+      sb.ToString()
+
+    | ClassMember.Method { Key = key
+                           Function = { IsAsync = isAsync
+                                        Body = body
+                                        Params = ps } } ->
+
+      let mutable sb = StringBuilder()
+
+      if isAsync then
+        sb <- sb.Append("async ")
+
+      let key = printPropName ctx key
+      let ctx = { ctx with Precedence = 0 }
+
+      let ps =
+        ps |> List.map (fun p -> printPattern ctx p.Pat) |> String.concat ", "
+
+      sb <- sb.Append(key).Append("(").Append(ps).Append(") ")
+
+      match body with
+      | Some(body) ->
+        let body: string = printBlock ctx body
+        sb <- sb.Append(body)
+      | None -> ()
+
+      sb.ToString()
+
+    | ClassMember.PrivateMethod privateMethod ->
+      failwith "TODO: printClassMember - PrivateMethod"
+    | ClassMember.ClassProp classProp ->
+      let mutable sb = StringBuilder()
+
+      if classProp.IsStatic then
+        sb <- sb.Append "static "
+
+      let key = printPropName ctx classProp.Key
+
+      sb <- sb.Append key
+
+      match classProp.Value with
+      | Some value -> sb <- sb.Append $" = {printExpr ctx value}"
+      | None -> ()
+
+      sb.ToString()
+    | ClassMember.PrivateProp privateProp ->
+      failwith "TODO: printClassMember - PrivateProp"
+    | ClassMember.TsIndexSignature tsIndexSignature ->
+      failwith "TODO: printClassMember - TsIndexSignature"
+    | ClassMember.Empty emptyStmt -> failwith "TODO: printClassMember - Empty"
+    | ClassMember.StaticBlock staticBlock ->
+      failwith "TODO: printClassMember - StaticBlock"
+    | ClassMember.AutoAccessor autoAccessor ->
+      failwith "TODO: printClassMember - AutoAccessor"
 
   let printTemplateLiteral (ctx: PrintCtx) (template: Tpl) : string =
     let { Exprs = exprs; Quasis = quasis } = template
@@ -602,7 +713,7 @@ module rec Printer =
 
         let typeAnn = printType ctx decl.TypeAnn
 
-        $"{export}{declare}{name}{typeParams} = {typeAnn};"
+        $"{export}{declare}type {name}{typeParams} = {typeAnn};"
       | Decl.TsEnum(_) -> failwith "TODO: printStmt - TsEnum"
       | Decl.TsModule(_) -> failwith "TODO: printStmt - TsModule"
 
@@ -632,15 +743,7 @@ module rec Printer =
             $"...{arg}"
           | ObjectPatProp.Assign { Key = key; Value = _ } -> key.Name
           | ObjectPatProp.KeyValue { Key = key; Value = value } ->
-            let key =
-              match key with
-              | PropName.Ident id -> id.Name
-              | PropName.Str { Value = value } -> $"\"{value}\""
-              | PropName.Num { Value = value } -> $"{value}"
-              | Computed { Expr = expr } ->
-                let expr = printExpr ctx expr
-                $"[{expr}]"
-
+            let key = printPropName ctx key
             let value = printPattern ctx value
             $"{key}: {value}")
         |> String.concat ", "
@@ -921,13 +1024,12 @@ module rec Printer =
       let indexType = printType ctx indexType
       $"{objType}[{indexType}]"
     | TsType.TsMappedType mappedType ->
+      let tpName = mappedType.TypeParam.Name.Name
 
-      let tp = printTsTypeParam ctx mappedType.TypeParam
-
-      let nameType =
-        match mappedType.NameType with
-        | Some(nameType) -> $"as {printType ctx nameType}"
-        | None -> ""
+      let tpConstraint =
+        match mappedType.TypeParam.Constraint with
+        | Some c -> printType ctx c
+        | None -> failwith "missing constraint for type param in mapped type"
 
       let readonly =
         match mappedType.Readonly with
@@ -945,8 +1047,8 @@ module rec Printer =
 
       let typeAnn = printType ctx mappedType.TypeAnn
 
-      $"{readonly}[{tp} in {nameType}]{optional}: {typeAnn}"
-
+      // TODO: Handle mappedType.NameType to handle renaming of keys
+      $"{{{readonly}[{tpName} in {tpConstraint}]{optional}: {typeAnn}}}"
     | TsType.TsLitType { Lit = lit } ->
       match lit with
       | Bool { Value = value } -> if value then "true" else "false"
@@ -1003,13 +1105,7 @@ module rec Printer =
 
       $"new {typeParams}({ps}){typeAnn}"
     | TsPropertySignature propSig ->
-      let key =
-        match propSig.Key with
-        | PropName.Ident id -> id.Name
-        | PropName.Str { Value = value } -> $"\"{value}\""
-        | PropName.Num { Value = value } -> $"{value}"
-        | PropName.Computed { Expr = expr } -> $"[{printExpr ctx expr}]"
-
+      let key = printPropName ctx propSig.Key
       let typeAnn = printTypeAnn ctx propSig.TypeAnn
 
       match propSig.Readonly, propSig.Optional with
@@ -1019,13 +1115,9 @@ module rec Printer =
       | false, false -> $"{key}: {typeAnn}"
 
     | TsGetterSignature { Key = key
-                          Computed = computed
                           Optional = optional
                           TypeAnn = typeAnn } ->
-      let key =
-        match computed with
-        | true -> $"[printExpr ctx key]"
-        | false -> printExpr ctx key
+      let key = printPropName ctx key
 
       let typeAnn =
         match typeAnn with
@@ -1036,21 +1128,16 @@ module rec Printer =
       | true -> $"get {key}?(): {typeAnn}"
       | false -> $"get {key}(): {typeAnn}"
     | TsSetterSignature { Key = key
-                          Computed = computed
                           Optional = optional
                           Param = param } ->
-      let key =
-        match computed with
-        | true -> $"[printExpr ctx key]"
-        | false -> printExpr ctx key
-
+      let key = printPropName ctx key
       let param = printTsFnParam ctx param
 
       match optional with
       | true -> $"set {key}?({param})"
       | false -> $"set {key}({param})"
     | TsMethodSignature method ->
-      let key = printExpr ctx method.Key
+      let key = printPropName ctx method.Key
 
       let ps =
         method.Params |> List.map (printTsFnParam ctx) |> String.concat ", "
@@ -1086,15 +1173,28 @@ module rec Printer =
       | false, true -> $"readonly [{param}]: {typeAnn}"
       | false, false -> $"[{param}]: {typeAnn}"
 
+  // TODO: dedupe with printPattern
+  let printTsFnParamPat (ctx: PrintCtx) (pat: TsFnParamPat) : string =
+    match pat with
+    | TsFnParamPat.Ident id -> id.Id.Name
+    | TsFnParamPat.Array arrayPat ->
+      let patterns =
+        arrayPat.Elems
+        |> List.map (fun p ->
+          match p with
+          | Some p -> printPattern ctx p
+          | None -> " ")
+
+      $"[{patterns}]"
+    | TsFnParamPat.Rest restPat ->
+      let mutable sb = StringBuilder()
+      sb <- sb.Append("...").Append(printPattern ctx restPat.Arg)
+      sb.ToString()
+    | TsFnParamPat.Object objectPat ->
+      failwith "TODO: printTsFnParam - objectPat"
+
   let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : string =
-    let pat =
-      match param.Pat with
-      | TsFnParamPat.Ident id -> id.Id.Name
-      | TsFnParamPat.Array arrayPat ->
-        failwith "TODO: printTsFnParam - arrayPat"
-      | TsFnParamPat.Rest restPat -> failwith "TODO: printTsFnParam - restPat"
-      | TsFnParamPat.Object objectPat ->
-        failwith "TODO: printTsFnParam - objectPat"
+    let pat = printTsFnParamPat ctx param.Pat
 
     match param.TypeAnn with
     | Some(typeAnn) ->

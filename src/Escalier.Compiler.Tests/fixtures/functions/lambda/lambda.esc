@@ -1,0 +1,1 @@
+let add = fn (x: number, y: number) => x + y;

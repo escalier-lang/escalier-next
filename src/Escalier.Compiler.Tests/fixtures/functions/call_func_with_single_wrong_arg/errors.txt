@@ -1,0 +1,4 @@
+ERROR: arg type '"hello"' doesn't satisfy param 'x' type 'number' in function call
+- Type mismatch: "hello" and number
+ERROR: arg type '"world"' doesn't satisfy param 'y' type 'number' in function call
+- Type mismatch: "world" and number

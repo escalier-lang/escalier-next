@@ -1,0 +1,2 @@
+let add = fn (x: number, y: number) => {value: x + y};
+let sum = add("hello", "world");

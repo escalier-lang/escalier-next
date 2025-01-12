@@ -1,0 +1,2 @@
+ERROR: Calling function with incorrect args
+- Type mismatch: true and string

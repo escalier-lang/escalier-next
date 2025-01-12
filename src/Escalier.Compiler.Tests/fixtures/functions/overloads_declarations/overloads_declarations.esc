@@ -1,0 +1,8 @@
+fn add(a: number, b: number) -> number {
+  return a + b;
+}
+fn add(a: string, b: string) -> string {
+  return a ++ b;
+}
+let sum = add(5, 10);
+let msg = add("hello, ", "world");

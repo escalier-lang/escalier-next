@@ -1,0 +1,2 @@
+let foo = fn <T: number>(x: T) => {value: x};
+let bar = foo("hello");

@@ -1,0 +1,2 @@
+let foo = fn<U: T, T: {...}>(t: T, u: U) => u;
+let bar = foo({a: 5}, {a: 5, b: "hello"});

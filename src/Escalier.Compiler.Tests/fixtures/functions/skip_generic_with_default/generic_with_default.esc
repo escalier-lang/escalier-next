@@ -1,0 +1,15 @@
+// TODO: check superclass when determining if class instances are assignable
+type Container<T, U> = {
+    element: T,
+    children: U,
+};
+
+declare fn create<T: HTMLElement = HTMLDivElement, U: HTMLElement[] = T[]>(
+  element?: T,
+  children?: U
+) -> Container<T, U>;
+
+declare let span: HTMLSpanElement;
+
+let c1 = create();
+let c2 = create(span);

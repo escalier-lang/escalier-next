@@ -1,0 +1,9 @@
+let addNums = fn (x: number, y: number) {
+return x + y;
+};
+let addStrs = fn (x: string, y: string) {
+return x ++ y;
+};
+let msg = addStrs("Hello, ", "world!");
+let greeting: string = "Bonjour, ";
+let frMsg = addStrs(greeting, "monde!");

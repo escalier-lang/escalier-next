@@ -1,0 +1,10 @@
+let Foo = class {
+  msg: string;
+  fn bar(self) {
+    return self.msg;
+  }
+  fn baz(mut self, msg: string) {
+    self.msg = msg;
+  }
+};
+let foo = new Foo();

@@ -1,0 +1,4 @@
+// TODO(#176): Handle calling methods with optional chaining
+type Foo = { bar: fn () -> number };
+declare let foo: Foo | undefined;
+let bar = foo?.bar();

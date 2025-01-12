@@ -1,0 +1,8 @@
+type Exact = {foo: string, bar: number};
+type Inexact = {foo: string, bar: number, ...};
+
+declare let exact: Exact;
+declare let inexact: Inexact;
+
+let {foo, ...exactRest} = exact;
+let {foo, ...inexactRest} = inexact;

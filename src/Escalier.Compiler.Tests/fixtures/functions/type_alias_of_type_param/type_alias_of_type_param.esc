@@ -1,0 +1,11 @@
+let foo = fn <A>(x: A) {
+  type B = A;
+  let y: B = x;
+  return y;
+};
+let bar = fn <A>(x: A) -> A {
+  type B = A;
+  let y: B = x;
+  return y;
+};
+let z = foo(5);

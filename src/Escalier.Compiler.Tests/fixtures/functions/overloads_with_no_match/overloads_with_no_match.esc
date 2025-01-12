@@ -1,0 +1,3 @@
+declare let add: (fn(a: number, b: number) -> number) & (fn(a: string, b: string) -> string);
+
+let result = add(5, "hello");

@@ -1,0 +1,5 @@
+let foo = fn <A>(x: A) {
+  return x;
+};
+let bar = foo(5);
+let baz = foo("hello");

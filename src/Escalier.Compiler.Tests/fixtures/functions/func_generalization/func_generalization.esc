@@ -1,0 +1,1 @@
+let fst = fn <A, B>(x: A, y: B) => x;

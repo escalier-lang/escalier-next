@@ -1,0 +1,3 @@
+let foo: fn <T: number>(x: T) -> T = fn (x) => x;
+let x = foo(5);
+let y = foo("hello");

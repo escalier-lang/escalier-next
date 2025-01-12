@@ -1,0 +1,2 @@
+let foo = fn (a: number, ...b: string[]) => a;
+let c = foo(10, "hello", true);

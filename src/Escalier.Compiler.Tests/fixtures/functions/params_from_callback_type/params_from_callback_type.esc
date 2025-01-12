@@ -1,0 +1,4 @@
+type Point = {x: number, y: number};
+declare let foo: fn (cb: fn (p: Point) -> number) -> number;
+
+let result = foo(fn (p) => p.x);

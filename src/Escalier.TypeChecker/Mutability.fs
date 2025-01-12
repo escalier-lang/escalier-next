@@ -31,7 +31,7 @@ module Mutability =
             // It should be multiple paths, one for each property in the pattern
             // We could use a "wildcard" path element to model this as long as
             // we only check paths with wildcards after checking those without
-            printfn "TODO: getBindingPaths - ObjPatElem.RestPat"
+            printfn "non-error TODO: getBindingPaths - ObjPatElem.RestPat"
       | PatternKind.Tuple tuple ->
         for i, elem in tuple.Elems |> List.indexed do
           walkPattern elem (string i :: path)
@@ -42,7 +42,7 @@ module Mutability =
         // It should be multiple paths, one for each property in the pattern
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
-        printfn "TODO: getPatBindingPaths - Rest"
+        printfn "non-error TODO: getPatBindingPaths - Rest"
       | PatternKind.Enum _ -> failwith "TODO: getPatBindingPaths - Enum"
 
     walkPattern pat []
@@ -121,7 +121,7 @@ module Mutability =
             // It should be multiple paths, one for each property in the object
             // We could use a "wildcard" path element to model this as long as
             // we only check paths with wildcards after checking those without
-            printfn "TODO: getExprBindingPaths - Spread"
+            printfn "non-error TODO: getExprBindingPaths - Spread"
       | _ -> ()
 
     walkExpr expr []

@@ -1,0 +1,7 @@
+let foo = fn <A: number>(x: A, y: string) {
+if (x > 0) {
+  return x;
+}
+return y;
+};
+let bar = foo(5, "hello");

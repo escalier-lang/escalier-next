@@ -1,0 +1,2 @@
+ERROR: arg type '"bar"' doesn't satisfy param 'x' type 'number' in function call
+- Type mismatch: "bar" and number

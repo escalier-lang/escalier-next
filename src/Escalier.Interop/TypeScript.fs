@@ -481,7 +481,7 @@ module rec TypeScript =
     | TsConstAssertion of TsConstAssertion
     | TsNonNull of TsNonNullExpr
     | TsAs of TsAsExpr
-    | TsInstantiation of TsInstantiation
+    | TsInstantiation of TsInstantiation // expression with type args
     | TsSatisfies of TsSatisfiesExpr
     | PrivateName of PrivateName
     | OptChain of OptChainExpr

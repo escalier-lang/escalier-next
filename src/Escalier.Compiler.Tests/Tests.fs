@@ -127,94 +127,97 @@ let FixtureTests (fixtureDir: string) =
   let envVars = System.Environment.GetEnvironmentVariables()
   let shouldUpdate = envVars.Contains("ESCALIER_UPDATE_FIXTURES")
 
-  match
-    TestCompiler.compileFile mockWriter fixtureDir entryPath
-    |> Async.RunSynchronously
-  with
-  | Ok _ ->
-    let mutable actual: Map<string, Output> = Map.empty
+  try
+    match
+      TestCompiler.compileFile mockWriter fixtureDir entryPath
+      |> Async.RunSynchronously
+    with
+    | Ok _ ->
+      let mutable actual: Map<string, Output> = Map.empty
 
-    for file in files do
-      let jsPath = $"{file}.js"
-      let dtsPath = $"{file}.d.ts"
-
-      let jsActual =
-        match File.Exists(Path.Join(fixtureDir, jsPath)) with
-        | true -> Some(File.ReadAllText(Path.Join(fixtureDir, jsPath)))
-        | false -> None
-
-      let dtsActual =
-        match File.Exists(Path.Join(fixtureDir, dtsPath)) with
-        | true -> Some(File.ReadAllText(Path.Join(fixtureDir, dtsPath)))
-        | false -> None
-
-      actual <- actual.Add(file, { js = jsActual; dts = dtsActual })
-
-    // Error messages are written to the console so we need to cpature
-    // them.
-    let errorActual =
-      match mockWriter.ToString() with
-      | "" -> None
-      | output -> Some(output)
-
-    if shouldUpdate then
-      // Write the new output files to disk
-      for KeyValue(file, { js = jsActual; dts = dtsActual }) in actual do
+      for file in files do
         let jsPath = $"{file}.js"
         let dtsPath = $"{file}.d.ts"
 
-        if jsActual.IsSome then
-          let path = Path.Join(fixtureDir, jsPath)
-          File.WriteAllText(path, jsActual.Value)
+        let jsActual =
+          match File.Exists(Path.Join(fixtureDir, jsPath)) with
+          | true -> Some(File.ReadAllText(Path.Join(fixtureDir, jsPath)))
+          | false -> None
 
-        if dtsActual.IsSome then
-          let path = Path.Join(fixtureDir, dtsPath)
-          File.WriteAllText(path, dtsActual.Value)
+        let dtsActual =
+          match File.Exists(Path.Join(fixtureDir, dtsPath)) with
+          | true -> Some(File.ReadAllText(Path.Join(fixtureDir, dtsPath)))
+          | false -> None
 
-      if errorActual.IsSome then
-        let path = Path.Join(fixtureDir, errorsPath)
-        File.WriteAllText(path, errorActual.Value)
-    else
-      // Write the original output files to disk
-      for KeyValue(file, { js = jsExpected; dts = dtsExpected }) in expected do
-        let jsPath = $"{file}.js"
-        let dtsPath = $"{file}.d.ts"
+        actual <- actual.Add(file, { js = jsActual; dts = dtsActual })
 
-        if jsExpected.IsSome then
-          let path = Path.Join(fixtureDir, jsPath)
-          File.WriteAllText(path, jsExpected.Value)
+      // Error messages are written to the console so we need to cpature
+      // them.
+      let errorActual =
+        match mockWriter.ToString() with
+        | "" -> None
+        | output -> Some(output)
 
-        if dtsExpected.IsSome then
-          let path = Path.Join(fixtureDir, dtsPath)
-          File.WriteAllText(path, dtsExpected.Value)
+      if shouldUpdate then
+        // Write the new output files to disk
+        for KeyValue(file, { js = jsActual; dts = dtsActual }) in actual do
+          let jsPath = $"{file}.js"
+          let dtsPath = $"{file}.d.ts"
 
-      if errorActual.IsSome then
-        let path = Path.Join(fixtureDir, errorsPath)
+          if jsActual.IsSome then
+            let path = Path.Join(fixtureDir, jsPath)
+            File.WriteAllText(path, jsActual.Value)
+
+          if dtsActual.IsSome then
+            let path = Path.Join(fixtureDir, dtsPath)
+            File.WriteAllText(path, dtsActual.Value)
+
+        if errorActual.IsSome then
+          let path = Path.Join(fixtureDir, errorsPath)
+          File.WriteAllText(path, errorActual.Value)
+      else
+        // Write the original output files to disk
+        for KeyValue(file, { js = jsExpected; dts = dtsExpected }) in expected do
+          let jsPath = $"{file}.js"
+          let dtsPath = $"{file}.d.ts"
+
+          if jsExpected.IsSome then
+            let path = Path.Join(fixtureDir, jsPath)
+            File.WriteAllText(path, jsExpected.Value)
+
+          if dtsExpected.IsSome then
+            let path = Path.Join(fixtureDir, dtsPath)
+            File.WriteAllText(path, dtsExpected.Value)
+
+        if errorActual.IsSome then
+          let path = Path.Join(fixtureDir, errorsPath)
+
+          match errorExpected with
+          | Some error -> File.WriteAllText(path, error)
+          | None -> ()
+
+        // Assert that the actual output matches the expected output
+        for KeyValue(file, { js = jsExpected; dts = dtsExpected }) in expected do
+          let { js = jsActual; dts = dtsActual } = actual.[file]
+          Assert.Equal(jsExpected, jsActual)
+          Assert.Equal(dtsExpected, dtsActual)
+
+        Assert.Equal(errorExpected, errorActual)
+
+    | Error err ->
+      printfn $"**** Error - {fixtureDir} ****\n{err}"
+      let path = Path.Join(fixtureDir, errorsPath)
+
+      if shouldUpdate then
+        File.WriteAllText(path, err.ToString())
+      else
+        Assert.Equal(errorExpected, Some(err.ToString()))
 
         match errorExpected with
         | Some error -> File.WriteAllText(path, error)
         | None -> ()
-
-      // Assert that the actual output matches the expected output
-      for KeyValue(file, { js = jsExpected; dts = dtsExpected }) in expected do
-        let { js = jsActual; dts = dtsActual } = actual.[file]
-        Assert.Equal(jsExpected, jsActual)
-        Assert.Equal(dtsExpected, dtsActual)
-
-      Assert.Equal(errorExpected, errorActual)
-
-  | Error err ->
-    printfn $"**** Error: {err} **** - {fixtureDir}"
-    let path = Path.Join(fixtureDir, errorsPath)
-
-    if shouldUpdate then
-      File.WriteAllText(path, err.ToString())
-    else
-      Assert.Equal(errorExpected, Some(err.ToString()))
-
-      match errorExpected with
-      | Some error -> File.WriteAllText(path, error)
-      | None -> ()
+  with Failure msg ->
+    printfn $"**** Failure - {fixtureDir} ****\n{msg}"
 
   // TODO: if the result is an error, print that to fixture_name.errors.txt
   // match testResult with

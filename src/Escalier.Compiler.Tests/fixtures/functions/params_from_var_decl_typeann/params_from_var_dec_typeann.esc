@@ -1,0 +1,4 @@
+type Point = {x: number, y: number};
+type Foo = fn (p: Point) -> number;
+
+let foo: Foo = fn (p) => p.x;

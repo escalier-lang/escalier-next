@@ -1,0 +1,4 @@
+declare let add: (fn(a: number, b: number) -> number) & (fn(a: string, b: string) -> string);
+
+let num = add(5, 10);
+let str = add("hello, ", "world");

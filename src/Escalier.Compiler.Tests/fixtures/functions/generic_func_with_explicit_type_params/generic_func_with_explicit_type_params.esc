@@ -1,0 +1,5 @@
+let foo = fn <T>(x: T) -> T {
+  return x;
+};
+let bar = foo(5);
+let baz = foo("hello");

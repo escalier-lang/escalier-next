@@ -488,7 +488,7 @@ module rec Codegen =
 
       (expr, [])
     | ExprKind.ExprWithTypeArgs { Expr = target; TypeArgs = typeArgs } ->
-      failwith "TODO: buildExpr - ExprWithTypeArgs"
+      buildExpr ctx target
     | ExprKind.Class { Name = name
                        Extends = extends
                        Implements = _
@@ -1208,8 +1208,18 @@ module rec Codegen =
           Loc = None }
     | _ -> failwith "Invalid pattern for function parameter"
 
-  let buildFnDeclType (ctx: Ctx) (fnDecl: FnDecl) : TS.Stmt =
+  let buildFnDeclType (ctx: Ctx) (env: Env) (fnDecl: FnDecl) : TS.Stmt =
     let f = fnDecl.InferredFunction.Value
+
+    let t =
+      match env.GetValue fnDecl.Name with
+      | Ok t -> t
+      | Error _ -> failwith $"buildFnDeclType - Type of {fnDecl.Name} not found"
+
+    printfn $"Type of {fnDecl.Name}: {t}"
+
+    // TODO: use this type to build the function declaration
+    let tsType = buildType ctx t
 
     // TODO: unify Param and TsFnParam
     let ps: list<Param> =
@@ -1877,11 +1887,11 @@ module rec Codegen =
               match decls with
               | [] -> failwith "Function declaration list must not be empty"
               | [ decl ] ->
-                let stmt = buildFnDeclType ctx decl
+                let stmt = buildFnDeclType ctx env decl
                 items <- (TS.ModuleItem.Stmt stmt) :: items
               | decls ->
                 for decl in decls do
-                  let stmt = buildFnDeclType ctx decl
+                  let stmt = buildFnDeclType ctx env decl
                   items <- (TS.ModuleItem.Stmt stmt) :: items
             | None -> ()
           | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
@@ -2132,7 +2142,9 @@ module rec Codegen =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.TypeVar _ -> failwith "TODO: buildType - TypeVar"
+    | TypeKind.TypeVar _ ->
+      printfn $"buildType - t = {t}, %A{t}"
+      failwith "TODO: buildType - TypeVar"
     | TypeKind.TypeRef typeRef -> buildTypeRef ctx typeRef
     | TypeKind.Primitive p ->
       let kind =
@@ -2172,7 +2184,13 @@ module rec Codegen =
               Loc = None }
           | Pattern.Object _ -> failwith "TODO - buildType - Object"
           | Pattern.Tuple _ -> failwith "TODO - buildType - Tuple"
-          | Pattern.Rest _ -> failwith "TODO - buildType - Rest"
+          | Pattern.Rest p ->
+            let pat = TsFnParamPat.Rest { Arg = patternToPat p; Loc = None }
+
+            { Pat = pat
+              TypeAnn = Some t
+              Optional = false
+              Loc = None }
           | _ -> failwith "Invalid pattern for function parameter")
 
       let typeParams: option<TsTypeParamDecl> =

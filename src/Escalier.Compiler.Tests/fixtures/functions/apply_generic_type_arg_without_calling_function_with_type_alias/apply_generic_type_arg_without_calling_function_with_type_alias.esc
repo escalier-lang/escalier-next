@@ -1,0 +1,3 @@
+type Identity = fn <A>(x: A) -> A;
+declare let foo: Identity;
+let bar = foo<number>;

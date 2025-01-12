@@ -1,0 +1,3 @@
+declare fn foo<T>(bar?: T) -> {value: T};
+let x = foo();
+let y = foo({a: 5});

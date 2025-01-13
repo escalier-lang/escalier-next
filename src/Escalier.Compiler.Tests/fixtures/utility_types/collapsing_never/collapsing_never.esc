@@ -1,0 +1,4 @@
+type Foo = string | never;
+type Bar = string | number | never;
+type Baz = string | number | never | never;
+type Qux = never | never;

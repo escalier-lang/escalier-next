@@ -10,6 +10,7 @@ open Escalier.Data.Visitor
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.Unify
 
 module rec Codegen =
   module TS = TypeScript
@@ -1759,7 +1760,13 @@ module rec Codegen =
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
   // the exported symbols since we aren't tracking provenance consistently yet
-  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Module) : TS.Module =
+  let buildModuleTypes
+    (env: Env)
+    (ctx: Ctx)
+    (typeCtx: Env.Ctx)
+    (m: Module)
+    (expand: bool)
+    : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
     let mutable fnDecls: Map<string, list<FnDecl>> = Map.empty
@@ -1829,21 +1836,58 @@ module rec Codegen =
                        TypeAnn = typeAnn
                        Export = export
                        Declare = declare } ->
-            match typeAnn.InferredType with
-            | Some(typeAnn) ->
-              let decl =
-                TS.Decl.TsTypeAlias
-                  { Export = export
-                    Declare = declare
-                    Id = { Name = name; Loc = None }
-                    TypeParams = None // TODO: typeParams
-                    TypeAnn = buildType ctx typeAnn
-                    Loc = None }
 
-              let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+            // The `expand` flag is used for the utilty_types fixture tests
+            if expand then
+              let scheme = env.FindScheme name
 
-              items <- item :: items
-            | None -> ()
+              match expandScheme typeCtx env None scheme Map.empty None with
+              | Ok t ->
+                let decl =
+                  TS.Decl.TsTypeAlias
+                    { Export = export
+                      Declare = declare
+                      Id = { Name = name; Loc = None }
+                      TypeParams = None // there should be no type params after expansion
+                      TypeAnn = buildType ctx t
+                      Loc = None }
+
+                let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+
+                items <- item :: items
+              | Error _ ->
+                // If we failed to expand the scheme, return the inferred type
+                match typeAnn.InferredType with
+                | Some(typeAnn) ->
+                  let decl =
+                    TS.Decl.TsTypeAlias
+                      { Export = export
+                        Declare = declare
+                        Id = { Name = name; Loc = None }
+                        TypeParams = None // TODO: typeParams
+                        TypeAnn = buildType ctx typeAnn
+                        Loc = None }
+
+                  let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+
+                  items <- item :: items
+                | None -> ()
+            else
+              match typeAnn.InferredType with
+              | Some(typeAnn) ->
+                let decl =
+                  TS.Decl.TsTypeAlias
+                    { Export = export
+                      Declare = declare
+                      Id = { Name = name; Loc = None }
+                      TypeParams = None // TODO: typeParams
+                      TypeAnn = buildType ctx typeAnn
+                      Loc = None }
+
+                let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+
+                items <- item :: items
+              | None -> ()
           | VarDecl { Pattern = pattern
                       Export = export
                       Declare = declare } ->
@@ -2157,9 +2201,7 @@ module rec Codegen =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.TypeVar _ ->
-      printfn $"buildType - t = {t}, %A{t}"
-      failwith "TODO: buildType - TypeVar"
+    | TypeKind.TypeVar _ -> failwith "TODO: buildType - TypeVar"
     | TypeKind.TypeRef typeRef -> buildTypeRef ctx typeRef
     | TypeKind.Primitive p ->
       let kind =

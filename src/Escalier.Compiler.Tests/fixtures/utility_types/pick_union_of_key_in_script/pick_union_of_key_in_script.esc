@@ -1,0 +1,6 @@
+type Pick<T, K: keyof T> = {
+  [P]: T[P] for P in K
+};
+
+type Foo = {a: number, b: string, c: boolean};
+type Bar = Pick<Foo, "a" | "c">;

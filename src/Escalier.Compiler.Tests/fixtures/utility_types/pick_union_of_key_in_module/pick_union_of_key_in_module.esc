@@ -1,0 +1,4 @@
+type MyPick<T, K: keyof T> = {[P]: T[P] for P in K};
+
+type Foo = {a: number, b: string, c: boolean};
+type Bar = MyPick<Foo, "a" | "c">;

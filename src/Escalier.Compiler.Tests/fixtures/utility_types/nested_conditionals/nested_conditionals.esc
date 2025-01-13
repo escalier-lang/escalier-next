@@ -1,0 +1,2 @@
+type Extends<X, Y, Z> = if X : Y { X } else { if Y : Z { Y } else { never } };
+type Foo = Extends<5 | 10, 2 | 3 | 5 | 7, 3 | 6 | 9>;

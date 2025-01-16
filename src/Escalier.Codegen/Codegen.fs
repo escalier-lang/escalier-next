@@ -1970,32 +1970,12 @@ module rec Codegen =
           | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"
           | InterfaceDecl decl ->
-            let typeParams: option<TsTypeParamDecl> =
-              decl.TypeParams
-              |> Option.map (fun typeParams ->
-                { Params =
-                    typeParams
-                    |> List.map
-                      (fun
-                           { Name = name
-                             Constraint = c
-                             Default = d } ->
-                        { Name = { Name = name; Loc = None }
-                          IsIn = false
-                          IsOut = false
-                          IsConst = false
-                          Constraint =
-                            c |> Option.map (buildTypeFromTypeAnn ctx)
-                          Default = d |> Option.map (buildTypeFromTypeAnn ctx)
-                          Loc = None })
-                  Loc = None })
-
             let decl =
               TS.Decl.TsInterface
                 { Export = decl.Export
                   Declare = decl.Declare
                   Id = { Name = decl.Name; Loc = None }
-                  TypeParams = typeParams
+                  TypeParams = buildTypeParams ctx decl.TypeParams
                   Extends = None // TODO: extends
                   Body = { Body = []; Loc = None }
                   Loc = None }
@@ -2043,6 +2023,32 @@ module rec Codegen =
       { TypeName = qualifiedIdentToTsEntityName typeRef.Name
         TypeParams = typeParams
         Loc = None }
+
+  // TODO: do the same thing for type params with Types instead of TypeAnns
+  let buildTypeParams
+    (ctx: Ctx)
+    (typeParams: option<list<Syntax.TypeParam>>)
+    : option<TsTypeParamDecl> =
+    let typeParams: option<TsTypeParamDecl> =
+      typeParams
+      |> Option.map (fun typeParams ->
+        { Params =
+            typeParams
+            |> List.map
+              (fun
+                   { Name = name
+                     Constraint = c
+                     Default = d } ->
+                { Name = { Name = name; Loc = None }
+                  IsIn = false
+                  IsOut = false
+                  IsConst = false
+                  Constraint = c |> Option.map (buildTypeFromTypeAnn ctx)
+                  Default = d |> Option.map (buildTypeFromTypeAnn ctx)
+                  Loc = None })
+          Loc = None })
+
+    typeParams
 
   let buildTypeFromTypeAnn (ctx: Ctx) (typeAnn: TypeAnn) : TsType =
     match typeAnn.Kind with
@@ -2196,25 +2202,6 @@ module rec Codegen =
           | PatternKind.Rest _ -> failwith "TODO - buildType - Rest"
           | _ -> failwith "Invalid pattern for function parameter")
 
-      let typeParams: option<TsTypeParamDecl> =
-        f.TypeParams
-        |> Option.map (fun typeParams ->
-          { Params =
-              typeParams
-              |> List.map
-                (fun
-                     { Name = name
-                       Constraint = c
-                       Default = d } ->
-                  { Name = { Name = name; Loc = None }
-                    IsIn = false
-                    IsOut = false
-                    IsConst = false
-                    Constraint = c |> Option.map (buildTypeFromTypeAnn ctx)
-                    Default = d |> Option.map (buildTypeFromTypeAnn ctx)
-                    Loc = None })
-            Loc = None })
-
       let typeAnn: TsTypeAnn =
         match f.ReturnType with
         | Some retTypeAnn ->
@@ -2224,7 +2211,7 @@ module rec Codegen =
 
       let fnType: TsFnType =
         { Params = funcParams
-          TypeParams = typeParams
+          TypeParams = buildTypeParams ctx f.TypeParams
           TypeAnn = typeAnn
           Loc = None }
 

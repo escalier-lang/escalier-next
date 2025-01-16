@@ -1,0 +1,7 @@
+let getAdd5 = fn () {
+  let y = 5;
+  return fn(x: number) {
+    return x + y;
+  };
+};
+let add5 = getAdd5();

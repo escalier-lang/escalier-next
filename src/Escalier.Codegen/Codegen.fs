@@ -1833,14 +1833,38 @@ module rec Codegen =
         | StmtKind.Decl decl ->
           match decl.Kind with
           | TypeDecl { Name = name
+                       TypeParams = typeParams
                        TypeAnn = typeAnn
                        Export = export
                        Declare = declare } ->
+
+            let typeParams: option<TsTypeParamDecl> =
+              typeParams
+              |> Option.map (fun typeParams ->
+                { Params =
+                    typeParams
+                    |> List.map
+                      (fun
+                           { Name = name
+                             Constraint = c
+                             Default = d } ->
+                        { Name = { Name = name; Loc = None }
+                          IsIn = false
+                          IsOut = false
+                          IsConst = false
+                          Constraint =
+                            c |> Option.map (buildTypeFromTypeAnn ctx)
+                          Default = d |> Option.map (buildTypeFromTypeAnn ctx)
+                          Loc = None })
+                  Loc = None })
 
             // The `expand` flag is used for the utilty_types fixture tests
             if expand then
               let scheme = env.FindScheme name
 
+              // NOTE: There's no need for a mapping between from type arg to
+              // type param because they have the same name in this situation:
+              // type MyPoint<T> = Point<T> -> type MyPoint<T> = { x: T, y: T }
               match expandScheme typeCtx env None scheme Map.empty None with
               | Ok t ->
                 let decl =
@@ -1848,7 +1872,7 @@ module rec Codegen =
                     { Export = export
                       Declare = declare
                       Id = { Name = name; Loc = None }
-                      TypeParams = None // there should be no type params after expansion
+                      TypeParams = typeParams
                       TypeAnn = buildType ctx t
                       Loc = None }
 
@@ -1864,7 +1888,7 @@ module rec Codegen =
                       { Export = export
                         Declare = declare
                         Id = { Name = name; Loc = None }
-                        TypeParams = None // TODO: typeParams
+                        TypeParams = typeParams
                         TypeAnn = buildType ctx typeAnn
                         Loc = None }
 
@@ -1880,7 +1904,7 @@ module rec Codegen =
                     { Export = export
                       Declare = declare
                       Id = { Name = name; Loc = None }
-                      TypeParams = None // TODO: typeParams
+                      TypeParams = typeParams
                       TypeAnn = buildType ctx typeAnn
                       Loc = None }
 
@@ -1945,7 +1969,39 @@ module rec Codegen =
           | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
           | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"
-          | InterfaceDecl _ -> failwith "TODO: buildModuleTypes - InterfaceDecl"
+          | InterfaceDecl decl ->
+            let typeParams: option<TsTypeParamDecl> =
+              decl.TypeParams
+              |> Option.map (fun typeParams ->
+                { Params =
+                    typeParams
+                    |> List.map
+                      (fun
+                           { Name = name
+                             Constraint = c
+                             Default = d } ->
+                        { Name = { Name = name; Loc = None }
+                          IsIn = false
+                          IsOut = false
+                          IsConst = false
+                          Constraint =
+                            c |> Option.map (buildTypeFromTypeAnn ctx)
+                          Default = d |> Option.map (buildTypeFromTypeAnn ctx)
+                          Loc = None })
+                  Loc = None })
+
+            let decl =
+              TS.Decl.TsInterface
+                { Export = decl.Export
+                  Declare = decl.Declare
+                  Id = { Name = decl.Name; Loc = None }
+                  TypeParams = typeParams
+                  Extends = None // TODO: extends
+                  Body = { Body = []; Loc = None }
+                  Loc = None }
+
+            let stmt = TS.Stmt.Decl decl
+            items <- (TS.ModuleItem.Stmt stmt) :: items
         | _ -> ()
 
     { Body = List.rev items

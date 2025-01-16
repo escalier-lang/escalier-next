@@ -1,0 +1,9 @@
+interface Keys {
+  foo: "foo",
+  bar: "bar",
+}
+declare let keys: Keys;
+interface Obj {
+  [keys.foo]: number,
+  [keys.bar]: number,
+}

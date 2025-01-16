@@ -1,0 +1,13 @@
+let getGet = fn () {
+  namespace Foo {
+    type Point = {x: number, y: number};
+    fn get(p: Point, axis: keyof Point) -> number {
+      return p.x;
+    }
+  }
+  return fn (p, axis) => Foo.get(p, axis);
+};
+let get = getGet();
+let p = {x: 5, y: 10};
+let x = get(p, "x");
+let y = get(p, "y");

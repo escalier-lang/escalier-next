@@ -1,0 +1,2 @@
+let [x, y] = [5, "hello"];
+let {a, b} = {a: 10, b: "world"};

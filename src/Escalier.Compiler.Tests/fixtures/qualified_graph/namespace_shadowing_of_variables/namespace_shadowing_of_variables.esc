@@ -1,0 +1,8 @@
+let x = 5;
+namespace Foo {
+  let x = "hello";
+  namespace Bar {
+    let y = x;
+  }
+}
+let y = Foo.Bar.y;

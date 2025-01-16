@@ -1,0 +1,6 @@
+fn add(x: number, y: number) -> number {
+  return x + y;
+}
+fn fst<T, U>(x: T, y: U) -> T {
+  return x;
+}

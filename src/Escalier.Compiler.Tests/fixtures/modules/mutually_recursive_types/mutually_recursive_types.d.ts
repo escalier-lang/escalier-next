@@ -1,6 +1,6 @@
-type Foo = {
+type Foo<T> = {
   bar: Bar<T>;
 };
-type Bar = {
+type Bar<T> = {
   foo: Foo<T>;
 };

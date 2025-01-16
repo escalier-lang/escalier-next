@@ -1,0 +1,6 @@
+fn isEven (n: number) {
+  return if n == 0 { true } else { isOdd(n - 1) };
+}
+fn isOdd (n: number) {
+  return if n == 0 { false } else { isEven(n - 1) };
+}

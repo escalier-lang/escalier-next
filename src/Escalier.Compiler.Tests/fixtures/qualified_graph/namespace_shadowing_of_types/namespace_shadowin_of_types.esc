@@ -1,0 +1,8 @@
+type X = 5;
+namespace Foo {
+  type X = "hello";
+  namespace Bar {
+    type Y = X;
+  }
+}
+type Y = Foo.Bar.Y;

@@ -1,0 +1,6 @@
+fn fact (n: number) {
+  return if n == 0 { 1 } else { n * fact(n - 1) };
+}
+fn fib (n: number) {
+  return if n <= 1 { n } else { fib(n - 1) + fib(n - 2) };
+}

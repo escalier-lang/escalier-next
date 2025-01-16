@@ -1,0 +1,6 @@
+fn add() {
+  return x + y;
+}
+let x = 5;
+let y = 10;
+let sum = add();

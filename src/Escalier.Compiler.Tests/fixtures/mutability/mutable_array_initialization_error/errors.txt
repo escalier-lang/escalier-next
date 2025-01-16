@@ -1,0 +1,1 @@
+TypeError: SemanticError: immutable binding 'line' cannot alias 'p1'

@@ -1,0 +1,5 @@
+// We've been setting the `Inferred` field on declarations to the inferred
+// type, but what should we do when there are multiple declarations that
+// result in a shared typed?
+interface FooBar { foo: number }
+interface FooBar { bar: string }

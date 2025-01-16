@@ -1,0 +1,2 @@
+type Foo = ReturnType<fn () -> number>;
+type Bar = ReturnType<fn (a: string, b: boolean) -> number>;

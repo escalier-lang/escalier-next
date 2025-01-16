@@ -1,0 +1,7 @@
+import "react" as React;
+
+let handler: React.MouseEventHandler = fn (e) {
+  let x = e.clientX;
+  let y = e.clientY;
+  let slope = y / x;
+};

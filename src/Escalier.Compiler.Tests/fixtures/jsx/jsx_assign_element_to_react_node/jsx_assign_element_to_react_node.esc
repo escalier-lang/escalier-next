@@ -1,0 +1,5 @@
+import "react" as React;
+let foo: React.ReactNode = <div
+  id="foo"
+  title="bar"
+></div>;

@@ -1,0 +1,2 @@
+let num: number = 5;
+let currency = num.toFixed(2);

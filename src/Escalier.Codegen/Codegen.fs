@@ -10,6 +10,7 @@ open Escalier.Data.Visitor
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
+open Escalier.TypeChecker.Unify
 
 module rec Codegen =
   module TS = TypeScript
@@ -994,7 +995,7 @@ module rec Codegen =
       match name with
       | QualifiedIdent.Ident s when System.Char.IsLower(s, 0) ->
         Expr.Lit(Lit.Str { Value = s; Raw = None; Loc = None })
-      | _ -> failwith "TODO: buildJsxElement - JSXElement"
+      | ident -> qualifiedIdentToMemberExpr ident
 
     let callExpr =
       let name =
@@ -1759,7 +1760,13 @@ module rec Codegen =
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
   // the exported symbols since we aren't tracking provenance consistently yet
-  let buildModuleTypes (env: Env) (ctx: Ctx) (m: Module) : TS.Module =
+  let buildModuleTypes
+    (env: Env)
+    (ctx: Ctx)
+    (typeCtx: Env.Ctx)
+    (m: Module)
+    (expand: bool)
+    : TS.Module =
     let mutable items: list<TS.ModuleItem> = []
 
     let mutable fnDecls: Map<string, list<FnDecl>> = Map.empty
@@ -1826,24 +1833,85 @@ module rec Codegen =
         | StmtKind.Decl decl ->
           match decl.Kind with
           | TypeDecl { Name = name
+                       TypeParams = typeParams
                        TypeAnn = typeAnn
                        Export = export
                        Declare = declare } ->
-            match typeAnn.InferredType with
-            | Some(typeAnn) ->
-              let decl =
-                TS.Decl.TsTypeAlias
-                  { Export = export
-                    Declare = declare
-                    Id = { Name = name; Loc = None }
-                    TypeParams = None // TODO: typeParams
-                    TypeAnn = buildType ctx typeAnn
-                    Loc = None }
 
-              let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+            let typeParams: option<TsTypeParamDecl> =
+              typeParams
+              |> Option.map (fun typeParams ->
+                { Params =
+                    typeParams
+                    |> List.map
+                      (fun
+                           { Name = name
+                             Constraint = c
+                             Default = d } ->
+                        { Name = { Name = name; Loc = None }
+                          IsIn = false
+                          IsOut = false
+                          IsConst = false
+                          Constraint =
+                            c |> Option.map (buildTypeFromTypeAnn ctx)
+                          Default = d |> Option.map (buildTypeFromTypeAnn ctx)
+                          Loc = None })
+                  Loc = None })
 
-              items <- item :: items
-            | None -> ()
+            // The `expand` flag is used for the utilty_types fixture tests
+            if expand then
+              let scheme = env.FindScheme name
+
+              // NOTE: There's no need for a mapping between from type arg to
+              // type param because they have the same name in this situation:
+              // type MyPoint<T> = Point<T> -> type MyPoint<T> = { x: T, y: T }
+              match expandScheme typeCtx env None scheme Map.empty None with
+              | Ok t ->
+                let decl =
+                  TS.Decl.TsTypeAlias
+                    { Export = export
+                      Declare = declare
+                      Id = { Name = name; Loc = None }
+                      TypeParams = typeParams
+                      TypeAnn = buildType ctx t
+                      Loc = None }
+
+                let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+
+                items <- item :: items
+              | Error _ ->
+                // If we failed to expand the scheme, return the inferred type
+                match typeAnn.InferredType with
+                | Some(typeAnn) ->
+                  let decl =
+                    TS.Decl.TsTypeAlias
+                      { Export = export
+                        Declare = declare
+                        Id = { Name = name; Loc = None }
+                        TypeParams = typeParams
+                        TypeAnn = buildType ctx typeAnn
+                        Loc = None }
+
+                  let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+
+                  items <- item :: items
+                | None -> ()
+            else
+              match typeAnn.InferredType with
+              | Some(typeAnn) ->
+                let decl =
+                  TS.Decl.TsTypeAlias
+                    { Export = export
+                      Declare = declare
+                      Id = { Name = name; Loc = None }
+                      TypeParams = typeParams
+                      TypeAnn = buildType ctx typeAnn
+                      Loc = None }
+
+                let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
+
+                items <- item :: items
+              | None -> ()
           | VarDecl { Pattern = pattern
                       Export = export
                       Declare = declare } ->
@@ -1901,7 +1969,19 @@ module rec Codegen =
           | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
           | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"
-          | InterfaceDecl _ -> failwith "TODO: buildModuleTypes - InterfaceDecl"
+          | InterfaceDecl decl ->
+            let decl =
+              TS.Decl.TsInterface
+                { Export = decl.Export
+                  Declare = decl.Declare
+                  Id = { Name = decl.Name; Loc = None }
+                  TypeParams = buildTypeParams ctx decl.TypeParams
+                  Extends = None // TODO: extends
+                  Body = { Body = []; Loc = None }
+                  Loc = None }
+
+            let stmt = TS.Stmt.Decl decl
+            items <- (TS.ModuleItem.Stmt stmt) :: items
         | _ -> ()
 
     { Body = List.rev items
@@ -1921,6 +2001,17 @@ module rec Codegen =
         { Left = qualifiedIdentToTsEntityName qualifier
           Right = { Name = name; Loc = None } }
 
+  let qualifiedIdentToMemberExpr (id: QualifiedIdent) : TS.Expr =
+    match id with
+    | QualifiedIdent.Ident name -> TS.Expr.Ident { Name = name; Loc = None }
+    | QualifiedIdent.Member(qualifier, name) ->
+      TS.Expr.Member
+        { Object = qualifiedIdentToMemberExpr qualifier
+          Property = TS.Expr.Ident { Name = name; Loc = None }
+          Computed = false
+          OptChain = false
+          Loc = None }
+
   let buildTypeRef (ctx: Ctx) (typeRef: TypeRef) : TsType =
     let typeParams =
       typeRef.TypeArgs
@@ -1932,6 +2023,32 @@ module rec Codegen =
       { TypeName = qualifiedIdentToTsEntityName typeRef.Name
         TypeParams = typeParams
         Loc = None }
+
+  // TODO: do the same thing for type params with Types instead of TypeAnns
+  let buildTypeParams
+    (ctx: Ctx)
+    (typeParams: option<list<Syntax.TypeParam>>)
+    : option<TsTypeParamDecl> =
+    let typeParams: option<TsTypeParamDecl> =
+      typeParams
+      |> Option.map (fun typeParams ->
+        { Params =
+            typeParams
+            |> List.map
+              (fun
+                   { Name = name
+                     Constraint = c
+                     Default = d } ->
+                { Name = { Name = name; Loc = None }
+                  IsIn = false
+                  IsOut = false
+                  IsConst = false
+                  Constraint = c |> Option.map (buildTypeFromTypeAnn ctx)
+                  Default = d |> Option.map (buildTypeFromTypeAnn ctx)
+                  Loc = None })
+          Loc = None })
+
+    typeParams
 
   let buildTypeFromTypeAnn (ctx: Ctx) (typeAnn: TypeAnn) : TsType =
     match typeAnn.Kind with
@@ -1991,7 +2108,7 @@ module rec Codegen =
       | KeywordTypeAnn.UniqueSymbol ->
         TsType.TsTypeOperator
           { TypeAnn = buildTypeFromTypeAnn ctx typeAnn
-            Op = TsTypeOperatorOp.KeyOf
+            Op = TsTypeOperatorOp.Unique
             Loc = None }
       | KeywordTypeAnn.Null ->
         TsType.TsKeywordType
@@ -2085,25 +2202,6 @@ module rec Codegen =
           | PatternKind.Rest _ -> failwith "TODO - buildType - Rest"
           | _ -> failwith "Invalid pattern for function parameter")
 
-      let typeParams: option<TsTypeParamDecl> =
-        f.TypeParams
-        |> Option.map (fun typeParams ->
-          { Params =
-              typeParams
-              |> List.map
-                (fun
-                     { Name = name
-                       Constraint = c
-                       Default = d } ->
-                  { Name = { Name = name; Loc = None }
-                    IsIn = false
-                    IsOut = false
-                    IsConst = false
-                    Constraint = c |> Option.map (buildTypeFromTypeAnn ctx)
-                    Default = d |> Option.map (buildTypeFromTypeAnn ctx)
-                    Loc = None })
-            Loc = None })
-
       let typeAnn: TsTypeAnn =
         match f.ReturnType with
         | Some retTypeAnn ->
@@ -2113,7 +2211,7 @@ module rec Codegen =
 
       let fnType: TsFnType =
         { Params = funcParams
-          TypeParams = typeParams
+          TypeParams = buildTypeParams ctx f.TypeParams
           TypeAnn = typeAnn
           Loc = None }
 
@@ -2146,9 +2244,7 @@ module rec Codegen =
     let t = prune t
 
     match t.Kind with
-    | TypeKind.TypeVar _ ->
-      printfn $"buildType - t = {t}, %A{t}"
-      failwith "TODO: buildType - TypeVar"
+    | TypeKind.TypeVar _ -> failwith "TODO: buildType - TypeVar"
     | TypeKind.TypeRef typeRef -> buildTypeRef ctx typeRef
     | TypeKind.Primitive p ->
       let kind =
@@ -2394,7 +2490,16 @@ module rec Codegen =
         { Kind = TsKeywordTypeKind.TsAnyKeyword
           Loc = None }
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
-    | TypeKind.UniqueSymbol id -> failwith "TODO: buildType - UniqueSymbol"
+    | TypeKind.UniqueSymbol _ ->
+      let typeAnn =
+        TsType.TsKeywordType
+          { Kind = TsKeywordTypeKind.TsSymbolKeyword
+            Loc = None }
+
+      TsType.TsTypeOperator
+        { TypeAnn = typeAnn
+          Op = TsTypeOperatorOp.Unique
+          Loc = None }
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
     | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
     | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"

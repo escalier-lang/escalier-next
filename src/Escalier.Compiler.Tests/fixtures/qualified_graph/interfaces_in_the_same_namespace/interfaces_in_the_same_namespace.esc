@@ -1,0 +1,9 @@
+namespace Foo {
+  interface Bar {
+    msg: string
+  }
+  
+  interface Baz {
+    bar: Bar
+  }
+}

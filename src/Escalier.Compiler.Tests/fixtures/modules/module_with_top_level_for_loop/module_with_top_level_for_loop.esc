@@ -1,0 +1,5 @@
+let mut sum: number = 0;
+for x in [1, 2, 3] {
+  let square = x * x;
+  sum = sum + square;
+}

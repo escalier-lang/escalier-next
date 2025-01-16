@@ -1,0 +1,1 @@
+let iterator: typeof Symbol.iterator = Symbol.iterator;

@@ -1,0 +1,7 @@
+declare let value: {a: [number] | {x: number}} | {b: [number] | {y: number}};
+let result = match value {
+  {a: [x]} => x,
+  {a: {x}} => x,
+  {b: [y]} => y,
+  {b: {y}} => y,
+};

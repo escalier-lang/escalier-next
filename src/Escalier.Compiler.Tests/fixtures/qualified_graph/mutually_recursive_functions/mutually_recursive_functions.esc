@@ -1,0 +1,2 @@
+let isEven = fn (n: number) => if n == 0 { true } else { isOdd(n - 1) };
+let isOdd = fn (n: number) => if n == 0 { false } else { isEven(n - 1) };

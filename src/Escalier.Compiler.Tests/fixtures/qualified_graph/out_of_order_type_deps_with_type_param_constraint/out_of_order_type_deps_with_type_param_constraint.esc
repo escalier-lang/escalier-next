@@ -1,0 +1,2 @@
+type Bar<T: Baz> = {bar: T};
+type Baz = string;

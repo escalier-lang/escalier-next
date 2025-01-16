@@ -1,0 +1,4 @@
+fn add5(x: number) {
+  let y = 5;
+  return x + y;
+}

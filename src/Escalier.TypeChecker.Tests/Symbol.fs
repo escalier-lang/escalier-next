@@ -67,5 +67,6 @@ let InfersSymbolsAreUnique () =
       ()
     }
 
+  printfn $"res = %A{res}"
   // NOTE: This test intentionally errors
   Assert.True(Result.isError res)

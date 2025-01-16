@@ -1,0 +1,11 @@
+type CartesianProduct<X, Y> =
+  if X : unknown {
+    if Y : unknown {
+      [X, Y]
+    } else {
+      never
+    }
+  } else {
+    never
+  };
+type Cells = CartesianProduct<"A" | "B", 1 | 2>;

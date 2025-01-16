@@ -1,0 +1,4 @@
+let foo = fn (x: number) {
+  console.log(x);
+};
+foo("hello");

@@ -1,0 +1,2 @@
+type Exclude<T, U> = if T: U { never } else { T };
+type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">;

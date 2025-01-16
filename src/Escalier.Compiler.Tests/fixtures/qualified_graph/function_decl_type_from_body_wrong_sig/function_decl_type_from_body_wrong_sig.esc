@@ -1,0 +1,3 @@
+fn add(x: string, y: string) -> string {
+  return x + y;
+}

@@ -1,0 +1,8 @@
+import "react" as React;
+let foo = <div
+  onClick={fn (event) {
+    let x = event.clientX;
+    let y = event.clientY;
+    let slope = y / x;
+  }}
+></div>;

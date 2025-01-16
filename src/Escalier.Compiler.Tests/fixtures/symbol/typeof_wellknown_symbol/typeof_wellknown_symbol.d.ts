@@ -1,0 +1,1 @@
+const iterator: unique symbol;

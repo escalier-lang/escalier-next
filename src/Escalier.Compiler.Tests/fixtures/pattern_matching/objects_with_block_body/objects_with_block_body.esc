@@ -1,0 +1,22 @@
+type Point = {x: number, y: number};
+type Shape = {
+  type: "circle",
+  radius: number,
+  center: Point
+} | {
+  type: "line",
+  start: Point,
+  end: Point
+};
+
+declare let shape: Shape;
+
+let centroid =
+  match shape {
+    {type: "circle", ...rest} => rest.center,
+    {type: "line", start, end} => {
+      let x = (start.x + end.x) / 2;
+      let y = (start.y + end.y) / 2;
+      {x, y}
+    }
+  };

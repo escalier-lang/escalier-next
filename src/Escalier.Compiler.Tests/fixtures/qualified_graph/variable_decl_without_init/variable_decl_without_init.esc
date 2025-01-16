@@ -1,0 +1,2 @@
+interface Keys {foo: "foo"}
+declare let keys: Keys;

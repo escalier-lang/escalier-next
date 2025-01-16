@@ -1,0 +1,4 @@
+import "react" as React;
+let foo = <div>
+  <p>Hello, world!</p>
+</div>;

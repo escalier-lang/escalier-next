@@ -1,0 +1,11 @@
+let even = fn (x: number) => if (x == 0) {
+    true
+} else {
+    !odd(x - 1)
+};
+
+let odd = fn (x: number) => if (x == 1) {
+    true
+} else {
+    !even(x - 1)
+};

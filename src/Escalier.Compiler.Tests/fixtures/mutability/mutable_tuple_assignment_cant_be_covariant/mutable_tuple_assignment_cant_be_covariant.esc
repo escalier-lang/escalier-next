@@ -1,0 +1,3 @@
+let mut foo: number[] = [5, 10];
+let mut bar: string[] = ["hello", "world"];
+let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar];

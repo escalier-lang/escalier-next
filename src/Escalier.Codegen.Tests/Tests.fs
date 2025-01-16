@@ -26,10 +26,10 @@ let parseAndCodegen (src: string) =
   asyncResult {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
 
-    let! ctx, env = TestCompiler.getEnvAndCtx projectRoot
+    let! typeCtx, env = TestCompiler.getEnvAndCtx projectRoot
 
     let! env =
-      InferModule.inferModule ctx env ast
+      InferModule.inferModule typeCtx env ast
       |> AsyncResult.mapError CompileError.TypeError
 
     let ctx: Ctx =
@@ -39,7 +39,7 @@ let parseAndCodegen (src: string) =
     let jsMod = buildModule ctx ast
     let js = printModule printCtx jsMod
 
-    let dtsMod = buildModuleTypes env ctx ast
+    let dtsMod = buildModuleTypes env ctx typeCtx ast false
     let dts = printModule printCtx dtsMod
 
     return js, dts
@@ -940,13 +940,13 @@ let CodegenDtsBasics () =
 
       let projectRoot = __SOURCE_DIRECTORY__
 
-      let! ctx, env =
+      let! typeCtx, env =
         TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let env = { env with Filename = "input.esc" }
 
       let! env =
-        InferModule.inferModule ctx env escAst
+        InferModule.inferModule typeCtx env escAst
         |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
@@ -954,7 +954,7 @@ let CodegenDtsBasics () =
         { NextTempId = 0
           AutoImports = Set.empty }
 
-      let mod' = buildModuleTypes env ctx escAst
+      let mod' = buildModuleTypes env ctx typeCtx escAst false
       let dts = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{dts}"
@@ -980,14 +980,14 @@ let CodegenDtsGeneric () =
 
       let projectRoot = __SOURCE_DIRECTORY__
 
-      let! ctx, env =
+      let! typeCtx, env =
         TestCompiler.getEnvAndCtx projectRoot |> Async.RunSynchronously
 
       let env = { env with Filename = "input.esc" }
       // TODO: as part of generalization, we need to update the function's
       // inferred type
       let! env =
-        InferModule.inferModule ctx env ast
+        InferModule.inferModule typeCtx env ast
         |> Async.RunSynchronously
         |> Result.mapError CompileError.TypeError
 
@@ -995,7 +995,7 @@ let CodegenDtsGeneric () =
         { NextTempId = 0
           AutoImports = Set.empty }
 
-      let mod' = buildModuleTypes env ctx ast
+      let mod' = buildModuleTypes env ctx typeCtx ast false
       let dts = printModule printCtx mod'
 
       return $"input: %s{src}\noutput:\n{dts}"

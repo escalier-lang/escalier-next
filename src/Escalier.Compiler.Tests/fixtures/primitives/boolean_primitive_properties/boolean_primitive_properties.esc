@@ -1,0 +1,2 @@
+let flag: boolean = true;
+let value = flag.valueOf();

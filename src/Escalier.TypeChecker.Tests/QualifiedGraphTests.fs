@@ -505,6 +505,7 @@ let ComputedInterfaceKeys () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+// TODO: figure out how to write this as a fixture test
 [<Fact>]
 let MergeInterfaceBetweenFiles () =
   let res =
@@ -550,6 +551,7 @@ let MergeInterfaceBetweenFiles () =
   printfn "res = %A" res
   Assert.True(Result.isOk res)
 
+// TODO: figure out how to write this as a fixture test
 [<Fact>]
 let MergeInterfaceBetweenFilesWithComputedKeys () =
   let res =

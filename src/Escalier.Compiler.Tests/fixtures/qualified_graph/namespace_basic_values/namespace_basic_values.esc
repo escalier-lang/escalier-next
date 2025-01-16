@@ -1,0 +1,6 @@
+namespace Foo {
+  namespace Bar {
+    let x = 5;
+  }
+}
+let x = Foo.Bar.x;

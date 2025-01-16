@@ -1,0 +1,12 @@
+type Foo<T> = if T : string | number {
+  if T : string {
+    "string"
+  } else {
+    "number"
+  }
+} else {
+  "other"
+};
+type A = Foo<string>;
+type B = Foo<number>;
+type C = Foo<boolean>;

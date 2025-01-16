@@ -1,0 +1,2 @@
+declare let sym: unique symbol;
+let name = sym.toString();

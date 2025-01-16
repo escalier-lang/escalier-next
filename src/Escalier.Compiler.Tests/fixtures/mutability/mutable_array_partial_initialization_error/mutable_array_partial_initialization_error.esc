@@ -1,0 +1,7 @@
+type Point = [number, number];
+type Line = [Point, Point];
+
+let mut p0 = [0, 0];
+let p1 = [5, 10];
+
+let [start, mut end]: Line = [p0, p1];

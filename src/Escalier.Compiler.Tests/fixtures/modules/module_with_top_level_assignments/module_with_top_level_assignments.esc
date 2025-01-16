@@ -1,0 +1,3 @@
+let x: number = 5;
+let mut y: number = 0;
+y = x;

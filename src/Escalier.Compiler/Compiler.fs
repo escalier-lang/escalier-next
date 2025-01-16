@@ -752,7 +752,9 @@ module Compiler =
         let outJsName = Path.ChangeExtension(filename, ".js")
         do! fs.WriteAllTextAsync(outJsName, js)
 
-        let mod' = Codegen.buildModuleTypes env buildCtx ast
+        let expand = baseDir.Contains("/utility_types/")
+
+        let mod' = Codegen.buildModuleTypes env buildCtx ctx ast expand
         let dts = Printer.printModule printCtx mod'
         let outDtsName = Path.ChangeExtension(filename, ".d.ts")
         do! fs.WriteAllTextAsync(outDtsName, dts)
@@ -790,7 +792,9 @@ module Compiler =
             env
             { NextTempId = 0
               AutoImports = Set.empty }
+            ctx
             ast
+            false
 
         let dts = Printer.printModule printCtx mod'
 

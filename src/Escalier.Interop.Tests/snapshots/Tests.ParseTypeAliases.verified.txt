@@ -18,7 +18,8 @@ output: Success: { Body =
                                     TypeName = Identifier { Name = "Bar"
                                                             Loc = None }
                                     TypeParams = None }
-              Loc = None }));
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (TsTypeAlias
@@ -64,6 +65,7 @@ output: Success: { Body =
                             Loc = None }
                          Loc = None }]
                    Loc = None }
-              Loc = None }))]
+              Loc = None
+              Comments = [] }))]
   Shebang = None
   Loc = None }

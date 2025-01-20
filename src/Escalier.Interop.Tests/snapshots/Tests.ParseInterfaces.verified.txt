@@ -41,7 +41,8 @@ output: Success: { Body =
                           Loc = None }
                        Loc = None }]
                  Loc = None }
-              Loc = None }));
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (TsInterface
@@ -88,6 +89,7 @@ output: Success: { Body =
                        IsStatic = false
                        Loc = None }]
                  Loc = None }
-              Loc = None }))]
+              Loc = None
+              Comments = [] }))]
   Shebang = None
   Loc = None }

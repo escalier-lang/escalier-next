@@ -72,6 +72,7 @@ output: Success: { Body =
                    FalseType = TsKeywordType { Kind = TsUnknownKeyword
                                                Loc = None }
                    Loc = None }
-              Loc = None }))]
+              Loc = None
+              Comments = [] }))]
   Shebang = None
   Loc = None }

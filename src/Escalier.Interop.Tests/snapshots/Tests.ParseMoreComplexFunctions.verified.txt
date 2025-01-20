@@ -37,6 +37,8 @@ output: Success: { Body =
                   Some { TypeAnn = TsKeywordType { Kind = TsNumberKeyword
                                                    Loc = None }
                          Loc = None }
-                 Loc = None } }))]
+                 Loc = None }
+              Loc = None
+              Comments = [] }))]
   Shebang = None
   Loc = None }

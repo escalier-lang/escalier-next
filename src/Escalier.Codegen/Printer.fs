@@ -6,7 +6,10 @@ open Escalier.Interop
 open Escalier.Interop.TypeScript
 
 module rec Printer =
-  type PrintCtx = { Precedence: int; Indent: int }
+  type PrintCtx =
+    { Precedence: int
+      Indent: int
+      StringBuilder: StringBuilder }
 
   let getBinaryPrecedence (op: BinOp) : int =
     match op with
@@ -36,92 +39,113 @@ module rec Printer =
     | BinOp.LogicalOr -> 2
     | BinOp.NullishCoalescing -> 2
 
-  let printLit (lit: Lit) : string =
+  let printLit (ctx: PrintCtx) (lit: Lit) : unit =
+    let sb = ctx.StringBuilder
+
     match lit with
-    | Lit.Str { Value = value } -> $"\"{value}\"" // TODO: escape special characters
-    | Lit.Num { Value = value } -> value.ToString()
-    | Lit.Bool { Value = value } -> if value then "true" else "false"
-    | Lit.Regex { Exp = exp; Flags = flags } -> $"/{exp}/{flags}"
-    | Lit.Null _ -> "null"
-    | Lit.JSXText jsxText -> failwith "todo"
+    | Lit.Str { Value = value } -> sb.Append($"\"{value}\"") // TODO: escape special characters
+    | Lit.Num { Value = value } -> sb.Append(value)
+    | Lit.Bool { Value = value } ->
+      if value then sb.Append("true") else sb.Append("false")
+    | Lit.Regex { Exp = exp; Flags = flags } -> sb.Append($"/{exp}/{flags}")
+    | Lit.Null _ -> sb.Append("null")
+    | Lit.JSXText _ -> failwith "todo"
 
-  let printIdent (ident: Ident) : string = ident.Name
+    |> ignore
 
-  let rec printExpr (ctx: PrintCtx) (e: TypeScript.Expr) : string =
+  let printParams (ctx: PrintCtx) (ps: list<Param>) : unit =
+    let sb = ctx.StringBuilder
+
+    sb.Append("(") |> ignore
+
+    Seq.ofList ps
+    |> Seq.iteri (fun i p ->
+      printPattern ctx p.Pat
+
+      match p.TypeAnn with
+      | Some typeAnn ->
+        sb.Append(": ") |> ignore
+        printTypeAnn ctx typeAnn
+      | None -> ()
+
+      if i < ps.Length - 1 then
+        sb.Append(", ") |> ignore)
+
+    sb.Append(")") |> ignore
+
+  let rec printExpr (ctx: PrintCtx) (e: TypeScript.Expr) : unit =
+    let sb = ctx.StringBuilder
 
     match e with
-    | Expr.Ident { Name = name } -> name
-    | Expr.Lit lit -> printLit lit
-    | Expr.This _ -> "this"
+    | Expr.Ident { Name = name } -> sb.Append(name) |> ignore
+    | Expr.Lit lit -> printLit ctx lit
+    | Expr.This _ -> sb.Append("this") |> ignore
     | Expr.Array { Elements = elements } ->
-      let elements =
-        List.map
-          (fun (e: option<ExprOrSpread>) ->
-            match e with
-            | Some(e) -> printExpr { ctx with Precedence = 0 } e.Expr
-            | None -> "")
-          elements
+      sb.Append("[") |> ignore
 
-        |> String.concat ", "
+      Seq.ofList elements
+      |> Seq.iteri (fun i elem ->
+        match elem with
+        | Some(elem) -> printExpr { ctx with Precedence = 0 } elem.Expr
+        | None -> ()
 
-      $"[{elements}]"
+        if i < elements.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append("]") |> ignore
+
     // TODO: support shorthand syntax
     | Expr.Object { Properties = props } ->
+      sb.Append("{") |> ignore
 
-      let props =
-        props
-        |> List.map (fun prop ->
-          match prop with
-          | Property.KeyValueProperty { Key = key
-                                        Value = value
-                                        Kind = _kind } ->
-            let key = printPropName ctx key
-            let value = printExpr { ctx with Precedence = 0 } value
+      Seq.ofList props
+      |> Seq.iteri (fun i prop ->
+        match prop with
+        | Property.KeyValueProperty { Key = key
+                                      Value = value
+                                      Kind = _kind } ->
+          // TODO: handle getter/setter kinds
+          printPropName ctx key
+          sb.Append(": ") |> ignore
+          printExpr { ctx with Precedence = 0 } value
+        | Property.Ident { Name = name } -> sb.Append(name) |> ignore
+        | Property.SpreadElement { Expr = expr } ->
+          sb.Append("...") |> ignore
+          printExpr { ctx with Precedence = 0 } expr
 
-            // TODO: handle getter/setter kinds
-            $"{key}: {value}"
-          | Property.Ident { Name = name } -> name
-          | Property.SpreadElement { Expr = expr } ->
-            let expr = printExpr { ctx with Precedence = 0 } expr
-            $"...{expr}")
-        |> String.concat ", "
+        if i < props.Length - 1 then
+          sb.Append(", ") |> ignore)
 
-      $"{{{props}}}"
+      sb.Append("}") |> ignore
     | Expr.Fn { Id = id
                 Fn = { Params = ps
                        Body = body
                        IsAsync = isAsync } } ->
-      let id =
-        match id with
-        | Some(id) -> id.Name
-        | None -> ""
-
       let ctx = { ctx with Precedence = 0 }
 
-      let ps =
-        ps |> List.map (fun p -> printPattern ctx p.Pat) |> String.concat ", "
-
-      let mutable sb = StringBuilder()
-
       if isAsync then
-        sb <- sb.Append("async ")
+        sb.Append("async ") |> ignore
 
-      sb <-
-        sb.Append("function ").Append(id).Append("(").Append(ps).Append(") ")
+      sb.Append("function ") |> ignore
+
+      match id with
+      | Some id -> sb.Append(id.Name) |> ignore
+      | None -> ()
+
+      printParams ctx ps
 
       match body with
       | Some(body) ->
-        let body: string = printBlock ctx body
-        sb <- sb.Append(body)
+        sb.Append(" ") |> ignore
+        printBlock ctx body
       | None -> ()
-
-      sb.ToString()
 
     | Expr.Arrow { Params = ps; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
-      let ps = ps |> List.map (printPattern ctx) |> String.concat ", "
 
-      $"({ps}) => {printBlock ctx body}"
+      printParams ctx ps
+      sb.Append(" => ") |> ignore
+      printBlock ctx body
     | Expr.Unary { Operator = op
                    Prefix = _prefix
                    Argument = arg } ->
@@ -140,10 +164,14 @@ module rec Printer =
         | UnaryOperator.Delete -> "delete "
         | UnaryOperator.Await -> "await "
 
-      let arg = printExpr { ctx with Precedence = innerPrec } arg
-      let expr = $"{op}{arg}"
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      if innerPrec < outerPrec then $"({expr})" else expr
+      sb.Append(op) |> ignore
+      printExpr { ctx with Precedence = innerPrec } arg
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
 
     | Expr.Update { Operator = op
                     Argument = arg
@@ -157,10 +185,18 @@ module rec Printer =
         | Decrement -> "--"
         | Increment -> "++"
 
-      let arg = printExpr { ctx with Precedence = innerPrec } arg
-      let expr = if prefix then $"{op}{arg}" else $"{arg}{op}"
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      if innerPrec < outerPrec then $"({expr})" else expr
+      if prefix then
+        sb.Append(op) |> ignore
+        printExpr { ctx with Precedence = innerPrec } arg
+      else
+        printExpr { ctx with Precedence = innerPrec } arg
+        sb.Append(op) |> ignore
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
     | Expr.Bin { Operator = op
                  Left = left
                  Right = right } ->
@@ -196,11 +232,15 @@ module rec Printer =
         | BinOp.Exp -> "**"
         | BinOp.NullishCoalescing -> "??"
 
-      let left = printExpr { ctx with Precedence = innerPrec } left
-      let right = printExpr { ctx with Precedence = innerPrec } right
-      let expr = $"{left} {op} {right}"
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      if innerPrec < outerPrec then $"({expr})" else expr
+      printExpr { ctx with Precedence = innerPrec } left
+      sb.Append($" {op} ") |> ignore
+      printExpr { ctx with Precedence = innerPrec } right
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
 
     | Expr.Assign { Operator = op
                     Left = left
@@ -224,29 +264,50 @@ module rec Printer =
         | AssignOp.BitwiseOrAssign -> "|="
         | AssignOp.BitwiseXorAssign -> "^="
 
-      let left = printExpr { ctx with Precedence = innerPrec } left
-      let right = printExpr { ctx with Precedence = innerPrec } right
-      let expr = $"{left} {op} {right}"
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      if innerPrec < outerPrec then $"({expr})" else expr
+      printExpr { ctx with Precedence = innerPrec } left
+      sb.Append($" {op} ") |> ignore
+      printExpr { ctx with Precedence = innerPrec } right
 
-    | Expr.Member { Object = obj
-                    Property = prop
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
+
+    | Expr.Member { Object = object
+                    Property = property
                     Computed = computed
                     OptChain = optChain } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 18
 
-      let obj = printExpr { ctx with Precedence = innerPrec } obj
-      let prop = printExpr { ctx with Precedence = innerPrec } prop
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      let expr =
-        match optChain with
-        | true -> if computed then $"{obj}?.[{prop}]" else $"{obj}?.{prop}"
-        | false -> if computed then $"{obj}[{prop}]" else $"{obj}.{prop}"
+      printExpr { ctx with Precedence = innerPrec } object
 
-      if innerPrec < outerPrec then $"({expr})" else expr
+      match optChain with
+      | true ->
+        if computed then
+          sb.Append("?.") |> ignore
+          sb.Append("[") |> ignore
+          printExpr { ctx with Precedence = innerPrec } property
+          sb.Append("]") |> ignore
+        else
+          sb.Append("?.") |> ignore
+          printExpr { ctx with Precedence = innerPrec } property
+      | false ->
+        if computed then
+          sb.Append("[") |> ignore
+          printExpr { ctx with Precedence = innerPrec } property
+          sb.Append("]") |> ignore
+        else
+          sb.Append(".") |> ignore
+          printExpr { ctx with Precedence = innerPrec } property
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
     | Expr.Cond { Test = test
                   Consequent = cons
                   Alternate = alt } ->
@@ -254,68 +315,101 @@ module rec Printer =
       let outerPrec = ctx.Precedence
       let innerPrec = 3
 
-      let test = printExpr { ctx with Precedence = innerPrec } test
-      let cons = printExpr { ctx with Precedence = innerPrec } cons
-      let alt = printExpr { ctx with Precedence = innerPrec } alt
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      let expr = $"{test} ? {cons} : {alt}"
+      printExpr { ctx with Precedence = innerPrec } test
+      sb.Append(" ? ") |> ignore
+      printExpr { ctx with Precedence = innerPrec } cons
+      sb.Append(" : ") |> ignore
+      printExpr { ctx with Precedence = innerPrec } alt
 
-      if innerPrec < outerPrec then $"({expr}" else expr
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
 
     | Expr.Call { Callee = callee; Arguments = args } ->
       let outerPrec = ctx.Precedence
       let innerPrec = 18
 
-      let callee = printExpr { ctx with Precedence = innerPrec } callee
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      let args =
-        args
-        |> List.map (printExpr { ctx with Precedence = innerPrec })
-        |> String.concat ", "
+      printExpr { ctx with Precedence = innerPrec } callee
+      sb.Append("(") |> ignore
 
-      let expr = $"{callee}({args})"
+      Seq.ofList args
+      |> Seq.iteri (fun i arg ->
+        printExpr { ctx with Precedence = innerPrec } arg
 
-      if innerPrec < outerPrec then $"({expr}" else expr
+        if i < args.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append(")") |> ignore
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
     | Expr.New { Callee = callee; Arguments = args } ->
       let outerPrec = ctx.Precedence
       let innerPrec = 18
 
-      let callee = printExpr { ctx with Precedence = innerPrec } callee
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      let args =
-        args
-        |> List.map (printExpr { ctx with Precedence = innerPrec })
-        |> String.concat ", "
+      sb.Append("new ") |> ignore
 
-      let expr = $"{callee}({args})"
+      printExpr { ctx with Precedence = innerPrec } callee
+      sb.Append("(") |> ignore
 
-      if innerPrec < outerPrec then $"new ({expr}" else expr
+      Seq.ofList args
+      |> Seq.iteri (fun i arg ->
+        printExpr { ctx with Precedence = innerPrec } arg
+
+        if i < args.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append(")") |> ignore
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
     | Expr.Seq { Exprs = exprs } ->
 
       let outerPrec = ctx.Precedence
       let innerPrec = 1
 
-      let exprs =
-        exprs
-        |> List.map (printExpr { ctx with Precedence = innerPrec })
-        |> String.concat ", "
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
 
-      if innerPrec < outerPrec then $"({exprs})" else exprs
+      Seq.ofList exprs
+      |> Seq.iteri (fun i expr ->
+        printExpr { ctx with Precedence = innerPrec } expr
+
+        if i < exprs.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
     | Expr.SuperProp _ -> failwith "TODO: printExpr - SuperProp"
     | Expr.Tpl template -> printTemplateLiteral ctx template
     | Expr.TaggedTpl { Tag = tag
                        TypeParams = _
                        Tpl = template } ->
-      $"{printExpr ctx tag}{printTemplateLiteral ctx template}"
+      printExpr ctx tag
+      printTemplateLiteral ctx template
     | Expr.Class classExpr -> printClassExpr ctx classExpr
     | Expr.Yield _ -> failwith "TODO: printExpr - Yield"
     | Expr.MetaProp _ -> failwith "TODO: printExpr - MetaProp"
     | Expr.Await { Arg = arg } ->
       let outerPrec = ctx.Precedence
       let innerPrec = 14 // prefix operators
-      let arg = printExpr { ctx with Precedence = innerPrec } arg
-      let expr = $"await {arg}"
-      if innerPrec < outerPrec then $"({expr})" else expr
+
+      if innerPrec < outerPrec then
+        sb.Append("(") |> ignore
+
+      sb.Append("await ") |> ignore
+      printExpr { ctx with Precedence = innerPrec } arg
+
+      if innerPrec < outerPrec then
+        sb.Append(")") |> ignore
     | Expr.Paren _ -> failwith "TODO: printExpr - Paren"
     | Expr.JSXMember _ -> failwith "TODO: printExpr - JSXMember"
     | Expr.JSXNamespacedName _ -> failwith "TOOD: printExpr - JSXNamespacedName"
@@ -327,165 +421,146 @@ module rec Printer =
     | Expr.TsNonNull _ -> failwith "TODO: printExpr - TsNonNull"
     | Expr.TsAs _ -> failwith "TODO: printExpr - TsAs"
     | Expr.TsInstantiation { Expr = expr; TypeArgs = typeArgs } ->
-      let expr = printExpr ctx expr
+      printExpr ctx expr
 
-      let typeArgs =
-        typeArgs.Params |> List.map (printType ctx) |> String.concat ", "
+      sb.Append("<") |> ignore
 
-      $"{expr}<{typeArgs}>"
+      Seq.ofList typeArgs.Params
+      |> Seq.iteri (fun i typeArg ->
+        printType ctx typeArg
+
+        if i < typeArgs.Params.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append(">") |> ignore
+
     | Expr.TsSatisfies _ -> failwith "TODO: printExpr - TsSatisfies"
     | Expr.PrivateName _ -> failwith "TODO: printExpr - PrivateName"
     | Expr.OptChain _ -> failwith "TODO: printExpr - OptChain"
     | Expr.Invalid _ -> failwith "TODO: printExpr - Invalid"
 
-  let printClassExpr (ctx: PrintCtx) (classExpr: ClassExpr) : string =
+  let printClassExpr (ctx: PrintCtx) (classExpr: ClassExpr) : unit =
+    let sb = ctx.StringBuilder
+
     let { Id = id; Class = cls } = classExpr
     let { Super = super; Body = body } = cls
 
-    let id =
-      match id with
-      | Some id -> $" {id.Name}"
-      | None -> ""
+    sb.Append("class ") |> ignore
 
-    let super =
-      match super with
-      | Some { TypeName = name } ->
-        let name = printEntityName name
-        $" extends {name}"
-      | None -> ""
+    match id with
+    | Some id -> sb.Append(id.Name) |> ignore
+    | None -> ()
 
-    let body =
-      body |> List.map (fun m -> printClassMember ctx m) |> String.concat "\n"
+    match super with
+    | Some { TypeName = name } ->
+      sb.Append(" extends ") |> ignore
+      sb.Append(name) |> ignore
+    | None -> ()
 
-    $"class {id}{super} {{\n{body}\n}}"
+    sb.Append("{") |> ignore
 
-  let printClassMember (ctx: PrintCtx) (classMember: ClassMember) : string =
+    for m in body do
+      printClassMember ctx m
+      sb.Append("\n") |> ignore
+
+    sb.Append("}") |> ignore
+
+  let printClassMember (ctx: PrintCtx) (classMember: ClassMember) : unit =
+    let sb = ctx.StringBuilder
 
     match classMember with
     | ClassMember.Constructor { Params = ps; Body = body } ->
 
-      let mutable sb = StringBuilder()
-
       let ctx = { ctx with Precedence = 0 }
 
-      let ps =
-        ps
-        |> List.map (fun p ->
-          match p with
-          | ParamOrTsParamProp.Param p -> printPattern ctx p.Pat
-          | ParamOrTsParamProp.TsParamProp _ ->
-            failwith "TODO: printClassMember - TsParamProp")
-        |> String.concat ", "
+      sb.Append("constructor") |> ignore
+      sb.Append("(") |> ignore
 
-      sb <- sb.Append("constructor").Append("(").Append(ps).Append(") ")
+      Seq.ofList ps
+      |> Seq.iteri (fun i p ->
+        match p with
+        | ParamOrTsParamProp.Param p -> printPattern ctx p.Pat
+        | ParamOrTsParamProp.TsParamProp _ ->
+          failwith "TODO: printClassMember - TsParamProp"
+
+        if i < ps.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append(") ") |> ignore
 
       match body with
-      | Some(body) ->
-        let body: string = printBlock ctx body
-        sb <- sb.Append(body)
+      | Some(body) -> printBlock ctx body
       | None -> ()
-
-      sb.ToString()
 
     | ClassMember.Method { Key = key
                            Function = { IsAsync = isAsync
                                         Body = body
                                         Params = ps } } ->
-
-      let mutable sb = StringBuilder()
-
       if isAsync then
-        sb <- sb.Append("async ")
+        sb.Append("async ") |> ignore
 
-      let key = printPropName ctx key
+      printPropName ctx key
+
       let ctx = { ctx with Precedence = 0 }
 
-      let ps =
-        ps |> List.map (fun p -> printPattern ctx p.Pat) |> String.concat ", "
-
-      sb <- sb.Append(key).Append("(").Append(ps).Append(") ")
+      printParams ctx ps
 
       match body with
-      | Some(body) ->
-        let body: string = printBlock ctx body
-        sb <- sb.Append(body)
+      | Some body ->
+        sb.Append(" ") |> ignore
+        printBlock ctx body
       | None -> ()
-
-      sb.ToString()
-
-    | ClassMember.PrivateMethod privateMethod ->
+    | ClassMember.PrivateMethod _ ->
       failwith "TODO: printClassMember - PrivateMethod"
     | ClassMember.ClassProp classProp ->
-      let mutable sb = StringBuilder()
-
       if classProp.IsStatic then
-        sb <- sb.Append "static "
+        sb.Append "static " |> ignore
 
-      let key = printPropName ctx classProp.Key
-
-      sb <- sb.Append key
+      printPropName ctx classProp.Key
 
       match classProp.Value with
-      | Some value -> sb <- sb.Append $" = {printExpr ctx value}"
+      | Some value ->
+        sb.Append(" = ") |> ignore
+        printExpr ctx value
       | None -> ()
-
-      sb.ToString()
-    | ClassMember.PrivateProp privateProp ->
+    | ClassMember.PrivateProp _ ->
       failwith "TODO: printClassMember - PrivateProp"
-    | ClassMember.TsIndexSignature tsIndexSignature ->
+    | ClassMember.TsIndexSignature _ ->
       failwith "TODO: printClassMember - TsIndexSignature"
-    | ClassMember.Empty emptyStmt -> failwith "TODO: printClassMember - Empty"
-    | ClassMember.StaticBlock staticBlock ->
+    | ClassMember.Empty _ -> failwith "TODO: printClassMember - Empty"
+    | ClassMember.StaticBlock _ ->
       failwith "TODO: printClassMember - StaticBlock"
-    | ClassMember.AutoAccessor autoAccessor ->
+    | ClassMember.AutoAccessor _ ->
       failwith "TODO: printClassMember - AutoAccessor"
 
-  let printTemplateLiteral (ctx: PrintCtx) (template: Tpl) : string =
+  let printTemplateLiteral (ctx: PrintCtx) (template: Tpl) : unit =
     let { Exprs = exprs; Quasis = quasis } = template
-    let mutable sb = StringBuilder()
-    sb <- sb.Append("`")
+    let sb = ctx.StringBuilder
+
+    sb.Append("`") |> ignore
 
     for quasi, expr in List.zip (List.take exprs.Length quasis) exprs do
-      let expr = printExpr ctx expr
-      sb <- sb.Append(quasi.Raw).Append("${").Append(expr).Append("}")
+      sb.Append(quasi.Raw) |> ignore
+      sb.Append("${") |> ignore
+      printExpr ctx expr
+      sb.Append("}") |> ignore
 
-    sb <- sb.Append(quasis.[quasis.Length - 1].Raw).Append("`")
+    sb.Append(quasis[quasis.Length - 1].Raw).Append("`") |> ignore
 
-    sb.ToString()
+  let printVarDecl (ctx: PrintCtx) (varDecl: VarDecl) : unit =
+    let sb = ctx.StringBuilder
 
-  let printVarDecl (ctx: PrintCtx) (varDecl: VarDecl) : string =
     let { Export = export
           Declare = declare
           Decls = decls
           Kind = kind } =
       varDecl
 
-    let decls =
-      List.map
-        (fun
-             { VarDeclarator.Id = id
-               Init = init
-               TypeAnn = typeAnn } ->
-          let id = printPattern ctx id
+    if export then
+      sb.Append("export ") |> ignore
 
-          let mutable sb = new StringBuilder()
-          sb <- sb.Append(id)
-
-          match typeAnn with
-          | Some typeAnn ->
-            sb <- sb.Append(": ").Append(printTypeAnn ctx typeAnn)
-          | None -> ()
-
-          match init with
-          | Some(init) -> sb <- sb.Append(" = ").Append(printExpr ctx init)
-          | None -> ()
-
-          sb.ToString())
-        decls
-      |> String.concat ", "
-
-    let export = if export then "export " else ""
-    let declare = if declare then "declare " else ""
+    if declare then
+      sb.Append("declare ") |> ignore
 
     let kind =
       match kind with
@@ -493,161 +568,221 @@ module rec Printer =
       | VariableDeclarationKind.Let -> "let"
       | VariableDeclarationKind.Const -> "const"
 
-    $"{export}{declare}{kind} {decls}"
+    sb.Append(kind).Append(" ") |> ignore
 
+    Seq.ofList decls
+    |> Seq.iteri (fun i decl ->
+      let { VarDeclarator.Id = id
+            Init = init
+            TypeAnn = typeAnn } =
+        decl
 
-  let printStmt (ctx: PrintCtx) (stmt: TypeScript.Stmt) : string =
+      printPattern ctx id
+
+      match typeAnn with
+      | Some typeAnn ->
+        sb.Append(": ") |> ignore
+        printTypeAnn ctx typeAnn
+      | None -> ()
+
+      match init with
+      | Some init ->
+        sb.Append(" = ") |> ignore
+        printExpr ctx init
+      | None -> ()
+
+      if i < decls.Length - 1 then
+        sb.Append(", ") |> ignore)
+
+  let printStmt (ctx: PrintCtx) (stmt: Stmt) : unit =
+    let sb = ctx.StringBuilder
+
+    // sb.Append(String.replicate ctx.Indent " ") |> ignore
+
     match stmt with
     | Stmt.Block block -> printBlock ctx block
     | Stmt.Expr { Expr = expr } ->
       let ctx = { ctx with Precedence = 0 }
-      $"{printExpr ctx expr};"
-    | Stmt.Empty _ -> ";"
-    | Stmt.Debugger _ -> "debugger;"
+      printExpr ctx expr
+      sb.Append(";") |> ignore
+    | Stmt.Empty _ -> sb.Append(";") |> ignore
+    | Stmt.Debugger _ -> sb.Append("debugger;") |> ignore
     | Stmt.Return { Argument = arg } ->
       let ctx = { ctx with Precedence = 0 }
 
       match arg with
-      | Some(arg) -> $"return {printExpr ctx arg};"
-      | None -> "return;"
+      | Some(arg) ->
+        sb.Append("return ") |> ignore
+        printExpr ctx arg
+        sb.Append(";") |> ignore
+      | None -> sb.Append("return;") |> ignore
     | Stmt.Labeled { Label = label; Body = body } ->
-      let label = label.Name
-      let body = printStmt ctx body
-      $"{label}: {body}"
+      sb.Append(label.Name) |> ignore
+      sb.Append(": ") |> ignore
+      printStmt ctx body
     | Stmt.Break { Label = label } ->
+      sb.Append("break ") |> ignore
+
       match label with
-      | Some(label) -> $"break {label.Name};"
-      | None -> "break;"
+      | Some(label) -> sb.Append(label.Name) |> ignore
+      | None -> ()
+
+      sb.Append(";") |> ignore
     | Stmt.Continue { Label = label } ->
+      sb.Append("continue ") |> ignore
+
       match label with
-      | Some(label) -> $"continue {label.Name};"
-      | None -> "continue;"
+      | Some(label) -> sb.Append(label.Name) |> ignore
+      | None -> ()
+
+      sb.Append(";") |> ignore
     | Stmt.If { Test = test
                 Consequent = cons
                 Alternate = alt } ->
       let ctx = { ctx with Precedence = 0 }
-      let test = printExpr ctx test
-      let cons = printStmt ctx cons
+
+      sb.Append("if (") |> ignore
+      printExpr ctx test
+      sb.Append(") ") |> ignore
+      printStmt ctx cons
 
       match alt with
-      | Some(alt) -> $"if ({test}) {cons} else {printStmt ctx alt}"
-      | None -> $"if ({test}) {cons}"
+      | Some alt ->
+        sb.Append(" else ") |> ignore
+        printStmt ctx alt
+      | None -> ()
     | Stmt.Switch { Discriminant = disc; Cases = cases } ->
       let ctx = { ctx with Precedence = 0 }
-      let disc = printExpr ctx disc
 
-      let cases =
-        cases
-        |> List.map (fun case ->
-          let test =
-            match case.Test with
-            | Some(test) -> $"case {printExpr ctx test}:"
-            | None -> "default:"
+      sb.Append("switch (") |> ignore
+      printExpr ctx disc
+      sb.Append(") {\n") |> ignore
 
-          let cons =
-            match case.Consequent with
-            | [ stmt ] -> printStmt ctx stmt
-            | stmts -> stmts |> List.map (printStmt ctx) |> String.concat "\n"
+      for case in cases do
+        match case.Test with
+        | Some test ->
+          sb.Append("case ") |> ignore
+          printExpr ctx test
+        | None -> sb.Append("default") |> ignore
 
-          $"{test} {cons}")
-        |> String.concat "\n"
+        sb.Append(":") |> ignore
 
-      $"switch ({disc}) {{\n{cases}\n}}"
+        match case.Consequent with
+        | [ stmt ] ->
+          printStmt ctx stmt
+          sb.Append("\n") |> ignore
+        | stmts ->
+          // TODO: handle indentation
+          sb.Append("\n") |> ignore
+
+          for stmt in stmts do
+            printStmt ctx stmt
+            sb.Append("\n") |> ignore
+
+      sb.Append("}") |> ignore
     | Stmt.Throw { Argument = arg } ->
       let ctx = { ctx with Precedence = 0 }
-      let arg = printExpr ctx arg
-      $"throw {arg};"
+
+      sb.Append("throw ") |> ignore
+      printExpr ctx arg
+      sb.Append(";") |> ignore
     | Stmt.Try { TryBlock = block
                  Handler = handler
                  Finalizer = finalizer } ->
       let ctx = { ctx with Precedence = 0 }
 
-      let block = $"try {printBlock ctx block}"
+      sb.Append("try ") |> ignore
+      printBlock ctx block
 
-      let handler =
-        match handler with
-        | Some(handler) ->
-          let param = printPattern ctx handler.Param
-          let body = printBlock ctx handler.Body
+      match handler with
+      | Some handler ->
+        sb.Append(" catch (") |> ignore
+        printPattern ctx handler.Param
+        sb.Append(") ") |> ignore
+        printBlock ctx handler.Body
+      | None -> ()
 
-          $" catch ({param}) {body}"
-        | None -> ""
-
-      let finalizer =
-        match finalizer with
-        | Some(finalizer) -> $" finally {printBlock ctx finalizer}"
-        | None -> ""
-
-      $"{block}{handler}{finalizer}"
+      match finalizer with
+      | Some finalizer ->
+        sb.Append(" finally ") |> ignore
+        printBlock ctx finalizer
+      | None -> ()
     | Stmt.While { Test = test; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
-      let test = printExpr ctx test
-      let body = printStmt ctx body
-
-      $"while ({test}) {body}"
+      sb.Append("while (") |> ignore
+      printExpr ctx test
+      sb.Append(") ") |> ignore
+      printStmt ctx body
     | Stmt.DoWhile { Test = test; Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
-      let test = printExpr ctx test
-      let body = printStmt ctx body
-
-      $"do {body} while ({test});"
+      sb.Append("do ") |> ignore
+      printStmt ctx body
+      sb.Append(" while (") |> ignore
+      printExpr ctx test
+      sb.Append(");") |> ignore
     | Stmt.For { Init = init
                  Test = test
                  Update = update
                  Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
-      let init =
-        match init with
-        | Some(ForInit.Variable decl) ->
-          printStmt ctx (Stmt.Decl(Decl.Var decl))
-        | Some(ForInit.Expr expr) -> printExpr ctx expr
-        | None -> ""
+      sb.Append("for (") |> ignore
 
-      let test =
-        match test with
-        | Some(test) -> printExpr ctx test
-        | None -> ""
+      match init with
+      | Some(ForInit.Variable decl) -> printStmt ctx (Stmt.Decl(Decl.Var decl))
+      | Some(ForInit.Expr expr) -> printExpr ctx expr
+      | None -> ()
 
-      let update =
-        match update with
-        | Some(update) -> printExpr ctx update
-        | None -> ""
+      sb.Append("; ") |> ignore
 
-      let body = printStmt ctx body
+      match test with
+      | Some(test) -> printExpr ctx test
+      | None -> ()
 
-      $"for ({init}; {test}; {update}) {body}"
+      sb.Append("; ") |> ignore
+
+      match update with
+      | Some(update) -> printExpr ctx update
+      | None -> ()
+
+      sb.Append(") ") |> ignore
+      printStmt ctx body
     | Stmt.ForIn { Left = left
                    Right = right
                    Body = body } ->
       let ctx = { ctx with Precedence = 0 }
 
-      let left =
-        match left with
-        | ForHead.VarDecl decl -> printStmt ctx (Stmt.Decl(Decl.Var decl))
-        | ForHead.Pat p -> printPattern ctx p
-        | ForHead.UsingDecl decl -> failwith "TODO"
+      sb.Append("for (") |> ignore
 
-      let right = printExpr ctx right
-      let body = printStmt ctx body
+      match left with
+      | ForHead.VarDecl decl -> printStmt ctx (Stmt.Decl(Decl.Var decl))
+      | ForHead.Pat p -> printPattern ctx p
+      | ForHead.UsingDecl _ -> failwith "TODO"
 
-      $"for ({left} in {right}) {body}"
+      sb.Append(" in ") |> ignore
+      printExpr ctx right
+      sb.Append(") ") |> ignore
+      printStmt ctx body
+
     | Stmt.ForOf { IsAwait = _
                    Left = left
                    Right = right
                    Body = body } ->
-      let left =
-        match left with
-        | ForHead.VarDecl decl -> printVarDecl ctx decl
-        | ForHead.Pat p -> printPattern ctx p
-        | ForHead.UsingDecl decl -> failwith "TODO"
 
-      let right = printExpr ctx right
-      let body = printStmt ctx body
+      sb.Append("for (") |> ignore
 
-      $"for ({left} of {right}) {body}"
+      match left with
+      | ForHead.VarDecl decl -> printVarDecl ctx decl
+      | ForHead.Pat p -> printPattern ctx p
+      | ForHead.UsingDecl _ -> failwith "TODO"
+
+      sb.Append(" of ") |> ignore
+      printExpr ctx right
+      sb.Append(") ") |> ignore
+      printStmt ctx body
+
     | Stmt.Decl decl ->
       let ctx = { ctx with Precedence = 0 }
 
@@ -658,187 +793,189 @@ module rec Printer =
                          ReturnType = retType } } ->
         let id = id.Name
 
-        let mutable sb = StringBuilder()
-        sb <- sb.Append("function ").Append(id).Append("(")
+        sb.Append("function ").Append(id) |> ignore
 
-        let ps =
-          ps
-          |> List.map (fun p ->
-            match p.TypeAnn with
-            | Some(typeAnn) ->
-              let pat = printPattern ctx p.Pat
-              let typeAnn = printTypeAnn ctx typeAnn
-              $"{pat}: {typeAnn}"
-            | None -> printPattern ctx p.Pat)
-          |> String.concat ", "
-
-        sb <- sb.Append(ps).Append(")")
+        printParams ctx ps
 
         match retType with
         | Some(retType) ->
-          sb <- sb.Append(": ").Append(printType ctx retType.TypeAnn)
+          sb.Append(": ") |> ignore
+          printType ctx retType.TypeAnn
         | None -> ()
 
         match body with
-        | Some(body) -> sb <- sb.Append(" ").Append(printBlock ctx body)
-        | None -> sb <- sb.Append(";")
+        | Some(body) ->
+          sb.Append(" ") |> ignore
+          printBlock ctx body
+        | None -> sb.Append(";") |> ignore
 
-        sb.ToString()
       | Decl.Var varDecl ->
-        let decl = printVarDecl ctx varDecl
-        $"{decl};"
-      | Decl.Class(_) -> failwith "TODO: printStmt - Class"
-      | Decl.Using(_) -> failwith "TODO: printStmt - Using"
-      | Decl.TsInterface(_) -> failwith "TODO: printStmt - TsInterface"
+        printVarDecl ctx varDecl
+        sb.Append(";") |> ignore
+      | Decl.Class _ -> failwith "TODO: printStmt - Class"
+      | Decl.Using _ -> failwith "TODO: printStmt - Using"
+      | Decl.TsInterface _ -> failwith "TODO: printStmt - TsInterface"
       | Decl.TsTypeAlias decl ->
-        let export = if decl.Export then "export " else ""
-        let declare = if decl.Declare then "declare " else ""
+        if decl.Export then
+          sb.Append("export ") |> ignore
 
-        let name = decl.Id.Name
+        if decl.Declare then
+          sb.Append("declare ") |> ignore
 
-        let typeParams =
-          match decl.TypeParams with
-          | Some(typeParams) ->
-            let typeParams =
-              typeParams.Params
-              |> List.map (printTsTypeParam ctx)
-              |> String.concat ", "
+        sb.Append("type ") |> ignore
+        sb.Append(decl.Id.Name) |> ignore
+        decl.TypeParams |> Option.iter (printTypeParamDeclaration ctx)
+        sb.Append(" = ") |> ignore
+        printType ctx decl.TypeAnn
+        sb.Append(";") |> ignore
+      | Decl.TsEnum _ -> failwith "TODO: printStmt - TsEnum"
+      | Decl.TsModule _ -> failwith "TODO: printStmt - TsModule"
 
-            $"<{typeParams}>"
-          | None -> ""
+  let printPattern (ctx: PrintCtx) (p: Pat) : unit =
+    let sb = ctx.StringBuilder
 
-        let typeAnn = printType ctx decl.TypeAnn
-
-        $"{export}{declare}type {name}{typeParams} = {typeAnn};"
-      | Decl.TsEnum(_) -> failwith "TODO: printStmt - TsEnum"
-      | Decl.TsModule(_) -> failwith "TODO: printStmt - TsModule"
-
-  let printPattern (ctx: PrintCtx) (p: Pat) : string =
     match p with
-    | Pat.Ident { Id = id } -> id.Name
+    | Pat.Ident { Id = id } -> sb.Append(id.Name) |> ignore
     | Pat.Array { Elems = elems } ->
-      let elems =
-        elems
-        |> List.map (fun elem ->
-          match elem with
-          | None -> " "
-          | Some pat -> printPattern ctx pat)
-        |> String.concat ", "
+      sb.Append("[") |> ignore
 
-      $"[{elems}]"
+      Seq.ofList elems
+      |> Seq.iteri (fun i elem ->
+        match elem with
+        | Some(elem) -> printPattern ctx elem
+        | None -> ()
+
+        if i < elems.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append("]") |> ignore
     | Pat.Rest { Arg = arg } ->
-      let arg = printPattern ctx arg
-      $"...{arg}"
+      sb.Append("...") |> ignore
+      printPattern ctx arg
     | Pat.Object { Props = props } ->
-      let props =
-        props
-        |> List.map (fun prop ->
-          match prop with
-          | ObjectPatProp.Rest { Arg = arg } ->
-            let arg = printPattern ctx arg
-            $"...{arg}"
-          | ObjectPatProp.Assign { Key = key; Value = _ } -> key.Name
-          | ObjectPatProp.KeyValue { Key = key; Value = value } ->
-            let key = printPropName ctx key
-            let value = printPattern ctx value
-            $"{key}: {value}")
-        |> String.concat ", "
+      sb.Append("{") |> ignore
 
-      $"{{{props}}}"
-    | Pat.Assign assignPat -> failwith "TODO: printPattern - Assign"
+      Seq.ofList props
+      |> Seq.iteri (fun i prop ->
+        match prop with
+        | ObjectPatProp.Rest { Arg = arg } ->
+          sb.Append("...") |> ignore
+          printPattern ctx arg
+        | ObjectPatProp.Assign { Key = key; Value = _ } ->
+          sb.Append(key.Name) |> ignore
+        | ObjectPatProp.KeyValue { Key = key; Value = value } ->
+          printPropName ctx key
+          sb.Append(": ") |> ignore
+          printPattern ctx value
 
-  let printBlock (ctx: PrintCtx) (block: BlockStmt) =
-    let oldIdent = String.replicate ctx.Indent " "
+        if i < props.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append("}") |> ignore
+    | Pat.Assign _ -> failwith "TODO: printPattern - Assign"
+
+  let printBlock (ctx: PrintCtx) (block: BlockStmt) : unit =
+    let sb = ctx.StringBuilder
+
+    sb.Append("{\n") |> ignore
+
+    let oldIndent = String.replicate ctx.Indent " "
     let ctx = { ctx with Indent = ctx.Indent + 2 }
     let indent = String.replicate ctx.Indent " "
 
-    let body =
-      block.Body
-      |> List.map (fun stmt -> indent + printStmt ctx stmt)
-      |> String.concat "\n"
+    for stmt in block.Body do
+      sb.Append(indent) |> ignore
+      printStmt ctx stmt
+      sb.Append("\n") |> ignore
 
-    $"{{\n{body}\n{oldIdent}}}"
+    sb.Append(oldIndent) |> ignore
+    sb.Append("}") |> ignore
 
-  let printModule (ctx: PrintCtx) (m: Module) : string =
+  let printModule (m: Module) : string =
+    let ctx: PrintCtx =
+      { Indent = 0
+        Precedence = 0
+        StringBuilder = StringBuilder() }
 
-    let body =
-      m.Body
-      |> List.map (fun stmt -> printModuleItem ctx stmt)
-      |> String.concat "\n"
+    for stmt in m.Body do
+      printModuleItem ctx stmt
+      ctx.StringBuilder.Append("\n") |> ignore
 
-    body + "\n"
+    ctx.StringBuilder.ToString()
 
-  let printModuleItem (ctx: PrintCtx) (mi: ModuleItem) : string =
+  let printModuleItem (ctx: PrintCtx) (mi: ModuleItem) : unit =
     match mi with
     | ModuleItem.Stmt stmt -> printStmt ctx stmt
     | ModuleItem.ModuleDecl decl -> printModuleDecl ctx decl
 
-  let printModuleDecl (ctx: PrintCtx) (decl: ModuleDecl) : string =
+  let printModuleDecl (ctx: PrintCtx) (decl: ModuleDecl) : unit =
+    let sb = ctx.StringBuilder
+
     match decl with
     | ModuleDecl.Import importDecl ->
-      let mutable hasNamedSpecifiers = false
+      let hasNamedSpecifiers =
+        List.exists
+          (fun spec ->
+            match spec with
+            | ImportSpecifier.Named _ -> true
+            | _ -> false)
+          importDecl.Specifiers
 
-      let specifiers =
-        importDecl.Specifiers
-        |> List.map (fun spec ->
-          match spec with
-          | ImportSpecifier.Named { Local = local; Imported = imported } ->
-            hasNamedSpecifiers <- true
-            let local = printIdent local
+      sb.Append("import ") |> ignore
 
-            match imported with
-            | None -> $"{local}"
-            | Some imported ->
-              let imported =
-                match imported with
-                | ModuleExportName.Ident ident -> printIdent ident
-                | ModuleExportName.Str str -> str.Value
+      if hasNamedSpecifiers then
+        sb.Append("{") |> ignore
 
-              $"{imported} as {local}"
-          | ImportSpecifier.Default importDefaultSpecifier ->
-            failwith "todo - default import"
-          | ImportSpecifier.Namespace { Local = local } ->
-            let local = printIdent local
-            $"* as {local}")
-        |> String.concat ", "
+      Seq.ofList importDecl.Specifiers
+      |> Seq.iteri (fun i spec ->
+        match spec with
+        | ImportSpecifier.Named { Local = local; Imported = imported } ->
 
-      let source = importDecl.Src.Value
+          match imported with
+          | None -> sb.Append(local.Name) |> ignore
+          | Some imported ->
+            let imported =
+              match imported with
+              | ModuleExportName.Ident ident -> ident.Name
+              | ModuleExportName.Str str -> str.Value
 
-      match hasNamedSpecifiers with
-      | true -> $"import {{{specifiers}}} from \"{source}\""
-      | false -> $"import {specifiers} from \"{source}\""
-    | ModuleDecl.ExportNamed namedExport ->
-      failwith "TODO: printModuleDecl - ExportNamed"
-    | ModuleDecl.ExportDefaultDecl exportDefaultDecl ->
+            sb.Append(imported).Append(" as ").Append(local.Name) |> ignore
+
+        | ImportSpecifier.Default _ -> failwith "todo - default import"
+        | ImportSpecifier.Namespace { Local = local } ->
+          sb.Append("* as ").Append(local.Name) |> ignore
+
+        if i < importDecl.Specifiers.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      if hasNamedSpecifiers then
+        sb.Append("}") |> ignore
+
+      sb.Append(" from ").Append($"\"{importDecl.Src.Value}\"") |> ignore
+    | ModuleDecl.ExportNamed _ -> failwith "TODO: printModuleDecl - ExportNamed"
+    | ModuleDecl.ExportDefaultDecl _ ->
       failwith "TODO: printModuleDecl - ExportDefaultDecl"
-    | ModuleDecl.ExportDefaultExpr exportDefaultExpr ->
+    | ModuleDecl.ExportDefaultExpr _ ->
       failwith "TODO: printModuleDecl - ExportDefaultExpr"
-    | ModuleDecl.ExportAll exportAll ->
-      failwith "TODO: printModuleDecl - ExportAll"
-    | ModuleDecl.TsImportEquals tsImportEqualsDecl ->
+    | ModuleDecl.ExportAll _ -> failwith "TODO: printModuleDecl - ExportAll"
+    | ModuleDecl.TsImportEquals _ ->
       failwith "TODO: printModuleDecl - TsImportEquals"
-    | ModuleDecl.TsExportAssignment tsExportAssignment ->
+    | ModuleDecl.TsExportAssignment _ ->
       failwith "TODO: printModuleDecl - TsExportAssignment"
-    | ModuleDecl.TsNamespaceExport tsNamespaceExportDecl ->
+    | ModuleDecl.TsNamespaceExport _ ->
       failwith "TODO: printModuleDecl - TsNamespaceExport"
 
-  let printDecl (ctx: PrintCtx) (decl: Decl) : string =
+  let printDecl (ctx: PrintCtx) (decl: Decl) : unit =
+    let sb = ctx.StringBuilder
+
     match decl with
     | Decl.Class _ -> failwith "TODO: printDecl - Class"
     | Decl.Fn _ -> failwith "TODO: printDecl - Fn"
     | Decl.Var { Decls = decls
                  Declare = declare
                  Kind = kind } ->
-      let decls =
-        List.map
-          (fun ({ Id = id; Init = init }: VarDeclarator) ->
-            let id = printPattern ctx id
-
-            match init with
-            | Some(init) -> $"{id} = {printExpr ctx init}"
-            | None -> id)
-          decls
-        |> String.concat ", "
+      if declare then
+        sb.Append("declare ") |> ignore
 
       let kind =
         match kind with
@@ -846,365 +983,416 @@ module rec Printer =
         | VariableDeclarationKind.Let -> "let"
         | VariableDeclarationKind.Const -> "const"
 
-      let declare = if declare then "declare " else ""
+      sb.Append(kind).Append(" ") |> ignore
 
-      $"{declare}{kind} {decls};"
-    | Decl.Using usingDecl -> failwith "TODO: printDecl - Using"
-    | Decl.TsInterface tsInterfaceDecl ->
-      failwith "TODO: printDecl - TsInterface"
+      Seq.ofList decls
+      |> Seq.iteri (fun i { Id = id; Init = init } ->
+        printPattern ctx id
+
+        match init with
+        | Some(init) ->
+          sb.Append(" = ") |> ignore
+          printExpr ctx init
+        | None -> ()
+
+        if i < decls.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append(";") |> ignore
+    | Decl.Using _ -> failwith "TODO: printDecl - Using"
+    | Decl.TsInterface _ -> failwith "TODO: printDecl - TsInterface"
     | Decl.TsTypeAlias decl ->
 
-      let name = decl.Id.Name
+      if decl.Declare then
+        sb.Append("declare ") |> ignore
 
-      let typeParams =
-        match decl.TypeParams with
-        | Some(typeParams) ->
-          let typeParams =
-            typeParams.Params
-            |> List.map (printTsTypeParam ctx)
-            |> String.concat ", "
+      sb.Append("type ").Append(decl.Id.Name) |> ignore
+      decl.TypeParams |> Option.iter (printTypeParamDeclaration ctx)
+      sb.Append(" = ") |> ignore
+      printType ctx decl.TypeAnn
+      sb.Append(";") |> ignore
+    | Decl.TsEnum _ -> failwith "TODO: printDecl - TsEnum"
+    | Decl.TsModule _ -> failwith "TODO: printDecl - TsModule"
 
-          $"<{typeParams}>"
-        | None -> ""
-
-      let typeAnn = printType ctx decl.TypeAnn
-
-      match decl.Declare with
-      | true -> $"declare type {name}{typeParams} = {typeAnn};"
-      | false -> $"type {name}{typeParams} = {typeAnn};"
-    | Decl.TsEnum tsEnumDecl -> failwith "TODO: printDecl - TsEnum"
-    | Decl.TsModule tsModuleDecl -> failwith "TODO: printDecl - TsModule"
-
-  let printTypeAnn (ctx: PrintCtx) (typeAnn: TsTypeAnn) : string =
+  let printTypeAnn (ctx: PrintCtx) (typeAnn: TsTypeAnn) : unit =
     printType ctx typeAnn.TypeAnn
 
+  let printTypeParamDeclaration (ctx: PrintCtx) (tpd: TsTypeParamDecl) : unit =
+    let sb = ctx.StringBuilder
+
+    sb.Append("<") |> ignore
+
+    Seq.ofList tpd.Params
+    |> Seq.iteri (fun i typeParam ->
+      printTsTypeParam ctx typeParam
+
+      if i < tpd.Params.Length - 1 then
+        sb.Append(", ") |> ignore)
+
+    sb.Append(">") |> ignore
+
+  let printTypeParamInstantiation
+    (ctx: PrintCtx)
+    (tpi: TsTypeParamInstantiation)
+    : unit =
+    let sb = ctx.StringBuilder
+
+    sb.Append("<") |> ignore
+
+    Seq.ofList tpi.Params
+    |> Seq.iteri (fun i typeParam ->
+      printType ctx typeParam
+
+      if i < tpi.Params.Length - 1 then
+        sb.Append(", ") |> ignore)
+
+    sb.Append(">") |> ignore
+
+  let printTsFnParams (ctx: PrintCtx) (ps: TsFnParam list) : unit =
+    let sb = ctx.StringBuilder
+
+    sb.Append("(") |> ignore
+
+    Seq.ofList ps
+    |> Seq.iteri (fun i p ->
+      printTsFnParam ctx p
+
+      if i < ps.Length - 1 then
+        sb.Append(", ") |> ignore)
+
+    sb.Append(")") |> ignore
+
   // TODO: handle precedence
-  let printType (ctx: PrintCtx) (t: TsType) : string =
+  let printType (ctx: PrintCtx) (t: TsType) : unit =
+    let sb = ctx.StringBuilder
+
     match t with
     | TsType.TsKeywordType { Kind = kind } ->
-      match kind with
-      | TsAnyKeyword -> "any"
-      | TsUnknownKeyword -> "unknown"
-      | TsNumberKeyword -> "number"
-      | TsObjectKeyword -> "object"
-      | TsBooleanKeyword -> "boolean"
-      | TsBigIntKeyword -> "BigInt"
-      | TsStringKeyword -> "string"
-      | TsSymbolKeyword -> "symbol"
-      | TsVoidKeyword -> "void"
-      | TsUndefinedKeyword -> "undefined"
-      | TsNullKeyword -> "null"
-      | TsNeverKeyword -> "never"
-      | TsIntrinsicKeyword -> "intrinsic"
-    | TsType.TsThisType _ -> "this"
+      let kind =
+        match kind with
+        | TsAnyKeyword -> "any"
+        | TsUnknownKeyword -> "unknown"
+        | TsNumberKeyword -> "number"
+        | TsObjectKeyword -> "object"
+        | TsBooleanKeyword -> "boolean"
+        | TsBigIntKeyword -> "BigInt"
+        | TsStringKeyword -> "string"
+        | TsSymbolKeyword -> "symbol"
+        | TsVoidKeyword -> "void"
+        | TsUndefinedKeyword -> "undefined"
+        | TsNullKeyword -> "null"
+        | TsNeverKeyword -> "never"
+        | TsIntrinsicKeyword -> "intrinsic"
+
+      sb.Append(kind) |> ignore
+    | TsType.TsThisType _ -> sb.Append("this") |> ignore
     | TsType.TsFnOrConstructorType fnOrConst ->
       match fnOrConst with
       | TsConstructorType { Params = ps
                             TypeParams = typeParams
                             TypeAnn = typeAnn } ->
-        let typeParams =
-          match typeParams with
-          | Some({ Params = typeParams }) ->
-            let typeParams =
-              typeParams
-              |> List.map (printTsTypeParam ctx)
-              |> String.concat ", "
+        sb.Append("new ") |> ignore
 
-            $"<{typeParams}>"
-          | None -> ""
-
-        let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
-        let typeAnn = printTypeAnn ctx typeAnn
-
-        $"new {typeParams}({ps}) => {typeAnn}"
+        typeParams |> Option.iter (printTypeParamDeclaration ctx)
+        printTsFnParams ctx ps
+        sb.Append(" => ") |> ignore
+        printTypeAnn ctx typeAnn
       | TsFnType { Params = ps
                    TypeParams = typeParams
                    TypeAnn = typeAnn } ->
-        let typeParams =
-          match typeParams with
-          | Some({ Params = typeParams }) ->
-            let typeParams =
-              typeParams
-              |> List.map (printTsTypeParam ctx)
-              |> String.concat ", "
 
-            $"<{typeParams}>"
-          | None -> ""
-
-        let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
-        let typeAnn = printTypeAnn ctx typeAnn
-
-        $"{typeParams}({ps}) => {typeAnn}"
+        typeParams |> Option.iter (printTypeParamDeclaration ctx)
+        printTsFnParams ctx ps
+        sb.Append(" => ") |> ignore
+        printTypeAnn ctx typeAnn
     | TsType.TsTypeRef { TypeName = name
                          TypeParams = typeParams } ->
-      let name = printEntityName name
+      printEntityName ctx name
 
       match typeParams with
-      | Some(typeParams: TsTypeParamInstantiation) ->
-        let typeParams =
-          typeParams.Params |> List.map (printType ctx) |> String.concat ", "
-
-        $"{name}<{typeParams}>"
-      | None -> name
+      | Some(tpi: TsTypeParamInstantiation) ->
+        printTypeParamInstantiation ctx tpi
+      | None -> ()
     | TsType.TsTypeQuery { ExprName = name; TypeArgs = typeArgs } ->
-      let name =
-        match name with
-        | TsEntityName name -> printEntityName name
-        | Import _ -> failwith "TODO: printType - TsTypeQuery - Import"
+      match name with
+      | TsEntityName name -> printEntityName ctx name
+      | Import _ -> failwith "TODO: printType - TsTypeQuery - Import"
 
       match typeArgs with
-      | Some(typeArgs: TsTypeParamInstantiation) ->
-        let typeArgs =
-          typeArgs.Params |> List.map (printType ctx) |> String.concat ", "
-
-        $"{name}<{typeArgs}>"
-      | None -> name
+      | Some(tpi: TsTypeParamInstantiation) ->
+        printTypeParamInstantiation ctx tpi
+      | None -> ()
     | TsType.TsTypeLit { Members = members } ->
-      let oldIdent = String.replicate ctx.Indent " "
+      let oldIndent = String.replicate ctx.Indent " "
       let ctx = { ctx with Indent = ctx.Indent + 2 }
-      let ident = String.replicate ctx.Indent " "
+      let indent = String.replicate ctx.Indent " "
 
-      let members =
-        members
-        |> List.map (fun m -> $"{ident}{printTypeMember ctx m};")
-        |> String.concat "\n"
+      sb.Append("{\n") |> ignore
 
-      $"{{\n{members}\n{oldIdent}}}"
+      for m in members do
+        sb.Append(indent) |> ignore
+        printTypeMember ctx m
+        sb.Append(";\n") |> ignore
+
+      sb.Append(oldIndent).Append("}") |> ignore
     | TsType.TsArrayType { ElemType = t } ->
-      let t = printType ctx t
-      $"{t}[]"
+      printType ctx t
+      sb.Append("[]") |> ignore
     | TsType.TsTupleType { ElemTypes = types } ->
-      let types =
-        types
-        |> List.map (fun { Label = label; Type = t } ->
-          match label with
-          | Some(label) -> $"{label}: {printType ctx t}"
-          | None -> printType ctx t)
-        |> String.concat ", "
+      sb.Append("[") |> ignore
 
-      $"[{types}]"
+      Seq.ofList types
+      |> Seq.iteri (fun i { Label = label; Type = t } ->
+        match label with
+        | Some label -> sb.Append(label).Append(": ") |> ignore
+        | None -> ()
+
+        printType ctx t
+
+        if i < types.Length - 1 then
+          sb.Append(", ") |> ignore)
+
+      sb.Append("]") |> ignore
     | TsType.TsOptionalType { TypeAnn = t } ->
-      let t = printType ctx t
-      $"{t}?" // can appear in tuple types
+      printType ctx t
+      sb.Append("?") |> ignore // can appear in tuple types
     | TsType.TsRestType { TypeAnn = t } ->
-      let t = printType ctx t
-      $"...{t}"
+      sb.Append("...") |> ignore
+      printType ctx t
     | TsType.TsUnionOrIntersectionType tsUnionOrIntersectionType ->
       match tsUnionOrIntersectionType with
       | TsIntersectionType { Types = types } ->
-        types |> List.map (printType ctx) |> String.concat " & "
+        Seq.ofList types
+        |> Seq.iteri (fun i t ->
+          printType ctx t
+
+          if i < types.Length - 1 then
+            sb.Append(" & ") |> ignore)
       | TsUnionType { Types = types } ->
-        types |> List.map (printType ctx) |> String.concat " | "
+        Seq.ofList types
+        |> Seq.iteri (fun i t ->
+          printType ctx t
+
+          if i < types.Length - 1 then
+            sb.Append(" | ") |> ignore)
     | TsType.TsConditionalType { CheckType = checkType
                                  ExtendsType = extendsType
                                  TrueType = trueType
                                  FalseType = falseType } ->
-      let checkType = printType ctx checkType
-      let extendsType = printType ctx extendsType
-      let trueType = printType ctx trueType
-      let falseType = printType ctx falseType
+      sb.Append("(") |> ignore // TODO: precedence handling
 
-      $"({checkType} extends {extendsType} ? {trueType} : {falseType})"
+      printType ctx checkType
+      sb.Append(" extends ") |> ignore
+      printType ctx extendsType
+      sb.Append(" ? ") |> ignore
+      printType ctx trueType
+      sb.Append(" : ") |> ignore
+      printType ctx falseType
+
+      sb.Append(")") |> ignore // TODO: precedence handling
     | TsType.TsInferType { TypeParam = tp } ->
-      $"infer {printTsTypeParam ctx tp}"
-    | TsType.TsParenthesizedType { TypeAnn = t } -> $"({printType ctx t})"
+      sb.Append("infer ") |> ignore
+      printTsTypeParam ctx tp
+    | TsType.TsParenthesizedType { TypeAnn = t } ->
+      sb.Append("(") |> ignore
+      printType ctx t
+      sb.Append(")") |> ignore
     | TsType.TsTypeOperator { Op = op; TypeAnn = t } ->
-      match op with
-      | TsTypeOperatorOp.KeyOf -> $"keyof {printType ctx t}"
-      | TsTypeOperatorOp.Unique -> $"unique {printType ctx t}"
-      | TsTypeOperatorOp.Readonly -> $"readonly {printType ctx t}"
+      let op =
+        match op with
+        | TsTypeOperatorOp.KeyOf -> "keyof "
+        | TsTypeOperatorOp.Unique -> "unique "
+        | TsTypeOperatorOp.Readonly -> "readonly "
+
+      sb.Append(op) |> ignore
+      printType ctx t
     | TsType.TsIndexedAccessType { ObjType = objType
                                    IndexType = indexType } ->
-      let objType = printType ctx objType
-      let indexType = printType ctx indexType
-      $"{objType}[{indexType}]"
+      printType ctx objType
+      sb.Append("[") |> ignore
+      printType ctx indexType
+      sb.Append("]") |> ignore
     | TsType.TsMappedType mappedType ->
-      let tpName = mappedType.TypeParam.Name.Name
+      sb.Append("{") |> ignore
 
-      let tpConstraint =
-        match mappedType.TypeParam.Constraint with
-        | Some c -> printType ctx c
-        | None -> failwith "missing constraint for type param in mapped type"
+      match mappedType.Readonly with
+      | Some(True) -> sb.Append("readonly ") |> ignore
+      | Some(Plus) -> sb.Append("+readonly ") |> ignore
+      | Some(Minus) -> sb.Append("-readonly ") |> ignore
+      | None -> ()
 
-      let readonly =
-        match mappedType.Readonly with
-        | Some(True) -> "readonly "
-        | Some(Plus) -> "+readonly "
-        | Some(Minus) -> "-readonly "
-        | None -> ""
-
-      let optional =
-        match mappedType.Optional with
-        | Some(True) -> "?"
-        | Some(Plus) -> "+?"
-        | Some(Minus) -> "-?"
-        | None -> ""
-
-      let typeAnn = printType ctx mappedType.TypeAnn
-
+      sb.Append("[") |> ignore
       // TODO: Handle mappedType.NameType to handle renaming of keys
-      $"{{{readonly}[{tpName} in {tpConstraint}]{optional}: {typeAnn}}}"
+      sb.Append(mappedType.TypeParam.Name.Name) |> ignore
+      sb.Append(" in ") |> ignore
+
+      match mappedType.TypeParam.Constraint with
+      | Some c -> printType ctx c
+      | None -> failwith "missing constraint for type param in mapped type"
+
+      sb.Append("]") |> ignore
+
+      match mappedType.Optional with
+      | Some(True) -> sb.Append("?") |> ignore
+      | Some(Plus) -> sb.Append("+?") |> ignore
+      | Some(Minus) -> sb.Append("-?") |> ignore
+      | None -> ()
+
+      sb.Append(": ") |> ignore
+      printType ctx mappedType.TypeAnn
     | TsType.TsLitType { Lit = lit } ->
       match lit with
-      | Bool { Value = value } -> if value then "true" else "false"
-      | Number { Value = value } -> value.ToString()
-      | Str { Value = value } -> $"\"{value}\""
+      | Bool { Value = value } ->
+        if value then
+          sb.Append("true") |> ignore
+        else
+          sb.Append("false") |> ignore
+      | Number { Value = value } -> sb.Append(value) |> ignore
+      | Str { Value = value } -> sb.Append($"\"{value}\"") |> ignore
       | Tpl _ -> failwith "TODO: printType - TsLitType - Tpl"
     | TsType.TsTypePredicate _ -> failwith "TODO: printType - TsTypePredicate"
     | TsType.TsImportType _ -> failwith "TODO: printType - TsImportType"
 
-  let printTypeMember (ctx: PrintCtx) (typeMember: TsTypeElement) : string =
+  let printTypeMember (ctx: PrintCtx) (typeMember: TsTypeElement) : unit =
+    let sb = ctx.StringBuilder
+
     match typeMember with
     | TsCallSignatureDecl { Params = ps
                             TypeAnn = typeAnn
                             TypeParams = typeParams } ->
-      let typeParams =
-        match typeParams with
-        | Some(typeParams) ->
-          let typeParams =
-            typeParams.Params
-            |> List.map (printTsTypeParam ctx)
-            |> String.concat ", "
 
-          $"<{typeParams}>"
-        | None -> ""
+      typeParams |> Option.iter (printTypeParamDeclaration ctx)
+      printTsFnParams ctx ps
 
-      let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
-
-      let typeAnn =
-        match typeAnn with
-        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
-        | None -> ""
-
-      $"{typeParams}({ps}){typeAnn}"
+      match typeAnn with
+      | Some({ TypeAnn = t }) ->
+        sb.Append(": ") |> ignore
+        printType ctx t
+      | None -> ()
     | TsConstructSignatureDecl { Params = ps
                                  TypeAnn = typeAnn
                                  TypeParams = typeParams } ->
-      let typeParams =
-        match typeParams with
-        | Some(typeParams) ->
-          let typeParams =
-            typeParams.Params
-            |> List.map (printTsTypeParam ctx)
-            |> String.concat ", "
+      sb.Append("new ") |> ignore
+      typeParams |> Option.iter (printTypeParamDeclaration ctx)
+      printTsFnParams ctx ps
 
-          $"<{typeParams}>"
-        | None -> ""
-
-      let ps = ps |> List.map (printTsFnParam ctx) |> String.concat ", "
-
-      let typeAnn =
-        match typeAnn with
-        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
-        | None -> ""
-
-      $"new {typeParams}({ps}){typeAnn}"
+      match typeAnn with
+      | Some({ TypeAnn = t }) ->
+        sb.Append(": ") |> ignore
+        printType ctx t
+      | None -> ()
     | TsPropertySignature propSig ->
-      let key = printPropName ctx propSig.Key
-      let typeAnn = printTypeAnn ctx propSig.TypeAnn
+      if propSig.Readonly then
+        sb.Append("readonly ") |> ignore
 
-      match propSig.Readonly, propSig.Optional with
-      | true, true -> $"readonly {key}?: {typeAnn}"
-      | true, false -> $"readonly {key}: {typeAnn}"
-      | false, true -> $"{key}?: {typeAnn}"
-      | false, false -> $"{key}: {typeAnn}"
+      printPropName ctx propSig.Key
 
+      if propSig.Optional then
+        sb.Append("?") |> ignore
+
+      sb.Append(": ") |> ignore
+      printTypeAnn ctx propSig.TypeAnn
     | TsGetterSignature { Key = key
                           Optional = optional
                           TypeAnn = typeAnn } ->
-      let key = printPropName ctx key
+      sb.Append("get ") |> ignore
+      printPropName ctx key
 
-      let typeAnn =
-        match typeAnn with
-        | Some({ TypeAnn = t }) -> $": {printType ctx t}"
-        | None -> ""
+      if optional then
+        sb.Append("?") |> ignore
 
-      match optional with
-      | true -> $"get {key}?(): {typeAnn}"
-      | false -> $"get {key}(): {typeAnn}"
+      sb.Append("()") |> ignore
+
+      match typeAnn with
+      | Some { TypeAnn = t } ->
+        sb.Append(": ") |> ignore
+        printType ctx t
+      | None -> ()
     | TsSetterSignature { Key = key
                           Optional = optional
                           Param = param } ->
-      let key = printPropName ctx key
-      let param = printTsFnParam ctx param
+      sb.Append("set ") |> ignore
+      printPropName ctx key
 
-      match optional with
-      | true -> $"set {key}?({param})"
-      | false -> $"set {key}({param})"
+      if optional then
+        sb.Append("?") |> ignore
+
+      sb.Append("(") |> ignore
+      printTsFnParam ctx param
+      sb.Append("): void") |> ignore
     | TsMethodSignature method ->
-      let key = printPropName ctx method.Key
+      printPropName ctx method.Key
 
-      let ps =
-        method.Params |> List.map (printTsFnParam ctx) |> String.concat ", "
+      if method.Optional then
+        sb.Append("?") |> ignore
 
-      let typeParams =
-        match method.TypeParams with
-        | Some(typeParams) ->
-          let typeParams =
-            typeParams.Params
-            |> List.map (printTsTypeParam ctx)
-            |> String.concat ", "
+      method.TypeParams |> Option.iter (printTypeParamDeclaration ctx)
+      printTsFnParams ctx method.Params
 
-          $"<{typeParams}>"
-        | None -> ""
-
-      let typeAnn =
-        match method.TypeAnn with
-        | Some(typeAnn) -> $": {printTypeAnn ctx typeAnn}"
-        | None -> ""
-
-      match method.Optional with
-      | true -> $"{key}?{typeParams}({ps}){typeAnn}"
-      | false -> $"{key}{typeParams}({ps}){typeAnn}"
+      match method.TypeAnn with
+      | Some typeAnn ->
+        sb.Append(": ") |> ignore
+        printTypeAnn ctx typeAnn
+      | None -> ()
     | TsIndexSignature indexSig ->
-      let name = indexSig.Param.Name
-      let c = indexSig.Param.Constraint
-      let param = $"{name}: {c}"
-      let typeAnn = $"{printTypeAnn ctx indexSig.TypeAnn}"
+      if indexSig.IsStatic then
+        sb.Append("static ") |> ignore
 
-      match indexSig.IsStatic, indexSig.Readonly with
-      | true, true -> $"static readonly [{param}]: {typeAnn}"
-      | true, false -> $"static [{param}]: {typeAnn}"
-      | false, true -> $"readonly [{param}]: {typeAnn}"
-      | false, false -> $"[{param}]: {typeAnn}"
+      if indexSig.Readonly then
+        sb.Append("readonly ") |> ignore
 
-  let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : string =
-    let pat = printPattern ctx param.Pat
+      sb.Append("[") |> ignore
+      sb.Append(indexSig.Param.Name) |> ignore
+      sb.Append(": ") |> ignore
+      printType ctx indexSig.Param.Constraint
+      sb.Append("]: ") |> ignore
+      printTypeAnn ctx indexSig.TypeAnn
 
-    match param.TypeAnn with
-    | Some(typeAnn) ->
-      match param.Optional with
-      | true -> $"{pat}?: {printTypeAnn ctx typeAnn}"
-      | false -> $"{pat}: {printTypeAnn ctx typeAnn}"
-    | None ->
-      match param.Optional with
-      | true -> $"{pat}?"
-      | false -> pat
+  let printTsFnParam (ctx: PrintCtx) (param: TsFnParam) : unit =
+    let sb = ctx.StringBuilder
 
-  let printTsTypeParam (ctx: PrintCtx) (typeParam: TsTypeParam) : string =
-    let c =
-      match typeParam.Constraint with
-      | Some(c) -> $" extends {printType ctx c}"
-      | None -> ""
+    printPattern ctx param.Pat
 
-    let d =
-      match typeParam.Default with
-      | Some(d) -> $" = {printType ctx d}"
-      | None -> ""
+    if param.Optional then
+      sb.Append("?") |> ignore
 
-    $"{typeParam.Name.Name}{c}{d}"
+    sb.Append(": ") |> ignore
+    param.TypeAnn |> Option.iter (printTypeAnn ctx)
 
-  let printEntityName (name: TsEntityName) : string =
+  let printTsTypeParam (ctx: PrintCtx) (typeParam: TsTypeParam) : unit =
+    let sb = ctx.StringBuilder
+
+    sb.Append(typeParam.Name.Name) |> ignore
+
+    match typeParam.Constraint with
+    | Some(c) ->
+      sb.Append(" extends ") |> ignore
+      printType ctx c
+    | None -> ()
+
+    match typeParam.Default with
+    | Some(d) ->
+      sb.Append(" = ") |> ignore
+      printType ctx d
+    | None -> ()
+
+  let printEntityName (ctx: PrintCtx) (name: TsEntityName) : unit =
+    let sb = ctx.StringBuilder
+
     match name with
     | TsQualifiedName { Left = left; Right = right } ->
-      let left = printEntityName left
-      let right = right.Name
-      $"{left}.{right}"
-    | Identifier { Name = name } -> name
+      printEntityName ctx left
+      sb.Append(".").Append(right.Name) |> ignore
+    | Identifier { Name = name } -> sb.Append(name) |> ignore
 
-  let printPropName (ctx: PrintCtx) (name: PropName) : string =
+  let printPropName (ctx: PrintCtx) (name: PropName) : unit =
+    let sb = ctx.StringBuilder
+
     match name with
-    | PropName.Ident id -> id.Name
-    | PropName.Str { Value = value } -> $"\"{value}\""
-    | PropName.Num { Value = value } -> $"{value}"
-    | PropName.Computed { Expr = expr } -> $"[{printExpr ctx expr}]"
+    | PropName.Ident id -> sb.Append(id.Name) |> ignore
+    | PropName.Str { Value = value } -> sb.Append($"\"{value}\"") |> ignore
+    | PropName.Num { Value = value } -> sb.Append(value) |> ignore
+    | PropName.Computed { Expr = expr } ->
+      sb.Append("[") |> ignore
+      printExpr ctx expr
+      sb.Append("]") |> ignore

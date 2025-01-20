@@ -1,7 +1,7 @@
 var Foo = class {
-bar
-map(callback) {
-  return callback(self.bar);
-}
+  bar
+  map(callback) {
+    return callback(self.bar);
+  }
 };
 var foo = new Foo();

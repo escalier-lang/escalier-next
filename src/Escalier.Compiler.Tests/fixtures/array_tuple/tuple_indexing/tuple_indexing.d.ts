@@ -7,4 +7,4 @@ const second: "hello";
 // @escType - true
 const third: true;
 // @escType - undefined
-const fourth: null;
+const fourth: undefined;

@@ -1,10 +1,10 @@
 // @escType - number[]
 const array: number[];
 // @escType - number | undefined
-const first: number | null;
+const first: number | undefined;
 // @escType - number | undefined
-const second: number | null;
+const second: number | undefined;
 // @escType - number | undefined
-const third: number | null;
+const third: number | undefined;
 // @escType - number | undefined
-const fourth: number | null;
+const fourth: number | undefined;

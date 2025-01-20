@@ -2456,7 +2456,7 @@ module rec Codegen =
             Loc = None }
       | Literal.Undefined ->
         TsType.TsKeywordType
-          { Kind = TsKeywordTypeKind.TsNullKeyword
+          { Kind = TsKeywordTypeKind.TsUndefinedKeyword
             Loc = None }
     | TypeKind.Union types ->
       let types = types |> List.map (buildType ctx)
@@ -2591,9 +2591,9 @@ module rec Codegen =
       let key = typePropNameToPropName prop.Name
 
       TsTypeElement.TsPropertySignature
-        { Readonly = false
+        { Readonly = prop.Readonly
           Key = key
-          Optional = false
+          Optional = prop.Optional
           TypeAnn = buildTypeAnn ctx prop.Type
           Loc = None }
     | Method { Name = name; Fn = f } ->

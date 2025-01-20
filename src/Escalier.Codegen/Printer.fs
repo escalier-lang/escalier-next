@@ -457,14 +457,19 @@ module rec Printer =
       sb.Append(name) |> ignore
     | None -> ()
 
+    let oldIndent = String.replicate ctx.Indent " "
+    let ctx = { ctx with Indent = ctx.Indent + 2 }
+    let indent = String.replicate ctx.Indent " "
+
     // TODO: indent the body
     sb.Append("{\n") |> ignore
 
     for m in body do
+      sb.Append(indent) |> ignore
       printClassMember ctx m
       sb.Append("\n") |> ignore
 
-    sb.Append("}") |> ignore
+    sb.Append(oldIndent).Append("}") |> ignore
 
   let printClassMember (ctx: PrintCtx) (classMember: ClassMember) : unit =
     let sb = ctx.StringBuilder

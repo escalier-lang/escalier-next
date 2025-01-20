@@ -15,9 +15,9 @@ declare const foo: {
 };
 // @escType - {b?: {c: string}} | undefined
 declare const a: {
-  b: {
+  b?: {
     c: string;
   };
-} | null;
+} | undefined;
 // @escType - string | undefined
-const c: string | null;
+const c: string | undefined;

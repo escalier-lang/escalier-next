@@ -9,12 +9,15 @@ foo.bar = "baz";
 var c = a?.b?.c;
 
 --- output (dts) ---
+// @escType - {bar: string}
 declare const foo: {
   bar: string;
 };
+// @escType - {b?: {c: string}} | undefined
 declare const a: {
   b: {
     c: string;
   };
 } | null;
+// @escType - string | undefined
 const c: string | null;

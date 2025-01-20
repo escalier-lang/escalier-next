@@ -36,5 +36,7 @@ var result = temp0;
 
 --- output (dts) ---
 function parseJSON(input: string): unknown;
+// @escType - "{"x": 5, "y": 10}"
 const input: "{"x": 5, "y": 10}";
+// @escType - unknown | null
 const result: unknown | null;

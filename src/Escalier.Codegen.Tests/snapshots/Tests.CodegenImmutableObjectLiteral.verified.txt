@@ -6,6 +6,7 @@ import {Record} from "@bloomberg/record-tuple-polyfill"
 var object = Record({a: "hello", b: 5, c: true});
 
 --- output (dts) ---
+// @escType - #{a: "hello", b: 5, c: true}
 const object: {
   a: "hello";
   b: 5;

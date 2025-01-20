@@ -1,8 +1,8 @@
-var Foo = class  {
+var Foo = class {
 msg
 bar() {
   return self;
 }
 };
-var foo = Foo();
+var foo = new Foo();
 var bar = foo.bar();

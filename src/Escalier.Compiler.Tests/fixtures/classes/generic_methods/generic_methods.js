@@ -1,4 +1,4 @@
-var Foo = class  {
+var Foo = class {
 fst(a, b) {
   return a;
 }

@@ -5,4 +5,5 @@
 var tuple = ["hello", 5, true];
 
 --- output (dts) ---
+// @escType - ["hello", 5, true]
 const tuple: ["hello", 5, true];

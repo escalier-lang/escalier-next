@@ -7,4 +7,5 @@ var arr = [1, 2];
 arr[2] = arr[0] + arr[1];
 
 --- output (dts) ---
+// @escType - number[]
 const arr: number[];

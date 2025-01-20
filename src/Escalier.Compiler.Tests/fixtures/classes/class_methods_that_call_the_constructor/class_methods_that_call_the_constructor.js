@@ -1,8 +1,8 @@
-var Point = class  {
+var Point = class {
 x
 y
 makePoint() {
-  var p = Self();
+  var p = new Self();
   return p;
 }
 };

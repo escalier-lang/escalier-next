@@ -457,7 +457,8 @@ module rec Printer =
       sb.Append(name) |> ignore
     | None -> ()
 
-    sb.Append("{") |> ignore
+    // TODO: indent the body
+    sb.Append("{\n") |> ignore
 
     for m in body do
       printClassMember ctx m
@@ -785,6 +786,24 @@ module rec Printer =
 
     | Stmt.Decl decl ->
       let ctx = { ctx with Precedence = 0 }
+
+      let comments =
+        match decl with
+        | Decl.Fn { Comments = comments } -> comments
+        | Decl.Class _ -> []
+        | Decl.Var { Comments = comments } -> comments
+        | Decl.Using _ -> []
+        | Decl.TsInterface { Comments = comments } -> comments
+        | Decl.TsTypeAlias { Comments = comments } -> comments
+        | Decl.TsEnum { Comments = comments } -> comments
+        | Decl.TsModule _ -> []
+
+      for comment in comments do
+        match comment with
+        | LineComment { Text = text } ->
+          sb.Append(text) |> ignore
+          sb.Append("\n") |> ignore
+        | BlockComment _ -> failwith "TODO: printStmt - BlockComment"
 
       match decl with
       | Decl.Fn { Id = id

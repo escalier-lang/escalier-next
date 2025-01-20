@@ -1,4 +1,4 @@
-var Node = class  {
+var Node = class {
 value
 left
 right

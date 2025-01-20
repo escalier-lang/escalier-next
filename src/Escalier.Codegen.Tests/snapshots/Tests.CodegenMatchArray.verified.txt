@@ -36,4 +36,5 @@ var getCount = function (array) {
 };
 
 --- output (dts) ---
+// @escType - fn <T>(array: T[]) -> "none" | "one" | "a couple" | "many"
 const getCount: <T>(array: T[]) => "none" | "one" | "a couple" | "many";

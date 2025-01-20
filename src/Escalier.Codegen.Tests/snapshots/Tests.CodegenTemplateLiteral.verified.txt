@@ -11,7 +11,11 @@ var p = `(${x}, ${y})`;
 var escapes = `"hello"\n\r\t'world'`;
 
 --- output (dts) ---
+// @escType - 5
 const x: 5;
+// @escType - 10
 const y: 10;
+// @escType - string
 const p: string;
+// @escType - string
 const escapes: string;

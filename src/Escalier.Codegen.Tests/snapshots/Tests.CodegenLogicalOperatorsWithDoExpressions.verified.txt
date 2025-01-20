@@ -39,4 +39,5 @@ if (temp1) {
 var foo = temp0;
 
 --- output (dts) ---
+// @escType - boolean
 const foo: boolean;

@@ -1959,7 +1959,7 @@ module rec Codegen =
 
               let comment =
                 Comment.LineComment
-                  { Text = $"// @escType {{{t}}}"
+                  { Text = $"// @escType - {t}"
                     Loc = None }
 
               let decl =

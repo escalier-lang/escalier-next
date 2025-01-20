@@ -1,4 +1,4 @@
-var Point = class  {
+var Point = class {
 x
 y
 constructor(x, y) {
@@ -6,12 +6,12 @@ constructor(x, y) {
   self.y = y;
 }
 makePoint(x, y) {
-  return Self(x, y);
+  return new Self(x, y);
 }
 add(other) {
   return Self.makePoint((self.x + other.x), (self.y + other.y));
 }
 };
-var p1 = Point(1, 0);
-var p2 = Point(0, 1);
+var p1 = new Point(1, 0);
+var p2 = new Point(0, 1);
 var p3 = p1.add(p2);

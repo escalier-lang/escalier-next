@@ -7,4 +7,5 @@ var x = 5;
 x = 10;
 
 --- output (dts) ---
+// @escType - number
 const x: number;

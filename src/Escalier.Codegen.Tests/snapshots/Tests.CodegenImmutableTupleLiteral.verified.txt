@@ -6,4 +6,5 @@ import {Tuple} from "@bloomberg/record-tuple-polyfill"
 var tuple = Tuple(["hello", 5, true]);
 
 --- output (dts) ---
+// @escType - #["hello", 5, true]
 const tuple: ["hello", 5, true];

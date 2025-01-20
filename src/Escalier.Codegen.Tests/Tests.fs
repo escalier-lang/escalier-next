@@ -20,8 +20,6 @@ settings.DisableDiff()
 
 let projectRoot = __SOURCE_DIRECTORY__
 
-let printCtx: PrintCtx = { Indent = 0; Precedence = 0 }
-
 let parseAndCodegen (src: string) =
   asyncResult {
     let! ast = Parser.parseModule src |> Result.mapError CompileError.ParseError
@@ -37,20 +35,30 @@ let parseAndCodegen (src: string) =
         AutoImports = Set.empty }
 
     let jsMod = buildModule ctx ast
-    let js = printModule printCtx jsMod
+    let js = printModule jsMod
 
     let dtsMod = buildModuleTypes env ctx typeCtx ast false
-    let dts = printModule printCtx dtsMod
+    let dts = printModule dtsMod
 
     return js, dts
   }
 
+let printExpr (expr: Expr) =
+  let printCtx: PrintCtx =
+    { Indent = 0
+      Precedence = 0
+      StringBuilder = System.Text.StringBuilder() }
+
+  printExpr printCtx expr
+
+  printCtx.StringBuilder.ToString()
+
 [<Fact>]
 let CodegenIdent () =
   let ident: Ident = { Name = "foo"; Loc = None }
-  let code = printExpr printCtx (Expr.Ident ident)
+  let code = printExpr (Expr.Ident ident)
 
-  Assert.Equal("foo", code.ToString())
+  Assert.Equal("foo", code)
 
 [<Fact>]
 let CodegenLiteral () =
@@ -60,9 +68,9 @@ let CodegenLiteral () =
         Raw = None
         Loc = None }
 
-  let code = printExpr printCtx (Expr.Lit lit)
+  let code = printExpr (Expr.Lit lit)
 
-  Assert.Equal("1.23", code.ToString())
+  Assert.Equal("1.23", code)
 
 [<Fact>]
 let CodegenBinaryExpression () =
@@ -76,9 +84,9 @@ let CodegenBinaryExpression () =
         Right = Expr.Ident b
         Loc = None }
 
-  let code = printExpr printCtx sum
+  let code = printExpr sum
 
-  Assert.Equal("a + b", code.ToString())
+  Assert.Equal("a + b", code)
 
 [<Fact>]
 let CodegenUnaryExpression () =
@@ -91,9 +99,9 @@ let CodegenUnaryExpression () =
         Prefix = false
         Loc = None }
 
-  let code = printExpr printCtx sum
+  let code = printExpr sum
 
-  Assert.Equal("-a", code.ToString())
+  Assert.Equal("-a", code)
 
 [<Fact>]
 let CodegenExpressRequiresParens () =
@@ -133,9 +141,9 @@ let CodegenExpressRequiresParens () =
         Right = diff
         Loc = None }
 
-  let code = printExpr printCtx prod
+  let code = printExpr prod
 
-  Assert.Equal("(a + 1) * (b - 2)", code.ToString())
+  Assert.Equal("(a + 1) * (b - 2)", code)
 
 [<Fact>]
 let CodegenNoParensExpression () =
@@ -175,9 +183,9 @@ let CodegenNoParensExpression () =
         Right = quot
         Loc = None }
 
-  let code = printExpr printCtx sum
+  let code = printExpr sum
 
-  Assert.Equal("a * 1 + b / 2", code.ToString())
+  Assert.Equal("a * 1 + b / 2", code)
 
 [<Fact>]
 let CodegenTemplateLiteral () =
@@ -955,7 +963,7 @@ let CodegenDtsBasics () =
           AutoImports = Set.empty }
 
       let mod' = buildModuleTypes env ctx typeCtx escAst false
-      let dts = printModule printCtx mod'
+      let dts = printModule mod'
 
       return $"input: %s{src}\noutput:\n{dts}"
     }
@@ -996,7 +1004,7 @@ let CodegenDtsGeneric () =
           AutoImports = Set.empty }
 
       let mod' = buildModuleTypes env ctx typeCtx ast false
-      let dts = printModule printCtx mod'
+      let dts = printModule mod'
 
       return $"input: %s{src}\noutput:\n{dts}"
     }

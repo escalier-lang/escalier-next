@@ -1,10 +1,10 @@
-var Foo = class  {
-msg
-bar() {
-  return self.msg;
-}
-baz(msg) {
-  self.msg = msg;
-}
+var Foo = class {
+  msg
+  bar() {
+    return self.msg;
+  }
+  baz(msg) {
+    self.msg = msg;
+  }
 };
-var foo = Foo();
+var foo = new Foo();

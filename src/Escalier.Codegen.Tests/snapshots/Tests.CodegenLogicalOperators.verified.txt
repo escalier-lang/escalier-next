@@ -35,11 +35,19 @@ if (!x) {
 var bar = temp2;
 
 --- output (dts) ---
+// @escType - true
 const a: true;
+// @escType - false
 const b: false;
+// @escType - true
 const c: true;
+// @escType - true
 const x: true;
+// @escType - true
 const y: true;
+// @escType - false
 const z: false;
+// @escType - boolean
 const foo: boolean;
+// @escType - boolean
 const bar: boolean;

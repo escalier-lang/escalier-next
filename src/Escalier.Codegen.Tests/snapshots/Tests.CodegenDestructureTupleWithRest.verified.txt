@@ -7,6 +7,9 @@ var tuple = [5, "hello", true];
 var [foo, ...rest] = tuple;
 
 --- output (dts) ---
+// @escType - [5, "hello", true]
 const tuple: [5, "hello", true];
+// @escType - 5
 const foo: 5;
+// @escType - ["hello", true]
 const rest: ["hello", true];

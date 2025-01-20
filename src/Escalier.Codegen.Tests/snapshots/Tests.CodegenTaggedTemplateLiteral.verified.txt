@@ -19,5 +19,7 @@ var query = gql`query {
 
 --- output (dts) ---
 function gql(strings: string[], ...values: unknown[]): string;
+// @escType - "foo123"
 const id: "foo123";
+// @escType - string
 const query: string;

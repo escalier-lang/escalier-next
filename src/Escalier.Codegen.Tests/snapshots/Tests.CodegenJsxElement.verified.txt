@@ -10,4 +10,5 @@ var foo = _jsx("div", {id: "foo", class: "bar", children: [_jsx("p", {children: 
 
 --- output (dts) ---
 import * as React from "react"
+// @escType - React.ReactNode
 const foo: React.ReactNode;

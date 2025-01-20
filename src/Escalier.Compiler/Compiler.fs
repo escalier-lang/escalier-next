@@ -741,21 +741,24 @@ module Compiler =
 
         this.printDiagnostics textwriter ctx.Report.Diagnostics
 
-        let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
+        let printCtx: Printer.PrintCtx =
+          { Indent = 0
+            Precedence = 0
+            StringBuilder = System.Text.StringBuilder() }
 
         let buildCtx =
           { Codegen.NextTempId = 0
             Codegen.AutoImports = Set.empty }
 
         let mod' = Codegen.buildModule buildCtx ast
-        let js = Printer.printModule printCtx mod'
+        let js = Printer.printModule mod'
         let outJsName = Path.ChangeExtension(filename, ".js")
         do! fs.WriteAllTextAsync(outJsName, js)
 
         let expand = baseDir.Contains("/utility_types/")
 
         let mod' = Codegen.buildModuleTypes env buildCtx ctx ast expand
-        let dts = Printer.printModule printCtx mod'
+        let dts = Printer.printModule mod'
         let outDtsName = Path.ChangeExtension(filename, ".d.ts")
         do! fs.WriteAllTextAsync(outDtsName, dts)
 
@@ -785,8 +788,6 @@ module Compiler =
 
         this.printDiagnostics textwriter ctx.Report.Diagnostics
 
-        let printCtx: Printer.PrintCtx = { Indent = 0; Precedence = 0 }
-
         let mod' =
           Codegen.buildModuleTypes
             env
@@ -796,7 +797,7 @@ module Compiler =
             ast
             false
 
-        let dts = Printer.printModule printCtx mod'
+        let dts = Printer.printModule mod'
 
         let mod' =
           Codegen.buildModule
@@ -804,7 +805,7 @@ module Compiler =
               AutoImports = Set.empty }
             ast
 
-        let js = Printer.printModule printCtx mod'
+        let js = Printer.printModule mod'
 
         return (js, dts)
       }

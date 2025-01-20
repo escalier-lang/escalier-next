@@ -1,10 +1,10 @@
-var Foo = class  {
-msg
-constructor(msg) {
-  self.msg = self.bar();
-}
-bar() {
-  return self.msg;
-}
+var Foo = class {
+  msg
+  constructor(msg) {
+    self.msg = self.bar();
+  }
+  bar() {
+    return self.msg;
+  }
 };
-var foo = Foo("hello");
+var foo = new Foo("hello");

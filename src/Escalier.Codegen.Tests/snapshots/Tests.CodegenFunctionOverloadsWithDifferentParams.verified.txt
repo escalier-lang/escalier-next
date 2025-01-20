@@ -15,7 +15,7 @@ function add(__arg0__, __arg1__, __arg2__) {
   } else if (typeof __arg0__ == "string" && typeof __arg1__ == "string") {
     return __arg0__ + __arg1__;
   } else {
-    throw TypeError();
+    throw new TypeError();
   }
 }
 var sum = add(5, 10);
@@ -24,5 +24,7 @@ var msg = add("hello, ", "world");
 --- output (dts) ---
 function add(a: number, b: number, c: number): number;
 function add(x: string, y: string): string;
+// @escType - number & string
 const sum: number & string;
+// @escType - string
 const msg: string;

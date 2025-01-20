@@ -29,9 +29,15 @@ if (cond1) {
 var result = temp0;
 
 --- output (dts) ---
+// @escType - boolean
 const cond1: boolean;
+// @escType - boolean
 const cond2: boolean;
+// @escType - "bar"
 const bar: "bar";
+// @escType - "baz"
 const baz: "baz";
+// @escType - "foo"
 const foo: "foo";
+// @escType - "foo" | "bar" | "baz"
 const result: "foo" | "bar" | "baz";

@@ -7,11 +7,13 @@ var object = {foo: 5, bar: "hello", baz: true};
 var {foo, ...rest} = object;
 
 --- output (dts) ---
+// @escType - {foo: 5, bar: "hello", baz: true}
 const object: {
   foo: 5;
   bar: "hello";
   baz: true;
 };
+// @escType - {bar: "hello", baz: true}
 const rest: {
   bar: "hello";
   baz: true;

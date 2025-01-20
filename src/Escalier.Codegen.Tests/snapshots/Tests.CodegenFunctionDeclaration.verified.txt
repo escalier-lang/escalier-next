@@ -12,4 +12,5 @@ var sum = add(5, 10);
 
 --- output (dts) ---
 function add(a: number, b: number): number;
+// @escType - number
 const sum: number;

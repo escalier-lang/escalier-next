@@ -2,4 +2,5 @@
         let fst = fn<A, B>(a: A, b: B) -> A => a;
         
 output:
+// @escType - fn <A, B>(a: A, b: B) -> A
 const fst: <A, B>(a: A, b: B) => A;

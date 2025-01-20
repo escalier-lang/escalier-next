@@ -15,4 +15,5 @@ var temp0;
 var sum = temp0;
 
 --- output (dts) ---
+// @escType - number
 const sum: number;

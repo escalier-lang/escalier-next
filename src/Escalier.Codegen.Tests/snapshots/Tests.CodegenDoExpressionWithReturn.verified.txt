@@ -35,4 +35,5 @@ var foo = function (bar) {
 };
 
 --- output (dts) ---
+// @escType - fn (bar: number) -> "none" | "many" | null
 const foo: (bar: number) => "none" | "many" | null;

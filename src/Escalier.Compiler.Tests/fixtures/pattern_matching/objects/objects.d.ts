@@ -11,7 +11,9 @@ type Shape = {
   start: Point;
   end: Point;
 };
+// @escType - Shape
 declare const shape: Shape;
+// @escType - Point | {x: number, y: number}
 const centroid: Point | {
   x: number;
   y: number;

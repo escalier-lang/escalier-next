@@ -7,7 +7,11 @@ var tuple = ["hello", [5, true]];
 var [msg, [num, flag]] = tuple;
 
 --- output (dts) ---
+// @escType - ["hello", [5, true]]
 const tuple: ["hello", [5, true]];
+// @escType - true
 const flag: true;
+// @escType - "hello"
 const msg: "hello";
+// @escType - 5
 const num: 5;

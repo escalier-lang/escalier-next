@@ -1,4 +1,4 @@
-type MyPartial<T> = {[K in keyof T]+?: T[K]};
+type MyPartial<T> = {[K in keyof T]+?: T[K];
 type Exact = {
   msg: string;
   flag: boolean;

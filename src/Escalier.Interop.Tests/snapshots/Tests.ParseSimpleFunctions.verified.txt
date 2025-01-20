@@ -30,7 +30,9 @@ output: Success: { Body =
                   Some { TypeAnn = TsKeywordType { Kind = TsAnyKeyword
                                                    Loc = None }
                          Loc = None }
-                 Loc = None } }));
+                 Loc = None }
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (Fn
@@ -93,7 +95,9 @@ output: Success: { Body =
                                                                     Loc = None }
                                             TypeParams = None }
                       Loc = None }
-                 Loc = None } }));
+                 Loc = None }
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (Fn
@@ -120,6 +124,8 @@ output: Success: { Body =
                                                           Loc = None }]
                                 Loc = None } }
                       Loc = None }
-                 Loc = None } }))]
+                 Loc = None }
+              Loc = None
+              Comments = [] }))]
   Shebang = None
   Loc = None }

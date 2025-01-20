@@ -5,9 +5,11 @@
         
 --- output (js) ---
 var num = parseInt("123");
-var array = Array(1, 2, 3);
+var array = new Array(1, 2, 3);
 
 --- output (dts) ---
 function parseInt(input: string): number;
+// @escType - number
 const num: number;
+// @escType - _[]
 const array: any[];

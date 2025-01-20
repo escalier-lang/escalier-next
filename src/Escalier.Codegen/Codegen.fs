@@ -128,7 +128,9 @@ module rec Codegen =
                     Loc = None }
               TypeAnn = None
               Init = None } ]
-        Kind = VariableDeclarationKind.Var }
+        Kind = VariableDeclarationKind.Var
+        Loc = None
+        Comments = [] }
 
     tempDecl |> Decl.Var |> Stmt.Decl
 
@@ -389,14 +391,21 @@ module rec Codegen =
 
         (expr, stmts)
       | BlockOrExpr.Expr expr ->
-        let ps =
+        let ps: list<Param> =
           s.ParamList
-          |> List.map (fun p ->
+          |> List.map (fun (p: Syntax.FuncParam) ->
             let pat, _ = buildPattern ctx p.Pattern None
 
-            match pat with
-            | Some pat -> pat
-            | None -> failwith "Function parameter pattern must be irrefutable")
+            let pat =
+              match pat with
+              | Some pat -> pat
+              | None ->
+                failwith "Function parameter pattern must be irrefutable"
+
+            { Pat = pat
+              Optional = p.Optional
+              TypeAnn = None
+              Loc = None })
 
         let bodyExpr, bodyStmts = buildExpr ctx expr
 
@@ -675,7 +684,9 @@ module rec Codegen =
                 [ { Id = pattern
                     TypeAnn = None
                     Init = Some targetExpr } ]
-              Kind = VariableDeclarationKind.Var }
+              Kind = VariableDeclarationKind.Var
+              Loc = None
+              Comments = [] }
             |> Decl.Var
             |> Stmt.Decl
 
@@ -1178,7 +1189,9 @@ module rec Codegen =
         { Export = false
           Declare = false
           Id = { Name = decl.Name; Loc = None }
-          Fn = func }
+          Fn = func
+          Loc = None
+          Comments = [] }
 
       let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
 
@@ -1258,7 +1271,9 @@ module rec Codegen =
       { Export = fnDecl.Export
         Declare = false
         Id = { Name = fnDecl.Name; Loc = None }
-        Fn = func }
+        Fn = func
+        Loc = None
+        Comments = [] }
 
     Stmt.Decl(Decl.Fn fnDecl)
 
@@ -1398,7 +1413,9 @@ module rec Codegen =
         { Export = false
           Declare = false
           Id = { Name = decls[0].Name; Loc = None }
-          Fn = func }
+          Fn = func
+          Loc = None
+          Comments = [] }
 
       let funcDecl = Stmt.Decl(Decl.Fn fnDecl)
 
@@ -1467,7 +1484,9 @@ module rec Codegen =
                   [ { Id = pattern
                       TypeAnn = None
                       Init = Some initExpr } ]
-                Kind = VariableDeclarationKind.Var }
+                Kind = VariableDeclarationKind.Var
+                Loc = None
+                Comments = [] }
 
             let declStmt = Stmt.Decl(Decl.Var decl)
 
@@ -1523,7 +1542,9 @@ module rec Codegen =
               { Export = false
                 Declare = false
                 Decls = [ decl ]
-                Kind = VariableDeclarationKind.Const }
+                Kind = VariableDeclarationKind.Const
+                Loc = None
+                Comments = [] }
 
           let forStmt =
             TS.Stmt.ForOf
@@ -1874,7 +1895,8 @@ module rec Codegen =
                       Id = { Name = name; Loc = None }
                       TypeParams = typeParams
                       TypeAnn = buildType ctx t
-                      Loc = None }
+                      Loc = None
+                      Comments = [] }
 
                 let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
@@ -1890,7 +1912,8 @@ module rec Codegen =
                         Id = { Name = name; Loc = None }
                         TypeParams = typeParams
                         TypeAnn = buildType ctx typeAnn
-                        Loc = None }
+                        Loc = None
+                        Comments = [] }
 
                   let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
@@ -1906,7 +1929,8 @@ module rec Codegen =
                       Id = { Name = name; Loc = None }
                       TypeParams = typeParams
                       TypeAnn = buildType ctx typeAnn
-                      Loc = None }
+                      Loc = None
+                      Comments = [] }
 
                 let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
@@ -1933,12 +1957,19 @@ module rec Codegen =
                   TypeAnn = Some(buildTypeAnn ctx t)
                   Init = None }
 
+              let comment =
+                Comment.LineComment
+                  { Text = $"// @escType - {t}"
+                    Loc = None }
+
               let decl =
                 TS.Decl.Var
                   { Export = export
                     Declare = declare
                     Decls = [ decl ]
-                    Kind = VariableDeclarationKind.Const }
+                    Kind = VariableDeclarationKind.Const
+                    Loc = None
+                    Comments = [ comment ] }
 
               let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
@@ -1978,7 +2009,8 @@ module rec Codegen =
                   TypeParams = buildTypeParams ctx decl.TypeParams
                   Extends = None // TODO: extends
                   Body = { Body = []; Loc = None }
-                  Loc = None }
+                  Loc = None
+                  Comments = [] }
 
             let stmt = TS.Stmt.Decl decl
             items <- (TS.ModuleItem.Stmt stmt) :: items
@@ -2424,7 +2456,7 @@ module rec Codegen =
             Loc = None }
       | Literal.Undefined ->
         TsType.TsKeywordType
-          { Kind = TsKeywordTypeKind.TsNullKeyword
+          { Kind = TsKeywordTypeKind.TsUndefinedKeyword
             Loc = None }
     | TypeKind.Union types ->
       let types = types |> List.map (buildType ctx)
@@ -2559,9 +2591,9 @@ module rec Codegen =
       let key = typePropNameToPropName prop.Name
 
       TsTypeElement.TsPropertySignature
-        { Readonly = false
+        { Readonly = prop.Readonly
           Key = key
-          Optional = false
+          Optional = prop.Optional
           TypeAnn = buildTypeAnn ctx prop.Type
           Loc = None }
     | Method { Name = name; Fn = f } ->

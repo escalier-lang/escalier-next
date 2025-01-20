@@ -808,7 +808,8 @@ module Parser =
           TypeParams = typeParams
           Extends = extends
           Body = body
-          Loc = None }
+          Loc = None
+          Comments = [] }
         |> Decl.TsInterface
 
   let param: Parser<Param, unit> =
@@ -842,7 +843,9 @@ module Parser =
         { Export = export
           Declare = declare
           Id = id
-          Fn = fn }
+          Fn = fn
+          Loc = None
+          Comments = [] }
         |> Decl.Fn
 
   let enumIdent: Parser<TsEnumMemberId, unit> =
@@ -864,7 +867,8 @@ module Parser =
           IsConst = isConst.IsSome
           Id = ident
           Members = members
-          Loc = None }
+          Loc = None
+          Comments = [] }
         |> Decl.TsEnum
 
   let constructor: Parser<option<Accessibility> -> ClassMember, unit> =
@@ -1048,7 +1052,8 @@ module Parser =
           Id = id
           TypeParams = typeParams
           TypeAnn = typeAnn
-          Loc = None }
+          Loc = None
+          Comments = [] }
         |> Decl.TsTypeAlias
 
   let varDeclKind: Parser<VariableDeclarationKind, unit> =
@@ -1071,7 +1076,9 @@ module Parser =
         { Export = export
           Declare = declare
           Decls = declarators
-          Kind = kind }
+          Kind = kind
+          Loc = None
+          Comments = [] }
         |> Decl.Var
 
   let moduleBlock: Parser<TsNamespaceBody, unit> =

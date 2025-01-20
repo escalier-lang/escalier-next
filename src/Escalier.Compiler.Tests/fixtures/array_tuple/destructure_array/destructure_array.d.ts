@@ -1,3 +1,6 @@
+// @escType - number[]
 declare const array: number[];
-const a: number | null;
-const b: number | null;
+// @escType - number | undefined
+const a: number | undefined;
+// @escType - number | undefined
+const b: number | undefined;

@@ -1,5 +1,6 @@
 type Props = {
   id: string;
-  onClick: (event: MouseEvent) => null;
+  onClick: (event: MouseEvent) => undefined;
 };
+// @escType - Props
 const props: Props;

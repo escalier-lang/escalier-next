@@ -23,7 +23,9 @@ output: Success: { Body =
                                     TypeParams = None }
                        Loc = None }
                   Init = None }]
-              Kind = Var }));
+              Kind = Var
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (Var
@@ -46,7 +48,9 @@ output: Success: { Body =
                             TypeParams = None }
                        Loc = None }
                   Init = None }]
-              Kind = Var }));
+              Kind = Var
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (Var
@@ -61,7 +65,9 @@ output: Success: { Body =
                                                     Loc = None }
                           Loc = None }
                   Init = None }]
-              Kind = Var }));
+              Kind = Var
+              Loc = None
+              Comments = [] }));
     Stmt
       (Decl
          (Var
@@ -84,6 +90,8 @@ output: Success: { Body =
                                Loc = None })
                        Loc = None }
                   Init = None }]
-              Kind = Var }))]
+              Kind = Var
+              Loc = None
+              Comments = [] }))]
   Shebang = None
   Loc = None }

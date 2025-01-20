@@ -11,4 +11,5 @@ var fetchJSON = async function (url) {
 };
 
 --- output (dts) ---
+// @escType - fn (url: string) -> Promise<_>
 const fetchJSON: (url: string) => Promise<any>;

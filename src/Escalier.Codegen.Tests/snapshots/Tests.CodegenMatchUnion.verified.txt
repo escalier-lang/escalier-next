@@ -39,4 +39,5 @@ type Shape = {
   width: number;
   height: number;
 };
+// @escType - fn (shape: Shape) -> number
 const getCount: (shape: Shape) => number;

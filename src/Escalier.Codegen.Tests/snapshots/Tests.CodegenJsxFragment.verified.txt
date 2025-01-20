@@ -11,4 +11,5 @@ var foo = _jsxs(_Fragment, {children: [_jsx("p", {children: ["hello"]}), _jsx("p
 
 --- output (dts) ---
 import * as React from "react"
+// @escType - React.ReactNode
 const foo: React.ReactNode;

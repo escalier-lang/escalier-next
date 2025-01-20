@@ -13,7 +13,17 @@ module rec TypeScript =
     member this.Start = s
     member this.End = e
 
-  let loc: SourceLocation = SourceLocation(Position(0, 0), Position(0, 0), None)
+  type BlockComment =
+    { Text: string
+      Loc: option<SourceLocation> }
+
+  type LineComment =
+    { Text: string
+      Loc: option<SourceLocation> }
+
+  type Comment =
+    | BlockComment of BlockComment
+    | LineComment of LineComment
 
   type Node =
     abstract member Loc: option<SourceLocation>
@@ -232,7 +242,9 @@ module rec TypeScript =
     { Export: bool
       Declare: bool
       Id: Ident
-      Fn: Function }
+      Fn: Function
+      Loc: option<SourceLocation>
+      Comments: list<Comment> }
 
   type VariableDeclarationKind =
     | Var
@@ -243,7 +255,9 @@ module rec TypeScript =
     { Export: bool
       Declare: bool
       Decls: list<VarDeclarator>
-      Kind: VariableDeclarationKind }
+      Kind: VariableDeclarationKind
+      Loc: option<SourceLocation>
+      Comments: list<Comment> }
 
   type VarDeclarator =
     { Id: Pat
@@ -262,7 +276,8 @@ module rec TypeScript =
       TypeParams: option<TsTypeParamDecl>
       Extends: option<list<TsTypeRef>>
       Body: TsInterfaceBody
-      Loc: option<SourceLocation> }
+      Loc: option<SourceLocation>
+      Comments: list<Comment> }
 
   type TsInterfaceBody =
     { Body: list<TsTypeElement>
@@ -274,7 +289,8 @@ module rec TypeScript =
       Id: Ident
       TypeParams: option<TsTypeParamDecl>
       TypeAnn: TsType
-      Loc: option<SourceLocation> }
+      Loc: option<SourceLocation>
+      Comments: list<Comment> }
 
   type TsEnumDecl =
     { Export: bool
@@ -282,7 +298,8 @@ module rec TypeScript =
       IsConst: bool
       Id: Ident
       Members: list<TsEnumMember>
-      Loc: option<SourceLocation> }
+      Loc: option<SourceLocation>
+      Comments: list<Comment> }
 
   type TsEnumMember =
     { Id: TsEnumMemberId
@@ -325,7 +342,8 @@ module rec TypeScript =
       Declare: bool
       Global: bool
       Id: Ident
-      Body: TsNamespaceBody }
+      Body: TsNamespaceBody
+      Comments: list<Comment> }
 
   [<RequireQualifiedAccess>]
   type ModuleItem =
@@ -521,7 +539,8 @@ module rec TypeScript =
   type FnExpr = { Id: option<Ident>; Fn: Function }
 
   // TODO: also allow blocks bodies
-  type ArrowExpr = { Params: list<Pat>; Body: BlockStmt }
+  type ArrowExpr =
+    { Params: list<Param>; Body: BlockStmt }
 
   type UnaryOperator =
     | Minus

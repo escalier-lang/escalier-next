@@ -1,7 +1,7 @@
-var Foo = class  {
-msg
-constructor(msg) {
-  self.msg = msg;
-}
+var Foo = class {
+  msg
+  constructor(msg) {
+    self.msg = msg;
+  }
 };
-var foo = Foo("hello");
+var foo = new Foo("hello");

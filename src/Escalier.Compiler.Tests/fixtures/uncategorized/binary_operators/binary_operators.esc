@@ -1,0 +1,5 @@
+let a = 5 + 10;
+let b = "Hello, " ++ "world!";
+let c = 5 < 10;
+let d = 5 == 10;
+let e = true || false;

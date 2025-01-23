@@ -1,0 +1,7 @@
+let makePoint = fn (x: number, y: number) {
+  type Point = {x: number, y: number};
+  let point: Point = {x, y};
+  return point;
+};
+let p = makePoint(5, 10);
+let {x, y} = p;

@@ -1,0 +1,2 @@
+type Bar = number;
+let x: Bar = 5;

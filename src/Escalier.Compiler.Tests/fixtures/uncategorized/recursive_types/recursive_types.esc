@@ -1,0 +1,4 @@
+type Foo = number | Foo[];
+let x: Foo = 5;
+let y: Foo = [5, 10];
+let z: Foo = [5, [10, 15]];

@@ -1,0 +1,7 @@
+type Obj = {
+  get foo() -> string,
+  set bar(value: number),
+};
+declare let mut obj: Obj;
+obj.bar = 5;
+obj.foo = "hello";

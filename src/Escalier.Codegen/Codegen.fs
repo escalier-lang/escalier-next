@@ -1535,7 +1535,9 @@ module rec Codegen =
             | None -> []
           | ClassDecl _ -> failwith "TODO: buildBlock - ClassDecl"
           | EnumDecl _ -> failwith "TODO: buildBlock - EnumDecl"
-          | NamespaceDecl _ -> failwith "TODO: buildBlock - NamespaceDecl"
+          | NamespaceDecl _ ->
+            // TODO(#404): Codegen Namespaces
+            failwith "TODO: buildBlock - NamespaceDecl"
           | InterfaceDecl _ -> [] // Ignore types when generating JS code
         | StmtKind.Return expr ->
           match expr with

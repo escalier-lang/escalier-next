@@ -1,0 +1,15 @@
+type MyNode = {
+  value: number,
+  left?: MyNode,
+  right?: MyNode
+};
+
+let node: MyNode = {
+  value: 5,
+  left: {
+    value: 10
+  },
+  right: {
+    value: 15
+  }
+};

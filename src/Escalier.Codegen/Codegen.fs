@@ -1916,8 +1916,19 @@ module rec Codegen =
               // NOTE: There's no need for a mapping between from type arg to
               // type param because they have the same name in this situation:
               // type MyPoint<T> = Point<T> -> type MyPoint<T> = { x: T, y: T }
-              match expandScheme typeCtx env None scheme Map.empty None with
-              | Ok t ->
+              let comments =
+                match expandScheme typeCtx env None scheme Map.empty None with
+                | Ok t ->
+                  if t.ToString() <> scheme.Type.ToString() then
+                    [ Comment.LineComment
+                        { Text = $"// expansion - {t}"
+                          Loc = None } ]
+                  else
+                    []
+                | Error _ -> []
+
+              match typeAnn.InferredType with
+              | Some t ->
                 let decl =
                   TS.Decl.TsTypeAlias
                     { Export = export
@@ -1926,39 +1937,22 @@ module rec Codegen =
                       TypeParams = typeParams
                       TypeAnn = buildType ctx t
                       Loc = None
-                      Comments = [] }
+                      Comments = comments }
 
                 let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
 
                 items <- item :: items
-              | Error _ ->
-                // If we failed to expand the scheme, return the inferred type
-                match typeAnn.InferredType with
-                | Some(typeAnn) ->
-                  let decl =
-                    TS.Decl.TsTypeAlias
-                      { Export = export
-                        Declare = declare
-                        Id = { Name = name; Loc = None }
-                        TypeParams = typeParams
-                        TypeAnn = buildType ctx typeAnn
-                        Loc = None
-                        Comments = [] }
-
-                  let item = TS.ModuleItem.Stmt(Stmt.Decl decl)
-
-                  items <- item :: items
-                | None -> ()
+              | None -> ()
             else
               match typeAnn.InferredType with
-              | Some(typeAnn) ->
+              | Some t ->
                 let decl =
                   TS.Decl.TsTypeAlias
                     { Export = export
                       Declare = declare
                       Id = { Name = name; Loc = None }
                       TypeParams = typeParams
-                      TypeAnn = buildType ctx typeAnn
+                      TypeAnn = buildType ctx t
                       Loc = None
                       Comments = [] }
 
@@ -2549,7 +2543,25 @@ module rec Codegen =
           Op = TsTypeOperatorOp.Unique
           Loc = None }
     | TypeKind.Typeof _ -> failwith "TODO: buildType - Typeof"
-    | TypeKind.TemplateLiteral _ -> failwith "TODO: buildType - TemplateLiteral"
+    | TypeKind.TemplateLiteral { Parts = quasis; Exprs = types } ->
+
+      let quasis =
+        quasis
+        |> List.mapi (fun i quasi ->
+          { Tail = i = quasis.Length - 1
+            Cooked = None
+            Raw = quasi
+            Loc = None })
+
+      let types = types |> List.map (buildType ctx)
+
+      TsType.TsLitType
+        { Lit =
+            TsLit.Tpl
+              { Types = types
+                Quasis = quasis
+                Loc = None }
+          Loc = None }
     | TypeKind.Intrinsic -> failwith "TODO: buildType - Intrinsic"
     | TypeKind.IntrinsicInstance _ ->
       failwith "TODO: buildType - IntrinsicInstance"

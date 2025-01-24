@@ -1293,7 +1293,16 @@ module rec Printer =
           sb.Append("false") |> ignore
       | Number { Value = value } -> sb.Append(value) |> ignore
       | Str { Value = value } -> sb.Append($"\"{value}\"") |> ignore
-      | Tpl _ -> failwith "TODO: printType - TsLitType - Tpl"
+      | Tpl { Types = types; Quasis = quasis } ->
+        sb.Append("`") |> ignore
+
+        for quasi, t in List.zip (List.take types.Length quasis) types do
+          sb.Append(quasi.Raw) |> ignore
+          sb.Append("${") |> ignore
+          printType ctx t
+          sb.Append("}") |> ignore
+
+        sb.Append(quasis[quasis.Length - 1].Raw).Append("`") |> ignore
     | TsType.TsTypePredicate _ -> failwith "TODO: printType - TsTypePredicate"
     | TsType.TsImportType _ -> failwith "TODO: printType - TsImportType"
 

@@ -1000,6 +1000,8 @@ let KebabTemplateLiteralType () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("`-${T}-${U}-`", t.ToString())
+
+      Assert.Empty(ctx.Report.Diagnostics)
     }
 
   printfn "result = %A" result

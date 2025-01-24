@@ -4,7 +4,5 @@ type Foo = {
   b: string;
   c: boolean;
 };
-type Bar = {
-  a: number;
-  c: boolean;
-};
+// expansion - {a: number, c: boolean}
+type Bar = Pick<Foo, "a" | "c">;

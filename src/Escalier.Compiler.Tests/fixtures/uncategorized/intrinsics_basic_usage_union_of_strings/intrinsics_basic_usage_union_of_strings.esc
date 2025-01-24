@@ -1,0 +1,4 @@
+type A = "HeLlo" | "wOrLd";
+type B = Uppercase<A>;
+let x: B = "HELLO";
+let y: B = "WORLD";

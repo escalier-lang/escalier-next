@@ -792,7 +792,6 @@ module rec Printer =
     | Stmt.Decl decl ->
       let ctx = { ctx with Precedence = 0 }
 
-      // TODO: move this into each decl type below
       let comments =
         match decl with
         | Decl.Fn { Comments = comments } -> comments
@@ -840,7 +839,6 @@ module rec Printer =
       | Decl.Class _ -> failwith "TODO: printStmt - Class"
       | Decl.Using _ -> failwith "TODO: printStmt - Using"
       | Decl.TsInterface decl ->
-        // TODO: print comments
         if decl.Export then
           sb.Append("export ") |> ignore
 

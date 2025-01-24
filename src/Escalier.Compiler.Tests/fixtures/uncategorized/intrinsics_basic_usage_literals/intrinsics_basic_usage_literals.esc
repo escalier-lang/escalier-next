@@ -1,0 +1,5 @@
+type A = Uppercase<"HeLlo">;
+let a: A = "HELLO";
+let b: Lowercase<"HeLlo"> = "hello";
+let c: Capitalize<"HeLlo"> = "Hello";
+let d: Uncapitalize<"HeLlo"> = "hELLO";

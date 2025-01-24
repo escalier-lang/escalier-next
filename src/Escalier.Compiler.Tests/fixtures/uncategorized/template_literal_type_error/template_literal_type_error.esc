@@ -1,0 +1,2 @@
+type Foo = `foo${number}`;
+let x: Foo = "foo123abc";

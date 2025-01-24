@@ -1,0 +1,2 @@
+type Dir = `${"top" | "bottom"}-${"left" | "right"}`;
+let x: Dir = "top-right";

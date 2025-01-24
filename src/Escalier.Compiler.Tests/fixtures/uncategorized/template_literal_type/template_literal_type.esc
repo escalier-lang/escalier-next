@@ -1,0 +1,7 @@
+type Foo = `foo${number}`;
+let x: Foo = "foo123";
+type Bar = `A${string}B`;
+let y: Bar = "A1B";
+type Baz = `A${string}B${string}C`;
+let z: Baz = "A1B2C";
+let w: Baz = "ABCBC";

@@ -1,5 +1,5 @@
 var temp0;
-if (point != null && typeof point == "object" && "x" in point && "y" in point) {
+if (typeof point == "object" && "x" in point && "y" in point) {
   var {x, y} = point;
   temp0 = x + y;
 } else {

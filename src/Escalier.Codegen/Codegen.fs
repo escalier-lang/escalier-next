@@ -663,16 +663,17 @@ module rec Codegen =
 
       let mutable checkExprs = checks |> List.map (buildPatternCheck ctx)
 
-      // if-let's main use case is unwrapping `T | null` or `T | undefined`
-      // JS treats `x != null` the same as `x !== null && x !== undefined`
-      let notNullCheck =
-        Expr.Bin
-          { Operator = BinOp.NotEq
-            Left = targetExpr
-            Right = Expr.Lit(Lit.Null { Loc = None })
-            Loc = None }
+      if checkExprs.IsEmpty then
+        // if-let's main use case is unwrapping `T | null` or `T | undefined`
+        // JS treats `x != null` the same as `x !== null && x !== undefined`
+        let notNullCheck =
+          Expr.Bin
+            { Operator = BinOp.NotEq
+              Left = targetExpr
+              Right = Expr.Lit(Lit.Null { Loc = None })
+              Loc = None }
 
-      checkExprs <- notNullCheck :: checkExprs
+        checkExprs <- notNullCheck :: checkExprs
 
       let conditionExpr =
         checkExprs
@@ -889,7 +890,7 @@ module rec Codegen =
             Raw = None
             Loc = None }
       | Syntax.PropName.Computed expr ->
-        failwith "TODO: Computed property names"
+        failwith "TODO: propNameToPropName - Computed property names"
 
     key
 
@@ -903,7 +904,8 @@ module rec Codegen =
           { Value = value
             Raw = None
             Loc = None }
-      | PropName.Symbol symbol -> failwith "TODO: Computed property names"
+      | PropName.Symbol symbol ->
+        failwith "TODO: typePropNameToPropName - Computed property names"
 
     key
 
@@ -2371,80 +2373,7 @@ module rec Codegen =
           TypeAnn = buildTypeAnn ctx f.Return
           Loc = None }
       |> TsType.TsFnOrConstructorType
-    | TypeKind.Object { Elems = elems } ->
-      let _, nonMappedElems =
-        elems
-        |> List.partition (fun elem ->
-          match elem with
-          | ObjTypeElem.Mapped _ -> true
-          | _ -> false)
-
-      let mappedElems =
-        elems
-        |> List.choose (fun elem ->
-          match elem with
-          | ObjTypeElem.Mapped mapped -> Some mapped
-          | _ -> None)
-
-      let mappedTypes =
-        mappedElems
-        |> List.map
-          (fun
-               { NameType = nameType
-                 TypeAnn = typeAnn
-                 TypeParam = typeParam
-                 Readonly = readonly
-                 Optional = optional } ->
-            let nameType = nameType |> Option.map (buildType ctx)
-            let typeAnn = buildType ctx typeAnn
-
-            // TODO: extract this into a function
-            let typeParam =
-              { Name = { Name = typeParam.Name; Loc = None }
-                IsIn = false
-                IsOut = false
-                IsConst = false
-                Constraint = buildType ctx typeParam.Constraint |> Some
-                Default = None
-                Loc = None }
-
-            let readonly =
-              readonly
-              |> Option.map (fun value ->
-                match value with
-                | MappedModifier.Add -> TruePlusMinus.Plus
-                | MappedModifier.Remove -> TruePlusMinus.Minus)
-
-            let optional =
-              optional
-              |> Option.map (fun value ->
-                match value with
-                | MappedModifier.Add -> TruePlusMinus.Plus
-                | MappedModifier.Remove -> TruePlusMinus.Minus)
-
-            TsType.TsMappedType
-              { Readonly = readonly
-                Optional = optional
-                TypeParam = typeParam
-                NameType = nameType
-                TypeAnn = typeAnn
-                Loc = None })
-
-      let members = nonMappedElems |> List.map (buildObjTypeElem ctx)
-      let objType = TsType.TsTypeLit { Members = members; Loc = None }
-
-      if mappedTypes.IsEmpty then
-        objType
-      else
-        let types =
-          if nonMappedElems.IsEmpty then
-            mappedTypes
-          else
-            objType :: mappedTypes
-
-        TsType.TsUnionOrIntersectionType(
-          TsIntersectionType { Types = types; Loc = None }
-        )
+    | TypeKind.Object objType -> buildObjType ctx objType
     | TypeKind.RestSpread rest ->
       TsType.TsRestType
         { TypeAnn = buildType ctx rest
@@ -2577,100 +2506,170 @@ module rec Codegen =
     | TypeKind.IntrinsicInstance _ ->
       failwith "TODO: buildType - IntrinsicInstance"
 
-  let buildObjTypeElem (ctx: Ctx) (elem: ObjTypeElem) : TsTypeElement =
-    match elem with
-    | Callable callable -> failwith "TODO: buildObjTypeElem - Callable"
-    | Constructor ctor ->
-      let ps: list<TsFnParam> =
-        ctor.ParamList
-        |> List.map (fun p ->
-          let t = buildTypeAnn ctx p.Type
-          let pat = funcParamPatternToPat ctx p.Pattern
+  let buildObjType (ctx: Ctx) (objType: Type.Object) : TsType =
+    let mutable types = []
+    let mutable elems = []
 
-          { Pat = pat
-            TypeAnn = Some(t)
-            Optional = p.Optional
-            Loc = None })
+    for elem in objType.Elems do
+      match elem with
+      | ObjTypeElem.Mapped { NameType = nameType
+                             TypeAnn = typeAnn
+                             TypeParam = typeParam
+                             Readonly = readonly
+                             Optional = optional } ->
 
-      let typeParams: option<TsTypeParamDecl> =
-        ctor.TypeParams
-        |> Option.map (fun typeParams ->
-          { Params =
-              typeParams
-              |> List.map
-                (fun
-                     { Name = name
-                       Constraint = c
-                       Default = d } ->
-                  { Name = { Name = name; Loc = None }
-                    IsIn = false
-                    IsOut = false
-                    IsConst = false
-                    Constraint = Option.map (buildType ctx) c
-                    Default = Option.map (buildType ctx) d
-                    Loc = None })
-            Loc = None })
+        let nameType = nameType |> Option.map (buildType ctx)
+        let typeAnn = buildType ctx typeAnn
 
-      TsTypeElement.TsConstructSignatureDecl
-        { Params = ps
-          TypeAnn = Some(buildTypeAnn ctx ctor.Return)
-          TypeParams = typeParams
-          Loc = None }
-    | Property prop ->
-      let key = typePropNameToPropName prop.Name
+        // TODO: extract this into a function
+        let typeParam =
+          { Name = { Name = typeParam.Name; Loc = None }
+            IsIn = false
+            IsOut = false
+            IsConst = false
+            Constraint = buildType ctx typeParam.Constraint |> Some
+            Default = None
+            Loc = None }
 
-      TsTypeElement.TsPropertySignature
-        { Readonly = prop.Readonly
-          Key = key
-          Optional = prop.Optional
-          TypeAnn = buildTypeAnn ctx prop.Type
-          Loc = None }
-    | Method { Name = name; Fn = f } ->
-      let key = typePropNameToPropName name
+        let readonly =
+          readonly
+          |> Option.map (fun value ->
+            match value with
+            | MappedModifier.Add -> TruePlusMinus.Plus
+            | MappedModifier.Remove -> TruePlusMinus.Minus)
 
-      let ps: list<TsFnParam> =
-        f.ParamList
-        |> List.map (fun p ->
-          let t = buildTypeAnn ctx p.Type
-          let pat = funcParamPatternToPat ctx p.Pattern
+        let optional =
+          optional
+          |> Option.map (fun value ->
+            match value with
+            | MappedModifier.Add -> TruePlusMinus.Plus
+            | MappedModifier.Remove -> TruePlusMinus.Minus)
 
-          { Pat = pat
-            TypeAnn = Some(t)
-            Optional = p.Optional
-            Loc = None })
+        let t =
+          TsType.TsMappedType
+            { Readonly = readonly
+              Optional = optional
+              TypeParam = typeParam
+              NameType = nameType
+              TypeAnn = typeAnn
+              Loc = None }
 
-      let typeParams: option<TsTypeParamDecl> =
-        f.TypeParams
-        |> Option.map (fun typeParams ->
-          { Params =
-              typeParams
-              |> List.map
-                (fun
-                     { Name = name
-                       Constraint = c
-                       Default = d } ->
-                  { Name = { Name = name; Loc = None }
-                    IsIn = false
-                    IsOut = false
-                    IsConst = false
-                    Constraint = Option.map (buildType ctx) c
-                    Default = Option.map (buildType ctx) d
-                    Loc = None })
-            Loc = None })
+        types <- t :: types
+      | Callable callable -> failwith "TODO: buildObjTypeElem - Callable"
+      | Constructor ctor ->
+        let ps: list<TsFnParam> =
+          ctor.ParamList
+          |> List.map (fun p ->
+            let t = buildTypeAnn ctx p.Type
+            let pat = funcParamPatternToPat ctx p.Pattern
 
-      TsTypeElement.TsMethodSignature
-        { Key = key
-          Optional = false
-          Params = ps
-          TypeAnn = Some(buildTypeAnn ctx f.Return)
-          TypeParams = typeParams
-          Loc = None }
-    | Getter { Name = name; Fn = fn } ->
-      failwith "TODO: buildObjTypeElem - Getter"
-    | Setter { Name = name; Fn = fn } ->
-      failwith "TODO: buildObjTypeElem - Setter"
-    | Mapped mapped -> failwith "TODO: buildObjTypeElem - Mapped"
-    | RestSpread t -> failwith "TODO: buildObjTypeElem - Rest"
+            { Pat = pat
+              TypeAnn = Some(t)
+              Optional = p.Optional
+              Loc = None })
+
+        let typeParams: option<TsTypeParamDecl> =
+          ctor.TypeParams
+          |> Option.map (fun typeParams ->
+            { Params =
+                typeParams
+                |> List.map
+                  (fun
+                       { Name = name
+                         Constraint = c
+                         Default = d } ->
+                    { Name = { Name = name; Loc = None }
+                      IsIn = false
+                      IsOut = false
+                      IsConst = false
+                      Constraint = Option.map (buildType ctx) c
+                      Default = Option.map (buildType ctx) d
+                      Loc = None })
+              Loc = None })
+
+        let elem =
+          TsTypeElement.TsConstructSignatureDecl
+            { Params = ps
+              TypeAnn = Some(buildTypeAnn ctx ctor.Return)
+              TypeParams = typeParams
+              Loc = None }
+
+        elems <- elem :: elems
+      | Property prop ->
+        let key = typePropNameToPropName prop.Name
+
+        let elem =
+          TsTypeElement.TsPropertySignature
+            { Readonly = prop.Readonly
+              Key = key
+              Optional = prop.Optional
+              TypeAnn = buildTypeAnn ctx prop.Type
+              Loc = None }
+
+        elems <- elem :: elems
+      | Method { Name = name; Fn = f } ->
+        let key = typePropNameToPropName name
+
+        let ps: list<TsFnParam> =
+          f.ParamList
+          |> List.map (fun p ->
+            let t = buildTypeAnn ctx p.Type
+            let pat = funcParamPatternToPat ctx p.Pattern
+
+            { Pat = pat
+              TypeAnn = Some(t)
+              Optional = p.Optional
+              Loc = None })
+
+        let typeParams: option<TsTypeParamDecl> =
+          f.TypeParams
+          |> Option.map (fun typeParams ->
+            { Params =
+                typeParams
+                |> List.map
+                  (fun
+                       { Name = name
+                         Constraint = c
+                         Default = d } ->
+                    { Name = { Name = name; Loc = None }
+                      IsIn = false
+                      IsOut = false
+                      IsConst = false
+                      Constraint = Option.map (buildType ctx) c
+                      Default = Option.map (buildType ctx) d
+                      Loc = None })
+              Loc = None })
+
+        let elem =
+          TsTypeElement.TsMethodSignature
+            { Key = key
+              Optional = false
+              Params = ps
+              TypeAnn = Some(buildTypeAnn ctx f.Return)
+              TypeParams = typeParams
+              Loc = None }
+
+        elems <- elem :: elems
+      | Getter { Name = name; Fn = fn } ->
+        failwith "TODO: buildObjTypeElem - Getter"
+      | Setter { Name = name; Fn = fn } ->
+        failwith "TODO: buildObjTypeElem - Setter"
+      | RestSpread t -> types <- buildType ctx t :: types
+
+    let members = List.rev elems
+    let objType = TsType.TsTypeLit { Members = members; Loc = None }
+
+    if types.IsEmpty then
+      objType
+    else
+      let types = if elems.IsEmpty then types else objType :: types
+
+      // This isn't always correct because spread types can override properties,
+      // but TypeScript doesn't have spread types.  In the future we'll want to
+      // figure out a better solution to this.
+      TsType.TsUnionOrIntersectionType(
+        TsIntersectionType { Types = List.rev types; Loc = None }
+      )
 
   type Binding = Type * bool
   type BindingAssump = Map<string, Binding>

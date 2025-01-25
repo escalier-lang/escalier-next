@@ -1,0 +1,3 @@
+type Foo = {[P]: number for P in "a" | "b"};
+type Bar = {[P]?: string for P in "b" | "c"};
+type FooBar = {...Foo, ...Bar};

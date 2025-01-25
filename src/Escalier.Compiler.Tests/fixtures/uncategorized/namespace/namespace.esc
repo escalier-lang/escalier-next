@@ -1,0 +1,10 @@
+type Baz = Foo.Baz;
+namespace Foo {
+  export namespace Bar {
+    export let x = 5;
+  }
+  export let y = Bar.x;
+  export type Baz = string;
+}
+let x = Foo.Bar.x;
+let y = Foo.y;

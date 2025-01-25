@@ -1,0 +1,8 @@
+type Point = {x: number, y: number};
+type Line = {start: Point, end: Point};
+declare let value: Point | Line | undefined;
+declare let print: fn (msg: string) -> undefined;
+let {x, y} = value else {
+  {x: 0, y: 0};
+};
+let sum = x + y;

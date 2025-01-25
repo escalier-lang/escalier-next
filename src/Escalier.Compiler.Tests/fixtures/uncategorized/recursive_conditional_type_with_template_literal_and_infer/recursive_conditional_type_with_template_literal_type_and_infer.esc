@@ -1,0 +1,7 @@
+type StripUnderscores<T> = if T : `_${infer U}` {
+  StripUnderscores<U>
+} else {
+  T
+};
+type Foo = StripUnderscores<"__foo">;
+type Bar = StripUnderscores<"bar">;

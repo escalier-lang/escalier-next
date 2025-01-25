@@ -1,0 +1,5 @@
+fn foo<T: {...}>(props: T & {x: number}) -> T {
+  const {x, ...rest} = props;
+  return rest;
+};
+let bar = foo({x: 5, y: "hello", z: true});

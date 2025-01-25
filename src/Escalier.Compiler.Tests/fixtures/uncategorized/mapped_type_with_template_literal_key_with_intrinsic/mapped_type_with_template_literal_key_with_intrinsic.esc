@@ -1,0 +1,5 @@
+type Foo<T> = {
+  [`_${Uppercase<K>}`]: T[K] for K in keyof T,
+};
+type Point = {x: number, y: number, [Symbol.iterator]: number};
+type Bar = Foo<Point>;

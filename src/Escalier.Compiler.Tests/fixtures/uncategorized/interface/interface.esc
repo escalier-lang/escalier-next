@@ -1,0 +1,7 @@
+let p: Point = {x: 5, y: 10};
+interface Point {
+  x: number,
+}
+interface Point {
+  y: number,
+}

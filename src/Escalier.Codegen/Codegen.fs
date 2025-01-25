@@ -661,7 +661,18 @@ module rec Codegen =
       let targetExpr, targetStmts = buildExpr ctx target
       let pattern, checks = buildPattern ctx pattern (Some targetExpr)
 
-      let checkExprs = checks |> List.map (buildPatternCheck ctx)
+      let mutable checkExprs = checks |> List.map (buildPatternCheck ctx)
+
+      // if-let's main use case is unwrapping `T | null` or `T | undefined`
+      // JS treats `x != null` the same as `x !== null && x !== undefined`
+      let notNullCheck =
+        Expr.Bin
+          { Operator = BinOp.NotEq
+            Left = targetExpr
+            Right = Expr.Lit(Lit.Null { Loc = None })
+            Loc = None }
+
+      checkExprs <- notNullCheck :: checkExprs
 
       let conditionExpr =
         checkExprs

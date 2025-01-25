@@ -1,0 +1,8 @@
+declare let value: number | string | undefined;
+let result = if let x is number = value {
+  x + 1;
+} else if let y is string = value {
+  y;
+} else {
+  0;
+};

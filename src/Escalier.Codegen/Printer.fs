@@ -838,7 +838,28 @@ module rec Printer =
         sb.Append(";") |> ignore
       | Decl.Class _ -> failwith "TODO: printStmt - Class"
       | Decl.Using _ -> failwith "TODO: printStmt - Using"
-      | Decl.TsInterface _ -> failwith "TODO: printStmt - TsInterface"
+      | Decl.TsInterface decl ->
+        if decl.Export then
+          sb.Append("export ") |> ignore
+
+        if decl.Declare then
+          sb.Append("declare ") |> ignore
+
+        sb.Append("interface ").Append(decl.Id.Name) |> ignore
+        decl.TypeParams |> Option.iter (printTypeParamDeclaration ctx)
+
+        let oldIndent = String.replicate ctx.Indent " "
+        let ctx = { ctx with Indent = ctx.Indent + 2 }
+        let indent = String.replicate ctx.Indent " "
+
+        sb.Append("{\n") |> ignore
+
+        for m in decl.Body.Body do
+          sb.Append(indent) |> ignore
+          printTypeMember ctx m
+          sb.Append(";\n") |> ignore
+
+        sb.Append(oldIndent).Append("}") |> ignore
       | Decl.TsTypeAlias decl ->
         if decl.Export then
           sb.Append("export ") |> ignore
@@ -846,8 +867,7 @@ module rec Printer =
         if decl.Declare then
           sb.Append("declare ") |> ignore
 
-        sb.Append("type ") |> ignore
-        sb.Append(decl.Id.Name) |> ignore
+        sb.Append("type ").Append(decl.Id.Name) |> ignore
         decl.TypeParams |> Option.iter (printTypeParamDeclaration ctx)
         sb.Append(" = ") |> ignore
         printType ctx decl.TypeAnn
@@ -1273,7 +1293,16 @@ module rec Printer =
           sb.Append("false") |> ignore
       | Number { Value = value } -> sb.Append(value) |> ignore
       | Str { Value = value } -> sb.Append($"\"{value}\"") |> ignore
-      | Tpl _ -> failwith "TODO: printType - TsLitType - Tpl"
+      | Tpl { Types = types; Quasis = quasis } ->
+        sb.Append("`") |> ignore
+
+        for quasi, t in List.zip (List.take types.Length quasis) types do
+          sb.Append(quasi.Raw) |> ignore
+          sb.Append("${") |> ignore
+          printType ctx t
+          sb.Append("}") |> ignore
+
+        sb.Append(quasis[quasis.Length - 1].Raw).Append("`") |> ignore
     | TsType.TsTypePredicate _ -> failwith "TODO: printType - TsTypePredicate"
     | TsType.TsImportType _ -> failwith "TODO: printType - TsImportType"
 

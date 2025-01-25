@@ -1,0 +1,7 @@
+type Obj = {
+  get foo() -> string,
+  set bar(value: number),
+};
+declare let obj: Obj;
+let foo = obj.foo;
+let bar = obj.bar;

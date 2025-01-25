@@ -1,0 +1,1 @@
+TypeError: Object is missing property bar

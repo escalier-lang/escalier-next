@@ -1,0 +1,7 @@
+type Nullable<T> = T | undefined;
+declare let value: Nullable<number>;
+let y = if let x = value {
+  x + 1;
+} else {
+  0;
+};

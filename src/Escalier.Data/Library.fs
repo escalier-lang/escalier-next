@@ -775,7 +775,7 @@ module Type =
       Elems: list<'T> }
 
   type KeyValuePat =
-    { Key: string
+    { Key: string // TODO: use PropName for this
       Value: Pattern
       Init: option<Syntax.Expr> }
 

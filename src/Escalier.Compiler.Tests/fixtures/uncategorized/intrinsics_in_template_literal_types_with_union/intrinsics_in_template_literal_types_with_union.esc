@@ -1,0 +1,7 @@
+type A = "foo" | "bar";
+type B = `${Uppercase<A>}123`;
+let b1: B = "FOO123";
+let b2: B = "BAR123";
+type C = `${Capitalize<A>}123`;
+let c1: C = "Foo123";
+let c2: C = "Bar123";

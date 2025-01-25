@@ -1000,6 +1000,8 @@ let KebabTemplateLiteralType () =
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("`-${T}-${U}-`", t.ToString())
+
+      Assert.Empty(ctx.Report.Diagnostics)
     }
 
   printfn "result = %A" result
@@ -2091,7 +2093,6 @@ let InferAssignTupleLiteralToArrayGenericType () =
 
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "Member access on union types is not allowed")>]
 let InferMutateUnion () =
   let result =
     result {
@@ -2109,7 +2110,6 @@ let InferMutateUnion () =
   printfn "result = %A" result
   Assert.False(Result.isError result)
 
-[<Fact(Skip = "TODO(#363): Add support for as <ident> to pattern matching")>]
 let InferMutateUnionWithMatch () =
   let result =
     result {

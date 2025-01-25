@@ -1,0 +1,5 @@
+let obj1 = {a: 5, b: "hello", c: true};
+let {a, ...rest} = obj1;
+let obj2 = {a, ...rest};
+let foo = fn({a, ...rest}: {a: number, b: string, c: boolean}) => a;
+foo(obj2);

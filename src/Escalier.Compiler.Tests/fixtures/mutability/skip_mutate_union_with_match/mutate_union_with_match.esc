@@ -1,0 +1,6 @@
+declare let mut foo: { type: "a", v: number } | {type: "b", v: string };
+// TODO(#413): Support 'as' in pattern matching as a way to specify a binding identifier for part of the pattern
+match foo {
+  {type: "a"} as foo => foo.v = 5,
+  {type: "b"} as foo => foo.v = "hello",
+};

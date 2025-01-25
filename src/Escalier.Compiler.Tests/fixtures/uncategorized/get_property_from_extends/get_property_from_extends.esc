@@ -1,0 +1,5 @@
+let foo = async fn() {
+  let mut res = await fetch("https://google.com");
+  return res.json();
+};
+let bar = foo();

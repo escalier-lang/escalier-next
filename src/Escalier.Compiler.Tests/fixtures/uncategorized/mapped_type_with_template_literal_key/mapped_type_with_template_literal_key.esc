@@ -1,0 +1,5 @@
+type Foo<T> = {
+  [`_${K}`]: T[K] for K in keyof T,
+};
+type Point = {x: number, y: number};
+type Bar = Foo<Point>;

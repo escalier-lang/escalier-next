@@ -1,0 +1,2 @@
+let y: string = "hello";
+let x: number = y;

@@ -1,0 +1,7 @@
+let foo = if (true) {
+  5
+} else if (false) {
+  "hello"
+} else {
+  true
+};

@@ -1,0 +1,3 @@
+// TODO(#410): treat Array<number> the same as number[]
+let foo: Array<number> = [1, 2, 3];
+let mut bar: Array<number> = [1, 2, 3];

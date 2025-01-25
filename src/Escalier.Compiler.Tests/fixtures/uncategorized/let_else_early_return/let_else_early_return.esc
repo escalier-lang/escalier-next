@@ -1,0 +1,6 @@
+let foo = fn (x: number | undefined) {
+  let y = x else {
+    return 0;
+  };
+  return y + 1;
+};

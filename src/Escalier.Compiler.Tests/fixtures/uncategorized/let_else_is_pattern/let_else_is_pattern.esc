@@ -1,0 +1,5 @@
+declare let value: number | string | undefined;
+declare let print: fn (msg: string) -> undefined;
+let x is number = value else {
+  0;
+};

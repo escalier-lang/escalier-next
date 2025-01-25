@@ -1,3 +1,5 @@
 type MyReturnType<T> = (T extends (...args: any) => infer R ? R : never);
-type Foo = number;
-type Bar = number;
+// expansion - number
+type Foo = MyReturnType<() => number>;
+// expansion - number
+type Bar = MyReturnType<(a: string, b: boolean) => number>;

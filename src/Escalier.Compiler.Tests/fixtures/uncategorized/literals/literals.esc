@@ -1,0 +1,4 @@
+let a = 5;
+let b = "hello";
+let c = true;
+let d = false;

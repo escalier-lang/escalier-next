@@ -1,0 +1,5 @@
+declare let value: number | undefined;
+let x = value else {
+  0;
+};
+let y = x + 1;

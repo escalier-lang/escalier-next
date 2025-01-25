@@ -1,0 +1,3 @@
+let obj = {a: {b: 5, c: "hello"}};
+let b = obj.a.b;
+let c = obj.a.c;

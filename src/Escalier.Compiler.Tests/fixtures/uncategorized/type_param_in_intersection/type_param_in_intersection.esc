@@ -1,0 +1,2 @@
+declare fn foo<T: {...}>(props: T & {x: number, ...}) -> T;
+let bar = foo({x: 5, y: "hello", z: true});

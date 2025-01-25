@@ -1,2 +1,3 @@
 type Exclude<T, U> = (T extends U ? never : T);
-type Result = "b" | "c" | "d";
+// expansion - "b" | "c" | "d"
+type Result = Exclude<"a" | "b" | "c" | "d" | "e", "a" | "e">;

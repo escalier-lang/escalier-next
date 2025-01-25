@@ -1,0 +1,3 @@
+// TODO(#411): This should not be allowed since
+declare let mut foo: { type: "a", v: number } | {type: "b", v: string };
+foo.type = "b";

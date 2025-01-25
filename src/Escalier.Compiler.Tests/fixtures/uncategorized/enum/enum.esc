@@ -1,0 +1,6 @@
+enum MyEnum {
+  Foo[number, string, boolean],
+  Bar[[number, number]],
+  Baz[number | string],
+}
+let value = MyEnum.Foo(5, "hello", true);

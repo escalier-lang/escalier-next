@@ -1,0 +1,4 @@
+let a: number = 5;
+let [b, c]: [string, boolean] = ["hello", true];
+type Point = {x: number, y: number};
+let {x, y}: Point = {x: 5, y: 10};

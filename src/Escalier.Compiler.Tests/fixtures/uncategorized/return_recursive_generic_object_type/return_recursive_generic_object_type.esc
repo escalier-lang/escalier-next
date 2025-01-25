@@ -1,0 +1,21 @@
+type MyNode<T> = {
+  value: T,
+  left?: MyNode<T>,
+  right?: MyNode<T>
+};
+
+let makeTree = fn () {
+  let node: MyNode<number> = {
+    value: 5,
+    left: {
+      value: 10
+    },
+    right: {
+      value: 15
+    }
+  };
+  
+  return node;
+};
+let node = makeTree();
+let x = node.left?.value;

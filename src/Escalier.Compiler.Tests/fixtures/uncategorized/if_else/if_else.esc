@@ -1,0 +1,6 @@
+let result = if (true) { 
+  let x = 5;
+  x
+} else {
+  "hello"
+};

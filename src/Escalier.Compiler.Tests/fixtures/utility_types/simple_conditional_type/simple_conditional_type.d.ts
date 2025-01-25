@@ -1,4 +1,7 @@
 type Foo<T> = (T extends string ? "string" : (T extends number ? "number" : "other"));
-type A = "string";
-type B = "number";
-type C = "other";
+// expansion - "string"
+type A = Foo<string>;
+// expansion - "number"
+type B = Foo<number>;
+// expansion - "other"
+type C = Foo<boolean>;

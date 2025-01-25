@@ -1,0 +1,6 @@
+declare let point: {x: number, y: number} | undefined;
+let sum = if let {x, y} = point {
+  x + y;
+} else {
+  0;
+};

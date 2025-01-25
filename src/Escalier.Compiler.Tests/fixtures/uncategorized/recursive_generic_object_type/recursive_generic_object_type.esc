@@ -1,0 +1,18 @@
+type MyNode<T> = {
+  value: T,
+  left?: MyNode<T>,
+  right?: MyNode<T>
+};
+
+let node: MyNode<number> = {
+  value: 5,
+  left: {
+    value: 10
+  },
+  right: {
+    value: 15,
+    left: {
+      value: 20
+    }
+  }
+};

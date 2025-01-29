@@ -81,10 +81,12 @@ val nums: mut = new Set<number>(); // inferred as `mut Set<number>`
 
 ## Basic Semantics
 
+The following rules apply to both assignments and passing arguments to functions and methods (which is really just
+a way of assigning arguments to parameters):
 - both mutable and immutable values can be assigned to immutable variables
 - mutable values can only be assigned to mutable variables, but immutable value cannot
 
-If an object or collection type is marked as mutable, then all of its fields or elements are also mutable.
+If an object or collection type is marked as mutable, then all of its fields or elements are also recursively mutable. 
 
 **Example:**
 ```ts
@@ -106,6 +108,7 @@ val p = points[0];         // `p` is immutable because we didn't explicitly mark
 points[0] = p;             // not allowed because `p` is immutable
 ```
 
+The follow rules also apply:
 - `mut mut T` is equivalent to `mut T`
 - `mut` can appear in type aliases, e.g. `type MutPoint = mut Point`
 - types can be partially mutable, e.g. `type Line = {p1: mut Point, p2: Point}`

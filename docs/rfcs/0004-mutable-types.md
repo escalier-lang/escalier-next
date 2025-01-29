@@ -70,8 +70,45 @@ var d: mut Point = {x: 5, y: 10};   // mutable data, can be reassigned
 If a variable is initialized without a type, we infer the type as immutable.
 
 ```ts
-val p = {x: 5, y: 10}; // inferred as `{x: 5, y: 10}`
+val nums = new Set<number>();      // inferred as `Set<number>`
 ```
+
+The following shorthand allows you to create mutable variables without having to specify the type:
+
+```ts
+val nums: mut = new Set<number>(); // inferred as `mut Set<number>`
+```
+
+## Basic Semantics
+
+- both mutable and immutable values can be assigned to immutable variables
+- mutable values can only be assigned to mutable variables, but immutable value cannot
+
+If an object or collection type is marked as mutable, then all of its fields or elements are also mutable.
+
+**Example:**
+```ts
+val line: mut Line = new Line({x: 0, y: 0}, {x: 5, y: 10});
+
+line;                      // mut Line
+line.p1;                   // mut Point
+
+line.p1 = {x: 2, y: 1};    // okay
+val p = line.p1;           // `p` is immutable because we didn't explicitly mark it as mutable
+line.p1 = p;               // not allowed because `p` is immutable
+
+val points: mut Array<Point> = [{x: 0, y: 0}, {x: 5, y: 10}];
+points;                    // mut Array<Point>
+points[0];                 // mut Point
+
+points[0] = {x: 2, y: 1};  // okay
+val p = points[0];         // `p` is immutable because we didn't explicitly mark it as mutable
+points[0] = p;             // not allowed because `p` is immutable
+```
+
+- `mut mut T` is equivalent to `mut T`
+- `mut` can appear in type aliases, e.g. `type MutPoint = mut Point`
+- types can be partially mutable, e.g. `type Line = {p1: mut Point, p2: Point}`
 
 ## Functions
 
@@ -111,12 +148,6 @@ val q3: mut Point = mutId(q1); // `mut Point` must be specified if we want the v
 ```
 
 The same syntax and semantics will also be applied to methods.
-
-TODO: choose a shorthand for mutable types, e.g.
-```ts
-val p1: mut = makePoint(5, 10); // I like this better because it's aligns better with params in function decls
-val p2 = mut makePoint(5, 10);
-```
 
 ## Container Types
 
@@ -162,12 +193,12 @@ class Line {
 
 val p1 = makePoint(5, 10);
 val p2 = makePoint(10, 5);
-val line1 = new Line(p1, p2); // okay because `line1` is immutable
-val line2: mut = new Line(p1, p2); // not allowed because `p1` and `p2` are immutable
+val line1 = new Line(p1, p2);       // okay because `line1` is immutable
+val line2: mut = new Line(p1, p2);  // not allowed because `p1` and `p2` are immutable
 
 val q1: mut = makePoint(0, 0);
 val q2: mut = makePoint(1, 1);
-val line3: mut = new Line(q1, q2); // okay because `q1` and `q2` are mutable
+val line3: mut = new Line(q1, q2);  // okay because `q1` and `q2` are mutable
 val line4: mut = new Line(makePoint(0, 0), makePoint(1, 1)); // okay because the arguments are mutable
 ```
 
@@ -178,6 +209,45 @@ can be either mutable or immutable.
 In the future we may be able to add support for partial mutability with mutability polymorphism.  The idea is that there
 would be a way to add a parameter to the class whose value indicates the mutability of the instance being constructed.
 This parameter would then be used to mark the constructor parameters that we want to have the same mutability as the instance.
+
+## Destructuring
+
+This section is not the final syntax.
+
+**Example:**
+```ts
+val points: mut Array<Point> = [{x: 0, y: 0}, {x: 5, y: 10}];
+val [mut p1, p2] = points;
+
+mut val line = new Line({x: 0, y: 0}, {x: 5, y: 10});
+val {mut p1, p2} = line;
+```
+
+## Limitations
+
+You may have noticed an issue with these semantics.  If we assign a mutable type to a variable that's immutable, we can
+still mutate it indirectly by mutating the original variable.
+
+**Example:**
+```ts
+val p1: mut Point = {x: 5, y: 10};
+val p2 = p1; // `p2` is immutable
+p1.x = 0;    // `p2` is now `{x: 0, y: 10}`
+```
+
+There are a couple of different ways to address this in a language.  The one that's probably the most suitable for Escalier
+would be to copy mutable values when assigning them to immutable variables.  This is outside the scope of this RFC, but
+it's something that should be considered in the future.
+
+## Gotchas
+
+In the example below, `p1` is mutable, but each of its properties can only be assigned a single value which means its
+effectively immutable.  The compiler should warn against patterns like this.
+
+**Example:**
+```ts
+val p1: mut = {x: 5, y: 10}; // inferred as `mut {x: 5, y: 10}`
+```
 
 ## Subtyping
 

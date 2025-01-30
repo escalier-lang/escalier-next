@@ -86,14 +86,12 @@ a way of assigning arguments to parameters):
 - both mutable and immutable values can be assigned to immutable variables
 - mutable values can only be assigned to mutable variables, but immutable value cannot
 
-If an object or collection type is marked as mutable, then all of its fields or elements are also recursively mutable. 
-
 **Example:**
 ```ts
-val line: mut Line = new Line({x: 0, y: 0}, {x: 5, y: 10});
+val line: mut = new Line({x: 0, y: 0}, {x: 5, y: 10});
 
 line;                      // mut Line
-line.p1;                   // mut Point
+line.p1;                   // Point
 
 line.p1 = {x: 2, y: 1};    // okay
 val p = line.p1;           // `p` is immutable because we didn't explicitly mark it as mutable
@@ -101,7 +99,7 @@ line.p1 = p;               // not allowed because `p` is immutable
 
 val points: mut Array<Point> = [{x: 0, y: 0}, {x: 5, y: 10}];
 points;                    // mut Array<Point>
-points[0];                 // mut Point
+points[0];                 // Point
 
 points[0] = {x: 2, y: 1};  // okay
 val p = points[0];         // `p` is immutable because we didn't explicitly mark it as mutable

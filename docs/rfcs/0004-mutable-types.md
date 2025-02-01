@@ -254,25 +254,62 @@ val p1: mut = {x: 5, y: 10}; // inferred as `mut {x: 5, y: 10}`
 
 `mut T` is a subtype of `T` since a mutable value can always used in place of an immutable value.
 
-## Codegen/Interop
+## Codegen
 
-The mutability of a type will be erased in the TypeScript types that appear in .d.ts.  In order to support round-tripping
-between TypeScript and Escalier, we include the original Escalier type in a JSDoc comment for all types appear in in
-.d.ts files.
-
-**Example:**
+For each Escalier type, we'll generate two TypeScript types: one that's mutable and one that's immutable.  The immutable
+type will be prefixed with `Readonly` following TypeScript's convention with `Array` and `ReadonlyArray`.  This will 
+allow us to reconstruct the Escalier type from the TypeScript type when importing types from a package built with Escalier.
 ```ts
-type Point = {
-    x: number,
-    y: number,
-};
+type Obj = {foo: string, readonly bar: number};
+// type ReadonlyObj = Readonly<{foo: string, bar: number}>
+// type Obj = {foo: string, readonly bar: number}
+val obj1: Obj = {foo: "hello", bar: 5};     // const obj1: ReadonlyObj
+val obj2: mut Obj = {foo: "hello", bar: 5}; // const obj2: Obj
+```
 
-// @esctype - Point
-export const a: Point;
-// @esctype - mut Point
-export const b: Point;
-// @esctype - Point
-export let c: Point;
-// @esctype - mut Point
-export let d: Point;
+## Interop
+
+We will need to support `readonly` properties in imported TypeScript types.  Properties that are marked as `readonly` in
+Escalier cannot be mutated even if the type containing them is mutable.
+```ts
+type Obj = {foo: string, readonly bar: number};
+val obj1: Obj = {foo: "hello", bar: 5};
+obj1.foo = "world";     // error, `obj1` is immutable
+val obj2: mut Obj = {foo: "hello", bar: 5};
+obj2.foo = "world";     // okay, `obj2` is mutable and `foo` is not marked as `readonly`
+obj2.bar = 10;          // error, `bar` is marked as `readonly`
+```
+
+TypeScript's collection types and their "readonly" variants will be mapped to Escalier's mutable and immutable types:
+```ts
+ReadonlyArray<number>;          // -> Array<number>;
+Array<number>;                  // -> mut Array<number>;
+ReadonlySet<number>;            // -> Set<number>;
+Set<number>;                    // -> mut Set<number>;
+ReadonlyMap<string, number>;    // -> Map<string, number>;
+Map<string, number>;            // -> mut Map<string, number>;
+```
+
+Parameter types should be immutable by default and return types should be marked as mutable by default.  This minimizes
+restrictions on the caller.  If these defaults don't make sense for a particular library then we'll provide a way to
+override them.
+```ts
+(p: Point) => Point;            // -> fn(p: Point) -> mut Point;
+(p: Point) => Readonly<Point>;  // -> fn(p: Point) -> Point;
+```
+
+Classes are interesting since they can have a mixture of methods that mutate the instance and methods that don't.  The
+official TypeScript library definitions make this explicit in a few cases by having separate interfaces, e.g. `Array`
+and `ReadonlyArray`. Escalier combines these into a single interface and marks the receiver as mutable for methods that
+exist on `Array` but not on `ReadonlyArray`.
+
+The majority of classes don't have a `Readonly` variant.  They have a mix of methods that mutate the instance and methods
+that don't. Escalier will mark the receiver as mutable for methods that match certain criteria, e.g. the name starts with
+`set`, `add`, `insert`, `delete`, `remove`, `fill`, etc. In the future there will be a way customize this behaviour.
+
+```ts
+interface Int8Array {
+    set(array: ArrayLike<number>, offset?: number): void; // set(self: mut, array: ArrayLike<number>, offset? number) -> void 
+    slice(start?: number, end?: number): Int8Array; // slice(self, start? number, end? number) -> Int8Array
+}
 ```

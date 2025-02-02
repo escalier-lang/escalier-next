@@ -64,10 +64,16 @@ module rec InferTypeAnn =
                 Elems = elems
                 Exact = exact
                 Immutable = immutable
+                Mutable = false // TODO
                 Interface = false }
         | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferTypeAnn ctx env) elems
-          return TypeKind.Tuple { Elems = elems; Immutable = immutable }
+
+          return
+            TypeKind.Tuple
+              { Elems = elems
+                Immutable = immutable
+                Mutable = false }
         | TypeAnnKind.Union types ->
           let! types = List.traverseResultM (inferTypeAnn ctx env) types
           return (union types).Kind
@@ -159,6 +165,7 @@ module rec InferTypeAnn =
           return
             { Name = name
               TypeArgs = Some(typeArgs)
+              Mutable = false // TODO
               Scheme = Some scheme }
             |> TypeKind.TypeRef
         | None ->
@@ -166,6 +173,7 @@ module rec InferTypeAnn =
           return
             { Name = name
               TypeArgs = None
+              Mutable = false // TODO
               Scheme = Some scheme }
             |> TypeKind.TypeRef
       | Error _ ->

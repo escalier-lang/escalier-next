@@ -265,7 +265,11 @@ module rec UnifyCall =
           let! args = List.traverseResultM (ctx.InferExpr ctx env None) args
 
           let tuple =
-            { Kind = TypeKind.Tuple { Elems = args; Immutable = false }
+            { Kind =
+                TypeKind.Tuple
+                  { Elems = args
+                    Immutable = false
+                    Mutable = false }
               Provenance = None }
 
           match unify ctx env ips tuple param.Type with

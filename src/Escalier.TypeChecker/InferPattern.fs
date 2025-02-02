@@ -116,6 +116,7 @@ module InferPattern =
                   Elems = elems
                   Exact = true // TODO: This should depend what the pattern is matching/destructuring
                   Immutable = immutable
+                  Mutable = false
                   Interface = false }
             Provenance = Some(Provenance.Pattern pat) }
 
@@ -123,7 +124,11 @@ module InferPattern =
       | PatternKind.Tuple { Elems = elems; Immutable = immutable } ->
         let elems = List.map infer_pattern_rec elems
 
-        { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+        { Kind =
+            TypeKind.Tuple
+              { Elems = elems
+                Immutable = immutable
+                Mutable = false }
           Provenance = None }
       | PatternKind.Enum variant ->
         printfn $"Looking up tag for {variant.Ident}"
@@ -146,6 +151,7 @@ module InferPattern =
                     Elems = elems
                     Exact = true // TODO: This should depend what the pattern is matching/destructuring
                     Immutable = true
+                    Mutable = false
                     Interface = false }
               Provenance = None }
           | Result.Error _ -> failwith "Can't find enum type"

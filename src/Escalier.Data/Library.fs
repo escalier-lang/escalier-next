@@ -723,6 +723,7 @@ module Type =
   type TypeRef =
     { mutable Name: Common.QualifiedIdent
       TypeArgs: option<list<Type>>
+      Mutable: bool
       Scheme: option<Scheme> }
 
     // TODO: include `Scheme` in the equality check
@@ -947,8 +948,14 @@ module Type =
       Implements: option<list<TypeRef>>
       Elems: list<ObjTypeElem>
       Exact: bool // Can't be true if any of Interface, Implements, or Extends are true
-      Immutable: bool // True for #{...}, False for {...}
+      Immutable: bool // True for `#{...}`, False for `{...}`
+      Mutable: bool // True for `mut {...}`, False for `{...}`
       Interface: bool }
+
+  type Tuple =
+    { Elems: list<Type>
+      Mutable: bool
+      Immutable: bool }
 
   type Index = { Target: Type; Index: Type }
 
@@ -975,7 +982,7 @@ module Type =
     | Keyword of Keyword
     | Function of Function
     | Object of Object
-    | Tuple of Common.Tuple<Type>
+    | Tuple of Tuple
     | RestSpread of Type // whether it's rest or spread depends on how the type is being used
     | Literal of Common.Literal
     | UniqueSymbol of id: int

@@ -14,32 +14,6 @@ let makeParam (name: string) (ty: Type) : FuncParam =
     Optional = false }
 
 let getGlobalEnv () : Env =
-  let tpA =
-    { Name = "A"
-      Constraint = Some(numType)
-      Default = None }
-
-  let tpB =
-    { Name = "B"
-      Constraint = Some(numType)
-      Default = None }
-
-  let typeRefA =
-    { Kind =
-        { Name = QualifiedIdent.Ident "A"
-          TypeArgs = None
-          Scheme = None }
-        |> TypeKind.TypeRef
-      Provenance = None }
-
-  let typeRefB =
-    { Kind =
-        { Name = QualifiedIdent.Ident "B"
-          TypeArgs = None
-          Scheme = None }
-        |> TypeKind.TypeRef
-      Provenance = None }
-
   let arithemtic (op: string) : Binding =
     let t =
       makeFunctionType
@@ -122,32 +96,6 @@ let getGlobalEnv () : Env =
           never
       Mutable = false
       Export = false }
-
-  let tpA =
-    { Name = "A"
-      Constraint = Some(strType)
-      Default = None }
-
-  let tpB =
-    { Name = "B"
-      Constraint = Some(strType)
-      Default = None }
-
-  let typeRefA =
-    { Kind =
-        { Name = (QualifiedIdent.Ident "A")
-          TypeArgs = None
-          Scheme = None }
-        |> TypeKind.TypeRef
-      Provenance = None }
-
-  let typeRefB =
-    { Kind =
-        { Name = (QualifiedIdent.Ident "B")
-          TypeArgs = None
-          Scheme = None }
-        |> TypeKind.TypeRef
-      Provenance = None }
 
   let stringConcat =
     { Type =

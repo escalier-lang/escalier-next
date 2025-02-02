@@ -140,6 +140,7 @@ module rec Env =
   let makeTypeRefKind name =
     { Name = name
       TypeArgs = None
+      Mutable = false
       Scheme = None }
     |> TypeKind.TypeRef
 

@@ -71,6 +71,7 @@ module Poly =
                   TypeKind.TypeRef
                     { Name = QualifiedIdent.Ident name
                       TypeArgs = None
+                      Mutable = false
                       Scheme = None }
                 Provenance = None }
             )
@@ -84,6 +85,7 @@ module Poly =
                   TypeKind.TypeRef
                     { Name = QualifiedIdent.Ident tpName
                       TypeArgs = None
+                      Mutable = false
                       Scheme = None }
                 Provenance = None }
             )

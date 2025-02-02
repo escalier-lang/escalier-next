@@ -206,6 +206,7 @@ module rec Unify =
                       List.map
                         (fun (param: FuncParam) -> param.Type)
                         (List.skip nonRestParams2.Length f1.ParamList)
+                    Mutable = false
                     Immutable = false }
               Provenance = None }
 
@@ -368,6 +369,7 @@ module rec Unify =
                     Elems = combinedElems
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
+                    Mutable = false // TODO: figure out what do do with `Mutable`
                     Interface = false }
               Provenance = None }
 
@@ -395,20 +397,21 @@ module rec Unify =
                     Elems = objElems
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
+                    Mutable = false // TODO: figure out what do do with `Mutable`
                     Interface = false }
               Provenance = None }
 
           do! unify ctx env ips newObjType objType
 
           let newRestType =
-            // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
                   { Extends = None
                     Implements = None
                     Elems = restElems
                     Exact = false
-                    Immutable = false
+                    Immutable = false // TODO: figure out what do do with `Immutable`
+                    Mutable = false // TODO: figure out what do do with `Mutable`
                     Interface = false }
               Provenance = None }
 
@@ -455,6 +458,7 @@ module rec Unify =
                     Elems = combinedElems
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
+                    Mutable = false // TODO: figure out what do do with `Mutable`
                     Interface = false }
               Provenance = None }
 
@@ -473,28 +477,28 @@ module rec Unify =
               obj.Elems
 
           let newObjType =
-            // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
                   { Extends = None
                     Implements = None
                     Elems = objElems
                     Exact = false
-                    Immutable = false
+                    Immutable = false // TODO: figure out what do do with `Immutable`
+                    Mutable = false // TODO: figure out what do do with `Mutable`
                     Interface = false }
               Provenance = None }
 
           do! unify ctx env ips objType newObjType
 
           let newRestType =
-            // TODO: figure out what do do with `Immutable`
             { Kind =
                 TypeKind.Object
                   { Extends = None
                     Implements = None
                     Elems = restElems
                     Exact = false
-                    Immutable = false
+                    Immutable = false // TODO: figure out what do do with `Immutable`
+                    Mutable = false // TODO: figure out what do do with `Mutable`
                     Interface = false }
               Provenance = None }
 
@@ -685,6 +689,7 @@ module rec Unify =
                     Elems = List.rev spreadProps
                     Exact = false // TODO
                     Immutable = false // TODO
+                    Mutable = false // TODO
                     Interface = false }
               Provenance = None }
 
@@ -745,6 +750,7 @@ module rec Unify =
                     Elems = List.rev restProps
                     Exact = obj1.Exact
                     Immutable = false // TODO
+                    Mutable = false // TODO
                     Interface = false }
               Provenance = None }
 
@@ -768,6 +774,7 @@ module rec Unify =
                     Elems = List.rev leftoverProperties
                     Exact = false // TODO
                     Immutable = false // TODO
+                    Mutable = false // TODO
                     Interface = false }
               Provenance = None }
 
@@ -1464,6 +1471,7 @@ module rec Unify =
                     Elems = elems
                     Exact = exact
                     Immutable = immutable
+                    Mutable = false // TODO
                     Interface = false }
               Provenance = None // TODO: set provenance
             }
@@ -1485,13 +1493,14 @@ module rec Unify =
                 TypeKind.TypeRef
                   { Name = QualifiedIdent.Ident "Array"
                     TypeArgs = Some [ arrayElem ]
+                    Mutable = false // TODO
                     Scheme = scheme }
               Provenance = None }
-        | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
+        | TypeKind.Tuple({ Elems = elems } as tuple) ->
           let! elems = elems |> List.traverseResultM (expand mapping)
 
           return
-            { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+            { Kind = TypeKind.Tuple { tuple with Elems = elems }
               Provenance = None }
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
@@ -1578,8 +1587,9 @@ module rec Unify =
                     { Extends = None
                       Implements = None
                       Elems = allElems
-                      Exact = false
-                      Immutable = false
+                      Exact = false // TODO
+                      Immutable = false // TODO
+                      Mutable = false // TODO
                       Interface = false }
                 Provenance = None }
         | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->

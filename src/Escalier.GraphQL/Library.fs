@@ -78,10 +78,11 @@ let rec getTypeForField
         { Kind =
             TypeKind.Object
               { Elems = List.rev elems
-                Exact = true
-                Immutable = false
                 Extends = None
                 Implements = None
+                Exact = true
+                Mutable = false
+                Immutable = false
                 Interface = false }
           Provenance = None }
 
@@ -141,6 +142,7 @@ let rec getTypeForField
         TypeKind.TypeRef
           { Name = QualifiedIdent.Ident "Array"
             TypeArgs = Some [ t ]
+            Mutable = false
             Scheme = None }
       Provenance = None }
   | _ -> failwith "unexpected field type"

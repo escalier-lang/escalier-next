@@ -163,6 +163,7 @@ let maybeWrapInPromise (t: Type) (e: Type) : Type =
         TypeKind.TypeRef
           { Name = QualifiedIdent.Ident "Promise"
             TypeArgs = Some([ t; e ])
+            Mutable = false
             Scheme = None }
       Provenance = None }
 
@@ -421,6 +422,7 @@ let qualifyTypeRefs
       match t.Kind with
       | TypeKind.TypeRef { Name = QualifiedIdent.Ident name
                            Scheme = scheme
+                           Mutable = mut
                            TypeArgs = typeArgs } ->
         match nsScheme.TryFind name with
         | Some _ ->
@@ -430,6 +432,7 @@ let qualifyTypeRefs
             TypeKind.TypeRef
               { Name = name
                 TypeArgs = typeArgs
+                Mutable = mut
                 Scheme = scheme }
 
           Some { t with Kind = kind }

@@ -1,4 +1,4 @@
-declare let array: number[];
+declare let array: Array<number>;
 let length = array.length;
 type A = typeof length;
 type B = typeof array.length;

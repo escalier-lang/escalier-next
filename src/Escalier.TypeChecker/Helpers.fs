@@ -541,6 +541,38 @@ let getPropType
             TypeError.SemanticError
               "Can't use a symbol as a key with a namespace"
           )
+    | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                         TypeArgs = Some [ arrayElem ] } ->
+      // TODO: update `TypeKind.Array` to also contain a `Length` type param
+      // TODO: use getPropertyType to look up the type of the `.length` property
+      // here (and when handling tuples) instead of fabricating it here.
+      // TODO: make type param mutable so that we can update it if it's a mutable
+      // array and the array size changes.
+      match key with
+      | PropName.Number _ ->
+        let unknown =
+          { Kind = TypeKind.Literal(Literal.Undefined)
+            Provenance = None }
+
+        return union [ arrayElem; unknown ]
+      | _ ->
+        // TODO: update Interop.Infer to combine Array and ReadonlyArray into
+        // a single Array type where methods are marked appropriately with
+        // `self` and `mut self`.
+        let arrayScheme =
+          match env.TryFindScheme "Array" with
+          | Some scheme -> scheme
+          | None -> failwith "Array not in scope"
+
+        // Instead of expanding the whole scheme which could be quite expensive
+        // we get the property from the type and then only instantiate it.
+        let t = arrayScheme.Type
+        let! prop = getPropType ctx env t key optChain valueCategory
+
+        let! prop =
+          instantiateType ctx prop arrayScheme.TypeParams (Some [ arrayElem ])
+
+        return prop
     | TypeKind.TypeRef { Name = typeRefName
                          Scheme = scheme
                          TypeArgs = typeArgs } ->
@@ -604,37 +636,6 @@ let getPropType
         // TODO: lookup keys in array prototype
         return!
           Error(TypeError.NotImplemented "TODO: lookup member on tuple type")
-    | TypeKind.Array { Elem = elem } ->
-      // TODO: update `TypeKind.Array` to also contain a `Length` type param
-      // TODO: use getPropertyType to look up the type of the `.length` property
-      // here (and when handling tuples) instead of fabricating it here.
-      // TODO: make type param mutable so that we can update it if it's a mutable
-      // array and the array size changes.
-      match key with
-      | PropName.Number _ ->
-        let unknown =
-          { Kind = TypeKind.Literal(Literal.Undefined)
-            Provenance = None }
-
-        return union [ elem; unknown ]
-      | _ ->
-        // TODO: update Interop.Infer to combine Array and ReadonlyArray into
-        // a single Array type where methods are marked appropriately with
-        // `self` and `mut self`.
-        let arrayScheme =
-          match env.TryFindScheme "Array" with
-          | Some scheme -> scheme
-          | None -> failwith "Array not in scope"
-
-        // Instead of expanding the whole scheme which could be quite expensive
-        // we get the property from the type and then only instantiate it.
-        let t = arrayScheme.Type
-        let! prop = getPropType ctx env t key optChain valueCategory
-
-        let! prop =
-          instantiateType ctx prop arrayScheme.TypeParams (Some [ elem ])
-
-        return prop
     | TypeKind.Literal(Literal.String _)
     | TypeKind.Primitive Primitive.String ->
       let scheme =

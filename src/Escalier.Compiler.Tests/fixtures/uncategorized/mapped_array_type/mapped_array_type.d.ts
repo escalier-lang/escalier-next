@@ -1,3 +1,3 @@
-type Foo<T> = {[K in keyof T]: T[K][];
-type Bar = string[];
+type Foo<T> = {[K in keyof T]: Array<T[K]>;
+type Bar = Array<string>;
 type Baz = Foo<Bar>;

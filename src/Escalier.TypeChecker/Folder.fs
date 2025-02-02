@@ -102,9 +102,6 @@ module Folder =
         | TypeKind.Intersection types ->
           { Kind = TypeKind.Intersection(List.map fold types)
             Provenance = None }
-        | TypeKind.Array { Elem = elem } ->
-          { Kind = TypeKind.Array { Elem = fold elem }
-            Provenance = None }
         | TypeKind.KeyOf t ->
           { Kind = TypeKind.KeyOf(fold t)
             Provenance = None }

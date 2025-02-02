@@ -1,2 +1,2 @@
-let foo = fn (a: number, ...b: string[]) => a;
+let foo = fn (a: number, ...b: Array<string>) => a;
 let c = foo(10, "hello", true);

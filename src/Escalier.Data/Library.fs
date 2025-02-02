@@ -624,7 +624,6 @@ module Syntax =
     | Keyword of KeywordTypeAnn
     | Object of ObjTypeAnn
     | Tuple of Common.Tuple<TypeAnn>
-    | Array of TypeAnn
     | Union of list<TypeAnn>
     | Intersection of list<TypeAnn>
     | TypeRef of TypeRef
@@ -951,11 +950,6 @@ module Type =
       Immutable: bool // True for #{...}, False for {...}
       Interface: bool }
 
-  type Array =
-    { Elem: Type }
-
-    override this.ToString() = $"{this.Elem}[]"
-
   type Index = { Target: Type; Index: Type }
 
   type Condition =
@@ -982,7 +976,6 @@ module Type =
     | Function of Function
     | Object of Object
     | Tuple of Common.Tuple<Type>
-    | Array of Array
     | RestSpread of Type // whether it's rest or spread depends on how the type is being used
     | Literal of Common.Literal
     | UniqueSymbol of id: int
@@ -1063,7 +1056,6 @@ module Type =
     | TypeKind.Function _ -> 100
     | TypeKind.Object _ -> 100
     | TypeKind.Tuple _ -> 100
-    | TypeKind.Array _ -> 17
     | TypeKind.RestSpread _ -> 100
     | TypeKind.Literal _ -> 100
     | TypeKind.UniqueSymbol _ -> 15 // because `unique` is a keyword operator
@@ -1119,7 +1111,6 @@ module Type =
         match immutable with
         | true -> $"#[{elems}]"
         | false -> $"[{elems}]"
-      | TypeKind.Array { Elem = elem } -> $"{printType ctx elem}[]"
       | TypeKind.RestSpread t -> $"...{printType ctx t}"
       | TypeKind.Literal literal -> literal.ToString()
       | TypeKind.UniqueSymbol _ -> "unique symbol"

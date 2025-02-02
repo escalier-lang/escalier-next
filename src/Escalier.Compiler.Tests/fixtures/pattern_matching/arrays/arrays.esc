@@ -1,4 +1,4 @@
-let sum = fn (array: number[]) =>
+let sum = fn (array: Array<number>) =>
   match array {
     [] => 0,
     [x] => x,

@@ -1,5 +1,5 @@
 ﻿input: 
-    let update = fn (mut array: number[]) {
+    let update = fn (mut array: Array<number>) {
       for i in array.keys() {
         array[i] = array[i] + 1;
       }
@@ -40,21 +40,24 @@ output: Ok
                                      TypeAnn =
                                       Some
                                         { Kind =
-                                           Array
-                                             { Kind = Keyword Number
-                                               Span =
-                                                { Start = (Ln: 2, Col: 33)
-                                                  Stop = (Ln: 2, Col: 39) }
-                                               InferredType = None }
+                                           TypeRef
+                                             { Ident = Ident "Array"
+                                               TypeArgs =
+                                                Some
+                                                  [{ Kind = Keyword Number
+                                                     Span =
+                                                      { Start = (Ln: 2, Col: 39)
+                                                        Stop = (Ln: 2, Col: 45) }
+                                                     InferredType = None }] }
                                           Span = { Start = (Ln: 2, Col: 33)
-                                                   Stop = (Ln: 2, Col: 41) }
+                                                   Stop = (Ln: 2, Col: 46) }
                                           InferredType = None } }]
                                  ReturnType = None
                                  Throws = None
                                  IsAsync = false }
                               Body =
                                Block
-                                 { Span = { Start = (Ln: 2, Col: 43)
+                                 { Span = { Start = (Ln: 2, Col: 48)
                                             Stop = (Ln: 6, Col: 6) }
                                    Stmts =
                                     [{ Kind =

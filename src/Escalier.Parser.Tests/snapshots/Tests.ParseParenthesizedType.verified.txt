@@ -1,17 +1,21 @@
-﻿input: (number | string)[]
+﻿input: Array<number | string>
 output: Success: { Kind =
-   Array
-     { Kind =
-        Union [{ Kind = Keyword Number
-                 Span = { Start = (Ln: 1, Col: 2)
-                          Stop = (Ln: 1, Col: 9) }
-                 InferredType = None }; { Kind = Keyword String
-                                          Span = { Start = (Ln: 1, Col: 11)
-                                                   Stop = (Ln: 1, Col: 17) }
-                                          InferredType = None }]
-       Span = { Start = (Ln: 1, Col: 2)
-                Stop = (Ln: 1, Col: 17) }
-       InferredType = None }
-  Span = { Start = (Ln: 1, Col: 2)
-           Stop = (Ln: 1, Col: 20) }
+   TypeRef
+     { Ident = Ident "Array"
+       TypeArgs =
+        Some
+          [{ Kind =
+              Union
+                [{ Kind = Keyword Number
+                   Span = { Start = (Ln: 1, Col: 7)
+                            Stop = (Ln: 1, Col: 14) }
+                   InferredType = None }; { Kind = Keyword String
+                                            Span = { Start = (Ln: 1, Col: 16)
+                                                     Stop = (Ln: 1, Col: 22) }
+                                            InferredType = None }]
+             Span = { Start = (Ln: 1, Col: 7)
+                      Stop = (Ln: 1, Col: 22) }
+             InferredType = None }] }
+  Span = { Start = (Ln: 1, Col: 1)
+           Stop = (Ln: 1, Col: 23) }
   InferredType = None }

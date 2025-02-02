@@ -388,7 +388,9 @@ module rec Migrate =
             Immutable = false
             Exact = false }
       | TsType.TsArrayType { ElemType = elem } ->
-        TypeAnnKind.Array(migrateType elem)
+        TypeAnnKind.TypeRef
+          { Ident = Common.QualifiedIdent.Ident "Array"
+            TypeArgs = Some [ migrateType elem ] }
       | TsType.TsTupleType { ElemTypes = elems } ->
         let elemTypes = List.map (fun e -> migrateType e.Type) elems
         TypeAnnKind.Tuple { Elems = elemTypes; Immutable = false }

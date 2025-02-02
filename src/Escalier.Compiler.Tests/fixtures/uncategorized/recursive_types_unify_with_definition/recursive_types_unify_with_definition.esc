@@ -1,3 +1,0 @@
-type Foo = number | Foo[];
-let foo: Foo = 5;
-let bar: number | Foo[] = foo;

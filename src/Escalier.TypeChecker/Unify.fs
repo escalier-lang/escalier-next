@@ -98,12 +98,9 @@ module rec Unify =
           // Multiple rest elements in undeciable
           // TODO: create an Undecable error type
           return! Error(TypeError.SemanticError("Too many rest elements!"))
-      | TypeKind.Array elemType1, TypeKind.Array elemType2 ->
-        // TODO: unify the lengths of the arrays
-        // An array whose length is `unique number` is a subtype of an array
-        // whose length is `number`.
-        do! unify ctx env ips elemType1.Elem elemType2.Elem
-      | TypeKind.Tuple tuple, TypeKind.Array array ->
+      | TypeKind.Tuple tuple,
+        TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                           TypeArgs = Some [ elem ] } ->
         // TODO: check if array.Elem is `unique number`
         // If it is, then we can't unify these since the tuple could be
         // longer or short than the array.
@@ -121,7 +118,7 @@ module rec Unify =
 
         // TODO: check for `Rest` types in tupleElemTypes, if we find one at the
         // end of the tuple, we can unify the rest of the array with it.
-        do! unify ctx env ips (union elemTypes) array.Elem
+        do! unify ctx env ips (union elemTypes) elem
 
         let spreadTypes =
           List.map
@@ -133,7 +130,9 @@ module rec Unify =
 
         for spreadType in spreadTypes do
           do! unify ctx env ips spreadType t2
-      | TypeKind.Array array, TypeKind.Tuple tuple ->
+      | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                           TypeArgs = Some [ arrayElem ] },
+        TypeKind.Tuple tuple ->
         let elemTypes, restTypes =
           List.partition
             (fun (elem: Type) ->
@@ -148,13 +147,13 @@ module rec Unify =
 
         match restTypes with
         | [] ->
-          let arrayElem = union [ array.Elem; undefined ]
+          let arrayElem = union [ arrayElem; undefined ]
 
           for i in 0 .. elemTypes.Length - 1 do
             let newIps = tryFindPathTails (i.ToString()) ips
             do! unify ctx env newIps arrayElem elemTypes[i]
         | [ { Kind = TypeKind.RestSpread t } ] ->
-          let arrayElem = union [ array.Elem; undefined ]
+          let arrayElem = union [ arrayElem; undefined ]
 
           for i in 0 .. elemTypes.Length - 1 do
             let newIps = tryFindPathTails (i.ToString()) ips
@@ -165,7 +164,9 @@ module rec Unify =
           // Multiple rest elements in undeciable
           // TODO: create an Undecable error type
           return! Error(TypeError.SemanticError("Too many rest elements!"))
-      | TypeKind.RestSpread rest, TypeKind.Array array ->
+      | TypeKind.RestSpread rest,
+        TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                           TypeArgs = Some [ _ ] } ->
         do! unify ctx env ips rest t2
       | TypeKind.Function(f1), TypeKind.Function(f2) ->
         // TODO: check if `f1` and `f2` have the same type params
@@ -788,8 +789,11 @@ module rec Unify =
       let t2 = prune t2
 
       match t1.Kind, t2.Kind with
-      | TypeKind.Array { Elem = elem1 }, TypeKind.Array { Elem = elem2 } ->
-        do! unifyInvariant ctx env ips elem1 elem2
+      | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                           TypeArgs = Some [ arrayElem1 ] },
+        TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                           TypeArgs = Some [ arrayElem2 ] } ->
+        do! unifyInvariant ctx env ips arrayElem1 arrayElem2
       // TODO: allow array and tuples to unify when the tuple has a rest element
       | _ ->
         if t1 = t2 then
@@ -1057,7 +1061,8 @@ module rec Unify =
                   Provenance = None })
 
             return union keys
-          | TypeKind.Array { Elem = elem } ->
+          | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                               TypeArgs = Some [ _ ] } ->
             return
               { Kind = TypeKind.Primitive Primitive.Number
                 Provenance = None }
@@ -1120,10 +1125,11 @@ module rec Unify =
                   Error(
                     TypeError.NotImplemented $"Invalid index for extanding {t}"
                   )
-            | TypeKind.Array { Elem = elem } ->
+            | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                                 TypeArgs = Some [ arrayElem ] } ->
               match index.Kind with
               | TypeKind.Primitive Primitive.Number ->
-                return! expand mapping elem
+                return! expand mapping arrayElem
               | _ ->
                 return!
                   Error(
@@ -1468,6 +1474,25 @@ module rec Unify =
             return t
           else
             return foldType fold t
+
+        | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                             TypeArgs = Some [ arrayElem ]
+                             Scheme = scheme } ->
+          let! arrayElem = expandType ctx env ips mapping arrayElem
+
+          return
+            { Kind =
+                TypeKind.TypeRef
+                  { Name = QualifiedIdent.Ident "Array"
+                    TypeArgs = Some [ arrayElem ]
+                    Scheme = scheme }
+              Provenance = None }
+        | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
+          let! elems = elems |> List.traverseResultM (expand mapping)
+
+          return
+            { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+              Provenance = None }
         | TypeKind.TypeRef { Name = name
                              TypeArgs = typeArgs
                              Scheme = scheme } ->
@@ -1557,18 +1582,6 @@ module rec Unify =
                       Immutable = false
                       Interface = false }
                 Provenance = None }
-        | TypeKind.Array { Elem = elem } ->
-          let! elem = expandType ctx env ips mapping elem
-
-          return
-            { Kind = TypeKind.Array { Elem = elem }
-              Provenance = None }
-        | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
-          let! elems = elems |> List.traverseResultM (expand mapping)
-
-          return
-            { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
-              Provenance = None }
         | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->
           let! elems = elems |> List.traverseResultM (expand mapping)
 

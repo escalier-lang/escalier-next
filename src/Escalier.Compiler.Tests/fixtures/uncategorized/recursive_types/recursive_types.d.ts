@@ -1,4 +1,4 @@
-type Foo = number | Foo[];
+type Foo = number | Array<Foo>;
 // @escType - Foo
 const x: Foo;
 // @escType - Foo

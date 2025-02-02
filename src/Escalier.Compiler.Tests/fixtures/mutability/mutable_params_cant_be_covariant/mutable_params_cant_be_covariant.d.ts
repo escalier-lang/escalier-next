@@ -1,4 +1,4 @@
-// @escType - fn (mut array: (number | string)[]) -> undefined
-const foo: (array: number | string[]) => undefined;
-// @escType - number[]
-const numbers: number[];
+// @escType - fn (mut array: Array<number | string>) -> undefined
+const foo: (array: Array<number | string>) => undefined;
+// @escType - Array<number>
+const numbers: Array<number>;

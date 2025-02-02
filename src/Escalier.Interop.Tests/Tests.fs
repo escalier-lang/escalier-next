@@ -565,14 +565,14 @@ let CanCallMutableMethodsOnMutableArray () =
     result {
       let src =
         """
-        let mut a: number[] = [3, 2, 1];
+        let mut a: Array<number> = [3, 2, 1];
         a.sort();
         let b = a.map(fn (x) => x * 2);
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "b", "number[]")
+      Assert.Value(env, "b", "Array<number>")
     }
 
   Assert.False(Result.isError result)
@@ -583,7 +583,7 @@ let CanIndexOnArrays () =
     result {
       let src =
         """
-        let mut a: number[] = [3, 2, 1];
+        let mut a: Array<number> = [3, 2, 1];
         let b = a[0];
         let mut len1 = a.length;
         let len2 = a.length;
@@ -605,7 +605,7 @@ let CannotCallMutableMethodsOnNonMutableArray () =
     result {
       let src =
         """
-        let a: number[] = [3, 2, 1];
+        let a: Array<number> = [3, 2, 1];
         a.sort();
         let b = a.map(fn (x) => x * 2);
         """
@@ -623,13 +623,13 @@ let CallArrayConstructor () =
     result {
       let src =
         """
-        let mut a: number[] = new Array();
+        let mut a: Array<number> = new Array();
         a.push(5);
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "a", "number[]")
+      Assert.Value(env, "a", "Array<number>")
     }
 
   printfn "result = %A" result
@@ -648,7 +648,7 @@ let CallArrayConstructorWithTypeArgs () =
       let! ctx, env = inferModule src
 
       // TODO(#259): Fix function overloads
-      Assert.Value(env, "a", "_[]")
+      Assert.Value(env, "a", "Array<_>")
     }
 
   Assert.False(Result.isError result)
@@ -665,7 +665,7 @@ let CallArrayConstructorWithNoTypeAnnotations () =
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "a", "_[]")
+      Assert.Value(env, "a", "Array<_>")
     }
 
   Assert.False(Result.isError result)

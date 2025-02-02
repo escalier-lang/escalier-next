@@ -1,11 +1,18 @@
-﻿input: number[][]
-output: Success: { Kind = Array { Kind = Array { Kind = Keyword Number
-                                Span = { Start = (Ln: 1, Col: 1)
-                                         Stop = (Ln: 1, Col: 7) }
-                                InferredType = None }
-                 Span = { Start = (Ln: 1, Col: 1)
-                          Stop = (Ln: 1, Col: 9) }
-                 InferredType = None }
+﻿input: Array<Array<number>>
+output: Success: { Kind =
+   TypeRef
+     { Ident = Ident "Array"
+       TypeArgs =
+        Some
+          [{ Kind =
+              TypeRef { Ident = Ident "Array"
+                        TypeArgs = Some [{ Kind = Keyword Number
+                                           Span = { Start = (Ln: 1, Col: 13)
+                                                    Stop = (Ln: 1, Col: 19) }
+                                           InferredType = None }] }
+             Span = { Start = (Ln: 1, Col: 7)
+                      Stop = (Ln: 1, Col: 20) }
+             InferredType = None }] }
   Span = { Start = (Ln: 1, Col: 1)
-           Stop = (Ln: 1, Col: 11) }
+           Stop = (Ln: 1, Col: 21) }
   InferredType = None }

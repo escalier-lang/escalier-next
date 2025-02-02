@@ -1231,7 +1231,8 @@ module rec InferModule =
         let! elemType =
           result {
             match expandedRightType.Kind with
-            | TypeKind.Array { Elem = elem } -> return elem
+            | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
+                                 TypeArgs = Some [ elem ] } -> return elem
             | TypeKind.Tuple { Elems = elems } -> return union elems
             | TypeKind.Object _ ->
               // TODO: try using unify and/or an utility type to extract the

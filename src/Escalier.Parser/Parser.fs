@@ -575,25 +575,6 @@ module Parser =
 
   typeAnnParser.RegisterInfix("[", indexTypeAnnParselet 17)
 
-  let postfixTypeAnnParselet
-    (precedence: int)
-    (callback: TypeAnn * Position -> TypeAnn)
-    : Pratt.InfixParselet<TypeAnn> =
-    { Parse =
-        fun (parser, stream, left, operator) ->
-          Reply(callback (left, stream.Position))
-      Precedence = precedence }
-
-  typeAnnParser.RegisterInfix(
-    "[]",
-    postfixTypeAnnParselet 17 (fun (target, position) ->
-      { TypeAnn.Kind = Array(target)
-        Span =
-          { Start = target.Span.Start
-            Stop = position }
-        InferredType = None })
-  )
-
   let naryTypeAnnParselet
     (precedence: int)
     (callback: list<TypeAnn> -> TypeAnn)

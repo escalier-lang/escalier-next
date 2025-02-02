@@ -21,9 +21,6 @@ module rec InferTypeAnn =
     let kind: Result<TypeKind, TypeError> =
       result {
         match typeAnn.Kind with
-        | TypeAnnKind.Array elem ->
-          let! elem = inferTypeAnn ctx env elem
-          return TypeKind.Array { Elem = elem }
         | TypeAnnKind.Literal lit -> return TypeKind.Literal(lit)
         | TypeAnnKind.Keyword keyword ->
           match keyword with

@@ -61,85 +61,6 @@ module rec InferModule =
 
     result
 
-  let rec inferExprStructuralPlacholder
-    (ctx: Ctx)
-    (env: Env)
-    (expr: Expr)
-    : Result<Type, TypeError> =
-    result {
-      let mutable elemTypes: list<ObjTypeElem> = []
-      let mutable spreadTypes: list<Type> = []
-
-      match expr.Kind with
-      | ExprKind.Object { Elems = elems } ->
-        for elem in elems do
-          match elem with
-          | ObjElem.Property { Span = span
-                               Name = name
-                               Value = value } ->
-            let! name = InferExpr.inferPropName ctx env name
-            let! t = inferExprStructuralPlacholder ctx env value
-
-            elemTypes <-
-              ObjTypeElem.Property
-                { Name = name
-                  Optional = false
-                  Readonly = false
-                  Type = t }
-              :: elemTypes
-          | ObjElem.Shorthand { Span = span; Name = name } ->
-            match env.TryFindValue name with
-            | Some binding ->
-              elemTypes <-
-                ObjTypeElem.Property
-                  { Name = PropName.String name
-                    Optional = false
-                    Readonly = false
-                    Type = binding.Type }
-                :: elemTypes
-            | None -> return! Error(TypeError.SemanticError $"{name} not found")
-          | ObjElem.Spread { Span = span; Value = value } ->
-            match value.Kind with
-            | ExprKind.Identifier { Name = name } ->
-              match env.TryFindValue name with
-              | Some binding -> spreadTypes <- binding.Type :: spreadTypes
-              | None ->
-                return! Error(TypeError.SemanticError $"{name} not found")
-            | _ ->
-              return!
-                Error(
-                  TypeError.NotImplemented
-                    $"TODO: inferExprStructuralPlacholder - handle spread of {value}"
-                )
-
-        let kind =
-          TypeKind.Object
-            { Extends = None
-              Implements = None
-              Elems = List.rev elemTypes
-              Exact = true
-              Immutable = false
-              Interface = false }
-
-        let objType = { Kind = kind; Provenance = None }
-
-        match spreadTypes with
-        | [] -> return objType
-        | _ ->
-          let kind = TypeKind.Intersection(objType :: spreadTypes)
-          return { Kind = kind; Provenance = None }
-      | ExprKind.Tuple { Elems = elems } ->
-        let! elems =
-          elems
-          |> List.traverseResultM (fun elem ->
-            inferExprStructuralPlacholder ctx env elem)
-
-        let kind = TypeKind.Tuple { Elems = elems; Immutable = false }
-
-        return { Kind = kind; Provenance = None }
-      | _ -> return ctx.FreshTypeVar None None
-    }
-
   let getKey
     (ident: QDeclIdent)
     (name: string)
@@ -230,9 +151,6 @@ module rec InferModule =
 
               match typeAnn, init with
               | None, Some init ->
-                // TODO: Think about whether inferExprStructuralPlacholder should
-                // be used here. In particular, do we want to support objects without
-                // type annotations, reference the object methods on the object.
                 let placeholderType = ctx.FreshTypeVar None None
                 do! unify ctx env None patternType placeholderType
               | _, _ -> ()
@@ -637,6 +555,7 @@ module rec InferModule =
                         Immutable = false
                         Extends = None
                         Implements = None
+                        Mutable = false
                         Interface = false }
                   Provenance = None }
 
@@ -664,6 +583,7 @@ module rec InferModule =
                       Immutable = false
                       Extends = None
                       Implements = None
+                      Mutable = false
                       Interface = false }
                 Provenance = None }
 
@@ -800,6 +720,7 @@ module rec InferModule =
                       Elems = elems
                       Exact = false
                       Immutable = false
+                      Mutable = false
                       Interface = true }
 
                 return { Kind = kind; Provenance = None }
@@ -828,6 +749,7 @@ module rec InferModule =
                     Elems = mergedElems
                     Exact = false
                     Immutable = false
+                    Mutable = false
                     Interface = false }
 
               // NOTE: We explicitly don't generalize here because we want other

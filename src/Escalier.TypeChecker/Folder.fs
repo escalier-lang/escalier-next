@@ -56,10 +56,10 @@ module Folder =
         | TypeKind.Function f ->
           { Kind = TypeKind.Function(foldFn f)
             Provenance = None }
-        | TypeKind.Tuple { Elems = elems; Immutable = immutable } ->
+        | TypeKind.Tuple({ Elems = elems } as tuple) ->
           let elems = List.map fold elems
 
-          { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+          { Kind = TypeKind.Tuple { tuple with Elems = elems }
             Provenance = None }
         | TypeKind.TypeRef typeRef ->
           // NOTE: We explicitly don't fold the scheme type here because
@@ -73,25 +73,19 @@ module Folder =
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
-        | TypeKind.Object { Extends = extends
+        | TypeKind.Object({ Extends = extends
                             Implements = impls
-                            Elems = elems
-                            Exact = exact
-                            Immutable = immutable
-                            Interface = int } ->
+                            Elems = elems } as obj) ->
           let elems = List.map foldObjElem elems
-
           let extends = extends |> Option.map (List.map foldTypeRef)
           let impls = impls |> Option.map (List.map foldTypeRef)
 
           { Kind =
               TypeKind.Object
-                { Extends = extends
-                  Implements = impls
-                  Elems = elems
-                  Exact = exact
-                  Immutable = immutable
-                  Interface = int }
+                { obj with
+                    Extends = extends
+                    Implements = impls
+                    Elems = elems }
             Provenance = None }
         | TypeKind.RestSpread t ->
           { Kind = TypeKind.RestSpread(fold t)

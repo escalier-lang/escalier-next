@@ -192,7 +192,11 @@ module rec InferExpr =
           let! elems = List.traverseResultM (inferExpr ctx env None) elems
 
           return
-            { Kind = TypeKind.Tuple { Elems = elems; Immutable = immutable }
+            { Kind =
+                TypeKind.Tuple
+                  { Elems = elems
+                    Immutable = immutable
+                    Mutable = true }
               Provenance = None }
         | ExprKind.IfElse { Condition = condition
                             Then = thenBranch
@@ -343,6 +347,7 @@ module rec InferExpr =
                     Elems = elems
                     Exact = exact
                     Immutable = immutable
+                    Mutable = not immutable
                     Interface = false }
               Provenance = None }
 
@@ -614,6 +619,7 @@ module rec InferExpr =
                     "ReactNode"
                   )
                 TypeArgs = None
+                Mutable = false
                 Scheme = None }
           Provenance = None }
 
@@ -658,6 +664,7 @@ module rec InferExpr =
                       "ReactNode"
                     )
                   TypeArgs = None
+                  Mutable = false
                   Scheme = None }
             Provenance = None }
 
@@ -670,6 +677,7 @@ module rec InferExpr =
                       "IntrinsicElements"
                     )
                   TypeArgs = None
+                  Mutable = false
                   Scheme = None }
             Provenance = None }
 
@@ -799,6 +807,7 @@ module rec InferExpr =
                     TypeKind.TypeRef
                       { Name = QualifiedIdent.Ident "Self"
                         Scheme = scheme
+                        Mutable = identPat.IsMut
                         TypeArgs = None }
                   Provenance = None }
 

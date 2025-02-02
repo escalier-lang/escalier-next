@@ -9,12 +9,8 @@ open Escalier.Data.Type
 open Escalier.Data.Visitor
 
 open Error
-open Prune
 open Env
-open Mutability
 open Poly
-open Unify
-open Helpers
 open InferExpr
 open InferTypeAnn
 
@@ -58,6 +54,7 @@ module InferClass =
                 TypeKind.TypeRef
                   { Name = QualifiedIdent.Ident typeParam.Name
                     TypeArgs = None
+                    Mutable = false
                     Scheme = None }
               Provenance = None }))
 
@@ -66,6 +63,7 @@ module InferClass =
             TypeKind.TypeRef
               { Name = QualifiedIdent.Ident className
                 TypeArgs = typeArgs
+                Mutable = false
                 Scheme = Some placeholder }
           Provenance = None }
 
@@ -280,6 +278,7 @@ module InferClass =
                 Elems = instanceElems
                 Exact = false
                 Immutable = false
+                Mutable = false
                 Interface = false }
           Provenance = None }
 
@@ -309,6 +308,7 @@ module InferClass =
                 Elems = staticElems
                 Exact = true
                 Immutable = false
+                Mutable = false
                 Interface = false }
           Provenance = None }
 
@@ -496,6 +496,7 @@ module InferClass =
                     Elems = instanceElems
                     Exact = false
                     Immutable = false
+                    Mutable = false
                     Interface = false }
               Provenance = None }
 
@@ -528,6 +529,7 @@ module InferClass =
             Elems = staticElems
             Exact = true
             Immutable = false
+            Mutable = false
             Interface = false }
 
       return staticObjType, placeholder

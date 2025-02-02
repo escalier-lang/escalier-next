@@ -213,6 +213,7 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
           Elems = List.ofSeq elems @ unnamedElems
           Exact = false // MergeType should only be used with interfaces which can't be exact
           Immutable = false
+          Mutable = false
           Interface = false }
 
     { Kind = kind; Provenance = None }

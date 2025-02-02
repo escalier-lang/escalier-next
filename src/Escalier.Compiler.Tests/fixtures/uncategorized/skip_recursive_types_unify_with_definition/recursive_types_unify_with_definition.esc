@@ -1,0 +1,4 @@
+// TODO: fix stack overflow in this test case
+type Foo = number | Array<Foo>;
+let foo: Foo = 5;
+let bar: number | Array<Foo> = foo;

@@ -1,2 +1,2 @@
-let foo: number[] = [1, 2, 3];
-let mut bar: number[] = [1, 2, 3];
+let foo: Array<number> = [1, 2, 3];
+let mut bar: Array<number> = [1, 2, 3];

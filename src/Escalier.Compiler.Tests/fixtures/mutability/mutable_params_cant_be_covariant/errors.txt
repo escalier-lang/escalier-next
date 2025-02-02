@@ -1,2 +1,2 @@
-ERROR: arg type 'number[]' doesn't satisfy param 'mut array' type '(number | string)[]' in function call
+ERROR: arg type 'Array<number>' doesn't satisfy param 'mut array' type 'Array<number | string>' in function call
 - Type mismatch: number and number | string

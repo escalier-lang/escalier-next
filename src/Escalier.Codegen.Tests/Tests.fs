@@ -217,7 +217,7 @@ let CodegenTaggedTemplateLiteral () =
     result {
       let src =
         """
-        declare fn gql(strings: string[], ...values: unknown[]) -> string;
+        declare fn gql(strings: Array<string>, ...values: Array<unknown>) -> string;
         let id = "foo123";
         let query = gql`query {
           user(id: ${id}) {
@@ -267,7 +267,7 @@ let CodegenIndexing () =
     result {
       let src =
         """
-        let mut arr: number[] = [1, 2];
+        let mut arr: Array<number> = [1, 2];
         arr[2] = arr[0] + arr[1];
         """
 
@@ -747,7 +747,7 @@ let CodegenMatchArray () =
     result {
       let src =
         """
-        let getCount = fn<T>(array: T[]) {
+        let getCount = fn<T>(array: Array<T>) {
           return match array {
             [] => "none",
             [x] => "one",

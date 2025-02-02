@@ -1,3 +1,3 @@
-let mut foo: number[] = [5, 10];
-let mut bar: string[] = ["hello", "world"];
-let mut foobar: [(number | string)[], (number | string)[]] = [foo, bar];
+let mut foo: Array<number> = [5, 10];
+let mut bar: Array<string> = ["hello", "world"];
+let mut foobar: [Array<number | string>, Array<number | string>] = [foo, bar];

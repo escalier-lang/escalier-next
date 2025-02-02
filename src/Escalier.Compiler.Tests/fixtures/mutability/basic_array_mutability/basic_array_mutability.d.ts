@@ -1,2 +1,2 @@
-// @escType - number[]
-const array: number[];
+// @escType - Array<number>
+const array: Array<number>;

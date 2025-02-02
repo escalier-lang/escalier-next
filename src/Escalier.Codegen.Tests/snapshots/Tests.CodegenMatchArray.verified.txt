@@ -1,5 +1,5 @@
 ﻿input: 
-        let getCount = fn<T>(array: T[]) {
+        let getCount = fn<T>(array: Array<T>) {
           return match array {
             [] => "none",
             [x] => "one",
@@ -36,5 +36,5 @@ var getCount = function (array) {
 };
 
 --- output (dts) ---
-// @escType - fn <T>(array: T[]) -> "none" | "one" | "a couple" | "many"
-const getCount: <T>(array: T[]) => "none" | "one" | "a couple" | "many";
+// @escType - fn <T>(array: Array<T>) -> "none" | "one" | "a couple" | "many"
+const getCount: <T>(array: Array<T>) => "none" | "one" | "a couple" | "many";

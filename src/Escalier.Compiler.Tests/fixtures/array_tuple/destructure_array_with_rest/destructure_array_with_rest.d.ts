@@ -1,8 +1,8 @@
-// @escType - number[]
-declare const array: number[];
+// @escType - Array<number>
+declare const array: Array<number>;
 // @escType - [number, string, boolean]
 declare const tuple: [number, string, boolean];
 // @escType - number | undefined
 const a: number | undefined;
-// @escType - number[]
-const rest: number[];
+// @escType - Array<number>
+const rest: Array<number>;

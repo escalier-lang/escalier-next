@@ -1,6 +1,6 @@
-let foo = fn (mut array: (number | string)[]) {
+let foo = fn (mut array: Array<number | string>) {
   array[0] = 5;
   array[1] = "hello";
 };
-let mut numbers: (number | string)[] = [1, 2, 3];
+let mut numbers: Array<number | string> = [1, 2, 3];
 foo(numbers);

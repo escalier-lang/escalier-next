@@ -11,5 +11,5 @@ var array = new Array(1, 2, 3);
 function parseInt(input: string): number;
 // @escType - number
 const num: number;
-// @escType - _[]
-const array: any[];
+// @escType - Array<_>
+const array: Array<any>;

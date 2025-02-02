@@ -1,5 +1,5 @@
 type Foo<T> = {
-  [K]: T[K][] for K in keyof T
+  [K]: Array<T[K]> for K in keyof T
 };
-type Bar = string[];
+type Bar = Array<string>;
 type Baz = Foo<Bar>;

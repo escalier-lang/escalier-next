@@ -1,2 +1,2 @@
-let foo: number[] = [1, 2, 3];
-let bar: (number | string)[] = foo;
+let foo: Array<number> = [1, 2, 3];
+let bar: Array<number | string> = foo;

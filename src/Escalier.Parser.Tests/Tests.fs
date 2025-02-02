@@ -252,7 +252,7 @@ let ParseUnionAndIntersectionType () =
 
 [<Fact>]
 let ParseArrayType () =
-  let src = "number[][]"
+  let src = "Array<Array<number>>"
   let ast = typeAnn src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -260,7 +260,7 @@ let ParseArrayType () =
 
 [<Fact>]
 let ParseParenthesizedType () =
-  let src = "(number | string)[]"
+  let src = "Array<number | string>"
   let ast = typeAnn src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -709,7 +709,7 @@ let ParseMutableBindings () =
 let ParseMutableParams () =
   let src =
     """
-    let update = fn (mut array: number[]) {
+    let update = fn (mut array: Array<number>) {
       for i in array.keys() {
         array[i] = array[i] + 1;
       }

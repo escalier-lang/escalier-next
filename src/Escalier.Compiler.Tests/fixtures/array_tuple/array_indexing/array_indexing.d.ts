@@ -1,5 +1,5 @@
-// @escType - number[]
-const array: number[];
+// @escType - Array<number>
+const array: Array<number>;
 // @escType - number | undefined
 const first: number | undefined;
 // @escType - number | undefined

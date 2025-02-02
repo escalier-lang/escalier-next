@@ -1,4 +1,4 @@
-// TODO: fix stack overflow in this test case
+// TODO(#417): Add support for unifying recursive types without overflowing the stack
 type Foo = number | Array<Foo>;
 let foo: Foo = 5;
 let bar: number | Array<Foo> = foo;

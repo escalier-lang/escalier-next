@@ -299,7 +299,6 @@ module rec ExprVisitor =
       let walk = walkTypeAnn visitor state
 
       match typeAnn.Kind with
-      | TypeAnnKind.Array elem -> walk elem
       | TypeAnnKind.Literal _ -> ()
       | TypeAnnKind.Keyword _ -> ()
       | TypeAnnKind.Object { Elems = elems } ->
@@ -424,7 +423,6 @@ module rec TypeVisitor =
       | TypeKind.RestSpread t -> walk t
       | TypeKind.Union types -> List.iter walk types
       | TypeKind.Intersection types -> List.iter walk types
-      | TypeKind.Array { Elem = elem } -> walk elem
       | TypeKind.KeyOf t -> walk t
       | TypeKind.Index { Target = target; Index = index } ->
         walk target

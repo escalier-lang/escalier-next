@@ -2121,10 +2121,6 @@ module rec Codegen =
 
   let buildTypeFromTypeAnn (ctx: Ctx) (typeAnn: TypeAnn) : TsType =
     match typeAnn.Kind with
-    | TypeAnnKind.Array elemTypeAnn ->
-      TsType.TsArrayType
-        { ElemType = buildTypeFromTypeAnn ctx elemTypeAnn
-          Loc = None }
     | TypeAnnKind.Literal literal ->
       match literal with
       | Literal.Boolean value ->
@@ -2431,10 +2427,6 @@ module rec Codegen =
             Loc = None })
 
       TsType.TsTupleType { ElemTypes = elemTypes; Loc = None }
-    | TypeKind.Array { Elem = elem } ->
-      TsType.TsArrayType
-        { ElemType = buildType ctx elem
-          Loc = None }
     | TypeKind.KeyOf t ->
       TsType.TsTypeOperator
         { Op = TsTypeOperatorOp.KeyOf

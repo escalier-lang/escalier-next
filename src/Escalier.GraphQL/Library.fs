@@ -137,7 +137,11 @@ let rec getTypeForField
     let listType = fieldDefType :?> GraphQLListType
     let t = getTypeForField schema doc listType.Type field
 
-    { Kind = TypeKind.Array { Elem = t }
+    { Kind =
+        TypeKind.TypeRef
+          { Name = QualifiedIdent.Ident "Array"
+            TypeArgs = Some [ t ]
+            Scheme = None }
       Provenance = None }
   | _ -> failwith "unexpected field type"
 

@@ -42,7 +42,6 @@ let fixturePaths: obj[] seq =
 [<Theory>]
 [<MemberData(nameof fixturePaths)>]
 let FixtureTests (fixtureDir: string) =
-  printfn $"starting {fixtureDir}"
   let stopWatch = System.Diagnostics.Stopwatch.StartNew()
 
   let fixtureDir = Path.Join(projectRoot, fixtureDir)

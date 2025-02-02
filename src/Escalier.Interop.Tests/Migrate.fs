@@ -70,7 +70,7 @@ let ParseAndInferBasicDecls () =
       Assert.Value(env, "a", "number")
       Assert.Value(env, "b", "string")
       Assert.Value(env, "c", "boolean")
-      Assert.Value(env, "d", "fn (x: number[]) -> boolean")
+      Assert.Value(env, "d", "fn (x: Array<number>) -> boolean")
     }
 
   Assert.True(Result.isOk res)

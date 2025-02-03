@@ -1,8 +1,8 @@
 # Summary
 
 This RFC proposes reworking existing Escalier enums to:
-- support extensible enums
-- use the TC39 "Extractors" proposal to define enums
+- add support for extensible enums
+- use the TC39 "Extractors" proposal to implement enums
 
 # Motivation
 
@@ -45,7 +45,7 @@ val value = match x {
     MyEnum.Baz({content}, _) => content,
 };
 
-// if-let
+// if-val
 val msg = if val MyEnum.Baz {msg} = value { 
     msg
 } else {
@@ -71,7 +71,8 @@ method. The enum itself will be an object containing each of the variants. The e
 union of each variant's type.
 
 The code below shows how the `MyEnum` and `MyOtherEnum` enums would be implemented in TypeScript.  The Escalier
-compiler will output equivalent .js and .d.ts code.
+compiler will output equivalent .js and .d.ts code. Because we're able to fully represent the enum in TypeScript,
+we won't need to do anything special when importing enums from packages that were compiled from Escalier.
 
 ```ts
 namespace MyEnum {

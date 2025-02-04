@@ -1,7 +1,7 @@
 ﻿input: 
     if let x = maybe1?.x {
       print(x);
-    } else if let Result.Ok[y] = result {
+    } else if let Result.Ok(y) = result {
       print(y);
     };
     
@@ -82,7 +82,7 @@ output: Ok
                                                            (Ln: 4, Col: 30) }
                                                        InferredType = None }]
                                                    Immutable = false }
-                                              Span = { Start = (Ln: 4, Col: 28)
+                                              Span = { Start = (Ln: 4, Col: 19)
                                                        Stop = (Ln: 4, Col: 32) }
                                               InferredType = None } }
                                     Span = { Start = (Ln: 4, Col: 19)

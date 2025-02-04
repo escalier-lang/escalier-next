@@ -1,6 +1,6 @@
 enum MyEnum<A, B, C> {
-  Foo[A],
-  Bar[B],
-  Baz[C],
+  Foo(A),
+  Bar(B),
+  Baz(C),
 }
 let value = MyEnum.Foo(5);

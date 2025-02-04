@@ -1,8 +1,8 @@
 ﻿input: 
     match value {
-      MyEnum.Foo[a, b, c] => a + b + c,
-      MyEnum.Bar[x, y] => x * y,
-      MyEnum.Baz[z] => z,
+      MyEnum.Foo(a, b, c) => a + b + c,
+      MyEnum.Bar(x, y) => x * y,
+      MyEnum.Baz(z) => z,
     }
     
 output: Ok
@@ -47,7 +47,7 @@ output: Ok
                                                        Stop = (Ln: 3, Col: 25) }
                                               InferredType = None }]
                                           Immutable = false }
-                                     Span = { Start = (Ln: 3, Col: 17)
+                                     Span = { Start = (Ln: 3, Col: 7)
                                               Stop = (Ln: 3, Col: 27) }
                                      InferredType = None } }
                            Span = { Start = (Ln: 3, Col: 7)
@@ -107,7 +107,7 @@ output: Ok
                                                        Stop = (Ln: 4, Col: 22) }
                                               InferredType = None }]
                                           Immutable = false }
-                                     Span = { Start = (Ln: 4, Col: 17)
+                                     Span = { Start = (Ln: 4, Col: 7)
                                               Stop = (Ln: 4, Col: 24) }
                                      InferredType = None } }
                            Span = { Start = (Ln: 4, Col: 7)
@@ -148,7 +148,7 @@ output: Ok
                                                        Stop = (Ln: 5, Col: 19) }
                                               InferredType = None }]
                                           Immutable = false }
-                                     Span = { Start = (Ln: 5, Col: 17)
+                                     Span = { Start = (Ln: 5, Col: 7)
                                               Stop = (Ln: 5, Col: 21) }
                                      InferredType = None } }
                            Span = { Start = (Ln: 5, Col: 7)

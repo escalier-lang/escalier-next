@@ -1,10 +1,10 @@
 enum Option<T> {
-  Some[T],
+  Some(T),
   None,
 }
 declare let value: Option<number>;
 
 let x = match value {
-  Option.Some[value] => value,
+  Option.Some(value) => value,
   Option.None => 0,
 };

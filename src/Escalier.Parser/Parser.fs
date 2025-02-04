@@ -1570,21 +1570,8 @@ module Parser =
               Elems = objTypeElems }
         Span = span }
 
-  let private objectVariant: Parser<TypeAnn, unit> =
-    withSpan (
-      between (strWs "{") (strWs "}") (sepEndBy objTypeAnnElem (strWs ","))
-    )
-    |>> fun (objElems, span) ->
-      { Kind =
-          TypeAnnKind.Object
-            { Elems = objElems
-              Immutable = false
-              Exact = true }
-        Span = span
-        InferredType = None }
-
   let private tupleVariant: Parser<TypeAnn, unit> =
-    between (strWs "[") (strWs "]") (sepEndBy typeAnn (strWs ",")) |> withSpan
+    between (strWs "(") (strWs ")") (sepEndBy typeAnn (strWs ",")) |> withSpan
     |>> fun (typeAnns, span) ->
       { Kind = TypeAnnKind.Tuple { Elems = typeAnns; Immutable = false }
         Span = span
@@ -1594,7 +1581,7 @@ module Parser =
     pipe4
       getPosition
       ident
-      (opt (choice [ objectVariant; tupleVariant ]))
+      (opt (choice [ tupleVariant ]))
       (strWs "," >>. getPosition)
     <| fun start name kind stop ->
 
@@ -1691,7 +1678,6 @@ module Parser =
   let private tuplePattern =
     between (strWs "[") (strWs "]") (sepEndBy pattern (strWs ",")) |> withSpan
     |>> fun (patterns, span) ->
-      // TODO: handle immutable tuple patterns
       { Pattern.Kind = PatternKind.Tuple { Elems = patterns; Immutable = false }
         Span = span
         InferredType = None }
@@ -1699,7 +1685,6 @@ module Parser =
   let private imTuplePattern =
     between (strWs "#[") (strWs "]") (sepEndBy pattern (strWs ",")) |> withSpan
     |>> fun (patterns, span) ->
-      // TODO: handle immutable tuple patterns
       { Pattern.Kind = PatternKind.Tuple { Elems = patterns; Immutable = true }
         Span = span
         InferredType = None }
@@ -1778,10 +1763,18 @@ module Parser =
       tuple3
         ident
         (strWs "." >>. ident)
-        (opt (choice [ objectPattern; tuplePattern ]))
+        (opt (between (strWs "(") (strWs ")") (sepEndBy pattern (strWs ","))))
     )
-    |>> fun ((qualifier, ident, arg), span) ->
+    |>> fun ((qualifier, ident, patterns), span) ->
       let ident = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, ident)
+
+      let arg =
+        patterns
+        |> Option.map (fun patterns ->
+          { Pattern.Kind =
+              PatternKind.Tuple { Elems = patterns; Immutable = false }
+            Span = span
+            InferredType = None })
 
       { Pattern.Kind = PatternKind.Enum { Ident = ident; Arg = arg }
         Span = span

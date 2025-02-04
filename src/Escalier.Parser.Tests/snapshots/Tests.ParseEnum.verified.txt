@@ -1,7 +1,7 @@
 ﻿input: 
     enum MyEnum {
-      Foo[number, string, boolean],
-      Bar {x: number, y: number},
+      Foo(number, string, boolean),
+      Bar,
     }
     let value = MyEnum.Foo(5, "hello", true);
     
@@ -43,40 +43,7 @@ output: Ok
                         Span = { Start = (Ln: 3, Col: 7)
                                  Stop = (Ln: 4, Col: 7) } };
                       { Name = "Bar"
-                        TypeAnn =
-                         Some
-                           { Kind =
-                              Object
-                                { Elems =
-                                   [Property
-                                      { Name = Ident "x"
-                                        TypeAnn =
-                                         Some
-                                           { Kind = Keyword Number
-                                             Span = { Start = (Ln: 4, Col: 15)
-                                                      Stop = (Ln: 4, Col: 21) }
-                                             InferredType = None }
-                                        Value = None
-                                        Optional = false
-                                        Readonly = false
-                                        Static = false };
-                                    Property
-                                      { Name = Ident "y"
-                                        TypeAnn =
-                                         Some
-                                           { Kind = Keyword Number
-                                             Span = { Start = (Ln: 4, Col: 26)
-                                                      Stop = (Ln: 4, Col: 32) }
-                                             InferredType = None }
-                                        Value = None
-                                        Optional = false
-                                        Readonly = false
-                                        Static = false }]
-                                  Immutable = false
-                                  Exact = true }
-                             Span = { Start = (Ln: 4, Col: 11)
-                                      Stop = (Ln: 4, Col: 33) }
-                             InferredType = None }
+                        TypeAnn = None
                         Init = None
                         Span = { Start = (Ln: 4, Col: 7)
                                  Stop = (Ln: 5, Col: 5) } }] }

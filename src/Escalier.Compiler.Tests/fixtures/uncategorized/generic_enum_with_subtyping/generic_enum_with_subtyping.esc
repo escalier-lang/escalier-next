@@ -1,11 +1,11 @@
 enum MyEnum<A, B, C> {
-  Foo[A],
-  Bar[B],
-  Baz[C],
+  Foo(A),
+  Bar(B),
+  Baz(C),
 }
 let value: MyEnum<number, string, boolean> = MyEnum.Foo(5);
 let x = match value {
-  MyEnum.Foo[a] => a,
-  MyEnum.Bar[b] => b,
-  MyEnum.Baz[c] => c,
+  MyEnum.Foo(a) => a,
+  MyEnum.Bar(b) => b,
+  MyEnum.Baz(c) => c,
 };

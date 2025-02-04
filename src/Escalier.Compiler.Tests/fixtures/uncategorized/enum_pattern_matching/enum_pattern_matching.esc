@@ -1,12 +1,10 @@
 enum MyEnum {
-  Foo[number, string, boolean],
-  Bar[[number, number]],
-  Baz {x: number, y: number},
+  Foo(number, string, boolean),
+  Bar([number, number]),
 }
 let value: MyEnum = MyEnum.Foo(5, "hello", true);
 
 let x = match value {
-  MyEnum.Foo[x, y, z] => x,
-  MyEnum.Bar[[x, y]] => x,
-  MyEnum.Baz {x, y} => x,
+  MyEnum.Foo(x, y, z) => x,
+  MyEnum.Bar([x, y]) => x,
 };

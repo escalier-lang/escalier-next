@@ -125,3 +125,35 @@ namespace MyOtherEnum {
 
 type MyOtherEnum = MyOtherEnum.Foo | MyOtherEnum.Bar | MyOtherEnum.Baz | MyOtherEnum.Qux;
 ```
+
+Pattern matching will need to check the instance of each variant before destructuring it.  The following Escalier code:
+```ts
+val value = match x {
+    MyEnum.Foo => "",
+    MyEnum.Bar(value) => value,
+    MyEnum.Baz({content}, _) => content,
+};
+```
+will be transformed into the following JavaScript code:
+```ts
+let temp0;
+if (x instanceof MyEnum.Foo) {
+    temp0 = "";
+} else {
+    let temp1;
+    if (x instanceof MyEnum.Bar) {
+        const [value] = x[Symbol.customMatcher]();
+        temp1 = value;
+    } else {
+        let temp2;
+        if (x instanceof MyEnum.Baz) {
+            const [message, _] = x[Symbol.customMatcher]();
+            const {content} = message;
+            temp2 = content;
+        }
+        temp1 = temp2;
+    }
+    temp0 = temp1;
+}
+const value = temp0;
+```

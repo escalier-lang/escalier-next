@@ -139,13 +139,21 @@ will be transformed into the following JavaScript code:
 let temp0;
 if (x instanceof MyEnum.Foo) {
     temp0 = "";
-} else if (x instanceof MyEnum.Bar) {
-    const [value] = x[Symbol.customMatcher]();
-    temp0 = value;
-} else if (x instanceof MyEnum.Baz) {
-    const [message, _] = x[Symbol.customMatcher]();
-    const {content} = message;
-    temp0 = content;
+} else {
+    let temp1;
+    if (x instanceof MyEnum.Bar) {
+        const [value] = x[Symbol.customMatcher]();
+        temp1 = value;
+    } else {
+        let temp2;
+        if (x instanceof MyEnum.Baz) {
+            const [message, _] = x[Symbol.customMatcher]();
+            const {content} = message;
+            temp2 = content;
+        }
+        temp1 = temp2;
+    }
+    temp0 = temp1;
 }
 const value = temp0;
 ```

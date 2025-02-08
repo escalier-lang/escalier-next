@@ -4,4 +4,4 @@ let Foo = class {
     self.msg = msg;
   }
 };
-let foo = new Foo("hello");
+let foo = Foo("hello");

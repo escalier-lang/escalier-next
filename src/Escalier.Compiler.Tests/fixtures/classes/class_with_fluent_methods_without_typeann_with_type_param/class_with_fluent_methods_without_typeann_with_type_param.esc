@@ -4,5 +4,5 @@ let Foo = class<T> {
     return self;
   }
 };
-let foo = new Foo<string>();
+let foo = Foo<string>();
 let bar = foo.bar();

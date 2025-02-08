@@ -1,17 +1,18 @@
-﻿input: new Array();
+﻿input: Array();
 output: Ok
   { Items =
      [Stmt
         { Kind =
-           Expr { Kind = New { Callee = { Kind = Identifier { Name = "Array" }
-                                          Span = { Start = (Ln: 1, Col: 5)
-                                                   Stop = (Ln: 1, Col: 10) }
-                                          InferredType = None }
-                               TypeArgs = None
-                               Args = Some []
-                               Throws = None }
-                  Span = { Start = (Ln: 1, Col: 5)
-                           Stop = (Ln: 1, Col: 12) }
+           Expr { Kind = Call { Callee = { Kind = Identifier { Name = "Array" }
+                                           Span = { Start = (Ln: 1, Col: 1)
+                                                    Stop = (Ln: 1, Col: 6) }
+                                           InferredType = None }
+                                TypeArgs = None
+                                Args = []
+                                OptChain = false
+                                Throws = None }
+                  Span = { Start = (Ln: 1, Col: 1)
+                           Stop = (Ln: 1, Col: 8) }
                   InferredType = None }
-          Span = { Start = (Ln: 1, Col: 5)
-                   Stop = (Ln: 1, Col: 12) } }] }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 8) } }] }

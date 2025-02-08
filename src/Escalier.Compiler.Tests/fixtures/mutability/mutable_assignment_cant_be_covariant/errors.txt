@@ -1,2 +1,2 @@
-ParseError: Error in Ln: 1 Col: 5
-Expecting: ';' or '}'
+ERROR: Initializer doesn't match declared type
+- Type mismatch: number and number | string

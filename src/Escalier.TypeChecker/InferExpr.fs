@@ -72,6 +72,19 @@ module rec InferExpr =
         | ExprKind.Call call ->
           let callee = call.Callee
 
+          let! typeArgs =
+            match call.TypeArgs with
+            | Some typeArgs ->
+              List.traverseResultM
+                (fun typeArg ->
+                  result {
+                    let! typeArg = ctx.InferTypeAnn ctx env typeArg
+                    return typeArg
+                  })
+                typeArgs
+              |> Result.map Some
+            | _ -> Ok None
+
           match maybeEnumForExpr ctx env callee with
           | Some variantType ->
             match variantType.Kind with
@@ -88,60 +101,13 @@ module rec InferExpr =
             // If it's a QualifiedIdent, check if it's a enum.  If it is, call
             // the `inferEnumVariant` function instead.
             let! callee = inferExpr ctx env None call.Callee
-            // TODO: handle typeArgs at the callsite, e.g. `foo<number>(1)`
-            let! result, throws = unifyCall ctx env None call.Args None callee
+
+            let! result, throws =
+              unifyCall ctx env None call.Args typeArgs callee
 
             call.Throws <- Some(throws)
 
             return result
-        | ExprKind.New call ->
-          let! callee = inferExpr ctx env None call.Callee
-          let! callee = expandType ctx env None Map.empty callee
-
-          match callee.Kind with
-          | TypeKind.Object objElems ->
-            let constructors =
-              objElems.Elems
-              |> List.choose (function
-                | Constructor c -> Some c
-                | _ -> None)
-
-            let callee: Type =
-              constructors
-              |> List.map (fun fn ->
-                { Kind = TypeKind.Function fn
-                  Provenance = None })
-              |> intersection
-
-            let args =
-              match call.Args with
-              | Some args -> args
-              | None -> []
-
-            let! typeArgs =
-              match call.TypeArgs with
-              | Some typeArgs ->
-                List.traverseResultM
-                  (fun typeArg ->
-                    result {
-                      let! typeArg = ctx.InferTypeAnn ctx env typeArg
-                      return typeArg
-                    })
-                  typeArgs
-                |> Result.map Some
-              | _ -> Ok None
-
-            // TODO: update unifyCall so that it can handle calling an object
-            // type with constructor signatures directly
-            let! returnType, throws =
-              unifyCall ctx env None args typeArgs callee
-
-            call.Throws <- Some(throws)
-
-            return returnType
-          | _ ->
-            return!
-              Error(TypeError.SemanticError "Callee is not a constructor type")
         | ExprKind.Binary { Op = op; Left = left; Right = right } ->
           let! funTy = env.GetBinaryOp op
 

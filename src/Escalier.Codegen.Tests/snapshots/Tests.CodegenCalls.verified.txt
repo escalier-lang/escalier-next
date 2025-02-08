@@ -1,15 +1,15 @@
 ﻿input: 
         declare fn parseInt(input: string) -> number;
         let num = parseInt("123");
-        let array = new Array(1, 2, 3);
+        let array = Array(1, 2, 3);
         
 --- output (js) ---
 var num = parseInt("123");
-var array = new Array(1, 2, 3);
+var array = Array(1, 2, 3);
 
 --- output (dts) ---
 function parseInt(input: string): number;
 // @escType - number
 const num: number;
-// @escType - Array<_>
-const array: Array<any>;
+// @escType - Array<1 | 2 | 3>
+const array: Array<1 | 2 | 3>;

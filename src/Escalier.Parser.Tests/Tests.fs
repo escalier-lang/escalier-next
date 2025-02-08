@@ -116,7 +116,7 @@ let ParseCallWithTypeParam () =
 
 [<Fact>]
 let ParseConstructorCall () =
-  let src = "new Array();"
+  let src = "Array();"
   let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -124,7 +124,7 @@ let ParseConstructorCall () =
 
 [<Fact>]
 let ParseConstructorCallWithTypeParam () =
-  let src = "new Array<number>();"
+  let src = "Array<number>();"
   let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 
@@ -398,7 +398,7 @@ let ParseNamespacedType () =
 
 [<Fact>]
 let ParseNamespacedValue () =
-  let src = """let fmt = new Intl.NumberFormat("en-CA");"""
+  let src = """let fmt = Intl.NumberFormat("en-CA");"""
   let ast = Parser.parseModule src
   let result = $"input: %s{src}\noutput: %A{ast}"
 

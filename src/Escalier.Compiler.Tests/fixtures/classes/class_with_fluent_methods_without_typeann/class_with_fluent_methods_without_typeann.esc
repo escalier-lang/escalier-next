@@ -4,5 +4,5 @@ let Foo = class {
     return self;
   }
 };
-let foo = new Foo();
+let foo = Foo();
 let bar = foo.bar();

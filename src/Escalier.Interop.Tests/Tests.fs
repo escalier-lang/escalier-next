@@ -623,7 +623,7 @@ let CallArrayConstructor () =
     result {
       let src =
         """
-        let mut a: Array<number> = new Array();
+        let mut a: Array<number> = Array();
         a.push(5);
         """
 
@@ -641,14 +641,13 @@ let CallArrayConstructorWithTypeArgs () =
     result {
       let src =
         """
-        let mut a = new Array<number>();
+        let mut a = Array<number>();
         a.push(5);
         """
 
       let! ctx, env = inferModule src
 
-      // TODO(#259): Fix function overloads
-      Assert.Value(env, "a", "Array<_>")
+      Assert.Value(env, "a", "Array<number>")
     }
 
   Assert.False(Result.isError result)
@@ -659,13 +658,13 @@ let CallArrayConstructorWithNoTypeAnnotations () =
     result {
       let src =
         """
-        let mut a = new Array();
+        let mut a = Array();
         a.push(5);
         """
 
       let! ctx, env = inferModule src
 
-      Assert.Value(env, "a", "Array<_>")
+      Assert.Value(env, "a", "Array<never>")
     }
 
   Assert.False(Result.isError result)
@@ -692,7 +691,7 @@ let AcessNamespaceValue () =
     result {
       let src =
         """
-        let fmt = new Intl.NumberFormat("en-CA");
+        let fmt = Intl.NumberFormat("en-CA");
         fmt.format(1.23);
         """
 

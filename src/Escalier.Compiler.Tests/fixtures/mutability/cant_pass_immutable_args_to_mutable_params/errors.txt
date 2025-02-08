@@ -1,2 +1,1 @@
-ParseError: Error in Ln: 5 Col: 5
-Expecting: ';' or '}'
+TypeError: SemanticError: immutable binding 'array' cannot alias 'numbers'

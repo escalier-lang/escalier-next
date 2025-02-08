@@ -7,4 +7,4 @@ let Foo = class {
     return self.msg;
   }
 };
-let foo = new Foo("hello");
+let foo = Foo("hello");

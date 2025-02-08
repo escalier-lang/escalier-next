@@ -4,4 +4,4 @@ let Foo = class<T> {
     return callback(self.bar);
   }
 };
-let foo = new Foo<string>();
+let foo = Foo<string>();

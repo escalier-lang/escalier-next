@@ -4,4 +4,4 @@ let Foo = class<T> {
     self.msg = msg;
   }
 };
-let foo = new Foo<string>("hello");
+let foo = Foo<string>("hello");

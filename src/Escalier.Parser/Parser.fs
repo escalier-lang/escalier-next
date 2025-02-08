@@ -1364,23 +1364,6 @@ module Parser =
 
   exprParser.RegisterInfix("<", typeArgsParselet 17)
 
-  let newingParselet: Pratt.PrefixParselet<Expr> =
-    prefixExprParslet 16 (fun operand ->
-      match operand.Kind with
-      | ExprKind.Call call ->
-        { Expr.Kind =
-            ExprKind.New
-              { Callee = call.Callee
-                TypeArgs = call.TypeArgs
-                Args = Some call.Args
-                Throws = None }
-          Span = operand.Span
-          InferredType = None }
-      // TODO: return a Reply
-      | _ -> failwith "Expected call expression")
-
-  exprParser.RegisterPrefix("new", newingParselet)
-
   exprParser.RegisterPrefix("!", unaryExprParslet 14 "!")
   // bitwise not (14)
   exprParser.RegisterPrefix("+", unaryExprParslet 14 "+")

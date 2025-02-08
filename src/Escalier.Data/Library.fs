@@ -236,12 +236,6 @@ module Syntax =
       OptChain: bool
       mutable Throws: option<Type.Type> }
 
-  type New =
-    { Callee: Expr
-      TypeArgs: option<list<TypeAnn>>
-      Args: option<list<Expr>>
-      mutable Throws: option<Type.Type> }
-
   type ExprWithTypeArgs = { Expr: Expr; TypeArgs: list<TypeAnn> }
 
   type Class =
@@ -343,7 +337,6 @@ module Syntax =
     | Literal of Common.Literal
     | Function of Function
     | Call of Call
-    | New of New
     | ExprWithTypeArgs of ExprWithTypeArgs
     | Object of Common.Object<ObjElem>
     | Class of Class

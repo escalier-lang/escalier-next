@@ -449,7 +449,7 @@ let CodegenCalls () =
         """
         declare fn parseInt(input: string) -> number;
         let num = parseInt("123");
-        let array = new Array(1, 2, 3);
+        let array = Array(1, 2, 3);
         """
 
       let! js, dts = parseAndCodegen src |> Async.RunSynchronously

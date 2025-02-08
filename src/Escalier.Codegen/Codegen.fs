@@ -271,31 +271,40 @@ module rec Codegen =
 
     match expr.Kind with
     | ExprKind.Call { Callee = callee; Args = args } ->
+      // Determine if `callee` has a constructor
+      let hasConstructor =
+        match callee.InferredType with
+        | Some t ->
+          match t.Kind with
+          | TypeKind.Object { Elems = elems } ->
+            let mutable result = false
+
+            for elem in elems do
+              match elem with
+              | Constructor _ -> result <- true
+              | _ -> ()
+
+            result
+          | _ -> false
+        | _ -> false
+
       let calleeExpr, calleeStmts = buildExpr ctx callee
       let argExprs, argStmts = args |> List.map (buildExpr ctx) |> List.unzip
 
+      // If it is, then codegen a `new` instantiation expression instead of
+      // the regular call expression.
       let callExpr =
-        Expr.Call
-          { Callee = calleeExpr
-            Arguments = argExprs
-            Loc = None }
-
-      (callExpr, calleeStmts @ (argStmts |> List.concat))
-    | ExprKind.New { Callee = callee; Args = args } ->
-      let calleeExpr, calleeStmts = buildExpr ctx callee
-
-      let args =
-        match args with
-        | Some args -> args
-        | None -> []
-
-      let argExprs, argStmts = args |> List.map (buildExpr ctx) |> List.unzip
-
-      let callExpr =
-        Expr.New
-          { Callee = calleeExpr
-            Arguments = argExprs
-            Loc = None }
+        match hasConstructor with
+        | true ->
+          Expr.New
+            { Callee = calleeExpr
+              Arguments = argExprs
+              Loc = None }
+        | false ->
+          Expr.Call
+            { Callee = calleeExpr
+              Arguments = argExprs
+              Loc = None }
 
       (callExpr, calleeStmts @ (argStmts |> List.concat))
     | ExprKind.Identifier { Name = name } ->

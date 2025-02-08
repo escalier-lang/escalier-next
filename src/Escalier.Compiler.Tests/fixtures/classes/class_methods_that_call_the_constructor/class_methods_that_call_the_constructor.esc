@@ -2,7 +2,7 @@ let Point = class {
   x: number;
   y: number;
   fn makePoint() {
-    let p = new Self();
+    let p = Self();
     return p;
   }
 };

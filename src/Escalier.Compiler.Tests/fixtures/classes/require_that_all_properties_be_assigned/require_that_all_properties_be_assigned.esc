@@ -5,4 +5,4 @@ let Point = class {
     self.x = x;
   }
 };
-let p = new Point(5, 10);
+let p = Point(5, 10);

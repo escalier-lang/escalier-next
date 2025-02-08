@@ -53,6 +53,11 @@ module rec UnifyCall =
               Some
                 { Kind = TypeKind.Function c
                   Provenance = None }
+          | Constructor c ->
+            callable <-
+              Some
+                { Kind = TypeKind.Function c
+                  Provenance = None }
           | _ -> ()
 
         match callable with

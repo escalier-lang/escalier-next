@@ -1,22 +1,23 @@
-﻿input: new Array<number>();
+﻿input: Array<number>();
 output: Ok
   { Items =
      [Stmt
         { Kind =
            Expr
              { Kind =
-                New { Callee = { Kind = Identifier { Name = "Array" }
-                                 Span = { Start = (Ln: 1, Col: 5)
-                                          Stop = (Ln: 1, Col: 10) }
-                                 InferredType = None }
-                      TypeArgs = Some [{ Kind = Keyword Number
-                                         Span = { Start = (Ln: 1, Col: 11)
-                                                  Stop = (Ln: 1, Col: 17) }
-                                         InferredType = None }]
-                      Args = Some []
-                      Throws = None }
-               Span = { Start = (Ln: 1, Col: 5)
-                        Stop = (Ln: 1, Col: 20) }
+                Call { Callee = { Kind = Identifier { Name = "Array" }
+                                  Span = { Start = (Ln: 1, Col: 1)
+                                           Stop = (Ln: 1, Col: 6) }
+                                  InferredType = None }
+                       TypeArgs = Some [{ Kind = Keyword Number
+                                          Span = { Start = (Ln: 1, Col: 7)
+                                                   Stop = (Ln: 1, Col: 13) }
+                                          InferredType = None }]
+                       Args = []
+                       OptChain = false
+                       Throws = None }
+               Span = { Start = (Ln: 1, Col: 1)
+                        Stop = (Ln: 1, Col: 16) }
                InferredType = None }
-          Span = { Start = (Ln: 1, Col: 5)
-                   Stop = (Ln: 1, Col: 20) } }] }
+          Span = { Start = (Ln: 1, Col: 1)
+                   Stop = (Ln: 1, Col: 16) } }] }

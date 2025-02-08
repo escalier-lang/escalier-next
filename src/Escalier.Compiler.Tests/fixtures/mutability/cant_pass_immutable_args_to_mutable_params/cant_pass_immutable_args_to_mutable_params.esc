@@ -2,5 +2,5 @@ let foo = fn (mut array: Array<number>) {
   array[0] = 5;
   array[1] = 10
 };
-let numbers: number[] = [1, 2, 3];
+let numbers: Array<number> = [1, 2, 3];
 foo(numbers);

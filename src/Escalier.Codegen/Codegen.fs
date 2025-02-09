@@ -1813,7 +1813,7 @@ module rec Codegen =
           elemPat)
 
       Some(Pat.Array { Elems = elems; Loc = None }), checks
-    | PatternKind.Enum enumVariantPattern ->
+    | PatternKind.Extractor extractorPattern ->
       failwith "TODO: buildPattern - Enum"
     | PatternKind.Wildcard wildcardPattern ->
       failwith "TODO: buildPattern - Wildcard"
@@ -2472,6 +2472,7 @@ module rec Codegen =
       TsType.TsKeywordType
         { Kind = TsKeywordTypeKind.TsAnyKeyword
           Loc = None }
+    | TypeKind.Extractor _ -> failwith "TODO: buildType - Extractor"
     | TypeKind.Namespace _ -> failwith "TODO: buildType - Namespace"
     | TypeKind.UniqueSymbol _ ->
       let typeAnn =
@@ -2701,7 +2702,7 @@ module rec Codegen =
       | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
-      | PatternKind.Enum _ -> failwith "TODO: findBinding - Enum"
+      | PatternKind.Extractor _ -> failwith "TODO: findBinding - Extractor"
       | PatternKind.Rest pat ->
         let patAssump = findBindings pat
 

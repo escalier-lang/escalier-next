@@ -1748,18 +1748,15 @@ module Parser =
         (strWs "." >>. ident)
         (opt (between (strWs "(") (strWs ")") (sepEndBy pattern (strWs ","))))
     )
-    |>> fun ((qualifier, ident, patterns), span) ->
-      let ident = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, ident)
+    |>> fun ((qualifier, name, patterns), span) ->
+      let name = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, name)
 
-      let arg =
-        patterns
-        |> Option.map (fun patterns ->
-          { Pattern.Kind =
-              PatternKind.Tuple { Elems = patterns; Immutable = false }
-            Span = span
-            InferredType = None })
+      let args =
+        match patterns with
+        | Some patterns -> patterns
+        | None -> []
 
-      { Pattern.Kind = PatternKind.Enum { Ident = ident; Arg = arg }
+      { Pattern.Kind = PatternKind.Extractor { Name = name; Args = args }
         Span = span
         InferredType = None }
 

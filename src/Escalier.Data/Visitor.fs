@@ -282,7 +282,7 @@ module rec ExprVisitor =
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
       | PatternKind.Rest arg -> walk arg
-      | PatternKind.Enum { Arg = arg } -> Option.iter walk arg
+      | PatternKind.Extractor { Args = args } -> List.iter walk args
 
   let walkTypeAnn
     (visitor: SyntaxVisitor<'S>)

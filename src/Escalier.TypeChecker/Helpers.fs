@@ -409,7 +409,8 @@ let rec patternToPattern (pat: Syntax.Pattern) : Pattern =
   | PatternKind.Wildcard { Assertion = _ } -> Pattern.Wildcard
   | PatternKind.Literal lit -> Pattern.Literal lit
   | PatternKind.Rest rest -> Pattern.Rest(patternToPattern rest)
-  | PatternKind.Enum _ -> failwith "TODO: patternToPattern - PatternKind.Enum"
+  | PatternKind.Extractor _ ->
+    failwith "TODO: patternToPattern - PatternKind.Extractor"
 
 let qualifyTypeRefs
   (t: Type)

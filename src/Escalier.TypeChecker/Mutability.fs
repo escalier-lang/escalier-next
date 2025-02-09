@@ -43,7 +43,8 @@ module Mutability =
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
         printfn "non-error TODO: getPatBindingPaths - Rest"
-      | PatternKind.Enum _ -> failwith "TODO: getPatBindingPaths - Enum"
+      | PatternKind.Extractor _ ->
+        failwith "TODO: getPatBindingPaths - Extractor"
 
     walkPattern pat []
     result

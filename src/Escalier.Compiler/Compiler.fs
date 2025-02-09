@@ -13,6 +13,8 @@ open Escalier.Data.Visitor
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Error
 open Escalier.Interop
+open Escalier.TypeChecker.Helpers
+open Escalier.TypeChecker.Unify
 
 open Env
 open Prelude
@@ -623,6 +625,40 @@ module Compiler =
             let! env, _ = this.inferLib ctx globalEnv fullPath
             globalEnv <- env
 
+          match globalEnv.TryFindScheme "SymbolConstructor" with
+          | Some scheme ->
+            let t = scheme.Type
+
+            match t.Kind with
+            | TypeKind.Object({ Elems = elems } as obj) ->
+              let newSymbol =
+                { Kind = TypeKind.UniqueSymbol ctx.NextUniqueId
+                  Provenance = None }
+
+              let newProp =
+                ObjTypeElem.Property
+                  { Name = PropName.String "customMatch"
+                    Optional = false
+                    Readonly = true
+                    Type = newSymbol }
+
+              let newType =
+                { t with
+                    Kind =
+                      TypeKind.Object { obj with Elems = elems @ [ newProp ] } }
+
+              globalEnv <-
+                globalEnv.AddScheme
+                  "SymbolConstructor"
+                  { scheme with Type = newType }
+            | _ -> ()
+          | None -> ()
+
+          let symbolConstructor =
+            globalEnv.Namespace.Schemes["SymbolConstructor"]
+
+          printfn $"symbolConstructor = {symbolConstructor}"
+
           if not loadLibDOM then
             let typesDir = Path.Combine(repoRoot, "types")
             let fullPath = Path.Combine(typesDir, "lib.dom.lite.d.ts")
@@ -652,6 +688,27 @@ module Compiler =
 
               ()
             | _ -> ()
+
+          let symbolGlobal =
+            match globalEnv.TryFindValue "Symbol" with
+            | Some binding -> binding.Type
+            | None -> failwith "Symbol not in scope"
+
+          printfn $"symbolGlobal = {symbolGlobal}"
+
+          let symbol =
+            match
+              getPropType
+                ctx
+                globalEnv
+                symbolGlobal
+                (PropName.String "customMatch")
+                false
+                ValueCategory.RValue
+            with
+            | Result.Ok sym -> sym
+            | Result.Error _ ->
+              failwith "Symbol.customMatch not found - Compiler:initGlobalEnv"
 
           initialized <- true
       }
@@ -728,6 +785,27 @@ module Compiler =
         let filename = srcFile
         let! contents = fs.ReadAllTextAsync filename
         let! ctx, env = this.getEnvAndCtx baseDir
+
+        let symbolGlobal =
+          match env.TryFindValue "Symbol" with
+          | Some binding -> binding.Type
+          | None -> failwith "Symbol not in scope"
+
+        printfn $"symbolGlobal = {symbolGlobal}"
+
+        let symbol =
+          match
+            getPropType
+              ctx
+              env
+              symbolGlobal
+              (PropName.String "customMatch")
+              false
+              ValueCategory.RValue
+          with
+          | Result.Ok sym -> sym
+          | Result.Error _ ->
+            failwith "Symbol.customMatch not found - Compiler:compileFile"
 
         let! ast =
           Escalier.Parser.Parser.parseModule contents

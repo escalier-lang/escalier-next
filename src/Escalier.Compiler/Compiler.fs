@@ -584,7 +584,8 @@ module Compiler =
             InferModule.inferModuleItems,
             InferPattern.inferPattern,
             InferTypeAnn.inferTypeAnn,
-            InferClass.inferClass
+            InferClass.inferClass,
+            Unify.unify
           )
 
         return ctx

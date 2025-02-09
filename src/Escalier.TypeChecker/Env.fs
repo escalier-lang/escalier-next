@@ -56,7 +56,14 @@ module rec Env =
           -> Result<(BindingAssump * Type), TypeError>,
       inferTypeAnn: Ctx -> Env -> Syntax.TypeAnn -> Result<Type, TypeError>,
       inferClass:
-        Ctx -> Env -> Syntax.Class -> bool -> Result<(Type * Scheme), TypeError>
+        Ctx -> Env -> Syntax.Class -> bool -> Result<(Type * Scheme), TypeError>,
+      unify:
+        Ctx
+          -> Env
+          -> option<list<list<string>>>
+          -> Type
+          -> Type
+          -> Result<unit, TypeError>
     ) =
 
     let mutable nextTypeVarId = 0
@@ -130,7 +137,8 @@ module rec Env =
           inferModuleItems,
           inferPattern,
           inferTypeAnn,
-          inferClass
+          inferClass,
+          unify
         )
 
       clone.NextTypeVarId <- this.NextTypeVarId

@@ -943,7 +943,7 @@ module Type =
   type Object =
     { Extends: option<list<TypeRef>> // classes can only have one, interfaces can have many
       Implements: option<list<TypeRef>>
-      Elems: list<ObjTypeElem>
+      mutable Elems: list<ObjTypeElem> // this is mutable to support interface merging
       Exact: bool // Can't be true if any of Interface, Implements, or Extends are true
       Immutable: bool // True for `#{...}`, False for `{...}`
       Mutable: bool // True for `mut {...}`, False for `{...}`

@@ -735,34 +735,17 @@ module rec InferModule =
                 getType
 
             match placeholder.Type.Kind, newScheme.Type.Kind with
-            | TypeKind.Object { Elems = existingElems },
+            | TypeKind.Object({ Elems = existingElems } as placeholderKind),
               TypeKind.Object { Elems = newElems } ->
               // TODO: remove duplicates
               // TODO: track which TypeScript interface decls each of the properties
               // come from in the merged type.
               let mergedElems = existingElems @ newElems
 
-              let kind =
-                TypeKind.Object
-                  { Extends = None
-                    Implements = None // TODO
-                    Elems = mergedElems
-                    Exact = false
-                    Immutable = false
-                    Mutable = false
-                    Interface = false }
-
-              // NOTE: We explicitly don't generalize here because we want other
-              // declarations to be able to unify with any free type variables
-              // from this declaration.  We generalize things in `inferModule` and
-              // `inferTreeRec`.
-              // TODO: suport multiple provenances
-              let t = { Kind = kind; Provenance = None }
-
-              // We modify the existing scheme in place so that existing values
-              // with this type are updated.
-              placeholder.Type <- t
-              qns.Schemes[key].Type <- t
+              // The reason why we mutate the kind's elems is so that if a TypeRef's
+              // Schema field has already been set, we'll be able to access any
+              // new fields in the merged interface type.
+              placeholderKind.Elems <- mergedElems
             | _ ->
               // Replace the placeholder's type with the actual type.
               // NOTE: This is a bit hacky and we may want to change this later to use

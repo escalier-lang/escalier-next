@@ -551,6 +551,19 @@ let ParseEnumPatternMatching () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseExtractor () =
+  let src =
+    """
+    let foo = Foo("hello");
+    let Foo(msg) = foo;
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseCallableType () =
   let src =
     """
@@ -855,6 +868,23 @@ let ParseClassWithGetterSetter () =
       }
       set msg(mut self, msg: string) {
         self._msg = msg;
+      }
+    };
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseClassWithComputedMethod () =
+  let src =
+    """
+    let Foo = class {
+      msg: string;
+      fn [Symbol.customMatch](self) {
+        return [self.msg];
       }
     };
     """

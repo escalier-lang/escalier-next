@@ -8,9 +8,7 @@ open Escalier.Data.Type
 
 open Error
 open Env
-open Unify
 open InferExpr
-open Helpers
 
 module InferPattern =
   let inferPattern
@@ -132,62 +130,15 @@ module InferPattern =
       | PatternKind.Extractor { Name = name; Args = args } ->
         let extractorType = getQualifiedIdentType ctx env name
 
-        let symbolGlobal =
-          match env.TryFindValue "Symbol" with
-          | Some binding -> binding.Type
-          | None -> failwith "Symbol not in scope"
-
-        printfn $"symbolGlobal = {symbolGlobal}"
-
-        let symbol =
-          match
-            getPropType
-              ctx
-              env
-              symbolGlobal
-              (PropName.String "customMatch")
-              false
-              ValueCategory.RValue
-          with
-          | Result.Ok sym -> sym
-          | Result.Error _ -> failwith "Symbol.customMatch not found"
-
-        let propName =
-          match symbol.Kind with
-          | TypeKind.UniqueSymbol id -> PropName.Symbol id
-          | _ -> failwith "Symbol.customMatch is not a unique symbol"
-
-        // TODO: check if `extractorType` is a class with a `[Symbol.customMatch]()` method
-        let method =
-          match extractorType with
-          | Result.Ok t ->
-            let mutable method: option<Function> = None
-
-            match (prune t).Kind with
-            | TypeKind.Object objElems ->
-              for elem in objElems.Elems do
-                match elem with
-                | ObjTypeElem.Method { Name = name; Fn = f } when
-                  name = propName
-                  ->
-                  method <- Some f
-                | _ -> ()
-
-              failwith "TODO: find [Symbol.customMatch]() method"
-            | _ -> ()
-
-            method
-          | Result.Error _ -> failwith "Can't find enum type"
-
-        match method with
-        | Some method ->
+        match extractorType with
+        | Result.Ok t ->
           { Kind =
               TypeKind.Extractor
-                { Name = name
-                  Extractor = method
+                { Extractor = t
                   Args = List.map infer_pattern_rec args }
+
             Provenance = None }
-        | None -> failwith "Can't find [Symbol.customMatch]() method"
+        | Result.Error _ -> failwith "Can't find extractor type"
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
         | Some qi ->

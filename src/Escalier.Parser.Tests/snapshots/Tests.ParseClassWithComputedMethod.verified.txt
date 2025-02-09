@@ -1,0 +1,135 @@
+﻿input: 
+    let Foo = class {
+      msg: string;
+      fn [Symbol.customMatch](self) {
+        return [self.msg];
+      }
+    };
+    
+output: Ok
+  { Items =
+     [Stmt
+        { Kind =
+           Decl
+             { Kind =
+                VarDecl
+                  { Declare = false
+                    Export = false
+                    Pattern = { Kind = Ident { Name = "Foo"
+                                               IsMut = false
+                                               Assertion = None }
+                                Span = { Start = (Ln: 2, Col: 9)
+                                         Stop = (Ln: 2, Col: 13) }
+                                InferredType = None }
+                    TypeAnn = None
+                    Init =
+                     Some
+                       { Kind =
+                          Class
+                            { Extends = None
+                              Implements = None
+                              Name = None
+                              TypeParams = None
+                              Elems =
+                               [Property
+                                  { Name = Ident "msg"
+                                    TypeAnn =
+                                     Some { Kind = Keyword String
+                                            Span = { Start = (Ln: 3, Col: 12)
+                                                     Stop = (Ln: 3, Col: 18) }
+                                            InferredType = None }
+                                    Value = None
+                                    Optional = false
+                                    Readonly = false
+                                    Static = false };
+                                Method
+                                  { Name =
+                                     Computed
+                                       { Kind =
+                                          Member
+                                            { Target =
+                                               { Kind =
+                                                  Identifier { Name = "Symbol" }
+                                                 Span =
+                                                  { Start = (Ln: 4, Col: 11)
+                                                    Stop = (Ln: 4, Col: 17) }
+                                                 InferredType = None }
+                                              Name = "customMatch"
+                                              OptChain = false }
+                                         Span = { Start = (Ln: 4, Col: 11)
+                                                  Stop = (Ln: 4, Col: 29) }
+                                         InferredType = None }
+                                    Sig =
+                                     { TypeParams = None
+                                       Self =
+                                        Some
+                                          { Pattern =
+                                             { Kind = Ident { Name = "self"
+                                                              IsMut = false
+                                                              Assertion = None }
+                                               Span =
+                                                { Start = (Ln: 4, Col: 31)
+                                                  Stop = (Ln: 4, Col: 35) }
+                                               InferredType = None }
+                                            Optional = false
+                                            TypeAnn = None }
+                                       ParamList = []
+                                       ReturnType = None
+                                       Throws = None
+                                       IsAsync = false }
+                                    Body =
+                                     Some
+                                       (Block
+                                          { Span = { Start = (Ln: 4, Col: 37)
+                                                     Stop = (Ln: 7, Col: 5) }
+                                            Stmts =
+                                             [{ Kind =
+                                                 Return
+                                                   (Some
+                                                      { Kind =
+                                                         Tuple
+                                                           { Elems =
+                                                              [{ Kind =
+                                                                  Member
+                                                                    { Target =
+                                                                       { Kind =
+                                                                          Identifier
+                                                                            { Name =
+                                                                               "self" }
+                                                                         Span =
+                                                                          { Start =
+                                                                             (Ln: 5, Col: 17)
+                                                                            Stop =
+                                                                             (Ln: 5, Col: 21) }
+                                                                         InferredType =
+                                                                          None }
+                                                                      Name =
+                                                                       "msg"
+                                                                      OptChain =
+                                                                       false }
+                                                                 Span =
+                                                                  { Start =
+                                                                     (Ln: 5, Col: 17)
+                                                                    Stop =
+                                                                     (Ln: 5, Col: 25) }
+                                                                 InferredType =
+                                                                  None }]
+                                                             Immutable = false }
+                                                        Span =
+                                                         { Start =
+                                                            (Ln: 5, Col: 16)
+                                                           Stop =
+                                                            (Ln: 5, Col: 26) }
+                                                        InferredType = None })
+                                                Span =
+                                                 { Start = (Ln: 5, Col: 9)
+                                                   Stop = (Ln: 6, Col: 7) } }] })
+                                    Static = false }] }
+                         Span = { Start = (Ln: 2, Col: 15)
+                                  Stop = (Ln: 7, Col: 6) }
+                         InferredType = None }
+                    Else = None }
+               Span = { Start = (Ln: 2, Col: 5)
+                        Stop = (Ln: 8, Col: 5) } }
+          Span = { Start = (Ln: 2, Col: 5)
+                   Stop = (Ln: 8, Col: 5) } }] }

@@ -435,6 +435,7 @@ module rec TypeVisitor =
       | TypeKind.UniqueSymbol _ -> ()
       | TypeKind.TemplateLiteral { Exprs = exprs } -> List.iter walk exprs
       | TypeKind.Typeof _ -> ()
+      | TypeKind.Extractor { Extractor = _; Args = args } -> List.iter walk args
       | kind ->
         printfn "kind = %A" kind
         failwith "TODO: walkType"

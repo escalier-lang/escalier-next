@@ -31,7 +31,7 @@ let fixturePaths: obj[] seq =
     if testName.StartsWith("skip_") then
       printfn $"Skipping {testName}"
       false
-    else if not (testName.Contains("enum")) then
+    else if not (testName.Contains("extractor")) then
       false
     else if File.Exists(Path.Join(fixtureDir, $"{testName}.esc")) then
       true

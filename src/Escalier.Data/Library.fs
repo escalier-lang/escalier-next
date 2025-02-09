@@ -954,10 +954,7 @@ module Type =
       Mutable: bool
       Immutable: bool }
 
-  type Extractor =
-    { Name: Common.QualifiedIdent
-      Extractor: Function
-      Args: list<Type> }
+  type Extractor = { Extractor: Type; Args: list<Type> }
 
   type Index = { Target: Type; Index: Type }
 
@@ -1139,7 +1136,7 @@ module Type =
         $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
       | TypeKind.Infer name -> $"infer {name}"
       | TypeKind.Wildcard -> "_"
-      | TypeKind.Extractor _ -> failwith "TODO: printType - TypeKind.Extractor"
+      | TypeKind.Extractor _ -> "(TODO: Extractor)"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         let mutable output = ""
 

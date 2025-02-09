@@ -312,6 +312,23 @@ module rec Unify =
 
       | TypeKind.UniqueSymbol id1, TypeKind.UniqueSymbol id2 when id1 = id2 ->
         ()
+      | TypeKind.Object obj, TypeKind.Extractor extractor ->
+
+        let symbol =
+          match
+            getPropType
+              ctx
+              env
+              symbolGlobal
+              (PropName.String "customMatch")
+              false
+              ValueCategory.RValue
+          with
+          | Result.Ok sym -> sym
+          | Result.Error _ ->
+            failwith "Symbol.customMatch not found - Compiler:compileFile"
+
+        failwith "TODO: unify(object, extractor)"
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))

@@ -21,35 +21,27 @@ output: Ok
                                  Stop = (Ln: 4, Col: 7) }
                         Pattern =
                          { Kind =
-                            Enum
-                              { Ident = Member (Ident "MyEnum", "Foo")
-                                Arg =
-                                 Some
-                                   { Kind =
-                                      Tuple
-                                        { Elems =
-                                           [{ Kind = Ident { Name = "a"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 3, Col: 18)
-                                                       Stop = (Ln: 3, Col: 19) }
-                                              InferredType = None };
-                                            { Kind = Ident { Name = "b"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 3, Col: 21)
-                                                       Stop = (Ln: 3, Col: 22) }
-                                              InferredType = None };
-                                            { Kind = Ident { Name = "c"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 3, Col: 24)
-                                                       Stop = (Ln: 3, Col: 25) }
-                                              InferredType = None }]
-                                          Immutable = false }
-                                     Span = { Start = (Ln: 3, Col: 7)
-                                              Stop = (Ln: 3, Col: 27) }
-                                     InferredType = None } }
+                            Extractor
+                              { Name = Member (Ident "MyEnum", "Foo")
+                                Args =
+                                 [{ Kind = Ident { Name = "a"
+                                                   IsMut = false
+                                                   Assertion = None }
+                                    Span = { Start = (Ln: 3, Col: 18)
+                                             Stop = (Ln: 3, Col: 19) }
+                                    InferredType = None };
+                                  { Kind = Ident { Name = "b"
+                                                   IsMut = false
+                                                   Assertion = None }
+                                    Span = { Start = (Ln: 3, Col: 21)
+                                             Stop = (Ln: 3, Col: 22) }
+                                    InferredType = None };
+                                  { Kind = Ident { Name = "c"
+                                                   IsMut = false
+                                                   Assertion = None }
+                                    Span = { Start = (Ln: 3, Col: 24)
+                                             Stop = (Ln: 3, Col: 25) }
+                                    InferredType = None }] }
                            Span = { Start = (Ln: 3, Col: 7)
                                     Stop = (Ln: 3, Col: 27) }
                            InferredType = None }
@@ -87,29 +79,21 @@ output: Ok
                                  Stop = (Ln: 5, Col: 7) }
                         Pattern =
                          { Kind =
-                            Enum
-                              { Ident = Member (Ident "MyEnum", "Bar")
-                                Arg =
-                                 Some
-                                   { Kind =
-                                      Tuple
-                                        { Elems =
-                                           [{ Kind = Ident { Name = "x"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 4, Col: 18)
-                                                       Stop = (Ln: 4, Col: 19) }
-                                              InferredType = None };
-                                            { Kind = Ident { Name = "y"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 4, Col: 21)
-                                                       Stop = (Ln: 4, Col: 22) }
-                                              InferredType = None }]
-                                          Immutable = false }
-                                     Span = { Start = (Ln: 4, Col: 7)
-                                              Stop = (Ln: 4, Col: 24) }
-                                     InferredType = None } }
+                            Extractor
+                              { Name = Member (Ident "MyEnum", "Bar")
+                                Args =
+                                 [{ Kind = Ident { Name = "x"
+                                                   IsMut = false
+                                                   Assertion = None }
+                                    Span = { Start = (Ln: 4, Col: 18)
+                                             Stop = (Ln: 4, Col: 19) }
+                                    InferredType = None };
+                                  { Kind = Ident { Name = "y"
+                                                   IsMut = false
+                                                   Assertion = None }
+                                    Span = { Start = (Ln: 4, Col: 21)
+                                             Stop = (Ln: 4, Col: 22) }
+                                    InferredType = None }] }
                            Span = { Start = (Ln: 4, Col: 7)
                                     Stop = (Ln: 4, Col: 24) }
                            InferredType = None }
@@ -134,23 +118,14 @@ output: Ok
                                  Stop = (Ln: 6, Col: 5) }
                         Pattern =
                          { Kind =
-                            Enum
-                              { Ident = Member (Ident "MyEnum", "Baz")
-                                Arg =
-                                 Some
-                                   { Kind =
-                                      Tuple
-                                        { Elems =
-                                           [{ Kind = Ident { Name = "z"
-                                                             IsMut = false
-                                                             Assertion = None }
-                                              Span = { Start = (Ln: 5, Col: 18)
-                                                       Stop = (Ln: 5, Col: 19) }
-                                              InferredType = None }]
-                                          Immutable = false }
-                                     Span = { Start = (Ln: 5, Col: 7)
-                                              Stop = (Ln: 5, Col: 21) }
-                                     InferredType = None } }
+                            Extractor
+                              { Name = Member (Ident "MyEnum", "Baz")
+                                Args = [{ Kind = Ident { Name = "z"
+                                                         IsMut = false
+                                                         Assertion = None }
+                                          Span = { Start = (Ln: 5, Col: 18)
+                                                   Stop = (Ln: 5, Col: 19) }
+                                          InferredType = None }] }
                            Span = { Start = (Ln: 5, Col: 7)
                                     Stop = (Ln: 5, Col: 21) }
                            InferredType = None }

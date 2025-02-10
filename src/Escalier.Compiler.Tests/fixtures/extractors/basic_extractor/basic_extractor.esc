@@ -1,0 +1,11 @@
+let C = class {
+  msg: string;
+  new (mut self, value: string) {
+    self.msg = value;
+  }
+  fn [Symbol.customMatcher](self) {
+    return [self.msg];
+  }
+};
+let subject = C("hello");
+let C(msg) = subject;

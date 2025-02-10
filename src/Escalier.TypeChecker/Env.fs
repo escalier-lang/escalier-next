@@ -79,6 +79,7 @@ module rec Env =
     member val InferPattern = inferPattern
     member val InferTypeAnn = inferTypeAnn
     member val InferClass = inferClass
+    member val Unify = unify
 
     member this.FreshTypeVar (bound: option<Type>) (def: option<Type>) =
       let newVar =

@@ -73,6 +73,13 @@ module Folder =
             Provenance = None }
         | TypeKind.Literal _ -> t
         | TypeKind.Wildcard -> t
+        | TypeKind.Extractor({ Args = args } as extractor) ->
+          // QUESTION: Should we also fold the 'Extractor' field too?
+          { Kind =
+              TypeKind.Extractor
+                { extractor with
+                    Args = List.map fold args }
+            Provenance = None }
         | TypeKind.Object({ Extends = extends
                             Implements = impls
                             Elems = elems } as obj) ->

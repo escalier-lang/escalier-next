@@ -415,19 +415,24 @@ module Syntax =
   type WildcardPattern =
     { Assertion: option<Common.QualifiedIdent> }
 
+  type ExtractorPattern =
+    { Name: Common.QualifiedIdent
+      Args: list<Pattern> }
+
   [<RequireQualifiedAccess>]
   type PatternKind =
     | Ident of IdentPat
     | Object of Common.Object<ObjPatElem> // TODO: rest patterns
     | Tuple of Common.Tuple<Pattern> // TODO: rest patterns
-    | Enum of EnumVariantPattern
     | Wildcard of WildcardPattern
     | Literal of Common.Literal
     | Rest of Pattern
+    | Extractor of ExtractorPattern
 
     override this.ToString() =
       match this with
       | Ident ident -> ident.Name // TODO: isMut
+      // TODO
       | _ -> failwith "TODO"
 
   type Pattern =
@@ -950,6 +955,8 @@ module Type =
       Mutable: bool
       Immutable: bool }
 
+  type Extractor = { Extractor: Type; Args: list<Type> }
+
   type Index = { Target: Type; Index: Type }
 
   type Condition =
@@ -987,6 +994,7 @@ module Type =
     | Condition of Condition
     | Infer of string
     | Wildcard
+    | Extractor of Extractor
     | TemplateLiteral of Common.TemplateLiteral<Type>
     | Intrinsic
     | IntrinsicInstance of IntrinsicInstance
@@ -1066,6 +1074,7 @@ module Type =
     | TypeKind.Condition _ -> 100
     | TypeKind.Infer _ -> 15 // because `keyof` is a keyword operator
     | TypeKind.Wildcard -> 100
+    | TypeKind.Extractor _ -> 100
     | TypeKind.TemplateLiteral _ -> 100
     | TypeKind.Intrinsic -> 100
     | TypeKind.IntrinsicInstance _ -> 100
@@ -1128,6 +1137,7 @@ module Type =
         $"{printType ctx check} extends {printType ctx extends} ? {printType ctx trueType} : {printType ctx falseType}"
       | TypeKind.Infer name -> $"infer {name}"
       | TypeKind.Wildcard -> "_"
+      | TypeKind.Extractor _ -> "(TODO: Extractor)"
       | TypeKind.TemplateLiteral { Parts = parts; Exprs = types } ->
         let mutable output = ""
 

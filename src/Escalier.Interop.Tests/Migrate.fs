@@ -364,7 +364,7 @@ let ImportThirdPartyModules () =
       Assert.Type(env, "AccentColor", "Property.AccentColor")
 
       let! result =
-        Unify.expandScheme
+        Helpers.expandScheme
           ctx
           env
           None

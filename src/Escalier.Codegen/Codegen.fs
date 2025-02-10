@@ -10,7 +10,7 @@ open Escalier.Data.Visitor
 open Escalier.TypeChecker
 open Escalier.TypeChecker.Prune
 open Escalier.TypeChecker.Env
-open Escalier.TypeChecker.Unify
+open Escalier.TypeChecker.Helpers
 
 module rec Codegen =
   module TS = TypeScript
@@ -201,8 +201,10 @@ module rec Codegen =
       let tempDecl = buildTempDecl ctx tempId
 
       let targetExpr, targetStmts = buildExpr ctx target
-      let _, checks = buildPattern ctx head.Pattern (Some targetExpr)
+      let _, checks, decls = buildPattern ctx head.Pattern (Some targetExpr)
       let checkExprs = checks |> List.map (buildPatternCheck ctx)
+
+      // TODO: use decls if any are returned
 
       let conditionExpr =
         match checkExprs with
@@ -371,7 +373,7 @@ module rec Codegen =
         let ps: list<Param> =
           s.ParamList
           |> List.map (fun (p: Syntax.FuncParam) ->
-            let pat, _ = buildPattern ctx p.Pattern None
+            let pat, _, _ = buildPattern ctx p.Pattern None
 
             let pat =
               match pat with
@@ -403,7 +405,7 @@ module rec Codegen =
         let ps: list<Param> =
           s.ParamList
           |> List.map (fun (p: Syntax.FuncParam) ->
-            let pat, _ = buildPattern ctx p.Pattern None
+            let pat, _, _ = buildPattern ctx p.Pattern None
 
             let pat =
               match pat with
@@ -488,8 +490,11 @@ module rec Codegen =
             let value, valueStmts = buildExpr ctx value
             stmts <- stmts @ valueStmts
 
+            let key, keyStmts = propNameToPropName ctx name
+            stmts <- stmts @ keyStmts
+
             Property.KeyValueProperty
-              { Key = propNameToPropName name
+              { Key = key
                 Value = value
                 Kind = PropertyKind.Init
                 Loc = None }
@@ -535,8 +540,11 @@ module rec Codegen =
         |> List.map (fun elem ->
           match elem with
           | ClassElem.Property p ->
+            let key, keyStmts = propNameToPropName ctx p.Name
+            stmts <- stmts @ keyStmts
+
             ClassMember.ClassProp
-              { Key = propNameToPropName p.Name
+              { Key = key
                 Value =
                   p.Value
                   |> Option.map (fun value ->
@@ -578,8 +586,11 @@ module rec Codegen =
                 Loc = None }
 
           | ClassElem.Method method ->
+            let key, keyStmts = propNameToPropName ctx method.Name
+            stmts <- stmts @ keyStmts
+
             ClassMember.Method
-              { Key = propNameToPropName method.Name
+              { Key = key
                 Function = buildFn ctx method.Sig method.Body
                 Kind = MethodKind.Method
                 IsStatic = method.Static
@@ -668,7 +679,9 @@ module rec Codegen =
       let tempDecl = buildTempDecl ctx tempId
 
       let targetExpr, targetStmts = buildExpr ctx target
-      let pattern, checks = buildPattern ctx pattern (Some targetExpr)
+      let pattern, checks, decls = buildPattern ctx pattern (Some targetExpr)
+
+      // TODO: use decls if any are returned
 
       let mutable checkExprs = checks |> List.map (buildPatternCheck ctx)
 
@@ -883,7 +896,12 @@ module rec Codegen =
     | ExprKind.JSXElement jsxElement -> buildJsxElement ctx jsxElement
     | ExprKind.JSXFragment jsxFragment -> buildJsxFragment ctx jsxFragment
 
-  let propNameToPropName (name: Syntax.PropName) : TS.PropName =
+  let propNameToPropName
+    (ctx: Ctx)
+    (name: Syntax.PropName)
+    : TS.PropName * list<TS.Stmt> =
+    let mutable stmts: list<TS.Stmt> = []
+
     let key =
       match name with
       | Syntax.PropName.Ident name ->
@@ -899,9 +917,11 @@ module rec Codegen =
             Raw = None
             Loc = None }
       | Syntax.PropName.Computed expr ->
-        failwith "TODO: propNameToPropName - Computed property names"
+        let expr, exprStmts = buildExpr ctx expr
+        stmts <- exprStmts
+        TS.PropName.Computed { Expr = expr; Loc = None }
 
-    key
+    key, stmts
 
   // TODO: Replace with Syntax.PropName after moving it to Common
   let typePropNameToPropName (name: PropName) : TS.PropName =
@@ -1167,7 +1187,7 @@ module rec Codegen =
     let ps: list<Param> =
       fnSig.ParamList
       |> List.map (fun (p: Syntax.FuncParam) ->
-        let pat, _ = buildPattern ctx p.Pattern None
+        let pat, _, _ = buildPattern ctx p.Pattern None
 
         let pat =
           match pat with
@@ -1518,29 +1538,34 @@ module rec Codegen =
         | StmtKind.Decl decl ->
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = Some init } ->
-            let pattern, _ = buildPattern ctx pattern None
-
-            let pattern =
-              match pattern with
-              | Some pat -> pat
-              | None -> failwith "Var declaration patterns must be irrefutable"
-
             let initExpr, initStmts = buildExpr ctx init
+            let pattern, _, decls = buildPattern ctx pattern (Some initExpr)
 
-            let decl =
-              { Export = false
-                Declare = false
-                Decls =
-                  [ { Id = pattern
-                      TypeAnn = None
-                      Init = Some initExpr } ]
-                Kind = VariableDeclarationKind.Var
-                Loc = None
-                Comments = [] }
+            // TODO: Use the decls returned
+            if decls.Length > 0 then
+              initStmts @ (List.map Stmt.Decl decls)
 
-            let declStmt = Stmt.Decl(Decl.Var decl)
+            else
+              let pattern =
+                match pattern with
+                | Some pat -> pat
+                | None ->
+                  failwith "Var declaration patterns must be irrefutable"
 
-            initStmts @ [ declStmt ]
+              let decl =
+                { Export = false
+                  Declare = false
+                  Decls =
+                    [ { Id = pattern
+                        TypeAnn = None
+                        Init = Some initExpr } ]
+                  Kind = VariableDeclarationKind.Var
+                  Loc = None
+                  Comments = [] }
+
+              let declStmt = Stmt.Decl(Decl.Var decl)
+
+              initStmts @ [ declStmt ]
           | TypeDecl _ -> [] // Ignore types when generating JS code
           | VarDecl _ -> [] // Nothing to generate because `init` is `None`
           | FnDecl fnDecl ->
@@ -1572,7 +1597,7 @@ module rec Codegen =
                          Right = right
                          Body = body } ->
 
-          let leftPat, _ = buildPattern ctx left None
+          let leftPat, _, _ = buildPattern ctx left None
 
           let leftPat =
             match leftPat with
@@ -1708,127 +1733,178 @@ module rec Codegen =
   let buildPattern
     (ctx: Ctx)
     (pattern: Syntax.Pattern)
-    (parent: option<TS.Expr>)
-    : option<TS.Pat> * list<PatternCheck> =
-    match pattern.Kind with
-    | PatternKind.Ident { Name = name } ->
-      let pat =
-        Pat.Ident
-          { Id = { Name = name; Loc = None }
-            Loc = None }
+    (targetExpr: option<TS.Expr>)
+    : option<TS.Pat> * list<PatternCheck> * list<TS.Decl> =
 
-      Some pat, []
-    | PatternKind.Object { Elems = elems } ->
-      let mutable checks: list<PatternCheck> = []
+    let mutable checks: list<PatternCheck> = []
+    let mutable decls: list<TS.Decl> = []
 
-      parent
-      |> Option.iter (fun parent -> checks <- checks @ [ ObjectCheck parent ])
+    let rec buildPatternRec
+      (pattern: Syntax.Pattern)
+      (targetExpr: option<TS.Expr>)
+      : option<TS.Pat> =
+      match pattern.Kind with
+      | PatternKind.Ident { Name = name } ->
+        let pat =
+          Pat.Ident
+            { Id = { Name = name; Loc = None }
+              Loc = None }
 
-      let props =
-        elems
-        |> List.choose (fun elem ->
-          match elem with
-          | Syntax.ObjPatElem.KeyValuePat { Key = key
-                                            Value = value
-                                            Default = _ } ->
-            let parent =
-              parent
-              |> Option.map (fun parent ->
-                checks <- checks @ [ PropertyCheck(parent, key) ]
+        Some pat
+      | PatternKind.Object { Elems = elems } ->
+        targetExpr
+        |> Option.iter (fun target -> checks <- checks @ [ ObjectCheck target ])
+
+        let props =
+          elems
+          |> List.choose (fun elem ->
+            match elem with
+            | Syntax.ObjPatElem.KeyValuePat { Key = key
+                                              Value = value
+                                              Default = _ } ->
+              let newTarget =
+                targetExpr
+                |> Option.map (fun target ->
+                  checks <- checks @ [ PropertyCheck(target, key) ]
+
+                  TS.Expr.Member
+                    { Object = target
+                      Property =
+                        TS.Expr.Lit(
+                          Lit.Str { Value = key; Raw = None; Loc = None }
+                        )
+                      Computed = true
+                      OptChain = false
+                      Loc = None })
+
+              let keyValuePat = buildPatternRec value newTarget
+
+              // TODO: add support for default values in ObjectPatProp.KeyValue
+              keyValuePat
+              |> Option.map (fun keyValuePat ->
+                ObjectPatProp.KeyValue
+                  { Key = TS.PropName.Ident { Name = key; Loc = None }
+                    Value = keyValuePat
+                    Loc = None })
+            | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                               Default = init
+                                               Assertion = _ } ->
+
+              targetExpr
+              |> Option.iter (fun target ->
+                checks <- checks @ [ PropertyCheck(target, name) ])
+
+              Some(
+                ObjectPatProp.Assign
+                  { Key = { Name = name; Loc = None }
+                    Value = None // TODO: handle default values
+                    Loc = None }
+              )
+            | Syntax.ObjPatElem.RestPat { Target = arg } ->
+              let argPat = buildPatternRec arg targetExpr
+
+              argPat
+              |> Option.map (fun argPat ->
+                ObjectPatProp.Rest { Arg = argPat; Loc = None }))
+
+        Some(Pat.Object { Props = props; Loc = None })
+      | PatternKind.Tuple { Elems = elems } ->
+        targetExpr
+        |> Option.iter (fun target ->
+          checks <- checks @ [ ArrayCheck(target, elems.Length) ])
+
+        let elems =
+          elems
+          |> List.mapi (fun index elem ->
+
+            let newTarget =
+              targetExpr
+              |> Option.map (fun target ->
 
                 TS.Expr.Member
-                  { Object = parent
+                  { Object = target
                     Property =
                       TS.Expr.Lit(
-                        Lit.Str { Value = key; Raw = None; Loc = None }
+                        Lit.Num
+                          { Value = Int index
+                            Raw = None
+                            Loc = None }
                       )
                     Computed = true
                     OptChain = false
                     Loc = None })
 
-            let keyValuePat, keyValueChecks = buildPattern ctx value parent
-            checks <- checks @ keyValueChecks
+            let elemPat = buildPatternRec elem newTarget
 
-            // TODO: add support for default values in ObjectPatProp.KeyValue
-            keyValuePat
-            |> Option.map (fun keyValuePat ->
-              ObjectPatProp.KeyValue
-                { Key = TS.PropName.Ident { Name = key; Loc = None }
-                  Value = keyValuePat
-                  Loc = None })
-          | Syntax.ObjPatElem.ShorthandPat { Name = name
-                                             Default = init
-                                             Assertion = _ } ->
+            elemPat)
 
-            parent
-            |> Option.iter (fun parent ->
-              checks <- checks @ [ PropertyCheck(parent, name) ])
+        Some(Pat.Array { Elems = elems; Loc = None })
+      | PatternKind.Extractor extractorPattern ->
+        match targetExpr with
+        | Some targetExpr ->
+          let mutable argPats: list<option<Pat>> = []
 
-            Some(
-              ObjectPatProp.Assign
-                { Key = { Name = name; Loc = None }
-                  Value = None // TODO: handle default values
-                  Loc = None }
-            )
-          | Syntax.ObjPatElem.RestPat { Target = target } ->
-            let argPat, argExprs = buildPattern ctx target parent
-            checks <- checks @ argExprs
+          for arg in extractorPattern.Args do
+            let argPat = buildPatternRec arg None
 
-            argPat
-            |> Option.map (fun argPat ->
-              ObjectPatProp.Rest { Arg = argPat; Loc = None }))
+            let argPat =
+              match argPat with
+              | Some argPat -> argPat
+              | None ->
+                failwith "Extractor pattern arguments must be irrefutable"
 
-      Some(Pat.Object { Props = props; Loc = None }), checks
-    | PatternKind.Tuple { Elems = elems } ->
-      let mutable checks: list<PatternCheck> = []
+            argPats <- argPats @ [ Some argPat ]
 
-      parent
-      |> Option.iter (fun parent ->
-        checks <- checks @ [ ArrayCheck(parent, elems.Length) ])
+          let extractor = qualifiedIdentToMemberExpr extractorPattern.Name
+          let subject = targetExpr
+          let receiver = Expr.Ident { Name = "undefined"; Loc = None }
 
-      let elems =
-        elems
-        |> List.mapi (fun index elem ->
+          let call =
+            Expr.Call
+              { Callee =
+                  Expr.Ident
+                    { Name = "InvokeCustomMatcherOrThrow"
+                      Loc = None }
+                Arguments = [ extractor; subject; receiver ]
+                Loc = None }
 
-          let parent =
-            parent
-            |> Option.map (fun parent ->
+          let tuplePat = Pat.Array { Elems = argPats; Loc = None }
 
-              TS.Expr.Member
-                { Object = parent
-                  Property =
-                    TS.Expr.Lit(
-                      Lit.Num
-                        { Value = Int index
-                          Raw = None
-                          Loc = None }
-                    )
-                  Computed = true
-                  OptChain = false
-                  Loc = None })
+          let decl =
+            Decl.Var
+              { Export = false
+                Declare = false
+                Decls =
+                  [ { Id = tuplePat
+                      TypeAnn = None
+                      Init = Some call } ]
+                Kind = VariableDeclarationKind.Const
+                Loc = None
+                Comments = [] }
 
-          let elemPat, elemChecks = buildPattern ctx elem parent
-          checks <- checks @ elemChecks
+          decls <- decls @ [ decl ]
 
-          elemPat)
+          None
+        // failwith "TODO: buildPattern - Extractor"
+        | None -> failwith "Extractor pattern must have a target expression"
+      | PatternKind.Wildcard wildcardPattern ->
+        failwith "TODO: buildPattern - Wildcard"
+      | PatternKind.Literal literal ->
+        match targetExpr with
+        | Some parent ->
+          checks <- checks @ [ ValueCheck(parent, buildLiteral literal) ]
+        | None -> ()
 
-      Some(Pat.Array { Elems = elems; Loc = None }), checks
-    | PatternKind.Extractor extractorPattern ->
-      failwith "TODO: buildPattern - Enum"
-    | PatternKind.Wildcard wildcardPattern ->
-      failwith "TODO: buildPattern - Wildcard"
-    | PatternKind.Literal literal ->
-      let checks =
-        match parent with
-        | Some parent -> [ ValueCheck(parent, buildLiteral literal) ]
-        | None -> []
+        None
+      | PatternKind.Rest pattern ->
+        let argPat = buildPatternRec pattern targetExpr
 
-      None, checks
-    | PatternKind.Rest pattern ->
-      let argPat, argExprs = buildPattern ctx pattern parent
+        argPat
+        |> Option.map (fun argPat -> Pat.Rest { Arg = argPat; Loc = None })
 
-      argPat |> Option.map (fun argPat -> Pat.Rest { Arg = argPat; Loc = None }),
-      argExprs
+    let pat = buildPatternRec pattern targetExpr
+
+    pat, checks, decls
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of
@@ -2702,7 +2778,7 @@ module rec Codegen =
       | PatternKind.Tuple { Elems = elems } -> List.iter walk elems
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
-      | PatternKind.Extractor _ -> failwith "TODO: findBinding - Extractor"
+      | PatternKind.Extractor { Args = args } -> List.iter walk args
       | PatternKind.Rest pat ->
         let patAssump = findBindings pat
 

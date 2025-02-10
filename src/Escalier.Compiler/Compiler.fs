@@ -680,13 +680,6 @@ module Compiler =
               ()
             | _ -> ()
 
-          let symbolGlobal =
-            match globalEnv.TryFindValue "Symbol" with
-            | Some binding -> binding.Type
-            | None -> failwith "Symbol not in scope"
-
-          printfn $"symbolGlobal = {symbolGlobal}"
-
           initialized <- true
       }
 

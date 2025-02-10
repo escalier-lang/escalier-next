@@ -1,11 +1,11 @@
-var Foo = class {
+var C = class {
   msg
-  constructor(msg) {
-    self.msg = msg;
+  constructor(value) {
+    self.msg = value;
   }
-  [Symbol.customMatch]() {
+  [Symbol.customMatcher]() {
     return [self.msg];
   }
 };
-var foo = new Foo("hello");
-const [msg] = InvokeCustomMatcherOrThrow(Foo, foo, undefined);
+var subject = new C("hello");
+const [msg] = InvokeCustomMatcherOrThrow(C, subject, undefined);

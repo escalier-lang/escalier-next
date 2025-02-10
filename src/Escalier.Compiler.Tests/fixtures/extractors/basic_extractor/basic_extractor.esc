@@ -1,11 +1,11 @@
-let Foo = class {
+let C = class {
   msg: string;
-  new (mut self, msg: string) {
-    self.msg = msg;
+  new (mut self, value: string) {
+    self.msg = value;
   }
-  fn [Symbol.customMatch](self) {
+  fn [Symbol.customMatcher](self) {
     return [self.msg];
   }
 };
-let foo = Foo("hello");
-let Foo(msg) = foo;
+let subject = C("hello");
+let C(msg) = subject;

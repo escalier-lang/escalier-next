@@ -636,7 +636,7 @@ module Compiler =
 
               let newProp =
                 ObjTypeElem.Property
-                  { Name = PropName.String "customMatch"
+                  { Name = PropName.String "customMatcher"
                     Optional = false
                     Readonly = true
                     Type = newSymbol }

@@ -138,7 +138,10 @@ module InferPattern =
                   Args = List.map infer_pattern_rec args }
 
             Provenance = None }
-        | Result.Error _ -> failwith "Can't find extractor type"
+        | Result.Error error ->
+          printfn $"name = {name}"
+          printfn $"error = %A{error}"
+          failwith "Can't find extractor type"
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
         | Some qi ->

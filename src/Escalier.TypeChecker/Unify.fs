@@ -321,7 +321,7 @@ module rec Unify =
               ctx
               env
               symbolGlobal
-              (PropName.String "customMatch")
+              (PropName.String "customMatcher")
               false
               ValueCategory.RValue
           with
@@ -331,10 +331,12 @@ module rec Unify =
             | _ ->
               Result.Error(
                 TypeError.SemanticError
-                  "Symbol.customMatch is not a unique symbol"
+                  "Symbol.customMatcher is not a unique symbol"
               )
           | Result.Error _ ->
-            Result.Error(TypeError.SemanticError "Symbol.customMatch not found")
+            Result.Error(
+              TypeError.SemanticError "Symbol.customMatcher not found"
+            )
 
         let! method = getPropType ctx env t1 propName false ValueCategory.RValue
 
@@ -360,7 +362,7 @@ module rec Unify =
           return!
             Error(
               TypeError.SemanticError
-                "[Symbol.customMatch] isn't a function/method"
+                "[Symbol.customMatcher] isn't a function/method"
             )
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then

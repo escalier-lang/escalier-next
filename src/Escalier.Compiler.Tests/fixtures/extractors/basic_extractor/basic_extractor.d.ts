@@ -1,8 +1,8 @@
-// @escType - {new fn (mut self: Self, msg: string) -> Foo}
-const Foo: {
-  new (msg: string): Foo;
+// @escType - {new fn (mut self: Self, value: string) -> C}
+const C: {
+  new (value: string): C;
 };
-// @escType - Foo
-const foo: Foo;
+// @escType - C
+const subject: C;
 // @escType - string
 const msg: string;

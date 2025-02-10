@@ -679,7 +679,9 @@ let getPropType
     | _ ->
       // TODO: intersection types
       return!
-        Error(TypeError.NotImplemented $"TODO: lookup member on type - {t}")
+        Error(
+          TypeError.NotImplemented $"TODO: lookup member '{key}' on type - {t}"
+        )
   }
 
 let expandScheme

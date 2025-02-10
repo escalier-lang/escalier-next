@@ -883,7 +883,7 @@ let ParseClassWithComputedMethod () =
     """
     let Foo = class {
       msg: string;
-      fn [Symbol.customMatch](self) {
+      fn [Symbol.customMatcher](self) {
         return [self.msg];
       }
     };

@@ -432,6 +432,7 @@ module Syntax =
     override this.ToString() =
       match this with
       | Ident ident -> ident.Name // TODO: isMut
+      // TODO
       | _ -> failwith "TODO"
 
   type Pattern =

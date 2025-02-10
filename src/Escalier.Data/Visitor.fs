@@ -1,7 +1,8 @@
 module Escalier.Data.Visitor
 
+open Escalier.Data.Syntax
+
 module rec ExprVisitor =
-  open Escalier.Data.Syntax
 
   type SyntaxVisitor<'S> =
     { VisitExpr: Expr * 'S -> bool * 'S
@@ -111,7 +112,49 @@ module rec ExprVisitor =
       | ExprKind.ExprWithTypeArgs { Expr = expr; TypeArgs = typeArgs } ->
         walk expr
         List.iter (walkTypeAnn visitor state) typeArgs
-      | ExprKind.Class _ ->
+      | ExprKind.Class { Extends = extends
+                         Implements = implements
+                         Name = name
+                         TypeParams = typeParams
+                         Elems = elems } ->
+
+        for elem in elems do
+          match elem with
+          | ClassElem.Property { Name = name
+                                 TypeAnn = typeAnn
+                                 Value = value } ->
+            // TODO: handle computed properties
+            Option.iter (walkTypeAnn visitor state) typeAnn
+            Option.iter (walkExpr visitor state) value
+          | ClassElem.Constructor f ->
+            for p in f.Sig.ParamList do
+              walkPattern visitor state p.Pattern
+              Option.iter (walkTypeAnn visitor state) p.TypeAnn
+
+            Option.iter
+              (fun body ->
+                match body with
+                | BlockOrExpr.Block block ->
+                  List.iter (walkStmt visitor state) block.Stmts
+                | BlockOrExpr.Expr expr -> walk expr)
+              f.Body
+          | ClassElem.Method method ->
+            for p in method.Sig.ParamList do
+              walkPattern visitor state p.Pattern
+              Option.iter (walkTypeAnn visitor state) p.TypeAnn
+
+            Option.iter
+              (fun body ->
+                match body with
+                | BlockOrExpr.Block block ->
+                  List.iter (walkStmt visitor state) block.Stmts
+                | BlockOrExpr.Expr expr -> walk expr)
+              method.Body
+          | ClassElem.Getter getter ->
+            failwith "TODO: walkExpr - ClassElem.Getter"
+          | ClassElem.Setter setter ->
+            failwith "TODO: walkExpr - ClassElem.Setter"
+
         // TODO: implement this so that we can find dependencies inside classes
         ()
       | ExprKind.IfLet { Pattern = pattern
@@ -282,7 +325,7 @@ module rec ExprVisitor =
       | PatternKind.Wildcard _ -> ()
       | PatternKind.Literal _ -> ()
       | PatternKind.Rest arg -> walk arg
-      | PatternKind.Extractor { Args = args } -> List.iter walk args
+      | PatternKind.Extractor { Name = _; Args = args } -> List.iter walk args
 
   let walkTypeAnn
     (visitor: SyntaxVisitor<'S>)

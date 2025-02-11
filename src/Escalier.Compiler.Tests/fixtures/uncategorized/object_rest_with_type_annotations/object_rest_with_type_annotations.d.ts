@@ -4,6 +4,8 @@ const obj1: {
   b: "hello";
   c: true;
 };
+// @escType - number
+const a: number;
 // @escType - {b: string, c: boolean}
 const rest: {
   b: string;

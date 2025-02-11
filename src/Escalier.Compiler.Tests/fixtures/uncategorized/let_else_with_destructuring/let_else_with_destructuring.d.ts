@@ -11,4 +11,8 @@ declare const value: Point | Line | undefined;
 // @escType - fn (msg: string) -> undefined
 declare const print: (msg: string) => undefined;
 // @escType - number
+const x: number;
+// @escType - number
+const y: number;
+// @escType - number
 const sum: number;

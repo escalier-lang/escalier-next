@@ -8,3 +8,7 @@ const C: {
 };
 // @escType - C
 const subject: C;
+// @escType - number
+const x: number;
+// @escType - number
+const y: number;

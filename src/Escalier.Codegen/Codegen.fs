@@ -2769,10 +2769,15 @@ module rec Codegen =
           (fun (elem: Syntax.ObjPatElem) ->
             match elem with
             | Syntax.ObjPatElem.KeyValuePat { Value = value } -> walk value
-            | Syntax.ObjPatElem.ShorthandPat { Name = name; IsMut = isMut } ->
-              // TODO: how do we get the type for this binding?
-              // Do we need to add an `InferredType` field to `ShorthandPat`?
-              ()
+            | Syntax.ObjPatElem.ShorthandPat { Name = name
+                                               IsMut = isMut
+                                               Inferred = t } ->
+              match t with
+              | Some t ->
+                let t = prune t
+                let binding = (t, isMut)
+                assump <- Map.add name binding assump
+              | None -> ()
             | Syntax.ObjPatElem.RestPat { Target = target } -> walk target)
           elems
       | PatternKind.Tuple { Elems = elems } -> List.iter walk elems

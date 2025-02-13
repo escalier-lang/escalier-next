@@ -364,6 +364,62 @@ module rec Unify =
               TypeError.SemanticError
                 "[Symbol.customMatcher] isn't a function/method"
             )
+      | TypeKind.Extractor extractor, TypeKind.Object obj ->
+        // This case comes up when there are nested extractors
+        let symbolGlobal =
+          match env.TryFindValue "Symbol" with
+          | Some binding -> binding.Type
+          | None -> failwith "Symbol not in scope"
+
+        let! propName =
+          match
+            getPropType
+              ctx
+              env
+              symbolGlobal
+              (PropName.String "customMatcher")
+              false
+              ValueCategory.RValue
+          with
+          | Result.Ok sym ->
+            match (prune sym).Kind with
+            | TypeKind.UniqueSymbol id -> PropName.Symbol id |> Result.Ok
+            | _ ->
+              Result.Error(
+                TypeError.SemanticError
+                  "Symbol.customMatcher is not a unique symbol"
+              )
+          | Result.Error _ ->
+            Result.Error(
+              TypeError.SemanticError "Symbol.customMatcher not found"
+            )
+
+        let! method = getPropType ctx env t2 propName false ValueCategory.RValue
+
+        match method.Kind with
+        | TypeKind.Function f ->
+          let retType = f.Return
+
+          match (prune retType).Kind with
+          | TypeKind.Tuple { Elems = elems } ->
+            if elems.Length <> extractor.Args.Length then
+              return! Error(TypeError.SemanticError "Extractor arity mismatch")
+            else
+              // Check that each element in the tuple is assignable to the corresponding
+              // element in the extractor args.  This matches what we do for destructuring.
+              for arg, elem in List.zip extractor.Args elems do
+                do! unify ctx env ips elem arg
+          | _ ->
+            return!
+              Error(
+                TypeError.SemanticError "Extractor return type is not a tuple"
+              )
+        | _ ->
+          return!
+            Error(
+              TypeError.SemanticError
+                "[Symbol.customMatcher] isn't a function/method"
+            )
       | TypeKind.Object obj1, TypeKind.Object obj2 ->
         if not obj1.Immutable && obj2.Immutable then
           return! Error(TypeError.TypeMismatch(t1, t2))

@@ -15,3 +15,9 @@ const object: {
   };
   color: "red";
 };
+// @escType - "red"
+const color: "red";
+// @escType - 5
+const x: 5;
+// @escType - 10
+const y: 10;

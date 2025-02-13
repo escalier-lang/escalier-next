@@ -2374,8 +2374,10 @@ module rec Codegen =
           Op = TsTypeOperatorOp.KeyOf
           Loc = None }
     | TypeAnnKind.Rest typeAnn -> failwith "TODO: buildTypeFromTypeAnn - Rest"
-    | TypeAnnKind.Typeof qualifiedIdent ->
-      failwith "TODO: buildTypeFromTypeAnn - Typeof"
+    | TypeAnnKind.Typeof _ ->
+      match typeAnn.InferredType with
+      | Some t -> buildType ctx t
+      | None -> failwith "Typeof type annotation must have an inferred type"
     | TypeAnnKind.Index indexType ->
       failwith "TODO: buildTypeFromTypeAnn - Index"
     | TypeAnnKind.Condition conditionType ->

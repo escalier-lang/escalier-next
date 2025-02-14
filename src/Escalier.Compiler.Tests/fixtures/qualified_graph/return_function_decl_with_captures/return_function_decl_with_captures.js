@@ -1,6 +1,7 @@
 var getAdd5 = function () {
   var y = 5;
-  return function (x) {
+  return function (temp0) {
+    var x = temp0;
     return x + y;
   };
 };

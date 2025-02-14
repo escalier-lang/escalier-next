@@ -1,9 +1,10 @@
-var factorial = (n) => {
-  var temp0;
+var factorial = (temp0) => {
+  var n = temp0;
+  var temp1;
   if (n == 0) {
-    temp0 = 1;
+    temp1 = 1;
   } else {
-    temp0 = n * factorial((n - 1));
+    temp1 = n * factorial((n - 1));
   }
-  return temp0;
+  return temp1;
 };

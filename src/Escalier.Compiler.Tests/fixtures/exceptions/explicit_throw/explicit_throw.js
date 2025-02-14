@@ -1,8 +1,9 @@
-var foo = function (x) {
-  var temp0;
+var foo = function (temp0) {
+  var x = temp0;
+  var temp1;
   if (x < 0) {
-    temp0 = Escalier.throw("RangeError");
+    temp1 = Escalier.throw("RangeError");
   }
-  temp0;
+  temp1;
   return x;
 };

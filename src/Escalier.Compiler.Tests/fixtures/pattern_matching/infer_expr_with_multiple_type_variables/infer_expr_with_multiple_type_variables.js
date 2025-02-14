@@ -1,50 +1,62 @@
-var foo = (x, y) => {
-  var temp0;
+var foo = (temp0, temp1) => {
+  var x = temp0;
+  var y = temp1;
+  var temp2;
   if (typeof {x, y} == "object" && "x" in {x, y} && {x, y}["x"] == 0 && "y" in {x, y} && {x, y}["y"] == 0) {
-    temp0 = "origin";
+    var {} = {x, y};
+    temp2 = "origin";
   } else {
-    var temp1;
+    var temp3;
     if (typeof {x, y} == "object" && "x" in {x, y} && "y" in {x, y} && {x, y}["y"] == 0) {
-      temp1 = "x-axis";
+      var {x} = {x, y};
+      temp3 = "x-axis";
     } else {
-      var temp2;
+      var temp4;
       if (typeof {x, y} == "object" && "x" in {x, y} && {x, y}["x"] == 0 && "y" in {x, y}) {
-        temp2 = "y-axis";
+        var {y} = {x, y};
+        temp4 = "y-axis";
       } else {
-        var temp3;
+        var temp5;
         if (true) {
-          temp3 = "other";
+          var _ = {x, y};
+          temp5 = "other";
         }
-        temp2 = temp3;
+        temp4 = temp5;
       }
-      temp1 = temp2;
+      temp3 = temp4;
     }
-    temp0 = temp1;
+    temp2 = temp3;
   }
-  return temp0;
+  return temp2;
 };
-var bar = (x, y) => {
-  var temp4;
+var bar = (temp6, temp7) => {
+  var x = temp6;
+  var y = temp7;
+  var temp8;
   if (typeof {x, y} == "object" && "x" in {x, y} && {x, y}["x"] == 0 && "y" in {x, y} && {x, y}["y"] == 0) {
-    temp4 = "origin";
+    var {} = {x, y};
+    temp8 = "origin";
   } else {
-    var temp5;
+    var temp9;
     if (typeof {x, y} == "object" && "x" in {x, y} && "y" in {x, y} && {x, y}["y"] == 0) {
-      temp5 = "x-axis";
+      var {x} = {x, y};
+      temp9 = "x-axis";
     } else {
-      var temp6;
+      var temp10;
       if (typeof {x, y} == "object" && "x" in {x, y} && {x, y}["x"] == 0 && "y" in {x, y}) {
-        temp6 = "y-axis";
+        var {y} = {x, y};
+        temp10 = "y-axis";
       } else {
-        var temp7;
+        var temp11;
         if (typeof {x, y} == "object" && "x" in {x, y} && "y" in {x, y}) {
-          temp7 = "other";
+          var {x, y} = {x, y};
+          temp11 = "other";
         }
-        temp6 = temp7;
+        temp10 = temp11;
       }
-      temp5 = temp6;
+      temp9 = temp10;
     }
-    temp4 = temp5;
+    temp8 = temp9;
   }
-  return temp4;
+  return temp8;
 };

@@ -1,9 +1,10 @@
-var foo = (x) => {
-  var temp0;
+var foo = (temp0) => {
+  var x = temp0;
+  var temp1;
   if (x < 0) {
-    temp0 = Escalier.throw("RangeError");
+    temp1 = Escalier.throw("RangeError");
   } else {
-    temp0 = Escalier.throw("BoundsError");
+    temp1 = Escalier.throw("BoundsError");
   }
-  return temp0;
+  return temp1;
 };

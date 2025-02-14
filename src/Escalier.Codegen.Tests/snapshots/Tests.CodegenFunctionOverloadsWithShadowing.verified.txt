@@ -12,7 +12,9 @@
 --- output (js) ---
 function add(__arg0__, __arg1__) {
   if (typeof __arg0__ == "number" && typeof __arg1__ == "number") {
-    var add = (a, b) => {
+    var add = (temp0, temp1) => {
+      var a = temp0;
+      var b = temp1;
       return a + b;
     };
     return add(__arg0__, __arg1__);

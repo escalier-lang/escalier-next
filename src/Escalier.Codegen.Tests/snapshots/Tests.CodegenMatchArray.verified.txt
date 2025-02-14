@@ -9,30 +9,35 @@
         };
         
 --- output (js) ---
-var getCount = function (array) {
-  var temp0;
+var getCount = function (temp0) {
+  var array = temp0;
+  var temp1;
   if (array.length == 0) {
-    temp0 = "none";
+    var [] = array;
+    temp1 = "none";
   } else {
-    var temp1;
+    var temp2;
     if (array.length == 1) {
-      temp1 = "one";
+      var [x] = array;
+      temp2 = "one";
     } else {
-      var temp2;
+      var temp3;
       if (array.length == 2) {
-        temp2 = "a couple";
+        var [x, y] = array;
+        temp3 = "a couple";
       } else {
-        var temp3;
+        var temp4;
         if (true) {
-          temp3 = "many";
+          var _ = array;
+          temp4 = "many";
         }
-        temp2 = temp3;
+        temp3 = temp4;
       }
-      temp1 = temp2;
+      temp2 = temp3;
     }
-    temp0 = temp1;
+    temp1 = temp2;
   }
-  return temp0;
+  return temp1;
 };
 
 --- output (dts) ---

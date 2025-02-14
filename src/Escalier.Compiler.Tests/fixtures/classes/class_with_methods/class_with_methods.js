@@ -3,7 +3,8 @@ var Foo = class {
   bar() {
     return self.msg;
   }
-  baz(msg) {
+  baz(temp0) {
+    var msg = temp0;
     self.msg = msg;
   }
 };

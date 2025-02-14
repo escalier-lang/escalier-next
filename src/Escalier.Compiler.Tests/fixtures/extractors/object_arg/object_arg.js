@@ -1,6 +1,7 @@
 var C = class {
   data
-  constructor(data) {
+  constructor(temp0) {
+    var data = temp0;
     self.data = data;
   }
   [Symbol.customMatcher]() {

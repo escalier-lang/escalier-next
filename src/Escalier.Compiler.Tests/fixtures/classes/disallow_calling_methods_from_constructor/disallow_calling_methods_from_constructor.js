@@ -1,6 +1,7 @@
 var Foo = class {
   msg
-  constructor(msg) {
+  constructor(temp0) {
+    var msg = temp0;
     self.msg = self.bar();
   }
   bar() {

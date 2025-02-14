@@ -1,25 +1,28 @@
-var foo = (x) => {
-  var temp0;
+var foo = (temp0) => {
+  var x = temp0;
+  var temp1;
   if (x == 0) {
-    temp0 = "none";
+    temp1 = "none";
   } else {
-    var temp1;
+    var temp2;
     if (x == 1) {
-      temp1 = "one";
+      temp2 = "one";
     } else {
-      var temp2;
+      var temp3;
       if (true) {
-        temp2 = "negative";
+        var n = x;
+        temp3 = "negative";
       } else {
-        var temp3;
+        var temp4;
         if (true) {
-          temp3 = "other";
+          var _ = x;
+          temp4 = "other";
         }
-        temp2 = temp3;
+        temp3 = temp4;
       }
-      temp1 = temp2;
+      temp2 = temp3;
     }
-    temp0 = temp1;
+    temp1 = temp2;
   }
-  return temp0;
+  return temp1;
 };

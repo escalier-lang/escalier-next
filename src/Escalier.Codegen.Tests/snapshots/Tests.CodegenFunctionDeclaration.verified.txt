@@ -5,7 +5,9 @@
         let sum = add(5, 10);
         
 --- output (js) ---
-function add(a, b) {
+function add(temp0, temp1) {
+  var a = temp0;
+  var b = temp1;
   return a + b;
 }
 var sum = add(5, 10);

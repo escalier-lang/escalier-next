@@ -1,12 +1,13 @@
 var ret_fact = function () {
-  var fact = (n) => {
-    var temp0;
+  var fact = (temp0) => {
+    var n = temp0;
+    var temp1;
     if (n == 0) {
-      temp0 = 1;
+      temp1 = 1;
     } else {
-      temp0 = n * fact((n - 1));
+      temp1 = n * fact((n - 1));
     }
-    return temp0;
+    return temp1;
   };
   return fact;
 };

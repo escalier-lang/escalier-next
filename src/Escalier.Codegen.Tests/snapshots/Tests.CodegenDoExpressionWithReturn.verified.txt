@@ -13,24 +13,25 @@
         };
         
 --- output (js) ---
-var foo = function (bar) {
-  var temp0;
+var foo = function (temp0) {
+  var bar = temp0;
+  var temp1;
   {
-    var temp1;
+    var temp2;
     if (bar == 0) {
-      temp1 = "none";
+      temp2 = "none";
     } else {
-      var temp2;
+      var temp3;
       if (bar > 1) {
-        temp2 = "many";
+        temp3 = "many";
       } else {
         return null;
       }
-      temp1 = temp2;
+      temp2 = temp3;
     }
-    temp0 = temp1;
+    temp1 = temp2;
   }
-  var res = temp0;
+  var res = temp1;
   return res;
 };
 

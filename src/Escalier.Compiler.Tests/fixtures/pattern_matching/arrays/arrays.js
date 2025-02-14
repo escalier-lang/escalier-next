@@ -1,31 +1,37 @@
-var sum = (array) => {
-  var temp0;
+var sum = (temp0) => {
+  var array = temp0;
+  var temp1;
   if (array.length == 0) {
-    temp0 = 0;
+    var [] = array;
+    temp1 = 0;
   } else {
-    var temp1;
+    var temp2;
     if (array.length == 1) {
-      temp1 = x;
+      var [x] = array;
+      temp2 = x;
     } else {
-      var temp2;
+      var temp3;
       if (array.length == 2) {
-        temp2 = x + y;
+        var [x, y] = array;
+        temp3 = x + y;
       } else {
-        var temp3;
+        var temp4;
         if (array.length == 3) {
-          temp3 = x + y + z;
+          var [x, y, z] = array;
+          temp4 = x + y + z;
         } else {
-          var temp4;
+          var temp5;
           if (array.length == 4) {
-            temp4 = x + y + z + sum(rest);
+            var [x, y, z, ...rest] = array;
+            temp5 = x + y + z + sum(rest);
           }
-          temp3 = temp4;
+          temp4 = temp5;
         }
-        temp2 = temp3;
+        temp3 = temp4;
       }
-      temp1 = temp2;
+      temp2 = temp3;
     }
-    temp0 = temp1;
+    temp1 = temp2;
   }
-  return temp0;
+  return temp1;
 };

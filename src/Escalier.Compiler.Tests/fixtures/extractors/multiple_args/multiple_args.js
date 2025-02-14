@@ -1,7 +1,9 @@
 var C = class {
   first
   second
-  constructor(first, second) {
+  constructor(temp0, temp1) {
+    var first = temp0;
+    var second = temp1;
     self.first = first;
     self.second = second;
   }

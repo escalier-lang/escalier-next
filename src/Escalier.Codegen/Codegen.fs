@@ -200,11 +200,11 @@ module rec Codegen =
       let finalizer = Finalizer.Assign tempId
       let tempDecl = buildTempDecl ctx tempId
 
+      // TODO: create a wrapper around `buildMatchRec` so that we can avoid
+      // evaluating the target expression multiple times
       let targetExpr, targetStmts = buildExpr ctx target
-      let _, checks, decls = buildPattern ctx head.Pattern (Some targetExpr)
+      let checks, patternDecls = buildPattern ctx head.Pattern targetExpr
       let checkExprs = checks |> List.map (buildPatternCheck ctx)
-
-      // TODO: use decls if any are returned
 
       let conditionExpr =
         match checkExprs with
@@ -223,12 +223,19 @@ module rec Codegen =
       let consequent =
         match head.Body with
         | BlockOrExpr.Block block ->
-          buildBlock ctx block finalizer |> Stmt.Block
+          let blockStmt = buildBlock ctx block finalizer
+
+          { blockStmt with
+              Body = List.map TS.Stmt.Decl patternDecls @ blockStmt.Body }
+          |> Stmt.Block
         | BlockOrExpr.Expr expr ->
           let headExpr, headStmts = buildExpr ctx expr
 
           Stmt.Block
-            { Body = headStmts @ (buildFinalizer ctx headExpr finalizer)
+            { Body =
+                List.map TS.Stmt.Decl patternDecls
+                @ headStmts
+                @ (buildFinalizer ctx headExpr finalizer)
               Loc = None }
 
       let tailExpr, tailStmts = buildMatchRec ctx target defaultBlock tail
@@ -370,18 +377,22 @@ module rec Codegen =
     | ExprKind.Function { Sig = s; Body = body } ->
       match body with
       | BlockOrExpr.Block block ->
+        let mutable paramStmts = []
+
         let ps: list<Param> =
           s.ParamList
           |> List.map (fun (p: Syntax.FuncParam) ->
-            let pat, _, _ = buildPattern ctx p.Pattern None
+            // We replace each param's pattern with a temp variable and assign
+            // the variable (or destructure it) inside the function body.
+            let tempId = ctx.GetTempId()
+            let tempVar = TS.Expr.Ident { Name = tempId; Loc = None }
+            let _, paramDecls = buildPattern ctx p.Pattern tempVar
+            paramStmts <- paramStmts @ List.map TS.Stmt.Decl paramDecls
 
-            let pat =
-              match pat with
-              | Some pat -> pat
-              | None ->
-                failwith "Function parameter pattern must be irrefutable"
-
-            { Pat = pat
+            { Pat =
+                Pat.Ident
+                  { Id = { Name = tempId; Loc = None }
+                    Loc = None }
               Optional = p.Optional
               TypeAnn = None
               Loc = None })
@@ -390,7 +401,11 @@ module rec Codegen =
 
         let func: TS.Function =
           { Params = ps
-            Body = Some({ Body = body.Body; Loc = None })
+            Body =
+              Some(
+                { Body = paramStmts @ body.Body
+                  Loc = None }
+              )
             IsGenerator = false
             IsAsync = s.IsAsync
             TypeParams = None
@@ -402,18 +417,22 @@ module rec Codegen =
 
         (expr, stmts)
       | BlockOrExpr.Expr expr ->
+        let mutable paramStmts = []
+
         let ps: list<Param> =
           s.ParamList
           |> List.map (fun (p: Syntax.FuncParam) ->
-            let pat, _, _ = buildPattern ctx p.Pattern None
+            // We replace each param's pattern with a temp variable and assign
+            // the variable (or destructure it) inside the function body.
+            let tempId = ctx.GetTempId()
+            let tempVar = TS.Expr.Ident { Name = tempId; Loc = None }
+            let _, paramDecls = buildPattern ctx p.Pattern tempVar
+            paramStmts <- paramStmts @ List.map TS.Stmt.Decl paramDecls
 
-            let pat =
-              match pat with
-              | Some pat -> pat
-              | None ->
-                failwith "Function parameter pattern must be irrefutable"
-
-            { Pat = pat
+            { Pat =
+                Pat.Ident
+                  { Id = { Name = tempId; Loc = None }
+                    Loc = None }
               Optional = p.Optional
               TypeAnn = None
               Loc = None })
@@ -421,7 +440,9 @@ module rec Codegen =
         let bodyExpr, bodyStmts = buildExpr ctx expr
 
         let body =
-          bodyStmts @ [ Stmt.Return { Argument = Some bodyExpr; Loc = None } ]
+          paramStmts
+          @ bodyStmts
+          @ [ Stmt.Return { Argument = Some bodyExpr; Loc = None } ]
 
         let body: BlockStmt = { Body = body; Loc = None }
         let expr = Expr.Arrow { Params = ps; Body = body }
@@ -679,7 +700,7 @@ module rec Codegen =
       let tempDecl = buildTempDecl ctx tempId
 
       let targetExpr, targetStmts = buildExpr ctx target
-      let pattern, checks, decls = buildPattern ctx pattern (Some targetExpr)
+      let checks, patternDecls = buildPattern ctx pattern targetExpr
 
       // TODO: use decls if any are returned
 
@@ -709,24 +730,8 @@ module rec Codegen =
       let thenBlock = buildBlock ctx thenBranch finalizer
 
       let thenBlock =
-        match pattern with
-        | Some pattern ->
-          let decl =
-            { Export = false
-              Declare = false
-              Decls =
-                [ { Id = pattern
-                    TypeAnn = None
-                    Init = Some targetExpr } ]
-              Kind = VariableDeclarationKind.Var
-              Loc = None
-              Comments = [] }
-            |> Decl.Var
-            |> Stmt.Decl
-
-          { thenBlock with
-              Body = decl :: thenBlock.Body }
-        | None -> thenBlock // no declaration is need if the pattern is None
+        { thenBlock with
+            Body = List.map TS.Stmt.Decl patternDecls @ thenBlock.Body }
 
       let alt =
         Option.map
@@ -1184,17 +1189,24 @@ module rec Codegen =
     (fnSig: FuncSig)
     (body: option<BlockOrExpr>)
     : TS.Function =
+
+    let mutable paramStmts = []
+
     let ps: list<Param> =
       fnSig.ParamList
       |> List.map (fun (p: Syntax.FuncParam) ->
-        let pat, _, _ = buildPattern ctx p.Pattern None
+        // We replace each param's pattern with a temp variable and assign
+        // the variable (or destructure it) inside the function body.
+        let tempId = ctx.GetTempId()
+        let tempVar = TS.Expr.Ident { Name = tempId; Loc = None }
+        let _, paramDecls = buildPattern ctx p.Pattern tempVar
 
-        let pat =
-          match pat with
-          | Some pat -> pat
-          | None -> failwith "Function parameter pattern must be irrefutable"
+        paramStmts <- paramStmts @ List.map TS.Stmt.Decl paramDecls
 
-        { Pat = pat
+        { Pat =
+            Pat.Ident
+              { Id = { Name = tempId; Loc = None }
+                Loc = None }
           Optional = p.Optional
           TypeAnn = None
           Loc = None })
@@ -1212,7 +1224,11 @@ module rec Codegen =
 
     let func: TS.Function =
       { Params = ps
-        Body = Some({ Body = body.Body; Loc = None })
+        Body =
+          Some(
+            { Body = paramStmts @ body.Body
+              Loc = None }
+          )
         IsGenerator = false
         IsAsync = false
         TypeParams = None
@@ -1539,33 +1555,8 @@ module rec Codegen =
           match decl.Kind with
           | VarDecl { Pattern = pattern; Init = Some init } ->
             let initExpr, initStmts = buildExpr ctx init
-            let pattern, _, decls = buildPattern ctx pattern (Some initExpr)
-
-            // TODO: Use the decls returned
-            if decls.Length > 0 then
-              initStmts @ (List.map Stmt.Decl decls)
-
-            else
-              let pattern =
-                match pattern with
-                | Some pat -> pat
-                | None ->
-                  failwith "Var declaration patterns must be irrefutable"
-
-              let decl =
-                { Export = false
-                  Declare = false
-                  Decls =
-                    [ { Id = pattern
-                        TypeAnn = None
-                        Init = Some initExpr } ]
-                  Kind = VariableDeclarationKind.Var
-                  Loc = None
-                  Comments = [] }
-
-              let declStmt = Stmt.Decl(Decl.Var decl)
-
-              initStmts @ [ declStmt ]
+            let _, patternDecls = buildPattern ctx pattern initExpr
+            initStmts @ (List.map Stmt.Decl patternDecls)
           | TypeDecl _ -> [] // Ignore types when generating JS code
           | VarDecl _ -> [] // Nothing to generate because `init` is `None`
           | FnDecl fnDecl ->
@@ -1597,12 +1588,9 @@ module rec Codegen =
                          Right = right
                          Body = body } ->
 
-          let leftPat, _, _ = buildPattern ctx left None
-
-          let leftPat =
-            match leftPat with
-            | Some pat -> pat
-            | None -> failwith "For loop patterns must be irrefutable"
+          let tempId = ctx.GetTempId()
+          let tempVar = TS.Expr.Ident { Name = tempId; Loc = None }
+          let _, patternDecls = buildPattern ctx left tempVar
 
           // TODO: if the right is a range, we should codegen a regular for loop
           // This will require store the min and max values as properties on the
@@ -1610,7 +1598,10 @@ module rec Codegen =
           let rightExpr, rightStmts = buildExpr ctx right
 
           let decl =
-            { Id = leftPat
+            { Id =
+                Pat.Ident
+                  { Id = { Name = tempId; Loc = None }
+                    Loc = None }
               TypeAnn = None
               Init = None }
 
@@ -1623,12 +1614,19 @@ module rec Codegen =
                 Loc = None
                 Comments = [] }
 
+          let blockStmt = buildBlock ctx body Finalizer.Empty
+
+          let body =
+            { blockStmt with
+                Body = List.map TS.Stmt.Decl patternDecls @ blockStmt.Body }
+            |> TS.Stmt.Block
+
           let forStmt =
             TS.Stmt.ForOf
               { IsAwait = false
                 Left = left
                 Right = rightExpr
-                Body = buildBlock ctx body Finalizer.Empty |> TS.Stmt.Block
+                Body = TS.Stmt.Block blockStmt
                 Loc = None }
 
           rightStmts @ [ forStmt ]
@@ -1733,8 +1731,8 @@ module rec Codegen =
   let buildPattern
     (ctx: Ctx)
     (pattern: Syntax.Pattern)
-    (targetExpr: option<TS.Expr>)
-    : option<TS.Pat> * list<PatternCheck> * list<TS.Decl> =
+    (targetExpr: TS.Expr)
+    : list<PatternCheck> * list<TS.Decl> =
 
     let mutable checks: list<PatternCheck> = []
     let mutable decls: list<TS.Decl> = []
@@ -1902,9 +1900,23 @@ module rec Codegen =
         argPat
         |> Option.map (fun argPat -> Pat.Rest { Arg = argPat; Loc = None })
 
-    let pat = buildPatternRec pattern targetExpr
+    let pat = buildPatternRec pattern (Some targetExpr)
 
-    pat, checks, decls
+    match pat with
+    | Some pattern ->
+      let decl =
+        { Export = false
+          Declare = false
+          Decls =
+            [ { Id = pattern
+                TypeAnn = None
+                Init = Some targetExpr } ]
+          Kind = VariableDeclarationKind.Var
+          Loc = None
+          Comments = [] }
+
+      checks, decls @ [ Decl.Var decl ]
+    | None -> checks, decls
 
   // TODO: our ModuleItem enum should contain: Decl and Imports
   // TODO: pass in `env: Env` so that we can look up the types of

@@ -1,21 +1,23 @@
-var foo = (x) => {
-  var temp0;
+var foo = (temp0) => {
+  var x = temp0;
+  var temp1;
   if (x < 0) {
-    temp0 = Escalier.throw("RangeError");
+    temp1 = Escalier.throw("RangeError");
   } else {
-    temp0 = x;
+    temp1 = x;
   }
-  return temp0;
+  return temp1;
 };
 var cleanup = () => {
   return {};
 };
-var bar = (x) => {
-  var temp1;
+var bar = (temp2) => {
+  var x = temp2;
+  var temp3;
   try {
-    temp1 = foo(x);
+    temp3 = foo(x);
   } finally {
     cleanup();
   }
-  return temp1;
+  return temp3;
 };

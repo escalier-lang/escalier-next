@@ -28,7 +28,7 @@ jobs:
       - name: List files
         run: ls -R out/escalier-next
       - name: Upload Page Artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./out/escalier-next
     

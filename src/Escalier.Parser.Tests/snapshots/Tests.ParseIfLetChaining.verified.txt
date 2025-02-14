@@ -63,28 +63,15 @@ output: Ok
                              IfLet
                                { Pattern =
                                   { Kind =
-                                     Enum
-                                       { Ident = Member (Ident "Result", "Ok")
-                                         Arg =
-                                          Some
-                                            { Kind =
-                                               Tuple
-                                                 { Elems =
-                                                    [{ Kind =
-                                                        Ident
-                                                          { Name = "y"
+                                     Extractor
+                                       { Name = Member (Ident "Result", "Ok")
+                                         Args =
+                                          [{ Kind = Ident { Name = "y"
                                                             IsMut = false
                                                             Assertion = None }
-                                                       Span =
-                                                        { Start =
-                                                           (Ln: 4, Col: 29)
-                                                          Stop =
-                                                           (Ln: 4, Col: 30) }
-                                                       InferredType = None }]
-                                                   Immutable = false }
-                                              Span = { Start = (Ln: 4, Col: 19)
-                                                       Stop = (Ln: 4, Col: 32) }
-                                              InferredType = None } }
+                                             Span = { Start = (Ln: 4, Col: 29)
+                                                      Stop = (Ln: 4, Col: 30) }
+                                             InferredType = None }] }
                                     Span = { Start = (Ln: 4, Col: 19)
                                              Stop = (Ln: 4, Col: 32) }
                                     InferredType = None }

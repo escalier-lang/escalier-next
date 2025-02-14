@@ -258,6 +258,7 @@ let findDepsForValueIdent
                 idents
 
             (false, state)
+          // TODO: do the same thing when visiting methods/constructors/etc in classes
           | ExprKind.Function f ->
             idents <-
               Set.union
@@ -295,7 +296,19 @@ let findDepsForValueIdent
       ExprVisitor.VisitJsxFragment = fun (_, state) -> (true, state)
       ExprVisitor.VisitJsxText = fun (_, state) -> (false, state)
       ExprVisitor.VisitStmt = fun (_, state) -> (true, state)
-      ExprVisitor.VisitPattern = fun (_, state) -> (false, state)
+      ExprVisitor.VisitPattern =
+        fun (pattern, state) ->
+          match pattern.Kind with
+          | PatternKind.Extractor { Name = name } ->
+            idents <-
+              Set.add
+                (QDeclIdent.Value(
+                  QualifiedIdent.FromCommonQualifiedIdent env.Filename name
+                ))
+                idents
+          | _ -> ()
+
+          (true, state)
       ExprVisitor.VisitTypeAnn =
         fun (typeAnn, state) ->
           match typeAnn.Kind with

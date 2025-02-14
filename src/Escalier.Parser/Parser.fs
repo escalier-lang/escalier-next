@@ -1743,23 +1743,12 @@ module Parser =
 
   let private enumVariantPattern: Parser<Pattern, unit> =
     withSpan (
-      tuple3
-        ident
-        (strWs "." >>. ident)
-        (opt (between (strWs "(") (strWs ")") (sepEndBy pattern (strWs ","))))
+      tuple2
+        qualifiedIdent
+        (between (strWs "(") (strWs ")") (sepEndBy pattern (strWs ",")))
     )
-    |>> fun ((qualifier, ident, patterns), span) ->
-      let ident = QualifiedIdent.Member(QualifiedIdent.Ident qualifier, ident)
-
-      let arg =
-        patterns
-        |> Option.map (fun patterns ->
-          { Pattern.Kind =
-              PatternKind.Tuple { Elems = patterns; Immutable = false }
-            Span = span
-            InferredType = None })
-
-      { Pattern.Kind = PatternKind.Enum { Ident = ident; Arg = arg }
+    |>> fun ((name, args), span) ->
+      { Pattern.Kind = PatternKind.Extractor { Name = name; Args = args }
         Span = span
         InferredType = None }
 

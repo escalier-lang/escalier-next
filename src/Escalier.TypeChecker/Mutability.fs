@@ -32,8 +32,8 @@ module Mutability =
             // We could use a "wildcard" path element to model this as long as
             // we only check paths with wildcards after checking those without
             printfn "non-error TODO: getBindingPaths - ObjPatElem.RestPat"
-      | PatternKind.Tuple tuple ->
-        for i, elem in tuple.Elems |> List.indexed do
+      | PatternKind.Tuple { Elems = elems } ->
+        for i, elem in elems |> List.indexed do
           walkPattern elem (string i :: path)
       | PatternKind.Wildcard wildcardPattern -> ()
       | PatternKind.Literal literal -> ()
@@ -43,7 +43,9 @@ module Mutability =
         // We could use a "wildcard" path element to model this as long as
         // we only check paths with wildcards after checking those without
         printfn "non-error TODO: getPatBindingPaths - Rest"
-      | PatternKind.Enum _ -> failwith "TODO: getPatBindingPaths - Enum"
+      | PatternKind.Extractor { Args = args } ->
+        for i, elem in args |> List.indexed do
+          walkPattern elem (string i :: path)
 
     walkPattern pat []
     result

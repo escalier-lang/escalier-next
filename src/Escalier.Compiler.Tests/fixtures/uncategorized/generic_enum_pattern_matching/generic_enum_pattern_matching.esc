@@ -6,5 +6,5 @@ declare let value: Option<number>;
 
 let x = match value {
   Option.Some(value) => value,
-  Option.None => 0,
+  Option.None() => 0,
 };

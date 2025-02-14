@@ -13,6 +13,8 @@ const object: {
   bar: "hello";
   baz: true;
 };
+// @escType - 5
+const foo: 5;
 // @escType - {bar: "hello", baz: true}
 const rest: {
   bar: "hello";

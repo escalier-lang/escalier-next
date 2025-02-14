@@ -624,6 +624,32 @@ module Compiler =
             let! env, _ = this.inferLib ctx globalEnv fullPath
             globalEnv <- env
 
+          match globalEnv.TryFindScheme "SymbolConstructor" with
+          | Some scheme ->
+            let t = scheme.Type
+
+            match t.Kind with
+            | TypeKind.Object({ Elems = elems } as obj) ->
+              let newSymbol =
+                { Kind = TypeKind.UniqueSymbol(ctx.FreshUniqueId())
+                  Provenance = None }
+
+              let newProp =
+                ObjTypeElem.Property
+                  { Name = PropName.String "customMatcher"
+                    Optional = false
+                    Readonly = true
+                    Type = newSymbol }
+
+              obj.Elems <- elems @ [ newProp ]
+            | _ -> ()
+          | None -> ()
+
+          let symbolConstructor =
+            globalEnv.Namespace.Schemes["SymbolConstructor"]
+
+          printfn $"symbolConstructor = {symbolConstructor}"
+
           if not loadLibDOM then
             let typesDir = Path.Combine(repoRoot, "types")
             let fullPath = Path.Combine(typesDir, "lib.dom.lite.d.ts")

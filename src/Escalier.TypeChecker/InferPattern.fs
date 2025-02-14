@@ -1,6 +1,5 @@
 namespace Escalier.TypeChecker
 
-open FsToolkit.ErrorHandling
 
 open Escalier.Data
 open Escalier.Data.Common
@@ -9,8 +8,6 @@ open Escalier.Data.Type
 
 open Error
 open Env
-open Poly
-open Unify
 open InferExpr
 
 module InferPattern =
@@ -130,66 +127,21 @@ module InferPattern =
                 Immutable = immutable
                 Mutable = false }
           Provenance = None }
-      | PatternKind.Enum variant ->
-        printfn $"Looking up tag for {variant.Ident}"
-        let tagType = getQualifiedIdentType ctx env variant.Ident
+      | PatternKind.Extractor { Name = name; Args = args } ->
+        let extractorType = getQualifiedIdentType ctx env name
 
-        let tagType =
-          match tagType with
-          | Result.Ok t ->
-            let elems: list<ObjTypeElem> =
-              [ ObjTypeElem.Property
-                  { Name = PropName.String "__TAG__"
-                    Optional = false
-                    Readonly = true
-                    Type = t } ]
+        match extractorType with
+        | Result.Ok t ->
+          { Kind =
+              TypeKind.Extractor
+                { Extractor = t
+                  Args = List.map infer_pattern_rec args }
 
-            { Kind =
-                TypeKind.Object
-                  { Extends = None
-                    Implements = None
-                    Elems = elems
-                    Exact = true // TODO: This should depend what the pattern is matching/destructuring
-                    Immutable = true
-                    Mutable = false
-                    Interface = false }
-              Provenance = None }
-          | Result.Error _ -> failwith "Can't find enum type"
-
-        let argType = variant.Arg |> Option.map infer_pattern_rec
-
-        // This is the type inferred from the enum pattern
-        let patternType =
-          match argType with
-          | Some argType ->
-            { Kind = TypeKind.Intersection [ tagType; argType ]
-              Provenance = None }
-          | None -> tagType
-
-        // TODO: stop using QualifiedIdent for Enum variants
-        let enumName, variantName =
-          match variant.Ident with
-          | QualifiedIdent.Member(QualifiedIdent.Ident qualifier, name) ->
-            (qualifier, name)
-          | _ -> failwith "This should never happen"
-
-        match env.GetScheme(QualifiedIdent.Ident enumName) with
-        | Ok scheme ->
-          let t = instantiateType ctx scheme.Type scheme.TypeParams None
-
-          let t =
-            match t with
-            | Ok t -> t
-            | Error _ -> failwith "Failed to instantiate enum scheme"
-
-          let result = unify ctx env None patternType t
-
-          match result with
-          | Ok _ -> patternType
-          | Error _ -> failwith $"Failed to unify {patternType} and {t}"
-
-        | Error _ -> failwith $"Can't find scheme for {variant.Ident}"
-
+            Provenance = None }
+        | Result.Error error ->
+          printfn $"name = {name}"
+          printfn $"error = %A{error}"
+          failwith "Can't find extractor type"
       | PatternKind.Wildcard { Assertion = assertion } ->
         match assertion with
         | Some qi ->

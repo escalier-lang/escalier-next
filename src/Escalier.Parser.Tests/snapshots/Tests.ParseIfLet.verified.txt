@@ -12,23 +12,13 @@ output: Ok
                 IfLet
                   { Pattern =
                      { Kind =
-                        Enum
-                          { Ident = Member (Ident "Option", "Some")
-                            Arg =
-                             Some
-                               { Kind =
-                                  Tuple
-                                    { Elems =
-                                       [{ Kind = Ident { Name = "x"
-                                                         IsMut = false
-                                                         Assertion = None }
-                                          Span = { Start = (Ln: 2, Col: 24)
-                                                   Stop = (Ln: 2, Col: 25) }
-                                          InferredType = None }]
-                                      Immutable = false }
-                                 Span = { Start = (Ln: 2, Col: 12)
-                                          Stop = (Ln: 2, Col: 27) }
-                                 InferredType = None } }
+                        Extractor { Name = Member (Ident "Option", "Some")
+                                    Args = [{ Kind = Ident { Name = "x"
+                                                             IsMut = false
+                                                             Assertion = None }
+                                              Span = { Start = (Ln: 2, Col: 24)
+                                                       Stop = (Ln: 2, Col: 25) }
+                                              InferredType = None }] }
                        Span = { Start = (Ln: 2, Col: 12)
                                 Stop = (Ln: 2, Col: 27) }
                        InferredType = None }

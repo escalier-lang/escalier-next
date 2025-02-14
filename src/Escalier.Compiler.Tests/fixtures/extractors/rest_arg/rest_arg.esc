@@ -1,0 +1,15 @@
+let C = class {
+  first: number;
+  second: number;
+  third: number;
+  new (mut self, first: number, second: number, third: number) {
+    self.first = first;
+    self.second = second;
+    self.third = third;
+  }
+  fn [Symbol.customMatcher](self) {
+    return [self.first, self.second, self.third];
+  }
+};
+let subject = C(1, 2, 3);
+let C(x, ...y) = subject;

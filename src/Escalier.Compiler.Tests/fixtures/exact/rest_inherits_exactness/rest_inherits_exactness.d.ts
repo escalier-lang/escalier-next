@@ -14,6 +14,10 @@ declare const inexact: Inexact;
 const exactRest: {
   bar: number;
 };
+// @escType - string
+const foo: string;
+// @escType - string
+const foo: string;
 // @escType - {bar: number, ...}
 const inexactRest: {
   bar: number;

@@ -543,114 +543,16 @@ module rec Codegen =
       (expr, [])
     | ExprKind.ExprWithTypeArgs { Expr = target; TypeArgs = typeArgs } ->
       buildExpr ctx target
-    | ExprKind.Class { Name = name
-                       Extends = extends
-                       Implements = _
-                       TypeParams = typeParams
-                       Elems = elems } ->
-
-      let mutable stmts: list<TS.Stmt> = []
-
+    | ExprKind.Class cls ->
       let id: Option<TS.Ident> =
-        match name with
+        match cls.Name with
         | Some name -> { TS.Name = name; Loc = None } |> Some
         | None -> None
 
-      let body: list<ClassMember> =
-        elems
-        |> List.map (fun elem ->
-          match elem with
-          | ClassElem.Property p ->
-            let key, keyStmts = propNameToPropName ctx p.Name
-            stmts <- stmts @ keyStmts
-
-            ClassMember.ClassProp
-              { Key = key
-                Value =
-                  p.Value
-                  |> Option.map (fun value ->
-                    let valueExpr, valueStmts = buildExpr ctx value
-                    stmts <- stmts @ valueStmts
-                    valueExpr)
-                TypeAnn =
-                  p.TypeAnn
-                  |> Option.map (fun typeAnn ->
-                    let t = buildTypeFromTypeAnn ctx typeAnn
-                    { TypeAnn = t; Loc = None })
-                IsStatic = p.Static
-                // TODO: Decorators
-                // decorators: list<Decorator>
-                Accessibility = None
-                IsAbstract = false
-                IsOptional = p.Optional
-                IsOverride = false
-                Readonly = p.Readonly
-                Declare = false
-                Definite = false
-                Loc = None }
-
-          | ClassElem.Constructor ctor ->
-            let fn = buildFn ctx ctor.Sig ctor.Body
-
-            ClassMember.Constructor
-              { Params =
-                  fn.Params
-                  |> List.map (fun p ->
-                    ParamOrTsParamProp.Param
-                      { Pat = p.Pat
-                        Optional = p.Optional
-                        TypeAnn = p.TypeAnn
-                        Loc = None })
-                Body = fn.Body
-                Accessibility = None
-                IsOptional = false
-                Loc = None }
-
-          | ClassElem.Method method ->
-            let key, keyStmts = propNameToPropName ctx method.Name
-            stmts <- stmts @ keyStmts
-
-            ClassMember.Method
-              { Key = key
-                Function = buildFn ctx method.Sig method.Body
-                Kind = MethodKind.Method
-                IsStatic = method.Static
-                Accessibility = None
-                IsAbstract = false
-                IsOptional = false
-                IsOverride = false
-                Loc = None }
-
-          | ClassElem.Getter _ -> failwith "TODO: ClassElem.Get"
-          | ClassElem.Setter _ -> failwith "TODO: ClassElem.Set")
-
-      let extends: option<TsTypeRef> =
-        extends
-        |> Option.map (fun (typeRef: Syntax.TypeRef) ->
-          let typeParams =
-            typeRef.TypeArgs
-            |> Option.map (fun args ->
-              { Params = args |> List.map (buildTypeFromTypeAnn ctx)
-                Loc = None })
-
-          let typeRef: TsTypeRef =
-            { Loc = None
-              TypeName = qualifiedIdentToTsEntityName typeRef.Ident
-              TypeParams = typeParams }
-
-          typeRef)
-
-      let cls: TS.Class =
-        { TypeParams = None // TODO
-          IsAbstract = false // TODO
-          Super = extends
-          Implements = None // intentionally None since we're outputting JS
-          Body = body
-          Loc = None }
-
+      let cls, stmts = buildClass ctx cls
       let classExpr = TS.Expr.Class { Id = id; Class = cls; Loc = None }
 
-      (classExpr, [])
+      (classExpr, stmts)
 
     | ExprKind.Tuple { Elems = elems; Immutable = immutable } ->
       let mutable stmts: list<TS.Stmt> = []
@@ -1188,6 +1090,7 @@ module rec Codegen =
     (ctx: Ctx)
     (fnSig: FuncSig)
     (body: option<BlockOrExpr>)
+    (includeTypes: bool)
     : TS.Function =
 
     let mutable paramStmts = []
@@ -1208,27 +1111,39 @@ module rec Codegen =
               { Id = { Name = tempId; Loc = None }
                 Loc = None }
           Optional = p.Optional
-          TypeAnn = None
+          TypeAnn =
+            match includeTypes with
+            | true ->
+              p.TypeAnn
+              |> Option.map (fun typeAnn ->
+                let t = buildTypeFromTypeAnn ctx typeAnn
+                { TypeAnn = t; Loc = None })
+            | false -> None
           Loc = None })
 
     let body =
       match body with
-      | Some(BlockOrExpr.Block block) -> buildBlock ctx block Finalizer.Empty
+      | Some(BlockOrExpr.Block block) ->
+        let blockStmt = buildBlock ctx block Finalizer.Empty
+
+        Some(
+          { blockStmt with
+              Body = paramStmts @ blockStmt.Body }
+        )
       | Some(BlockOrExpr.Expr expr) ->
         let expr, stmts = buildExpr ctx expr
 
-        let body = stmts @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
+        let body =
+          paramStmts
+          @ stmts
+          @ [ Stmt.Return { Argument = Some expr; Loc = None } ]
 
-        { Body = body; Loc = None }
-      | None -> failwith "Function declaration must have a body"
+        Some { Body = body; Loc = None }
+      | None -> None
 
     let func: TS.Function =
       { Params = ps
-        Body =
-          Some(
-            { Body = paramStmts @ body.Body
-              Loc = None }
-          )
+        Body = body
         IsGenerator = false
         IsAsync = false
         TypeParams = None
@@ -1241,7 +1156,7 @@ module rec Codegen =
     if decl.Declare then
       [] // Nothing to emit for `declare` function declarations
     else
-      let func = buildFn ctx decl.Sig decl.Body
+      let func = buildFn ctx decl.Sig decl.Body false
 
       let fnDecl =
         { Export = false
@@ -1507,6 +1422,103 @@ module rec Codegen =
 
       [ funcDecl ]
 
+  let buildClass (ctx: Ctx) (cls: Class) : TS.Class * list<TS.Stmt> =
+    let mutable stmts: list<TS.Stmt> = []
+
+    let body: list<ClassMember> =
+      cls.Elems
+      |> List.map (fun elem ->
+        match elem with
+        | ClassElem.Property p ->
+          let key, keyStmts = propNameToPropName ctx p.Name
+          stmts <- stmts @ keyStmts
+
+          ClassMember.ClassProp
+            { Key = key
+              Value =
+                p.Value
+                |> Option.map (fun value ->
+                  let valueExpr, valueStmts = buildExpr ctx value
+                  stmts <- stmts @ valueStmts
+                  valueExpr)
+              TypeAnn = None
+              // p.TypeAnn
+              // |> Option.map (fun typeAnn ->
+              //   let t = buildTypeFromTypeAnn ctx typeAnn
+              //   { TypeAnn = t; Loc = None })
+              IsStatic = p.Static
+              // TODO: Decorators
+              // decorators: list<Decorator>
+              Accessibility = None
+              IsAbstract = false
+              IsOptional = p.Optional
+              IsOverride = false
+              Readonly = p.Readonly
+              Declare = false
+              Definite = false
+              Loc = None }
+
+        | ClassElem.Constructor ctor ->
+          let fn = buildFn ctx ctor.Sig ctor.Body false
+
+          ClassMember.Constructor
+            { Params =
+                fn.Params
+                |> List.map (fun p ->
+                  ParamOrTsParamProp.Param
+                    { Pat = p.Pat
+                      Optional = p.Optional
+                      TypeAnn = p.TypeAnn
+                      Loc = None })
+              Body = fn.Body
+              Accessibility = None
+              IsOptional = false
+              Loc = None }
+
+        | ClassElem.Method method ->
+          let key, keyStmts = propNameToPropName ctx method.Name
+          stmts <- stmts @ keyStmts
+
+          ClassMember.Method
+            { Key = key
+              Function = buildFn ctx method.Sig method.Body false
+              Kind = MethodKind.Method
+              IsStatic = method.Static
+              Accessibility = None
+              IsAbstract = false
+              IsOptional = false
+              IsOverride = false
+              Loc = None }
+
+        | ClassElem.Getter _ -> failwith "TODO: ClassElem.Get"
+        | ClassElem.Setter _ -> failwith "TODO: ClassElem.Set")
+
+    let extends: option<TsTypeRef> =
+      cls.Extends
+      |> Option.map (fun (typeRef: Syntax.TypeRef) ->
+        let typeParams =
+          typeRef.TypeArgs
+          |> Option.map (fun args ->
+            { Params = args |> List.map (buildTypeFromTypeAnn ctx)
+              Loc = None })
+
+        let typeRef: TsTypeRef =
+          { Loc = None
+            TypeName = qualifiedIdentToTsEntityName typeRef.Ident
+            TypeParams = typeParams }
+
+        typeRef)
+
+    let cls =
+      { TypeParams = None // TODO
+        IsAbstract = false // TODO
+        Super = extends
+        Implements = None // intentionally None since we're outputting JS
+        Body = body
+        Loc = None }
+
+    (cls, stmts)
+
   let buildBlock (ctx: Ctx) (body: Block) (finalizer: Finalizer) : BlockStmt =
     // TODO: check if the last statement is an expression statement
     // and use the appropriate finalizer with it
@@ -1571,7 +1583,19 @@ module rec Codegen =
               | [ decl ] -> buildFnDecl ctx decl
               | decls -> buildOverloadedFnDecl ctx decls
             | None -> []
-          | ClassDecl _ -> failwith "TODO: buildBlock - ClassDecl"
+          | ClassDecl { Name = name
+                        Declare = declare
+                        Export = export
+                        Class = cls } ->
+            let cls, stmts = buildClass ctx cls
+
+            let classDecl =
+              { Export = export
+                Declare = declare
+                Ident = { Name = name; Loc = None }
+                Class = cls }
+
+            stmts @ [ TS.Stmt.Decl(TS.Decl.Class classDecl) ]
           | EnumDecl _ -> failwith "TODO: buildBlock - EnumDecl"
           | NamespaceDecl _ ->
             // TODO(#404): Codegen Namespaces
@@ -2131,7 +2155,111 @@ module rec Codegen =
                   let stmt = buildFnDeclType ctx env decl
                   items <- (TS.ModuleItem.Stmt stmt) :: items
             | None -> ()
-          | ClassDecl _ -> failwith "TODO: buildModuleTypes - ClassDecl"
+          | ClassDecl { Name = name
+                        Declare = declare
+                        Export = export
+                        Class = cls } ->
+
+            let mutable stmts = []
+
+            let body: list<ClassMember> =
+              cls.Elems
+              |> List.map (fun elem ->
+                match elem with
+                | ClassElem.Property p ->
+                  let key, keyStmts = propNameToPropName ctx p.Name
+                  stmts <- stmts @ keyStmts
+
+                  ClassMember.ClassProp
+                    { Key = key
+                      Value = None
+                      TypeAnn =
+                        p.TypeAnn
+                        |> Option.map (fun typeAnn ->
+                          let t = buildTypeFromTypeAnn ctx typeAnn
+                          { TypeAnn = t; Loc = None })
+                      IsStatic = p.Static
+                      // TODO: Decorators
+                      // decorators: list<Decorator>
+                      Accessibility = None
+                      IsAbstract = false
+                      IsOptional = p.Optional
+                      IsOverride = false
+                      Readonly = p.Readonly
+                      Declare = false
+                      Definite = false
+                      Loc = None }
+
+                | ClassElem.Constructor ctor ->
+                  let fn = buildFn ctx ctor.Sig None true
+
+                  ClassMember.Constructor
+                    { Params =
+                        fn.Params
+                        |> List.map (fun p ->
+                          ParamOrTsParamProp.Param
+                            { Pat = p.Pat
+                              Optional = p.Optional
+                              TypeAnn = p.TypeAnn
+                              Loc = None })
+                      Body = None
+                      Accessibility = None
+                      IsOptional = false
+                      Loc = None }
+
+                | ClassElem.Method method ->
+                  let key, keyStmts = propNameToPropName ctx method.Name
+                  stmts <- stmts @ keyStmts
+
+                  ClassMember.Method
+                    { Key = key
+                      Function = buildFn ctx method.Sig None true
+                      Kind = MethodKind.Method
+                      IsStatic = method.Static
+                      Accessibility = None
+                      IsAbstract = false
+                      IsOptional = false
+                      IsOverride = false
+                      Loc = None }
+
+                | ClassElem.Getter _ -> failwith "TODO: ClassElem.Get"
+                | ClassElem.Setter _ -> failwith "TODO: ClassElem.Set")
+
+            let extends: option<TsTypeRef> =
+              cls.Extends
+              |> Option.map (fun (typeRef: Syntax.TypeRef) ->
+                let typeParams =
+                  typeRef.TypeArgs
+                  |> Option.map (fun args ->
+                    { Params = args |> List.map (buildTypeFromTypeAnn ctx)
+                      Loc = None })
+
+                let typeRef: TsTypeRef =
+                  { Loc = None
+                    TypeName = qualifiedIdentToTsEntityName typeRef.Ident
+                    TypeParams = typeParams }
+
+                typeRef)
+
+            let cls =
+              { TypeParams = None // TODO
+                IsAbstract = false // TODO
+                Super = extends
+                Implements = None // intentionally None since we're outputting JS
+                Body = body
+                Loc = None }
+
+            let classDecl =
+              { Export = export
+                Declare = declare
+                Ident = { Name = name; Loc = None }
+                Class = cls }
+
+            if stmts.Length > 0 then
+              failwith "buildModuleTypes - ClassDecl, stmts.Length > 0"
+
+            let stmt = TS.Stmt.Decl(TS.Decl.Class classDecl)
+            items <- (TS.ModuleItem.Stmt stmt) :: items
           | EnumDecl _ -> failwith "TODO: buildModuleTypes - EnumDecl"
           | NamespaceDecl _ -> failwith "TODO: buildModuleTypes - NamespaceDecl"
           | InterfaceDecl decl ->

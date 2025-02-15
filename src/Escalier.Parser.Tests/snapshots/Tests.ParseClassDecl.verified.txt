@@ -1,0 +1,25 @@
+﻿input: 
+    let Foo = class {
+      msg: string;
+      new (self, msg: string) {
+        self.msg = msg;
+      }
+      fn bar(self) {
+        return self.msg;
+      }
+      fn baz(mut self, msg: string) {
+        self.msg = msg;
+      }
+      fn [Symbol.customMatcher](self) {
+        return [self.msg];
+      }
+      get msg(self) {
+        return self._msg;
+      }
+      set msg(mut self, msg: string) {
+        self._msg = msg;
+      }
+    }
+    
+output: Error Error in Ln: 2 Col: 9
+Expecting: ';' or '}'

@@ -1510,9 +1510,28 @@ module Parser =
       let span = { Start = start; Stop = stop }
       { Kind = kind; Span = span }
 
-  // let private classDecl: Parser<Decl, unit> =
-  //
-  //   failwith "TODO: classDecl"
+  let private classDecl: Parser<Decl, unit> =
+    pipe5
+      getPosition
+      ((keyword "class") >>. ident)
+      (opt typeParams)
+      (between (strWs "{") (strWs "}") (many classElem))
+      getPosition
+    <| fun start name typeParams elems stop ->
+      let kind =
+        DeclKind.ClassDecl
+          { Declare = false
+            Export = false
+            Name = name
+            Class =
+              { Extends = None // TODO
+                Implements = None // TODO
+                Name = Some name
+                TypeParams = typeParams
+                Elems = elems } }
+
+      { Kind = kind
+        Span = { Start = start; Stop = stop } }
 
   let private typeDecl: Parser<Decl, unit> =
     pipe5
@@ -1827,7 +1846,7 @@ module Parser =
     choice
       [ attempt varDecl
         attempt fnDecl
-        // attempt classDecl
+        attempt classDecl
         attempt typeDecl
         attempt enumDecl
         attempt namespaceDecl

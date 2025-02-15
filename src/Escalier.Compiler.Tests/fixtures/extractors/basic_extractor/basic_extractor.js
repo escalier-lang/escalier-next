@@ -1,4 +1,4 @@
-var C = class {
+class C {
   msg
   constructor(temp0) {
     var value = temp0;
@@ -7,6 +7,6 @@ var C = class {
   [Symbol.customMatcher]() {
     return [self.msg];
   }
-};
+}
 var subject = new C("hello");
 const [msg] = InvokeCustomMatcherOrThrow(C, subject, undefined);

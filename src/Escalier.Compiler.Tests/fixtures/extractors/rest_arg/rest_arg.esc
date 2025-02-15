@@ -1,4 +1,4 @@
-let C = class {
+class C {
   first: number;
   second: number;
   third: number;
@@ -10,6 +10,6 @@ let C = class {
   fn [Symbol.customMatcher](self) {
     return [self.first, self.second, self.third];
   }
-};
+}
 let subject = C(1, 2, 3);
 let C(x, ...y) = subject;

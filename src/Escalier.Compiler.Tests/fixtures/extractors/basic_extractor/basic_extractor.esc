@@ -1,4 +1,4 @@
-let C = class {
+class C {
   msg: string;
   new (mut self, value: string) {
     self.msg = value;
@@ -6,6 +6,6 @@ let C = class {
   fn [Symbol.customMatcher](self) {
     return [self.msg];
   }
-};
+}
 let subject = C("hello");
 let C(msg) = subject;

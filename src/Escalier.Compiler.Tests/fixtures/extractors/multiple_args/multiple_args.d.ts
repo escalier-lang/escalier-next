@@ -1,7 +1,9 @@
-// @escType - {new fn (mut self: Self, first: string, second: number) -> C}
-const C: {
-  new (first: string, second: number): C;
-};
+class C {
+  first: string
+  second: number
+  constructor(temp2: string, temp3: number) 
+  [Symbol.customMatcher]()
+}
 // @escType - C
 const subject: C;
 // @escType - string

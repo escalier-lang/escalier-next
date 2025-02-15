@@ -395,7 +395,7 @@ module rec Printer =
                        Tpl = template } ->
       printExpr ctx tag
       printTemplateLiteral ctx template
-    | Expr.Class classExpr -> printClassExpr ctx classExpr
+    | Expr.Class { Id = ident; Class = cls } -> printClass ctx ident cls
     | Expr.Yield _ -> failwith "TODO: printExpr - Yield"
     | Expr.MetaProp _ -> failwith "TODO: printExpr - MetaProp"
     | Expr.Await { Arg = arg } ->
@@ -439,16 +439,14 @@ module rec Printer =
     | Expr.OptChain _ -> failwith "TODO: printExpr - OptChain"
     | Expr.Invalid _ -> failwith "TODO: printExpr - Invalid"
 
-  let printClassExpr (ctx: PrintCtx) (classExpr: ClassExpr) : unit =
+  let printClass (ctx: PrintCtx) (id: option<Ident>) (cls: Class) : unit =
     let sb = ctx.StringBuilder
-
-    let { Id = id; Class = cls } = classExpr
     let { Super = super; Body = body } = cls
 
     sb.Append("class ") |> ignore
 
     match id with
-    | Some id -> sb.Append(id.Name) |> ignore
+    | Some id -> sb.Append(id.Name).Append(" ") |> ignore
     | None -> ()
 
     match super with
@@ -485,7 +483,14 @@ module rec Printer =
       Seq.ofList ps
       |> Seq.iteri (fun i p ->
         match p with
-        | ParamOrTsParamProp.Param p -> printPattern ctx p.Pat
+        | ParamOrTsParamProp.Param p ->
+          printPattern ctx p.Pat
+
+          match p.TypeAnn with
+          | Some typeAnn ->
+            sb.Append(": ") |> ignore
+            printTypeAnn ctx typeAnn
+          | None -> ()
         | ParamOrTsParamProp.TsParamProp _ ->
           failwith "TODO: printClassMember - TsParamProp"
 
@@ -523,6 +528,12 @@ module rec Printer =
         sb.Append "static " |> ignore
 
       printPropName ctx classProp.Key
+
+      match classProp.TypeAnn with
+      | Some typeAnn ->
+        sb.Append(": ") |> ignore
+        printTypeAnn ctx typeAnn
+      | None -> ()
 
       match classProp.Value with
       | Some value ->
@@ -836,7 +847,8 @@ module rec Printer =
       | Decl.Var varDecl ->
         printVarDecl ctx varDecl
         sb.Append(";") |> ignore
-      | Decl.Class _ -> failwith "TODO: printStmt - Class"
+      | Decl.Class { Ident = ident; Class = cls } ->
+        printClass ctx (Some ident) cls
       | Decl.Using _ -> failwith "TODO: printStmt - Using"
       | Decl.TsInterface decl ->
         if decl.Export then

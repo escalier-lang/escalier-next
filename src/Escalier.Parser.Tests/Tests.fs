@@ -895,6 +895,60 @@ let ParseClassWithComputedMethod () =
   Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
 
 [<Fact>]
+let ParseClassDecl () =
+  let src =
+    """
+    let Foo = class {
+      msg: string;
+      new (self, msg: string) {
+        self.msg = msg;
+      }
+      fn bar(self) {
+        return self.msg;
+      }
+      fn baz(mut self, msg: string) {
+        self.msg = msg;
+      }
+      fn [Symbol.customMatcher](self) {
+        return [self.msg];
+      }
+      get msg(self) {
+        return self._msg;
+      }
+      set msg(mut self, msg: string) {
+        self._msg = msg;
+      }
+    }
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
+let ParseClassDeclWithExtractor () =
+  let src =
+    """
+    class C {
+      msg: string;
+      new (mut self, value: string) {
+        self.msg = value;
+      }
+      fn [Symbol.customMatcher](self) {
+        return [self.msg];
+      }
+    }
+    let subject = C("hello");
+    let C(msg) = subject;
+    """
+
+  let ast = Parser.parseModule src
+  let result = $"input: %s{src}\noutput: %A{ast}"
+
+  Verifier.Verify(result, settings).ToTask() |> Async.AwaitTask
+
+[<Fact>]
 let ParseBasicJsx () =
   let src =
     """

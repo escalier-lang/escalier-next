@@ -3,7 +3,9 @@ class C {
   constructor(temp2: string) 
   [Symbol.customMatcher]()
 }
-// @escType - C
-const subject: C;
+// @escType - {foo: C}
+const subject: {
+  foo: C;
+};
 // @escType - string
 const msg: string;

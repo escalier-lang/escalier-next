@@ -1,7 +1,7 @@
 class C {
   first: string
   second: number
-  constructor(temp2: string, temp3: number) 
+  constructor(temp4: string, temp5: number) 
   [Symbol.customMatcher]()
 }
 // @escType - C

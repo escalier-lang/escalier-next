@@ -4,7 +4,7 @@ type Point = {
 };
 class C {
   data: Point
-  constructor(temp1: Point) 
+  constructor(temp2: Point) 
   [Symbol.customMatcher]()
 }
 // @escType - C

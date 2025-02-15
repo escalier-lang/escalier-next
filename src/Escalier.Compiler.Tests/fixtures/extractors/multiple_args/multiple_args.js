@@ -12,4 +12,6 @@ class C {
   }
 }
 var subject = new C("hello", 5);
-const [x, y] = InvokeCustomMatcherOrThrow(C, subject, undefined);
+const [temp2, temp3] = InvokeCustomMatcherOrThrow(C, subject, undefined);
+var x = temp2;
+var y = temp3;

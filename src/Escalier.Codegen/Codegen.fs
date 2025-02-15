@@ -1875,17 +1875,24 @@ module rec Codegen =
         match targetExpr with
         | Some targetExpr ->
           let mutable argPats: list<option<Pat>> = []
+          let mutable tempIds: list<string> = []
+          let mutable tempVars: list<TS.Expr> = []
+          let mutable tempArgPats: list<option<Pat>> = []
 
-          for arg in extractorPattern.Args do
-            let argPat = buildPatternRec arg None
+          for _ in extractorPattern.Args do
+            let tempId = ctx.GetTempId()
+            let tempVar = TS.Expr.Ident { Name = tempId; Loc = None }
 
-            let argPat =
-              match argPat with
-              | Some argPat -> argPat
-              | None ->
-                failwith "Extractor pattern arguments must be irrefutable"
+            tempIds <- tempIds @ [ tempId ]
+            tempVars <- tempVars @ [ tempVar ]
 
-            argPats <- argPats @ [ Some argPat ]
+            tempArgPats <-
+              tempArgPats
+              @ [ Some(
+                    Pat.Ident
+                      { Id = { Name = tempId; Loc = None }
+                        Loc = None }
+                  ) ]
 
           let extractor = qualifiedIdentToMemberExpr extractorPattern.Name
           let subject = targetExpr
@@ -1900,7 +1907,7 @@ module rec Codegen =
                 Arguments = [ extractor; subject; receiver ]
                 Loc = None }
 
-          let tuplePat = Pat.Array { Elems = argPats; Loc = None }
+          let tuplePat = Pat.Array { Elems = tempArgPats; Loc = None }
 
           let decl =
             Decl.Var
@@ -1915,6 +1922,11 @@ module rec Codegen =
                 Comments = [] }
 
           decls <- decls @ [ decl ]
+
+          for temp, arg in List.zip tempVars extractorPattern.Args do
+            let argChecks, argDecls = buildPattern ctx arg temp
+            checks <- checks @ argChecks
+            decls <- decls @ argDecls
 
           None
         // failwith "TODO: buildPattern - Extractor"

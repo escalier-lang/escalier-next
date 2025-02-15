@@ -8,6 +8,7 @@ class C {
     return [self.msg];
   }
 }
-var subject = new C("hello");
-const [temp1] = InvokeCustomMatcherOrThrow(C, subject, undefined);
+var subject = {foo: new C("hello")};
+const [temp1] = InvokeCustomMatcherOrThrow(C, subject["foo"], undefined);
 var msg = temp1;
+var {} = subject;

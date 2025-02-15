@@ -1,0 +1,33 @@
+class D {
+  data: string;
+  new (mut self, data: string) {
+    self.data = data;
+  }
+  fn [Symbol.customMatcher](self) {
+    return [self.data];
+  }
+}
+type Point = {x: number, y: number};
+class E {
+  data: Point;
+  new (mut self, data: Point) {
+    self.data = data;
+  }
+  fn [Symbol.customMatcher](self) {
+    return [self.data];
+  }
+}
+class C {
+  data1: D;
+  data2: E;
+  new (mut self, data1: D, data2: E) {
+    self.data1 = data1;
+    self.data2 = data2;
+  }
+  fn [Symbol.customMatcher](self) {
+    return [self.data1, self.data2];
+  }
+}
+
+let subject = C(D("hello"), E({x: 5, y: 10}));
+let C(D(msg), E({x, y})) = subject;

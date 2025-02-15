@@ -1874,25 +1874,34 @@ module rec Codegen =
       | PatternKind.Extractor extractorPattern ->
         match targetExpr with
         | Some targetExpr ->
-          let mutable argPats: list<option<Pat>> = []
           let mutable tempIds: list<string> = []
           let mutable tempVars: list<TS.Expr> = []
-          let mutable tempArgPats: list<option<Pat>> = []
+          let mutable tempVarPats: list<option<Pat>> = []
 
-          for _ in extractorPattern.Args do
+          for argPat in extractorPattern.Args do
             let tempId = ctx.GetTempId()
             let tempVar = TS.Expr.Ident { Name = tempId; Loc = None }
 
             tempIds <- tempIds @ [ tempId ]
             tempVars <- tempVars @ [ tempVar ]
 
-            tempArgPats <-
-              tempArgPats
-              @ [ Some(
-                    Pat.Ident
-                      { Id = { Name = tempId; Loc = None }
-                        Loc = None }
-                  ) ]
+            let pat =
+              match argPat.Kind with
+              | PatternKind.Rest _ ->
+                // If the arg is rest arg, then maintain that in the temp var
+                // patterns.
+                Pat.Rest
+                  { Arg =
+                      Pat.Ident
+                        { Id = { Name = tempId; Loc = None }
+                          Loc = None }
+                    Loc = None }
+              | _ ->
+                Pat.Ident
+                  { Id = { Name = tempId; Loc = None }
+                    Loc = None }
+
+            tempVarPats <- tempVarPats @ [ Some(pat) ]
 
           let extractor = qualifiedIdentToMemberExpr extractorPattern.Name
           let subject = targetExpr
@@ -1907,14 +1916,12 @@ module rec Codegen =
                 Arguments = [ extractor; subject; receiver ]
                 Loc = None }
 
-          let tuplePat = Pat.Array { Elems = tempArgPats; Loc = None }
-
           let decl =
             Decl.Var
               { Export = false
                 Declare = false
                 Decls =
-                  [ { Id = tuplePat
+                  [ { Id = Pat.Array { Elems = tempVarPats; Loc = None }
                       TypeAnn = None
                       Init = Some call } ]
                 Kind = VariableDeclarationKind.Const
@@ -1924,7 +1931,14 @@ module rec Codegen =
           decls <- decls @ [ decl ]
 
           for temp, arg in List.zip tempVars extractorPattern.Args do
-            let argChecks, argDecls = buildPattern ctx arg temp
+            let argChecks, argDecls =
+              match arg.Kind with
+              | PatternKind.Rest arg ->
+                // Ignore the rest pattern here since it was handled above when
+                // we were creating tempVarPats.
+                buildPattern ctx arg temp
+              | _ -> buildPattern ctx arg temp
+
             checks <- checks @ argChecks
             decls <- decls @ argDecls
 

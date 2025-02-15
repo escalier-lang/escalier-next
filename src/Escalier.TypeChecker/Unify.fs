@@ -346,13 +346,41 @@ module rec Unify =
 
           match (prune retType).Kind with
           | TypeKind.Tuple { Elems = elems } ->
-            if elems.Length <> extractor.Args.Length then
-              return! Error(TypeError.SemanticError "Extractor arity mismatch")
-            else
+            if
+              elems.Length > extractor.Args.Length && extractor.Args.Length > 1
+            then
+              let last = List.last extractor.Args
+
+              match last.Kind with
+              | TypeKind.RestSpread arg ->
+                let index = extractor.Args.Length - 1
+                let nonRestElems, restElems = List.splitAt index elems
+
+                let args = extractor.Args.GetSlice(Some 0, Some(index - 1))
+
+                for elem, arg in List.zip nonRestElems args do
+                  do! unify ctx env ips arg elem
+
+                let tuple =
+                  { Kind =
+                      TypeKind.Tuple
+                        { Elems = restElems
+                          Mutable = false
+                          Immutable = false }
+                    Provenance = None }
+
+                do! unify ctx env ips arg tuple
+              | _ ->
+                return!
+                  Error(TypeError.SemanticError "Extractor arity mismatch A")
+            else if elems.Length = extractor.Args.Length then
               // Check that each element in the tuple is assignable to the corresponding
               // element in the extractor args.  This matches what we do for destructuring.
               for elem, arg in List.zip elems extractor.Args do
                 do! unify ctx env ips arg elem
+            else
+              return!
+                Error(TypeError.SemanticError "Extractor arity mismatch B")
           | _ ->
             return!
               Error(
@@ -403,7 +431,8 @@ module rec Unify =
           match (prune retType).Kind with
           | TypeKind.Tuple { Elems = elems } ->
             if elems.Length <> extractor.Args.Length then
-              return! Error(TypeError.SemanticError "Extractor arity mismatch")
+              return!
+                Error(TypeError.SemanticError "Extractor arity mismatch 2")
             else
               // Check that each element in the tuple is assignable to the corresponding
               // element in the extractor args.  This matches what we do for destructuring.

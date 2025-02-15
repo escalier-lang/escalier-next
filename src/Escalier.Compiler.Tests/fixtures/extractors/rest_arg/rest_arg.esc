@@ -1,8 +1,8 @@
 class C {
-  first: number;
+  first: string;
   second: number;
-  third: number;
-  new (mut self, first: number, second: number, third: number) {
+  third: boolean;
+  new (mut self, first: string, second: number, third: boolean) {
     self.first = first;
     self.second = second;
     self.third = third;
@@ -11,5 +11,5 @@ class C {
     return [self.first, self.second, self.third];
   }
 }
-let subject = C(1, 2, 3);
+let subject = C("hello", 5, true);
 let C(x, ...y) = subject;

@@ -2,10 +2,11 @@ type Point = {
   x: number;
   y: number;
 };
-// @escType - {new fn (mut self: Self, data: Point) -> C}
-const C: {
-  new (data: Point): C;
-};
+class C {
+  data: Point
+  constructor(temp1: Point) 
+  [Symbol.customMatcher]()
+}
 // @escType - C
 const subject: C;
 // @escType - number

@@ -1,4 +1,4 @@
-let D = class {
+class D {
   data2: string;
   new (mut self, data2: string) {
     self.data2 = data2;
@@ -7,14 +7,9 @@ let D = class {
     return [self.data2];
   }
 };
-
-// This is hack because we don't support class declarations
-// or the ability to use classes as types
-let d = D("data");
-
-let C = class {
+class C {
   data1: typeof d;
-  new (mut self, data1: typeof d) {
+  new (mut self, data1: D) {
     self.data1 = data1;
   }
   fn [Symbol.customMatcher](self) {

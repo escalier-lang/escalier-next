@@ -1,0 +1,7 @@
+class Foo {
+    msg: string;
+    new (mut self, value: string) {
+        self.msg = value;
+    }
+}
+let foo: Foo = Foo("hello");

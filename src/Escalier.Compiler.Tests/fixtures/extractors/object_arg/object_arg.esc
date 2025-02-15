@@ -1,5 +1,5 @@
 type Point = {x: number, y: number};
-let C = class {
+class C {
   data: Point;
   new (mut self, data: Point) {
     self.data = data;
@@ -7,6 +7,6 @@ let C = class {
   fn [Symbol.customMatcher](self) {
     return [self.data];
   }
-};
+}
 let subject = C({ x: 1, y: 2 });
 let C({ x, y }) = subject;

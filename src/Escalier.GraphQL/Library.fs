@@ -83,7 +83,8 @@ let rec getTypeForField
                 Exact = true
                 Mutable = false
                 Immutable = false
-                Interface = false }
+                Interface = false
+                Nominal = false }
           Provenance = None }
 
       let nullType =

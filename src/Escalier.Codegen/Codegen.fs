@@ -2087,7 +2087,9 @@ module rec Codegen =
               // type param because they have the same name in this situation:
               // type MyPoint<T> = Point<T> -> type MyPoint<T> = { x: T, y: T }
               let comments =
-                match expandScheme typeCtx env None scheme Map.empty None with
+                match
+                  expandScheme typeCtx env None scheme Map.empty None true
+                with
                 | Ok t ->
                   if t.ToString() <> scheme.Type.ToString() then
                     [ Comment.LineComment

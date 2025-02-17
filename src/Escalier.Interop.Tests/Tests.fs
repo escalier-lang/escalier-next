@@ -752,6 +752,7 @@ let ImportThirdPartyModules () =
           (env.FindScheme "AccentColor")
           Map.empty
           None
+          true
         |> Result.mapError CompileError.TypeError
 
       Assert.Equal("Globals | DataType.Color | \"auto\"", result.ToString())

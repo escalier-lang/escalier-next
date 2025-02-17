@@ -1,0 +1,12 @@
+class Foo {
+    new (mut self) {}
+}
+class Bar {
+    new (mut self) {}
+}
+
+let foo = Foo();
+let bar = Bar();
+type Qux = Foo;
+let valid: Qux = foo;
+let invalid: Qux = bar;

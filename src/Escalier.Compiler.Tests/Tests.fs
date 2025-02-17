@@ -31,7 +31,7 @@ let fixturePaths: obj[] seq =
     if testName.StartsWith("skip_") then
       printfn $"Skipping {testName}"
       false
-    // else if not (fixtureDir.Contains("extractors")) then
+    // else if not (fixtureDir.Contains("classes_are_nominal")) then
     //   false
     else if File.Exists(Path.Join(fixtureDir, $"{testName}.esc")) then
       true

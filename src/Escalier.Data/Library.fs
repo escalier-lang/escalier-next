@@ -948,6 +948,7 @@ module Type =
       Exact: bool // Can't be true if any of Interface, Implements, or Extends are true
       Immutable: bool // True for `#{...}`, False for `{...}`
       Mutable: bool // True for `mut {...}`, False for `{...}`
+      Nominal: bool // True for classes
       Interface: bool }
 
   type Tuple =

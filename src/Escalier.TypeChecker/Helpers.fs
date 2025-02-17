@@ -586,11 +586,11 @@ let getPropType
                          TypeArgs = typeArgs } ->
       match scheme with
       | Some scheme ->
-        let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+        let! objType = expandScheme ctx env None scheme Map.empty typeArgs true
         return! getPropType ctx env objType key optChain valueCategory
       | None ->
         let! scheme = env.GetScheme typeRefName
-        let! objType = expandScheme ctx env None scheme Map.empty typeArgs
+        let! objType = expandScheme ctx env None scheme Map.empty typeArgs true
         return! getPropType ctx env objType key optChain valueCategory
     | TypeKind.Union types ->
       let undefinedTypes, definedTypes =
@@ -691,11 +691,13 @@ let expandScheme
   (scheme: Scheme)
   (mapping: Map<string, Type>)
   (typeArgs: option<list<Type>>)
+  (expandObjects: bool)
   : Result<Type, TypeError> =
 
   result {
     match scheme.TypeParams, typeArgs with
-    | None, None -> return! expandType ctx env ips mapping scheme.Type
+    | None, None ->
+      return! expandType ctx env ips mapping scheme.Type expandObjects
     | Some(typeParams), Some(typeArgs) ->
       let mutable newEnv = env
       let mutable typeArgs = typeArgs
@@ -718,7 +720,7 @@ let expandScheme
       for KeyValue(name, t) in mapping do
         newEnv <- newEnv.AddScheme name { Type = t; TypeParams = None }
 
-      return! expandType ctx newEnv ips mapping scheme.Type
+      return! expandType ctx newEnv ips mapping scheme.Type expandObjects
     | Some(typeParams), None ->
       let mutable newEnv = env
 
@@ -735,7 +737,7 @@ let expandScheme
         for KeyValue(name, t) in mapping do
           newEnv <- newEnv.AddScheme name { Type = t; TypeParams = None }
 
-        return! expandType ctx newEnv ips mapping scheme.Type
+        return! expandType ctx newEnv ips mapping scheme.Type expandObjects
       else
         return!
           Error(
@@ -757,6 +759,7 @@ let expandType
   (ips: option<list<list<string>>>)
   (mapping: Map<string, Type>) // type param names -> type args
   (t: Type)
+  (expandObjects: bool)
   : Result<Type, TypeError> =
 
   let rec expand
@@ -788,7 +791,7 @@ let expandType
 
       match t.Kind with
       | TypeKind.KeyOf t ->
-        let! t = expandType ctx env ips mapping t
+        let! t = expand mapping t
 
         match t.Kind with
         | TypeKind.Object { Elems = elems } ->
@@ -832,8 +835,8 @@ let expandType
           printfn "t = %A" t
           return! Error(TypeError.NotImplemented $"TODO: expand keyof {t}")
       | TypeKind.Index { Target = target; Index = index } ->
-        let! target = expandType ctx env ips mapping target
-        let! index = expandType ctx env ips mapping index
+        let! target = expand mapping target
+        let! index = expand mapping index
 
         match index.Kind with
         | TypeKind.Keyword Keyword.Never -> return index
@@ -952,79 +955,142 @@ let expandType
       | TypeKind.Object { Elems = elems
                           Exact = exact
                           Extends = extends
-                          Immutable = immutable } ->
+                          Immutable = immutable
+                          Interface = _
+                          Nominal = nominal } ->
 
-        let rec processExtends
-          (extends: option<list<TypeRef>>)
-          : Result<list<ObjTypeElem>, TypeError> =
+        if expandObjects then
 
-          result {
-            match extends with
-            | Some typeRefs ->
-              let mutable allElems = []
+          let rec processExtends
+            (extends: option<list<TypeRef>>)
+            : Result<list<ObjTypeElem>, TypeError> =
 
-              for typeRef in typeRefs do
-                let { Name = typeRefName
-                      Scheme = scheme
-                      TypeArgs = typeArgs } =
-                  typeRef
-
-                let! objType =
-                  result {
-                    match scheme with
-                    | Some scheme ->
-                      return! expandScheme ctx env None scheme mapping typeArgs
-                    | None ->
-                      let! scheme = env.GetScheme typeRefName
-
-                      return! expandScheme ctx env None scheme mapping typeArgs
-                  }
-
-                match objType.Kind with
-                | TypeKind.Object { Elems = elems; Extends = extends } ->
-                  allElems <- allElems @ elems
-                  let! moreElems = processExtends extends
-                  allElems <- allElems @ moreElems
-                | _ -> failwith $"expected ${objType} to be an object type"
-
-              return allElems
-            | None -> return []
-          }
-
-        let! elemsFromExtends = processExtends extends
-        let allElems = elems @ elemsFromExtends
-        let mutable exact = exact
-
-        let! elems =
-          allElems
-          |> List.traverseResultM (fun elem ->
             result {
-              match elem with
-              | Mapped m ->
-                match m.TypeParam.Constraint.Kind with
-                | TypeKind.KeyOf t ->
-                  match t.Kind with
-                  | TypeKind.TypeRef { Name = QualifiedIdent.Ident ident } ->
-                    match Map.tryFind ident mapping with
-                    | Some t ->
-                      let! t = expandType ctx env ips Map.empty t
+              match extends with
+              | Some typeRefs ->
+                let mutable allElems = []
 
-                      match t.Kind with
-                      | TypeKind.Object { Exact = e } -> exact <- e
-                      | _ -> ()
-                    | None -> ()
+                for typeRef in typeRefs do
+                  let { Name = typeRefName
+                        Scheme = scheme
+                        TypeArgs = typeArgs } =
+                    typeRef
+
+                  let! objType =
+                    result {
+                      match scheme with
+                      | Some scheme ->
+                        return!
+                          expandScheme ctx env None scheme mapping typeArgs true
+                      | None ->
+                        let! scheme = env.GetScheme typeRefName
+
+                        return!
+                          expandScheme ctx env None scheme mapping typeArgs true
+                    }
+
+                  match objType.Kind with
+                  | TypeKind.Object { Elems = elems; Extends = extends } ->
+                    allElems <- allElems @ elems
+                    let! moreElems = processExtends extends
+                    allElems <- allElems @ moreElems
+                  | _ -> failwith $"expected ${objType} to be an object type"
+
+                return allElems
+              | None -> return []
+            }
+
+          let! elemsFromExtends = processExtends extends
+          let allElems = elems @ elemsFromExtends
+          let mutable exact = exact
+
+          let! elems =
+            allElems
+            |> List.traverseResultM (fun elem ->
+              result {
+                match elem with
+                | Mapped m ->
+                  match m.TypeParam.Constraint.Kind with
+                  | TypeKind.KeyOf t ->
+                    match t.Kind with
+                    | TypeKind.TypeRef { Name = QualifiedIdent.Ident ident } ->
+                      match Map.tryFind ident mapping with
+                      | Some t ->
+                        let! t = expand Map.empty t
+
+                        match t.Kind with
+                        | TypeKind.Object { Exact = e } -> exact <- e
+                        | _ -> ()
+                      | None -> ()
+                    | _ -> ()
                   | _ -> ()
-                | _ -> ()
 
-                let! c = expandType ctx env ips mapping m.TypeParam.Constraint
+                  let! c = expand mapping m.TypeParam.Constraint
 
-                // TODO: Document this because I don't remember why we need to
-                // do this.
-                match c.Kind with
-                | TypeKind.Union types ->
-                  let mutable elems = []
+                  // TODO: Document this because I don't remember why we need to
+                  // do this.
+                  match c.Kind with
+                  | TypeKind.Union types ->
+                    let mutable elems = []
 
-                  for keyType in types do
+                    for keyType in types do
+                      let typeAnn = m.TypeAnn
+
+                      let folder t =
+                        match t.Kind with
+                        | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
+                          name = m.TypeParam.Name
+                          ->
+                          Some(keyType)
+                        | _ -> None
+
+                      let typeAnn = foldType folder typeAnn
+                      let! t = expand mapping typeAnn
+
+                      let optional =
+                        match m.Optional with
+                        | None -> false // TODO: copy value from typeAnn if it's an index access type
+                        | Some MappedModifier.Add -> true
+                        | Some MappedModifier.Remove -> false
+
+                      let readonly =
+                        match m.Readonly with
+                        | None -> false // TODO: copy value from typeAnn if it's an index access type
+                        | Some MappedModifier.Add -> true
+                        | Some MappedModifier.Remove -> false
+
+                      let mutable nameMapping: Map<string, Type> = Map.empty
+
+                      nameMapping <-
+                        Map.add m.TypeParam.Name keyType nameMapping
+
+                      let! keyType =
+                        match m.NameType with
+                        | Some nameType -> expand nameMapping nameType
+                        | None -> Result.Ok keyType
+
+                      let propName =
+                        match keyType.Kind with
+                        | TypeKind.Literal(Literal.String name) ->
+                          Some(PropName.String name)
+                        | TypeKind.Literal(Literal.Number name) ->
+                          Some(PropName.Number name)
+                        | TypeKind.UniqueSymbol id -> Some(PropName.Symbol id)
+                        | _ -> None
+
+                      match propName with
+                      | Some propName ->
+                        elems <-
+                          elems
+                          @ [ Property
+                                { Name = propName
+                                  Type = t
+                                  Optional = optional
+                                  Readonly = readonly } ]
+                      | _ -> () // Omits entries with other key types
+
+                    return elems
+                  | TypeKind.Literal(Literal.String key) ->
                     let typeAnn = m.TypeAnn
 
                     let folder t =
@@ -1032,208 +1098,156 @@ let expandType
                       | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
                         name = m.TypeParam.Name
                         ->
-                        Some(keyType)
+                        Some(m.TypeParam.Constraint)
                       | _ -> None
 
                     let typeAnn = foldType folder typeAnn
-                    let! t = expandType ctx env ips mapping typeAnn
+                    let! t = expand mapping typeAnn
 
-                    let optional =
-                      match m.Optional with
-                      | None -> false // TODO: copy value from typeAnn if it's an index access type
-                      | Some MappedModifier.Add -> true
-                      | Some MappedModifier.Remove -> false
+                    return
+                      [ Property
+                          { Name = PropName.String key
+                            Type = t
+                            Optional = false // TODO
+                            Readonly = false // TODO
+                          } ]
+                  | TypeKind.Primitive Primitive.Number ->
+                    let typeAnn = m.TypeAnn
 
-                    let readonly =
-                      match m.Readonly with
-                      | None -> false // TODO: copy value from typeAnn if it's an index access type
-                      | Some MappedModifier.Add -> true
-                      | Some MappedModifier.Remove -> false
-
-                    let mutable nameMapping: Map<string, Type> = Map.empty
-
-                    nameMapping <- Map.add m.TypeParam.Name keyType nameMapping
-
-                    let! keyType =
-                      match m.NameType with
-                      | Some nameType ->
-                        expandType ctx env ips nameMapping nameType
-                      | None -> Result.Ok keyType
-
-                    let propName =
-                      match keyType.Kind with
-                      | TypeKind.Literal(Literal.String name) ->
-                        Some(PropName.String name)
-                      | TypeKind.Literal(Literal.Number name) ->
-                        Some(PropName.Number name)
-                      | TypeKind.UniqueSymbol id -> Some(PropName.Symbol id)
+                    let folder t =
+                      match t.Kind with
+                      | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
+                        name = m.TypeParam.Name
+                        ->
+                        Some(m.TypeParam.Constraint)
                       | _ -> None
 
-                    match propName with
-                    | Some propName ->
-                      elems <-
-                        elems
-                        @ [ Property
-                              { Name = propName
-                                Type = t
-                                Optional = optional
-                                Readonly = readonly } ]
-                    | _ -> () // Omits entries with other key types
+                    let typeAnn = foldType folder typeAnn
+                    let! t = expand mapping typeAnn
 
-                  return elems
-                | TypeKind.Literal(Literal.String key) ->
-                  let typeAnn = m.TypeAnn
-
-                  let folder t =
-                    match t.Kind with
-                    | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
-                      name = m.TypeParam.Name
-                      ->
-                      Some(m.TypeParam.Constraint)
-                    | _ -> None
-
-                  let typeAnn = foldType folder typeAnn
-                  let! t = expandType ctx env ips mapping typeAnn
-
-                  return
-                    [ Property
-                        { Name = PropName.String key
-                          Type = t
-                          Optional = false // TODO
-                          Readonly = false // TODO
-                        } ]
-                | TypeKind.Primitive Primitive.Number ->
-                  let typeAnn = m.TypeAnn
-
-                  let folder t =
-                    match t.Kind with
-                    | TypeKind.TypeRef({ Name = QualifiedIdent.Ident name }) when
-                      name = m.TypeParam.Name
-                      ->
-                      Some(m.TypeParam.Constraint)
-                    | _ -> None
-
-                  let typeAnn = foldType folder typeAnn
-                  let! t = expandType ctx env ips mapping typeAnn
-
-                  let c =
-                    { Kind = TypeKind.Primitive Primitive.Number
-                      Provenance = None }
-
-                  let typeParam =
-                    { Name = m.TypeParam.Name
-                      Constraint = c }
-
-                  return
-                    [ Mapped
-                        { m with
-                            TypeAnn = t
-                            TypeParam = typeParam } ]
-                | _ -> return [ elem ]
-              | RestSpread t ->
-                let! t = expand mapping t
-
-                match (prune t).Kind with
-                | TypeKind.Object { Elems = elems } ->
-                  return
-                    elems
-                    |> List.filter (fun elem ->
-                      match elem with
-                      | Callable _ -> false
-                      | Constructor _ -> false
-                      | _ -> true)
-                | _ ->
-                  return!
-                    Error(
-                      TypeError.SemanticError "Can't spread non-object type"
-                    )
-              | _ -> return [ elem ]
-            })
-
-        let elems = List.collect id elems
-
-        let callableElems, namedElems =
-          elems
-          |> List.partition (fun elem ->
-            match elem with
-            | Callable _ -> true
-            | Constructor _ -> true
-            | _ -> false)
-
-        // TODO: build this map while iterating over allElems
-        let mutable namedElemsMap = Map.empty
-        let mutable mappedElems = []
-
-        for elem in namedElems do
-          match elem with
-          | Property p ->
-            // match Map.tryFind p.Name namedElemsMap with
-            // | Some otherElem -> printfn $"duplicate elems: {p.Name}"
-            // | None -> ()
-            //
-            // namedElemsMap <- Map.add p.Name elem namedElemsMap
-            match Map.tryFind p.Name namedElemsMap with
-            | Some otherElem ->
-              if p.Optional then
-                let otherType =
-                  match otherElem with
-                  | Property { Type = t } -> Some t
-                  | Method { Fn = fn } ->
-                    Some
-                      { Kind = TypeKind.Function fn
+                    let c =
+                      { Kind = TypeKind.Primitive Primitive.Number
                         Provenance = None }
-                  | Getter { Fn = fn } -> Some fn.Return
-                  | Setter { Fn = fn } -> None // can't spread what can't be read
-                  | _ -> None
 
-                match otherType with
-                | None -> ()
-                | Some t ->
-                  let newP =
-                    { Name = p.Name
-                      Optional = false // TODO
-                      Readonly = false // TODO
-                      Type = union [ t; p.Type ] }
+                    let typeParam =
+                      { Name = m.TypeParam.Name
+                        Constraint = c }
 
-                  namedElemsMap <- Map.add p.Name (Property newP) namedElemsMap
-              else
-                namedElemsMap <- Map.add p.Name elem namedElemsMap
-            | None -> namedElemsMap <- Map.add p.Name elem namedElemsMap
-          | Getter { Name = name } ->
-            namedElemsMap <- Map.add name elem namedElemsMap
-          | Setter _ -> () // can't spread what can't be read
-          | Method { Name = name } ->
-            namedElemsMap <- Map.add name elem namedElemsMap
-          | Mapped m -> mappedElems <- elem :: mappedElems
-          | _ -> ()
+                    return
+                      [ Mapped
+                          { m with
+                              TypeAnn = t
+                              TypeParam = typeParam } ]
+                  | _ -> return [ elem ]
+                | RestSpread t ->
+                  let! t = expand mapping t
 
-        let elems =
-          callableElems @ (Map.values namedElemsMap |> List.ofSeq) @ mappedElems
+                  match (prune t).Kind with
+                  | TypeKind.Object { Elems = elems } ->
+                    return
+                      elems
+                      |> List.filter (fun elem ->
+                        match elem with
+                        | Callable _ -> false
+                        | Constructor _ -> false
+                        | _ -> true)
+                  | _ ->
+                    return!
+                      Error(
+                        TypeError.SemanticError "Can't spread non-object type"
+                      )
+                | _ -> return [ elem ]
+              })
 
-        let t =
-          { Kind =
-              TypeKind.Object
-                { Extends = None // because we've expanded the `extends` above
-                  Implements = None // TODO
-                  Elems = elems
-                  Exact = exact
-                  Immutable = immutable
-                  Mutable = false // TODO
-                  Interface = false }
-            Provenance = None // TODO: set provenance
-          }
+          let elems = List.collect id elems
 
-        // Replaces type parameters with their corresponding type arguments
-        // TODO: do this more consistently
-        if mapping = Map.empty then
-          return t
+          let callableElems, namedElems =
+            elems
+            |> List.partition (fun elem ->
+              match elem with
+              | Callable _ -> true
+              | Constructor _ -> true
+              | _ -> false)
+
+          // TODO: build this map while iterating over allElems
+          let mutable namedElemsMap = Map.empty
+          let mutable mappedElems = []
+
+          for elem in namedElems do
+            match elem with
+            | Property p ->
+              // match Map.tryFind p.Name namedElemsMap with
+              // | Some otherElem -> printfn $"duplicate elems: {p.Name}"
+              // | None -> ()
+              //
+              // namedElemsMap <- Map.add p.Name elem namedElemsMap
+              match Map.tryFind p.Name namedElemsMap with
+              | Some otherElem ->
+                if p.Optional then
+                  let otherType =
+                    match otherElem with
+                    | Property { Type = t } -> Some t
+                    | Method { Fn = fn } ->
+                      Some
+                        { Kind = TypeKind.Function fn
+                          Provenance = None }
+                    | Getter { Fn = fn } -> Some fn.Return
+                    | Setter { Fn = fn } -> None // can't spread what can't be read
+                    | _ -> None
+
+                  match otherType with
+                  | None -> ()
+                  | Some t ->
+                    let newP =
+                      { Name = p.Name
+                        Optional = false // TODO
+                        Readonly = false // TODO
+                        Type = union [ t; p.Type ] }
+
+                    namedElemsMap <-
+                      Map.add p.Name (Property newP) namedElemsMap
+                else
+                  namedElemsMap <- Map.add p.Name elem namedElemsMap
+              | None -> namedElemsMap <- Map.add p.Name elem namedElemsMap
+            | Getter { Name = name } ->
+              namedElemsMap <- Map.add name elem namedElemsMap
+            | Setter _ -> () // can't spread what can't be read
+            | Method { Name = name } ->
+              namedElemsMap <- Map.add name elem namedElemsMap
+            | Mapped m -> mappedElems <- elem :: mappedElems
+            | _ -> ()
+
+          let elems =
+            callableElems
+            @ (Map.values namedElemsMap |> List.ofSeq)
+            @ mappedElems
+
+          let t =
+            { Kind =
+                TypeKind.Object
+                  { Extends = None // because we've expanded the `extends` above
+                    Implements = None // TODO
+                    Elems = elems
+                    Exact = exact
+                    Immutable = immutable
+                    Mutable = false // TODO
+                    Interface = false
+                    Nominal = nominal }
+              Provenance = None // TODO: set provenance
+            }
+
+          // Replaces type parameters with their corresponding type arguments
+          // TODO: do this more consistently
+          if mapping = Map.empty then
+            return t
+          else
+            return foldType fold t
         else
-          return foldType fold t
-
+          return t
       | TypeKind.TypeRef { Name = QualifiedIdent.Ident "Array"
                            TypeArgs = Some [ arrayElem ]
                            Scheme = scheme } ->
-        let! arrayElem = expandType ctx env ips mapping arrayElem
+        let! arrayElem = expand mapping arrayElem
 
         return
           { Kind =
@@ -1272,18 +1286,21 @@ let expandType
             | Some t -> Result.Ok t
             | None ->
               match scheme with
-              | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
+              | Some scheme ->
+                expandScheme ctx env ips scheme mapping typeArgs expandObjects
               | None ->
                 match env.TryFindScheme name with
                 | Some scheme ->
-                  expandScheme ctx env ips scheme mapping typeArgs
+                  expandScheme ctx env ips scheme mapping typeArgs expandObjects
                 | None -> failwith $"{name} is not in scope"
           | Member _ ->
             match scheme with
-            | Some scheme -> expandScheme ctx env ips scheme mapping typeArgs
+            | Some scheme ->
+              expandScheme ctx env ips scheme mapping typeArgs expandObjects
             | None ->
               match env.GetScheme name with
-              | Ok scheme -> expandScheme ctx env ips scheme mapping typeArgs
+              | Ok scheme ->
+                expandScheme ctx env ips scheme mapping typeArgs expandObjects
               | Error errorValue -> failwith $"{name} is not in scope"
 
         match t.Kind with
@@ -1335,7 +1352,8 @@ let expandType
                     Exact = false // TODO
                     Immutable = false // TODO
                     Mutable = false // TODO
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
       | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->
         let! elems = elems |> List.traverseResultM (expand mapping)

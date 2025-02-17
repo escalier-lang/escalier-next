@@ -204,7 +204,7 @@ module rec InferExpr =
           // We expand the type here so that we can filter out any
           // `undefined` types from the union if the expanded type
           // is a union type.
-          let! initType = expandType ctx env None Map.empty initType
+          let! initType = expandType ctx env None Map.empty initType true
 
           let initType =
             match (prune initType).Kind with
@@ -240,7 +240,7 @@ module rec InferExpr =
             result {
               match typeAnn with
               | Some typeAnn ->
-                let! t = expandType ctx env None Map.empty typeAnn
+                let! t = expandType ctx env None Map.empty typeAnn true
                 let! map = getPropertyMap t
                 return Some map
               | None -> return None
@@ -314,7 +314,8 @@ module rec InferExpr =
                     Exact = exact
                     Immutable = immutable
                     Mutable = not immutable
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           return objType
@@ -659,7 +660,7 @@ module rec InferExpr =
                 { Kind = TypeKind.Index { Target = intrinsics; Index = key }
                   Provenance = None }
 
-              return! expandType ctx env None Map.empty tag
+              return! expandType ctx env None Map.empty tag true
             | ident ->
               let! t = getQualifiedIdentType ctx env ident
 
@@ -668,7 +669,9 @@ module rec InferExpr =
                                     ParamList = paramsList
                                     Return = retType } ->
                 do! unify ctx env None retType reactNode
-                return! expandType ctx env None Map.empty paramsList[0].Type
+
+                return!
+                  expandType ctx env None Map.empty paramsList[0].Type true
               | TypeKind.Object _ ->
                 // TODO: check that the object extends React.Component
                 return!
@@ -1372,9 +1375,17 @@ module rec InferExpr =
       // TODO: infer type param's constraints and defaults for real here
       let! typeParams, _ = inferTypeParams ctx newEnv typeParams
 
-      return
-        { TypeParams = typeParams
-          Type = generalizeType t }
+      let t = generalizeType t
+
+      let t =
+        match placeholder.Type.Kind, t.Kind with
+        | TypeKind.Object obj1, TypeKind.Object obj2 ->
+          // Maintains the "Nominal" property of the original object type
+          { t with
+              Kind = TypeKind.Object { obj2 with Nominal = obj1.Nominal } }
+        | _ -> t
+
+      return { TypeParams = typeParams; Type = t }
     }
 
   let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =

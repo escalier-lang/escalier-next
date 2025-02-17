@@ -314,7 +314,8 @@ module rec InferExpr =
                     Exact = exact
                     Immutable = immutable
                     Mutable = not immutable
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           return objType
@@ -1372,9 +1373,17 @@ module rec InferExpr =
       // TODO: infer type param's constraints and defaults for real here
       let! typeParams, _ = inferTypeParams ctx newEnv typeParams
 
-      return
-        { TypeParams = typeParams
-          Type = generalizeType t }
+      let t = generalizeType t
+
+      let t =
+        match placeholder.Type.Kind, t.Kind with
+        | TypeKind.Object obj1, TypeKind.Object obj2 ->
+          // Maintains the "Nominal" property of the original object type
+          { t with
+              Kind = TypeKind.Object { obj2 with Nominal = obj1.Nominal } }
+        | _ -> t
+
+      return { TypeParams = typeParams; Type = t }
     }
 
   let rec getQualifiedIdentType (ctx: Ctx) (env: Env) (ident: QualifiedIdent) =

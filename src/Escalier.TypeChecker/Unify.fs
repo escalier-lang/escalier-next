@@ -224,6 +224,44 @@ module rec Unify =
 
           List.map2 (unify ctx env ips) types1 types2 |> ignore
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
+      // | TypeKind.TypeRef({ Name = name1
+      //                      TypeArgs = types1
+      //                      Scheme = Some scheme1 }),
+      //   TypeKind.TypeRef({ Name = name2
+      //                      TypeArgs = types2
+      //                      Scheme = Some scheme2 }) ->
+      //
+      //   printfn $"name1 = {name1}, name2 = {name2}"
+      //   let! t1 = expandType ctx env ips Map.empty t1
+      //   let! t2 = expandType ctx env ips Map.empty t2
+      //
+      //   match t1.Kind, t2.Kind with
+      //   | TypeKind.Object obj1, TypeKind.Object obj2 ->
+      //     printfn
+      //       $"obj1.Nominal = {obj1.Nominal}, obj2.Nominal = {obj2.Nominal}"
+      //
+      //     printfn
+      //       $"obj.ReferenceEquals(obj1, obj2) - {obj.ReferenceEquals(obj1, obj2)}"
+      //   | _ -> ()
+      //   // printfn $"name2 = {name2}, scheme2 = %A{scheme2}"
+      //
+      //   match scheme2 with
+      //   | { Type = { Kind = TypeKind.TypeRef({ Name = name3
+      //                                          TypeArgs = types3
+      //                                          Scheme = scheme3 }) } } ->
+      //     // printfn $"scheme3 = %A{scheme3}"
+      //
+      //     match scheme3 with
+      //     | Some { Type = t } ->
+      //       let t = prune t
+      //       // printfn $"t = %A{t}"
+      //       printfn
+      //         $"t == scheme1.Type = {obj.ReferenceEquals(t, scheme1.Type)}"
+      //     | _ -> ()
+      //   | _ -> ()
+      //
+      //   // TODO: fully expand the type refs if they're not nominal
+      //   return ()
       | TypeKind.TypeRef _, _ ->
         let! t = expandType ctx env ips Map.empty t1
         do! unify ctx env ips t t2
@@ -507,7 +545,8 @@ module rec Unify =
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
                     Mutable = false // TODO: figure out what do do with `Mutable`
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
         match spreadTypes with
@@ -535,7 +574,8 @@ module rec Unify =
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
                     Mutable = false // TODO: figure out what do do with `Mutable`
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips newObjType objType
@@ -549,7 +589,8 @@ module rec Unify =
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
                     Mutable = false // TODO: figure out what do do with `Mutable`
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips newRestType spreadType
@@ -596,7 +637,8 @@ module rec Unify =
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
                     Mutable = false // TODO: figure out what do do with `Mutable`
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
         match restTypes with
@@ -622,7 +664,8 @@ module rec Unify =
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
                     Mutable = false // TODO: figure out what do do with `Mutable`
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips objType newObjType
@@ -636,7 +679,8 @@ module rec Unify =
                     Exact = false
                     Immutable = false // TODO: figure out what do do with `Immutable`
                     Mutable = false // TODO: figure out what do do with `Mutable`
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips restType newRestType
@@ -827,7 +871,8 @@ module rec Unify =
                     Exact = false // TODO
                     Immutable = false // TODO
                     Mutable = false // TODO
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips spreadObj t
@@ -888,7 +933,8 @@ module rec Unify =
                     Exact = obj1.Exact
                     Immutable = false // TODO
                     Mutable = false // TODO
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips t restObj
@@ -912,7 +958,8 @@ module rec Unify =
                     Exact = false // TODO
                     Immutable = false // TODO
                     Mutable = false // TODO
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           do! unify ctx env ips leftoverObjType spreadType

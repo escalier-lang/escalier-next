@@ -114,7 +114,8 @@ module InferPattern =
                   Exact = true // TODO: This should depend what the pattern is matching/destructuring
                   Immutable = immutable
                   Mutable = false
-                  Interface = false }
+                  Interface = false
+                  Nominal = false }
             Provenance = Some(Provenance.Pattern pat) }
 
         objType

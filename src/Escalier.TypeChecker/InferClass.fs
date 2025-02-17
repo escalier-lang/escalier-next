@@ -279,7 +279,8 @@ module InferClass =
                 Exact = false
                 Immutable = false
                 Mutable = false
-                Interface = false }
+                Interface = false
+                Nominal = true }
           Provenance = None }
 
       placeholder.Type <- objType
@@ -309,7 +310,8 @@ module InferClass =
                 Exact = true
                 Immutable = false
                 Mutable = false
-                Interface = false }
+                Interface = false
+                Nominal = false }
           Provenance = None }
 
       // TODO: Make Type.Kind mutable so that we can modify the type after its
@@ -497,7 +499,8 @@ module InferClass =
                     Exact = false
                     Immutable = false
                     Mutable = false
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
 
           return objType
@@ -530,7 +533,8 @@ module InferClass =
             Exact = true
             Immutable = false
             Mutable = false
-            Interface = false }
+            Interface = false
+            Nominal = false }
 
       return staticObjType, placeholder
     }

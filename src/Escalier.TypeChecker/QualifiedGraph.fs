@@ -214,7 +214,8 @@ let mergeType (imutType: Type) (mutType: Type) : Type =
           Exact = false // MergeType should only be used with interfaces which can't be exact
           Immutable = false
           Mutable = false
-          Interface = false }
+          Interface = false
+          Nominal = false }
 
     { Kind = kind; Provenance = None }
   | _ -> failwith "both types must be objects to merge them"

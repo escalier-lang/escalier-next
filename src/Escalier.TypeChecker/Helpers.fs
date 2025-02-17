@@ -952,7 +952,9 @@ let expandType
       | TypeKind.Object { Elems = elems
                           Exact = exact
                           Extends = extends
-                          Immutable = immutable } ->
+                          Immutable = immutable
+                          Interface = _
+                          Nominal = nominal } ->
 
         let rec processExtends
           (extends: option<list<TypeRef>>)
@@ -1219,7 +1221,8 @@ let expandType
                   Exact = exact
                   Immutable = immutable
                   Mutable = false // TODO
-                  Interface = false }
+                  Interface = false
+                  Nominal = nominal }
             Provenance = None // TODO: set provenance
           }
 
@@ -1335,7 +1338,8 @@ let expandType
                     Exact = false // TODO
                     Immutable = false // TODO
                     Mutable = false // TODO
-                    Interface = false }
+                    Interface = false
+                    Nominal = false }
               Provenance = None }
       | TypeKind.TemplateLiteral { Exprs = elems; Parts = quasis } ->
         let! elems = elems |> List.traverseResultM (expand mapping)

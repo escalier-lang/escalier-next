@@ -556,7 +556,8 @@ module rec InferModule =
                         Extends = None
                         Implements = None
                         Mutable = false
-                        Interface = false }
+                        Interface = false
+                        Nominal = false }
                   Provenance = None }
 
               let! variantType =
@@ -584,7 +585,8 @@ module rec InferModule =
                       Extends = None
                       Implements = None
                       Mutable = false
-                      Interface = false }
+                      Interface = false
+                      Nominal = false }
                 Provenance = None }
 
             let placeholderScheme = qns.Schemes[key]
@@ -721,7 +723,8 @@ module rec InferModule =
                       Exact = false
                       Immutable = false
                       Mutable = false
-                      Interface = true }
+                      Interface = true
+                      Nominal = false }
 
                 return { Kind = kind; Provenance = None }
               }

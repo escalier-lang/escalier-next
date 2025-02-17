@@ -65,7 +65,8 @@ module rec InferTypeAnn =
                 Exact = exact
                 Immutable = immutable
                 Mutable = false // TODO
-                Interface = false }
+                Interface = false
+                Nominal = false }
         | TypeAnnKind.Tuple { Elems = elems; Immutable = immutable } ->
           let! elems = List.traverseResultM (inferTypeAnn ctx env) elems
 

@@ -1134,7 +1134,7 @@ module rec InferModule =
         // TODO: add a variant of `ExpandType` that allows us to specify a
         // predicate that can stop the expansion early.
         let! expandedRightType =
-          expandType ctx blockEnv None Map.empty rightType
+          expandType ctx blockEnv None Map.empty rightType true
 
         let! elemType =
           result {

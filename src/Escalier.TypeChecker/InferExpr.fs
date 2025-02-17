@@ -204,7 +204,7 @@ module rec InferExpr =
           // We expand the type here so that we can filter out any
           // `undefined` types from the union if the expanded type
           // is a union type.
-          let! initType = expandType ctx env None Map.empty initType
+          let! initType = expandType ctx env None Map.empty initType true
 
           let initType =
             match (prune initType).Kind with
@@ -240,7 +240,7 @@ module rec InferExpr =
             result {
               match typeAnn with
               | Some typeAnn ->
-                let! t = expandType ctx env None Map.empty typeAnn
+                let! t = expandType ctx env None Map.empty typeAnn true
                 let! map = getPropertyMap t
                 return Some map
               | None -> return None
@@ -660,7 +660,7 @@ module rec InferExpr =
                 { Kind = TypeKind.Index { Target = intrinsics; Index = key }
                   Provenance = None }
 
-              return! expandType ctx env None Map.empty tag
+              return! expandType ctx env None Map.empty tag true
             | ident ->
               let! t = getQualifiedIdentType ctx env ident
 
@@ -669,7 +669,9 @@ module rec InferExpr =
                                     ParamList = paramsList
                                     Return = retType } ->
                 do! unify ctx env None retType reactNode
-                return! expandType ctx env None Map.empty paramsList[0].Type
+
+                return!
+                  expandType ctx env None Map.empty paramsList[0].Type true
               | TypeKind.Object _ ->
                 // TODO: check that the object extends React.Component
                 return!

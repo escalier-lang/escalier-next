@@ -224,49 +224,26 @@ module rec Unify =
 
           List.map2 (unify ctx env ips) types1 types2 |> ignore
         | _ -> return! Error(TypeError.TypeMismatch(t1, t2))
-      // | TypeKind.TypeRef({ Name = name1
-      //                      TypeArgs = types1
-      //                      Scheme = Some scheme1 }),
-      //   TypeKind.TypeRef({ Name = name2
-      //                      TypeArgs = types2
-      //                      Scheme = Some scheme2 }) ->
-      //
-      //   printfn $"name1 = {name1}, name2 = {name2}"
-      //   let! t1 = expandType ctx env ips Map.empty t1
-      //   let! t2 = expandType ctx env ips Map.empty t2
-      //
-      //   match t1.Kind, t2.Kind with
-      //   | TypeKind.Object obj1, TypeKind.Object obj2 ->
-      //     printfn
-      //       $"obj1.Nominal = {obj1.Nominal}, obj2.Nominal = {obj2.Nominal}"
-      //
-      //     printfn
-      //       $"obj.ReferenceEquals(obj1, obj2) - {obj.ReferenceEquals(obj1, obj2)}"
-      //   | _ -> ()
-      //   // printfn $"name2 = {name2}, scheme2 = %A{scheme2}"
-      //
-      //   match scheme2 with
-      //   | { Type = { Kind = TypeKind.TypeRef({ Name = name3
-      //                                          TypeArgs = types3
-      //                                          Scheme = scheme3 }) } } ->
-      //     // printfn $"scheme3 = %A{scheme3}"
-      //
-      //     match scheme3 with
-      //     | Some { Type = t } ->
-      //       let t = prune t
-      //       // printfn $"t = %A{t}"
-      //       printfn
-      //         $"t == scheme1.Type = {obj.ReferenceEquals(t, scheme1.Type)}"
-      //     | _ -> ()
-      //   | _ -> ()
-      //
-      //   // TODO: fully expand the type refs if they're not nominal
-      //   return ()
+      | TypeKind.TypeRef _, TypeKind.TypeRef _ ->
+
+        let! expanded_t1 = expandType ctx env ips Map.empty t1 false
+        let! expanded_t2 = expandType ctx env ips Map.empty t2 false
+
+        match expanded_t1.Kind, expanded_t2.Kind with
+        | TypeKind.Object obj1, TypeKind.Object obj2 ->
+          match obj1.Nominal, obj2.Nominal with
+          | true, true ->
+            if obj.ReferenceEquals(obj1, obj2) then
+              return ()
+            else
+              return! Error(TypeError.TypeMismatch(t1, t2))
+          | _, _ -> do! unify ctx env ips expanded_t1 expanded_t2
+        | _, _ -> do! unify ctx env ips expanded_t1 expanded_t2
       | TypeKind.TypeRef _, _ ->
-        let! t = expandType ctx env ips Map.empty t1
+        let! t = expandType ctx env ips Map.empty t1 true
         do! unify ctx env ips t t2
       | _, TypeKind.TypeRef _ ->
-        let! t = expandType ctx env ips Map.empty t2
+        let! t = expandType ctx env ips Map.empty t2 true
         do! unify ctx env ips t1 t
       | TypeKind.Literal lit, TypeKind.Primitive prim ->
         // TODO: check that `typeArgs` is `None`
@@ -296,7 +273,7 @@ module rec Unify =
         TypeKind.IntrinsicInstance { Name = name
                                      TypeArgs = Some typeArgs } ->
 
-        let! t = expandType ctx env ips Map.empty typeArgs[0]
+        let! t = expandType ctx env ips Map.empty typeArgs[0] true
 
         // TODO: if the type arg is a union then we have to distribute the
         // intrinsic over the union.
@@ -513,7 +490,7 @@ module rec Unify =
           | TypeKind.TypeVar { Bound = Some bound } ->
             spreadTypes <- t :: spreadTypes
           | TypeKind.TypeRef _ ->
-            let! t = expandType ctx env ips Map.empty t
+            let! t = expandType ctx env ips Map.empty t true
 
             match t.Kind with
             | TypeKind.Object { Elems = elems; Exact = exact } ->
@@ -611,7 +588,7 @@ module rec Unify =
           | TypeKind.TypeVar { Bound = Some bound } ->
             restTypes <- t :: restTypes
           | TypeKind.TypeRef { Name = name } ->
-            let! t = expandType ctx env ips Map.empty t
+            let! t = expandType ctx env ips Map.empty t true
 
             match t.Kind with
             | TypeKind.Object { Elems = elems; Exact = exact } ->
@@ -720,8 +697,8 @@ module rec Unify =
     : Result<unit, TypeError> =
 
     result {
-      let! t1' = expandType ctx env ips Map.empty t1
-      let! t2' = expandType ctx env ips Map.empty t2
+      let! t1' = expandType ctx env ips Map.empty t1 true
+      let! t2' = expandType ctx env ips Map.empty t2 true
 
       if t1' <> t1 || t2' <> t2 then
         return! unify ctx env ips t1' t2'
@@ -990,8 +967,8 @@ module rec Unify =
         if t1 = t2 then
           return ()
         else
-          let! t1' = expandType ctx env ips Map.empty t1
-          let! t2' = expandType ctx env ips Map.empty t2
+          let! t1' = expandType ctx env ips Map.empty t1 true
+          let! t2' = expandType ctx env ips Map.empty t2 true
 
           if t1' <> t1 || t2' <> t2 then
             return! unifyInvariant ctx env ips t1' t2'
@@ -1048,7 +1025,7 @@ module rec Unify =
                   | TypeKind.TypeVar({ Bound = Some b
                                        Instance = Some i
                                        Default = d } as tv) ->
-                    let! b = expandType ctx env ips Map.empty b
+                    let! b = expandType ctx env ips Map.empty b true
 
                     match b.Kind, i.Kind with
                     | TypeKind.Object bObj, TypeKind.Object iObj ->
@@ -1191,7 +1168,7 @@ module rec Unify =
           | _ -> failwith $"TODO: parserForType - typeArgs = {typeArgs}"
 
         let t =
-          match expandType ctx env None Map.empty t with
+          match expandType ctx env None Map.empty t true with
           | Ok t -> t
           | Error _ -> failwith $"parserForType - failed to expand type {t}"
 
@@ -1262,7 +1239,7 @@ module rec Unify =
               FParsec.Error.messageError ($"Invalid intrinsic instance: {name}")
             )
       | TypeKind.TypeRef _ ->
-        match expandType ctx env None Map.empty t with
+        match expandType ctx env None Map.empty t true with
         | Ok t -> fold t
         | Error _ ->
           fun (stream: FParsec.CharStream<_>) ->
